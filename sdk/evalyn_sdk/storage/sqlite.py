@@ -94,6 +94,14 @@ class SQLiteStorage(StorageBackend):
         )
         self.conn.commit()
 
+    def get_call(self, call_id: str) -> Optional[FunctionCall]:
+        cur = self.conn.cursor()
+        cur.execute("SELECT * FROM function_calls WHERE id = ?", (call_id,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        return self._row_to_call(row)
+
     def list_calls(self, limit: int = 100) -> List[FunctionCall]:
         cur = self.conn.cursor()
         cur.execute(
@@ -107,23 +115,7 @@ class SQLiteStorage(StorageBackend):
         rows = cur.fetchall()
         calls: List[FunctionCall] = []
         for row in rows:
-            calls.append(
-                FunctionCall.from_dict(
-                    {
-                        "id": row["id"],
-                        "function_name": row["function_name"],
-                        "session_id": row["session_id"],
-                        "started_at": row["started_at"],
-                        "ended_at": row["ended_at"],
-                        "duration_ms": row["duration_ms"],
-                        "inputs": json.loads(row["inputs"]) if row["inputs"] else {},
-                        "output": json.loads(row["output"]) if row["output"] else None,
-                        "error": row["error"],
-                        "trace": json.loads(row["trace"]) if row["trace"] else [],
-                        "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
-                    }
-                )
-            )
+            calls.append(self._row_to_call(row))
         return calls
 
     def store_eval_run(self, run: EvalRun) -> None:
@@ -146,6 +138,25 @@ class SQLiteStorage(StorageBackend):
         )
         self.conn.commit()
 
+    def list_eval_runs(self, limit: int = 20) -> List[EvalRun]:
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            SELECT * FROM eval_runs
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        rows = cur.fetchall()
+        return [self._row_to_eval_run(r) for r in rows]
+
+    def get_eval_run(self, run_id: str) -> Optional[EvalRun]:
+        cur = self.conn.cursor()
+        cur.execute("SELECT * FROM eval_runs WHERE id = ?", (run_id,))
+        row = cur.fetchone()
+        return self._row_to_eval_run(row) if row else None
+
     def store_annotations(self, annotations: Iterable[Annotation]) -> None:
         cur = self.conn.cursor()
         for ann in annotations:
@@ -165,8 +176,78 @@ class SQLiteStorage(StorageBackend):
                     ann.confidence,
                     ann.created_at.isoformat(),
                 ),
-            )
+        )
         self.conn.commit()
+
+    def list_annotations(self, target_id: Optional[str] = None, limit: int = 100) -> List[Annotation]:
+        cur = self.conn.cursor()
+        if target_id:
+            cur.execute(
+                """
+                SELECT * FROM annotations
+                WHERE target_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (target_id, limit),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT * FROM annotations
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+        rows = cur.fetchall()
+        anns: List[Annotation] = []
+        for row in rows:
+            anns.append(
+                Annotation.from_dict(
+                    {
+                        "id": row["id"],
+                        "target_id": row["target_id"],
+                        "label": json.loads(row["label"]) if row["label"] else None,
+                        "rationale": row["rationale"],
+                        "annotator": row["annotator"],
+                        "source": row["source"],
+                        "confidence": row["confidence"],
+                        "created_at": row["created_at"],
+                    }
+                )
+            )
+        return anns
 
     def close(self) -> None:
         self.conn.close()
+
+    def _row_to_call(self, row: sqlite3.Row) -> FunctionCall:
+        return FunctionCall.from_dict(
+            {
+                "id": row["id"],
+                "function_name": row["function_name"],
+                "session_id": row["session_id"],
+                "started_at": row["started_at"],
+                "ended_at": row["ended_at"],
+                "duration_ms": row["duration_ms"],
+                "inputs": json.loads(row["inputs"]) if row["inputs"] else {},
+                "output": json.loads(row["output"]) if row["output"] else None,
+                "error": row["error"],
+                "trace": json.loads(row["trace"]) if row["trace"] else [],
+                "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
+            }
+        )
+
+    def _row_to_eval_run(self, row: sqlite3.Row) -> EvalRun:
+        return EvalRun.from_dict(
+            {
+                "id": row["id"],
+                "dataset_name": row["dataset_name"],
+                "created_at": row["created_at"],
+                "metric_results": json.loads(row["metric_results"]) if row["metric_results"] else [],
+                "metrics": json.loads(row["metrics"]) if row["metrics"] else [],
+                "judge_configs": json.loads(row["judge_configs"]) if row["judge_configs"] else [],
+                "summary": json.loads(row["summary"]) if row["summary"] else {},
+            }
+        )

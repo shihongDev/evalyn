@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Callable, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional
 from uuid import uuid4
 
 from .decorators import get_default_tracer
+from .datasets import hash_inputs
 from .metrics.registry import Metric
 from .models import DatasetItem, EvalRun, MetricResult, now_utc
 from .storage.base import StorageBackend
@@ -25,6 +26,7 @@ class EvalRunner:
         storage: Optional[StorageBackend] = None,
         dataset_name: str = "dataset",
         instrument: bool = True,
+        cache_enabled: bool = True,
     ):
         self.tracer = tracer or get_default_tracer()
         if storage:
@@ -37,19 +39,34 @@ class EvalRunner:
             if not instrument or already_wrapped
             else self.tracer.instrument(target_fn)
         )
+        self.cache_enabled = cache_enabled
+        self._cache: Dict[str, str] = {}  # cache key -> call id
 
     def run_dataset(self, dataset: Iterable[DatasetItem]) -> EvalRun:
         metric_results: List[MetricResult] = []
         failures: List[str] = []
 
         for item in dataset:
-            try:
-                self.target_fn(**item.inputs)
-            except Exception:
-                # The tracer already captured the error; continue so metrics can still record failure state.
-                failures.append(item.id)
+            call = None
+            cache_key = hash_inputs(item.inputs) if self.cache_enabled else None
 
-            call = self.tracer.last_call
+            if cache_key and cache_key in self._cache and self.tracer.storage:
+                # Rehydrate cached call from storage by id
+                cached_id = self._cache[cache_key]
+                cached_matches = [c for c in self.tracer.storage.list_calls(limit=1_000) if c.id == cached_id]
+                call = cached_matches[0] if cached_matches else None
+
+            if call is None:
+                try:
+                    self.target_fn(**item.inputs)
+                except Exception:
+                    # The tracer already captured the error; continue so metrics can still record failure state.
+                    failures.append(item.id)
+
+                call = self.tracer.last_call
+                if cache_key and call:
+                    self._cache[cache_key] = call.id
+
             if call is None:
                 raise RuntimeError(
                     "No trace was captured for the last call. Ensure the function is instrumented with @eval."

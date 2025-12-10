@@ -14,6 +14,10 @@ class StorageBackend(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_call(self, call_id: str) -> Optional[FunctionCall]:
+        raise NotImplementedError
+
+    @abstractmethod
     def list_calls(self, limit: int = 100) -> List[FunctionCall]:
         raise NotImplementedError
 
@@ -22,7 +26,19 @@ class StorageBackend(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def list_eval_runs(self, limit: int = 20) -> List[EvalRun]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_eval_run(self, run_id: str) -> Optional[EvalRun]:
+        raise NotImplementedError
+
+    @abstractmethod
     def store_annotations(self, annotations: Iterable[Annotation]) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_annotations(self, target_id: Optional[str] = None, limit: int = 100) -> List[Annotation]:
         raise NotImplementedError
 
     def close(self) -> None:
