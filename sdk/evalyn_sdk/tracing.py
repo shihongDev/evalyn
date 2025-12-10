@@ -4,7 +4,6 @@ import contextvars
 import functools
 import hashlib
 import inspect
-import json
 import uuid
 from contextlib import contextmanager
 from typing import Any, Callable, Dict, Optional, Tuple
@@ -48,10 +47,11 @@ def eval_session(session_id: Optional[str] = None, metadata: Optional[Dict[str, 
 
 
 class EvalTracer:
-    def __init__(self, storage: Optional[StorageBackend] = None):
+    def __init__(self, storage: Optional[StorageBackend] = None, otel_tracer: Optional[Any] = None):
         self.storage = storage
         self._last_call: Optional[FunctionCall] = None
         self._function_meta_cache: Dict[int, Dict[str, Any]] = {}
+        self.otel_tracer = otel_tracer
 
     @property
     def last_call(self) -> Optional[FunctionCall]:
@@ -59,6 +59,10 @@ class EvalTracer:
 
     def attach_storage(self, storage: StorageBackend) -> None:
         self.storage = storage
+
+    def attach_otel_tracer(self, tracer: Any) -> None:
+        """Attach an OpenTelemetry tracer to emit spans alongside Evalyn traces."""
+        self.otel_tracer = tracer
 
     def log_event(self, kind: str, detail: Optional[Dict[str, Any]] = None) -> None:
         call = _active_call.get()
@@ -109,13 +113,24 @@ class EvalTracer:
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 inputs = _normalize_inputs(args, kwargs)
                 call, token = tracer.start_call(function_name, inputs, metadata={"code": code_meta})
-                try:
-                    result = await func(*args, **kwargs)
-                    tracer.finish_call(call, token, output=result)
-                    return result
-                except Exception as exc:  # pragma: no cover - re-raises
-                    tracer.finish_call(call, token, error=str(exc))
-                    raise
+                span_cm = tracer._otel_span_cm(function_name)
+                with span_cm as span:
+                    if span:
+                        span.set_attribute("evalyn.call_id", call.id)
+                        span.set_attribute("evalyn.session_id", call.session_id or "")
+                        span.set_attribute("evalyn.function_name", function_name)
+                    try:
+                        result = await func(*args, **kwargs)
+                        tracer.finish_call(call, token, output=result)
+                        if span:
+                            span.set_attribute("evalyn.duration_ms", call.duration_ms or 0.0)
+                        return result
+                    except Exception as exc:  # pragma: no cover - re-raises
+                        tracer.finish_call(call, token, error=str(exc))
+                        if span:
+                            span.record_exception(exc)
+                            span.set_attribute("error", True)
+                        raise
 
             async_wrapper._evalyn_instrumented = True  # type: ignore[attr-defined]
             return async_wrapper
@@ -124,12 +139,23 @@ class EvalTracer:
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             inputs = _normalize_inputs(args, kwargs)
             call, token = tracer.start_call(function_name, inputs, metadata={"code": code_meta})
+        span_cm = tracer._otel_span_cm(function_name)
+        with span_cm as span:
+            if span:
+                span.set_attribute("evalyn.call_id", call.id)
+                span.set_attribute("evalyn.session_id", call.session_id or "")
+                span.set_attribute("evalyn.function_name", function_name)
             try:
                 result = func(*args, **kwargs)
                 tracer.finish_call(call, token, output=result)
+                if span:
+                    span.set_attribute("evalyn.duration_ms", call.duration_ms or 0.0)
                 return result
             except Exception as exc:  # pragma: no cover - re-raises
                 tracer.finish_call(call, token, error=str(exc))
+                if span:
+                    span.record_exception(exc)
+                    span.set_attribute("error", True)
                 raise
 
         sync_wrapper._evalyn_instrumented = True  # type: ignore[attr-defined]
@@ -165,3 +191,8 @@ class EvalTracer:
 
         self._function_meta_cache[id(func)] = meta
         return meta
+
+    def _otel_span_cm(self, name: str):
+        if self.otel_tracer is None:
+            return contextmanager(lambda: (yield))()
+        return self.otel_tracer.start_as_current_span(name)

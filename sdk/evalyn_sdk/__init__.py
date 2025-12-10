@@ -2,11 +2,26 @@ from .decorators import eval, configure_tracer, get_default_tracer
 from .tracing import EvalTracer, eval_session
 from .runner import EvalRunner
 from .metrics.registry import MetricRegistry, Metric
-from .metrics.objective import exact_match_metric, latency_metric, cost_metric, register_builtin_metrics
-from .metrics.subjective import subjective_metric
+from .metrics.objective import (
+    exact_match_metric,
+    latency_metric,
+    cost_metric,
+    bleu_metric,
+    pass_at_k_metric,
+    register_builtin_metrics,
+)
+from .metrics.subjective import (
+    subjective_metric,
+    tone_metric,
+    toxicity_metric,
+    DEFAULT_TONE_PROMPT,
+    DEFAULT_TOXICITY_PROMPT,
+)
 from .judges import LLMJudge, EchoJudge, OpenAIJudge
 from .datasets import load_dataset, save_dataset, hash_inputs
+from .curation import curate_dataset
 from .suggester import MetricSuggester, HeuristicSuggester, LLMSuggester, LLMRegistrySelector, DEFAULT_JUDGE_PROMPT
+from .otel import configure_otel, configure_default_otel, OTEL_AVAILABLE
 from .models import (
     Annotation,
     CalibrationRecord,
@@ -39,6 +54,10 @@ __all__ = [
     "LLMSuggester",
     "LLMRegistrySelector",
     "DEFAULT_JUDGE_PROMPT",
+    "curate_dataset",
+    "configure_otel",
+    "configure_default_otel",
+    "OTEL_AVAILABLE",
     "load_dataset",
     "save_dataset",
     "hash_inputs",
@@ -49,6 +68,12 @@ __all__ = [
     "exact_match_metric",
     "latency_metric",
     "cost_metric",
+    "bleu_metric",
+    "pass_at_k_metric",
     "register_builtin_metrics",
     "subjective_metric",
+    "tone_metric",
+    "toxicity_metric",
+    "DEFAULT_TONE_PROMPT",
+    "DEFAULT_TOXICITY_PROMPT",
 ]

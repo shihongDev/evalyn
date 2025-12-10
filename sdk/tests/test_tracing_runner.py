@@ -9,6 +9,7 @@ from evalyn_sdk import (
     latency_metric,
     exact_match_metric,
     eval,
+    pass_at_k_metric,
 )
 from evalyn_sdk.storage.sqlite import SQLiteStorage
 
@@ -69,3 +70,28 @@ def test_runner_caches_by_inputs(tmp_path):
     assert calls["count"] == 1
     assert run.summary["metrics"]["exact_match"]["pass_rate"] == 1.0
     assert len(run.metric_results) == 4  # 2 metrics x 2 items
+
+
+def test_pass_at_k(tmp_path):
+    tracer = EvalTracer(storage=SQLiteStorage(tmp_path / "passk.sqlite"))
+
+    @eval(tracer=tracer)
+    def produce_candidates(_: str):
+        return [
+            {"output": "a", "passed": False},
+            {"output": "b", "passed": True},
+            {"output": "c", "passed": False},
+        ]
+
+    dataset = [DatasetItem(id="1", inputs={"user_input": "x"})]
+
+    runner = EvalRunner(
+        target_fn=produce_candidates,
+        metrics=[pass_at_k_metric(k=2)],
+        tracer=tracer,
+        dataset_name="passk",
+        instrument=False,
+    )
+    run = runner.run_dataset(dataset)
+    res = run.summary["metrics"]["pass_at_k"]
+    assert res["avg_score"] == 1.0  # top 2 includes a success
