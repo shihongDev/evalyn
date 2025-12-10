@@ -3,7 +3,7 @@
 This package provides the Python building blocks for Evalyn's automatic evaluation framework:
 - `@eval` decorator to trace LLM-facing functions (sync + async)
 - pluggable storage (SQLite included)
-- metric registry with objective/subjective metrics
+- metric registry with objective/subjective metrics (latency, exact match, substring, cost, BLEU, pass@k, tone/toxicity via judges)
 - eval runner over datasets with optional caching
 - metric suggester (heuristic + LLM pluggable)
 - hooks for LLM judges, human annotation, and calibration
@@ -26,7 +26,15 @@ This package provides the Python building blocks for Evalyn's automatic evaluati
 
 Optional LLM judge dependencies:
 ```
-pip install -e ".[llm]"
+pip install -e ".[llm]"   # includes OpenAI + Google Gemini clients
+```
+OpenTelemetry spans are enabled by default if the dependency is installed:
+```
+pip install -e ".[otel]"
+# env knobs:
+#   EVALYN_OTEL=off            # disable spans
+#   EVALYN_OTEL_EXPORTER=otlp  # use OTLP exporter instead of console
+#   EVALYN_OTEL_ENDPOINT=...   # OTLP endpoint if needed
 ```
 
 ## Quick usage
@@ -53,9 +61,23 @@ print(run.summary)
 ```
 
 ### CLI example
-Run the demo agent against the sample dataset:
+Run the sentiment demo agent against the sample dataset:
 ```
 evalyn run-dataset --target examples.agent:classify_sentiment --dataset examples/dataset.jsonl --dataset-name sentiment-demo
+```
+
+Run the deep-research mock agent (multi-step, richer traces):
+```
+evalyn run-dataset --target examples.research_agent:run_research --dataset examples/research_dataset.jsonl --dataset-name research-demo
+```
+
+Run the live Gemini-backed research agent (requires `GEMINI_API_KEY` and optional `GEMINI_MODEL`):
+```
+python examples/generate_research_live.py   # generates baseline dataset and runs eval
+# or directly:
+evalyn run-dataset --target examples.research_agent_live:run_research_live --dataset examples/research_live_dataset.jsonl
+python examples/run_research_live_eval.py    # one-shot pipeline: curate dataset + eval summary
+python -m example_agent.run_eval             # uses LangGraph agent in example_agent/, curates data via SDK + evals
 ```
 
 Suggest metrics for a target (heuristic mode):
