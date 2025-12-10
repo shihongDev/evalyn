@@ -1,0 +1,3 @@
+{"id": "1", "inputs": {"user_input": "this is great"}, "expected": "positive"}
+{"id": "2", "inputs": {"user_input": "this is terrible"}, "expected": "negative"}
+{"id": "3", "inputs": {"user_input": "just okay"}, "expected": "neutral"}

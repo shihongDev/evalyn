@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import contextvars
 import functools
+import hashlib
 import inspect
 import json
-import time
 import uuid
 from contextlib import contextmanager
 from typing import Any, Callable, Dict, Optional, Tuple
@@ -51,6 +51,7 @@ class EvalTracer:
     def __init__(self, storage: Optional[StorageBackend] = None):
         self.storage = storage
         self._last_call: Optional[FunctionCall] = None
+        self._function_meta_cache: Dict[int, Dict[str, Any]] = {}
 
     @property
     def last_call(self) -> Optional[FunctionCall]:
@@ -100,13 +101,14 @@ class EvalTracer:
         """Wrap any callable to record inputs/outputs/errors via this tracer."""
         function_name = name or getattr(func, "__name__", "anonymous")
         tracer = self
+        code_meta = self._get_function_meta(func)
 
         if inspect.iscoroutinefunction(func):
 
             @functools.wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 inputs = _normalize_inputs(args, kwargs)
-                call, token = tracer.start_call(function_name, inputs)
+                call, token = tracer.start_call(function_name, inputs, metadata={"code": code_meta})
                 try:
                     result = await func(*args, **kwargs)
                     tracer.finish_call(call, token, output=result)
@@ -121,7 +123,7 @@ class EvalTracer:
         @functools.wraps(func)
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             inputs = _normalize_inputs(args, kwargs)
-            call, token = tracer.start_call(function_name, inputs)
+            call, token = tracer.start_call(function_name, inputs, metadata={"code": code_meta})
             try:
                 result = func(*args, **kwargs)
                 tracer.finish_call(call, token, output=result)
@@ -132,3 +134,34 @@ class EvalTracer:
 
         sync_wrapper._evalyn_instrumented = True  # type: ignore[attr-defined]
         return sync_wrapper
+
+    def _get_function_meta(self, func: Callable[..., Any]) -> Dict[str, Any]:
+        cached = self._function_meta_cache.get(id(func))
+        if cached:
+            return cached
+
+        meta: Dict[str, Any] = {
+            "module": getattr(func, "__module__", None),
+            "qualname": getattr(func, "__qualname__", None),
+            "doc": inspect.getdoc(func),
+        }
+        try:
+            meta["signature"] = str(inspect.signature(func))
+        except (TypeError, ValueError):
+            meta["signature"] = None
+
+        try:
+            source = inspect.getsource(func)
+            meta["source"] = source
+            meta["source_hash"] = hashlib.sha256(source.encode("utf-8")).hexdigest()
+        except (OSError, TypeError):
+            meta["source"] = None
+            meta["source_hash"] = None
+
+        try:
+            meta["file_path"] = inspect.getsourcefile(func)
+        except TypeError:
+            meta["file_path"] = None
+
+        self._function_meta_cache[id(func)] = meta
+        return meta
