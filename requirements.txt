@@ -1,0 +1,12 @@
+
+opentelemetry-sdk>=1.27.0
+opentelemetry-exporter-otlp>=1.27.0
+google-generativeai>=0.7.2
+google-genai>=0.2.0
+langchain-core>=0.3.0
+langchain-google-genai>=2.0.5
+langgraph>=0.1.14
+python-dotenv>=1.0.1
+pydantic>=2.6.0
+openai>=1.53.0
+-e ./sdk
