@@ -10,10 +10,16 @@ Requirements:
 """
 
 import json
+import sys
 from pathlib import Path
 
 from evalyn_sdk import EvalRunner, curate_dataset, latency_metric
 from evalyn_sdk.metrics.objective import substring_metric, bleu_metric
+
+# Ensure package imports work whether run as module or script
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from example_agent.agent import run_agent
 
