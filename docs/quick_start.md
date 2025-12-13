@@ -51,6 +51,7 @@ print(run.summary)
 - `python examples/generate_research_live.py` (requires `GEMINI_API_KEY`; runs live Gemini-backed agent and creates baseline dataset)
 - `python examples/run_research_live_eval.py` (requires `GEMINI_API_KEY`; curates live dataset via SDK + runs eval with summary)
 - `python -m example_agent.run_eval` (uses the LangGraph agent in `example_agent/`, curates data via SDK + runs eval)
+- `python -m example_agent.agent "your question"` (requires `GEMINI_API_KEY`; @eval instrumented agent)
 - `evalyn list-calls`
 - `evalyn list-runs`
 - `evalyn suggest-metrics --target module:function`

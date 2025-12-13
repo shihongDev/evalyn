@@ -5,6 +5,7 @@ import functools
 import hashlib
 import inspect
 import uuid
+import json
 from contextlib import contextmanager
 from typing import Any, Callable, Dict, Optional, Tuple
 
@@ -111,6 +112,8 @@ class EvalTracer:
 
             @functools.wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                call = None
+                token = None
                 inputs = _normalize_inputs(args, kwargs)
                 call, token = tracer.start_call(function_name, inputs, metadata={"code": code_meta})
                 span_cm = tracer._otel_span_cm(function_name)
@@ -126,7 +129,8 @@ class EvalTracer:
                             span.set_attribute("evalyn.duration_ms", call.duration_ms or 0.0)
                         return result
                     except Exception as exc:  # pragma: no cover - re-raises
-                        tracer.finish_call(call, token, error=str(exc))
+                        if call and token:
+                            tracer.finish_call(call, token, error=str(exc))
                         if span:
                             span.record_exception(exc)
                             span.set_attribute("error", True)
@@ -137,26 +141,29 @@ class EvalTracer:
 
         @functools.wraps(func)
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            call = None
+            token = None
             inputs = _normalize_inputs(args, kwargs)
             call, token = tracer.start_call(function_name, inputs, metadata={"code": code_meta})
-        span_cm = tracer._otel_span_cm(function_name)
-        with span_cm as span:
-            if span:
-                span.set_attribute("evalyn.call_id", call.id)
-                span.set_attribute("evalyn.session_id", call.session_id or "")
-                span.set_attribute("evalyn.function_name", function_name)
-            try:
-                result = func(*args, **kwargs)
-                tracer.finish_call(call, token, output=result)
+            span_cm = tracer._otel_span_cm(function_name)
+            with span_cm as span:
                 if span:
-                    span.set_attribute("evalyn.duration_ms", call.duration_ms or 0.0)
-                return result
-            except Exception as exc:  # pragma: no cover - re-raises
-                tracer.finish_call(call, token, error=str(exc))
-                if span:
-                    span.record_exception(exc)
-                    span.set_attribute("error", True)
-                raise
+                    span.set_attribute("evalyn.call_id", call.id)
+                    span.set_attribute("evalyn.session_id", call.session_id or "")
+                    span.set_attribute("evalyn.function_name", function_name)
+                try:
+                    result = func(*args, **kwargs)
+                    tracer.finish_call(call, token, output=result)
+                    if span:
+                        span.set_attribute("evalyn.duration_ms", call.duration_ms or 0.0)
+                    return result
+                except Exception as exc:  # pragma: no cover - re-raises
+                    if call and token:
+                        tracer.finish_call(call, token, error=str(exc))
+                    if span:
+                        span.record_exception(exc)
+                        span.set_attribute("error", True)
+                    raise
 
         sync_wrapper._evalyn_instrumented = True  # type: ignore[attr-defined]
         return sync_wrapper
