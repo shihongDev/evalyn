@@ -36,31 +36,21 @@ from evalyn_sdk import eval, EvalRunner, DatasetItem, latency_metric, exact_matc
 def handle(user_input: str) -> str:
     return f"echo:{user_input}"
 
-dataset = [
-    DatasetItem(id="1", inputs={"user_input": "hi"}, expected="echo:hi"),
-]
-
 runner = EvalRunner(target_fn=handle, metrics=[latency_metric(), exact_match_metric()], instrument=False)
 run = runner.run_dataset(dataset)
 print(run.summary)
 ```
 
-## CLI cheatsheet
-- `evalyn run-dataset --target examples.agent:classify_sentiment --dataset examples/dataset.jsonl`
-- `evalyn run-dataset --target examples.research_agent:run_research --dataset examples/research_dataset.jsonl`
-- `python examples/generate_research_live.py` (requires `GEMINI_API_KEY`; runs live Gemini-backed agent and creates baseline dataset)
-- `python examples/run_research_live_eval.py` (requires `GEMINI_API_KEY`; curates live dataset via SDK + runs eval with summary)
-- `python -m example_agent.run_eval` (uses the LangGraph agent in `example_agent/`, curates data via SDK + runs eval)
-- `python -m example_agent.agent "your question"` (requires `GEMINI_API_KEY`; @eval instrumented agent)
-- `evalyn list-calls --limit 20` (recent traces)
-- `evalyn show-call --id <call_id>` (full trace details, inputs/outputs/events)
-- `evalyn show-run --id <run_id>` (per-metric results for an eval run)
-- `evalyn list-calls`
-- `evalyn list-runs`
-- `evalyn suggest-metrics --target module:function`
-- `evalyn select-metrics --target module:function --llm-caller mymodule:llm_call`
-- `evalyn import-annotations --path annotations.jsonl`
-- `evalyn calibrate --metric-id llm_judge --annotations annotations.jsonl --run-id <run>`
+## CLI cheatsheet (pipeline order)
+- Instrument & run agent: `python -m example_agent.agent "your question"` (requires `GEMINI_API_KEY`)
+- Inspect traces: `evalyn list-calls --limit 20`, then `evalyn show-call --id <call_id>`
+- Build dataset from past calls (successful only): use `dataset_from_calls(tracer.storage.list_calls())` in a short script and save as JSONL
+- Run eval on a dataset: `evalyn run-dataset --target module:function --dataset path --dataset-name name`
+- Suggest metrics: `evalyn suggest-metrics --target module:function`
+- LLM registry selection: `evalyn select-metrics --target module:function --llm-caller mymodule:llm_call`
+- View eval runs/results: `evalyn list-runs`, `evalyn show-run --id <run_id>`
+- Import annotations: `evalyn import-annotations --path annotations.jsonl`
+- Calibrate judges: `evalyn calibrate --metric-id llm_judge --annotations annotations.jsonl --run-id <run>`
 
 ## Notes on cleanliness
 - `.gitignore` covers node_modules/dist/__pycache__/venv/etc.

@@ -18,7 +18,7 @@ from .metrics.subjective import (
     DEFAULT_TOXICITY_PROMPT,
 )
 from .judges import LLMJudge, EchoJudge, OpenAIJudge
-from .datasets import load_dataset, save_dataset, hash_inputs
+from .datasets import load_dataset, save_dataset, hash_inputs, dataset_from_calls
 from .curation import curate_dataset
 from .suggester import MetricSuggester, HeuristicSuggester, LLMSuggester, LLMRegistrySelector, DEFAULT_JUDGE_PROMPT
 from .otel import configure_otel, configure_default_otel, OTEL_AVAILABLE
@@ -61,6 +61,7 @@ __all__ = [
     "load_dataset",
     "save_dataset",
     "hash_inputs",
+    "dataset_from_calls",
     "eval_session",
     "eval",
     "configure_tracer",

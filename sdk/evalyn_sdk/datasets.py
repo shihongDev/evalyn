@@ -3,9 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Iterable, List, Mapping
+from typing import Any, Iterable, List, Mapping, Optional
 
-from .models import DatasetItem
+from .models import DatasetItem, FunctionCall
 
 
 def load_dataset(path: str | Path) -> List[DatasetItem]:
@@ -38,3 +38,30 @@ def hash_inputs(inputs: Mapping[str, Any]) -> str:
     """Deterministic hash for caching dataset invocations."""
     normalized = json.dumps(inputs, sort_keys=True, default=str)
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def dataset_from_calls(
+    calls: Iterable[FunctionCall],
+    *,
+    use_only_success: bool = True,
+    include_metadata: bool = True,
+) -> List[DatasetItem]:
+    """
+    Build a regression dataset from existing traced calls.
+    - uses call.inputs as DatasetItem.inputs
+    - uses call.output as expected (baseline)
+    - filters errors if use_only_success=True
+    """
+    items: List[DatasetItem] = []
+    for call in calls:
+        if use_only_success and call.error:
+            continue
+        items.append(
+            DatasetItem(
+                id=call.id,
+                inputs=call.inputs,
+                expected=call.output,
+                metadata={"function": call.function_name} if include_metadata else {},
+            )
+        )
+    return items
