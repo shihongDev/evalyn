@@ -28,13 +28,50 @@ This repo focuses on the **Python SDK** (`sdk/`). The former frontend demo has b
 6) **Annotate**: import human labels `evalyn import-annotations --path annotations.jsonl` (target_id should match call_id).
 7) **Calibrate**: `evalyn calibrate --metric-id <judge-metric> --annotations annotations.jsonl --run-id <eval-run>` to get suggested threshold adjustments.
 
+### Visual flow
+```
+@eval-wrapped function
+      |
+      v
+ Traces (inputs/outputs/errors/code metadata, events)
+      |
+      +--> Build dataset
+      |     - from calls (dataset_from_calls)
+      |     - or curate_dataset over prompts
+      |
+      +--> Metric selection
+      |     - suggest-metrics / select-metrics
+      |
+      +--> Eval setup & run
+      |     - run-dataset (EvalRunner/CLI)
+      |
+      +--> Inspect results
+      |     - show-call / show-run
+      |
+      +--> Annotate & calibrate
+            - import annotations / calibrate judges
+```
+
 ## Minimal code example
 ```python
-from evalyn_sdk import eval, EvalRunner, DatasetItem, latency_metric, exact_match_metric
+import json
+from pathlib import Path
+from evalyn_sdk import eval, EvalRunner, dataset_from_calls, get_default_tracer
+from evalyn_sdk.metrics.objective import latency_metric, exact_match_metric
 
 @eval
 def handle(user_input: str) -> str:
     return f"echo:{user_input}"
+
+# 1) Run the function a few times (traces are captured automatically)
+handle("hi")
+handle("hello")
+
+# 2) Build a dataset from successful past calls (no pre-created dataset needed)
+tr = get_default_tracer()
+dataset = dataset_from_calls(tr.storage.list_calls(), use_only_success=True)
+# Optionally save to JSONL for reuse
+Path("trace_dataset.jsonl").write_text("\n".join(json.dumps(item.__dict__) for item in dataset))
 
 runner = EvalRunner(target_fn=handle, metrics=[latency_metric(), exact_match_metric()], instrument=False)
 run = runner.run_dataset(dataset)
