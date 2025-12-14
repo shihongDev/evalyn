@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import json
 from typing import Any, Callable, List, Optional
 
 from .annotations import import_annotations
@@ -58,6 +59,46 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
         print(f"{call.id} | {call.function_name} | {status} | {call.duration_ms:.2f} ms")
 
 
+def cmd_show_call(args: argparse.Namespace) -> None:
+    tracer = get_default_tracer()
+    if not tracer.storage:
+        print("No storage configured.")
+        return
+    call = tracer.storage.get_call(args.id)
+    if not call:
+        print(f"No call found with id={args.id}")
+        return
+    status = "error" if call.error else "ok"
+    print(f"\n=== Call {call.id} ===")
+    print(f"Function : {call.function_name}")
+    print(f"Status   : {status}")
+    print(f"Session  : {call.session_id}")
+    print(f"Started  : {call.started_at}")
+    print(f"Duration : {call.duration_ms:.2f} ms")
+
+    print("\nInputs:")
+    print(json.dumps(call.inputs, indent=2) or "<empty>")
+
+    if call.error:
+        print("\nError:")
+        print(call.error)
+    else:
+        print("\nOutput:")
+        print(str(call.output) or "<empty>")
+
+    if call.metadata:
+        print("\nMetadata (incl. code info):")
+        print(json.dumps(call.metadata, indent=2))
+
+    if call.trace:
+        print("\nEvents (Evalyn + instrumented SDK/tool events):")
+        for ev in call.trace:
+            print(f" - {ev.timestamp} | {ev.kind} | {ev.detail}")
+
+    print("\nOTel:")
+    print(" Spans are emitted alongside this call (exporter-configured). See your OTel backend/console for span view.")
+
+
 def cmd_run_dataset(args: argparse.Namespace) -> None:
     target_fn = _load_callable(args.target)
     dataset = load_dataset(args.dataset)
@@ -103,6 +144,33 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
     runs = tracer.storage.list_eval_runs(limit=args.limit)
     for run in runs:
         print(f"{run.id} | dataset={run.dataset_name} | metrics={len(run.metrics)} | results={len(run.metric_results)}")
+
+
+def cmd_show_run(args: argparse.Namespace) -> None:
+    tracer = get_default_tracer()
+    if not tracer.storage:
+        print("No storage configured.")
+        return
+    run = tracer.storage.get_eval_run(args.id)
+    if not run:
+        print(f"No eval run found with id={args.id}")
+        return
+    print(f"\n=== Eval Run {run.id} ===")
+    print(f"Dataset: {run.dataset_name}")
+    print("Metrics summary:")
+    for mid, stats in run.summary.get("metrics", {}).items():
+        print(
+            f" - {mid:<18} count={stats['count']:<3} "
+            f"avg_score={stats['avg_score']!s:<10} pass_rate={stats['pass_rate']!s:<10}"
+        )
+    if run.summary.get("failed_items"):
+        print(f"Failed items: {run.summary['failed_items']}")
+    print("\nMetric results:")
+    for res in run.metric_results:
+        print(
+            f" [{res.metric_id}] item={res.item_id} call={res.call_id} "
+            f"score={res.score} passed={res.passed} details={res.details}"
+        )
 
 
 def cmd_import_annotations(args: argparse.Namespace) -> None:
@@ -192,6 +260,14 @@ def main(argv: List[str] | None = None) -> None:
     runs_parser = subparsers.add_parser("list-runs", help="List stored eval runs")
     runs_parser.add_argument("--limit", type=int, default=10)
     runs_parser.set_defaults(func=cmd_list_runs)
+
+    show_call = subparsers.add_parser("show-call", help="Show details for a traced call")
+    show_call.add_argument("--id", required=True, help="Call id to display")
+    show_call.set_defaults(func=cmd_show_call)
+
+    show_run = subparsers.add_parser("show-run", help="Show details for an eval run")
+    show_run.add_argument("--id", required=True, help="Eval run id to display")
+    show_run.set_defaults(func=cmd_show_run)
 
     import_ann = subparsers.add_parser("import-annotations", help="Import annotations from a JSONL file")
     import_ann.add_argument("--path", required=True, help="Path to annotations JSONL")

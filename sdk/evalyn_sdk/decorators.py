@@ -5,7 +5,7 @@ from typing import Any, Callable, Optional
 
 from .tracing import EvalTracer
 from .storage.sqlite import SQLiteStorage
-from .otel import configure_default_otel
+from .otel import configure_default_otel, OTEL_AVAILABLE
 
 _default_tracer: Optional[EvalTracer] = None
 
@@ -15,7 +15,11 @@ def get_default_tracer() -> EvalTracer:
     global _default_tracer
     if _default_tracer is None:
         _default_tracer = EvalTracer(SQLiteStorage())
-        # Auto-enable OpenTelemetry spans if the dependency is installed and not explicitly disabled.
+        if not OTEL_AVAILABLE:
+            raise RuntimeError(
+                "OpenTelemetry dependencies are not installed. Install with: pip install -e \"sdk[otel]\""
+            )
+        # Auto-enable OpenTelemetry spans if not explicitly disabled.
         otel_flag = os.getenv("EVALYN_OTEL", "on").lower()
         if otel_flag not in {"0", "off", "false"}:
             otel_tracer = configure_default_otel(

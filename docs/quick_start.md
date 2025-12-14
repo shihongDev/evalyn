@@ -52,6 +52,9 @@ print(run.summary)
 - `python examples/run_research_live_eval.py` (requires `GEMINI_API_KEY`; curates live dataset via SDK + runs eval with summary)
 - `python -m example_agent.run_eval` (uses the LangGraph agent in `example_agent/`, curates data via SDK + runs eval)
 - `python -m example_agent.agent "your question"` (requires `GEMINI_API_KEY`; @eval instrumented agent)
+- `evalyn list-calls --limit 20` (recent traces)
+- `evalyn show-call --id <call_id>` (full trace details, inputs/outputs/events)
+- `evalyn show-run --id <run_id>` (per-metric results for an eval run)
 - `evalyn list-calls`
 - `evalyn list-runs`
 - `evalyn suggest-metrics --target module:function`

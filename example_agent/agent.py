@@ -15,7 +15,7 @@ if os.getenv("OTEL_CONSOLE", "").lower() in {"1", "true", "yes"}:
 
 
 @eval(name="research_agent")
-def run_agent(question: str, initial_queries: int = 3, max_loops: int = 2, reasoning_model: str = "gemini-2.5-pro-preview-05-06") -> str:
+def run_agent(question: str, initial_queries: int = 3, max_loops: int = 2, reasoning_model: str = "gemini-2.5-flash-lite") -> str:
     """
     Main LLM-facing entrypoint for the research agent. Wrapped with @eval so calls are traced/stored.
     """
@@ -48,7 +48,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--reasoning-model",
-        default="gemini-2.5-pro-preview-05-06",
+        default="gemini-2.5-flash-lite",
         help="Model for the final answer",
     )
     args = parser.parse_args()

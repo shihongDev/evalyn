@@ -20,6 +20,7 @@ See `docs/quick_start.md` for the current pipeline, code snippet, and CLI cheats
 Running the example agent (requires `GEMINI_API_KEY`):
 - CLI agent: `python -m example_agent.agent "your question"`
 - Eval pipeline: `python -m example_agent.run_eval`
+- Trace inspection: `evalyn list-calls`, `evalyn show-call --id <call_id>`, `evalyn show-run --id <run_id>`
 
 ## Housekeeping
 - Ignored: node_modules, dist, __pycache__, venvs, coverage files (see .gitignore).

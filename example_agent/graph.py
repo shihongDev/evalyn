@@ -1,4 +1,5 @@
 import os
+import time
 
 from example_agent.tools_and_schemas import SearchQueryList, Reflection
 from dotenv import load_dotenv
@@ -30,6 +31,7 @@ from example_agent.utils import (
     insert_citation_markers,
     resolve_urls,
 )
+from evalyn_sdk import get_default_tracer
 
 load_dotenv()
 
@@ -38,6 +40,20 @@ if os.getenv("GEMINI_API_KEY") is None:
 
 # Used for Google Search API
 genai_client = Client(api_key=os.getenv("GEMINI_API_KEY"))
+tracer = get_default_tracer()
+
+
+def _instrumented_generate(model: str, contents, config=None):
+    start = time.time()
+    tracer.log_event("gemini.request", {"model": model, "contents": str(contents)[:500], "config": config})
+    try:
+        resp = genai_client.models.generate_content(model=model, contents=contents, config=config)
+        elapsed = (time.time() - start) * 1000
+        tracer.log_event("gemini.response", {"model": model, "elapsed_ms": elapsed, "text": getattr(resp, "text", None)})
+        return resp
+    except Exception as exc:
+        tracer.log_event("gemini.error", {"model": model, "error": str(exc)})
+        raise
 
 
 # Nodes
@@ -112,7 +128,7 @@ def web_research(state: WebSearchState, config: RunnableConfig) -> OverallState:
     )
 
     # Uses the google genai client as the langchain client doesn't return grounding metadata
-    response = genai_client.models.generate_content(
+    response = _instrumented_generate(
         model=configurable.query_generator_model,
         contents=formatted_prompt,
         config={
@@ -248,7 +264,9 @@ def finalize_answer(state: OverallState, config: RunnableConfig):
         max_retries=2,
         api_key=os.getenv("GEMINI_API_KEY"),
     )
+    tracer.log_event("gemini.request", {"model": reasoning_model, "prompt_excerpt": formatted_prompt[:300]})
     result = llm.invoke(formatted_prompt)
+    tracer.log_event("gemini.response", {"model": reasoning_model, "length": len(result.content) if hasattr(result, "content") else None})
 
     # Replace the short urls with the original urls and add all used urls to the sources_gathered
     unique_sources = []
