@@ -11,8 +11,9 @@ from .datasets import load_dataset
 from .decorators import get_default_tracer
 from .metrics.objective import register_builtin_metrics
 from .metrics.registry import MetricRegistry
+from .metrics.templates import OBJECTIVE_TEMPLATES, SUBJECTIVE_TEMPLATES
 from .runner import EvalRunner
-from .suggester import HeuristicSuggester, LLMSuggester, LLMRegistrySelector
+from .suggester import HeuristicSuggester, LLMSuggester, LLMRegistrySelector, TemplateSelector, render_selection_prompt_with_templates
 from .metrics.registry import MetricRegistry
 from .tracing import EvalTracer
 
@@ -56,7 +57,10 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
     calls = tracer.storage.list_calls(limit=args.limit) if tracer.storage else []
     for call in calls:
         status = "error" if call.error else "ok"
-        print(f"{call.id} | {call.function_name} | {status} | {call.duration_ms:.2f} ms")
+        print(
+            f"{call.id} | {call.function_name} | {status} | "
+            f"start={call.started_at} | end={call.ended_at} | duration={call.duration_ms:.2f} ms"
+        )
 
 
 def cmd_show_call(args: argparse.Namespace) -> None:
@@ -213,25 +217,33 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
 
 
 def cmd_select_metrics(args: argparse.Namespace) -> None:
-    if not args.llm_caller:
-        print("Please provide --llm-caller to enable LLM-based selection.")
-        return
-
     target_fn = _load_callable(args.target)
-    caller = _load_callable(args.llm_caller)
-
-    registry = MetricRegistry()
-    register_builtin_metrics(registry)
-
     tracer = get_default_tracer()
     traces = tracer.storage.list_calls(limit=args.limit) if tracer.storage else []
 
-    selector = LLMRegistrySelector(caller)
-    selected = selector.select(target_fn, registry, traces=traces, code_meta=_extract_code_meta(tracer, target_fn))
+    if args.llm_caller:
+        caller = _load_callable(args.llm_caller)
+        selector = TemplateSelector(caller, OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES)
+        selected = selector.select(target_fn, traces=traces, code_meta=_extract_code_meta(tracer, target_fn))
+    else:
+        # fallback to heuristic/built-in registry selection
+        registry = MetricRegistry()
+        register_builtin_metrics(registry)
+        selector = LLMRegistrySelector(lambda prompt: [])
+        selected = registry.list()
 
     print("Selected metrics:")
     for spec in selected:
-        print(f"- {spec.id}: {spec.name} [{spec.type}]")
+        print(f"- {spec.id}: [{spec.type}] config={getattr(spec, 'config', {})}")
+
+
+def cmd_list_metrics(args: argparse.Namespace) -> None:
+    print("Objective metrics:")
+    for tpl in OBJECTIVE_TEMPLATES:
+        print(f" - {tpl['id']}: {tpl['description']} (config: {tpl['config']})")
+    print("\nSubjective metrics:")
+    for tpl in SUBJECTIVE_TEMPLATES:
+        print(f" - {tpl['id']}: {tpl['description']} (config: {tpl['config']})")
 
 
 def main(argv: List[str] | None = None) -> None:
@@ -285,6 +297,9 @@ def main(argv: List[str] | None = None) -> None:
     select_parser.add_argument("--llm-caller", required=True, help="Callable that accepts a prompt and returns metric ids or dicts")
     select_parser.add_argument("--limit", type=int, default=5, help="Recent traces to include as examples")
     select_parser.set_defaults(func=cmd_select_metrics)
+
+    list_metrics = subparsers.add_parser("list-metrics", help="List available metric templates (objective + subjective)")
+    list_metrics.set_defaults(func=cmd_list_metrics)
 
     args = parser.parse_args(argv)
     args.func(args)

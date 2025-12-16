@@ -111,10 +111,12 @@ def cost_metric(metric_id: str = "cost") -> Metric:
 
 def register_builtin_metrics(registry) -> None:
     registry.register(latency_metric())
-    registry.register(exact_match_metric())
     registry.register(cost_metric())
     registry.register(bleu_metric())
     registry.register(pass_at_k_metric())
+    registry.register(json_valid_metric())
+    registry.register(regex_match_metric())
+    registry.register(token_length_metric())
     registry.register(tool_call_count_metric())
 
 

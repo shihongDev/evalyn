@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import json
 from typing import Callable, Iterable, List, Optional
 
 from .models import FunctionCall, MetricSpec
@@ -113,6 +114,90 @@ class LLMSuggester(MetricSuggester):
                 )
             except KeyError:
                 continue
+        return specs
+
+
+def render_selection_prompt_with_templates(
+    target_fn: Callable,
+    traces: Iterable[FunctionCall],
+    templates: Iterable[dict],
+    code_meta: Optional[dict] = None,
+) -> str:
+    name = getattr(target_fn, "__name__", "function")
+    sig = None
+    try:
+        sig = str(inspect.signature(target_fn))
+    except Exception:
+        sig = "()"
+    code_block = ""
+    if code_meta and code_meta.get("source"):
+        code_block = f"\nFunction source:\n```\n{code_meta['source']}\n```\n"
+    example_lines = []
+    for call in list(traces)[:5]:
+        example_lines.append(
+            f"- id={call.id}, status={'error' if call.error else 'ok'}, duration={call.duration_ms} ms, "
+            f"inputs={call.inputs}, output_excerpt={repr(call.output)[:200]}, error={call.error}"
+        )
+    examples = "\n".join(example_lines) if example_lines else "No traces yet."
+    tpl_lines = []
+    for tpl in templates:
+        tpl_lines.append(f"{tpl['id']} [{tpl['type']}]: {tpl['description']}; config={tpl.get('config', {})}")
+    registry_desc = "\n".join(tpl_lines)
+    return (
+        "You are selecting evaluation metrics for an LLM function based on its code and behavior.\n"
+        f"Function: {name}{sig}"
+        f"{code_block}\n"
+        f"Recent traces:\n{examples}\n"
+        "Available metrics (objective + subjective):\n"
+        f"{registry_desc}\n"
+        "Pick a concise subset that best evaluates correctness, safety, structure, and efficiency. "
+        "Return JSON array with entries like {\"id\": \"metric_id\", \"config\": {...}}.\n"
+        "Include thresholds for subjective metrics if relevant. Do not include prose outside JSON."
+    )
+
+
+class TemplateSelector:
+    """
+    LLM-driven selector over provided templates. The caller supplies a callable that accepts a prompt string
+    and returns a JSON string or parsed list.
+    """
+
+    def __init__(self, caller: Callable[[str], Any], templates: Iterable[dict]):
+        self.caller = caller
+        self.templates = list(templates)
+        self._tpl_by_id = {tpl["id"]: tpl for tpl in self.templates}
+
+    def select(
+        self,
+        target_fn: Callable,
+        traces: Optional[Iterable[FunctionCall]] = None,
+        code_meta: Optional[dict] = None,
+    ) -> List[MetricSpec]:
+        prompt = render_selection_prompt_with_templates(target_fn, traces or [], self.templates, code_meta)
+        raw = self.caller(prompt)
+        # raw may be JSON string or already parsed
+        if isinstance(raw, str):
+            try:
+                parsed = json.loads(raw)
+            except Exception:
+                parsed = []
+        else:
+            parsed = raw
+        specs: List[MetricSpec] = []
+        for entry in parsed or []:
+            tpl_id = entry.get("id") if isinstance(entry, dict) else None
+            if tpl_id and tpl_id in self._tpl_by_id:
+                tpl = self._tpl_by_id[tpl_id]
+                cfg = entry.get("config") if isinstance(entry, dict) else {}
+                specs.append(
+                    MetricSpec(
+                        id=tpl["id"],
+                        name=tpl["id"],
+                        type=tpl["type"],
+                        description=tpl["description"],
+                        config=cfg or tpl.get("config", {}),
+                    )
+                )
         return specs
 
 

@@ -85,6 +85,7 @@ print(run.summary)
 - Run eval on a dataset: `evalyn run-dataset --target module:function --dataset path --dataset-name name`
 - Suggest metrics: `evalyn suggest-metrics --target module:function`
 - LLM registry selection: `evalyn select-metrics --target module:function --llm-caller mymodule:llm_call`
+- List metric templates: `evalyn list-metrics`
 - View eval runs/results: `evalyn list-runs`, `evalyn show-run --id <run_id>`
 - Import annotations: `evalyn import-annotations --path annotations.jsonl`
 - Calibrate judges: `evalyn calibrate --metric-id llm_judge --annotations annotations.jsonl --run-id <run>`
