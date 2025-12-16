@@ -277,6 +277,9 @@ def main(argv: List[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Evalyn SDK CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    help_parser = subparsers.add_parser("help", help="Show available commands and examples")
+    help_parser.set_defaults(func=lambda args: parser.print_help())
+
     list_parser = subparsers.add_parser("list-calls", help="List recent traced calls")
     list_parser.add_argument("--limit", type=int, default=10, help="Maximum number of calls to display")
     list_parser.set_defaults(func=cmd_list_calls)
