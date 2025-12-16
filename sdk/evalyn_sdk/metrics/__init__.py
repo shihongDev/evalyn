@@ -4,6 +4,10 @@ from .objective import (
     cost_metric,
     bleu_metric,
     pass_at_k_metric,
+    json_valid_metric,
+    regex_match_metric,
+    token_length_metric,
+    tool_call_count_metric,
     register_builtin_metrics,
 )
 from .registry import Metric, MetricRegistry
@@ -17,6 +21,10 @@ __all__ = [
     "cost_metric",
     "bleu_metric",
     "pass_at_k_metric",
+    "json_valid_metric",
+    "regex_match_metric",
+    "token_length_metric",
+    "tool_call_count_metric",
     "register_builtin_metrics",
     "subjective_metric",
     "tone_metric",

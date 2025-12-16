@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+import json
+import re
 from typing import Any, List, Optional, Sequence
 
 from .registry import Metric
@@ -113,6 +115,7 @@ def register_builtin_metrics(registry) -> None:
     registry.register(cost_metric())
     registry.register(bleu_metric())
     registry.register(pass_at_k_metric())
+    registry.register(tool_call_count_metric())
 
 
 def _ngrams(tokens: List[str], n: int) -> List[tuple]:
@@ -232,6 +235,111 @@ def pass_at_k_metric(
             score=score,
             passed=None,
             details={"candidates": n, "successes": c, "k": k_eff},
+        )
+
+    return Metric(spec, handler)
+
+
+def json_valid_metric(metric_id: str = "json_valid") -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="JSON Valid",
+        type="objective",
+        description="Checks whether output parses as JSON.",
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        output_text = call.output or ""
+        try:
+            json.loads(output_text if isinstance(output_text, str) else json.dumps(output_text))
+            passed = True
+        except Exception as exc:
+            passed = False
+        return MetricResult(
+            metric_id=spec.id,
+            item_id=item.id,
+            call_id=call.id,
+            score=1.0 if passed else 0.0,
+            passed=passed,
+            details={"output_excerpt": str(output_text)[:200]},
+        )
+
+    return Metric(spec, handler)
+
+
+def regex_match_metric(metric_id: str = "regex_match", pattern: Optional[str] = None) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Regex Match",
+        type="objective",
+        description="Checks if output matches a regex pattern.",
+        config={"pattern": pattern},
+    )
+    compiled = re.compile(pattern) if pattern else None
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        patt = compiled or re.compile(item.metadata.get("regex_pattern", "") or "")
+        text = str(call.output or "")
+        passed = bool(patt.search(text)) if patt.pattern else False
+        return MetricResult(
+            metric_id=spec.id,
+            item_id=item.id,
+            call_id=call.id,
+            score=1.0 if passed else 0.0,
+            passed=passed,
+            details={"pattern": patt.pattern, "output_excerpt": text[:200]},
+        )
+
+    return Metric(spec, handler)
+
+
+def token_length_metric(
+    metric_id: str = "token_length",
+    max_chars: Optional[int] = None,
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Length Check",
+        type="objective",
+        description="Checks output length (chars) against a maximum.",
+        config={"max_chars": max_chars},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = call.output or ""
+        length = len(str(text))
+        limit = max_chars or item.metadata.get("max_chars")
+        passed = True if not limit else length <= limit
+        return MetricResult(
+            metric_id=spec.id,
+            item_id=item.id,
+            call_id=call.id,
+            score=1.0 if passed else 0.0,
+            passed=passed,
+            details={"length": length, "max_chars": limit},
+        )
+
+    return Metric(spec, handler)
+
+
+def tool_call_count_metric(metric_id: str = "tool_call_count") -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Tool Call Count",
+        type="objective",
+        description="Counts tool-related events in the trace.",
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        events = call.trace or []
+        count = sum(1 for ev in events if "tool" in ev.kind.lower())
+        return MetricResult(
+            metric_id=spec.id,
+            item_id=item.id,
+            call_id=call.id,
+            score=float(count),
+            passed=None,
+            details={"tool_events": count},
         )
 
     return Metric(spec, handler)

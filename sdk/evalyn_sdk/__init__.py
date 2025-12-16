@@ -8,6 +8,10 @@ from .metrics.objective import (
     cost_metric,
     bleu_metric,
     pass_at_k_metric,
+    json_valid_metric,
+    regex_match_metric,
+    token_length_metric,
+    tool_call_count_metric,
     register_builtin_metrics,
 )
 from .metrics.subjective import (
@@ -17,6 +21,7 @@ from .metrics.subjective import (
     DEFAULT_TONE_PROMPT,
     DEFAULT_TOXICITY_PROMPT,
 )
+from .metrics.templates import OBJECTIVE_TEMPLATES, SUBJECTIVE_TEMPLATES
 from .judges import LLMJudge, EchoJudge, OpenAIJudge
 from .datasets import load_dataset, save_dataset, hash_inputs, dataset_from_calls
 from .curation import curate_dataset
@@ -71,10 +76,16 @@ __all__ = [
     "cost_metric",
     "bleu_metric",
     "pass_at_k_metric",
+    "json_valid_metric",
+    "regex_match_metric",
+    "token_length_metric",
+    "tool_call_count_metric",
     "register_builtin_metrics",
     "subjective_metric",
     "tone_metric",
     "toxicity_metric",
     "DEFAULT_TONE_PROMPT",
     "DEFAULT_TOXICITY_PROMPT",
+    "OBJECTIVE_TEMPLATES",
+    "SUBJECTIVE_TEMPLATES",
 ]
