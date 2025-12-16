@@ -55,12 +55,23 @@ def _extract_code_meta(tracer: EvalTracer, fn: Callable[..., Any]) -> Optional[d
 def cmd_list_calls(args: argparse.Namespace) -> None:
     tracer = get_default_tracer()
     calls = tracer.storage.list_calls(limit=args.limit) if tracer.storage else []
+    if not calls:
+        print("No calls found.")
+        return
+    headers = ["id", "function", "status", "start", "end", "duration_ms"]
+    print(" | ".join(headers))
+    print("-" * 120)
     for call in calls:
-        status = "error" if call.error else "ok"
-        print(
-            f"{call.id} | {call.function_name} | {status} | "
-            f"start={call.started_at} | end={call.ended_at} | duration={call.duration_ms:.2f} ms"
-        )
+        status = "ERROR" if call.error else "OK"
+        row = [
+            call.id,
+            call.function_name,
+            status,
+            str(call.started_at),
+            str(call.ended_at),
+            f"{call.duration_ms:.2f}",
+        ]
+        print(" | ".join(row))
 
 
 def cmd_show_call(args: argparse.Namespace) -> None:
@@ -72,13 +83,15 @@ def cmd_show_call(args: argparse.Namespace) -> None:
     if not call:
         print(f"No call found with id={args.id}")
         return
-    status = "error" if call.error else "ok"
-    print(f"\n=== Call {call.id} ===")
-    print(f"Function : {call.function_name}")
-    print(f"Status   : {status}")
-    print(f"Session  : {call.session_id}")
-    print(f"Started  : {call.started_at}")
-    print(f"Duration : {call.duration_ms:.2f} ms")
+    status = "ERROR" if call.error else "OK"
+    print("\n================ Call Details ================")
+    print(f"id       : {call.id}")
+    print(f"function : {call.function_name}")
+    print(f"status   : {status}")
+    print(f"session  : {call.session_id}")
+    print(f"started  : {call.started_at}")
+    print(f"ended    : {call.ended_at}")
+    print(f"duration : {call.duration_ms:.2f} ms")
 
     print("\nInputs:")
     print(json.dumps(call.inputs, indent=2) or "<empty>")
@@ -101,6 +114,7 @@ def cmd_show_call(args: argparse.Namespace) -> None:
 
     print("\nOTel:")
     print(" Spans are emitted alongside this call (exporter-configured). See your OTel backend/console for span view.")
+    print("=============================================\n")
 
 
 def cmd_run_dataset(args: argparse.Namespace) -> None:
@@ -146,8 +160,21 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
         print("No storage configured.")
         return
     runs = tracer.storage.list_eval_runs(limit=args.limit)
+    if not runs:
+        print("No eval runs found.")
+        return
+    headers = ["id", "dataset", "created_at", "metrics", "results"]
+    print(" | ".join(headers))
+    print("-" * 120)
     for run in runs:
-        print(f"{run.id} | dataset={run.dataset_name} | metrics={len(run.metrics)} | results={len(run.metric_results)}")
+        row = [
+            run.id,
+            run.dataset_name,
+            str(run.created_at),
+            str(len(run.metrics)),
+            str(len(run.metric_results)),
+        ]
+        print(" | ".join(row))
 
 
 def cmd_show_run(args: argparse.Namespace) -> None:
