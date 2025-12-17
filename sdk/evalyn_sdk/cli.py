@@ -84,6 +84,36 @@ def cmd_show_call(args: argparse.Namespace) -> None:
         print(f"No call found with id={args.id}")
         return
     status = "ERROR" if call.error else "OK"
+
+    def _format_value(value, max_len=300):
+        if isinstance(value, str):
+            return value if len(value) <= max_len else value[:max_len] + "..."
+        try:
+            text = json.dumps(value, indent=2)
+            return text if len(text) <= max_len else text[:max_len] + "..."
+        except Exception:
+            text = str(value)
+            return text if len(text) <= max_len else text[:max_len] + "..."
+
+    def _detect_turns(inputs) -> tuple[str, int]:
+        if isinstance(inputs, dict):
+            kwargs = inputs.get("kwargs", {})
+            for key in ("messages", "history", "conversation", "turns"):
+                val = kwargs.get(key)
+                if isinstance(val, list):
+                    return ("multi" if len(val) > 1 else "single"), len(val)
+            for arg in inputs.get("args", []):
+                if isinstance(arg, list):
+                    return ("multi" if len(arg) > 1 else "single"), len(arg)
+        return "single", 1
+
+    def _count_events(kinds: list[str]) -> int:
+        return sum(1 for ev in call.trace if any(k in ev.kind.lower() for k in kinds))
+
+    turn_label, turns = _detect_turns(call.inputs)
+    llm_calls = _count_events(["gemini.request", "openai.request", "llm.request"])
+    tool_events = _count_events(["tool"])
+
     print("\n================ Call Details ================")
     print(f"id       : {call.id}")
     print(f"function : {call.function_name}")
@@ -92,20 +122,36 @@ def cmd_show_call(args: argparse.Namespace) -> None:
     print(f"started  : {call.started_at}")
     print(f"ended    : {call.ended_at}")
     print(f"duration : {call.duration_ms:.2f} ms")
+    print(f"turns    : {turn_label} ({turns})")
+    print(f"llm_calls: {llm_calls} | tool_events: {tool_events}")
 
     print("\nInputs:")
-    print(json.dumps(call.inputs, indent=2) or "<empty>")
+    args = call.inputs.get("args", [])
+    kwargs = call.inputs.get("kwargs", {})
+    if args:
+        print("  args:")
+        for idx, arg in enumerate(args):
+            print(f"    - [{idx}] {_format_value(arg)}")
+    if kwargs:
+        print("  kwargs:")
+        for key, value in kwargs.items():
+            print(f"    - {key}: {_format_value(value)}")
+    if not args and not kwargs:
+        print("  <empty>")
 
     if call.error:
         print("\nError:")
         print(call.error)
     else:
         print("\nOutput:")
-        print(str(call.output) or "<empty>")
+        output_text = str(call.output or "")
+        print(f"  type   : {type(call.output).__name__}")
+        print(f"  length : {len(output_text)} chars")
+        print(f"  preview: {_format_value(output_text, max_len=1000)}")
 
     if call.metadata:
         print("\nMetadata (incl. code info):")
-        print(json.dumps(call.metadata, indent=2))
+        print(json.dumps(call.metadata, indent=2)[:4000])
 
     if call.trace:
         print("\nEvents (Evalyn + instrumented SDK/tool events):")
@@ -114,6 +160,7 @@ def cmd_show_call(args: argparse.Namespace) -> None:
 
     print("\nOTel:")
     print(" Spans are emitted alongside this call (exporter-configured). See your OTel backend/console for span view.")
+    print("=============================================\n")
     print("=============================================\n")
 
 
@@ -274,11 +321,27 @@ def cmd_list_metrics(args: argparse.Namespace) -> None:
 
 
 def main(argv: List[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Evalyn SDK CLI")
+    parser = argparse.ArgumentParser(description=None, add_help=False)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    help_parser = subparsers.add_parser("help", help="Show available commands and examples")
-    help_parser.set_defaults(func=lambda args: parser.print_help())
+    def _print_ascii_help():
+        art = r"""
+         ______  __      __    /\       _     __     __  __   __   
+        |  ____| \ \    / /   /  \     | |    \ \   / /  | \ | |  
+        | |__     \ \  / /   / /\ \    | |     \ \_/ /   |  \| |  
+              Evalyn CLI — Streamlined Evaluation Framework
+        |  __|     \ \/ /   / ____ \   | |      \   /    | . ` |  
+        | |____     \  /   / /    \ \  | |____   | |     | |\  |  
+        |______|     \/   /_/      \_\ |______|  |_|     |_| \_|  
+          
+        """
+        print("================================================================================")
+        print(art)
+        print("================================================================================")
+        parser.print_help()
+
+    help_parser = subparsers.add_parser("help", help="Show available commands and examples", add_help=False)
+    help_parser.set_defaults(func=lambda args: _print_ascii_help())
 
     list_parser = subparsers.add_parser("list-calls", help="List recent traced calls")
     list_parser.add_argument("--limit", type=int, default=10, help="Maximum number of calls to display")
