@@ -47,7 +47,8 @@ def _instrumented_generate(model: str, contents, config=None):
     start = time.time()
     tracer.log_event("gemini.request", {"model": model, "contents": str(contents)[:500], "config": config})
     try:
-        resp = genai_client.models.generate_content(model=model, contents=contents, config=config)
+        with tracer.span("gemini.generate_content", {"model": model}):
+            resp = genai_client.models.generate_content(model=model, contents=contents, config=config)
         elapsed = (time.time() - start) * 1000
         tracer.log_event("gemini.response", {"model": model, "elapsed_ms": elapsed, "text": getattr(resp, "text", None)})
         return resp
@@ -93,7 +94,8 @@ def generate_query(state: OverallState, config: RunnableConfig) -> QueryGenerati
         number_queries=state["initial_search_query_count"],
     )
     # Generate the search queries
-    result = structured_llm.invoke(formatted_prompt)
+    with tracer.span("gemini.invoke", {"model": configurable.query_generator_model}):
+        result = structured_llm.invoke(formatted_prompt)
     return {"search_query": result.query}
 
 
@@ -185,7 +187,8 @@ def reflection(state: OverallState, config: RunnableConfig) -> ReflectionState:
         max_retries=2,
         api_key=os.getenv("GEMINI_API_KEY"),
     )
-    result = llm.with_structured_output(Reflection).invoke(formatted_prompt)
+    with tracer.span("gemini.invoke", {"model": reasoning_model}):
+        result = llm.with_structured_output(Reflection).invoke(formatted_prompt)
 
     return {
         "is_sufficient": result.is_sufficient,
@@ -265,7 +268,8 @@ def finalize_answer(state: OverallState, config: RunnableConfig):
         api_key=os.getenv("GEMINI_API_KEY"),
     )
     tracer.log_event("gemini.request", {"model": reasoning_model, "prompt_excerpt": formatted_prompt[:300]})
-    result = llm.invoke(formatted_prompt)
+    with tracer.span("gemini.invoke", {"model": reasoning_model}):
+        result = llm.invoke(formatted_prompt)
     tracer.log_event("gemini.response", {"model": reasoning_model, "length": len(result.content) if hasattr(result, "content") else None})
 
     # Replace the short urls with the original urls and add all used urls to the sources_gathered

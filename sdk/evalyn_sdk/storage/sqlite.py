@@ -43,6 +43,22 @@ class SQLiteStorage(StorageBackend):
         )
         cur.execute(
             """
+            CREATE TABLE IF NOT EXISTS otel_spans (
+                trace_id TEXT,
+                span_id TEXT PRIMARY KEY,
+                parent_span_id TEXT,
+                call_id TEXT,
+                name TEXT,
+                start_time TEXT,
+                end_time TEXT,
+                status TEXT,
+                attributes TEXT,
+                events TEXT
+            )
+            """
+        )
+        cur.execute(
+            """
             CREATE TABLE IF NOT EXISTS eval_runs (
                 id TEXT PRIMARY KEY,
                 dataset_name TEXT,
@@ -68,6 +84,19 @@ class SQLiteStorage(StorageBackend):
             )
             """
         )
+        self.conn.commit()
+        self._ensure_otel_columns()
+
+    def _ensure_otel_columns(self) -> None:
+        cur = self.conn.cursor()
+        cur.execute("PRAGMA table_info(otel_spans)")
+        cols = {row[1] for row in cur.fetchall()}
+        for col, col_type in [
+            ("trace_id", "TEXT"),
+            ("parent_span_id", "TEXT"),
+        ]:
+            if col not in cols:
+                cur.execute(f"ALTER TABLE otel_spans ADD COLUMN {col} {col_type}")
         self.conn.commit()
 
     def store_call(self, call: FunctionCall) -> None:
@@ -218,6 +247,51 @@ class SQLiteStorage(StorageBackend):
                 )
             )
         return anns
+
+    def list_spans(self, call_id: str) -> List[dict]:
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                """
+                SELECT trace_id FROM otel_spans
+                WHERE call_id = ?
+                ORDER BY start_time ASC
+                LIMIT 1
+                """,
+                (call_id,),
+            )
+        except sqlite3.OperationalError:
+            return []
+        row = cur.fetchone()
+        if not row or not row["trace_id"]:
+            return []
+        trace_id = row["trace_id"]
+        cur.execute(
+            """
+            SELECT * FROM otel_spans
+            WHERE trace_id = ?
+            ORDER BY start_time ASC
+            """,
+            (trace_id,),
+        )
+        rows = cur.fetchall()
+        spans = []
+        for r in rows:
+            spans.append(
+                {
+                    "trace_id": r["trace_id"],
+                    "span_id": r["span_id"],
+                    "parent_span_id": r["parent_span_id"],
+                    "call_id": r["call_id"],
+                    "name": r["name"],
+                    "start_time": r["start_time"],
+                    "end_time": r["end_time"],
+                    "status": r["status"],
+                    "attributes": json.loads(r["attributes"]) if r["attributes"] else {},
+                    "events": json.loads(r["events"]) if r["events"] else [],
+                }
+            )
+        return spans
 
     def close(self) -> None:
         self.conn.close()

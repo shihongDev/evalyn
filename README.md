@@ -2,14 +2,14 @@
 
 This repo focuses on the **Python SDK** (`sdk/`). The former frontend demo has been removed.
 
-## What’s implemented now
+## What's implemented now
 - `@eval` decorator (sync/async) with trace capture: inputs, outputs/errors, duration, session id, trace events.
 - Automatic capture of function metadata: signature, docstring, source (when available), hash, module/file path.
 - Pluggable storage with SQLite backend (calls, runs, annotations).
 - Metric system: registry with objective metrics (latency, exact match, substring, cost, BLEU, pass@k) and subjective judge metrics (tone/toxicity templates).
 - LLM judges: OpenAI-backed judge (optional extra) + debug EchoJudge.
 - Dataset runner with optional caching (hash by inputs) and summary stats.
-- OpenTelemetry spans: enabled by default if the otel dependency is installed; disable with `EVALYN_OTEL=off` or configure exporter via env.
+- OpenTelemetry spans: enabled by default if the otel dependency is installed; exporter defaults to `sqlite` (local). Disable with `EVALYN_OTEL=off` or configure exporter via env.
 - Metric suggestion/selection:
   - Heuristic suggester.
   - LLM suggester for new specs.

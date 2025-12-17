@@ -37,7 +37,9 @@ class SQLiteSpanExporter:
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS otel_spans (
+                trace_id TEXT,
                 span_id TEXT PRIMARY KEY,
+                parent_span_id TEXT,
                 call_id TEXT,
                 name TEXT,
                 start_time TEXT,
@@ -50,30 +52,79 @@ class SQLiteSpanExporter:
         )
         self.conn.commit()
 
+        # Ensure new columns exist when table was created by an older version
+        cur.execute("PRAGMA table_info(otel_spans)")
+        existing = {row[1] for row in cur.fetchall()}
+        for col, col_type in [
+            ("trace_id", "TEXT"),
+            ("parent_span_id", "TEXT"),
+        ]:
+            if col not in existing:
+                cur.execute(f"ALTER TABLE otel_spans ADD COLUMN {col} {col_type}")
+        self.conn.commit()
+
     def export(self, spans) -> None:
         import json
 
         cur = self.conn.cursor()
         for span in spans:
+            def _format_id(value, width: int) -> str | None:
+                if value is None:
+                    return None
+                if hasattr(value, "hex"):
+                    try:
+                        return value.hex
+                    except Exception:
+                        pass
+                if isinstance(value, int):
+                    return f"{value:0{width}x}"
+                if isinstance(value, str):
+                    raw = value.strip().lower()
+                    if raw.startswith("0x"):
+                        raw = raw[2:]
+                    if raw and all(c in "0123456789abcdef" for c in raw):
+                        return raw.zfill(width)
+                    return value
+                try:
+                    return value.hex()
+                except Exception:
+                    return str(value)
+
             attrs = dict(span.attributes) if getattr(span, "attributes", None) else {}
             events = [
                 {"name": ev.name, "attributes": dict(ev.attributes), "timestamp": getattr(ev, "timestamp", None)}
                 for ev in getattr(span, "events", []) or []
             ]
             call_id = attrs.get("evalyn.call_id")
+            parent_span_id = None
+            if getattr(span, "parent", None):
+                try:
+                    parent_span_id = _format_id(span.parent.span_id, 16)
+                except Exception:
+                    parent_span_id = None
+            trace_id = None
+            span_id = None
+            if getattr(span, "context", None):
+                trace_id = _format_id(span.context.trace_id, 32)
+                span_id = _format_id(span.context.span_id, 16)
+            status = getattr(getattr(span, "status", None), "status_code", None)
+            if status is not None and hasattr(status, "name"):
+                status = status.name
             cur.execute(
                 """
                 INSERT OR REPLACE INTO otel_spans
-                (span_id, call_id, name, start_time, end_time, status, attributes, events)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (trace_id, span_id, parent_span_id, call_id, name, start_time, end_time, status, attributes, events)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    span.context.span_id.hex,
+                    trace_id,
+                    span_id,
+                    parent_span_id,
                     call_id,
                     span.name,
                     getattr(span, "start_time", None),
                     getattr(span, "end_time", None),
-                    getattr(getattr(span, "status", None), "status_code", None),
+                    status,
                     json.dumps(attrs, default=str),
                     json.dumps(events, default=str),
                 ),
@@ -117,7 +168,7 @@ def configure_otel(
     return tracer
 
 
-def configure_default_otel(service_name: str = "evalyn", exporter: str = "console", endpoint: str | None = None):
+def configure_default_otel(service_name: str = "evalyn", exporter: str = "sqlite", endpoint: str | None = None):
     """
     Convenience wrapper that only acts if opentelemetry is installed; otherwise returns None.
     """

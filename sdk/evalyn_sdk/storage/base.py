@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Dict, Any
 
 from ..models import Annotation, EvalRun, FunctionCall
 
@@ -40,6 +40,10 @@ class StorageBackend(ABC):
     @abstractmethod
     def list_annotations(self, target_id: Optional[str] = None, limit: int = 100) -> List[Annotation]:
         raise NotImplementedError
+
+    def list_spans(self, call_id: str) -> List[Dict[str, Any]]:
+        """Optional hook for span-backed views (OTel)."""
+        return []
 
     def close(self) -> None:
         """Optional teardown hook."""

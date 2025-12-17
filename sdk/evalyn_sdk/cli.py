@@ -150,17 +150,254 @@ def cmd_show_call(args: argparse.Namespace) -> None:
         print(f"  preview: {_format_value(output_text, max_len=1000)}")
 
     if call.metadata:
-        print("\nMetadata (incl. code info):")
-        print(json.dumps(call.metadata, indent=2)[:4000])
+        def _print_metadata(meta: dict) -> None:
+            print("\nMetadata:")
+            for key, value in meta.items():
+                if isinstance(value, dict):
+                    print(f"  {key}:")
+                    for sub_key, sub_val in value.items():
+                        if sub_key == "source":
+                            src = sub_val or ""
+                            src_preview = src if len(src) <= 1200 else src[:1200] + "..."
+                            print("    source:")
+                            for line in src_preview.splitlines()[:40]:
+                                print(f"      {line}")
+                        else:
+                            print(f"    - {sub_key}: {_format_value(sub_val, max_len=400)}")
+                else:
+                    print(f"  - {key}: {_format_value(value, max_len=400)}")
+
+        _print_metadata(call.metadata)
+
+    def _normalize_span_time(raw):
+        if raw is None:
+            return None
+        if isinstance(raw, (int, float)):
+            value = float(raw)
+            if value > 1e12:
+                return value / 1e9
+            if value > 1e10:
+                return value / 1e9
+            if value > 1e6:
+                return value / 1e3
+            return value
+        if isinstance(raw, str):
+            raw = raw.strip()
+            try:
+                if raw.isdigit():
+                    return _normalize_span_time(int(raw))
+                return _normalize_span_time(float(raw))
+            except ValueError:
+                pass
+            try:
+                import datetime as _dt
+
+                return _dt.datetime.fromisoformat(raw).timestamp()
+            except Exception:
+                return None
+        return None
+
+    def _span_duration_ms(span):
+        start_ts = _normalize_span_time(span.get("start_time"))
+        end_ts = _normalize_span_time(span.get("end_time"))
+        if start_ts is None or end_ts is None:
+            return None
+        return max(0.0, (end_ts - start_ts) * 1000)
+
+    def _span_status(span):
+        status = span.get("status")
+        if status is None:
+            return "UNSET"
+        text = str(status).upper()
+        if "ERROR" in text:
+            return "ERROR"
+        if "OK" in text:
+            return "OK"
+        return text
+
+    def _span_attr_summary(attrs, max_items=3):
+        if not isinstance(attrs, dict) or not attrs:
+            return ""
+        preferred = [
+            "model",
+            "llm.model",
+            "tool",
+            "tool.name",
+            "http.method",
+            "http.url",
+            "rpc.system",
+        ]
+        parts = []
+        seen = set()
+
+        def _add(key, value):
+            if key in seen:
+                return
+            seen.add(key)
+            if value is None:
+                return
+            text = str(value)
+            text = text if len(text) <= 60 else text[:60] + "..."
+            parts.append(f"{key}={text}")
+
+        for key in preferred:
+            if key in attrs:
+                _add(key, attrs.get(key))
+                if len(parts) >= max_items:
+                    return " ".join(parts)
+
+        for key in sorted(attrs.keys()):
+            if key.startswith("evalyn."):
+                continue
+            _add(key, attrs.get(key))
+            if len(parts) >= max_items:
+                break
+        return " ".join(parts)
+
+    def _print_span_tree(spans, call_start_ts):
+        by_id = {s.get("span_id"): s for s in spans if s.get("span_id")}
+        children = {span_id: [] for span_id in by_id}
+        for span in spans:
+            span_id = span.get("span_id")
+            parent_id = span.get("parent_span_id")
+            if parent_id in by_id and span_id in by_id:
+                children[parent_id].append(span_id)
+
+        def _sort_key(span_id):
+            span = by_id.get(span_id, {})
+            return _normalize_span_time(span.get("start_time")) or 0.0
+
+        for parent_id in children:
+            children[parent_id].sort(key=_sort_key)
+
+        roots = [sid for sid, span in by_id.items() if span.get("parent_span_id") not in by_id]
+        roots.sort(key=_sort_key)
+
+        def _render(span_id, prefix, is_last):
+            span = by_id[span_id]
+            dur_ms = _span_duration_ms(span)
+            status = _span_status(span)
+            attr_summary = _span_attr_summary(span.get("attributes", {}))
+            start_ts = _normalize_span_time(span.get("start_time"))
+            rel_ms = None
+            if start_ts is not None and call_start_ts is not None:
+                rel_ms = (start_ts - call_start_ts) * 1000
+            dur_text = f"{dur_ms:.1f}ms" if dur_ms is not None else "n/a"
+            rel_text = f"+{rel_ms:.1f}ms" if rel_ms is not None else "n/a"
+            branch = "`- " if is_last else "|- "
+            line = f"{prefix}{branch}{span.get('name')} ({status}, {dur_text}, {rel_text})"
+            if attr_summary:
+                line += f" {attr_summary}"
+            print(line)
+            next_prefix = prefix + ("   " if is_last else "|  ")
+            child_ids = children.get(span_id, [])
+            for idx, child_id in enumerate(child_ids):
+                _render(child_id, next_prefix, idx == len(child_ids) - 1)
+
+        for idx, root_id in enumerate(roots):
+            _render(root_id, "", idx == len(roots) - 1)
+
+    spans = tracer.storage.list_spans(call.id) if tracer.storage else []
+    if spans:
+        print("\nSpan tree (OTel):")
+        call_start_ts = call.started_at.timestamp() if call.started_at else None
+        _print_span_tree(spans, call_start_ts)
 
     if call.trace:
-        print("\nEvents (Evalyn + instrumented SDK/tool events):")
+        def _format_time(ev):
+            try:
+                delta = (ev.timestamp - call.started_at).total_seconds()
+                return f"+{delta:0.3f}s"
+            except Exception:
+                return str(ev.timestamp)
+
+        def _truncate(text, max_len=120):
+            if text is None:
+                return ""
+            text = str(text)
+            return text if len(text) <= max_len else text[:max_len] + "..."
+
+        def _format_inline(value, max_len=100):
+            try:
+                if isinstance(value, (dict, list)):
+                    text = json.dumps(value, separators=(",", ":"))
+                else:
+                    text = str(value)
+            except Exception:
+                text = str(value)
+            return text if len(text) <= max_len else text[:max_len] + "..."
+
+        def _summarize_detail(detail, max_items=4):
+            if not detail:
+                return ""
+            parts = []
+            if isinstance(detail, dict):
+                model = detail.get("model")
+                if model:
+                    parts.append(f"model={_truncate(model, 40)}")
+                tool = detail.get("tool") or detail.get("name")
+                if tool:
+                    parts.append(f"tool={_truncate(tool, 40)}")
+                if "config" in detail and len(parts) < max_items:
+                    cfg = detail.get("config") or {}
+                    tools = []
+                    raw_tools = cfg.get("tools")
+                    if isinstance(raw_tools, list):
+                        for t in raw_tools:
+                            if isinstance(t, dict):
+                                tools.extend(list(t.keys()))
+                            else:
+                                tools.append(str(t))
+                    if tools:
+                        parts.append(f"tools={','.join(tools)}")
+                    else:
+                        parts.append(f"config_keys={list(cfg.keys())}")
+                for key in ("status", "status_code", "elapsed_ms", "duration_ms", "count", "length"):
+                    if key in detail and len(parts) < max_items:
+                        parts.append(f"{key}={_format_inline(detail.get(key), 40)}")
+                for key in ("error", "url"):
+                    if key in detail and len(parts) < max_items:
+                        parts.append(f"{key}={_truncate(detail.get(key), 60)}")
+                for key in ("contents", "messages", "prompt", "prompt_excerpt"):
+                    if key in detail and len(parts) < max_items:
+                        parts.append(f"{key}={_truncate(detail.get(key), 80)}")
+            if not parts:
+                parts.append(_truncate(_format_inline(detail, 120), 120))
+            return " ".join(parts[:max_items])
+
+        print("\nEvents summary:")
+        total = len(call.trace)
+        reqs = sum(1 for ev in call.trace if ev.kind.lower().endswith(".request"))
+        resps = sum(1 for ev in call.trace if ev.kind.lower().endswith(".response"))
+        tool_cnt = sum(1 for ev in call.trace if "tool" in ev.kind.lower())
+        print(f"  total={total} | requests={reqs} | responses={resps} | tool_events={tool_cnt}")
+        kind_counts = {}
         for ev in call.trace:
-            print(f" - {ev.timestamp} | {ev.kind} | {ev.detail}")
+            kind_counts[ev.kind] = kind_counts.get(ev.kind, 0) + 1
+        for kind, count in sorted(kind_counts.items()):
+            print(f"  - {kind}: {count}")
+
+        print("\nEvents timeline:")
+        header = ["idx", "t+ms", "delta_ms", "kind", "summary"]
+        print(" | ".join(header))
+        print("-" * 140)
+        prev_ts = None
+        for idx, ev in enumerate(call.trace, start=1):
+            elapsed_ms = (ev.timestamp - call.started_at).total_seconds() * 1000 if call.started_at else 0.0
+            delta_ms = (
+                (ev.timestamp - prev_ts).total_seconds() * 1000 if prev_ts else 0.0
+            )
+            summary = _summarize_detail(ev.detail or {})
+            print(f"{idx} | {elapsed_ms:7.1f} | {delta_ms:7.1f} | {ev.kind} | {summary}")
+            prev_ts = ev.timestamp
+
+    if not spans:
+        print("\nSpan tree (OTel):")
+        print("  <no spans found>")
+        print("  Tip: set EVALYN_OTEL_EXPORTER=sqlite and re-run to capture span data locally.")
 
     print("\nOTel:")
-    print(" Spans are emitted alongside this call (exporter-configured). See your OTel backend/console for span view.")
-    print("=============================================\n")
+    print(" Spans are emitted alongside this call (exporter-configured).")
     print("=============================================\n")
 
 
@@ -326,17 +563,16 @@ def main(argv: List[str] | None = None) -> None:
 
     def _print_ascii_help():
         art = r"""
-         ______  __      __    /\       _     __     __  __   __   
-        |  ____| \ \    / /   /  \     | |    \ \   / /  | \ | |  
-        | |__     \ \  / /   / /\ \    | |     \ \_/ /   |  \| |  
-              Evalyn CLI — Streamlined Evaluation Framework
-        |  __|     \ \/ /   / ____ \   | |      \   /    | . ` |  
-        | |____     \  /   / /    \ \  | |____   | |     | |\  |  
-        |______|     \/   /_/      \_\ |______|  |_|     |_| \_|  
-          
+   _______      __      ___   ___  _   _
+  |  ____ \     \ \    / / \ / / \| \ | |
+  | |____| |     \ \  / /|  V /|  \  \| |
+  |  _____/       \ \/ / | | | | |\   / |
+  | |             / /\ \ | | | | | \  | |
+  |_|            /_/  \_\|_| |_|_|  \_|_|
         """
         print("================================================================================")
         print(art)
+        print("Evalyn CLI - Shihong Liu (https://github.com/shihongDev)")
         print("================================================================================")
         parser.print_help()
 

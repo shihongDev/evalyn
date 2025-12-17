@@ -24,7 +24,7 @@ def get_default_tracer() -> EvalTracer:
         if otel_flag not in {"0", "off", "false"}:
             otel_tracer = configure_default_otel(
                 service_name=os.getenv("EVALYN_OTEL_SERVICE", "evalyn"),
-                exporter=os.getenv("EVALYN_OTEL_EXPORTER", "console"),
+                exporter=os.getenv("EVALYN_OTEL_EXPORTER", "sqlite"),
                 endpoint=os.getenv("EVALYN_OTEL_ENDPOINT"),
             )
             if otel_tracer:

@@ -36,6 +36,14 @@ def _normalize_inputs(args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Dict[str
     }
 
 
+def _span_attr_value(value: Any) -> Any:
+    if isinstance(value, (str, bool, int, float)):
+        return value
+    if isinstance(value, (list, tuple)):
+        return [str(v) for v in value]
+    return str(value)
+
+
 @contextmanager
 def eval_session(session_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None):
     """Context manager to group calls under a shared session id."""
@@ -203,3 +211,15 @@ class EvalTracer:
         if self.otel_tracer is None:
             return contextmanager(lambda: (yield))()
         return self.otel_tracer.start_as_current_span(name)
+
+    @contextmanager
+    def span(self, name: str, attributes: Optional[Dict[str, Any]] = None):
+        """Create a child span if OpenTelemetry is enabled."""
+        if self.otel_tracer is None:
+            yield None
+            return
+        with self.otel_tracer.start_as_current_span(name) as span:
+            if attributes:
+                for key, value in attributes.items():
+                    span.set_attribute(key, _span_attr_value(value))
+            yield span
