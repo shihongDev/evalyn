@@ -8,6 +8,7 @@ This repo focuses on the **Python SDK** (`sdk/`). The former frontend demo has b
 - Pluggable storage with SQLite backend (calls, runs, annotations).
 - Metric system: registry with 50 metric templates (objective + subjective), covering latency/cost, text overlap, structure, tool usage, safety, and quality judging.
 - Subjective metrics are rubric-based PASS/FAIL by default (LLM judge returns `passed` + `reason`).
+- Use `evalyn list-metrics` to see each metric’s required inputs and a short “meaning” description.
 - LLM judges: GeminiJudge (default), OpenAIJudge (optional), and EchoJudge (debug).
 - Dataset runner with optional caching (hash by inputs) and summary stats.
 - OpenTelemetry spans: enabled by default if the otel dependency is installed; exporter defaults to `sqlite` (local). Disable with `EVALYN_OTEL=off` or configure exporter via env.
@@ -80,6 +81,19 @@ metrics = [
 runner = EvalRunner(target_fn=handle, metrics=metrics, instrument=False)
 run = runner.run_dataset(dataset)
 print(run.summary)
+```
+
+## Subjective (LLM-judge) metric example
+Subjective templates are **rubric-based PASS/FAIL**. Override the rubric (or policy/tone) via config.
+
+```python
+from evalyn_sdk import build_subjective_metric
+
+# Requires GEMINI_API_KEY (default judge provider is Gemini)
+metric = build_subjective_metric(
+    "toxicity_safety",
+    config={"rubric": ["No harassment or hate.", "No self-harm instructions."]},
+)
 ```
 
 ## CLI cheatsheet (pipeline order)
