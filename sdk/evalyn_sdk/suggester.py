@@ -25,8 +25,9 @@ class HeuristicSuggester(MetricSuggester):
     """
     Fast, offline suggester that proposes a starter set of metrics:
     - latency
-    - exact match (if outputs look atomic)
-    - substring containment (if outputs look like text)
+    - text overlap (if outputs look like text)
+    - JSON validity (if outputs look structured)
+    - tool call count (if traces show tool usage)
     """
 
     def suggest(
@@ -47,37 +48,53 @@ class HeuristicSuggester(MetricSuggester):
             )
         )
 
-        # Decide if we can propose exact match or substring based on trace outputs.
+        # Decide if we can propose text or structure metrics based on trace outputs.
         outputs = [call.output for call in traces] if traces else []
-        if outputs and all(isinstance(o, (str, int, float, bool)) for o in outputs):
-            suggestions.append(
-                MetricSpec(
-                    id="exact_match",
-                    name="Exact Match",
-                    type="objective",
-                    description="Compare output to expected for deterministic functions.",
-                    config={},
-                )
-            )
         if outputs and any(isinstance(o, str) for o in outputs):
             suggestions.append(
                 MetricSpec(
-                    id="substring",
-                    name="Substring",
+                    id="token_overlap_f1",
+                    name="Token Overlap F1",
                     type="objective",
-                    description="Check presence of key phrases in the output.",
-                    config={"expected_field": "expected_substring"},
+                    description="Measure token overlap with expected text.",
+                    config={"expected_field": "expected"},
+                )
+            )
+        if outputs and any(isinstance(o, (dict, list)) for o in outputs):
+            suggestions.append(
+                MetricSpec(
+                    id="json_valid",
+                    name="JSON Valid",
+                    type="objective",
+                    description="Check output parses as JSON or structured data.",
+                    config={},
+                )
+            )
+        if traces and any("tool" in ev.kind.lower() for call in traces for ev in call.trace):
+            suggestions.append(
+                MetricSpec(
+                    id="tool_call_count",
+                    name="Tool Call Count",
+                    type="objective",
+                    description="Count tool-related events in traces.",
+                    config={},
                 )
             )
 
         # Always suggest a subjective judge scaffold.
         suggestions.append(
             MetricSpec(
-                id="llm_judge",
-                name="Subjective Quality",
+                id="helpfulness_accuracy",
+                name="Helpfulness and Accuracy",
                 type="subjective",
                 description="LLM judge scoring of helpfulness/accuracy.",
-                config={"model": "gpt-4.1", "prompt_template": DEFAULT_JUDGE_PROMPT},
+                config={
+                    "rubric": [
+                        "Addresses the user's request directly.",
+                        "No major factual errors; if unsure, states uncertainty.",
+                        "Does not contradict provided expected/context (if any).",
+                    ]
+                },
             )
         )
         return suggestions
@@ -141,7 +158,13 @@ def render_selection_prompt_with_templates(
     examples = "\n".join(example_lines) if example_lines else "No traces yet."
     tpl_lines = []
     for tpl in templates:
-        tpl_lines.append(f"{tpl['id']} [{tpl['type']}]: {tpl['description']}; config={tpl.get('config', {})}")
+        inputs = tpl.get("inputs") or tpl.get("signals") or []
+        tpl_lines.append(
+            f"{tpl['id']} [{tpl['type']}]: {tpl['description']}; "
+            f"category={tpl.get('category', '')}; "
+            f"inputs={inputs}; "
+            f"config={tpl.get('config', {})}"
+        )
     registry_desc = "\n".join(tpl_lines)
     return (
         "You are selecting evaluation metrics for an LLM function based on its code and behavior.\n"
@@ -152,7 +175,8 @@ def render_selection_prompt_with_templates(
         f"{registry_desc}\n"
         "Pick a concise subset that best evaluates correctness, safety, structure, and efficiency. "
         "Return JSON array with entries like {\"id\": \"metric_id\", \"config\": {...}}.\n"
-        "Include thresholds for subjective metrics if relevant. Do not include prose outside JSON."
+        "For subjective metrics, you may override config (e.g., rubric/policy/desired_tone) if needed. "
+        "Do not include prose outside JSON."
     )
 
 

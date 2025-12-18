@@ -12,19 +12,36 @@ def subjective_metric(
     judge: LLMJudge,
     description: str = "LLM judge subjective score",
     success_threshold: float = 0.5,
+    config: Any = None,
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name=f"Subjective - {judge.name}",
         type="subjective",
         description=description,
-        config={"success_threshold": success_threshold, "model": judge.model},
+        config={"success_threshold": success_threshold, "model": judge.model, **(config or {})},
     )
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         judge_raw = judge.score(call, item)
-        score = judge_raw.get("score")
-        passed = score is not None and score >= success_threshold
+        # Prefer rubric-style boolean verdicts if provided by the judge.
+        passed_val = None
+        for key in ("passed", "pass", "verdict"):
+            if key in judge_raw:
+                passed_val = judge_raw.get(key)
+                break
+        if isinstance(passed_val, str):
+            low = passed_val.strip().lower()
+            if low in {"pass", "passed", "true", "yes"}:
+                passed_val = True
+            elif low in {"fail", "failed", "false", "no"}:
+                passed_val = False
+        if isinstance(passed_val, bool):
+            passed = passed_val
+            score = 1.0 if passed else 0.0
+        else:
+            score = judge_raw.get("score")
+            passed = score is not None and score >= success_threshold
         return MetricResult(
             metric_id=spec.id,
             item_id=item.id,

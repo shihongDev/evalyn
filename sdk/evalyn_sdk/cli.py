@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import re
+import sys
 from typing import Any, Callable, List, Optional
 
 from .annotations import import_annotations
@@ -549,12 +551,71 @@ def cmd_select_metrics(args: argparse.Namespace) -> None:
 
 
 def cmd_list_metrics(args: argparse.Namespace) -> None:
-    print("Objective metrics:")
-    for tpl in OBJECTIVE_TEMPLATES:
-        print(f" - {tpl['id']}: {tpl['description']} (config: {tpl['config']})")
-    print("\nSubjective metrics:")
-    for tpl in SUBJECTIVE_TEMPLATES:
-        print(f" - {tpl['id']}: {tpl['description']} (config: {tpl['config']})")
+    def _compact(value, max_len: int = 60) -> str:
+        try:
+            text = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+        except Exception:
+            text = str(value)
+        return text if len(text) <= max_len else text[: max_len - 3] + "..."
+
+    def _compact_text(value: Any, max_len: int = 55) -> str:
+        text = str(value or "")
+        text = re.sub(r"\s+", " ", text).strip()
+        return text if len(text) <= max_len else text[: max_len - 3] + "..."
+
+    def _config_summary(cfg: Any) -> str:
+        if not cfg:
+            return "{}"
+        if not isinstance(cfg, dict):
+            return _compact(cfg, 55)
+        parts: list[str] = []
+        for key in sorted(cfg.keys()):
+            val = cfg.get(key)
+            if key == "rubric" and isinstance(val, list):
+                parts.append(f"rubric[{len(val)}]")
+                continue
+            if key == "policy" and isinstance(val, str):
+                parts.append(f"policy[{len(val)}]")
+                continue
+            if key == "schema" and isinstance(val, dict):
+                parts.append(f"schema[{len(val)}]")
+                continue
+            if isinstance(val, (str, int, float, bool)) or val is None:
+                parts.append(f"{key}={_compact_text(val, 18)}")
+            else:
+                parts.append(f"{key}=…")
+        text = ", ".join(parts)
+        return text if text else "{}"
+
+    def _print_table(title: str, templates: list[dict]) -> None:
+        print(title)
+        headers = ["id", "category", "inputs", "config", "desc"]
+        rows = []
+        for tpl in templates:
+            inputs = tpl.get("inputs") or tpl.get("signals") or []
+            rows.append(
+                [
+                    tpl.get("id", ""),
+                    tpl.get("category", ""),
+                    _compact(inputs, 45),
+                    _config_summary(tpl.get("config", {})),
+                    _compact_text(tpl.get("description", ""), 55),
+                ]
+            )
+
+        widths = [len(h) for h in headers]
+        for row in rows:
+            for i, cell in enumerate(row):
+                widths[i] = max(widths[i], len(str(cell)))
+
+        header_line = " | ".join(h.ljust(widths[i]) for i, h in enumerate(headers))
+        print(header_line)
+        print("-" * len(header_line))
+        for row in rows:
+            print(" | ".join(str(cell).ljust(widths[i]) for i, cell in enumerate(row)))
+
+    _print_table("\nObjective metrics:", OBJECTIVE_TEMPLATES)
+    _print_table("\nSubjective metrics:", SUBJECTIVE_TEMPLATES)
 
 
 def main(argv: List[str] | None = None) -> None:
@@ -631,7 +692,14 @@ def main(argv: List[str] | None = None) -> None:
     list_metrics.set_defaults(func=cmd_list_metrics)
 
     args = parser.parse_args(argv)
-    args.func(args)
+    try:
+        args.func(args)
+    except BrokenPipeError:
+        # Allow piping to tools that close stdout early (e.g., `head`, `Select-Object -First`).
+        try:
+            sys.stdout.close()
+        finally:
+            return
 
 
 if __name__ == "__main__":

@@ -22,7 +22,8 @@ from .metrics.subjective import (
     DEFAULT_TOXICITY_PROMPT,
 )
 from .metrics.templates import OBJECTIVE_TEMPLATES, SUBJECTIVE_TEMPLATES
-from .judges import LLMJudge, EchoJudge, OpenAIJudge
+from .metrics.factory import build_objective_metric, build_subjective_metric, list_template_ids
+from .judges import LLMJudge, EchoJudge, OpenAIJudge, GeminiJudge
 from .datasets import load_dataset, save_dataset, hash_inputs, dataset_from_calls
 from .curation import curate_dataset
 from .suggester import MetricSuggester, HeuristicSuggester, LLMSuggester, LLMRegistrySelector, DEFAULT_JUDGE_PROMPT
@@ -54,6 +55,7 @@ __all__ = [
     "LLMJudge",
     "EchoJudge",
     "OpenAIJudge",
+    "GeminiJudge",
     "MetricSuggester",
     "HeuristicSuggester",
     "LLMSuggester",
@@ -88,4 +90,7 @@ __all__ = [
     "DEFAULT_TOXICITY_PROMPT",
     "OBJECTIVE_TEMPLATES",
     "SUBJECTIVE_TEMPLATES",
+    "build_objective_metric",
+    "build_subjective_metric",
+    "list_template_ids",
 ]

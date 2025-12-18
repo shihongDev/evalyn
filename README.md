@@ -6,8 +6,9 @@ This repo focuses on the **Python SDK** (`sdk/`). The former frontend demo has b
 - `@eval` decorator (sync/async) with trace capture: inputs, outputs/errors, duration, session id, trace events.
 - Automatic capture of function metadata: signature, docstring, source (when available), hash, module/file path.
 - Pluggable storage with SQLite backend (calls, runs, annotations).
-- Metric system: registry with objective metrics (latency, exact match, substring, cost, BLEU, pass@k) and subjective judge metrics (tone/toxicity templates).
-- LLM judges: OpenAI-backed judge (optional extra) + debug EchoJudge.
+- Metric system: registry with 50 metric templates (objective + subjective), covering latency/cost, text overlap, structure, tool usage, safety, and quality judging.
+- Subjective metrics are rubric-based PASS/FAIL by default (LLM judge returns `passed` + `reason`).
+- LLM judges: GeminiJudge (default), OpenAIJudge (optional), and EchoJudge (debug).
 - Dataset runner with optional caching (hash by inputs) and summary stats.
 - OpenTelemetry spans: enabled by default if the otel dependency is installed; exporter defaults to `sqlite` (local). Disable with `EVALYN_OTEL=off` or configure exporter via env.
 - Metric suggestion/selection:
@@ -56,8 +57,7 @@ This repo focuses on the **Python SDK** (`sdk/`). The former frontend demo has b
 ```python
 import json
 from pathlib import Path
-from evalyn_sdk import eval, EvalRunner, dataset_from_calls, get_default_tracer
-from evalyn_sdk.metrics.objective import latency_metric, exact_match_metric
+from evalyn_sdk import eval, EvalRunner, dataset_from_calls, get_default_tracer, build_objective_metric
 
 @eval
 def handle(user_input: str) -> str:
@@ -73,7 +73,11 @@ dataset = dataset_from_calls(tr.storage.list_calls(), use_only_success=True)
 # Optionally save to JSONL for reuse
 Path("trace_dataset.jsonl").write_text("\n".join(json.dumps(item.__dict__) for item in dataset))
 
-runner = EvalRunner(target_fn=handle, metrics=[latency_metric(), exact_match_metric()], instrument=False)
+metrics = [
+    build_objective_metric("latency_ms"),
+    build_objective_metric("token_overlap_f1"),
+]
+runner = EvalRunner(target_fn=handle, metrics=metrics, instrument=False)
 run = runner.run_dataset(dataset)
 print(run.summary)
 ```
@@ -85,7 +89,7 @@ print(run.summary)
 - Run eval on a dataset: `evalyn run-dataset --target module:function --dataset path --dataset-name name`
 - Suggest metrics: `evalyn suggest-metrics --target module:function`
 - LLM registry selection: `evalyn select-metrics --target module:function --llm-caller mymodule:llm_call`
-- List metric templates: `evalyn list-metrics`
+- List metric templates: `evalyn list-metrics` (shows category + required inputs)
 - View eval runs/results: `evalyn list-runs`, `evalyn show-run --id <run_id>`
 - Import annotations: `evalyn import-annotations --path annotations.jsonl`
 - Calibrate judges: `evalyn calibrate --metric-id llm_judge --annotations annotations.jsonl --run-id <run>`
