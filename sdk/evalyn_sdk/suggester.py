@@ -109,24 +109,55 @@ class LLMSuggester(MetricSuggester):
     def __init__(self, caller: Callable[[str], List[dict]]):
         self.caller = caller
 
+    @staticmethod
+    def _parse_json_array(text: str) -> List[dict]:
+        if not text:
+            return []
+        try:
+            parsed = json.loads(text)
+            return parsed if isinstance(parsed, list) else []
+        except Exception:
+            pass
+        start = text.find("[")
+        end = text.rfind("]")
+        if start != -1 and end != -1 and end > start:
+            snippet = text[start : end + 1]
+            try:
+                parsed = json.loads(snippet)
+                return parsed if isinstance(parsed, list) else []
+            except Exception:
+                return []
+        return []
+
     def suggest(
         self,
         target_fn: Callable,
         traces: Optional[Iterable[FunctionCall]] = None,
+        desired_count: Optional[int] = None,
     ) -> List[Suggestion]:
         signature = inspect.signature(target_fn)
-        prompt = render_suggestion_prompt(target_fn.__name__, signature, traces or [])
+        prompt = render_suggestion_prompt(target_fn.__name__, signature, traces or [], desired_count=desired_count)
         raw = self.caller(prompt)
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw)
+            except Exception:
+                raw = self._parse_json_array(raw)
+
         specs: List[MetricSpec] = []
         for item in raw:
             try:
+                name = item.get("name") or item.get("id")
+                if not name:
+                    continue
                 specs.append(
                     MetricSpec(
-                        id=item.get("id") or item["name"].lower().replace(" ", "_"),
-                        name=item["name"],
+                        id=item.get("id") or str(name).lower().replace(" ", "_"),
+                        name=name,
                         type=item.get("type", "subjective"),  # default subjective
                         description=item.get("description", ""),
                         config=item.get("config", {}),
+                        why=item.get("why", ""),
                     )
                 )
             except KeyError:
@@ -180,7 +211,7 @@ def render_selection_prompt_with_templates(
         "Available metrics (objective + subjective):\n"
         f"{registry_desc}\n"
         "Pick a diverse subset that best evaluates correctness, safety, structure, and efficiency. "
-        f"{count_hint} Entries like {{\"id\": \"metric_id\", \"config\": {{...}}}}.\n"
+        f"{count_hint} Entries like {{\"id\": \"metric_id\", \"config\": {{...}}, \"why\": \"short reason\"}}.\n"
         "For subjective metrics, you may override config (e.g., rubric/policy/desired_tone) if needed. "
         "Do not include prose outside JSON."
     )
@@ -229,6 +260,7 @@ class TemplateSelector:
                         type=tpl["type"],
                         description=tpl["description"],
                         config=cfg or tpl.get("config", {}),
+                        why=entry.get("why", "") if isinstance(entry, dict) else "",
                     )
                 )
         return specs
@@ -276,7 +308,12 @@ DEFAULT_JUDGE_PROMPT = (
 )
 
 
-def render_suggestion_prompt(fn_name: str, signature, traces: Iterable[FunctionCall]) -> str:
+def render_suggestion_prompt(
+    fn_name: str,
+    signature,
+    traces: Iterable[FunctionCall],
+    desired_count: Optional[int] = None,
+) -> str:
     sig_str = f"{fn_name}{signature}"
     example_lines = []
     for call in list(traces)[:3]:
@@ -284,12 +321,17 @@ def render_suggestion_prompt(fn_name: str, signature, traces: Iterable[FunctionC
             f"- inputs={call.inputs}, output={repr(call.output)[:200]}, error={call.error}"
         )
     examples = "\n".join(example_lines) if example_lines else "No traces yet."
+    count_hint = (
+        f"Return JSON array with exactly {desired_count} entries (or as close as possible)."
+        if desired_count
+        else "Return JSON array."
+    )
     return (
         "You are designing evaluation metrics for an LLM-powered function.\n"
         f"Function: {sig_str}\n"
         f"Recent traces:\n{examples}\n"
-        "Propose 3-6 metrics; include both objective and subjective. "
-        "Respond as JSON array with name, type (objective|subjective), description, and config."
+        "Propose metrics; include both objective and subjective. "
+        f"{count_hint} Respond as JSON array ONLY (no prose) with fields: id (or name), type (objective|subjective), description, config, why (short reason). If unsure, return []."
     )
 
 

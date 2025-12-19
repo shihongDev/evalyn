@@ -630,7 +630,11 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
     bundle_name = args.bundle or metric_bundle_hint
     max_metrics = args.num_metrics if args.num_metrics and args.num_metrics > 0 else None
 
-    # Mode: bundle (manual preset)
+    def _print_spec(spec: MetricSpec) -> None:
+        why = getattr(spec, "why", "") or ""
+        suffix = f" | why: {why}" if why else ""
+        print(f"- {spec.id} [{spec.type}] :: {spec.description}{suffix}")
+
     if selected_mode == "bundle":
         bundle = (bundle_name or "").lower()
         ids = BUNDLES.get(bundle)
@@ -653,29 +657,10 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
                 )
         if max_metrics:
             specs = specs[:max_metrics]
-            # If fewer than requested, pad with additional registry metrics not already chosen.
-            if len(specs) < max_metrics:
-                chosen_ids = {s.id for s in specs}
-                tpl_map = {t["id"]: t for t in OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES}
-                for mid, tpl in tpl_map.items():
-                    if len(specs) >= max_metrics:
-                        break
-                    if mid in chosen_ids:
-                        continue
-                    specs.append(
-                        MetricSpec(
-                            id=tpl["id"],
-                            name=tpl["id"],
-                            type=tpl["type"],
-                            description=tpl.get("description", ""),
-                            config=tpl.get("config", {}),
-                        )
-                    )
         for spec in specs:
-            print(f"- {spec.id} [{spec.type}] :: {spec.description}")
+            _print_spec(spec)
         return
 
-    # Mode: llm-registry (LLM chooses from our templates)
     if selected_mode == "llm-registry":
         caller = _build_llm_caller(args)
         selector = TemplateSelector(caller, OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES)
@@ -689,28 +674,28 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         if max_metrics:
             specs = specs[:max_metrics]
         for spec in specs:
-            print(f"- {spec.id} [{spec.type}] :: {spec.description}")
+            _print_spec(spec)
         return
 
-    # Mode: llm-brainstorm (free-form suggestions from LLM)
     if selected_mode == "llm-brainstorm":
         caller = _build_llm_caller(args)
         suggester = LLMSuggester(caller=caller)
-        specs = suggester.suggest(target_fn, traces)
+        specs = suggester.suggest(target_fn, traces, desired_count=max_metrics)
         if max_metrics:
             specs = specs[:max_metrics]
-        for spec in specs:
-            print(f"- {spec.name} [{spec.type}] :: {spec.description}")
+        if not specs:
+            print("No metrics were returned by the LLM (brainstorm mode).")
+        else:
+            for spec in specs:
+                _print_spec(spec)
         return
 
-    # Fallback: heuristic/basic
     suggester = HeuristicSuggester()
     specs = suggester.suggest(target_fn, traces)
     if max_metrics:
         specs = specs[:max_metrics]
     for spec in specs:
-        print(f"- {spec.name} [{spec.type}] :: {spec.description}")
-
+        _print_spec(spec)
 
 def cmd_list_runs(args: argparse.Namespace) -> None:
     tracer = get_default_tracer()

@@ -128,6 +128,7 @@ class MetricSpec:
     type: MetricType
     description: str = ""
     config: Dict[str, Any] = field(default_factory=dict)
+    why: str = ""
 
 
 @dataclass
