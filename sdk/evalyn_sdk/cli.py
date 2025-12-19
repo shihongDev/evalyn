@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import importlib.util
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 from typing import Any, Callable, List, Optional
 
@@ -19,14 +22,178 @@ from .runner import EvalRunner
 from .suggester import HeuristicSuggester, LLMSuggester, LLMRegistrySelector, TemplateSelector, render_selection_prompt_with_templates
 from .tracing import EvalTracer
 
+# Light bundles for quick manual selection (no LLM).
+BUNDLES: dict[str, list[str]] = {
+    "summarization": [
+        "latency_ms",
+        "token_overlap_f1",
+        "rouge_l",
+        "rouge_1",
+        "hallucination_risk",
+        "clarity_readability",
+        "conciseness",
+        "toxicity_safety",
+    ],
+    "orchestrator": [
+        "latency_ms",
+        "tool_call_count",
+        "llm_call_count",
+        "llm_error_rate",
+        "tool_success_ratio",
+        "hallucination_risk",
+        "instruction_following",
+        "policy_guardrails",
+    ],
+    "research-agent": [
+        "latency_ms",
+        "url_count",
+        "hallucination_risk",
+        "factual_consistency",
+        "helpfulness_accuracy",
+        "tool_success_ratio",
+        "clarity_readability",
+        "tone_alignment",
+    ],
+}
+
 
 def _load_callable(target: str) -> Callable[..., Any]:
-    """Load a function from a string like module:function_name."""
+    """
+    Load a function reference. Supports:
+    - path/to/file.py:function_name   (preferred, no PYTHONPATH fuss)
+    - module.path:function_name       (fallback)
+    """
     if ":" not in target:
-        raise ValueError("Target must be in the form 'module:function'")
-    module_name, func_name = target.split(":", 1)
-    module = importlib.import_module(module_name)
+        raise ValueError("Target must be 'path/to/file.py:function' or 'module:function'")
+
+    left, func_name = target.split(":", 1)
+
+    # Path-based load first
+    if left.endswith(".py") or os.path.sep in left:
+        path = os.path.abspath(left if left.endswith(".py") else left + ".py")
+        if not os.path.isfile(path):
+            raise ImportError(f"Cannot find file for target: {path}")
+        mod_name = os.path.splitext(os.path.basename(path))[0]
+        # Ensure package imports inside the file can resolve (e.g., `from pkg.module import x`)
+        pkg_dir = os.path.dirname(path)
+        pkg_init = os.path.join(pkg_dir, "__init__.py")
+        if os.path.isfile(pkg_init):
+            sys.path.insert(0, os.path.dirname(pkg_dir))
+        else:
+            sys.path.insert(0, pkg_dir)
+        spec = importlib.util.spec_from_file_location(mod_name, path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Cannot load module from path: {path}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return getattr(module, func_name)
+
+    # Fallback: dotted module import
+    module = importlib.import_module(left)
     return getattr(module, func_name)
+
+
+def _ollama_caller(model: str) -> Callable[[str], List[dict]]:
+    def _call(prompt: str) -> List[dict]:
+        if not shutil.which("ollama"):
+            raise RuntimeError("ollama CLI not found. Install Ollama or choose --llm-mode api.")
+        proc = subprocess.run(
+            ["ollama", "run", model, prompt],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        text = proc.stdout.strip()
+        try:
+            return json.loads(text)
+        except Exception:
+            return []
+
+    return _call
+
+
+def _parse_json_array(text: str) -> List[dict]:
+    if not text:
+        return []
+    try:
+        parsed = json.loads(text)
+        return parsed if isinstance(parsed, list) else []
+    except Exception:
+        pass
+    start = text.find("[")
+    end = text.rfind("]")
+    if start != -1 and end != -1 and end > start:
+        snippet = text[start : end + 1]
+        try:
+            parsed = json.loads(snippet)
+            return parsed if isinstance(parsed, list) else []
+        except Exception:
+            return []
+    return []
+
+
+def _openai_caller(model: str, api_base: Optional[str] = None, api_key: Optional[str] = None) -> Callable[[str], List[dict]]:
+    def _call(prompt: str) -> List[dict]:
+        # Gemini shortcut using google-genai if model name starts with "gemini"
+        if model.lower().startswith("gemini"):
+            key = api_key or os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+            if not key:
+                raise RuntimeError("Missing GOOGLE_API_KEY/GEMINI_API_KEY for Gemini model.")
+            try:
+                from google.genai import Client  # type: ignore
+            except Exception as exc:
+                raise RuntimeError("google-genai package not installed. Install with: pip install google-genai") from exc
+
+            try:
+                client = Client(api_key=key)
+                guard = (
+                    "Return ONLY a JSON array of metric objects. "
+                    'Each object: {"id": "metric_id", "config": {...}}. '
+                    "No prose. If unsure, return [].\n\n"
+                )
+                full_prompt = guard + prompt
+                resp = client.models.generate_content(
+                    model=model,
+                    contents=full_prompt,
+                    config={"temperature": 0},
+                )
+                text = getattr(resp, "text", None) or ""
+                parsed = _parse_json_array(text)
+                if parsed:
+                    return parsed
+                raise RuntimeError(f"Gemini call returned non-JSON: {text[:200]}")
+            except Exception as exc:
+                raise RuntimeError(f"Gemini call failed: {exc}") from exc
+
+        try:
+            import openai
+        except ImportError as exc:
+            raise RuntimeError("openai package not installed. Install with extras: pip install -e \"sdk[llm]\"") from exc
+
+        key = api_key or os.getenv("OPENAI_API_KEY")
+        client = openai.OpenAI(api_key=key, base_url=api_base) if (key or api_base) else openai.OpenAI()
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "Return JSON only."},
+                {"role": "user", "content": prompt},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.0,
+        )
+        text = resp.choices[0].message.content or ""
+        parsed = _parse_json_array(text)
+        return parsed
+
+    return _call
+
+
+def _build_llm_caller(args: argparse.Namespace) -> Callable[[str], List[dict]]:
+    if args.llm_mode == "local":
+        return _ollama_caller(args.model)
+    if args.llm_caller:
+        return _load_callable(args.llm_caller)
+    return _openai_caller(args.model, api_base=args.api_base, api_key=args.api_key)
 
 
 def _extract_code_meta(tracer: EvalTracer, fn: Callable[..., Any]) -> Optional[dict]:
@@ -452,16 +619,95 @@ def cmd_run_dataset(args: argparse.Namespace) -> None:
 
 def cmd_suggest_metrics(args: argparse.Namespace) -> None:
     target_fn = _load_callable(args.target)
+    metric_mode_hint = getattr(target_fn, "_evalyn_metric_mode", None)
+    metric_bundle_hint = getattr(target_fn, "_evalyn_metric_bundle", None)
     tracer = get_default_tracer()
-    traces = tracer.storage.list_calls(limit=args.limit) if tracer.storage else []
+    traces = tracer.storage.list_calls(limit=args.num_traces) if tracer.storage else []
 
-    if args.llm_caller:
-        caller = _load_callable(args.llm_caller)
+    selected_mode = args.mode
+    if selected_mode == "auto":
+        selected_mode = metric_mode_hint or "llm-registry"
+    bundle_name = args.bundle or metric_bundle_hint
+    max_metrics = args.num_metrics if args.num_metrics and args.num_metrics > 0 else None
+
+    # Mode: bundle (manual preset)
+    if selected_mode == "bundle":
+        bundle = (bundle_name or "").lower()
+        ids = BUNDLES.get(bundle)
+        if not ids:
+            print(f"Unknown bundle '{args.bundle}'. Available: {', '.join(BUNDLES.keys())}")
+            return
+        tpl_map = {t["id"]: t for t in OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES}
+        specs = []
+        for mid in ids:
+            tpl = tpl_map.get(mid)
+            if tpl:
+                specs.append(
+                    MetricSpec(
+                        id=tpl["id"],
+                        name=tpl["id"],
+                        type=tpl["type"],
+                        description=tpl.get("description", ""),
+                        config=tpl.get("config", {}),
+                    )
+                )
+        if max_metrics:
+            specs = specs[:max_metrics]
+            # If fewer than requested, pad with additional registry metrics not already chosen.
+            if len(specs) < max_metrics:
+                chosen_ids = {s.id for s in specs}
+                tpl_map = {t["id"]: t for t in OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES}
+                for mid, tpl in tpl_map.items():
+                    if len(specs) >= max_metrics:
+                        break
+                    if mid in chosen_ids:
+                        continue
+                    specs.append(
+                        MetricSpec(
+                            id=tpl["id"],
+                            name=tpl["id"],
+                            type=tpl["type"],
+                            description=tpl.get("description", ""),
+                            config=tpl.get("config", {}),
+                        )
+                    )
+        for spec in specs:
+            print(f"- {spec.id} [{spec.type}] :: {spec.description}")
+        return
+
+    # Mode: llm-registry (LLM chooses from our templates)
+    if selected_mode == "llm-registry":
+        caller = _build_llm_caller(args)
+        selector = TemplateSelector(caller, OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES)
+        selected = selector.select(
+            target_fn,
+            traces=traces,
+            code_meta=_extract_code_meta(tracer, target_fn),
+            desired_count=max_metrics,
+        )
+        specs = selected
+        if max_metrics:
+            specs = specs[:max_metrics]
+        for spec in specs:
+            print(f"- {spec.id} [{spec.type}] :: {spec.description}")
+        return
+
+    # Mode: llm-brainstorm (free-form suggestions from LLM)
+    if selected_mode == "llm-brainstorm":
+        caller = _build_llm_caller(args)
         suggester = LLMSuggester(caller=caller)
-    else:
-        suggester = HeuristicSuggester()
+        specs = suggester.suggest(target_fn, traces)
+        if max_metrics:
+            specs = specs[:max_metrics]
+        for spec in specs:
+            print(f"- {spec.name} [{spec.type}] :: {spec.description}")
+        return
 
+    # Fallback: heuristic/basic
+    suggester = HeuristicSuggester()
     specs = suggester.suggest(target_fn, traces)
+    if max_metrics:
+        specs = specs[:max_metrics]
     for spec in specs:
         print(f"- {spec.name} [{spec.type}] :: {spec.description}")
 
@@ -679,11 +925,28 @@ def main(argv: List[str] | None = None) -> None:
 
     suggest_parser = subparsers.add_parser("suggest-metrics", help="Suggest metrics for a target function")
     suggest_parser.add_argument("--target", required=True, help="Callable to analyze in the form module:function")
-    suggest_parser.add_argument("--limit", type=int, default=5, help="How many recent traces to include as examples")
+    suggest_parser.add_argument("--num-traces", type=int, default=5, help="How many recent traces to include as examples")
+    suggest_parser.add_argument("--num-metrics", type=int, help="Maximum number of metrics to return")
+    suggest_parser.add_argument(
+        "--mode",
+        choices=["auto", "llm-registry", "llm-brainstorm", "bundle", "basic"],
+        default="auto",
+        help="auto (use function's metric_mode if set), llm-registry (LLM picks from registry), llm-brainstorm (free-form), bundle (preset), or basic heuristic.",
+    )
+    suggest_parser.add_argument(
+        "--llm-mode",
+        choices=["local", "api"],
+        default="api",
+        help="When using LLM modes: choose local (ollama) or api (OpenAI/Gemini-compatible).",
+    )
+    suggest_parser.add_argument("--model", default="gpt-4.1", help="Model name (ollama for local; API model for api)")
+    suggest_parser.add_argument("--api-base", help="Custom API base URL for --llm-mode api (optional)")
+    suggest_parser.add_argument("--api-key", help="API key override for --llm-mode api (optional)")
     suggest_parser.add_argument(
         "--llm-caller",
         help="Optional callable path that accepts a prompt string and returns a list of metric dicts",
     )
+    suggest_parser.add_argument("--bundle", help="Bundle name when --mode bundle (e.g., summarization, orchestrator, research-agent)")
     suggest_parser.set_defaults(func=cmd_suggest_metrics)
 
     runs_parser = subparsers.add_parser("list-runs", help="List stored eval runs")

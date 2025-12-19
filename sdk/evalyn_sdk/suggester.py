@@ -139,6 +139,7 @@ def render_selection_prompt_with_templates(
     traces: Iterable[FunctionCall],
     templates: Iterable[dict],
     code_meta: Optional[dict] = None,
+    desired_count: Optional[int] = None,
 ) -> str:
     name = getattr(target_fn, "__name__", "function")
     sig = None
@@ -166,6 +167,11 @@ def render_selection_prompt_with_templates(
             f"config={tpl.get('config', {})}"
         )
     registry_desc = "\n".join(tpl_lines)
+    count_hint = (
+        f"Return JSON array with exactly {desired_count} entries (or as close as possible if fewer apply)."
+        if desired_count
+        else "Return JSON array of the best metrics."
+    )
     return (
         "You are selecting evaluation metrics for an LLM function based on its code and behavior.\n"
         f"Function: {name}{sig}"
@@ -173,8 +179,8 @@ def render_selection_prompt_with_templates(
         f"Recent traces:\n{examples}\n"
         "Available metrics (objective + subjective):\n"
         f"{registry_desc}\n"
-        "Pick a concise subset that best evaluates correctness, safety, structure, and efficiency. "
-        "Return JSON array with entries like {\"id\": \"metric_id\", \"config\": {...}}.\n"
+        "Pick a diverse subset that best evaluates correctness, safety, structure, and efficiency. "
+        f"{count_hint} Entries like {{\"id\": \"metric_id\", \"config\": {{...}}}}.\n"
         "For subjective metrics, you may override config (e.g., rubric/policy/desired_tone) if needed. "
         "Do not include prose outside JSON."
     )
@@ -196,8 +202,11 @@ class TemplateSelector:
         target_fn: Callable,
         traces: Optional[Iterable[FunctionCall]] = None,
         code_meta: Optional[dict] = None,
+        desired_count: Optional[int] = None,
     ) -> List[MetricSpec]:
-        prompt = render_selection_prompt_with_templates(target_fn, traces or [], self.templates, code_meta)
+        prompt = render_selection_prompt_with_templates(
+            target_fn, traces or [], self.templates, code_meta, desired_count=desired_count
+        )
         raw = self.caller(prompt)
         # raw may be JSON string or already parsed
         if isinstance(raw, str):

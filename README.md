@@ -83,6 +83,21 @@ run = runner.run_dataset(dataset)
 print(run.summary)
 ```
 
+## CLI targets: paths first
+All CLI commands that take `--target`/`--llm-caller` accept **file paths** without PYTHONPATH tweaks:
+- Bash/WSL: `evalyn suggest-metrics --target example_agent/agent.py:run_agent --limit 5`
+- PowerShell: `evalyn suggest-metrics --target example_agent\\agent.py:run_agent --limit 5`
+If you prefer modules, dotted imports still work: `example_agent.agent:run_agent`.
+
+### LLM-powered metric suggestion
+`evalyn suggest-metrics` supports a built-in LLM mode:
+- Registry-constrained LLM (default): `evalyn suggest-metrics --mode llm-registry --target ...`
+- Free-form LLM brainstorm: `evalyn suggest-metrics --mode llm-brainstorm --target ...`
+- Local Ollama: add `--llm-mode local --model llama3.1`
+- API (OpenAI/Gemini): `--llm-mode api --model gpt-4.1` (or `gemini-3-flash` with `GOOGLE_API_KEY`/`GEMINI_API_KEY` or `--api-key`)
+- Preset bundles (no LLM): `evalyn suggest-metrics --mode bundle --bundle summarization` (bundles: summarization, orchestrator, research-agent)
+You can still supply your own callable with `--llm-caller` (takes a prompt string, returns metric dicts).
+
 ## Subjective (LLM-judge) metric example
 Subjective templates are **rubric-based PASS/FAIL**. Override the rubric (or policy/tone) via config.
 
@@ -107,6 +122,16 @@ metric = build_subjective_metric(
 - View eval runs/results: `evalyn list-runs`, `evalyn show-run --id <run_id>`
 - Import annotations: `evalyn import-annotations --path annotations.jsonl`
 - Calibrate judges: `evalyn calibrate --metric-id llm_judge --annotations annotations.jsonl --run-id <run>`
+
+### Decorator hints for metric suggestion
+You can annotate your function with a preferred suggestion mode:
+```python
+@eval(metric_mode="llm-registry")            # or "llm-brainstorm", "bundle", "basic"
+def my_agent(...):
+    ...
+```
+- `metric_mode` options (validated): `llm-registry`, `llm-brainstorm`, `bundle`.
+- For bundles, you can pair with `metric_bundle="summarization"` (or `orchestrator`, `research-agent`). Suggestion CLI with `--mode auto` will pick these defaults.
 
 ## Notes on cleanliness
 - `.gitignore` covers node_modules/dist/__pycache__/venv/etc.

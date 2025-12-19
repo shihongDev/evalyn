@@ -110,11 +110,23 @@ class EvalTracer:
             self.storage.store_call(call)
         return call
 
-    def instrument(self, func: Callable[..., Any], name: Optional[str] = None) -> Callable[..., Any]:
+    def instrument(
+        self,
+        func: Callable[..., Any],
+        name: Optional[str] = None,
+        *,
+        metric_mode: Optional[str] = None,
+        metric_bundle: Optional[str] = None,
+    ) -> Callable[..., Any]:
         """Wrap any callable to record inputs/outputs/errors via this tracer."""
         function_name = name or getattr(func, "__name__", "anonymous")
         tracer = self
         code_meta = self._get_function_meta(func)
+        metadata = {"code": code_meta}
+        if metric_mode:
+            metadata["metric_mode"] = metric_mode
+        if metric_bundle:
+            metadata["metric_bundle"] = metric_bundle
 
         if inspect.iscoroutinefunction(func):
 
@@ -123,7 +135,7 @@ class EvalTracer:
                 call = None
                 token = None
                 inputs = _normalize_inputs(args, kwargs)
-                call, token = tracer.start_call(function_name, inputs, metadata={"code": code_meta})
+                call, token = tracer.start_call(function_name, inputs, metadata=metadata)
                 span_cm = tracer._otel_span_cm(function_name)
                 with span_cm as span:
                     if span:
@@ -152,7 +164,7 @@ class EvalTracer:
             call = None
             token = None
             inputs = _normalize_inputs(args, kwargs)
-            call, token = tracer.start_call(function_name, inputs, metadata={"code": code_meta})
+            call, token = tracer.start_call(function_name, inputs, metadata=metadata)
             span_cm = tracer._otel_span_cm(function_name)
             with span_cm as span:
                 if span:

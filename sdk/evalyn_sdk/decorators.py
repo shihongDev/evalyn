@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 from typing import Any, Callable, Optional
 
+ALLOWED_METRIC_MODES = {"llm-registry", "llm-brainstorm", "bundle"}
+
 from .tracing import EvalTracer
 from .storage.sqlite import SQLiteStorage
 from .otel import configure_default_otel, OTEL_AVAILABLE
@@ -38,7 +40,14 @@ def configure_tracer(tracer: EvalTracer) -> None:
     _default_tracer = tracer
 
 
-def eval(func: Optional[Callable[..., Any]] = None, *, tracer: Optional[EvalTracer] = None, name: Optional[str] = None):
+def eval(
+    func: Optional[Callable[..., Any]] = None,
+    *,
+    tracer: Optional[EvalTracer] = None,
+    name: Optional[str] = None,
+    metric_mode: Optional[str] = None,
+    metric_bundle: Optional[str] = None,
+):
     """
     Decorator to trace sync/async functions. Example:
 
@@ -49,7 +58,24 @@ def eval(func: Optional[Callable[..., Any]] = None, *, tracer: Optional[EvalTrac
 
     def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
         tracer_obj = tracer or get_default_tracer()
-        return tracer_obj.instrument(fn, name=name)
+
+        mode = metric_mode
+        bundle = metric_bundle
+        if mode and mode.startswith("bundle-") and not bundle:
+            bundle = mode.split("bundle-", 1)[1] or None
+            mode = "bundle"
+
+        if mode and mode not in ALLOWED_METRIC_MODES:
+            raise ValueError(f"Invalid metric_mode '{mode}'. Allowed: {sorted(ALLOWED_METRIC_MODES)}")
+        wrapped = tracer_obj.instrument(
+            fn,
+            name=name,
+            metric_mode=mode,
+            metric_bundle=bundle,
+        )
+        setattr(wrapped, "_evalyn_metric_mode", mode)
+        setattr(wrapped, "_evalyn_metric_bundle", bundle)
+        return wrapped
 
     if func is not None:
         return decorator(func)
