@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import os
 import re
 import sys
 from typing import Any, Callable, List, Optional
@@ -16,7 +17,6 @@ from .metrics.registry import MetricRegistry
 from .metrics.templates import OBJECTIVE_TEMPLATES, SUBJECTIVE_TEMPLATES
 from .runner import EvalRunner
 from .suggester import HeuristicSuggester, LLMSuggester, LLMRegistrySelector, TemplateSelector, render_selection_prompt_with_templates
-from .metrics.registry import MetricRegistry
 from .tracing import EvalTracer
 
 
@@ -60,15 +60,41 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
     if not calls:
         print("No calls found.")
         return
-    headers = ["id", "function", "status", "start", "end", "duration_ms"]
+    headers = ["id", "function", "status", "file", "start", "end", "duration_ms"]
     print(" | ".join(headers))
     print("-" * 120)
+
+    def _short_path(path: Any, max_len: int = 48) -> str:
+        if not isinstance(path, str) or not path.strip():
+            return ""
+        raw = path.strip()
+        display = raw
+        try:
+            rel = os.path.relpath(raw, os.getcwd())
+            if rel and not rel.startswith("..") and not os.path.isabs(rel):
+                display = rel
+        except Exception:
+            display = raw
+
+        if len(display) <= max_len:
+            return display
+
+        base = os.path.basename(raw)
+        parent = os.path.basename(os.path.dirname(raw))
+        compact = os.path.join(parent, base) if parent else base
+        if len(compact) <= max_len:
+            return compact
+        return "..." + compact[-(max_len - 3) :]
+
     for call in calls:
         status = "ERROR" if call.error else "OK"
+        code = call.metadata.get("code", {}) if isinstance(call.metadata, dict) else {}
+        file_path = code.get("file_path") if isinstance(code, dict) else None
         row = [
             call.id,
             call.function_name,
             status,
+            _short_path(file_path),
             str(call.started_at),
             str(call.ended_at),
             f"{call.duration_ms:.2f}",
@@ -624,16 +650,17 @@ def main(argv: List[str] | None = None) -> None:
 
     def _print_ascii_help():
         art = r"""
-   _______      __      ___   ___  _   _
-  |  ____ \     \ \    / / \ / / \| \ | |
-  | |____| |     \ \  / /|  V /|  \  \| |
-  |  _____/       \ \/ / | | | | |\   / |
-  | |             / /\ \ | | | | | \  | |
-  |_|            /_/  \_\|_| |_|_|  \_|_|
+         ______  __      __    /\       _     __     __  __   __   
+        |  ____| \ \    / /   /  \     | |    \ \   / /  | \ | |  
+        | |__     \ \  / /   / /\ \    | |     \ \_/ /   |  \| |  
+              Evalyn CLI — Streamlined Evaluation Framework
+        |  __|     \ \/ /   / ____ \   | |      \   /    | . ` |  
+        | |____     \  /   / /    \ \  | |____   | |     | |\  |  
+        |______|     \/   /_/      \_\ |______|  |_|     |_| \_|  
+          
         """
         print("================================================================================")
         print(art)
-        print("Evalyn CLI - Shihong Liu (https://github.com/shihongDev)")
         print("================================================================================")
         parser.print_help()
 
