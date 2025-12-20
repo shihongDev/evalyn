@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from .registry import Metric
-from ..judges import LLMJudge
+from .judges import LLMJudge
 from ..models import DatasetItem, FunctionCall, MetricResult, MetricSpec
 
 

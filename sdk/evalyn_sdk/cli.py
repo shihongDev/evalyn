@@ -19,7 +19,7 @@ from .metrics.objective import register_builtin_metrics
 from .metrics.registry import MetricRegistry
 from .metrics.templates import OBJECTIVE_TEMPLATES, SUBJECTIVE_TEMPLATES
 from .runner import EvalRunner
-from .suggester import HeuristicSuggester, LLMSuggester, LLMRegistrySelector, TemplateSelector, render_selection_prompt_with_templates
+from .metrics.suggester import HeuristicSuggester, LLMSuggester, LLMRegistrySelector, TemplateSelector, render_selection_prompt_with_templates
 from .tracing import EvalTracer
 from datetime import datetime
 
