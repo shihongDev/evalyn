@@ -24,8 +24,7 @@ from .metrics.subjective import (
 from .metrics.templates import OBJECTIVE_TEMPLATES, SUBJECTIVE_TEMPLATES
 from .metrics.factory import build_objective_metric, build_subjective_metric, list_template_ids
 from .judges import LLMJudge, EchoJudge, OpenAIJudge, GeminiJudge
-from .datasets import load_dataset, save_dataset, hash_inputs, dataset_from_calls
-from .curation import curate_dataset
+from .datasets import load_dataset, save_dataset, hash_inputs, dataset_from_calls, build_dataset_from_storage
 from .suggester import MetricSuggester, HeuristicSuggester, LLMSuggester, LLMRegistrySelector, DEFAULT_JUDGE_PROMPT
 from .otel import configure_otel, configure_default_otel, OTEL_AVAILABLE
 from .models import (
@@ -61,7 +60,7 @@ __all__ = [
     "LLMSuggester",
     "LLMRegistrySelector",
     "DEFAULT_JUDGE_PROMPT",
-    "curate_dataset",
+    "build_dataset_from_storage",
     "configure_otel",
     "configure_default_otel",
     "OTEL_AVAILABLE",

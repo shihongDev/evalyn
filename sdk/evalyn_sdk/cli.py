@@ -13,7 +13,7 @@ from typing import Any, Callable, List, Optional
 
 from .annotations import import_annotations
 from .calibration import CalibrationEngine
-from .datasets import load_dataset
+from .datasets import load_dataset, save_dataset, build_dataset_from_storage
 from .decorators import get_default_tracer
 from .metrics.objective import register_builtin_metrics
 from .metrics.registry import MetricRegistry
@@ -21,6 +21,7 @@ from .metrics.templates import OBJECTIVE_TEMPLATES, SUBJECTIVE_TEMPLATES
 from .runner import EvalRunner
 from .suggester import HeuristicSuggester, LLMSuggester, LLMRegistrySelector, TemplateSelector, render_selection_prompt_with_templates
 from .tracing import EvalTracer
+from datetime import datetime
 
 # Light bundles for quick manual selection (no LLM).
 BUNDLES: dict[str, list[str]] = {
@@ -697,6 +698,34 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
     for spec in specs:
         _print_spec(spec)
 
+
+def cmd_build_dataset(args: argparse.Namespace) -> None:
+    tracer = get_default_tracer()
+    if not tracer.storage:
+        print("No storage configured.")
+        return
+
+    def _parse_dt(value: Optional[str]) -> Optional[datetime]:
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(value)
+        except Exception:
+            return None
+
+    items = build_dataset_from_storage(
+        tracer.storage,
+        function_name=args.function,
+        project_id=args.project_id,
+        since=_parse_dt(args.since),
+        until=_parse_dt(args.until),
+        limit=args.limit,
+        success_only=not args.include_errors,
+        include_metadata=True,
+    )
+    save_dataset(items, args.output)
+    print(f"Wrote {len(items)} items to {args.output}")
+
 def cmd_list_runs(args: argparse.Namespace) -> None:
     tracer = get_default_tracer()
     if not tracer.storage:
@@ -933,6 +962,16 @@ def main(argv: List[str] | None = None) -> None:
     )
     suggest_parser.add_argument("--bundle", help="Bundle name when --mode bundle (e.g., summarization, orchestrator, research-agent)")
     suggest_parser.set_defaults(func=cmd_suggest_metrics)
+
+    build_ds = subparsers.add_parser("build-dataset", help="Build dataset from stored traces")
+    build_ds.add_argument("--output", required=True, help="Path to write dataset JSONL")
+    build_ds.add_argument("--function", help="Filter by function name")
+    build_ds.add_argument("--project-id", help="Filter by metadata.project_id")
+    build_ds.add_argument("--since", help="ISO timestamp lower bound for started_at")
+    build_ds.add_argument("--until", help="ISO timestamp upper bound for started_at")
+    build_ds.add_argument("--limit", type=int, default=500, help="Max number of items to include (after filtering)")
+    build_ds.add_argument("--include-errors", action="store_true", help="Include errored calls (default: skip)")
+    build_ds.set_defaults(func=cmd_build_dataset)
 
     runs_parser = subparsers.add_parser("list-runs", help="List stored eval runs")
     runs_parser.add_argument("--limit", type=int, default=10)

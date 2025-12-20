@@ -115,6 +115,7 @@ metric = build_subjective_metric(
 - Instrument & run agent: `python -m example_agent.agent "your question"` (requires `GEMINI_API_KEY`)
 - Inspect traces: `evalyn list-calls --limit 20`, then `evalyn show-call --id <call_id>`
 - Build dataset from past calls (successful only): use `dataset_from_calls(tracer.storage.list_calls())` in a short script and save as JSONL
+- Build dataset from stored traces (CLI): `evalyn build-dataset --output dataset.jsonl --function run_agent --limit 200 --since 2025-01-01T00:00:00`
 - Run eval on a dataset: `evalyn run-dataset --target module:function --dataset path --dataset-name name`
 - Suggest metrics: `evalyn suggest-metrics --target module:function`
 - LLM registry selection: `evalyn select-metrics --target module:function --llm-caller mymodule:llm_call`

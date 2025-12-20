@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any, Iterable, List, Mapping, Optional
+from datetime import datetime
 
 from .models import DatasetItem, FunctionCall
 
@@ -64,4 +65,62 @@ def dataset_from_calls(
                 metadata={"function": call.function_name} if include_metadata else {},
             )
         )
+    return items
+
+
+def build_dataset_from_storage(
+    storage,
+    *,
+    function_name: Optional[str] = None,
+    project_id: Optional[str] = None,
+    since: Optional[datetime] = None,
+    until: Optional[datetime] = None,
+    limit: int = 500,
+    success_only: bool = True,
+    include_metadata: bool = True,
+) -> List[DatasetItem]:
+    """
+    Build a dataset from stored calls with simple filtering.
+    Filters:
+      - function_name: exact match on call.function_name
+      - project_id: matches call.metadata.get("project_id")
+      - since/until: call.started_at within range
+      - success_only: skip calls with errors
+      - limit: max number of matching calls to include (after filtering)
+    """
+    calls = storage.list_calls(limit=limit * 5) if storage else []
+    items: List[DatasetItem] = []
+    for call in calls:
+        if success_only and call.error:
+            continue
+        if function_name and call.function_name != function_name:
+            continue
+        if project_id and isinstance(call.metadata, dict):
+            if call.metadata.get("project_id") != project_id:
+                continue
+        if since and call.started_at < since:
+            continue
+        if until and call.started_at > until:
+            continue
+
+        meta = {}
+        if include_metadata:
+            meta = {
+                "function": call.function_name,
+                "call_id": call.id,
+                "started_at": call.started_at.isoformat(),
+            }
+            if isinstance(call.metadata, dict):
+                meta.update(call.metadata)
+
+        items.append(
+            DatasetItem(
+                id=call.id,
+                inputs=call.inputs,
+                expected=call.output,
+                metadata=meta,
+            )
+        )
+        if len(items) >= limit:
+            break
     return items
