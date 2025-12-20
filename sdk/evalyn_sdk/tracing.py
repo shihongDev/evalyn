@@ -115,6 +115,8 @@ class EvalTracer:
         func: Callable[..., Any],
         name: Optional[str] = None,
         *,
+        project: Optional[str] = None,
+        version: Optional[str] = None,
         metric_mode: Optional[str] = None,
         metric_bundle: Optional[str] = None,
     ) -> Callable[..., Any]:
@@ -123,6 +125,11 @@ class EvalTracer:
         tracer = self
         code_meta = self._get_function_meta(func)
         metadata = {"code": code_meta}
+        if project:
+            metadata["project_id"] = project
+            metadata["project_name"] = project
+        if version:
+            metadata["version"] = version
         if metric_mode:
             metadata["metric_mode"] = metric_mode
         if metric_bundle:

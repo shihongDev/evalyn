@@ -14,7 +14,7 @@ if os.getenv("OTEL_CONSOLE", "").lower() in {"1", "true", "yes"}:
     tracer.attach_otel_tracer(configure_otel(service_name="example-agent", exporter="console"))
 
 
-@eval(name="research_agent", metric_mode="llm-brainstorm")
+@eval(name="research_agent", metric_mode="llm-brainstorm", project="gemini=deep-research-agent")
 def run_agent(question: str, initial_queries: int = 3, max_loops: int = 2, reasoning_model: str = "gemini-2.5-flash-lite") -> str:
     """
     Main LLM-facing entrypoint for the research agent. Wrapped with @eval so calls are traced/stored.

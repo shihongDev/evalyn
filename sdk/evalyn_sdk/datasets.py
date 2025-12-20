@@ -4,7 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any, Iterable, List, Mapping, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .models import DatasetItem, FunctionCall
 
@@ -73,6 +73,7 @@ def build_dataset_from_storage(
     *,
     function_name: Optional[str] = None,
     project_id: Optional[str] = None,
+    project_name: Optional[str] = None,
     since: Optional[datetime] = None,
     until: Optional[datetime] = None,
     limit: int = 500,
@@ -83,24 +84,39 @@ def build_dataset_from_storage(
     Build a dataset from stored calls with simple filtering.
     Filters:
       - function_name: exact match on call.function_name
-      - project_id: matches call.metadata.get("project_id")
+      - project_id/project_name: matches call.metadata.get("project_id") or metadata.get("project_name")
       - since/until: call.started_at within range
       - success_only: skip calls with errors
       - limit: max number of matching calls to include (after filtering)
     """
+    def _as_aware(dt: Optional[datetime]) -> Optional[datetime]:
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt
+
+    since = _as_aware(since)
+    until = _as_aware(until)
+
     calls = storage.list_calls(limit=limit * 5) if storage else []
     items: List[DatasetItem] = []
     for call in calls:
+        started_at = call.started_at
+        if started_at and started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=timezone.utc)
         if success_only and call.error:
             continue
         if function_name and call.function_name != function_name:
             continue
-        if project_id and isinstance(call.metadata, dict):
-            if call.metadata.get("project_id") != project_id:
+        if (project_id or project_name) and isinstance(call.metadata, dict):
+            meta_pid = call.metadata.get("project_id") or call.metadata.get("project_name")
+            wanted = project_id or project_name
+            if meta_pid != wanted:
                 continue
-        if since and call.started_at < since:
+        if since and started_at and started_at < since:
             continue
-        if until and call.started_at > until:
+        if until and started_at and started_at > until:
             continue
 
         meta = {}

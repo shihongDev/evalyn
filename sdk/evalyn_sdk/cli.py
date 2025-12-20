@@ -225,10 +225,18 @@ def _extract_code_meta(tracer: EvalTracer, fn: Callable[..., Any]) -> Optional[d
 def cmd_list_calls(args: argparse.Namespace) -> None:
     tracer = get_default_tracer()
     calls = tracer.storage.list_calls(limit=args.limit) if tracer.storage else []
+    if args.project and calls:
+        filtered = []
+        for c in calls:
+            meta = c.metadata if isinstance(c.metadata, dict) else {}
+            pid = meta.get("project_id") or meta.get("project_name")
+            if pid == args.project:
+                filtered.append(c)
+        calls = filtered
     if not calls:
         print("No calls found.")
         return
-    headers = ["id", "function", "status", "file", "start", "end", "duration_ms"]
+    headers = ["id", "function", "project", "version", "status", "file", "start", "end", "duration_ms"]
     print(" | ".join(headers))
     print("-" * 120)
 
@@ -257,10 +265,17 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
     for call in calls:
         status = "ERROR" if call.error else "OK"
         code = call.metadata.get("code", {}) if isinstance(call.metadata, dict) else {}
+        project = ""
+        version = ""
+        if isinstance(call.metadata, dict):
+            project = call.metadata.get("project_id") or call.metadata.get("project_name") or ""
+            version = call.metadata.get("version", "")
         file_path = code.get("file_path") if isinstance(code, dict) else None
         row = [
             call.id,
             call.function_name,
+            project,
+            version,
             status,
             _short_path(file_path),
             str(call.started_at),
@@ -715,16 +730,94 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
 
     items = build_dataset_from_storage(
         tracer.storage,
-        function_name=args.function,
-        project_id=args.project_id,
+        function_name=None,  # prefer project-based grouping
+        project_id=args.project,
+        project_name=args.project,
+        version=args.version,
         since=_parse_dt(args.since),
         until=_parse_dt(args.until),
         limit=args.limit,
         success_only=not args.include_errors,
         include_metadata=True,
     )
-    save_dataset(items, args.output)
-    print(f"Wrote {len(items)} items to {args.output}")
+
+    out_path = args.output
+    if not out_path:
+        ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        proj = args.project or "all"
+        ver = args.version or "v0"
+        out_path = os.path.join("data", f"{proj}-{ver}-{ts}.jsonl")
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+
+    save_dataset(items, out_path)
+    print(f"Wrote {len(items)} items to {out_path}")
+    def _parse_dt(value: Optional[str]) -> Optional[datetime]:
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(value)
+        except Exception:
+            return None
+
+    since = _parse_dt(args.since)
+    until = _parse_dt(args.until)
+
+    calls = tracer.storage.list_calls(limit=args.limit)
+    updated = 0
+    for call in calls:
+        if args.function and call.function_name != args.function:
+            continue
+        started = call.started_at
+        if since and started and started < since:
+            continue
+        if until and started and started > until:
+            continue
+        meta = call.metadata if isinstance(call.metadata, dict) else {}
+        if args.project:
+            meta["project_id"] = args.project
+            meta["project_name"] = args.project
+        if args.version:
+            meta["version"] = args.version
+        call.metadata = meta
+        tracer.storage.store_call(call)
+        updated += 1
+    print(f"Updated {updated} calls with project/version tags.")
+
+
+def cmd_show_projects(args: argparse.Namespace) -> None:
+    tracer = get_default_tracer()
+    if not tracer.storage:
+        print("No storage configured.")
+        return
+    calls = tracer.storage.list_calls(limit=args.limit)
+    summary = {}
+    for call in calls:
+        meta = call.metadata if isinstance(call.metadata, dict) else {}
+        project = meta.get("project_id") or meta.get("project_name") or call.function_name or "unknown"
+        version = meta.get("version") or ""
+        key = (project, version)
+        rec = summary.setdefault(key, {"total": 0, "errors": 0, "first": call.started_at, "last": call.started_at})
+        rec["total"] += 1
+        if call.error:
+            rec["errors"] += 1
+        if call.started_at and rec["first"] and call.started_at < rec["first"]:
+            rec["first"] = call.started_at
+        if call.started_at and rec["last"] and call.started_at > rec["last"]:
+            rec["last"] = call.started_at
+
+    headers = ["project", "version", "calls", "errors", "first", "last"]
+    print(" | ".join(headers))
+    print("-" * 120)
+    for (project, version), rec in summary.items():
+        row = [
+            project,
+            version,
+            str(rec["total"]),
+            str(rec["errors"]),
+            str(rec["first"]),
+            str(rec["last"]),
+        ]
+        print(" | ".join(row))
 
 def cmd_list_runs(args: argparse.Namespace) -> None:
     tracer = get_default_tracer()
@@ -929,6 +1022,7 @@ def main(argv: List[str] | None = None) -> None:
 
     list_parser = subparsers.add_parser("list-calls", help="List recent traced calls")
     list_parser.add_argument("--limit", type=int, default=10, help="Maximum number of calls to display")
+    list_parser.add_argument("--project", help="Filter by project_id/project_name in call metadata")
     list_parser.set_defaults(func=cmd_list_calls)
 
     run_parser = subparsers.add_parser("run-dataset", help="Execute a dataset against a target function")
@@ -964,14 +1058,18 @@ def main(argv: List[str] | None = None) -> None:
     suggest_parser.set_defaults(func=cmd_suggest_metrics)
 
     build_ds = subparsers.add_parser("build-dataset", help="Build dataset from stored traces")
-    build_ds.add_argument("--output", required=True, help="Path to write dataset JSONL")
-    build_ds.add_argument("--function", help="Filter by function name")
-    build_ds.add_argument("--project-id", help="Filter by metadata.project_id")
+    build_ds.add_argument("--output", help="Path to write dataset JSONL (default: data/<project>-<version>-<timestamp>.jsonl)")
+    build_ds.add_argument("--project", help="Filter by metadata.project_id or project_name (recommended grouping)")
+    build_ds.add_argument("--version", help="Filter by metadata.version")
     build_ds.add_argument("--since", help="ISO timestamp lower bound for started_at")
     build_ds.add_argument("--until", help="ISO timestamp upper bound for started_at")
     build_ds.add_argument("--limit", type=int, default=500, help="Max number of items to include (after filtering)")
     build_ds.add_argument("--include-errors", action="store_true", help="Include errored calls (default: skip)")
     build_ds.set_defaults(func=cmd_build_dataset)
+
+    show_projects = subparsers.add_parser("show-projects", help="Summaries per project/version")
+    show_projects.add_argument("--limit", type=int, default=5000, help="How many calls to scan")
+    show_projects.set_defaults(func=cmd_show_projects)
 
     runs_parser = subparsers.add_parser("list-runs", help="List stored eval runs")
     runs_parser.add_argument("--limit", type=int, default=10)

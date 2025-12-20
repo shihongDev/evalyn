@@ -45,6 +45,8 @@ def eval(
     *,
     tracer: Optional[EvalTracer] = None,
     name: Optional[str] = None,
+    project: Optional[str] = None,
+    version: Optional[str] = None,
     metric_mode: Optional[str] = None,
     metric_bundle: Optional[str] = None,
 ):
@@ -70,11 +72,15 @@ def eval(
         wrapped = tracer_obj.instrument(
             fn,
             name=name,
+            project=project,
+            version=version,
             metric_mode=mode,
             metric_bundle=bundle,
         )
         setattr(wrapped, "_evalyn_metric_mode", mode)
         setattr(wrapped, "_evalyn_metric_bundle", bundle)
+        setattr(wrapped, "_evalyn_project", project)
+        setattr(wrapped, "_evalyn_version", version)
         return wrapped
 
     if func is not None:
