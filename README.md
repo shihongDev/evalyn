@@ -8,7 +8,7 @@ This repo focuses on the **Python SDK** (`sdk/`). The former frontend demo has b
 - Pluggable storage with SQLite backend (calls, runs, annotations).
 - Metric system: registry with 50 metric templates (objective + subjective), covering latency/cost, text overlap, structure, tool usage, safety, and quality judging.
 - Subjective metrics are rubric-based PASS/FAIL by default (LLM judge returns `passed` + `reason`).
-- Use `evalyn list-metrics` to see each metric’s required inputs and a short “meaning” description.
+- Use `evalyn list-metrics` to see each metric's required inputs and a short meaning description.
 - LLM judges: GeminiJudge (default), OpenAIJudge (optional), and EchoJudge (debug).
 - Dataset runner with optional caching (hash by inputs) and summary stats.
 - OpenTelemetry spans: enabled by default if the otel dependency is installed; exporter defaults to `sqlite` (local). Disable with `EVALYN_OTEL=off` or configure exporter via env.
@@ -22,7 +22,7 @@ This repo focuses on the **Python SDK** (`sdk/`). The former frontend demo has b
 ## Pipeline (end-to-end)
 1) **Instrument**: add `@eval` to your LLM-facing function. Calls are traced to SQLite (`evalyn.sqlite`) by default, with code metadata captured for metric selection.
 2) **Collect**: run your agent; traces are stored (`evalyn list-calls`).
-3) **Curate dataset with tracing**: use `evalyn_sdk.curate_dataset` to run prompts through the agent, capture traces, and optionally write JSONL for regression.
+3) **Build dataset from traces**: use `evalyn build-dataset` (CLI) or `build_dataset_from_storage` (SDK) to export JSONL from stored calls.
 4) **Suggest/Select Metrics**:
    - Heuristic/LLM suggestions: `evalyn suggest-metrics --target module:function`
    - LLM registry selection (uses code + traces): `evalyn select-metrics --target module:function --llm-caller mymodule:llm_call`
@@ -38,8 +38,7 @@ This repo focuses on the **Python SDK** (`sdk/`). The former frontend demo has b
  Traces (inputs/outputs/errors/code metadata, events)
       |
       +--> Build dataset
-      |     - from calls (dataset_from_calls)
-      |     - or curate_dataset over prompts
+      |     - from calls (build-dataset / build_dataset_from_storage)
       |
       +--> Metric selection
       |     - suggest-metrics / select-metrics
@@ -85,8 +84,8 @@ print(run.summary)
 
 ## CLI targets: paths first
 All CLI commands that take `--target`/`--llm-caller` accept **file paths** without PYTHONPATH tweaks:
-- Bash/WSL: `evalyn suggest-metrics --target example_agent/agent.py:run_agent --limit 5`
-- PowerShell: `evalyn suggest-metrics --target example_agent\\agent.py:run_agent --limit 5`
+- Bash/WSL: `evalyn suggest-metrics --target example_agent/agent.py:run_agent --num-traces 5`
+- PowerShell: `evalyn suggest-metrics --target example_agent\\agent.py:run_agent --num-traces 5`
 If you prefer modules, dotted imports still work: `example_agent.agent:run_agent`.
 
 ### LLM-powered metric suggestion
@@ -114,9 +113,10 @@ metric = build_subjective_metric(
 ## CLI cheatsheet (pipeline order)
 - Instrument & run agent: `python -m example_agent.agent "your question"` (requires `GEMINI_API_KEY`)
 - Inspect traces: `evalyn list-calls --limit 20`, then `evalyn show-call --id <call_id>`
-- Build dataset from stored traces (CLI): `evalyn build-dataset --project myproj --version v1 --limit 200 --since 2025-01-01T00:00:00` (defaults to `data/myproj-v1-<timestamp>.jsonl`; add `--output` to override)
+- Project summary: `evalyn show-projects`
+- Build dataset from stored traces (CLI): `evalyn build-dataset --project myproj --version v1 --limit 200 --since 2025-01-01T00:00:00` (defaults to `data/myproj-v1-<timestamp>/dataset.jsonl` plus `meta.json`; add `--output` to override)
 - Run eval on a dataset: `evalyn run-dataset --target module:function --dataset path --dataset-name name`
-- Suggest metrics: `evalyn suggest-metrics --target module:function`
+- Suggest metrics: `evalyn suggest-metrics --target module:function --num-traces 3 --num-metrics 10`
 - LLM registry selection: `evalyn select-metrics --target module:function --llm-caller mymodule:llm_call`
 - List metric templates: `evalyn list-metrics` (shows category + required inputs)
 - View eval runs/results: `evalyn list-runs`, `evalyn show-run --id <run_id>`
@@ -126,7 +126,7 @@ metric = build_subjective_metric(
 ### Decorator hints for metric suggestion
 You can annotate your function with a preferred suggestion mode:
 ```python
-@eval(metric_mode="llm-registry")            # or "llm-brainstorm", "bundle", "basic"
+@eval(metric_mode="llm-registry", project="myproj", version="v1")
 def my_agent(...):
     ...
 ```

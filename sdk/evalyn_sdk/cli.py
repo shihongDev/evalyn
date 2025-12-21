@@ -13,7 +13,7 @@ from typing import Any, Callable, List, Optional
 
 from .annotations import import_annotations
 from .calibration import CalibrationEngine
-from .datasets import load_dataset, save_dataset, build_dataset_from_storage
+from .datasets import load_dataset, save_dataset_with_meta, build_dataset_from_storage
 from .decorators import get_default_tracer
 from .metrics.objective import register_builtin_metrics
 from .metrics.registry import MetricRegistry
@@ -741,47 +741,48 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
         include_metadata=True,
     )
 
-    out_path = args.output
-    if not out_path:
-        ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-        proj = args.project or "all"
-        ver = args.version or "v0"
-        out_path = os.path.join("data", f"{proj}-{ver}-{ts}.jsonl")
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    proj = args.project or "all"
+    ver = args.version or "v0"
+    dataset_name = f"{proj}-{ver}-{ts}"
 
-    save_dataset(items, out_path)
-    print(f"Wrote {len(items)} items to {out_path}")
-    def _parse_dt(value: Optional[str]) -> Optional[datetime]:
-        if not value:
-            return None
-        try:
-            return datetime.fromisoformat(value)
-        except Exception:
-            return None
+    dataset_dir = args.output or os.path.join("data", dataset_name)
+    dataset_file = "dataset.jsonl"
+    if args.output and args.output.endswith(".jsonl"):
+        dataset_dir = os.path.dirname(args.output) or "."
+        dataset_file = os.path.basename(args.output)
 
-    since = _parse_dt(args.since)
-    until = _parse_dt(args.until)
+    functions = sorted(
+        {item.metadata.get("function") for item in items if isinstance(item.metadata, dict) and item.metadata.get("function")}
+    )
+    function_name = functions[0] if len(functions) == 1 else None
 
-    calls = tracer.storage.list_calls(limit=args.limit)
-    updated = 0
-    for call in calls:
-        if args.function and call.function_name != args.function:
-            continue
-        started = call.started_at
-        if since and started and started < since:
-            continue
-        if until and started and started > until:
-            continue
-        meta = call.metadata if isinstance(call.metadata, dict) else {}
-        if args.project:
-            meta["project_id"] = args.project
-            meta["project_name"] = args.project
-        if args.version:
-            meta["version"] = args.version
-        call.metadata = meta
-        tracer.storage.store_call(call)
-        updated += 1
-    print(f"Updated {updated} calls with project/version tags.")
+    input_keys = set()
+    meta_keys = set()
+    for item in items:
+        if isinstance(item.inputs, dict):
+            input_keys.update(item.inputs.keys())
+        if isinstance(item.metadata, dict):
+            meta_keys.update(item.metadata.keys())
+
+    meta = {
+        "dataset_name": dataset_name,
+        "created_at": datetime.utcnow().isoformat(),
+        "project": args.project,
+        "version": args.version,
+        "function": function_name,
+        "filters": {
+            "since": args.since,
+            "until": args.until,
+            "limit": args.limit,
+            "include_errors": bool(args.include_errors),
+        },
+        "counts": {"items": len(items)},
+        "schema": {"inputs_keys": sorted(input_keys), "metadata_keys": sorted(meta_keys)},
+    }
+
+    dataset_path = save_dataset_with_meta(items, dataset_dir, meta, dataset_filename=dataset_file)
+    print(f"Wrote {len(items)} items to {dataset_path}")
 
 
 def cmd_show_projects(args: argparse.Namespace) -> None:

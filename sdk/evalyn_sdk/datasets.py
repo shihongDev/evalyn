@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any, Iterable, List, Mapping, Optional
+import hashlib
 from datetime import datetime, timezone
 
 from .models import DatasetItem, FunctionCall
@@ -33,6 +34,33 @@ def save_dataset(items: Iterable[DatasetItem], path: str | Path) -> None:
     with path.open("w", encoding="utf-8") as f:
         for item in items:
             f.write(json.dumps(item.__dict__) + "\n")
+
+
+def save_dataset_with_meta(
+    items: Iterable[DatasetItem],
+    dataset_dir: str | Path,
+    meta: dict,
+    *,
+    dataset_filename: str = "dataset.jsonl",
+    meta_filename: str = "meta.json",
+) -> Path:
+    dataset_dir = Path(dataset_dir)
+    dataset_dir.mkdir(parents=True, exist_ok=True)
+    dataset_path = dataset_dir / dataset_filename
+    save_dataset(items, dataset_path)
+
+    hasher = hashlib.sha256()
+    with dataset_path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 64), b""):
+            hasher.update(chunk)
+    meta = dict(meta)
+    meta["dataset_file"] = dataset_filename
+    meta["meta_file"] = meta_filename
+    meta["dataset_hash"] = hasher.hexdigest()
+
+    meta_path = dataset_dir / meta_filename
+    meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
+    return dataset_path
 
 
 def hash_inputs(inputs: Mapping[str, Any]) -> str:
@@ -74,6 +102,7 @@ def build_dataset_from_storage(
     function_name: Optional[str] = None,
     project_id: Optional[str] = None,
     project_name: Optional[str] = None,
+    version: Optional[str] = None,
     since: Optional[datetime] = None,
     until: Optional[datetime] = None,
     limit: int = 500,
@@ -85,6 +114,7 @@ def build_dataset_from_storage(
     Filters:
       - function_name: exact match on call.function_name
       - project_id/project_name: matches call.metadata.get("project_id") or metadata.get("project_name")
+      - version: matches call.metadata.get("version")
       - since/until: call.started_at within range
       - success_only: skip calls with errors
       - limit: max number of matching calls to include (after filtering)
@@ -113,6 +143,9 @@ def build_dataset_from_storage(
             meta_pid = call.metadata.get("project_id") or call.metadata.get("project_name")
             wanted = project_id or project_name
             if meta_pid != wanted:
+                continue
+        if version and isinstance(call.metadata, dict):
+            if call.metadata.get("version") != version:
                 continue
         if since and started_at and started_at < since:
             continue
