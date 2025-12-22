@@ -22,6 +22,7 @@ from .metrics.templates import OBJECTIVE_TEMPLATES, SUBJECTIVE_TEMPLATES
 from .runner import EvalRunner
 from .metrics.suggester import HeuristicSuggester, LLMSuggester, LLMRegistrySelector, TemplateSelector, render_selection_prompt_with_templates
 from .tracing import EvalTracer
+from .models import MetricSpec
 from datetime import datetime
 
 # Light bundles for quick manual selection (no LLM).
@@ -635,6 +636,27 @@ def cmd_run_dataset(args: argparse.Namespace) -> None:
 
 
 def cmd_suggest_metrics(args: argparse.Namespace) -> None:
+    # Validate dataset path FIRST before doing any expensive work
+    if args.dataset:
+        dataset_path = Path(args.dataset)
+        if dataset_path.is_file():
+            # It's a file (e.g., dataset.jsonl)
+            if not dataset_path.exists():
+                print(f"Error: Dataset file not found: {dataset_path}")
+                print("Please create the dataset first using 'evalyn build-dataset' or ensure the path is correct.")
+                sys.exit(1)
+        else:
+            # It's a directory - should exist and contain a dataset
+            if not dataset_path.exists():
+                print(f"Error: Dataset directory not found: {dataset_path}")
+                print("Please create the dataset first using 'evalyn build-dataset' or ensure the path is correct.")
+                sys.exit(1)
+            # Check if directory has a dataset file
+            has_dataset = (dataset_path / "dataset.jsonl").exists() or (dataset_path / "dataset.json").exists()
+            if not has_dataset:
+                print(f"Warning: Directory exists but no dataset.jsonl or dataset.json found in: {dataset_path}")
+                print("Proceeding anyway, but this may not be a valid dataset directory.")
+
     target_fn = _load_callable(args.target)
     metric_mode_hint = getattr(target_fn, "_evalyn_metric_mode", None)
     metric_bundle_hint = getattr(target_fn, "_evalyn_metric_bundle", None)
@@ -655,12 +677,13 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
     def _save_metrics(specs: List[MetricSpec]) -> None:
         if not args.dataset:
             return
+        # Dataset path already validated at the beginning of cmd_suggest_metrics
         dataset_path = Path(args.dataset)
         if dataset_path.is_file():
             dataset_dir = dataset_path.parent
         else:
             dataset_dir = dataset_path
-        dataset_dir.mkdir(parents=True, exist_ok=True)
+
         metrics_dir = dataset_dir / "metrics"
         metrics_dir.mkdir(parents=True, exist_ok=True)
 

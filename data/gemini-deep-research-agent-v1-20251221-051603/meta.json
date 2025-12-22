@@ -30,5 +30,22 @@
   },
   "dataset_file": "dataset.jsonl",
   "meta_file": "meta.json",
-  "dataset_hash": "3e8a4008ebe533063e982c62235615537ecb7e9fcb6b5b7cbd3c3bee191b5cd9"
+  "dataset_hash": "3e8a4008ebe533063e982c62235615537ecb7e9fcb6b5b7cbd3c3bee191b5cd9",
+  "metric_sets": [
+    {
+      "name": "llm-registry-20251222-081320",
+      "file": "metrics/llm-registry-20251222-081320.json",
+      "mode": "llm-registry",
+      "created_at": "2025-12-22T08:13:20.048224",
+      "num_metrics": 6
+    },
+    {
+      "name": "test-bundle",
+      "file": "metrics/test-bundle.json",
+      "mode": "bundle",
+      "created_at": "2025-12-22T08:31:24.275861",
+      "num_metrics": 8
+    }
+  ],
+  "active_metric_set": "test-bundle"
 }
