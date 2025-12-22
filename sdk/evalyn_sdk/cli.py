@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 from typing import Any, Callable, List, Optional
 
 from .annotations import import_annotations
@@ -651,6 +652,64 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         suffix = f" | why: {why}" if why else ""
         print(f"- {spec.id} [{spec.type}] :: {spec.description}{suffix}")
 
+    def _save_metrics(specs: List[MetricSpec]) -> None:
+        if not args.dataset:
+            return
+        dataset_path = Path(args.dataset)
+        if dataset_path.is_file():
+            dataset_dir = dataset_path.parent
+        else:
+            dataset_dir = dataset_path
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+        metrics_dir = dataset_dir / "metrics"
+        metrics_dir.mkdir(parents=True, exist_ok=True)
+
+        ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        if args.metrics_name:
+            metrics_name = args.metrics_name
+        elif selected_mode == "bundle":
+            metrics_name = f"bundle-{(bundle_name or 'bundle')}"
+        else:
+            metrics_name = f"{selected_mode}-{ts}"
+        safe_name = re.sub(r"[^a-zA-Z0-9._-]+", "-", metrics_name).strip("-")
+        metrics_file = metrics_dir / f"{safe_name}.json"
+
+        payload = []
+        for spec in specs:
+            payload.append(
+                {
+                    "id": spec.id,
+                    "type": spec.type,
+                    "description": spec.description,
+                    "config": spec.config,
+                    "why": getattr(spec, "why", ""),
+                }
+            )
+        metrics_file.write_text(json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8")
+
+        meta_path = dataset_dir / "meta.json"
+        if meta_path.exists():
+            try:
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            except Exception:
+                meta = {}
+        else:
+            meta = {}
+        metric_sets = meta.get("metric_sets") if isinstance(meta.get("metric_sets"), list) else []
+        entry = {
+            "name": safe_name,
+            "file": f"metrics/{metrics_file.name}",
+            "mode": selected_mode,
+            "created_at": datetime.utcnow().isoformat(),
+            "num_metrics": len(payload),
+        }
+        metric_sets = [m for m in metric_sets if m.get("name") != safe_name]
+        metric_sets.append(entry)
+        meta["metric_sets"] = metric_sets
+        meta["active_metric_set"] = safe_name
+        meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=True), encoding="utf-8")
+        print(f"Saved metrics to {metrics_file}")
+
     if selected_mode == "bundle":
         bundle = (bundle_name or "").lower()
         ids = BUNDLES.get(bundle)
@@ -675,6 +734,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             specs = specs[:max_metrics]
         for spec in specs:
             _print_spec(spec)
+        _save_metrics(specs)
         return
 
     if selected_mode == "llm-registry":
@@ -691,6 +751,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             specs = specs[:max_metrics]
         for spec in specs:
             _print_spec(spec)
+        _save_metrics(specs)
         return
 
     if selected_mode == "llm-brainstorm":
@@ -704,6 +765,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         else:
             for spec in specs:
                 _print_spec(spec)
+            _save_metrics(specs)
         return
 
     suggester = HeuristicSuggester()
@@ -712,6 +774,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         specs = specs[:max_metrics]
     for spec in specs:
         _print_spec(spec)
+    _save_metrics(specs)
 
 
 def cmd_build_dataset(args: argparse.Namespace) -> None:
@@ -1056,6 +1119,8 @@ def main(argv: List[str] | None = None) -> None:
         help="Optional callable path that accepts a prompt string and returns a list of metric dicts",
     )
     suggest_parser.add_argument("--bundle", help="Bundle name when --mode bundle (e.g., summarization, orchestrator, research-agent)")
+    suggest_parser.add_argument("--dataset", help="Dataset directory (or dataset.jsonl/meta.json) to save metrics into")
+    suggest_parser.add_argument("--metrics-name", help="Metrics set name when saving to a dataset")
     suggest_parser.set_defaults(func=cmd_suggest_metrics)
 
     build_ds = subparsers.add_parser("build-dataset", help="Build dataset from stored traces")

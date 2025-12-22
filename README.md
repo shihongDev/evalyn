@@ -16,6 +16,7 @@ This repo focuses on the **Python SDK** (`sdk/`). The former frontend demo has b
   - Heuristic suggester.
   - LLM suggester for new specs.
   - LLM registry selector that picks from available metrics using code + traces.
+  - Suggestions can be saved into a dataset folder (metrics sidecar + meta.json update).
 - Human loop: import/export annotations; calibration engine to suggest judge thresholds.
 - CLI commands for dataset runs, listing calls/runs, metric suggestion/selection, annotation import, and calibration.
 
@@ -26,6 +27,7 @@ This repo focuses on the **Python SDK** (`sdk/`). The former frontend demo has b
 4) **Suggest/Select Metrics**:
    - Heuristic/LLM suggestions: `evalyn suggest-metrics --target module:function`
    - LLM registry selection (uses code + traces): `evalyn select-metrics --target module:function --llm-caller mymodule:llm_call`
+   - Save suggestions into a dataset folder: `evalyn suggest-metrics --dataset data/<dataset_dir>`
 5) **Run Eval**: prepare JSON/JSONL dataset, then `evalyn run-dataset --target module:function --dataset path --dataset-name name` (uses built-in metrics; extend via registry).
 6) **Annotate**: import human labels `evalyn import-annotations --path annotations.jsonl` (target_id should match call_id).
 7) **Calibrate**: `evalyn calibrate --metric-id <judge-metric> --annotations annotations.jsonl --run-id <eval-run>` to get suggested threshold adjustments.
@@ -115,6 +117,7 @@ metric = build_subjective_metric(
 - Inspect traces: `evalyn list-calls --limit 20`, then `evalyn show-call --id <call_id>`
 - Project summary: `evalyn show-projects`
 - Build dataset from stored traces (CLI): `evalyn build-dataset --project myproj --version v1 --limit 200 --since 2025-01-01T00:00:00` (defaults to `data/myproj-v1-<timestamp>/dataset.jsonl` plus `meta.json`; add `--output` to override)
+- Save suggested metrics into a dataset folder: `evalyn suggest-metrics --target example_agent/agent.py:run_agent --num-traces 3 --num-metrics 10 --dataset data/myproj-v1-20250101-120000 --metrics-name llm-registry`
 - Run eval on a dataset: `evalyn run-dataset --target module:function --dataset path --dataset-name name`
 - Suggest metrics: `evalyn suggest-metrics --target module:function --num-traces 3 --num-metrics 10`
 - LLM registry selection: `evalyn select-metrics --target module:function --llm-caller mymodule:llm_call`
@@ -132,6 +135,19 @@ def my_agent(...):
 ```
 - `metric_mode` options (validated): `llm-registry`, `llm-brainstorm`, `bundle`.
 - For bundles, you can pair with `metric_bundle="summarization"` (or `orchestrator`, `research-agent`). Suggestion CLI with `--mode auto` will pick these defaults.
+
+## Dataset layout (default)
+`evalyn build-dataset` writes a folder per dataset:
+```
+data/<project>-<version>-<timestamp>/
+  dataset.jsonl
+  meta.json
+  metrics/
+    llm-registry-<timestamp>.json
+    bundle-summarization.json
+```
+- `meta.json` includes filters, schema, counts, and `metric_sets` (list of saved metric selections).
+- `active_metric_set` points to the most recently saved selection.
 
 ## Notes on cleanliness
 - `.gitignore` covers node_modules/dist/__pycache__/venv/etc.
