@@ -48,14 +48,25 @@ class EvalRunner:
 
         for item in dataset:
             call = None
-            cache_key = hash_inputs(item.inputs) if self.cache_enabled else None
 
-            if cache_key and cache_key in self._cache and self.tracer.storage:
-                # Rehydrate cached call from storage by id
-                cached_id = self._cache[cache_key]
-                cached_matches = [c for c in self.tracer.storage.list_calls(limit=1_000) if c.id == cached_id]
-                call = cached_matches[0] if cached_matches else None
+            # First, try to load call from metadata (for pre-built datasets)
+            if isinstance(item.metadata, dict) and "call_id" in item.metadata and self.tracer.storage:
+                call_id = item.metadata["call_id"]
+                call = self.tracer.storage.get_call(call_id)
+                if call is None:
+                    print(f"Warning: Could not find trace for call_id={call_id}, will re-run")
 
+            # Second, check cache by input hash
+            if call is None:
+                cache_key = hash_inputs(item.inputs) if self.cache_enabled else None
+
+                if cache_key and cache_key in self._cache and self.tracer.storage:
+                    # Rehydrate cached call from storage by id
+                    cached_id = self._cache[cache_key]
+                    cached_matches = [c for c in self.tracer.storage.list_calls(limit=1_000) if c.id == cached_id]
+                    call = cached_matches[0] if cached_matches else None
+
+            # Finally, run the function if no trace found
             if call is None:
                 try:
                     self.target_fn(**item.inputs)
@@ -64,6 +75,7 @@ class EvalRunner:
                     failures.append(item.id)
 
                 call = self.tracer.last_call
+                cache_key = hash_inputs(item.inputs) if self.cache_enabled else None
                 if cache_key and call:
                     self._cache[cache_key] = call.id
 

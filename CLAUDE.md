@@ -61,8 +61,8 @@ evalyn suggest-metrics --target example_agent/agent.py:run_agent --mode bundle -
 # Save suggested metrics to dataset folder
 evalyn suggest-metrics --dataset data/myproj-v1-20250101 --target example_agent/agent.py:run_agent --mode llm-registry --llm-mode api --model gemini-2.0-flash-exp --metrics-name llm-selected
 
-# Run evaluation on a dataset
-evalyn run-dataset --target example_agent/agent.py:run_agent --dataset data/myproj-v1/dataset.jsonl --dataset-name myproj-v1
+# Run evaluation on dataset using specified metrics (no re-running needed!)
+evalyn run-eval --dataset data/myproj-v1/dataset.jsonl --metrics data/myproj-v1/metrics/llm-registry.json
 
 # List available metric templates
 evalyn list-metrics

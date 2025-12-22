@@ -614,23 +614,70 @@ def cmd_show_call(args: argparse.Namespace) -> None:
     print("=============================================\n")
 
 
-def cmd_run_dataset(args: argparse.Namespace) -> None:
-    target_fn = _load_callable(args.target)
+def cmd_run_eval(args: argparse.Namespace) -> None:
+    """Run evaluation using pre-computed traces from dataset and metrics from JSON file."""
+    # Load dataset
     dataset = load_dataset(args.dataset)
 
-    registry = MetricRegistry()
-    register_builtin_metrics(registry)
+    # Load metrics from JSON file
+    metrics_path = Path(args.metrics)
+    if not metrics_path.exists():
+        print(f"Error: Metrics file not found: {metrics_path}")
+        sys.exit(1)
 
+    metrics_data = json.loads(metrics_path.read_text(encoding="utf-8"))
+    if not isinstance(metrics_data, list):
+        print(f"Error: Metrics file must contain a JSON array of metric specs")
+        sys.exit(1)
+
+    # Build metrics from specs
+    from .metrics.factory import build_objective_metric, build_subjective_metric
+    metrics = []
+    for spec_data in metrics_data:
+        spec = MetricSpec(
+            id=spec_data["id"],
+            name=spec_data.get("name", spec_data["id"]),
+            type=spec_data["type"],
+            description=spec_data.get("description", ""),
+            config=spec_data.get("config", {}),
+        )
+        if spec.type == "objective":
+            metric = build_objective_metric(spec.id, spec.config)
+        else:
+            metric = build_subjective_metric(spec.id, spec.config)
+        if metric:
+            metrics.append(metric)
+
+    if not metrics:
+        print("Error: No valid metrics loaded from file")
+        sys.exit(1)
+
+    print(f"Loaded {len(metrics)} metrics: {', '.join(m.spec.id for m in metrics)}")
+
+    # Get tracer with storage
+    tracer = get_default_tracer()
+    if not tracer.storage:
+        print("Error: No storage configured")
+        sys.exit(1)
+
+    # Run evaluation using cached traces
+    from .runner import EvalRunner
     runner = EvalRunner(
-        target_fn=target_fn,
-        metrics=registry.list(),
-        dataset_name=args.dataset_name,
+        target_fn=lambda: None,  # Dummy function, won't be called
+        metrics=metrics,
+        dataset_name=args.dataset_name or Path(args.dataset).stem,
+        tracer=tracer,
+        instrument=False,  # Don't instrument since we're not calling the function
     )
     run = runner.run_dataset(dataset)
 
-    print(f"Eval run {run.id} over dataset '{run.dataset_name}'")
+    print(f"\nEval run {run.id} over dataset '{run.dataset_name}'")
     for metric_id, stats in run.summary.get("metrics", {}).items():
-        print(f"- {metric_id}: count={stats['count']}, avg_score={stats['avg_score']}, pass_rate={stats['pass_rate']}")
+        avg_score = stats.get('avg_score')
+        avg_score_str = f"{avg_score:.4f}" if avg_score is not None else "N/A"
+        pass_rate = stats.get('pass_rate')
+        pass_rate_str = f"{pass_rate:.2f}" if pass_rate is not None else "N/A"
+        print(f"- {metric_id}: count={stats['count']}, avg_score={avg_score_str}, pass_rate={pass_rate_str}")
     if run.summary.get("failed_items"):
         print(f"- failed items: {run.summary['failed_items']}")
 
@@ -1112,11 +1159,11 @@ def main(argv: List[str] | None = None) -> None:
     list_parser.add_argument("--project", help="Filter by project_id/project_name in call metadata")
     list_parser.set_defaults(func=cmd_list_calls)
 
-    run_parser = subparsers.add_parser("run-dataset", help="Execute a dataset against a target function")
-    run_parser.add_argument("--target", required=True, help="Callable to run in the form module:function")
-    run_parser.add_argument("--dataset", required=True, help="Path to JSON/JSONL dataset")
-    run_parser.add_argument("--dataset-name", default="dataset", help="Name for the eval run")
-    run_parser.set_defaults(func=cmd_run_dataset)
+    run_parser = subparsers.add_parser("run-eval", help="Run evaluation on dataset using specified metrics")
+    run_parser.add_argument("--dataset", required=True, help="Path to JSON/JSONL dataset file")
+    run_parser.add_argument("--metrics", required=True, help="Path to metrics JSON file")
+    run_parser.add_argument("--dataset-name", help="Name for the eval run (defaults to dataset filename)")
+    run_parser.set_defaults(func=cmd_run_eval)
 
     suggest_parser = subparsers.add_parser("suggest-metrics", help="Suggest metrics for a target function")
     suggest_parser.add_argument("--target", required=True, help="Callable to analyze in the form module:function")
