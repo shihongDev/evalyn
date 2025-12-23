@@ -20,6 +20,34 @@ def _as_text(value: Any) -> str:
         return str(value)
 
 
+def _get_reference(item: DatasetItem) -> str:
+    """
+    Get reference text for comparison metrics.
+    Looks in order:
+    1. item.human_label.reference (new 4-column model)
+    2. item.expected (backwards compat)
+    3. Empty string if not found
+    """
+    # Try human_label.reference first (new model)
+    if item.human_label and isinstance(item.human_label, dict):
+        ref = item.human_label.get("reference") or item.human_label.get("expected")
+        if ref:
+            return _as_text(ref)
+    # Fall back to expected (backwards compat)
+    if item.expected:
+        return _as_text(item.expected)
+    return ""
+
+
+def _get_output(call: FunctionCall, item: DatasetItem) -> str:
+    """Get the output text, preferring item.output over call.output."""
+    # Use item.output if available (from dataset)
+    if item.output is not None:
+        return _as_text(item.output)
+    # Fall back to call.output (from trace)
+    return _as_text(call.output)
+
+
 def _tokenize(text: str) -> List[str]:
     return re.findall(r"[A-Za-z0-9]+", text.lower())
 
@@ -538,18 +566,28 @@ def tool_call_count_metric(metric_id: str = "tool_call_count") -> Metric:
     return Metric(spec, handler)
 
 
-def rouge_l_metric(metric_id: str = "rouge_l", expected_field: str = "expected") -> Metric:
+def rouge_l_metric(metric_id: str = "rouge_l") -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="ROUGE-L",
         type="objective",
-        description="ROUGE-L F1 (LCS) similarity between output and expected.",
-        config={"expected_field": expected_field},
+        description="ROUGE-L F1 (LCS) similarity between output and reference (from human_label.reference).",
+        config={},
     )
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
-        reference = _as_text(item.expected or "")
-        candidate = _as_text(call.output)
+        reference = _get_reference(item)
+        candidate = _get_output(call, item)
+        # If no reference, return N/A
+        if not reference:
+            return MetricResult(
+                metric_id=spec.id,
+                item_id=item.id,
+                call_id=call.id,
+                score=None,
+                passed=None,
+                details={"error": "No reference text (set human_label.reference)"},
+            )
         score = _rouge_l_f1(candidate, reference)
         return MetricResult(
             metric_id=spec.id,
@@ -563,18 +601,27 @@ def rouge_l_metric(metric_id: str = "rouge_l", expected_field: str = "expected")
     return Metric(spec, handler)
 
 
-def rouge_1_metric(metric_id: str = "rouge_1", expected_field: str = "expected") -> Metric:
+def rouge_1_metric(metric_id: str = "rouge_1") -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="ROUGE-1",
         type="objective",
-        description="ROUGE-1 F1 (unigram overlap) between output and expected.",
-        config={"expected_field": expected_field},
+        description="ROUGE-1 F1 (unigram overlap) between output and reference.",
+        config={},
     )
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
-        reference = _as_text(item.expected or "")
-        candidate = _as_text(call.output)
+        reference = _get_reference(item)
+        candidate = _get_output(call, item)
+        if not reference:
+            return MetricResult(
+                metric_id=spec.id,
+                item_id=item.id,
+                call_id=call.id,
+                score=None,
+                passed=None,
+                details={"error": "No reference text (set human_label.reference)"},
+            )
         score = _overlap_f1(candidate, reference, n=1)
         return MetricResult(
             metric_id=spec.id,
@@ -588,18 +635,27 @@ def rouge_1_metric(metric_id: str = "rouge_1", expected_field: str = "expected")
     return Metric(spec, handler)
 
 
-def rouge_2_metric(metric_id: str = "rouge_2", expected_field: str = "expected") -> Metric:
+def rouge_2_metric(metric_id: str = "rouge_2") -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="ROUGE-2",
         type="objective",
-        description="ROUGE-2 F1 (bigram overlap) between output and expected.",
-        config={"expected_field": expected_field},
+        description="ROUGE-2 F1 (bigram overlap) between output and reference.",
+        config={},
     )
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
-        reference = _as_text(item.expected or "")
-        candidate = _as_text(call.output)
+        reference = _get_reference(item)
+        candidate = _get_output(call, item)
+        if not reference:
+            return MetricResult(
+                metric_id=spec.id,
+                item_id=item.id,
+                call_id=call.id,
+                score=None,
+                passed=None,
+                details={"error": "No reference text (set human_label.reference)"},
+            )
         score = _overlap_f1(candidate, reference, n=2)
         return MetricResult(
             metric_id=spec.id,
@@ -613,18 +669,18 @@ def rouge_2_metric(metric_id: str = "rouge_2", expected_field: str = "expected")
     return Metric(spec, handler)
 
 
-def token_overlap_f1_metric(metric_id: str = "token_overlap_f1", expected_field: str = "expected") -> Metric:
+def token_overlap_f1_metric(metric_id: str = "token_overlap_f1") -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="Token Overlap F1",
         type="objective",
-        description="Token overlap F1 (unigram) between output and expected.",
-        config={"expected_field": expected_field},
+        description="Token overlap F1 (unigram) between output and reference.",
+        config={},
     )
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
-        reference = _as_text(item.expected or "")
-        candidate = _as_text(call.output)
+        reference = _get_reference(item)
+        candidate = _get_output(call, item)
         score = _overlap_f1(candidate, reference, n=1)
         return MetricResult(
             metric_id=spec.id,
@@ -638,18 +694,27 @@ def token_overlap_f1_metric(metric_id: str = "token_overlap_f1", expected_field:
     return Metric(spec, handler)
 
 
-def jaccard_similarity_metric(metric_id: str = "jaccard_similarity", expected_field: str = "expected") -> Metric:
+def jaccard_similarity_metric(metric_id: str = "jaccard_similarity") -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="Jaccard Similarity",
         type="objective",
-        description="Jaccard similarity between token sets of output and expected.",
-        config={"expected_field": expected_field},
+        description="Jaccard similarity between token sets of output and reference.",
+        config={},
     )
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
-        reference = _as_text(item.expected or "")
-        candidate = _as_text(call.output)
+        reference = _get_reference(item)
+        candidate = _get_output(call, item)
+        if not reference:
+            return MetricResult(
+                metric_id=spec.id,
+                item_id=item.id,
+                call_id=call.id,
+                score=None,
+                passed=None,
+                details={"error": "No reference text (set human_label.reference)"},
+            )
         cand_set = set(_tokenize(candidate))
         ref_set = set(_tokenize(reference))
         if not cand_set or not ref_set:

@@ -1,3 +1,5 @@
+__version__ = "0.0.1"
+
 from .decorators import eval, configure_tracer, get_default_tracer
 from .tracing import EvalTracer, eval_session
 from .runner import EvalRunner

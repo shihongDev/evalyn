@@ -12,6 +12,10 @@ from .storage.base import StorageBackend
 from .tracing import EvalTracer
 
 
+# Progress callback type: (current_item, total_items, current_metric, metric_type)
+ProgressCallback = Callable[[int, int, str, str], None]
+
+
 class EvalRunner:
     """
     Executes a dataset against a target function, applies metrics, and stores the run.
@@ -27,6 +31,7 @@ class EvalRunner:
         dataset_name: str = "dataset",
         instrument: bool = True,
         cache_enabled: bool = True,
+        progress_callback: Optional[ProgressCallback] = None,
     ):
         self.tracer = tracer or get_default_tracer()
         if storage:
@@ -41,12 +46,19 @@ class EvalRunner:
         )
         self.cache_enabled = cache_enabled
         self._cache: Dict[str, str] = {}  # cache key -> call id
+        self._progress_callback = progress_callback
 
     def run_dataset(self, dataset: Iterable[DatasetItem]) -> EvalRun:
         metric_results: List[MetricResult] = []
         failures: List[str] = []
 
-        for item in dataset:
+        # Convert to list for progress tracking
+        items = list(dataset)
+        total_items = len(items)
+        total_evals = total_items * len(self.metrics)
+        current_eval = 0
+
+        for item_idx, item in enumerate(items):
             call = None
 
             # First, try to load call from metadata (for pre-built datasets)
@@ -85,6 +97,14 @@ class EvalRunner:
                 )
 
             for metric in self.metrics:
+                current_eval += 1
+                if self._progress_callback:
+                    self._progress_callback(
+                        current_eval,
+                        total_evals,
+                        metric.spec.id,
+                        metric.spec.type,
+                    )
                 metric_results.append(metric.evaluate(call, item))
 
         summary = self._summarize(metric_results, failures)

@@ -9,8 +9,42 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 from typing import Any, Callable, List, Optional
+
+
+class Spinner:
+    """Simple CLI spinner for long-running operations."""
+
+    def __init__(self, message: str = "Processing"):
+        self.message = message
+        self._running = False
+        self._thread: threading.Thread | None = None
+        self._chars = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+    def _spin(self) -> None:
+        idx = 0
+        while self._running:
+            char = self._chars[idx % len(self._chars)]
+            sys.stderr.write(f"\r{char} {self.message}...")
+            sys.stderr.flush()
+            idx += 1
+            time.sleep(0.1)
+        sys.stderr.write("\r" + " " * (len(self.message) + 5) + "\r")
+        sys.stderr.flush()
+
+    def __enter__(self) -> "Spinner":
+        self._running = True
+        self._thread = threading.Thread(target=self._spin, daemon=True)
+        self._thread.start()
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self._running = False
+        if self._thread:
+            self._thread.join(timeout=0.5)
 
 from .annotations import import_annotations
 from .calibration import CalibrationEngine
@@ -60,6 +94,31 @@ BUNDLES: dict[str, list[str]] = {
 }
 
 
+def _get_module_callables(module: Any) -> List[str]:
+    """Get all callable names from a module for error suggestions."""
+    import inspect
+    callables = []
+    for name in dir(module):
+        if name.startswith("_"):
+            continue
+        obj = getattr(module, name, None)
+        if callable(obj) and not inspect.isclass(obj):
+            callables.append(name)
+    return sorted(callables)
+
+
+def _suggest_similar(name: str, candidates: List[str], max_suggestions: int = 3) -> List[str]:
+    """Find similar names using simple substring matching."""
+    name_lower = name.lower()
+    # Exact prefix match first
+    prefix_matches = [c for c in candidates if c.lower().startswith(name_lower)]
+    if prefix_matches:
+        return prefix_matches[:max_suggestions]
+    # Substring match
+    substr_matches = [c for c in candidates if name_lower in c.lower() or c.lower() in name_lower]
+    return substr_matches[:max_suggestions]
+
+
 def _load_callable(target: str) -> Callable[..., Any]:
     """
     Load a function reference. Supports:
@@ -67,15 +126,43 @@ def _load_callable(target: str) -> Callable[..., Any]:
     - module.path:function_name       (fallback)
     """
     if ":" not in target:
-        raise ValueError("Target must be 'path/to/file.py:function' or 'module:function'")
+        raise ValueError(
+            f"Target must be 'path/to/file.py:function' or 'module:function'\n"
+            f"Got: {target}\n"
+            f"Example: evalyn suggest-metrics --target example_agent/agent.py:run_agent"
+        )
 
     left, func_name = target.split(":", 1)
+
+    def _get_attr_with_suggestions(module: Any, name: str, module_path: str) -> Callable[..., Any]:
+        """Get attribute with helpful error message if not found."""
+        if hasattr(module, name):
+            return getattr(module, name)
+
+        available = _get_module_callables(module)
+        similar = _suggest_similar(name, available)
+
+        error_msg = f"Function '{name}' not found in {module_path}"
+        if similar:
+            error_msg += f"\n\nDid you mean one of these?\n"
+            for s in similar:
+                error_msg += f"  - {left}:{s}\n"
+        elif available:
+            error_msg += f"\n\nAvailable functions:\n"
+            for fn in available[:10]:
+                error_msg += f"  - {fn}\n"
+            if len(available) > 10:
+                error_msg += f"  ... and {len(available) - 10} more\n"
+        raise AttributeError(error_msg)
 
     # Path-based load first
     if left.endswith(".py") or os.path.sep in left:
         path = os.path.abspath(left if left.endswith(".py") else left + ".py")
         if not os.path.isfile(path):
-            raise ImportError(f"Cannot find file for target: {path}")
+            raise ImportError(
+                f"Cannot find file: {path}\n"
+                f"Make sure the file path is correct and the file exists."
+            )
         mod_name = os.path.splitext(os.path.basename(path))[0]
         # Ensure package imports inside the file can resolve (e.g., `from pkg.module import x`)
         pkg_dir = os.path.dirname(path)
@@ -88,12 +175,24 @@ def _load_callable(target: str) -> Callable[..., Any]:
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load module from path: {path}")
         module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return getattr(module, func_name)
+        try:
+            spec.loader.exec_module(module)
+        except Exception as e:
+            raise ImportError(
+                f"Failed to load module from {path}:\n{type(e).__name__}: {e}"
+            ) from e
+        return _get_attr_with_suggestions(module, func_name, path)
 
     # Fallback: dotted module import
-    module = importlib.import_module(left)
-    return getattr(module, func_name)
+    try:
+        module = importlib.import_module(left)
+    except ModuleNotFoundError as e:
+        raise ImportError(
+            f"Module '{left}' not found.\n"
+            f"If using a file path, make sure it ends with .py\n"
+            f"Example: evalyn suggest-metrics --target example_agent/agent.py:run_agent"
+        ) from e
+    return _get_attr_with_suggestions(module, func_name, left)
 
 
 def _ollama_caller(model: str) -> Callable[[str], List[dict]]:
@@ -191,12 +290,22 @@ def _openai_caller(model: str, api_base: Optional[str] = None, api_key: Optional
     return _call
 
 
+def _with_spinner(caller: Callable[[str], List[dict]], message: str = "Calling LLM") -> Callable[[str], List[dict]]:
+    """Wrap a caller function with a spinner for visual feedback."""
+    def _wrapped(prompt: str) -> List[dict]:
+        with Spinner(message):
+            return caller(prompt)
+    return _wrapped
+
+
 def _build_llm_caller(args: argparse.Namespace) -> Callable[[str], List[dict]]:
+    model_name = getattr(args, "model", "LLM")
+    spinner_msg = f"Querying {model_name}"
     if args.llm_mode == "local":
-        return _ollama_caller(args.model)
+        return _with_spinner(_ollama_caller(args.model), spinner_msg)
     if args.llm_caller:
-        return _load_callable(args.llm_caller)
-    return _openai_caller(args.model, api_base=args.api_base, api_key=args.api_key)
+        return _with_spinner(_load_callable(args.llm_caller), spinner_msg)
+    return _with_spinner(_openai_caller(args.model, api_base=args.api_base, api_key=args.api_key), spinner_msg)
 
 
 def _extract_code_meta(tracer: EvalTracer, fn: Callable[..., Any]) -> Optional[dict]:
@@ -235,9 +344,41 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
             if pid == args.project:
                 filtered.append(c)
         calls = filtered
+
+    output_format = getattr(args, "format", "table")
+
     if not calls:
-        print("No calls found.")
+        if output_format == "json":
+            print("[]")
+        else:
+            print("No calls found.")
         return
+
+    # JSON output mode
+    if output_format == "json":
+        result = []
+        for call in calls:
+            code = call.metadata.get("code", {}) if isinstance(call.metadata, dict) else {}
+            project = ""
+            version = ""
+            if isinstance(call.metadata, dict):
+                project = call.metadata.get("project_id") or call.metadata.get("project_name") or ""
+                version = call.metadata.get("version", "")
+            result.append({
+                "id": call.id,
+                "function": call.function_name,
+                "project": project,
+                "version": version,
+                "status": "ERROR" if call.error else "OK",
+                "file": code.get("file_path") if isinstance(code, dict) else None,
+                "started_at": call.started_at.isoformat() if call.started_at else None,
+                "ended_at": call.ended_at.isoformat() if call.ended_at else None,
+                "duration_ms": call.duration_ms,
+            })
+        print(json.dumps(result, indent=2))
+        return
+
+    # Table output mode
     headers = ["id", "function", "project", "version", "status", "file", "start", "end", "duration_ms"]
     print(" | ".join(headers))
     print("-" * 120)
@@ -614,17 +755,112 @@ def cmd_show_call(args: argparse.Namespace) -> None:
     print("=============================================\n")
 
 
+def _resolve_dataset_and_metrics(dataset_arg: str, metrics_arg: Optional[str]) -> tuple[Path, Path]:
+    """Resolve dataset file and metrics file paths, auto-detecting from meta.json if needed."""
+    dataset_path = Path(dataset_arg)
+
+    # If dataset is a directory, look for dataset.jsonl inside
+    if dataset_path.is_dir():
+        dataset_dir = dataset_path
+        dataset_file = dataset_dir / "dataset.jsonl"
+        if not dataset_file.exists():
+            dataset_file = dataset_dir / "dataset.json"
+        if not dataset_file.exists():
+            raise FileNotFoundError(f"No dataset.jsonl or dataset.json found in {dataset_dir}")
+    else:
+        dataset_file = dataset_path
+        dataset_dir = dataset_path.parent
+
+    if not dataset_file.exists():
+        raise FileNotFoundError(f"Dataset file not found: {dataset_file}")
+
+    # Resolve metrics path
+    if metrics_arg:
+        metrics_path = Path(metrics_arg)
+    else:
+        # Auto-detect from meta.json
+        meta_path = dataset_dir / "meta.json"
+        if not meta_path.exists():
+            raise FileNotFoundError(
+                f"No --metrics specified and no meta.json found in {dataset_dir}.\n"
+                "Either specify --metrics explicitly or run 'evalyn suggest-metrics' first."
+            )
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        except Exception as e:
+            raise ValueError(f"Failed to parse meta.json: {e}")
+
+        active_set = meta.get("active_metric_set")
+        if not active_set:
+            raise ValueError(
+                f"No active_metric_set in meta.json. Run 'evalyn suggest-metrics' to select metrics."
+            )
+
+        # Find the metrics file from metric_sets
+        metric_sets = meta.get("metric_sets", [])
+        matching = [m for m in metric_sets if m.get("name") == active_set]
+        if not matching:
+            raise ValueError(f"Metric set '{active_set}' not found in meta.json metric_sets.")
+
+        metrics_rel = matching[0].get("file")
+        if not metrics_rel:
+            raise ValueError(f"No file path for metric set '{active_set}' in meta.json.")
+
+        metrics_path = dataset_dir / metrics_rel
+        print(f"Auto-detected metrics: {metrics_path}")
+
+    if not metrics_path.exists():
+        raise FileNotFoundError(f"Metrics file not found: {metrics_path}")
+
+    return dataset_file, metrics_path
+
+
+class ProgressBar:
+    """Simple progress bar for evaluation."""
+
+    def __init__(self, total: int, width: int = 40):
+        self.total = total
+        self.width = width
+        self._current = 0
+        self._current_metric = ""
+        self._current_type = ""
+
+    def update(self, current: int, total: int, metric: str, metric_type: str) -> None:
+        self._current = current
+        self._current_metric = metric
+        self._current_type = metric_type
+        self._render()
+
+    def _render(self) -> None:
+        pct = self._current / self.total if self.total > 0 else 0
+        filled = int(self.width * pct)
+        bar = "=" * filled + "-" * (self.width - filled)
+        type_label = "[obj]" if self._current_type == "objective" else "[llm]"
+        line = f"\r[{bar}] {self._current}/{self.total} {type_label} {self._current_metric[:20]:<20}"
+        sys.stderr.write(line)
+        sys.stderr.flush()
+
+    def finish(self) -> None:
+        sys.stderr.write("\r" + " " * 80 + "\r")
+        sys.stderr.flush()
+
+
 def cmd_run_eval(args: argparse.Namespace) -> None:
     """Run evaluation using pre-computed traces from dataset and metrics from JSON file."""
-    # Load dataset
-    dataset = load_dataset(args.dataset)
+    output_format = getattr(args, "format", "table")
 
-    # Load metrics from JSON file
-    metrics_path = Path(args.metrics)
-    if not metrics_path.exists():
-        print(f"Error: Metrics file not found: {metrics_path}")
+    # Resolve dataset and metrics paths
+    try:
+        dataset_file, metrics_path = _resolve_dataset_and_metrics(args.dataset, args.metrics)
+    except (FileNotFoundError, ValueError) as e:
+        print(f"Error: {e}")
         sys.exit(1)
 
+    # Load dataset
+    dataset = load_dataset(str(dataset_file))
+    dataset_list = list(dataset)  # Convert to list for counting
+
+    # Load metrics from JSON file
     metrics_data = json.loads(metrics_path.read_text(encoding="utf-8"))
     if not isinstance(metrics_data, list):
         print(f"Error: Metrics file must contain a JSON array of metric specs")
@@ -633,6 +869,9 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     # Build metrics from specs
     from .metrics.factory import build_objective_metric, build_subjective_metric
     metrics = []
+    objective_count = 0
+    subjective_count = 0
+
     for spec_data in metrics_data:
         spec = MetricSpec(
             id=spec_data["id"],
@@ -641,18 +880,27 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
             description=spec_data.get("description", ""),
             config=spec_data.get("config", {}),
         )
-        if spec.type == "objective":
-            metric = build_objective_metric(spec.id, spec.config)
-        else:
-            metric = build_subjective_metric(spec.id, spec.config)
-        if metric:
-            metrics.append(metric)
+        try:
+            if spec.type == "objective":
+                metric = build_objective_metric(spec.id, spec.config)
+                objective_count += 1
+            else:
+                metric = build_subjective_metric(spec.id, spec.config)
+                subjective_count += 1
+            if metric:
+                metrics.append(metric)
+        except Exception as e:
+            if output_format != "json":
+                print(f"Warning: Failed to build metric '{spec.id}': {e}")
 
     if not metrics:
         print("Error: No valid metrics loaded from file")
         sys.exit(1)
 
-    print(f"Loaded {len(metrics)} metrics: {', '.join(m.spec.id for m in metrics)}")
+    if output_format != "json":
+        print(f"Loaded {len(metrics)} metrics ({objective_count} objective, {subjective_count} subjective)")
+        print(f"Dataset: {len(dataset_list)} items")
+        print()
 
     # Get tracer with storage
     tracer = get_default_tracer()
@@ -660,26 +908,77 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         print("Error: No storage configured")
         sys.exit(1)
 
+    # Create progress bar
+    total_evals = len(dataset_list) * len(metrics)
+    progress = ProgressBar(total_evals) if output_format != "json" else None
+
+    def progress_callback(current: int, total: int, metric: str, metric_type: str) -> None:
+        if progress:
+            progress.update(current, total, metric, metric_type)
+
     # Run evaluation using cached traces
     from .runner import EvalRunner
     runner = EvalRunner(
         target_fn=lambda: None,  # Dummy function, won't be called
         metrics=metrics,
-        dataset_name=args.dataset_name or Path(args.dataset).stem,
+        dataset_name=args.dataset_name or dataset_file.stem,
         tracer=tracer,
         instrument=False,  # Don't instrument since we're not calling the function
+        progress_callback=progress_callback if output_format != "json" else None,
     )
-    run = runner.run_dataset(dataset)
+    run = runner.run_dataset(dataset_list)
 
-    print(f"\nEval run {run.id} over dataset '{run.dataset_name}'")
+    if progress:
+        progress.finish()
+
+    # JSON output
+    if output_format == "json":
+        result = {
+            "id": run.id,
+            "dataset_name": run.dataset_name,
+            "created_at": run.created_at.isoformat() if run.created_at else None,
+            "summary": run.summary,
+            "metric_results": [
+                {
+                    "metric_id": r.metric_id,
+                    "item_id": r.item_id,
+                    "call_id": r.call_id,
+                    "score": r.score,
+                    "passed": r.passed,
+                    "details": r.details,
+                }
+                for r in run.metric_results
+            ],
+        }
+        print(json.dumps(result, indent=2))
+        return
+
+    # Table output
+    print(f"\nEval run {run.id}")
+    print(f"Dataset: {run.dataset_name}")
+    print(f"Run saved to storage: {run.id}")
+    print()
+
+    # Build metric type lookup
+    metric_types = {m.spec.id: m.spec.type for m in metrics}
+
+    print("Results:")
+    print("-" * 70)
+    print(f"{'Metric':<25} {'Type':<10} {'Count':<6} {'Avg Score':<12} {'Pass Rate':<10}")
+    print("-" * 70)
+
     for metric_id, stats in run.summary.get("metrics", {}).items():
+        mtype = metric_types.get(metric_id, "?")
+        type_label = "obj" if mtype == "objective" else "llm"
         avg_score = stats.get('avg_score')
         avg_score_str = f"{avg_score:.4f}" if avg_score is not None else "N/A"
         pass_rate = stats.get('pass_rate')
-        pass_rate_str = f"{pass_rate:.2f}" if pass_rate is not None else "N/A"
-        print(f"- {metric_id}: count={stats['count']}, avg_score={avg_score_str}, pass_rate={pass_rate_str}")
+        pass_rate_str = f"{pass_rate*100:.1f}%" if pass_rate is not None else "N/A"
+        print(f"{metric_id:<25} [{type_label:<3}]    {stats['count']:<6} {avg_score_str:<12} {pass_rate_str:<10}")
+
+    print("-" * 70)
     if run.summary.get("failed_items"):
-        print(f"- failed items: {run.summary['failed_items']}")
+        print(f"Failed items: {run.summary['failed_items']}")
 
 
 def cmd_suggest_metrics(args: argparse.Namespace) -> None:
@@ -959,9 +1258,29 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
         print("No storage configured.")
         return
     runs = tracer.storage.list_eval_runs(limit=args.limit)
+    output_format = getattr(args, "format", "table")
+
     if not runs:
-        print("No eval runs found.")
+        if output_format == "json":
+            print("[]")
+        else:
+            print("No eval runs found.")
         return
+
+    if output_format == "json":
+        result = []
+        for run in runs:
+            result.append({
+                "id": run.id,
+                "dataset_name": run.dataset_name,
+                "created_at": run.created_at.isoformat() if run.created_at else None,
+                "metrics_count": len(run.metrics),
+                "results_count": len(run.metric_results),
+                "summary": run.summary,
+            })
+        print(json.dumps(result, indent=2))
+        return
+
     headers = ["id", "dataset", "created_at", "metrics", "results"]
     print(" | ".join(headers))
     print("-" * 120)
@@ -1132,8 +1451,25 @@ def cmd_list_metrics(args: argparse.Namespace) -> None:
 
 
 def main(argv: List[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description=None, add_help=False)
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    parser = argparse.ArgumentParser(
+        prog="evalyn",
+        description="Evalyn CLI - Instrument, trace, and evaluate LLM agents",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  evalyn list-calls --limit 20              List recent traced calls
+  evalyn show-call --id <call_id>           Show details for a specific call
+  evalyn build-dataset --project myproj     Build dataset from traces
+  evalyn suggest-metrics --target app.py:func --mode basic
+                                            Suggest metrics (fast heuristic)
+  evalyn run-eval --dataset data/myproj/dataset.jsonl --metrics data/myproj/metrics/basic.json
+                                            Run evaluation on dataset
+
+For more info on a command: evalyn <command> --help
+""",
+    )
+    parser.add_argument("--version", action="store_true", help="Show version and exit")
+    subparsers = parser.add_subparsers(dest="command")
 
     def _print_ascii_help():
         art = r"""
@@ -1157,12 +1493,14 @@ def main(argv: List[str] | None = None) -> None:
     list_parser = subparsers.add_parser("list-calls", help="List recent traced calls")
     list_parser.add_argument("--limit", type=int, default=10, help="Maximum number of calls to display")
     list_parser.add_argument("--project", help="Filter by project_id/project_name in call metadata")
+    list_parser.add_argument("--format", choices=["table", "json"], default="table", help="Output format (default: table)")
     list_parser.set_defaults(func=cmd_list_calls)
 
     run_parser = subparsers.add_parser("run-eval", help="Run evaluation on dataset using specified metrics")
-    run_parser.add_argument("--dataset", required=True, help="Path to JSON/JSONL dataset file")
-    run_parser.add_argument("--metrics", required=True, help="Path to metrics JSON file")
+    run_parser.add_argument("--dataset", required=True, help="Path to JSON/JSONL dataset file or directory containing dataset.jsonl")
+    run_parser.add_argument("--metrics", help="Path to metrics JSON file (auto-detected from meta.json if omitted)")
     run_parser.add_argument("--dataset-name", help="Name for the eval run (defaults to dataset filename)")
+    run_parser.add_argument("--format", choices=["table", "json"], default="table", help="Output format (default: table)")
     run_parser.set_defaults(func=cmd_run_eval)
 
     suggest_parser = subparsers.add_parser("suggest-metrics", help="Suggest metrics for a target function")
@@ -1181,7 +1519,7 @@ def main(argv: List[str] | None = None) -> None:
         default="api",
         help="When using LLM modes: choose local (ollama) or api (OpenAI/Gemini-compatible).",
     )
-    suggest_parser.add_argument("--model", default="gpt-4.1", help="Model name (ollama for local; API model for api)")
+    suggest_parser.add_argument("--model", default="gemini-2.0-flash-exp", help="Model name (e.g., gemini-2.0-flash-exp, gpt-4, llama3.1 for Ollama)")
     suggest_parser.add_argument("--api-base", help="Custom API base URL for --llm-mode api (optional)")
     suggest_parser.add_argument("--api-key", help="API key override for --llm-mode api (optional)")
     suggest_parser.add_argument(
@@ -1209,6 +1547,7 @@ def main(argv: List[str] | None = None) -> None:
 
     runs_parser = subparsers.add_parser("list-runs", help="List stored eval runs")
     runs_parser.add_argument("--limit", type=int, default=10)
+    runs_parser.add_argument("--format", choices=["table", "json"], default="table", help="Output format (default: table)")
     runs_parser.set_defaults(func=cmd_list_runs)
 
     show_call = subparsers.add_parser("show-call", help="Show details for a traced call")
@@ -1240,6 +1579,18 @@ def main(argv: List[str] | None = None) -> None:
     list_metrics.set_defaults(func=cmd_list_metrics)
 
     args = parser.parse_args(argv)
+
+    # Handle --version flag
+    if args.version:
+        from . import __version__
+        print(f"evalyn {__version__}")
+        return
+
+    # Require a command if --version wasn't used
+    if not args.command:
+        parser.print_help()
+        return
+
     try:
         args.func(args)
     except BrokenPipeError:

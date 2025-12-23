@@ -2,130 +2,70 @@ from __future__ import annotations
 
 import json
 import os
-import re
-from typing import Any, Callable, Dict, Optional
+import urllib.request
+import urllib.error
+from typing import Any, Callable, Dict, List, Optional
 
 from ..models import DatasetItem, FunctionCall
 
 
 class LLMJudge:
     """
-    Simple judge abstraction. Provide a scorer callable or subclass and override `score`.
-    The scorer should return a dict like: {"score": float, "reason": str, "raw": {...}}.
+    Base judge abstraction. Subclass and override `score` method.
+    The scorer should return a dict like: {"score": float, "passed": bool, "reason": str}.
     """
 
     def __init__(
         self,
         name: str,
         prompt: str,
-        scorer: Optional[Callable[[FunctionCall, DatasetItem], Dict[str, Any]]] = None,
-        model: str = "gpt-4.1",
-        parameters: Optional[Dict[str, Any]] = None,
+        model: str = "gemini-2.0-flash-exp",
+        temperature: float = 0.0,
     ):
         self.name = name
         self.prompt = prompt
         self.model = model
-        self.parameters = parameters or {}
-        self._scorer = scorer
+        self.temperature = temperature
 
     def score(self, call: FunctionCall, item: DatasetItem) -> Dict[str, Any]:
-        if self._scorer is None:
-            raise NotImplementedError("Provide a scorer callable or override score()")
-        return self._scorer(call, item)
+        raise NotImplementedError("Subclass must implement score()")
 
 
 class EchoJudge(LLMJudge):
     """Useful for tests: returns 1.0 if expected substring is present."""
 
     def __init__(self):
-        super().__init__(name="echo", prompt="echo judge", scorer=None, model="debug")
+        super().__init__(name="echo", prompt="echo judge", model="debug")
 
     def score(self, call: FunctionCall, item: DatasetItem) -> Dict[str, Any]:
         expected = item.expected
         text = str(call.output or "")
         passed = expected is not None and str(expected) in text
-        return {"score": 1.0 if passed else 0.0, "reason": "debug-echo", "raw": {"output": text}}
-
-
-class OpenAIJudge(LLMJudge):
-    """
-    LLM judge using OpenAI Chat Completions. Requires `openai` package and `OPENAI_API_KEY`.
-    """
-
-    def __init__(
-        self,
-        name: str = "openai-judge",
-        model: str = "gpt-4.1",
-        prompt: Optional[str] = None,
-        parameters: Optional[Dict[str, Any]] = None,
-        system_prompt: Optional[str] = None,
-    ):
-        prompt_text = prompt or (
-            "You are an evaluator. Given the task input, expected behavior (if any), and the model output, "
-            "return a JSON object with `score` between 0 and 1 and a brief `reason`."
-        )
-        super().__init__(name=name, prompt=prompt_text, scorer=None, model=model, parameters=parameters)
-        self.system_prompt = system_prompt or "You are a strict evaluator."
-
-    def score(self, call: FunctionCall, item: DatasetItem) -> Dict[str, Any]:
-        try:
-            import openai
-        except ImportError as exc:  # pragma: no cover - optional dependency
-            raise RuntimeError("openai package not installed. Install with extras: pip install evalyn-sdk[llm]") from exc
-
-        client = openai.OpenAI()
-        user_prompt = (
-            f"Task input: {item.inputs}\n"
-            f"Expected (optional): {item.expected}\n"
-            f"Model output: {call.output}\n"
-        )
-
-        params = {"temperature": 0.0, **self.parameters}
-        resp = client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": self.system_prompt},
-                {"role": "user", "content": f"{self.prompt}\n\n{user_prompt}"},
-            ],
-            response_format={"type": "json_object"},
-            **params,
-        )
-        content = resp.choices[0].message.content
-        parsed: Dict[str, Any] = json.loads(content)
-        passed = parsed.get("passed") if isinstance(parsed, dict) else None
-        if isinstance(passed, str):
-            low = passed.strip().lower()
-            if low in {"pass", "passed", "true", "yes"}:
-                passed = True
-            elif low in {"fail", "failed", "false", "no"}:
-                passed = False
-        score = parsed.get("score") if isinstance(parsed, dict) else None
-        if isinstance(score, str):
-            try:
-                score = float(score)
-            except Exception:
-                score = None
-        if passed is not None and score is None:
-            score = 1.0 if bool(passed) else 0.0
-        return {
-            "score": score,
-            "passed": passed,
-            "reason": parsed.get("reason") if isinstance(parsed, dict) else None,
-            "raw": {"response": parsed, "model": self.model},
-        }
+        return {"score": 1.0 if passed else 0.0, "passed": passed, "reason": "debug-echo", "raw": {"output": text}}
 
 
 def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
+    """Extract first JSON object from text, handling markdown code blocks."""
     text = (text or "").strip()
     if not text:
         return None
+
+    # Remove markdown code blocks if present
+    if text.startswith("```"):
+        lines = text.split("\n")
+        # Remove first line (```json or ```) and last line (```)
+        if len(lines) >= 2:
+            text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+            text = text.strip()
+
+    # Try direct parse
     try:
         parsed = json.loads(text)
         return parsed if isinstance(parsed, dict) else None
     except Exception:
         pass
 
-    # Try to find the first JSON object by brace matching.
+    # Try to find JSON object by brace matching
     start = text.find("{")
     if start < 0:
         return None
@@ -146,7 +86,21 @@ def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _parse_passed(value: Any) -> Optional[bool]:
+    """Parse various representations of pass/fail to boolean."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        low = value.strip().lower()
+        if low in {"pass", "passed", "true", "yes", "1"}:
+            return True
+        if low in {"fail", "failed", "false", "no", "0"}:
+            return False
+    return None
+
+
 def _safe_trace_excerpt(call: FunctionCall, max_events: int = 20, max_chars: int = 2000) -> str:
+    """Create a safe string excerpt of trace events for the judge prompt."""
     events = call.trace or []
     lines = []
     for ev in events[:max_events]:
@@ -162,106 +116,151 @@ def _safe_trace_excerpt(call: FunctionCall, max_events: int = 20, max_chars: int
 
 class GeminiJudge(LLMJudge):
     """
-    LLM judge using Google Gemini. Requires `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) and either
-    `google-genai` (preferred) or `google-generativeai` installed.
+    LLM judge using Google Gemini API via direct HTTP calls.
+    Requires GEMINI_API_KEY environment variable.
     """
+
+    API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
     def __init__(
         self,
         name: str = "gemini-judge",
-        model: str = "gemini-2.5-flash-lite",
-        prompt: Optional[str] = None,
-        parameters: Optional[Dict[str, Any]] = None,
+        prompt: str = "",
+        model: str = "gemini-2.0-flash-exp",
+        temperature: float = 0.0,
+        api_key: Optional[str] = None,
     ):
-        prompt_text = prompt or (
-            "You are an evaluator. Given the task input, expected behavior (if any), the model output, "
-            "and any available trace/tool evidence, return a JSON object with `score` between 0 and 1 "
-            "and a brief `reason`. Return ONLY JSON."
+        super().__init__(name=name, prompt=prompt, model=model, temperature=temperature)
+        self._api_key = api_key
+
+    def _get_api_key(self) -> str:
+        key = self._api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        if not key:
+            raise RuntimeError(
+                "Missing GEMINI_API_KEY. Set the environment variable or pass api_key to GeminiJudge."
+            )
+        return key
+
+    def _call_api(self, prompt: str) -> str:
+        """Make direct HTTP call to Gemini API."""
+        api_key = self._get_api_key()
+        url = self.API_URL.format(model=self.model) + f"?key={api_key}"
+
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": self.temperature,
+            },
+        }
+
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
         )
-        super().__init__(name=name, prompt=prompt_text, scorer=None, model=model, parameters=parameters)
+
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                response_data = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8") if e.fp else ""
+            raise RuntimeError(f"Gemini API error ({e.code}): {error_body}") from e
+        except urllib.error.URLError as e:
+            raise RuntimeError(f"Gemini API connection error: {e.reason}") from e
+
+        # Extract text from response
+        try:
+            candidates = response_data.get("candidates", [])
+            if candidates:
+                content = candidates[0].get("content", {})
+                parts = content.get("parts", [])
+                if parts:
+                    return parts[0].get("text", "")
+        except Exception:
+            pass
+
+        return ""
+
+    def _build_evaluation_prompt(self, call: FunctionCall, item: DatasetItem) -> str:
+        """Build the full prompt for evaluation."""
+        trace_excerpt = _safe_trace_excerpt(call)
+
+        # Use the new 4-column model: input, output, human_label, metadata
+        evaluation_input = {
+            "input": item.input or item.inputs,  # User input
+            "output": item.output or call.output,  # Agent response
+            "human_label": item.human_label,  # Human judgement (if any)
+            "trace_excerpt": trace_excerpt if trace_excerpt else None,
+        }
+
+        full_prompt = f"""{self.prompt}
+
+EVALUATION_INPUT:
+{json.dumps(evaluation_input, default=str, ensure_ascii=False, indent=2)}
+
+Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
+- "passed": boolean (true if criteria met, false otherwise)
+- "reason": string (brief explanation)
+- "score": number 0-1 (optional, defaults to 1 if passed, 0 if failed)
+"""
+        return full_prompt
 
     def score(self, call: FunctionCall, item: DatasetItem) -> Dict[str, Any]:
-        api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            raise RuntimeError("Missing GEMINI_API_KEY (or GOOGLE_API_KEY) for GeminiJudge.")
+        full_prompt = self._build_evaluation_prompt(call, item)
 
-        trace_excerpt = _safe_trace_excerpt(call)
-        user_payload = {
-            "inputs": item.inputs,
-            "expected": item.expected,
-            "output": call.output,
-            "trace_excerpt": trace_excerpt,
-        }
-        user_prompt = json.dumps(user_payload, default=str, ensure_ascii=False)
-        full_prompt = f"{self.prompt}\n\nEVALUATION_INPUT:\n{user_prompt}\n"
-
-        temperature = float(self.parameters.get("temperature", 0.0)) if self.parameters else 0.0
-
-        text = None
         try:
-            from google.genai import Client  # type: ignore
+            raw_text = self._call_api(full_prompt)
+        except Exception as e:
+            return {
+                "score": None,
+                "passed": None,
+                "reason": f"API call failed: {e}",
+                "raw": {"error": str(e)},
+            }
 
-            client = Client(api_key=api_key)
-            resp = client.models.generate_content(
-                model=self.model,
-                contents=full_prompt,
-                config={"temperature": temperature, **(self.parameters or {})},
-            )
-            text = getattr(resp, "text", None)
-        except Exception:
-            text = None
-
-        if text is None:
-            try:
-                import google.generativeai as genai  # type: ignore
-
-                genai.configure(api_key=api_key)
-                model = genai.GenerativeModel(self.model)
-                resp = model.generate_content(full_prompt, generation_config={"temperature": temperature})
-                text = getattr(resp, "text", None)
-            except Exception as exc:
-                raise RuntimeError(f"GeminiJudge failed to call Gemini: {exc}") from exc
-
-        raw_text = (text or "").strip()
         parsed = _extract_json_object(raw_text) or {}
-        passed = parsed.get("passed") if isinstance(parsed, dict) else None
-        if isinstance(passed, str):
-            low = passed.strip().lower()
-            if low in {"pass", "passed", "true", "yes"}:
-                passed = True
-            elif low in {"fail", "failed", "false", "no"}:
-                passed = False
-        if passed is None and isinstance(parsed, dict) and "verdict" in parsed:
-            verdict = str(parsed.get("verdict") or "").strip().lower()
-            if verdict in {"pass", "passed", "true", "yes"}:
-                passed = True
-            elif verdict in {"fail", "failed", "false", "no"}:
-                passed = False
 
-        score = parsed.get("score") if isinstance(parsed, dict) else None
+        # Extract passed status
+        passed = None
+        for key in ("passed", "pass", "verdict"):
+            if key in parsed:
+                passed = _parse_passed(parsed.get(key))
+                if passed is not None:
+                    break
+
+        # Extract score
+        score = parsed.get("score")
         if isinstance(score, str):
             try:
                 score = float(score)
             except Exception:
                 score = None
-        if passed is not None and score is None:
-            score = 1.0 if bool(passed) else 0.0
+
+        # Default score based on passed status
+        if score is None and passed is not None:
+            score = 1.0 if passed else 0.0
+
+        # Clamp score to 0-1
         if isinstance(score, (int, float)):
             score = max(0.0, min(1.0, float(score)))
-        else:
-            score = None
 
         return {
             "score": score,
             "passed": passed,
-            "reason": parsed.get("reason") if isinstance(parsed, dict) else None,
+            "reason": parsed.get("reason"),
             "raw": {"response": parsed, "text": raw_text, "model": self.model},
         }
+
+
+# Backwards compatibility aliases
+OpenAIJudge = GeminiJudge  # Deprecated: use GeminiJudge
 
 
 __all__ = [
     "LLMJudge",
     "EchoJudge",
-    "OpenAIJudge",
     "GeminiJudge",
+    "OpenAIJudge",  # Deprecated alias
 ]

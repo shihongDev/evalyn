@@ -33,7 +33,7 @@ def save_dataset(items: Iterable[DatasetItem], path: str | Path) -> None:
     path = Path(path)
     with path.open("w", encoding="utf-8") as f:
         for item in items:
-            f.write(json.dumps(item.__dict__) + "\n")
+            f.write(json.dumps(item.as_dict()) + "\n")
 
 
 def save_dataset_with_meta(
@@ -76,23 +76,19 @@ def dataset_from_calls(
     include_metadata: bool = True,
 ) -> List[DatasetItem]:
     """
-    Build a regression dataset from existing traced calls.
-    - uses call.inputs as DatasetItem.inputs
-    - uses call.output as expected (baseline)
-    - filters errors if use_only_success=True
+    Build a dataset from existing traced calls.
+
+    Dataset structure (4 columns):
+    - input: The user/system input to the agent
+    - output: The agent/LLM response
+    - human_label: None (to be filled by human annotators)
+    - metadata: call_id, function name, etc.
     """
     items: List[DatasetItem] = []
     for call in calls:
         if use_only_success and call.error:
             continue
-        items.append(
-            DatasetItem(
-                id=call.id,
-                inputs=call.inputs,
-                expected=call.output,
-                metadata={"function": call.function_name} if include_metadata else {},
-            )
-        )
+        items.append(DatasetItem.from_call(call))
     return items
 
 
@@ -111,6 +107,13 @@ def build_dataset_from_storage(
 ) -> List[DatasetItem]:
     """
     Build a dataset from stored calls with simple filtering.
+
+    Dataset structure (4 columns):
+    - input: The user/system input to the agent
+    - output: The agent/LLM response
+    - human_label: None (to be filled by human annotators)
+    - metadata: call_id, function name, project info, etc.
+
     Filters:
       - function_name: exact match on call.function_name
       - project_id/project_name: matches call.metadata.get("project_id") or metadata.get("project_name")
@@ -152,21 +155,25 @@ def build_dataset_from_storage(
         if until and started_at and started_at > until:
             continue
 
+        # Build metadata
         meta = {}
         if include_metadata:
             meta = {
                 "function": call.function_name,
                 "call_id": call.id,
-                "started_at": call.started_at.isoformat(),
+                "started_at": call.started_at.isoformat() if call.started_at else None,
+                "duration_ms": call.duration_ms,
             }
             if isinstance(call.metadata, dict):
                 meta.update(call.metadata)
 
+        # Create dataset item with new 4-column structure
         items.append(
             DatasetItem(
                 id=call.id,
-                inputs=call.inputs,
-                expected=call.output,
+                input=call.inputs,
+                output=call.output,
+                human_label=None,
                 metadata=meta,
             )
         )

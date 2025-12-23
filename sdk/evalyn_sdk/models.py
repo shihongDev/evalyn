@@ -159,18 +159,75 @@ class MetricResult:
 
 @dataclass
 class DatasetItem:
+    """
+    Represents a single evaluation item with 4 core columns:
+
+    - input: User/system input to the agent
+    - output: Agent/LLM response (captured from trace)
+    - human_label: Human judgement/annotation (optional, for calibration)
+    - metadata: Additional info (call_id, trace data, etc.)
+
+    The old 'inputs' and 'expected' fields are kept for backwards compatibility.
+    """
     id: str
-    inputs: Dict[str, Any]
-    expected: Optional[Any] = None
+    input: Dict[str, Any] = field(default_factory=dict)  # User input
+    output: Optional[Any] = None                          # Agent output
+    human_label: Optional[Dict[str, Any]] = None          # Human judgement
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+    # Backwards compatibility
+    inputs: Dict[str, Any] = field(default_factory=dict)  # Alias for input
+    expected: Optional[Any] = None                         # Deprecated
+
+    def __post_init__(self):
+        # Merge inputs into input for backwards compat
+        if self.inputs and not self.input:
+            self.input = self.inputs
+        elif self.input and not self.inputs:
+            self.inputs = self.input
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "input": self.input,
+            "output": self.output,
+            "human_label": self.human_label,
+            "metadata": self.metadata,
+        }
 
     @classmethod
     def from_payload(cls, payload: Dict[str, Any]) -> "DatasetItem":
+        # Support both old format (inputs/expected) and new format (input/output)
+        input_data = payload.get("input") or payload.get("inputs", {})
+        output_data = payload.get("output") or payload.get("expected")
+
         return cls(
             id=payload.get("id", _default_id()),
-            inputs=payload.get("inputs", {}),
-            expected=payload.get("expected"),
+            input=input_data,
+            output=output_data,
+            human_label=payload.get("human_label"),
             metadata=payload.get("metadata", {}),
+            inputs=input_data,  # Backwards compat
+            expected=output_data,  # Backwards compat
+        )
+
+    @classmethod
+    def from_call(cls, call: "FunctionCall") -> "DatasetItem":
+        """Create a DatasetItem from a traced FunctionCall."""
+        return cls(
+            id=_default_id(),
+            input=call.inputs,
+            output=call.output,
+            human_label=None,
+            metadata={
+                "call_id": call.id,
+                "function": call.function_name,
+                "duration_ms": call.duration_ms,
+                "error": call.error,
+                "session_id": call.session_id,
+            },
+            inputs=call.inputs,
+            expected=None,
         )
 
 

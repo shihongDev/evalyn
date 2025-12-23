@@ -38,7 +38,7 @@ from .objective import (
 from .registry import Metric
 from .subjective import subjective_metric
 from .templates import OBJECTIVE_TEMPLATES, SUBJECTIVE_TEMPLATES
-from .judges import GeminiJudge, LLMJudge, OpenAIJudge
+from .judges import GeminiJudge, LLMJudge
 
 
 def _tpl_by_id(templates: List[dict]) -> Dict[str, dict]:
@@ -121,9 +121,22 @@ def build_subjective_metric(
     config: Optional[Dict[str, Any]] = None,
     *,
     judge: Optional[LLMJudge] = None,
-    judge_provider: str = "gemini",
-    judge_model: Optional[str] = None,
 ) -> Metric:
+    """
+    Build a subjective metric from template ID and config.
+
+    The prompt is constructed from:
+    1. Template's base prompt (if any)
+    2. Config's custom prompt (if provided, overrides template)
+    3. Rubric items from config
+
+    Config options:
+    - prompt: Custom prompt (overrides template prompt)
+    - rubric: List of criteria for PASS/FAIL evaluation
+    - threshold: Score threshold for pass (default: 0.7)
+    - model: Judge model name (default: gemini-2.0-flash-exp)
+    - temperature: Judge temperature (default: 0.0)
+    """
     tpl = _SUBJECTIVE_TPL.get(metric_id)
     if not tpl:
         raise KeyError(f"Unknown subjective metric id: {metric_id}")
@@ -131,42 +144,44 @@ def build_subjective_metric(
     base_cfg = dict(tpl.get("config") or {})
     cfg = {**base_cfg, **(config or {})}
 
+    # Parse threshold
     threshold = cfg.get("threshold", 0.7)
     try:
         threshold_f = float(threshold)
     except Exception:
         threshold_f = 0.7
 
+    # Build prompt from config or template
+    custom_prompt = cfg.get("prompt")
+    if custom_prompt:
+        prompt = str(custom_prompt).strip()
+    else:
+        prompt = str(tpl.get("prompt") or "").strip()
+
+    # Add rubric if provided
     rubric = cfg.get("rubric") or []
     if isinstance(rubric, str):
         rubric = [rubric]
     if not isinstance(rubric, list):
         rubric = []
 
-    rubric_lines = "\n".join([f"- {str(r).strip()}" for r in rubric if str(r).strip()])
-    prompt = tpl.get("prompt") or ""
-    if prompt:
-        prompt = prompt.strip() + "\n\n"
+    if rubric:
+        rubric_lines = "\n".join([f"- {str(r).strip()}" for r in rubric if str(r).strip()])
+        if prompt:
+            prompt += "\n\n"
+        prompt += "Evaluate using this rubric (PASS only if all criteria met):\n"
+        prompt += rubric_lines
 
-    prompt += "Use the rubric to decide PASS/FAIL.\n"
-    if rubric_lines:
-        prompt += "Rubric (PASS only if all criteria are satisfied):\n"
-        prompt += rubric_lines + "\n"
-    prompt += (
-        "Return ONLY JSON with keys:\n"
-        "  passed: boolean\n"
-        "  reason: string (1-3 sentences)\n"
-        "  failed_criteria: array of strings (optional)\n"
-    )
-    prompt += "\nMetric config (JSON):\n"
-    prompt += json.dumps(cfg, ensure_ascii=False, default=str, indent=2)
-
+    # Create judge if not provided
     if judge is None:
-        provider = (judge_provider or "gemini").lower()
-        if provider == "openai":
-            judge = OpenAIJudge(name=metric_id, model=judge_model or "gpt-4.1", prompt=prompt)
-        else:
-            judge = GeminiJudge(name=metric_id, model=judge_model or "gemini-2.5-flash-lite", prompt=prompt)
+        model = cfg.get("model", "gemini-2.0-flash-exp")
+        temperature = float(cfg.get("temperature", 0.0))
+        judge = GeminiJudge(
+            name=metric_id,
+            prompt=prompt,
+            model=model,
+            temperature=temperature,
+        )
 
     return subjective_metric(
         metric_id=metric_id,
