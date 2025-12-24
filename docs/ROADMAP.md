@@ -31,7 +31,7 @@ DatasetItem:
 
 ---
 
-## Phase 1: Human Annotation UI (v0.2)
+## Phase 1: Human Annotation UI (v0.2) ✅
 
 ### Goal
 Enable humans to easily review and annotate (input, output, eval_result) pairs.
@@ -81,9 +81,9 @@ evalyn annotation-stats --dataset data/myproj
 ```
 
 ### Tasks
-- [ ] Add `export-for-annotation` command
-- [ ] Define annotation JSON schema
-- [ ] Add annotation stats/coverage reporting
+- [x] Add `export-for-annotation` command
+- [x] Define annotation JSON schema (`HumanLabel`, `AnnotationItem` in models.py)
+- [x] Add annotation stats/coverage reporting (`annotation-stats` command)
 - [ ] (Optional) Simple web UI for annotation
 
 ---

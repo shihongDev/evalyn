@@ -275,6 +275,81 @@ class EvalRun:
 
 
 @dataclass
+class HumanLabel:
+    """
+    Human annotation for calibration.
+
+    Schema for human judgement on (input, output, eval_result) tuples:
+    - passed: Overall pass/fail judgement
+    - scores: Per-metric human scores (0-1)
+    - notes: Free-form notes from annotator
+    - annotator: Annotator identifier
+    - timestamp: When annotation was made
+    """
+    passed: bool
+    scores: Dict[str, float] = field(default_factory=dict)
+    notes: str = ""
+    annotator: str = ""
+    timestamp: datetime = field(default_factory=now_utc)
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "passed": self.passed,
+            "scores": self.scores,
+            "notes": self.notes,
+            "annotator": self.annotator,
+            "timestamp": _iso(self.timestamp),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "HumanLabel":
+        return cls(
+            passed=data.get("passed", True),
+            scores=data.get("scores", {}),
+            notes=data.get("notes", ""),
+            annotator=data.get("annotator", ""),
+            timestamp=_parse_datetime(data.get("timestamp")) or now_utc(),
+        )
+
+
+@dataclass
+class AnnotationItem:
+    """
+    Export format for human annotation workflow.
+
+    Contains the (input, output, eval_results) tuple for annotators to review.
+    """
+    id: str
+    input: Dict[str, Any]
+    output: Any
+    eval_results: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # metric_id -> result
+    human_label: Optional[HumanLabel] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "input": self.input,
+            "output": self.output,
+            "eval_results": self.eval_results,
+            "human_label": self.human_label.as_dict() if self.human_label else None,
+            "metadata": self.metadata,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "AnnotationItem":
+        human_label_data = data.get("human_label")
+        return cls(
+            id=data.get("id", _default_id()),
+            input=data.get("input", {}),
+            output=data.get("output"),
+            eval_results=data.get("eval_results", {}),
+            human_label=HumanLabel.from_dict(human_label_data) if human_label_data else None,
+            metadata=data.get("metadata", {}),
+        )
+
+
+@dataclass
 class Annotation:
     id: str
     target_id: str

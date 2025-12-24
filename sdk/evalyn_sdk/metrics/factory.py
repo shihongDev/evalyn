@@ -121,9 +121,14 @@ def build_subjective_metric(
     config: Optional[Dict[str, Any]] = None,
     *,
     judge: Optional[LLMJudge] = None,
+    description: Optional[str] = None,
 ) -> Metric:
     """
-    Build a subjective metric from template ID and config.
+    Build a subjective metric from template ID OR custom config.
+
+    Works in two modes:
+    1. Template mode: metric_id matches a known template, uses template as base
+    2. Custom mode: metric_id is custom, uses config directly (for brainstormed metrics)
 
     The prompt is constructed from:
     1. Template's base prompt (if any)
@@ -136,13 +141,21 @@ def build_subjective_metric(
     - threshold: Score threshold for pass (default: 0.7)
     - model: Judge model name (default: gemini-2.0-flash-exp)
     - temperature: Judge temperature (default: 0.0)
+    - description: Metric description (for custom metrics)
     """
     tpl = _SUBJECTIVE_TPL.get(metric_id)
-    if not tpl:
-        raise KeyError(f"Unknown subjective metric id: {metric_id}")
+    cfg = config or {}
 
-    base_cfg = dict(tpl.get("config") or {})
-    cfg = {**base_cfg, **(config or {})}
+    # Merge template config with provided config
+    if tpl:
+        base_cfg = dict(tpl.get("config") or {})
+        cfg = {**base_cfg, **cfg}
+        tpl_description = tpl.get("description", "")
+        tpl_prompt = tpl.get("prompt", "")
+    else:
+        # Custom metric (e.g., from brainstorm mode)
+        tpl_description = ""
+        tpl_prompt = ""
 
     # Parse threshold
     threshold = cfg.get("threshold", 0.7)
@@ -155,8 +168,11 @@ def build_subjective_metric(
     custom_prompt = cfg.get("prompt")
     if custom_prompt:
         prompt = str(custom_prompt).strip()
+    elif tpl_prompt:
+        prompt = str(tpl_prompt).strip()
     else:
-        prompt = str(tpl.get("prompt") or "").strip()
+        # Generate default prompt for custom metrics
+        prompt = f"You are an expert evaluator for '{metric_id}'. Evaluate the agent's output."
 
     # Add rubric if provided
     rubric = cfg.get("rubric") or []
@@ -171,6 +187,9 @@ def build_subjective_metric(
             prompt += "\n\n"
         prompt += "Evaluate using this rubric (PASS only if all criteria met):\n"
         prompt += rubric_lines
+    elif not tpl and not custom_prompt:
+        # For custom metrics without rubric, add generic evaluation guidance
+        prompt += "\n\nReturn PASS if the output is satisfactory, FAIL otherwise."
 
     # Create judge if not provided
     if judge is None:
@@ -183,10 +202,18 @@ def build_subjective_metric(
             temperature=temperature,
         )
 
+    # Use provided description, or template description, or config description
+    final_description = (
+        description
+        or cfg.get("description")
+        or tpl_description
+        or "LLM judge subjective score"
+    )
+
     return subjective_metric(
         metric_id=metric_id,
         judge=judge,
-        description=str(tpl.get("description") or "LLM judge subjective score"),
+        description=str(final_description),
         success_threshold=threshold_f,
         config=cfg,
     )

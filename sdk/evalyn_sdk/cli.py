@@ -12,7 +12,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 
 class Spinner:
@@ -872,6 +872,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     objective_count = 0
     subjective_count = 0
 
+    skipped_metrics = []
     for spec_data in metrics_data:
         spec = MetricSpec(
             id=spec_data["id"],
@@ -885,13 +886,29 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
                 metric = build_objective_metric(spec.id, spec.config)
                 objective_count += 1
             else:
-                metric = build_subjective_metric(spec.id, spec.config)
+                # Pass description for custom/brainstormed metrics
+                metric = build_subjective_metric(
+                    spec.id,
+                    spec.config,
+                    description=spec.description,
+                )
                 subjective_count += 1
             if metric:
                 metrics.append(metric)
+        except KeyError as e:
+            # Unknown metric ID - skip with warning
+            skipped_metrics.append((spec.id, spec.type, str(e)))
         except Exception as e:
             if output_format != "json":
                 print(f"Warning: Failed to build metric '{spec.id}': {e}")
+
+    if skipped_metrics and output_format != "json":
+        print(f"Skipped {len(skipped_metrics)} unknown metrics:")
+        for mid, mtype, reason in skipped_metrics:
+            if mtype == "objective":
+                print(f"  - {mid} [objective]: Custom objective metrics not supported. Use 'evalyn list-metrics' to see available templates.")
+            else:
+                print(f"  - {mid}: {reason}")
 
     if not metrics:
         print("Error: No valid metrics loaded from file")
@@ -916,8 +933,8 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         if progress:
             progress.update(current, total, metric, metric_type)
 
-    # Run evaluation using cached traces
-    from .runner import EvalRunner
+    # Run evaluation using cached traces (with synthetic call support)
+    from .runner import EvalRunner, save_eval_run_json
     runner = EvalRunner(
         target_fn=lambda: None,  # Dummy function, won't be called
         metrics=metrics,
@@ -926,10 +943,14 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         instrument=False,  # Don't instrument since we're not calling the function
         progress_callback=progress_callback if output_format != "json" else None,
     )
-    run = runner.run_dataset(dataset_list)
+    run = runner.run_dataset(dataset_list, use_synthetic=True)
 
     if progress:
         progress.finish()
+
+    # Save eval run as JSON in dataset folder
+    dataset_dir = dataset_file.parent
+    run_json_path = save_eval_run_json(run, dataset_dir)
 
     # JSON output
     if output_format == "json":
@@ -938,6 +959,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
             "dataset_name": run.dataset_name,
             "created_at": run.created_at.isoformat() if run.created_at else None,
             "summary": run.summary,
+            "run_file": str(run_json_path),
             "metric_results": [
                 {
                     "metric_id": r.metric_id,
@@ -956,7 +978,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     # Table output
     print(f"\nEval run {run.id}")
     print(f"Dataset: {run.dataset_name}")
-    print(f"Run saved to storage: {run.id}")
+    print(f"Run saved to: {run_json_path}")
     print()
 
     # Build metric type lookup
@@ -1332,6 +1354,209 @@ def cmd_import_annotations(args: argparse.Namespace) -> None:
     print(f"Imported {len(anns)} annotations into storage.")
 
 
+def cmd_export_for_annotation(args: argparse.Namespace) -> None:
+    """Export dataset items with eval results for human annotation."""
+    from .models import AnnotationItem, HumanLabel
+
+    tracer = get_default_tracer()
+    if not tracer.storage:
+        print("No storage configured.")
+        return
+
+    # Resolve dataset path
+    dataset_path = Path(args.dataset)
+    if dataset_path.is_dir():
+        dataset_file = dataset_path / "dataset.jsonl"
+        if not dataset_file.exists():
+            dataset_file = dataset_path / "dataset.json"
+    else:
+        dataset_file = dataset_path
+
+    if not dataset_file.exists():
+        print(f"Error: Dataset not found: {dataset_file}")
+        sys.exit(1)
+
+    # Load dataset
+    dataset = load_dataset(str(dataset_file))
+    dataset_list = list(dataset)
+
+    # Get eval run (if specified or use latest)
+    run = None
+    if args.run_id:
+        run = tracer.storage.get_eval_run(args.run_id)
+        if not run:
+            print(f"Warning: Eval run '{args.run_id}' not found. Exporting without eval results.")
+    else:
+        # Try to get the latest run
+        runs = tracer.storage.list_eval_runs(limit=1)
+        if runs:
+            run = runs[0]
+            print(f"Using latest eval run: {run.id}")
+
+    # Build item_id -> eval_results mapping
+    eval_results_map: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    if run:
+        for result in run.metric_results:
+            item_id = result.item_id
+            if item_id not in eval_results_map:
+                eval_results_map[item_id] = {}
+            eval_results_map[item_id][result.metric_id] = {
+                "passed": result.passed,
+                "score": result.score,
+                "reason": result.details.get("reason", ""),
+            }
+
+    # Build annotation items
+    annotation_items = []
+    for item in dataset_list:
+        eval_results = eval_results_map.get(item.id, {})
+
+        # Check for existing human_label
+        human_label = None
+        if item.human_label:
+            if isinstance(item.human_label, dict):
+                human_label = HumanLabel.from_dict(item.human_label)
+            else:
+                human_label = item.human_label
+
+        ann_item = AnnotationItem(
+            id=item.id,
+            input=item.input,
+            output=item.output,
+            eval_results=eval_results,
+            human_label=human_label,
+            metadata=item.metadata,
+        )
+        annotation_items.append(ann_item)
+
+    # Write output
+    output_path = Path(args.output)
+    with output_path.open("w", encoding="utf-8") as f:
+        for ann_item in annotation_items:
+            f.write(json.dumps(ann_item.as_dict(), ensure_ascii=False) + "\n")
+
+    # Summary stats
+    with_evals = sum(1 for item in annotation_items if item.eval_results)
+    with_labels = sum(1 for item in annotation_items if item.human_label)
+
+    print(f"Exported {len(annotation_items)} items to {output_path}")
+    print(f"  - With eval results: {with_evals}")
+    print(f"  - With human labels: {with_labels}")
+    print(f"  - Awaiting annotation: {len(annotation_items) - with_labels}")
+
+
+def cmd_annotation_stats(args: argparse.Namespace) -> None:
+    """Show annotation coverage statistics."""
+    from .models import AnnotationItem, HumanLabel
+
+    # Resolve dataset path
+    dataset_path = Path(args.dataset)
+    if dataset_path.is_dir():
+        # Look for annotation file or dataset file
+        ann_file = dataset_path / "annotations.jsonl"
+        if ann_file.exists():
+            data_file = ann_file
+        else:
+            data_file = dataset_path / "dataset.jsonl"
+            if not data_file.exists():
+                data_file = dataset_path / "dataset.json"
+    else:
+        data_file = dataset_path
+
+    if not data_file.exists():
+        print(f"Error: File not found: {data_file}")
+        sys.exit(1)
+
+    # Load data
+    items = []
+    raw = data_file.read_text(encoding="utf-8").strip()
+    if not raw:
+        print("Empty file.")
+        return
+
+    for line in raw.splitlines():
+        if line.strip():
+            data = json.loads(line)
+            items.append(AnnotationItem.from_dict(data))
+
+    if not items:
+        print("No items found.")
+        return
+
+    # Calculate stats
+    total = len(items)
+    with_labels = sum(1 for item in items if item.human_label)
+    with_evals = sum(1 for item in items if item.eval_results)
+    coverage = with_labels / total if total > 0 else 0
+
+    # Per-metric stats
+    metric_stats: Dict[str, Dict[str, int]] = {}
+    for item in items:
+        for metric_id, result in item.eval_results.items():
+            if metric_id not in metric_stats:
+                metric_stats[metric_id] = {"total": 0, "passed": 0, "failed": 0}
+            metric_stats[metric_id]["total"] += 1
+            if result.get("passed") is True:
+                metric_stats[metric_id]["passed"] += 1
+            elif result.get("passed") is False:
+                metric_stats[metric_id]["failed"] += 1
+
+    # Human agreement with LLM (if we have both)
+    agreement_stats: Dict[str, Dict[str, int]] = {}
+    for item in items:
+        if not item.human_label or not item.eval_results:
+            continue
+        human_passed = item.human_label.passed
+        for metric_id, result in item.eval_results.items():
+            llm_passed = result.get("passed")
+            if llm_passed is None:
+                continue
+            if metric_id not in agreement_stats:
+                agreement_stats[metric_id] = {"agree": 0, "disagree": 0, "fp": 0, "fn": 0}
+            if human_passed == llm_passed:
+                agreement_stats[metric_id]["agree"] += 1
+            else:
+                agreement_stats[metric_id]["disagree"] += 1
+                if llm_passed and not human_passed:
+                    agreement_stats[metric_id]["fp"] += 1  # LLM says pass, human says fail
+                else:
+                    agreement_stats[metric_id]["fn"] += 1  # LLM says fail, human says pass
+
+    # Print report
+    print("\n" + "=" * 60)
+    print("ANNOTATION COVERAGE REPORT")
+    print("=" * 60)
+    print(f"\nTotal items:        {total}")
+    print(f"With human labels:  {with_labels} ({coverage*100:.1f}%)")
+    print(f"With eval results:  {with_evals}")
+    print(f"Awaiting annotation: {total - with_labels}")
+
+    if metric_stats:
+        print("\n" + "-" * 60)
+        print("EVAL RESULTS BY METRIC")
+        print("-" * 60)
+        print(f"{'Metric':<25} {'Total':<8} {'Pass':<8} {'Fail':<8} {'Pass %':<8}")
+        print("-" * 60)
+        for metric_id, stats in sorted(metric_stats.items()):
+            pass_rate = stats["passed"] / stats["total"] if stats["total"] > 0 else 0
+            print(f"{metric_id:<25} {stats['total']:<8} {stats['passed']:<8} {stats['failed']:<8} {pass_rate*100:.1f}%")
+
+    if agreement_stats:
+        print("\n" + "-" * 60)
+        print("HUMAN vs LLM AGREEMENT")
+        print("-" * 60)
+        print(f"{'Metric':<25} {'Agree':<8} {'Disagree':<8} {'FP':<8} {'FN':<8} {'Agr %':<8}")
+        print("-" * 60)
+        for metric_id, stats in sorted(agreement_stats.items()):
+            total_compared = stats["agree"] + stats["disagree"]
+            agr_rate = stats["agree"] / total_compared if total_compared > 0 else 0
+            print(f"{metric_id:<25} {stats['agree']:<8} {stats['disagree']:<8} {stats['fp']:<8} {stats['fn']:<8} {agr_rate*100:.1f}%")
+        print("\nFP = False Positive (LLM=PASS, Human=FAIL)")
+        print("FN = False Negative (LLM=FAIL, Human=PASS)")
+
+    print("\n" + "=" * 60)
+
+
 def cmd_calibrate(args: argparse.Namespace) -> None:
     tracer = get_default_tracer()
     if not tracer.storage:
@@ -1561,6 +1786,16 @@ For more info on a command: evalyn <command> --help
     import_ann = subparsers.add_parser("import-annotations", help="Import annotations from a JSONL file")
     import_ann.add_argument("--path", required=True, help="Path to annotations JSONL")
     import_ann.set_defaults(func=cmd_import_annotations)
+
+    export_ann = subparsers.add_parser("export-for-annotation", help="Export dataset with eval results for human annotation")
+    export_ann.add_argument("--dataset", required=True, help="Path to dataset directory or dataset.jsonl file")
+    export_ann.add_argument("--output", required=True, help="Output path for annotation JSONL file")
+    export_ann.add_argument("--run-id", help="Specific eval run ID to use (defaults to latest)")
+    export_ann.set_defaults(func=cmd_export_for_annotation)
+
+    ann_stats = subparsers.add_parser("annotation-stats", help="Show annotation coverage statistics")
+    ann_stats.add_argument("--dataset", required=True, help="Path to annotations.jsonl or dataset directory")
+    ann_stats.set_defaults(func=cmd_annotation_stats)
 
     calibrate_parser = subparsers.add_parser("calibrate", help="Calibrate a subjective metric using human annotations")
     calibrate_parser.add_argument("--metric-id", required=True, help="Metric ID to calibrate (usually the judge metric id)")

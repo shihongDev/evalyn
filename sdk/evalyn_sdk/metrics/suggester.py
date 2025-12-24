@@ -335,8 +335,22 @@ def render_suggestion_prompt(
         "You are designing evaluation metrics for an LLM-powered function.\n"
         f"Function: {sig_str}\n"
         f"Recent traces:\n{examples}\n"
-        "Propose metrics; include both objective and subjective. "
-        f"{count_hint} Respond as JSON array ONLY (no prose) with fields: id (or name), type (objective|subjective), description, config, why (short reason). If unsure, return []."
+        "Propose metrics; include both objective and subjective.\n"
+        f"{count_hint}\n"
+        "Respond as JSON array ONLY (no prose) with fields:\n"
+        "- id: unique identifier (snake_case)\n"
+        "- type: 'objective' or 'subjective'\n"
+        "- description: what this metric evaluates\n"
+        "- config: for subjective metrics, MUST include:\n"
+        "    - prompt: evaluation instructions for the LLM judge\n"
+        "    - rubric: list of criteria for PASS/FAIL (at least 2-3 items)\n"
+        "- why: short reason for including this metric\n\n"
+        "Example subjective metric:\n"
+        '{"id": "factual_accuracy", "type": "subjective", "description": "Checks factual correctness", '
+        '"config": {"prompt": "Evaluate if the response is factually accurate.", '
+        '"rubric": ["No false claims", "Cites sources when appropriate", "Admits uncertainty when unsure"]}, '
+        '"why": "Ensures reliable information"}\n\n'
+        "If unsure, return []."
     )
 
 

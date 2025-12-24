@@ -71,10 +71,17 @@ evalyn list-metrics
 evalyn list-runs
 evalyn show-run --id <run_id>
 
-# Import human annotations
-evalyn import-annotations --path annotations.jsonl
+# Human Annotation Workflow
+# Export dataset for human annotation (includes eval results)
+evalyn export-for-annotation --dataset data/myproj --output annotations.jsonl
 
-# Calibrate LLM judges
+# View annotation coverage and agreement stats
+evalyn annotation-stats --dataset annotations.jsonl
+
+# Import completed human annotations
+evalyn import-annotations --path annotations_completed.jsonl
+
+# Calibrate LLM judges based on human annotations
 evalyn calibrate --metric-id <metric_id> --annotations annotations.jsonl --run-id <run_id>
 ```
 

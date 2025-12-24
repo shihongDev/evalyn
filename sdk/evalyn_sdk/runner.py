@@ -1,19 +1,58 @@
 from __future__ import annotations
 
+import json
 from collections import defaultdict
-from typing import Callable, Dict, Iterable, List, Optional
+from pathlib import Path
+from typing import Callable, Dict, Iterable, List, Optional, Union
 from uuid import uuid4
 
 from .decorators import get_default_tracer
 from .datasets import hash_inputs
 from .metrics.registry import Metric
-from .models import DatasetItem, EvalRun, MetricResult, now_utc
+from .models import DatasetItem, EvalRun, FunctionCall, MetricResult, now_utc
 from .storage.base import StorageBackend
 from .tracing import EvalTracer
 
 
 # Progress callback type: (current_item, total_items, current_metric, metric_type)
 ProgressCallback = Callable[[int, int, str, str], None]
+
+
+def _synthetic_call_from_item(item: DatasetItem) -> FunctionCall:
+    """
+    Create a synthetic FunctionCall from a DatasetItem.
+
+    This allows evaluation to work on datasets that don't have
+    corresponding traces in storage (e.g., manually created datasets,
+    or datasets where the traces have been deleted).
+
+    Handles both old format (expected) and new format (output).
+    """
+    # Get output - prefer 'output' field, fall back to 'expected' for old datasets
+    output = item.output
+    if output is None:
+        output = item.expected
+
+    return FunctionCall(
+        id=item.metadata.get("call_id") or f"synthetic-{item.id}",
+        function_name=item.metadata.get("function", "unknown"),
+        inputs=item.input or item.inputs or {},
+        output=output,
+        error=item.metadata.get("error"),
+        started_at=now_utc(),
+        ended_at=now_utc(),
+        duration_ms=item.metadata.get("duration_ms", 0.0),
+        session_id=item.metadata.get("session_id"),
+        trace=[],  # No trace events for synthetic calls
+        metadata=item.metadata,
+    )
+
+
+def _get_item_output(item: DatasetItem):
+    """Get output from item, handling both old and new formats."""
+    if item.output is not None:
+        return item.output
+    return item.expected
 
 
 class EvalRunner:
@@ -48,7 +87,15 @@ class EvalRunner:
         self._cache: Dict[str, str] = {}  # cache key -> call id
         self._progress_callback = progress_callback
 
-    def run_dataset(self, dataset: Iterable[DatasetItem]) -> EvalRun:
+    def run_dataset(self, dataset: Iterable[DatasetItem], use_synthetic: bool = True) -> EvalRun:
+        """
+        Run evaluation on a dataset.
+
+        Args:
+            dataset: Iterable of DatasetItem to evaluate
+            use_synthetic: If True, create synthetic FunctionCall when trace not found.
+                          This allows evaluation on datasets without original traces.
+        """
         metric_results: List[MetricResult] = []
         failures: List[str] = []
 
@@ -65,25 +112,24 @@ class EvalRunner:
             if isinstance(item.metadata, dict) and "call_id" in item.metadata and self.tracer.storage:
                 call_id = item.metadata["call_id"]
                 call = self.tracer.storage.get_call(call_id)
-                if call is None:
-                    print(f"Warning: Could not find trace for call_id={call_id}, will re-run")
 
             # Second, check cache by input hash
-            if call is None:
-                cache_key = hash_inputs(item.inputs) if self.cache_enabled else None
-
-                if cache_key and cache_key in self._cache and self.tracer.storage:
-                    # Rehydrate cached call from storage by id
+            if call is None and self.cache_enabled:
+                cache_key = hash_inputs(item.inputs)
+                if cache_key in self._cache and self.tracer.storage:
                     cached_id = self._cache[cache_key]
                     cached_matches = [c for c in self.tracer.storage.list_calls(limit=1_000) if c.id == cached_id]
                     call = cached_matches[0] if cached_matches else None
 
-            # Finally, run the function if no trace found
-            if call is None:
+            # Third, create synthetic call from item data if enabled
+            if call is None and use_synthetic and _get_item_output(item) is not None:
+                call = _synthetic_call_from_item(item)
+
+            # Fourth, try to re-run the function (only if not using synthetic and target_fn is real)
+            if call is None and not use_synthetic:
                 try:
                     self.target_fn(**item.inputs)
                 except Exception:
-                    # The tracer already captured the error; continue so metrics can still record failure state.
                     failures.append(item.id)
 
                 call = self.tracer.last_call
@@ -92,9 +138,15 @@ class EvalRunner:
                     self._cache[cache_key] = call.id
 
             if call is None:
-                raise RuntimeError(
-                    "No trace was captured for the last call. Ensure the function is instrumented with @eval."
-                )
+                if use_synthetic:
+                    raise RuntimeError(
+                        f"Cannot evaluate item {item.id}: no trace found and no output data. "
+                        "Dataset items must have 'output' or 'expected' field for evaluation."
+                    )
+                else:
+                    raise RuntimeError(
+                        "No trace was captured for the last call. Ensure the function is instrumented with @eval."
+                    )
 
             for metric in self.metrics:
                 current_eval += 1
@@ -138,3 +190,64 @@ class EvalRunner:
                 "pass_rate": (sum(1 for p in passes if p) / len(passes)) if passes else None,
             }
         return summary
+
+
+def save_eval_run_json(
+    run: EvalRun,
+    dataset_dir: Union[str, Path],
+    *,
+    runs_subdir: str = "eval_runs",
+) -> Path:
+    """
+    Save an EvalRun as JSON in the dataset folder.
+
+    Structure:
+        <dataset_dir>/eval_runs/<run_id>.json
+
+    Args:
+        run: The EvalRun to save
+        dataset_dir: Path to the dataset directory
+        runs_subdir: Subdirectory name for eval runs (default: "eval_runs")
+
+    Returns:
+        Path to the saved JSON file
+    """
+    dataset_dir = Path(dataset_dir)
+    runs_dir = dataset_dir / runs_subdir
+    runs_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create filename with timestamp for sorting
+    timestamp = run.created_at.strftime("%Y%m%d-%H%M%S") if run.created_at else "unknown"
+    filename = f"{timestamp}_{run.id[:8]}.json"
+    run_path = runs_dir / filename
+
+    # Save as JSON
+    run_path.write_text(
+        json.dumps(run.as_dict(), indent=2, ensure_ascii=False, default=str),
+        encoding="utf-8"
+    )
+
+    return run_path
+
+
+def load_eval_run_json(path: Union[str, Path]) -> EvalRun:
+    """Load an EvalRun from a JSON file."""
+    path = Path(path)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return EvalRun.from_dict(data)
+
+
+def list_eval_runs_json(dataset_dir: Union[str, Path], runs_subdir: str = "eval_runs") -> List[EvalRun]:
+    """List all eval runs from JSON files in a dataset directory."""
+    dataset_dir = Path(dataset_dir)
+    runs_dir = dataset_dir / runs_subdir
+    if not runs_dir.exists():
+        return []
+
+    runs = []
+    for json_file in sorted(runs_dir.glob("*.json"), reverse=True):
+        try:
+            runs.append(load_eval_run_json(json_file))
+        except Exception:
+            continue
+    return runs
