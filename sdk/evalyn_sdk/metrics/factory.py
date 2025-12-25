@@ -139,7 +139,7 @@ def build_subjective_metric(
     - prompt: Custom prompt (overrides template prompt)
     - rubric: List of criteria for PASS/FAIL evaluation
     - threshold: Score threshold for pass (default: 0.7)
-    - model: Judge model name (default: gemini-2.0-flash-exp)
+    - model: Judge model name (default: gemini-2.5-flash-lite)
     - temperature: Judge temperature (default: 0.0)
     - description: Metric description (for custom metrics)
     """
@@ -193,7 +193,7 @@ def build_subjective_metric(
 
     # Create judge if not provided
     if judge is None:
-        model = cfg.get("model", "gemini-2.0-flash-exp")
+        model = cfg.get("model", "gemini-2.5-flash-lite")
         temperature = float(cfg.get("temperature", 0.0))
         judge = GeminiJudge(
             name=metric_id,

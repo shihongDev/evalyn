@@ -26,10 +26,17 @@ class HeuristicSuggester(MetricSuggester):
     """
     Fast, offline suggester that proposes a starter set of metrics:
     - latency
-    - text overlap (if outputs look like text)
+    - text overlap (if outputs look like text AND has_reference=True)
     - JSON validity (if outputs look structured)
     - tool call count (if traces show tool usage)
+
+    Args:
+        has_reference: If True, reference-based metrics (ROUGE, BLEU, etc.) can be suggested.
+                      If False, only trace-compatible metrics are suggested.
     """
+
+    def __init__(self, has_reference: bool = False):
+        self.has_reference = has_reference
 
     def suggest(
         self,
@@ -51,7 +58,9 @@ class HeuristicSuggester(MetricSuggester):
         )
 
         outputs = [call.output for call in traces] if traces else []
-        if outputs and any(isinstance(o, str) for o in outputs):
+
+        # Only suggest reference-based metrics if has_reference is True
+        if self.has_reference and outputs and any(isinstance(o, str) for o in outputs):
             suggestions.append(
                 MetricSpec(
                     id="token_overlap_f1",
@@ -61,6 +70,7 @@ class HeuristicSuggester(MetricSuggester):
                     config={"expected_field": "expected"},
                 )
             )
+
         if outputs and any(isinstance(o, (dict, list)) for o in outputs):
             suggestions.append(
                 MetricSpec(
@@ -81,6 +91,17 @@ class HeuristicSuggester(MetricSuggester):
                     config={},
                 )
             )
+
+        # output_nonempty is always useful
+        suggestions.append(
+            MetricSpec(
+                id="output_nonempty",
+                name="Output Not Empty",
+                type="objective",
+                description="Check that output is not empty/None.",
+                config={},
+            )
+        )
 
         suggestions.append(
             MetricSpec(
@@ -178,7 +199,15 @@ def render_selection_prompt_with_templates(
     templates: Iterable[dict],
     code_meta: Optional[dict] = None,
     desired_count: Optional[int] = None,
+    has_reference: bool = False,
 ) -> str:
+    """
+    Render prompt for LLM to select metrics from templates.
+
+    Args:
+        has_reference: If True, reference-based metrics are available. If False,
+                      metrics requiring `expected`/`human_label.reference` are excluded.
+    """
     name = getattr(target_fn, "__name__", "function")
     sig = None
     try:
@@ -195,11 +224,21 @@ def render_selection_prompt_with_templates(
             f"inputs={call.inputs}, output_excerpt={repr(call.output)[:200]}, error={call.error}"
         )
     examples = "\n".join(example_lines) if example_lines else "No traces yet."
-    tpl_lines = []
+
+    # Filter templates based on reference availability
+    filtered_templates = []
     for tpl in templates:
+        requires_ref = tpl.get("requires_reference", False)
+        if requires_ref and not has_reference:
+            continue  # Skip reference-based metrics when no reference available
+        filtered_templates.append(tpl)
+
+    tpl_lines = []
+    for tpl in filtered_templates:
         inputs = tpl.get("inputs") or tpl.get("signals") or []
+        ref_note = " [REQUIRES REFERENCE]" if tpl.get("requires_reference") else ""
         tpl_lines.append(
-            f"{tpl['id']} [{tpl['type']}]: {tpl['description']}; "
+            f"{tpl['id']} [{tpl['type']}]: {tpl['description']}{ref_note}; "
             f"category={tpl.get('category', '')}; "
             f"inputs={inputs}; "
             f"config={tpl.get('config', {})}"
@@ -210,11 +249,21 @@ def render_selection_prompt_with_templates(
         if desired_count
         else "Return JSON array of the best metrics."
     )
+
+    # Add reference availability note
+    ref_note = ""
+    if not has_reference:
+        ref_note = (
+            "\nIMPORTANT: This dataset does NOT have reference/expected values (no golden standard). "
+            "Only select metrics that work with output alone (no ROUGE, BLEU, token_overlap, etc.).\n"
+        )
+
     return (
         "You are selecting evaluation metrics for an LLM function based on its code and behavior.\n"
         f"Function: {name}{sig}"
         f"{code_block}\n"
         f"Recent traces:\n{examples}\n"
+        f"{ref_note}"
         "Available metrics (objective + subjective):\n"
         f"{registry_desc}\n"
         "Pick a diverse subset that best evaluates correctness, safety, structure, and efficiency. "
@@ -228,11 +277,18 @@ class TemplateSelector:
     """
     LLM-driven selector over provided templates. The caller supplies a callable that accepts a prompt string
     and returns a JSON string or parsed list.
+
+    Args:
+        caller: Callable that takes a prompt string and returns JSON response.
+        templates: Iterable of metric template dicts.
+        has_reference: If True, reference-based metrics can be selected.
+                      If False, metrics with requires_reference=True are filtered out.
     """
 
-    def __init__(self, caller: Callable[[str], Any], templates: Iterable[dict]):
+    def __init__(self, caller: Callable[[str], Any], templates: Iterable[dict], has_reference: bool = False):
         self.caller = caller
         self.templates = list(templates)
+        self.has_reference = has_reference
         self._tpl_by_id = {tpl["id"]: tpl for tpl in self.templates}
 
     def select(
@@ -243,7 +299,8 @@ class TemplateSelector:
         desired_count: Optional[int] = None,
     ) -> List[MetricSpec]:
         prompt = render_selection_prompt_with_templates(
-            target_fn, traces or [], self.templates, code_meta, desired_count=desired_count
+            target_fn, traces or [], self.templates, code_meta,
+            desired_count=desired_count, has_reference=self.has_reference
         )
         raw = self.caller(prompt)
         # raw may be JSON string or already parsed
@@ -259,6 +316,9 @@ class TemplateSelector:
             tpl_id = entry.get("id") if isinstance(entry, dict) else None
             if tpl_id and tpl_id in self._tpl_by_id:
                 tpl = self._tpl_by_id[tpl_id]
+                # Double-check: skip reference-based metrics if no reference available
+                if tpl.get("requires_reference", False) and not self.has_reference:
+                    continue
                 cfg = entry.get("config") if isinstance(entry, dict) else {}
                 specs.append(
                     MetricSpec(

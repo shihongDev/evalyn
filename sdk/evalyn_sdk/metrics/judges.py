@@ -19,7 +19,7 @@ class LLMJudge:
         self,
         name: str,
         prompt: str,
-        model: str = "gemini-2.0-flash-exp",
+        model: str = "gemini-2.5-flash-lite",
         temperature: float = 0.0,
     ):
         self.name = name
@@ -126,7 +126,7 @@ class GeminiJudge(LLMJudge):
         self,
         name: str = "gemini-judge",
         prompt: str = "",
-        model: str = "gemini-2.0-flash-exp",
+        model: str = "gemini-2.5-flash-lite",
         temperature: float = 0.0,
         api_key: Optional[str] = None,
     ):

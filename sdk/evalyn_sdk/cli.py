@@ -755,8 +755,22 @@ def cmd_show_call(args: argparse.Namespace) -> None:
     print("=============================================\n")
 
 
-def _resolve_dataset_and_metrics(dataset_arg: str, metrics_arg: Optional[str]) -> tuple[Path, Path]:
-    """Resolve dataset file and metrics file paths, auto-detecting from meta.json if needed."""
+def _resolve_dataset_and_metrics(
+    dataset_arg: str,
+    metrics_arg: Optional[str],
+    metrics_all: bool = False
+) -> tuple[Path, List[Path]]:
+    """
+    Resolve dataset file and metrics file paths.
+
+    Args:
+        dataset_arg: Path to dataset file or directory
+        metrics_arg: Comma-separated paths to metrics files, or None for auto-detect
+        metrics_all: If True, use all metrics files in the metrics/ folder
+
+    Returns:
+        Tuple of (dataset_file, list_of_metrics_paths)
+    """
     dataset_path = Path(dataset_arg)
 
     # If dataset is a directory, look for dataset.jsonl inside
@@ -774,45 +788,66 @@ def _resolve_dataset_and_metrics(dataset_arg: str, metrics_arg: Optional[str]) -
     if not dataset_file.exists():
         raise FileNotFoundError(f"Dataset file not found: {dataset_file}")
 
-    # Resolve metrics path
+    metrics_paths: List[Path] = []
+
+    # Option 1: Use all metrics from metrics/ folder
+    if metrics_all:
+        metrics_dir = dataset_dir / "metrics"
+        if metrics_dir.exists():
+            for json_file in sorted(metrics_dir.glob("*.json")):
+                metrics_paths.append(json_file)
+        if not metrics_paths:
+            raise FileNotFoundError(f"No metrics files found in {metrics_dir}")
+        print(f"Using all metrics files: {len(metrics_paths)} files from {metrics_dir}")
+        return dataset_file, metrics_paths
+
+    # Option 2: Explicit metrics argument (supports comma-separated paths)
     if metrics_arg:
-        metrics_path = Path(metrics_arg)
-    else:
-        # Auto-detect from meta.json
-        meta_path = dataset_dir / "meta.json"
-        if not meta_path.exists():
-            raise FileNotFoundError(
-                f"No --metrics specified and no meta.json found in {dataset_dir}.\n"
-                "Either specify --metrics explicitly or run 'evalyn suggest-metrics' first."
-            )
-        try:
-            meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        except Exception as e:
-            raise ValueError(f"Failed to parse meta.json: {e}")
+        for path_str in metrics_arg.split(","):
+            path_str = path_str.strip()
+            if path_str:
+                metrics_path = Path(path_str)
+                if not metrics_path.exists():
+                    raise FileNotFoundError(f"Metrics file not found: {metrics_path}")
+                metrics_paths.append(metrics_path)
+        if metrics_paths:
+            return dataset_file, metrics_paths
 
-        active_set = meta.get("active_metric_set")
-        if not active_set:
-            raise ValueError(
-                f"No active_metric_set in meta.json. Run 'evalyn suggest-metrics' to select metrics."
-            )
+    # Option 3: Auto-detect from meta.json
+    meta_path = dataset_dir / "meta.json"
+    if not meta_path.exists():
+        raise FileNotFoundError(
+            f"No --metrics specified and no meta.json found in {dataset_dir}.\n"
+            "Either specify --metrics explicitly or run 'evalyn suggest-metrics' first."
+        )
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        raise ValueError(f"Failed to parse meta.json: {e}")
 
-        # Find the metrics file from metric_sets
-        metric_sets = meta.get("metric_sets", [])
-        matching = [m for m in metric_sets if m.get("name") == active_set]
-        if not matching:
-            raise ValueError(f"Metric set '{active_set}' not found in meta.json metric_sets.")
+    active_set = meta.get("active_metric_set")
+    if not active_set:
+        raise ValueError(
+            f"No active_metric_set in meta.json. Run 'evalyn suggest-metrics' to select metrics."
+        )
 
-        metrics_rel = matching[0].get("file")
-        if not metrics_rel:
-            raise ValueError(f"No file path for metric set '{active_set}' in meta.json.")
+    # Find the metrics file from metric_sets
+    metric_sets = meta.get("metric_sets", [])
+    matching = [m for m in metric_sets if m.get("name") == active_set]
+    if not matching:
+        raise ValueError(f"Metric set '{active_set}' not found in meta.json metric_sets.")
 
-        metrics_path = dataset_dir / metrics_rel
-        print(f"Auto-detected metrics: {metrics_path}")
+    metrics_rel = matching[0].get("file")
+    if not metrics_rel:
+        raise ValueError(f"No file path for metric set '{active_set}' in meta.json.")
+
+    metrics_path = dataset_dir / metrics_rel
+    print(f"Auto-detected metrics: {metrics_path}")
 
     if not metrics_path.exists():
         raise FileNotFoundError(f"Metrics file not found: {metrics_path}")
 
-    return dataset_file, metrics_path
+    return dataset_file, [metrics_path]
 
 
 class ProgressBar:
@@ -846,12 +881,15 @@ class ProgressBar:
 
 
 def cmd_run_eval(args: argparse.Namespace) -> None:
-    """Run evaluation using pre-computed traces from dataset and metrics from JSON file."""
+    """Run evaluation using pre-computed traces from dataset and metrics from JSON file(s)."""
     output_format = getattr(args, "format", "table")
+    metrics_all = getattr(args, "metrics_all", False)
 
     # Resolve dataset and metrics paths
     try:
-        dataset_file, metrics_path = _resolve_dataset_and_metrics(args.dataset, args.metrics)
+        dataset_file, metrics_paths = _resolve_dataset_and_metrics(
+            args.dataset, args.metrics, metrics_all=metrics_all
+        )
     except (FileNotFoundError, ValueError) as e:
         print(f"Error: {e}")
         sys.exit(1)
@@ -860,11 +898,29 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     dataset = load_dataset(str(dataset_file))
     dataset_list = list(dataset)  # Convert to list for counting
 
-    # Load metrics from JSON file
-    metrics_data = json.loads(metrics_path.read_text(encoding="utf-8"))
-    if not isinstance(metrics_data, list):
-        print(f"Error: Metrics file must contain a JSON array of metric specs")
+    # Load and merge metrics from all files (deduplicate by ID)
+    all_metrics_data: Dict[str, dict] = {}  # id -> spec_data
+    for metrics_path in metrics_paths:
+        try:
+            file_data = json.loads(metrics_path.read_text(encoding="utf-8"))
+            if not isinstance(file_data, list):
+                if output_format != "json":
+                    print(f"Warning: Skipping {metrics_path} - not a JSON array")
+                continue
+            for spec_data in file_data:
+                metric_id = spec_data.get("id")
+                if metric_id and metric_id not in all_metrics_data:
+                    all_metrics_data[metric_id] = spec_data
+        except Exception as e:
+            if output_format != "json":
+                print(f"Warning: Failed to load {metrics_path}: {e}")
+
+    if not all_metrics_data:
+        print("Error: No valid metrics loaded from files")
         sys.exit(1)
+
+    if output_format != "json" and len(metrics_paths) > 1:
+        print(f"Merged {len(all_metrics_data)} unique metrics from {len(metrics_paths)} files")
 
     # Build metrics from specs
     from .metrics.factory import build_objective_metric, build_subjective_metric
@@ -873,7 +929,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     subjective_count = 0
 
     skipped_metrics = []
-    for spec_data in metrics_data:
+    for spec_data in all_metrics_data.values():
         spec = MetricSpec(
             id=spec_data["id"],
             name=spec_data.get("name", spec_data["id"]),
@@ -917,6 +973,20 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     if output_format != "json":
         print(f"Loaded {len(metrics)} metrics ({objective_count} objective, {subjective_count} subjective)")
         print(f"Dataset: {len(dataset_list)} items")
+
+        # Check for API key if subjective metrics are present
+        if subjective_count > 0:
+            gemini_key = os.environ.get("GEMINI_API_KEY", "")
+            openai_key = os.environ.get("OPENAI_API_KEY", "")
+            if not gemini_key and not openai_key:
+                print()
+                print("⚠️  Warning: No API key found for LLM judges.")
+                print("   Set GEMINI_API_KEY or OPENAI_API_KEY to enable subjective metrics.")
+                print("   Continuing anyway, but LLM judge scores will fail.")
+            elif gemini_key and len(gemini_key) < 10:
+                print()
+                print("⚠️  Warning: GEMINI_API_KEY appears to be invalid (too short).")
+
         print()
 
     # Get tracer with storage
@@ -984,10 +1054,18 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     # Build metric type lookup
     metric_types = {m.spec.id: m.spec.type for m in metrics}
 
+    # Check for API errors in results
+    api_errors_by_metric: Dict[str, int] = {}
+    for result in run.metric_results:
+        if result.details and isinstance(result.details, dict):
+            reason = result.details.get("reason", "")
+            if "API" in reason and ("error" in reason.lower() or "failed" in reason.lower()):
+                api_errors_by_metric[result.metric_id] = api_errors_by_metric.get(result.metric_id, 0) + 1
+
     print("Results:")
-    print("-" * 70)
-    print(f"{'Metric':<25} {'Type':<10} {'Count':<6} {'Avg Score':<12} {'Pass Rate':<10}")
-    print("-" * 70)
+    print("-" * 80)
+    print(f"{'Metric':<25} {'Type':<10} {'Count':<6} {'Avg Score':<12} {'Pass Rate':<10} {'Errors':<8}")
+    print("-" * 80)
 
     for metric_id, stats in run.summary.get("metrics", {}).items():
         mtype = metric_types.get(metric_id, "?")
@@ -996,34 +1074,109 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         avg_score_str = f"{avg_score:.4f}" if avg_score is not None else "N/A"
         pass_rate = stats.get('pass_rate')
         pass_rate_str = f"{pass_rate*100:.1f}%" if pass_rate is not None else "N/A"
-        print(f"{metric_id:<25} [{type_label:<3}]    {stats['count']:<6} {avg_score_str:<12} {pass_rate_str:<10}")
+        error_count = api_errors_by_metric.get(metric_id, 0)
+        error_str = f"{error_count}" if error_count > 0 else "-"
+        print(f"{metric_id:<25} [{type_label:<3}]    {stats['count']:<6} {avg_score_str:<12} {pass_rate_str:<10} {error_str:<8}")
 
-    print("-" * 70)
+    print("-" * 80)
+
+    # Show API error summary if any
+    total_api_errors = sum(api_errors_by_metric.values())
+    if total_api_errors > 0:
+        print(f"\n⚠️  {total_api_errors} API error(s) detected in LLM judge results.")
+        print("   Check that GEMINI_API_KEY or OPENAI_API_KEY is set and valid.")
+        print("   Re-run with a valid API key to get accurate LLM judge scores.")
+
     if run.summary.get("failed_items"):
         print(f"Failed items: {run.summary['failed_items']}")
 
 
+def _dataset_has_reference(dataset_path: Optional[Path]) -> bool:
+    """
+    Check if a dataset has SEPARATE reference/golden-standard values for comparison.
+
+    Reference-based metrics (ROUGE, BLEU, token_overlap) need TWO text values:
+    1. output - what the model produced
+    2. reference - what a human says is the correct answer (golden standard)
+
+    This function checks for explicit reference fields that are SEPARATE from output:
+    - human_label.reference (new format)
+    - metadata.reference or metadata.golden (explicit reference)
+
+    NOTE: The old 'expected' field often contains the model output (not a separate reference),
+    so we don't count it unless there's also an 'output' field (indicating expected is actually
+    the golden standard).
+
+    Returns True if at least one item has a separate reference value, False otherwise.
+    """
+    if not dataset_path:
+        return False
+
+    # Find the actual dataset file
+    if dataset_path.is_file():
+        dataset_file = dataset_path
+    else:
+        if (dataset_path / "dataset.jsonl").exists():
+            dataset_file = dataset_path / "dataset.jsonl"
+        elif (dataset_path / "dataset.json").exists():
+            dataset_file = dataset_path / "dataset.json"
+        else:
+            return False
+
+    try:
+        items = load_dataset(str(dataset_file))
+        for item in items:
+            # Check for human_label with reference (this is the clear signal)
+            if hasattr(item, 'human_label') and item.human_label:
+                if isinstance(item.human_label, dict) and item.human_label.get('reference'):
+                    return True
+
+            # Check metadata for explicit reference/golden fields
+            if hasattr(item, 'metadata') and item.metadata:
+                if item.metadata.get('reference') or item.metadata.get('golden') or item.metadata.get('golden_answer'):
+                    return True
+
+            # If BOTH output AND expected exist AND they are DIFFERENT, then expected is the golden standard
+            has_output = hasattr(item, 'output') and item.output is not None
+            has_expected = hasattr(item, 'expected') and item.expected is not None
+            if has_output and has_expected:
+                # Only count as reference if they're actually different values
+                # (if same, expected is just a copy of output for backward compatibility)
+                if item.output != item.expected:
+                    return True
+
+        return False
+    except Exception:
+        return False
+
+
 def cmd_suggest_metrics(args: argparse.Namespace) -> None:
     # Validate dataset path FIRST before doing any expensive work
+    dataset_path_obj: Optional[Path] = None
     if args.dataset:
-        dataset_path = Path(args.dataset)
-        if dataset_path.is_file():
+        dataset_path_obj = Path(args.dataset)
+        if dataset_path_obj.is_file():
             # It's a file (e.g., dataset.jsonl)
-            if not dataset_path.exists():
-                print(f"Error: Dataset file not found: {dataset_path}")
+            if not dataset_path_obj.exists():
+                print(f"Error: Dataset file not found: {dataset_path_obj}")
                 print("Please create the dataset first using 'evalyn build-dataset' or ensure the path is correct.")
                 sys.exit(1)
         else:
             # It's a directory - should exist and contain a dataset
-            if not dataset_path.exists():
-                print(f"Error: Dataset directory not found: {dataset_path}")
+            if not dataset_path_obj.exists():
+                print(f"Error: Dataset directory not found: {dataset_path_obj}")
                 print("Please create the dataset first using 'evalyn build-dataset' or ensure the path is correct.")
                 sys.exit(1)
             # Check if directory has a dataset file
-            has_dataset = (dataset_path / "dataset.jsonl").exists() or (dataset_path / "dataset.json").exists()
+            has_dataset = (dataset_path_obj / "dataset.jsonl").exists() or (dataset_path_obj / "dataset.json").exists()
             if not has_dataset:
-                print(f"Warning: Directory exists but no dataset.jsonl or dataset.json found in: {dataset_path}")
+                print(f"Warning: Directory exists but no dataset.jsonl or dataset.json found in: {dataset_path_obj}")
                 print("Proceeding anyway, but this may not be a valid dataset directory.")
+
+    # Check if dataset has reference values
+    has_reference = _dataset_has_reference(dataset_path_obj)
+    if dataset_path_obj and not has_reference:
+        print("Note: Dataset has no reference/expected values. Reference-based metrics (ROUGE, BLEU, etc.) excluded.")
 
     target_fn = _load_callable(args.target)
     metric_mode_hint = getattr(target_fn, "_evalyn_metric_mode", None)
@@ -1109,9 +1262,14 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             return
         tpl_map = {t["id"]: t for t in OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES}
         specs = []
+        skipped_ref_metrics = []
         for mid in ids:
             tpl = tpl_map.get(mid)
             if tpl:
+                # Skip reference-based metrics if no reference available
+                if tpl.get("requires_reference", False) and not has_reference:
+                    skipped_ref_metrics.append(mid)
+                    continue
                 specs.append(
                     MetricSpec(
                         id=tpl["id"],
@@ -1121,6 +1279,8 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
                         config=tpl.get("config", {}),
                     )
                 )
+        if skipped_ref_metrics:
+            print(f"Skipped reference-based metrics (no expected values): {', '.join(skipped_ref_metrics)}")
         if max_metrics:
             specs = specs[:max_metrics]
         for spec in specs:
@@ -1130,7 +1290,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
 
     if selected_mode == "llm-registry":
         caller = _build_llm_caller(args)
-        selector = TemplateSelector(caller, OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES)
+        selector = TemplateSelector(caller, OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES, has_reference=has_reference)
         selected = selector.select(
             target_fn,
             traces=traces,
@@ -1159,7 +1319,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             _save_metrics(specs)
         return
 
-    suggester = HeuristicSuggester()
+    suggester = HeuristicSuggester(has_reference=has_reference)
     specs = suggester.suggest(target_fn, traces)
     if max_metrics:
         specs = specs[:max_metrics]
@@ -1723,7 +1883,8 @@ For more info on a command: evalyn <command> --help
 
     run_parser = subparsers.add_parser("run-eval", help="Run evaluation on dataset using specified metrics")
     run_parser.add_argument("--dataset", required=True, help="Path to JSON/JSONL dataset file or directory containing dataset.jsonl")
-    run_parser.add_argument("--metrics", help="Path to metrics JSON file (auto-detected from meta.json if omitted)")
+    run_parser.add_argument("--metrics", help="Path to metrics JSON file(s), comma-separated for multiple (auto-detected from meta.json if omitted)")
+    run_parser.add_argument("--metrics-all", action="store_true", help="Use all metrics files from the metrics/ folder")
     run_parser.add_argument("--dataset-name", help="Name for the eval run (defaults to dataset filename)")
     run_parser.add_argument("--format", choices=["table", "json"], default="table", help="Output format (default: table)")
     run_parser.set_defaults(func=cmd_run_eval)
@@ -1744,7 +1905,7 @@ For more info on a command: evalyn <command> --help
         default="api",
         help="When using LLM modes: choose local (ollama) or api (OpenAI/Gemini-compatible).",
     )
-    suggest_parser.add_argument("--model", default="gemini-2.0-flash-exp", help="Model name (e.g., gemini-2.0-flash-exp, gpt-4, llama3.1 for Ollama)")
+    suggest_parser.add_argument("--model", default="gemini-2.5-flash-lite", help="Model name (e.g., gemini-2.5-flash-lite, gpt-4, llama3.1 for Ollama)")
     suggest_parser.add_argument("--api-base", help="Custom API base URL for --llm-mode api (optional)")
     suggest_parser.add_argument("--api-key", help="API key override for --llm-mode api (optional)")
     suggest_parser.add_argument(
