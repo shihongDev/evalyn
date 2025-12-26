@@ -11,6 +11,13 @@ from uuid import uuid4
 
 from .models import Annotation, CalibrationRecord, MetricResult, DatasetItem, now_utc
 
+# GEPA import (optional dependency)
+try:
+    import gepa
+    GEPA_AVAILABLE = True
+except ImportError:
+    GEPA_AVAILABLE = False
+
 
 @dataclass
 class AlignmentMetrics:
@@ -146,16 +153,20 @@ class DisagreementAnalysis:
 
 @dataclass
 class PromptOptimizationResult:
-    """Result of LLM-based prompt optimization."""
+    """Result of prompt optimization (LLM or GEPA)."""
     original_rubric: List[str]
     improved_rubric: List[str]
     improvement_reasoning: str
     suggested_additions: List[str]
     suggested_removals: List[str]
     estimated_improvement: str  # "low", "medium", "high"
+    # New fields for storing the full prompt
+    original_preamble: str = ""
+    optimized_preamble: str = ""
+    full_prompt: str = ""  # Complete prompt ready to use (preamble + rubric + format)
 
     def as_dict(self) -> Dict[str, Any]:
-        return {
+        result = {
             "original_rubric": self.original_rubric,
             "improved_rubric": self.improved_rubric,
             "improvement_reasoning": self.improvement_reasoning,
@@ -163,6 +174,14 @@ class PromptOptimizationResult:
             "suggested_removals": self.suggested_removals,
             "estimated_improvement": self.estimated_improvement,
         }
+        # Include preamble fields if they have content
+        if self.original_preamble:
+            result["original_preamble"] = self.original_preamble
+        if self.optimized_preamble:
+            result["optimized_preamble"] = self.optimized_preamble
+        if self.full_prompt:
+            result["full_prompt"] = self.full_prompt
+        return result
 
 
 class PromptOptimizer:
@@ -388,12 +407,226 @@ Return ONLY the JSON object, no other text."""
         )
 
 
+@dataclass
+class GEPAConfig:
+    """Configuration for GEPA optimization."""
+    task_lm: str = "gemini/gemini-2.5-flash"  # Model being optimized
+    reflection_lm: str = "gemini/gemini-2.5-flash"  # Model for reflection
+    max_metric_calls: int = 150  # Budget for optimization
+    train_split: float = 0.7  # Train/val split ratio
+
+
+class GEPAOptimizer:
+    """
+    Uses GEPA (Generative Evolutionary Prompt Adaptation) for prompt optimization.
+    GEPA uses evolutionary search with LLM reflection to optimize prompts.
+
+    IMPORTANT: Only the preamble (framing/instructions) is optimized.
+    The rubric (evaluation criteria) is kept fixed as defined by humans.
+
+    Prompt structure:
+    - preamble: Optimized by GEPA (e.g., "You are an expert evaluator...")
+    - rubric: Fixed, human-defined criteria (e.g., "- No factual errors...")
+    - output_format: Fixed instructions for JSON output
+
+    Requires: pip install gepa
+    """
+
+    def __init__(self, config: Optional[GEPAConfig] = None):
+        if not GEPA_AVAILABLE:
+            raise ImportError(
+                "GEPA is not installed. Install it with: pip install gepa"
+            )
+        self.config = config or GEPAConfig()
+
+    def _build_dataset_from_annotations(
+        self,
+        metric_results: List[MetricResult],
+        annotations: List[Annotation],
+        dataset_items: Optional[List[DatasetItem]] = None,
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """
+        Convert calibration data to GEPA-compatible train/val sets.
+        Each example contains: input, output, expected (human label).
+        """
+        ann_by_call: Dict[str, Annotation] = {ann.target_id: ann for ann in annotations}
+        items_by_call: Dict[str, DatasetItem] = {}
+        if dataset_items:
+            for item in dataset_items:
+                call_id = item.metadata.get("call_id", item.id)
+                items_by_call[call_id] = item
+
+        examples = []
+        for res in metric_results:
+            ann = ann_by_call.get(res.call_id)
+            if not ann:
+                continue
+
+            item = items_by_call.get(res.call_id)
+            input_text = ""
+            output_text = ""
+            if item:
+                input_text = json.dumps(item.input, default=str) if item.input else ""
+                output_text = str(item.output) if item.output else ""
+
+            examples.append({
+                "input": input_text,
+                "output": output_text,
+                "expected": "PASS" if ann.label else "FAIL",
+                "call_id": res.call_id,
+            })
+
+        # Split into train/val
+        import random
+        random.shuffle(examples)
+        split_idx = int(len(examples) * self.config.train_split)
+        trainset = examples[:split_idx]
+        valset = examples[split_idx:]
+
+        return trainset, valset
+
+    def _build_seed_prompt(self, metric_id: str, current_preamble: str) -> Dict[str, str]:
+        """
+        Build seed prompt with only the preamble (the part to be optimized).
+        The rubric will be appended separately after optimization.
+        """
+        if current_preamble:
+            preamble = current_preamble.strip()
+        else:
+            # Default preamble if none provided
+            preamble = f"You are an expert evaluator for the metric: {metric_id}. Carefully analyze the output quality."
+
+        return {"preamble": preamble}
+
+    def _build_full_prompt(self, preamble: str, rubric: List[str]) -> str:
+        """
+        Combine optimized preamble with fixed rubric to create the full prompt.
+        This is what the judge will use.
+        """
+        rubric_text = ""
+        if rubric:
+            rubric_lines = "\n".join([f"- {r}" for r in rubric])
+            rubric_text = f"\n\nEvaluate using this rubric (PASS only if all criteria met):\n{rubric_lines}"
+
+        output_format = """
+
+After your analysis, provide your verdict as a JSON object:
+{"passed": true/false, "reason": "brief explanation", "score": 0.0-1.0}"""
+
+        return preamble + rubric_text + output_format
+
+    def optimize(
+        self,
+        metric_id: str,
+        current_rubric: List[str],
+        metric_results: List[MetricResult],
+        annotations: List[Annotation],
+        dataset_items: Optional[List[DatasetItem]] = None,
+        current_preamble: str = "",
+    ) -> PromptOptimizationResult:
+        """
+        Run GEPA optimization to improve the judge preamble.
+        The rubric is kept fixed; only the preamble (framing/instructions) is optimized.
+
+        Args:
+            metric_id: The metric being calibrated
+            current_rubric: Fixed rubric criteria (NOT optimized)
+            metric_results: Evaluation results from the judge
+            annotations: Human annotations
+            dataset_items: Optional dataset items for context
+            current_preamble: Current preamble text (the part to optimize)
+
+        Returns:
+            PromptOptimizationResult with optimized preamble in improved_rubric[0]
+            and the original rubric preserved.
+        """
+        # Build datasets
+        trainset, valset = self._build_dataset_from_annotations(
+            metric_results, annotations, dataset_items
+        )
+
+        if len(trainset) < 3 or len(valset) < 2:
+            return PromptOptimizationResult(
+                original_rubric=current_rubric,
+                improved_rubric=current_rubric,
+                improvement_reasoning="Not enough data for GEPA optimization (need at least 5 annotated examples)",
+                suggested_additions=[],
+                suggested_removals=[],
+                estimated_improvement="unknown",
+            )
+
+        # Build seed prompt (only the preamble, not the rubric)
+        seed_prompt = self._build_seed_prompt(metric_id, current_preamble)
+
+        # For GEPA, we need to provide the full prompt but only optimize the preamble.
+        # We'll inject the fixed rubric into the trainset/valset format instructions.
+        rubric_text = ""
+        if current_rubric:
+            rubric_lines = "\n".join([f"- {r}" for r in current_rubric])
+            rubric_text = f"\n\nEvaluate using this rubric (PASS only if all criteria met):\n{rubric_lines}"
+
+        # Add rubric and output format as fixed suffix in the system prompt
+        fixed_suffix = rubric_text + """
+
+After your analysis, provide your verdict as a JSON object:
+{"passed": true/false, "reason": "brief explanation", "score": 0.0-1.0}"""
+
+        # The seed candidate is just the preamble; GEPA will optimize this
+        seed_candidate = {"preamble": seed_prompt["preamble"]}
+
+        try:
+            # Run GEPA optimization on the preamble only
+            # Note: GEPA will optimize the preamble field
+            gepa_result = gepa.optimize(
+                seed_candidate=seed_candidate,
+                trainset=trainset,
+                valset=valset,
+                task_lm=self.config.task_lm,
+                max_metric_calls=self.config.max_metric_calls,
+                reflection_lm=self.config.reflection_lm,
+            )
+
+            # Extract optimized preamble
+            optimized_preamble = gepa_result.best_candidate.get("preamble", seed_prompt["preamble"])
+
+            # Build the full optimized prompt (ready to use)
+            full_optimized_prompt = self._build_full_prompt(optimized_preamble, current_rubric)
+
+            # Return result with original rubric preserved and new preamble
+            return PromptOptimizationResult(
+                original_rubric=current_rubric,
+                improved_rubric=current_rubric,  # Rubric stays the same
+                improvement_reasoning=f"GEPA optimization completed. Best score: {getattr(gepa_result, 'best_score', 'N/A')}",
+                suggested_additions=[],
+                suggested_removals=[],
+                estimated_improvement="high" if optimized_preamble != seed_prompt["preamble"] else "low",
+                # New fields for storing the optimized prompt
+                original_preamble=current_preamble,
+                optimized_preamble=optimized_preamble,
+                full_prompt=full_optimized_prompt,
+            )
+
+        except Exception as e:
+            return PromptOptimizationResult(
+                original_rubric=current_rubric,
+                improved_rubric=current_rubric,
+                improvement_reasoning=f"GEPA optimization failed: {e}",
+                suggested_additions=[],
+                suggested_removals=[],
+                estimated_improvement="unknown",
+                original_preamble=current_preamble,
+            )
+
+
 class CalibrationEngine:
     """
     Enhanced calibration engine that:
     1. Computes alignment metrics (precision, recall, F1, kappa)
     2. Analyzes disagreement patterns
-    3. Uses LLM to optimize judge rubrics
+    3. Uses LLM or GEPA to optimize judge prompts
+
+    For GEPA: Only the preamble is optimized; rubric stays fixed.
+    For LLM: Both preamble and rubric can be suggested for improvement.
     """
 
     def __init__(
@@ -401,14 +634,20 @@ class CalibrationEngine:
         judge_name: str,
         current_threshold: float = 0.5,
         current_rubric: Optional[List[str]] = None,
+        current_preamble: str = "",  # Base prompt before rubric
         optimize_prompts: bool = True,
         optimizer_model: str = "gemini-2.5-flash-lite",
+        optimizer_type: str = "llm",  # "llm" or "gepa"
+        gepa_config: Optional[GEPAConfig] = None,
     ):
         self.judge_name = judge_name
         self.current_threshold = current_threshold
         self.current_rubric = current_rubric or []
+        self.current_preamble = current_preamble
         self.optimize_prompts = optimize_prompts
         self.optimizer_model = optimizer_model
+        self.optimizer_type = optimizer_type
+        self.gepa_config = gepa_config
 
     def compute_alignment(
         self,
@@ -528,13 +767,28 @@ class CalibrationEngine:
         prompt_optimization = None
         if self.optimize_prompts and disagreements.total_disagreements > 0:
             try:
-                optimizer = PromptOptimizer(model=self.optimizer_model)
-                prompt_optimization = optimizer.optimize(
-                    metric_id=self.judge_name,
-                    current_rubric=self.current_rubric,
-                    disagreements=disagreements,
-                    alignment_metrics=alignment,
-                )
+                if self.optimizer_type == "gepa":
+                    # Use GEPA evolutionary optimization (preamble only, rubric stays fixed)
+                    if not GEPA_AVAILABLE:
+                        raise ImportError("GEPA is not installed. Install with: pip install gepa")
+                    gepa_optimizer = GEPAOptimizer(config=self.gepa_config)
+                    prompt_optimization = gepa_optimizer.optimize(
+                        metric_id=self.judge_name,
+                        current_rubric=self.current_rubric,
+                        metric_results=metric_results,
+                        annotations=annotations,
+                        dataset_items=dataset_items,
+                        current_preamble=self.current_preamble,
+                    )
+                else:
+                    # Use LLM-based optimization (default)
+                    optimizer = PromptOptimizer(model=self.optimizer_model)
+                    prompt_optimization = optimizer.optimize(
+                        metric_id=self.judge_name,
+                        current_rubric=self.current_rubric,
+                        disagreements=disagreements,
+                        alignment_metrics=alignment,
+                    )
             except Exception as e:
                 prompt_optimization = PromptOptimizationResult(
                     original_rubric=self.current_rubric,
@@ -551,10 +805,18 @@ class CalibrationEngine:
             "suggested_threshold": suggested_threshold,
             "alignment_metrics": alignment.as_dict(),
             "disagreement_patterns": disagreements.get_pattern_summary(),
+            "optimizer_type": self.optimizer_type,
         }
 
         if prompt_optimization:
             adjustments["prompt_optimization"] = prompt_optimization.as_dict()
+            # Include GEPA config if used
+            if self.optimizer_type == "gepa" and self.gepa_config:
+                adjustments["gepa_config"] = {
+                    "task_lm": self.gepa_config.task_lm,
+                    "reflection_lm": self.gepa_config.reflection_lm,
+                    "max_metric_calls": self.gepa_config.max_metric_calls,
+                }
 
         return CalibrationRecord(
             id=str(uuid4()),
@@ -577,3 +839,134 @@ class CalibrationEngine:
         delta = judge_rate - human_rate
         new_threshold = self.current_threshold + delta
         return max(0.0, min(1.0, new_threshold))
+
+
+def save_calibration(
+    record: CalibrationRecord,
+    dataset_path: str,
+    metric_id: str,
+) -> Dict[str, str]:
+    """
+    Save calibration record and optimized prompts to the dataset's calibrations folder.
+
+    Directory structure:
+        <dataset>/
+          calibrations/
+            <metric_id>/
+              <timestamp>_<optimizer>.json     # Full calibration record
+              prompts/
+                <timestamp>_preamble.txt       # Optimized preamble only
+                <timestamp>_full.txt           # Full prompt (ready to use)
+
+    Args:
+        record: CalibrationRecord to save
+        dataset_path: Path to the dataset folder
+        metric_id: Metric ID being calibrated
+
+    Returns:
+        Dict with paths to saved files:
+        - "calibration": Path to the calibration JSON
+        - "preamble": Path to preamble file (if available)
+        - "full_prompt": Path to full prompt file (if available)
+    """
+    from pathlib import Path
+    from datetime import datetime
+
+    dataset_dir = Path(dataset_path)
+    if not dataset_dir.exists():
+        raise ValueError(f"Dataset path does not exist: {dataset_path}")
+
+    # Create calibrations directory structure
+    calibrations_dir = dataset_dir / "calibrations" / metric_id
+    prompts_dir = calibrations_dir / "prompts"
+    calibrations_dir.mkdir(parents=True, exist_ok=True)
+    prompts_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate timestamp for file names
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    optimizer_type = record.adjustments.get("optimizer_type", "llm")
+
+    saved_paths: Dict[str, str] = {}
+
+    # Save the calibration record JSON
+    calibration_file = calibrations_dir / f"{timestamp}_{optimizer_type}.json"
+    with open(calibration_file, "w", encoding="utf-8") as f:
+        json.dump(record.as_dict(), f, indent=2, default=str)
+    saved_paths["calibration"] = str(calibration_file)
+
+    # Extract and save optimized prompts if available
+    optimization = record.adjustments.get("prompt_optimization", {})
+    if optimization:
+        # Save optimized preamble
+        optimized_preamble = optimization.get("optimized_preamble", "")
+        if optimized_preamble:
+            preamble_file = prompts_dir / f"{timestamp}_preamble.txt"
+            with open(preamble_file, "w", encoding="utf-8") as f:
+                f.write(optimized_preamble)
+            saved_paths["preamble"] = str(preamble_file)
+
+        # Save full prompt (ready to use)
+        full_prompt = optimization.get("full_prompt", "")
+        if full_prompt:
+            full_file = prompts_dir / f"{timestamp}_full.txt"
+            with open(full_file, "w", encoding="utf-8") as f:
+                f.write(full_prompt)
+            saved_paths["full_prompt"] = str(full_file)
+
+        # If no full_prompt but we have improved_rubric, build it
+        if not full_prompt and optimization.get("improved_rubric"):
+            preamble = optimization.get("optimized_preamble", "")
+            rubric = optimization.get("improved_rubric", [])
+            if preamble or rubric:
+                rubric_text = ""
+                if rubric:
+                    rubric_lines = "\n".join([f"- {r}" for r in rubric])
+                    rubric_text = f"\n\nEvaluate using this rubric (PASS only if all criteria met):\n{rubric_lines}"
+
+                full_built = (preamble or "") + rubric_text
+                if full_built.strip():
+                    full_file = prompts_dir / f"{timestamp}_full.txt"
+                    with open(full_file, "w", encoding="utf-8") as f:
+                        f.write(full_built)
+                    saved_paths["full_prompt"] = str(full_file)
+
+    return saved_paths
+
+
+def load_optimized_prompt(
+    dataset_path: str,
+    metric_id: str,
+    version: Optional[str] = None,
+) -> Optional[str]:
+    """
+    Load an optimized prompt from the calibrations folder.
+
+    Args:
+        dataset_path: Path to the dataset folder
+        metric_id: Metric ID to load prompt for
+        version: Specific version timestamp (e.g., "20250101_120000").
+                 If None, loads the most recent.
+
+    Returns:
+        The full optimized prompt text, or None if not found.
+    """
+    from pathlib import Path
+
+    prompts_dir = Path(dataset_path) / "calibrations" / metric_id / "prompts"
+    if not prompts_dir.exists():
+        return None
+
+    # Find full prompt files
+    full_files = sorted(prompts_dir.glob("*_full.txt"), reverse=True)
+    if not full_files:
+        return None
+
+    if version:
+        # Find specific version
+        for f in full_files:
+            if f.name.startswith(version):
+                return f.read_text(encoding="utf-8")
+        return None
+    else:
+        # Return most recent
+        return full_files[0].read_text(encoding="utf-8")

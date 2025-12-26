@@ -28,7 +28,17 @@ from .metrics.factory import build_objective_metric, build_subjective_metric, li
 from .metrics.judges import LLMJudge, EchoJudge, OpenAIJudge, GeminiJudge
 from .datasets import load_dataset, save_dataset, hash_inputs, dataset_from_calls, build_dataset_from_storage
 from .metrics.suggester import MetricSuggester, HeuristicSuggester, LLMSuggester, LLMRegistrySelector, DEFAULT_JUDGE_PROMPT
-from .calibration import CalibrationEngine, AlignmentMetrics, PromptOptimizer, PromptOptimizationResult
+from .calibration import (
+    CalibrationEngine,
+    AlignmentMetrics,
+    PromptOptimizer,
+    PromptOptimizationResult,
+    GEPAConfig,
+    GEPAOptimizer,
+    GEPA_AVAILABLE,
+    save_calibration,
+    load_optimized_prompt,
+)
 from .otel import configure_otel, configure_default_otel, OTEL_AVAILABLE
 from .models import (
     Annotation,
@@ -67,6 +77,11 @@ __all__ = [
     "AlignmentMetrics",
     "PromptOptimizer",
     "PromptOptimizationResult",
+    "GEPAConfig",
+    "GEPAOptimizer",
+    "GEPA_AVAILABLE",
+    "save_calibration",
+    "load_optimized_prompt",
     "build_dataset_from_storage",
     "configure_otel",
     "configure_default_otel",

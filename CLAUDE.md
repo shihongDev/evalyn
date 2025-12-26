@@ -100,11 +100,20 @@ evalyn import-annotations --path annotations_completed.jsonl
 # Basic calibration (alignment metrics only)
 evalyn calibrate --metric-id helpfulness_accuracy --annotations annotations.jsonl --no-optimize
 
-# Full calibration with LLM-based prompt optimization
+# Full calibration with LLM-based prompt optimization (default)
+# Auto-saves to data/myproj/calibrations/helpfulness_accuracy/
 evalyn calibrate --metric-id helpfulness_accuracy --annotations annotations.jsonl --dataset data/myproj --show-examples
 
-# Save calibration record (includes improved rubric suggestions)
-evalyn calibrate --metric-id helpfulness_accuracy --annotations annotations.jsonl --output calibration.json
+# Calibration with GEPA (Generative Evolutionary Prompt Adaptation)
+# GEPA only optimizes the preamble; rubric stays fixed
+evalyn calibrate --metric-id helpfulness_accuracy --annotations annotations.jsonl --dataset data/myproj --optimizer gepa
+
+# GEPA with custom models and budget
+evalyn calibrate --metric-id helpfulness_accuracy --annotations annotations.jsonl --dataset data/myproj --optimizer gepa \
+  --gepa-task-lm gemini/gemini-2.5-flash --gepa-reflection-lm gemini/gemini-2.5-flash --gepa-max-calls 200
+
+# Save calibration record to explicit path (in addition to auto-save)
+evalyn calibrate --metric-id helpfulness_accuracy --annotations annotations.jsonl --dataset data/myproj --output calibration.json
 
 # User Simulation (Synthetic Data Generation)
 # Generate synthetic queries from seed dataset (review before running agent)
@@ -240,14 +249,17 @@ Core dataclasses:
                                     v
 ┌─────────────────────────────────────────────────────────────────────┐
 │  6. CALIBRATE                                                       │
-│     evalyn calibrate --metric-id ... --annotations ...              │
-│     Outputs: alignment metrics, disagreement analysis,              │
-│              LLM-optimized rubric suggestions                       │
+│     evalyn calibrate --metric-id ... --annotations ... --dataset .. │
+│     --optimizer llm (default) or --optimizer gepa                   │
+│     LLM: suggests preamble + rubric improvements                    │
+│     GEPA: optimizes preamble only, rubric stays fixed               │
+│     Saves: calibrations/<metric_id>/<timestamp>_<optimizer>.json    │
+│            calibrations/<metric_id>/prompts/<timestamp>_full.txt    │
 └─────────────────────────────────────────────────────────────────────┘
                                     │
                                     v
                         ┌───────────────────────┐
-                        │ Apply improved rubric │
+                        │ Load optimized prompt │
                         │ Re-run eval (iterate) │
                         └───────────────────────┘
                                     │
@@ -276,7 +288,11 @@ Core dataclasses:
 5. **Run Evaluation**: Execute dataset with metrics (`evalyn run-eval`)
 6. **Annotate**: Interactive CLI annotation (`evalyn annotate --dataset ...`)
 7. **Calibrate**: Compute alignment metrics and optimize prompts (`evalyn calibrate`)
-8. **Simulate**: Generate synthetic test data (`evalyn simulate --dataset ...`)
+   - LLM optimizer: suggests improvements to preamble + rubric
+   - GEPA optimizer: only optimizes preamble, keeps rubric fixed
+   - Auto-saves to `calibrations/<metric_id>/` when `--dataset` provided
+8. **Load & Apply**: Use `load_optimized_prompt()` to get the best prompt
+9. **Simulate**: Generate synthetic test data (`evalyn simulate --dataset ...`)
 
 ### Metric Selection Strategies
 
@@ -337,6 +353,64 @@ def my_agent(...):
     ...
 ```
 
+### Prompt Optimization Strategies
+
+The `evalyn calibrate` command supports two optimization methods for improving LLM judge prompts.
+
+**Prompt Structure:**
+Judge prompts consist of two parts:
+- **Preamble**: Framing/instructions (e.g., "You are a safety evaluator...")
+- **Rubric**: Human-defined evaluation criteria (e.g., "- No harassment...")
+
+**1. LLM Optimization (`--optimizer llm`)** - Default:
+- Uses a single LLM call to analyze disagreement patterns
+- Suggests improvements to both preamble and rubric
+- Fast and cost-effective
+- Requires `GEMINI_API_KEY` or `OPENAI_API_KEY`
+
+**2. GEPA Optimization (`--optimizer gepa`)**:
+- Uses GEPA (Generative Evolutionary Prompt Adaptation)
+- Evolutionary search with LLM reflection
+- **Only optimizes the preamble; rubric stays fixed** (preserves human-defined criteria)
+- More thorough but requires more API calls
+- Requires: `pip install gepa`
+
+**GEPA-specific options**:
+- `--gepa-task-lm`: Model being optimized (default: `gemini/gemini-2.5-flash`)
+- `--gepa-reflection-lm`: Model for reflection (default: `gemini/gemini-2.5-flash`)
+- `--gepa-max-calls`: Budget for optimization (default: 150)
+
+**Example combinations**:
+```bash
+# LLM optimization (default, fast)
+evalyn calibrate --metric-id helpfulness_accuracy --annotations ann.jsonl --dataset data/myproj --optimizer llm
+
+# GEPA optimization (thorough, preamble-only)
+evalyn calibrate --metric-id helpfulness_accuracy --annotations ann.jsonl --dataset data/myproj --optimizer gepa
+
+# GEPA with custom models
+evalyn calibrate --metric-id helpfulness_accuracy --annotations ann.jsonl --dataset data/myproj --optimizer gepa \
+  --gepa-task-lm gemini/gemini-2.5-flash --gepa-reflection-lm gemini/gemini-2.5-flash --gepa-max-calls 200
+```
+
+**Using optimized prompts programmatically**:
+```python
+from evalyn_sdk import load_optimized_prompt, save_calibration
+
+# Load the latest optimized prompt for a metric
+prompt = load_optimized_prompt("data/myproj-v1", "helpfulness_accuracy")
+
+# Load a specific version
+prompt = load_optimized_prompt("data/myproj-v1", "helpfulness_accuracy", version="20250101_120000")
+
+# Save calibration results manually (auto-saved when --dataset provided)
+from evalyn_sdk import CalibrationEngine
+engine = CalibrationEngine(...)
+record = engine.calibrate(...)
+saved_paths = save_calibration(record, "data/myproj-v1", "helpfulness_accuracy")
+# Returns: {"calibration": "...", "preamble": "...", "full_prompt": "..."}
+```
+
 ### Storage Schema
 
 SQLite tables (implicit schema, created lazily):
@@ -394,10 +468,18 @@ data/<project>-<version>-<timestamp>/
     basic-<timestamp>.json          # Heuristic-suggested metrics
   eval_runs/
     <timestamp>_<run_id>.json       # Eval run results with full details
+  calibrations/                     # Calibration results and optimized prompts
+    <metric_id>/
+      <timestamp>_<optimizer>.json  # Full calibration record (alignment, disagreements)
+      prompts/
+        <timestamp>_preamble.txt    # Optimized preamble only (what GEPA optimizes)
+        <timestamp>_full.txt        # Full prompt ready to use (preamble + rubric)
 ```
 
 - `meta.json` includes `active_metric_set` pointing to the most recent selection
 - `eval_runs/` contains JSON files for each evaluation run with full metric results, scores, and LLM judge reasoning
+- `calibrations/` stores calibration records and optimized prompts per metric
+  - Use `load_optimized_prompt(dataset_path, metric_id)` to load the latest optimized prompt
 
 ### OpenTelemetry Integration
 

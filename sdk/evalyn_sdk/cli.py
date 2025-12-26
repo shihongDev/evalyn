@@ -47,7 +47,7 @@ class Spinner:
             self._thread.join(timeout=0.5)
 
 from .annotations import import_annotations
-from .calibration import CalibrationEngine
+from .calibration import CalibrationEngine, GEPAConfig, GEPA_AVAILABLE, save_calibration
 from .datasets import load_dataset, save_dataset_with_meta, build_dataset_from_storage
 from .simulator import UserSimulator, AgentSimulator, SimulationConfig
 from .decorators import get_default_tracer
@@ -2109,14 +2109,20 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     # Load annotations
     anns = import_annotations(args.annotations)
 
-    # Get current rubric from metric config if available
+    # Get current rubric and preamble from metric config if available
     current_rubric: List[str] = []
+    current_preamble: str = ""
     for metric_spec in run.metrics:
         if metric_spec.id == args.metric_id:
             cfg = metric_spec.config or {}
+            # Extract rubric (evaluation criteria)
             rubric_val = cfg.get("rubric", [])
             if isinstance(rubric_val, list):
                 current_rubric = [str(r) for r in rubric_val]
+            # Extract preamble (base prompt before rubric)
+            preamble_val = cfg.get("prompt", "")
+            if isinstance(preamble_val, str):
+                current_preamble = preamble_val
             break
 
     # Load dataset items for context (if dataset path provided)
@@ -2128,13 +2134,28 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
         if dataset_path.exists():
             dataset_items = load_dataset(dataset_path)
 
+    # Build GEPA config if using GEPA optimizer
+    gepa_config = None
+    if args.optimizer == "gepa":
+        if not GEPA_AVAILABLE:
+            print("Error: GEPA is not installed. Install with: pip install gepa")
+            return
+        gepa_config = GEPAConfig(
+            task_lm=args.gepa_task_lm,
+            reflection_lm=args.gepa_reflection_lm,
+            max_metric_calls=args.gepa_max_calls,
+        )
+
     # Run enhanced calibration
     engine = CalibrationEngine(
         judge_name=args.metric_id,
         current_threshold=args.threshold,
         current_rubric=current_rubric,
+        current_preamble=current_preamble,
         optimize_prompts=not args.no_optimize,
         optimizer_model=args.model,
+        optimizer_type=args.optimizer,
+        gepa_config=gepa_config,
     )
     record = engine.calibrate(metric_results, anns, dataset_items)
 
@@ -2200,9 +2221,11 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     print(f"Suggested: {record.adjustments.get('suggested_threshold', 0.5):.3f}")
 
     # Prompt optimization results
+    optimizer_type = record.adjustments.get("optimizer_type", "llm")
     optimization = record.adjustments.get("prompt_optimization", {})
     if optimization:
         print(f"\n--- PROMPT OPTIMIZATION ---")
+        print(f"Optimizer:             {optimizer_type.upper()}")
         print(f"Estimated improvement: {optimization.get('estimated_improvement', 'unknown')}")
 
         reasoning = optimization.get("improvement_reasoning", "")
@@ -2235,18 +2258,47 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
             for r in removals:
                 print(f"  - {r}")
 
+        # Show optimized preamble (for GEPA)
+        optimized_preamble = optimization.get("optimized_preamble", "")
+        if optimized_preamble:
+            print(f"\nOPTIMIZED PREAMBLE:")
+            # Show first 200 chars
+            preview = optimized_preamble[:200] + "..." if len(optimized_preamble) > 200 else optimized_preamble
+            for line in preview.split("\n"):
+                print(f"  {line}")
+
         improved = optimization.get("improved_rubric", [])
         if improved:
-            print(f"\nIMPROVED RUBRIC:")
+            print(f"\nRUBRIC (unchanged):")
             for i, criterion in enumerate(improved, 1):
                 print(f"  {i}. {criterion}")
 
-    # Save calibration record if output path specified
+    # Save calibration record
+    saved_files = {}
+
+    # Auto-save to dataset's calibrations folder if --dataset provided
+    if args.dataset:
+        dataset_dir = Path(args.dataset)
+        if dataset_dir.is_file():
+            dataset_dir = dataset_dir.parent
+        if dataset_dir.exists():
+            try:
+                saved_files = save_calibration(record, str(dataset_dir), args.metric_id)
+                print(f"\n--- SAVED FILES ---")
+                print(f"Calibration: {saved_files.get('calibration', 'N/A')}")
+                if saved_files.get('preamble'):
+                    print(f"Preamble:    {saved_files.get('preamble')}")
+                if saved_files.get('full_prompt'):
+                    print(f"Full prompt: {saved_files.get('full_prompt')}")
+            except Exception as e:
+                print(f"\nWarning: Could not save to calibrations folder: {e}")
+
+    # Also save to explicit output path if specified
     if args.output:
         output_path = Path(args.output)
         with open(output_path, "w") as f:
             json.dump(record.as_dict(), f, indent=2, default=str)
-        print(f"\nCalibration record saved to: {output_path}")
+        print(f"\nCalibration record also saved to: {output_path}")
 
     print(f"\n{'='*60}")
 
@@ -2632,7 +2684,12 @@ For more info on a command: evalyn <command> --help
     calibrate_parser.add_argument("--threshold", type=float, default=0.5, help="Current threshold for pass/fail")
     calibrate_parser.add_argument("--dataset", help="Path to dataset folder (provides input/output context for optimization)")
     calibrate_parser.add_argument("--no-optimize", action="store_true", help="Skip LLM-based prompt optimization")
-    calibrate_parser.add_argument("--model", default="gemini-2.5-flash-lite", help="LLM model for prompt optimization")
+    calibrate_parser.add_argument("--optimizer", choices=["llm", "gepa"], default="llm", help="Optimization method: 'llm' (default) or 'gepa' (evolutionary)")
+    calibrate_parser.add_argument("--model", default="gemini-2.5-flash-lite", help="LLM model for prompt optimization (llm mode)")
+    # GEPA-specific options
+    calibrate_parser.add_argument("--gepa-task-lm", default="gemini/gemini-2.5-flash", help="Task model for GEPA (model being optimized)")
+    calibrate_parser.add_argument("--gepa-reflection-lm", default="gemini/gemini-2.5-flash", help="Reflection model for GEPA (strong model for reflection)")
+    calibrate_parser.add_argument("--gepa-max-calls", type=int, default=150, help="Max metric calls budget for GEPA optimization")
     calibrate_parser.add_argument("--show-examples", action="store_true", help="Show example disagreement cases")
     calibrate_parser.add_argument("--output", help="Path to save calibration record JSON")
     calibrate_parser.set_defaults(func=cmd_calibrate)
