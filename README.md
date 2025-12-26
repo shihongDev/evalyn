@@ -25,12 +25,14 @@ This repo focuses on the **Python SDK** (`sdk/`). The former frontend demo has b
 2) **Collect**: run your agent; traces are stored (`evalyn list-calls`).
 3) **Build dataset from traces**: use `evalyn build-dataset` (CLI) or `build_dataset_from_storage` (SDK) to export JSONL from stored calls.
 4) **Suggest/Select Metrics**:
-   - Heuristic/LLM suggestions: `evalyn suggest-metrics --target module:function`
-   - LLM registry selection (uses code + traces): `evalyn select-metrics --target module:function --llm-caller mymodule:llm_call`
-   - Save suggestions into a dataset folder: `evalyn suggest-metrics --dataset data/<dataset_dir>`
-5) **Run Eval**: prepare JSON/JSONL dataset, then `evalyn run-dataset --target module:function --dataset path --dataset-name name` (uses built-in metrics; extend via registry).
-6) **Annotate**: import human labels `evalyn import-annotations --path annotations.jsonl` (target_id should match call_id).
-7) **Calibrate**: `evalyn calibrate --metric-id <judge-metric> --annotations annotations.jsonl --run-id <eval-run>` to get suggested threshold adjustments.
+   - Heuristic suggestions: `evalyn suggest-metrics --target module:function --mode basic`
+   - LLM registry selection: `evalyn suggest-metrics --target module:function --mode llm-registry`
+   - Preset bundles: `evalyn suggest-metrics --target module:function --mode bundle --bundle research-agent`
+   - Save suggestions into a dataset folder: `evalyn suggest-metrics --dataset data/<dataset_dir> --target module:function`
+5) **Run Eval**: `evalyn run-eval --dataset data/myproj` (auto-detects metrics from meta.json) or specify metrics explicitly.
+6) **Review Results**: Eval runs saved as JSON in `<dataset>/eval_runs/` with full scores and LLM judge reasoning.
+7) **Annotate**: import human labels `evalyn import-annotations --path annotations.jsonl` (target_id should match call_id).
+8) **Calibrate**: `evalyn calibrate --metric-id <judge-metric> --annotations annotations.jsonl --run-id <eval-run>` to get suggested threshold adjustments.
 
 ### Visual flow
 ```
@@ -39,20 +41,48 @@ This repo focuses on the **Python SDK** (`sdk/`). The former frontend demo has b
       v
  Traces (inputs/outputs/errors/code metadata, events)
       |
-      +--> Build dataset
-      |     - from calls (build-dataset / build_dataset_from_storage)
+      +--> Build dataset ───────────────────────────────────────┐
+      |     - evalyn build-dataset                              |
+      |                                                         |
+      +--> Metric selection                                     |
+      |     - evalyn suggest-metrics                            |
+      |     - basic/llm-registry/bundle modes                   |
+      |                                                         v
+      +--> Eval setup & run ──────────────────────────> dataset.jsonl
+      |     - evalyn run-eval                            metrics/*.json
+      |     - LLM judges score each item                 eval_runs/*.json
+      |                                                         |
+      v                                                         v
+ Review results <───────────────────────────────────────────────┘
       |
-      +--> Metric selection
-      |     - suggest-metrics / select-metrics
+      +--> Human annotation loop
+      |     - evalyn annotate --dataset ... [--per-metric]
+      |     - Interactive: y/n/skip with LLM judge context
+      |     - Confidence scores (1-5)
+      |     - Saves to annotations.jsonl
+      |                    |
+      v                    v
+ Calibrate judges <────────┘
       |
-      +--> Eval setup & run
-      |     - run-dataset (EvalRunner/CLI)
+      +--> Alignment metrics (precision, recall, F1, kappa)
+      +--> Disagreement analysis (false positives/negatives)
+      +--> LLM-optimized rubric suggestions
       |
-      +--> Inspect results
-      |     - show-call / show-run
+      v
+ Improved rubric ──> Re-run eval with better prompts (iterate)
       |
-      +--> Annotate & calibrate
-            - import annotations / calibrate judges
+      v
+ Simulation (expand coverage) ────────────────────────────────────┐
+      |                                                           |
+      +--> evalyn simulate --dataset ... --modes similar,outlier  |
+      |     - Similar: Variations of seed queries (robustness)    |
+      |     - Outlier: Edge cases, adversarial inputs             |
+      |                                                           v
+      +--> With --target: run agent on generated queries   simulations/
+      |     and create new datasets for eval               ├─ sim-similar/
+      |                                                    └─ sim-outlier/
+      v
+ Expanded dataset ──> Re-run eval on synthetic data (iterate)
 ```
 
 ## Minimal code example
@@ -95,9 +125,12 @@ If you prefer modules, dotted imports still work: `example_agent.agent:run_agent
 - Registry-constrained LLM (default): `evalyn suggest-metrics --mode llm-registry --target ...`
 - Free-form LLM brainstorm: `evalyn suggest-metrics --mode llm-brainstorm --target ...`
 - Local Ollama: add `--llm-mode local --model llama3.1`
-- API (OpenAI/Gemini): `--llm-mode api --model gpt-4.1` (or `gemini-3-flash` with `GOOGLE_API_KEY`/`GEMINI_API_KEY` or `--api-key`)
+- API (OpenAI/Gemini): `--llm-mode api --model gpt-4` (or `gemini-2.5-flash-lite` with `GEMINI_API_KEY`)
 - Preset bundles (no LLM): `evalyn suggest-metrics --mode bundle --bundle summarization` (bundles: summarization, orchestrator, research-agent)
+- Default model: `gemini-2.5-flash-lite` (set `GEMINI_API_KEY` env var)
 You can still supply your own callable with `--llm-caller` (takes a prompt string, returns metric dicts).
+
+**Note on reference-based metrics**: Metrics like ROUGE, BLEU, and token_overlap require a golden standard. When using `suggest-metrics` with a dataset that has no reference values, these are automatically excluded.
 
 ## Subjective (LLM-judge) metric example
 Subjective templates are **rubric-based PASS/FAIL**. Override the rubric (or policy/tone) via config.
@@ -116,15 +149,106 @@ metric = build_subjective_metric(
 - Instrument & run agent: `python -m example_agent.agent "your question"` (requires `GEMINI_API_KEY`)
 - Inspect traces: `evalyn list-calls --limit 20`, then `evalyn show-call --id <call_id>`
 - Project summary: `evalyn show-projects`
-- Build dataset from stored traces (CLI): `evalyn build-dataset --project myproj --version v1 --limit 200 --since 2025-01-01T00:00:00` (defaults to `data/myproj-v1-<timestamp>/dataset.jsonl` plus `meta.json`; add `--output` to override)
-- Save suggested metrics into a dataset folder: `evalyn suggest-metrics --target example_agent/agent.py:run_agent --num-traces 3 --num-metrics 10 --dataset data/myproj-v1-20250101-120000 --metrics-name llm-registry`
-- Run eval on a dataset: `evalyn run-dataset --target module:function --dataset path --dataset-name name`
-- Suggest metrics: `evalyn suggest-metrics --target module:function --num-traces 3 --num-metrics 10`
-- LLM registry selection: `evalyn select-metrics --target module:function --llm-caller mymodule:llm_call`
+- Build dataset from stored traces: `evalyn build-dataset --project myproj --version v1 --limit 200`
+- Suggest metrics (heuristic): `evalyn suggest-metrics --target example_agent/agent.py:run_agent --mode basic`
+- Suggest metrics (LLM): `evalyn suggest-metrics --target example_agent/agent.py:run_agent --mode llm-registry --dataset data/myproj`
+- Run eval (auto-detect metrics): `evalyn run-eval --dataset data/myproj`
+- Run eval (specific metrics): `evalyn run-eval --dataset data/myproj --metrics metrics/llm-registry.json`
+- Run eval (all metrics): `evalyn run-eval --dataset data/myproj --metrics-all`
+- Run eval (multiple files): `evalyn run-eval --dataset data/myproj --metrics "metrics/basic.json,metrics/bundle.json"`
 - List metric templates: `evalyn list-metrics` (shows category + required inputs)
 - View eval runs/results: `evalyn list-runs`, `evalyn show-run --id <run_id>`
+- Interactive annotation: `evalyn annotate --dataset data/myproj` (shows items one-by-one with LLM judge results)
 - Import annotations: `evalyn import-annotations --path annotations.jsonl`
-- Calibrate judges: `evalyn calibrate --metric-id llm_judge --annotations annotations.jsonl --run-id <run>`
+- Calibrate judges (basic): `evalyn calibrate --metric-id helpfulness_accuracy --annotations annotations.jsonl --run-id <run>`
+- Calibrate with optimization: `evalyn calibrate --metric-id helpfulness_accuracy --annotations annotations.jsonl --dataset data/myproj --show-examples`
+- Save calibration: `evalyn calibrate --metric-id helpfulness_accuracy --annotations annotations.jsonl --output calibration.json`
+- Per-metric annotation: `evalyn annotate --dataset data/myproj --per-metric`
+- Simulate users (generate queries): `evalyn simulate --dataset data/myproj --modes similar,outlier`
+- Simulate users (with agent): `evalyn simulate --dataset data/myproj --target example_agent/agent.py:run_agent`
+
+### Calibration workflow
+The calibration system computes alignment metrics between LLM judges and human annotations, then uses LLM-based prompt optimization to suggest improved rubrics:
+
+1. **Run eval first** (get LLM judge results): `evalyn run-eval --dataset data/myproj`
+2. **Annotate interactively**: `evalyn annotate --dataset data/myproj`
+3. **Calibrate**: `evalyn calibrate --metric-id <metric> --annotations data/myproj/annotations.jsonl --dataset data/myproj`
+
+The interactive annotator shows each item with input, output, and LLM judge results side-by-side:
+```
+Item 1/5 [0063c461...]
+📥 INPUT: {"question": "whats the current state of AI?"}
+📤 OUTPUT: The current state of AI shows rapid advancement...
+🤖 LLM JUDGE: helpfulness_accuracy: ✅ PASS
+
+Pass? [y/n/s/v/q]: y
+Notes (optional): Good comprehensive response
+```
+
+The calibration report includes:
+- **Alignment metrics**: accuracy, precision, recall, F1, Cohen's kappa
+- **Confusion matrix**: TP, TN, FP, FN counts
+- **Disagreement analysis**: false positive/negative examples with reasons
+- **Prompt optimization**: LLM-suggested rubric improvements
+
+Use `--no-optimize` to skip LLM optimization, or `--model <model>` to change the optimizer model.
+
+### Per-metric annotation
+For fine-grained calibration, use `--per-metric` mode to annotate each metric separately:
+```bash
+evalyn annotate --dataset data/myproj --per-metric
+```
+
+This asks for each metric: "Do you agree with the LLM judge?" and "What's your own judgement?":
+```
+Item 1/5 [0063c461...]
+📥 INPUT: {"question": "whats the current state of AI?"}
+📤 OUTPUT: The current state of AI shows rapid advancement...
+🤖 LLM JUDGE: helpfulness_accuracy: ✅ PASS
+
+--- METRIC: helpfulness_accuracy ---
+LLM said: PASS | Agree? [y/n/s]: n
+Your judgement (pass/fail) [y/n]: n
+Notes (optional): Response lacks specific examples
+
+Confidence (1-5, 5=very confident): 4
+```
+
+### Simulation workflow
+Generate synthetic test data by simulating users. Two modes:
+- **similar**: Variations similar to seed inputs (test robustness)
+- **outlier**: Edge cases, adversarial inputs, unusual requests
+
+```bash
+# Generate synthetic queries only (review before running)
+evalyn simulate --dataset data/myproj --modes similar,outlier
+
+# Generate and run through your agent
+evalyn simulate --dataset data/myproj --target example_agent/agent.py:run_agent
+
+# Control generation parameters
+evalyn simulate --dataset data/myproj \
+  --num-similar 5 \
+  --num-outlier 2 \
+  --max-seeds 20 \
+  --model gemini-2.5-flash-lite
+```
+
+Output structure:
+```
+data/myproj/simulations/
+  sim-similar-20250101-120000/
+    dataset.jsonl
+    meta.json
+  sim-outlier-20250101-120000/
+    dataset.jsonl
+    meta.json
+```
+
+Run eval on simulated data:
+```bash
+evalyn run-eval --dataset data/myproj/simulations/sim-similar-20250101-120000
+```
 
 ### Decorator hints for metric suggestion
 You can annotate your function with a preferred suggestion mode:
@@ -142,12 +266,25 @@ def my_agent(...):
 data/<project>-<version>-<timestamp>/
   dataset.jsonl
   meta.json
+  annotations.jsonl              # Human annotations (from evalyn annotate)
   metrics/
     llm-registry-<timestamp>.json
     bundle-summarization.json
+    basic-<timestamp>.json
+  eval_runs/
+    <timestamp>_<run_id>.json
+  simulations/                   # Synthetic data (from evalyn simulate)
+    sim-similar-<timestamp>/
+      dataset.jsonl
+      meta.json
+    sim-outlier-<timestamp>/
+      dataset.jsonl
+      meta.json
 ```
 - `meta.json` includes filters, schema, counts, and `metric_sets` (list of saved metric selections).
 - `active_metric_set` points to the most recently saved selection.
+- `eval_runs/` contains JSON files for each evaluation with full results, scores, and LLM judge reasoning.
+- `simulations/` contains synthetic datasets generated by the user simulator.
 
 ## Notes on cleanliness
 - `.gitignore` covers node_modules/dist/__pycache__/venv/etc.

@@ -49,6 +49,7 @@ class Spinner:
 from .annotations import import_annotations
 from .calibration import CalibrationEngine
 from .datasets import load_dataset, save_dataset_with_meta, build_dataset_from_storage
+from .simulator import UserSimulator, AgentSimulator, SimulationConfig
 from .decorators import get_default_tracer
 from .metrics.objective import register_builtin_metrics
 from .metrics.registry import MetricRegistry
@@ -1717,6 +1718,375 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
     print("\n" + "=" * 60)
 
 
+def cmd_annotate(args: argparse.Namespace) -> None:
+    """Interactive CLI annotation interface with per-metric support."""
+    from .models import AnnotationItem, HumanLabel, Annotation, MetricLabel
+
+    # Resolve dataset path
+    dataset_path = Path(args.dataset)
+    if dataset_path.is_dir():
+        dataset_dir = dataset_path
+        data_file = dataset_path / "dataset.jsonl"
+        if not data_file.exists():
+            data_file = dataset_path / "dataset.json"
+    else:
+        dataset_dir = dataset_path.parent
+        data_file = dataset_path
+
+    if not data_file.exists():
+        print(f"Error: Dataset file not found: {data_file}")
+        sys.exit(1)
+
+    # Load dataset items
+    dataset_items = load_dataset(data_file)
+    if not dataset_items:
+        print("No items in dataset.")
+        return
+
+    # Get eval run for LLM judge results
+    tracer = get_default_tracer()
+    run = None
+    if args.run_id and tracer.storage:
+        run = tracer.storage.get_eval_run(args.run_id)
+    elif tracer.storage:
+        runs = tracer.storage.list_eval_runs(limit=1)
+        run = runs[0] if runs else None
+
+    # Build eval results lookup by call_id
+    eval_results_by_call: Dict[str, Dict[str, Any]] = {}
+    if run:
+        for result in run.metric_results:
+            if result.call_id not in eval_results_by_call:
+                eval_results_by_call[result.call_id] = {}
+            eval_results_by_call[result.call_id][result.metric_id] = {
+                "score": result.score,
+                "passed": result.passed,
+                "reason": result.details.get("reason", "") if result.details else "",
+            }
+
+    # Load existing annotations if any
+    output_path = Path(args.output) if args.output else dataset_dir / "annotations.jsonl"
+    existing_annotations: Dict[str, Annotation] = {}
+    if output_path.exists() and not args.restart:
+        try:
+            for line in output_path.read_text(encoding="utf-8").strip().splitlines():
+                if line.strip():
+                    data = json.loads(line)
+                    ann = Annotation.from_dict(data)
+                    existing_annotations[ann.target_id] = ann
+        except Exception:
+            pass
+
+    # Filter items based on options
+    items_to_annotate = []
+    for item in dataset_items:
+        call_id = item.metadata.get("call_id", item.id)
+
+        # Skip if already annotated (unless --restart)
+        if call_id in existing_annotations and not args.restart:
+            continue
+
+        items_to_annotate.append(item)
+
+    if not items_to_annotate:
+        print("No items to annotate. All items already have annotations.")
+        print(f"Use --restart to re-annotate, or check {output_path}")
+        return
+
+    total = len(items_to_annotate)
+    annotated_count = len(existing_annotations)
+    annotations: List[Annotation] = list(existing_annotations.values())
+    per_metric_mode = args.per_metric
+
+    print("\n" + "=" * 70)
+    print("INTERACTIVE ANNOTATION" + (" (Per-Metric Mode)" if per_metric_mode else ""))
+    print("=" * 70)
+    print(f"Dataset: {data_file}")
+    print(f"Items to annotate: {total}")
+    print(f"Already annotated: {annotated_count}")
+    if run:
+        print(f"Using eval run: {run.id[:8]}...")
+    print(f"Output: {output_path}")
+    if per_metric_mode:
+        print("\nPer-metric commands:")
+        print("  [a]gree with LLM  [d]isagree (flip)  [s]kip metric")
+    else:
+        print("\nCommands: [y]es/pass  [n]o/fail  [s]kip  [v]iew full  [q]uit")
+    print("=" * 70)
+
+    def truncate(text: str, max_len: int = 500) -> str:
+        text = str(text) if text else ""
+        text = text.replace("\n", " ").strip()
+        return text if len(text) <= max_len else text[:max_len] + "..."
+
+    def display_item(idx: int, item: DatasetItem, show_metric_numbers: bool = False) -> List[tuple]:
+        """Display item and return list of (metric_id, llm_passed, reason) for subjective metrics."""
+        call_id = item.metadata.get("call_id", item.id)
+        print(f"\n{'─' * 70}")
+        print(f"Item {idx + 1}/{total} [{call_id[:12]}...]")
+        print("─" * 70)
+
+        # Input
+        input_text = json.dumps(item.input, ensure_ascii=False, indent=2) if item.input else "(no input)"
+        print(f"\n📥 INPUT:")
+        if len(input_text) > 300:
+            print(f"   {truncate(input_text, 300)}")
+        else:
+            for line in input_text.split("\n")[:5]:
+                print(f"   {line}")
+
+        # Output
+        output_text = str(item.output) if item.output else "(no output)"
+        print(f"\n📤 OUTPUT:")
+        print(f"   {truncate(output_text, 500)}")
+
+        # LLM Judge results
+        eval_data = eval_results_by_call.get(call_id, {})
+        subjective_metrics = []
+        if eval_data:
+            print(f"\n🤖 LLM JUDGE RESULTS:")
+            metric_num = 1
+            for metric_id, result in eval_data.items():
+                passed = result.get("passed")
+                if passed is None:
+                    continue
+                status = "✅ PASS" if passed else "❌ FAIL"
+                reason = result.get("reason", "")
+                if show_metric_numbers:
+                    print(f"   [{metric_num}] {metric_id}: {status}")
+                else:
+                    print(f"   {metric_id}: {status}")
+                if reason:
+                    print(f"       Reason: {truncate(reason, 200)}")
+                subjective_metrics.append((metric_id, passed, reason))
+                metric_num += 1
+
+        print("─" * 70)
+        return subjective_metrics
+
+    def get_confidence() -> Optional[int]:
+        """Get confidence score 1-5 from user."""
+        try:
+            conf_input = input("Confidence (1-5, Enter to skip): ").strip()
+            if not conf_input:
+                return None
+            conf = int(conf_input)
+            if 1 <= conf <= 5:
+                return conf
+            print("Invalid. Use 1-5.")
+            return get_confidence()
+        except ValueError:
+            print("Invalid. Use 1-5 or Enter to skip.")
+            return get_confidence()
+        except (EOFError, KeyboardInterrupt):
+            return None
+
+    def save_annotations() -> None:
+        """Save all annotations to file."""
+        with open(output_path, "w", encoding="utf-8") as f:
+            for ann in annotations:
+                f.write(json.dumps(ann.as_dict(), ensure_ascii=False) + "\n")
+
+    def annotate_per_metric(item: DatasetItem, subjective_metrics: List[tuple]) -> Optional[Annotation]:
+        """Per-metric annotation flow."""
+        call_id = item.metadata.get("call_id", item.id)
+        metric_labels: Dict[str, MetricLabel] = {}
+
+        if not subjective_metrics:
+            print("No subjective metrics to annotate for this item.")
+            return None
+
+        print("\nAnnotate each metric ([a]gree, [d]isagree/flip, [s]kip, [q]uit):")
+
+        for i, (metric_id, llm_passed, reason) in enumerate(subjective_metrics, 1):
+            status = "✅ PASS" if llm_passed else "❌ FAIL"
+            print(f"\n  [{i}/{len(subjective_metrics)}] {metric_id}: LLM says {status}")
+            if reason:
+                print(f"      Reason: {truncate(reason, 150)}")
+
+            while True:
+                try:
+                    choice = input(f"  Your verdict [a/d/s/q]: ").strip().lower()
+                except (EOFError, KeyboardInterrupt):
+                    return None
+
+                if choice in ("q", "quit"):
+                    return None  # Signal to quit
+
+                if choice in ("s", "skip"):
+                    break  # Skip this metric
+
+                if choice in ("a", "agree", "y", "yes"):
+                    # Agree with LLM
+                    metric_labels[metric_id] = MetricLabel(
+                        metric_id=metric_id,
+                        agree_with_llm=True,
+                        human_label=llm_passed,
+                        notes="",
+                    )
+                    print(f"      → Agreed: {status}")
+                    break
+
+                if choice in ("d", "disagree", "n", "no", "flip"):
+                    # Disagree - flip the label
+                    human_label = not llm_passed
+                    human_status = "✅ PASS" if human_label else "❌ FAIL"
+                    try:
+                        notes = input(f"      Notes (why disagree?): ").strip()
+                    except (EOFError, KeyboardInterrupt):
+                        notes = ""
+                    metric_labels[metric_id] = MetricLabel(
+                        metric_id=metric_id,
+                        agree_with_llm=False,
+                        human_label=human_label,
+                        notes=notes,
+                    )
+                    print(f"      → Disagreed: Human says {human_status}")
+                    break
+
+                print("      Invalid. Use: a(gree), d(isagree), s(kip), q(uit)")
+
+        if not metric_labels:
+            print("No metrics annotated.")
+            return None
+
+        # Calculate overall label from metric labels
+        human_passes = [ml.human_label for ml in metric_labels.values()]
+        overall_passed = all(human_passes) if human_passes else True
+
+        # Get confidence
+        confidence = get_confidence()
+
+        # Get overall notes
+        try:
+            overall_notes = input("Overall notes (optional): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            overall_notes = ""
+
+        return Annotation(
+            id=f"ann-{call_id[:8]}-{len(annotations)}",
+            target_id=call_id,
+            label=overall_passed,
+            rationale=overall_notes if overall_notes else None,
+            annotator=args.annotator or "human",
+            source="human",
+            confidence=confidence,
+            metric_labels=metric_labels,
+        )
+
+    def annotate_simple(item: DatasetItem) -> Optional[Annotation]:
+        """Simple overall pass/fail annotation flow."""
+        call_id = item.metadata.get("call_id", item.id)
+
+        while True:
+            try:
+                user_input = input("\nPass? [y/n/s/v/q]: ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                return None
+
+            if user_input in ("q", "quit"):
+                return None  # Signal to quit
+
+            if user_input in ("s", "skip"):
+                return "skip"  # Signal to skip
+
+            if user_input in ("v", "view"):
+                # Show full output
+                print("\n" + "=" * 70)
+                print("FULL OUTPUT:")
+                print("=" * 70)
+                print(str(item.output) if item.output else "(no output)")
+                print("=" * 70)
+                continue
+
+            if user_input in ("y", "yes", "1", "p", "pass"):
+                passed = True
+            elif user_input in ("n", "no", "0", "f", "fail"):
+                passed = False
+            else:
+                print("Invalid input. Use: y(es), n(o), s(kip), v(iew), q(uit)")
+                continue
+
+            # Get confidence
+            confidence = get_confidence()
+
+            # Get optional notes
+            try:
+                notes = input("Notes (optional): ").strip()
+            except (EOFError, KeyboardInterrupt):
+                notes = ""
+
+            return Annotation(
+                id=f"ann-{call_id[:8]}-{len(annotations)}",
+                target_id=call_id,
+                label=passed,
+                rationale=notes if notes else None,
+                annotator=args.annotator or "human",
+                source="human",
+                confidence=confidence,
+            )
+
+    # Main annotation loop
+    idx = 0
+    while idx < total:
+        item = items_to_annotate[idx]
+        call_id = item.metadata.get("call_id", item.id)
+
+        subjective_metrics = display_item(idx, item, show_metric_numbers=per_metric_mode)
+
+        if per_metric_mode:
+            ann = annotate_per_metric(item, subjective_metrics)
+            if ann is None:
+                # Check if user wants to quit
+                try:
+                    quit_check = input("\nQuit? [y/n]: ").strip().lower()
+                    if quit_check in ("y", "yes"):
+                        save_annotations()
+                        print(f"\nSaved {len(annotations)} annotations to {output_path}")
+                        return
+                except (EOFError, KeyboardInterrupt):
+                    save_annotations()
+                    print(f"\nSaved {len(annotations)} annotations to {output_path}")
+                    return
+                idx += 1
+                continue
+        else:
+            ann = annotate_simple(item)
+            if ann is None:
+                save_annotations()
+                print(f"\nSaved {len(annotations)} annotations to {output_path}")
+                return
+            if ann == "skip":
+                print("Skipped.")
+                idx += 1
+                continue
+
+        # Save annotation
+        annotations.append(ann)
+        save_annotations()
+
+        # Show summary
+        if per_metric_mode:
+            agrees = sum(1 for ml in ann.metric_labels.values() if ml.agree_with_llm)
+            total_metrics = len(ann.metric_labels)
+            print(f"\n✓ Saved: {agrees}/{total_metrics} agree with LLM, overall={('✅ PASS' if ann.label else '❌ FAIL')}")
+        else:
+            status = "✅ PASS" if ann.label else "❌ FAIL"
+            conf_str = f", confidence={ann.confidence}" if ann.confidence else ""
+            print(f"Saved: {status}{conf_str}" + (f" - {ann.rationale}" if ann.rationale else ""))
+
+        idx += 1
+
+    # Final save
+    save_annotations()
+    print("\n" + "=" * 70)
+    print(f"ANNOTATION COMPLETE")
+    print(f"Total annotated: {len(annotations)}")
+    print(f"Saved to: {output_path}")
+    print("=" * 70)
+    print(f"\nNext step: evalyn calibrate --metric-id <metric> --annotations {output_path}")
+
+
 def cmd_calibrate(args: argparse.Namespace) -> None:
     tracer = get_default_tracer()
     if not tracer.storage:
@@ -1736,14 +2106,149 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
         print(f"No metric results found for metric_id={args.metric_id} in run {run.id}")
         return
 
+    # Load annotations
     anns = import_annotations(args.annotations)
-    engine = CalibrationEngine(judge_name=args.metric_id, current_threshold=args.threshold)
-    record = engine.calibrate(metric_results, anns)
 
-    print(f"Calibration for metric '{args.metric_id}' on run {run.id}")
-    print(f"- disagreement_rate: {record.adjustments['disagreement_rate']:.3f}")
-    print(f"- suggested_threshold: {record.adjustments['suggested_threshold']:.3f}")
-    print(f"- current_threshold: {record.adjustments['current_threshold']:.3f}")
+    # Get current rubric from metric config if available
+    current_rubric: List[str] = []
+    for metric_spec in run.metrics:
+        if metric_spec.id == args.metric_id:
+            cfg = metric_spec.config or {}
+            rubric_val = cfg.get("rubric", [])
+            if isinstance(rubric_val, list):
+                current_rubric = [str(r) for r in rubric_val]
+            break
+
+    # Load dataset items for context (if dataset path provided)
+    dataset_items: Optional[List[DatasetItem]] = None
+    if args.dataset:
+        dataset_path = Path(args.dataset)
+        if dataset_path.is_dir():
+            dataset_path = dataset_path / "dataset.jsonl"
+        if dataset_path.exists():
+            dataset_items = load_dataset(dataset_path)
+
+    # Run enhanced calibration
+    engine = CalibrationEngine(
+        judge_name=args.metric_id,
+        current_threshold=args.threshold,
+        current_rubric=current_rubric,
+        optimize_prompts=not args.no_optimize,
+        optimizer_model=args.model,
+    )
+    record = engine.calibrate(metric_results, anns, dataset_items)
+
+    # Display results
+    print(f"\n{'='*60}")
+    print(f"CALIBRATION REPORT: {args.metric_id}")
+    print(f"{'='*60}")
+    print(f"Eval Run: {run.id}")
+    print(f"Samples:  {record.adjustments.get('alignment_metrics', {}).get('total_samples', 0)}")
+
+    # Alignment metrics
+    alignment = record.adjustments.get("alignment_metrics", {})
+    if alignment:
+        print(f"\n--- ALIGNMENT METRICS ---")
+        print(f"Accuracy:       {alignment.get('accuracy', 0):.1%}")
+        print(f"Precision:      {alignment.get('precision', 0):.1%}")
+        print(f"Recall:         {alignment.get('recall', 0):.1%}")
+        print(f"F1 Score:       {alignment.get('f1', 0):.1%}")
+        print(f"Specificity:    {alignment.get('specificity', 0):.1%}")
+        print(f"Cohen's Kappa:  {alignment.get('cohens_kappa', 0):.3f}")
+
+        # Confusion matrix
+        cm = alignment.get("confusion_matrix", {})
+        if cm:
+            print(f"\nConfusion Matrix:")
+            print(f"                   Human PASS  Human FAIL")
+            print(f"  Judge PASS       {cm.get('true_positive', 0):^10}  {cm.get('false_positive', 0):^10}")
+            print(f"  Judge FAIL       {cm.get('false_negative', 0):^10}  {cm.get('true_negative', 0):^10}")
+
+    # Disagreement patterns
+    disagreements = record.adjustments.get("disagreement_patterns", {})
+    if disagreements:
+        fp_count = disagreements.get("false_positive_count", 0)
+        fn_count = disagreements.get("false_negative_count", 0)
+        if fp_count > 0 or fn_count > 0:
+            print(f"\n--- DISAGREEMENT PATTERNS ---")
+            print(f"False Positives (judge too lenient): {fp_count}")
+            print(f"False Negatives (judge too strict):  {fn_count}")
+
+            if args.show_examples:
+                fp_examples = disagreements.get("false_positive_examples", [])[:3]
+                fn_examples = disagreements.get("false_negative_examples", [])[:3]
+
+                if fp_examples:
+                    print(f"\nFalse Positive Examples:")
+                    for i, ex in enumerate(fp_examples, 1):
+                        print(f"  {i}. call_id={ex.get('call_id', '')[:8]}...")
+                        print(f"     Judge reason: {ex.get('judge_reason', '')[:80]}...")
+                        if ex.get("human_notes"):
+                            print(f"     Human notes:  {ex.get('human_notes', '')[:80]}...")
+
+                if fn_examples:
+                    print(f"\nFalse Negative Examples:")
+                    for i, ex in enumerate(fn_examples, 1):
+                        print(f"  {i}. call_id={ex.get('call_id', '')[:8]}...")
+                        print(f"     Judge reason: {ex.get('judge_reason', '')[:80]}...")
+                        if ex.get("human_notes"):
+                            print(f"     Human notes:  {ex.get('human_notes', '')[:80]}...")
+
+    # Threshold suggestion
+    print(f"\n--- THRESHOLD ---")
+    print(f"Current:   {record.adjustments.get('current_threshold', 0.5):.3f}")
+    print(f"Suggested: {record.adjustments.get('suggested_threshold', 0.5):.3f}")
+
+    # Prompt optimization results
+    optimization = record.adjustments.get("prompt_optimization", {})
+    if optimization:
+        print(f"\n--- PROMPT OPTIMIZATION ---")
+        print(f"Estimated improvement: {optimization.get('estimated_improvement', 'unknown')}")
+
+        reasoning = optimization.get("improvement_reasoning", "")
+        if reasoning:
+            # Word-wrap the reasoning
+            words = reasoning.split()
+            lines = []
+            current_line = ""
+            for word in words:
+                if len(current_line) + len(word) + 1 <= 70:
+                    current_line += (" " if current_line else "") + word
+                else:
+                    lines.append(current_line)
+                    current_line = word
+            if current_line:
+                lines.append(current_line)
+            print(f"\nReasoning:")
+            for line in lines:
+                print(f"  {line}")
+
+        additions = optimization.get("suggested_additions", [])
+        if additions:
+            print(f"\nSuggested ADDITIONS to rubric:")
+            for a in additions:
+                print(f"  + {a}")
+
+        removals = optimization.get("suggested_removals", [])
+        if removals:
+            print(f"\nSuggested REMOVALS from rubric:")
+            for r in removals:
+                print(f"  - {r}")
+
+        improved = optimization.get("improved_rubric", [])
+        if improved:
+            print(f"\nIMPROVED RUBRIC:")
+            for i, criterion in enumerate(improved, 1):
+                print(f"  {i}. {criterion}")
+
+    # Save calibration record if output path specified
+    if args.output:
+        output_path = Path(args.output)
+        with open(output_path, "w") as f:
+            json.dump(record.as_dict(), f, indent=2, default=str)
+        print(f"\nCalibration record saved to: {output_path}")
+
+    print(f"\n{'='*60}")
 
 
 def cmd_select_metrics(args: argparse.Namespace) -> None:
@@ -1833,6 +2338,158 @@ def cmd_list_metrics(args: argparse.Namespace) -> None:
 
     _print_table("\nObjective metrics:", OBJECTIVE_TEMPLATES)
     _print_table("\nSubjective metrics:", SUBJECTIVE_TEMPLATES)
+
+
+def cmd_simulate(args: argparse.Namespace) -> None:
+    """Generate synthetic test data using LLM-based user simulation."""
+    from .models import DatasetItem
+
+    # Resolve dataset path
+    dataset_path = Path(args.dataset)
+    if dataset_path.is_dir():
+        dataset_file = dataset_path / "dataset.jsonl"
+    else:
+        dataset_file = dataset_path
+        dataset_path = dataset_file.parent
+
+    if not dataset_file.exists():
+        print(f"Error: Dataset not found at {dataset_file}")
+        return
+
+    # Load seed dataset
+    seed_items = load_dataset(dataset_file)
+    if not seed_items:
+        print("Error: No items found in seed dataset")
+        return
+
+    print(f"Loaded {len(seed_items)} seed items from {dataset_file}")
+
+    # Load target function if provided
+    target_fn = None
+    if args.target:
+        try:
+            target_fn = _load_callable(args.target)
+            print(f"Loaded target function: {args.target}")
+        except Exception as e:
+            print(f"Warning: Could not load target function: {e}")
+            print("Simulation will generate queries only (no agent execution)")
+
+    # Parse modes
+    modes = [m.strip() for m in args.modes.split(",")]
+    valid_modes = {"similar", "outlier"}
+    modes = [m for m in modes if m in valid_modes]
+    if not modes:
+        modes = ["similar", "outlier"]
+
+    print(f"Simulation modes: {modes}")
+
+    # Build config
+    config = SimulationConfig(
+        num_similar=args.num_similar,
+        num_outlier=args.num_outlier,
+        model=args.model,
+        temperature_similar=args.temp_similar,
+        temperature_outlier=args.temp_outlier,
+        max_seed_items=args.max_seeds,
+    )
+
+    # Determine output directory
+    if args.output:
+        output_dir = Path(args.output)
+    else:
+        # Default: create sim-<timestamp> folder inside dataset directory
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        output_dir = dataset_path / f"simulations"
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Output directory: {output_dir}")
+
+    if target_fn:
+        # Full simulation: generate + run agent
+        simulator = AgentSimulator(
+            target_fn=target_fn,
+            config=config,
+            model=args.model,
+        )
+
+        with Spinner("Running agent simulation"):
+            results = simulator.run(
+                seed_dataset=seed_items,
+                output_dir=output_dir,
+                modes=modes,
+            )
+
+        print(f"\n{'='*60}")
+        print("SIMULATION COMPLETE")
+        print(f"{'='*60}")
+        for mode, path in results.items():
+            # Count items
+            dataset_file = path / "dataset.jsonl"
+            if dataset_file.exists():
+                with open(dataset_file) as f:
+                    count = sum(1 for _ in f)
+                print(f"  {mode}: {count} items -> {path}")
+            else:
+                print(f"  {mode}: -> {path}")
+    else:
+        # Query generation only (no target function)
+        user_sim = UserSimulator(model=args.model)
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+
+        for mode in modes:
+            print(f"\nGenerating {mode} queries...")
+            with Spinner(f"Generating {mode} queries"):
+                if mode == "similar":
+                    generated = user_sim.generate_similar(
+                        seed_items[:config.max_seed_items],
+                        num_per_seed=config.num_similar,
+                    )
+                else:
+                    generated = user_sim.generate_outliers(
+                        seed_items[:config.max_seed_items],
+                        num_per_seed=config.num_outlier,
+                    )
+
+            if not generated:
+                print(f"  No queries generated for mode={mode}")
+                continue
+
+            # Save generated queries
+            mode_dir = output_dir / f"queries-{mode}-{timestamp}"
+            mode_dir.mkdir(parents=True, exist_ok=True)
+
+            queries_file = mode_dir / "queries.jsonl"
+            with open(queries_file, "w", encoding="utf-8") as f:
+                for gq in generated:
+                    f.write(json.dumps({
+                        "query": gq.query,
+                        "mode": gq.mode,
+                        "seed_id": gq.seed_id,
+                        "generation_reason": gq.generation_reason,
+                    }, ensure_ascii=False) + "\n")
+
+            # Save meta
+            meta = {
+                "type": "generated_queries",
+                "mode": mode,
+                "created_at": datetime.now().isoformat(),
+                "seed_dataset": str(dataset_file),
+                "num_queries": len(generated),
+                "config": {
+                    "model": config.model,
+                    "num_per_seed": config.num_similar if mode == "similar" else config.num_outlier,
+                    "temperature": config.temperature_similar if mode == "similar" else config.temperature_outlier,
+                },
+            }
+            with open(mode_dir / "meta.json", "w") as f:
+                json.dump(meta, f, indent=2)
+
+            print(f"  Generated {len(generated)} {mode} queries -> {mode_dir}")
+
+        print(f"\n{'='*60}")
+        print("QUERY GENERATION COMPLETE")
+        print(f"{'='*60}")
+        print(f"To run these queries through your agent, use --target flag")
 
 
 def main(argv: List[str] | None = None) -> None:
@@ -1958,12 +2615,40 @@ For more info on a command: evalyn <command> --help
     ann_stats.add_argument("--dataset", required=True, help="Path to annotations.jsonl or dataset directory")
     ann_stats.set_defaults(func=cmd_annotation_stats)
 
+    annotate_parser = subparsers.add_parser("annotate", help="Interactive CLI for annotating dataset items")
+    annotate_parser.add_argument("--dataset", required=True, help="Path to dataset directory or dataset.jsonl file")
+    annotate_parser.add_argument("--run-id", help="Eval run ID to show LLM judge results (defaults to latest)")
+    annotate_parser.add_argument("--output", help="Output path for annotations (defaults to <dataset>/annotations.jsonl)")
+    annotate_parser.add_argument("--annotator", default="human", help="Annotator name/id (default: human)")
+    annotate_parser.add_argument("--restart", action="store_true", help="Restart annotation from scratch (ignore existing)")
+    annotate_parser.add_argument("--per-metric", action="store_true", help="Annotate each metric separately (agree/disagree with LLM)")
+    annotate_parser.add_argument("--only-disagreements", action="store_true", help="Only show items where LLM and prior human labels disagree")
+    annotate_parser.set_defaults(func=cmd_annotate)
+
     calibrate_parser = subparsers.add_parser("calibrate", help="Calibrate a subjective metric using human annotations")
     calibrate_parser.add_argument("--metric-id", required=True, help="Metric ID to calibrate (usually the judge metric id)")
     calibrate_parser.add_argument("--annotations", required=True, help="Path to annotations JSONL (target_id must match call_id)")
     calibrate_parser.add_argument("--run-id", help="Eval run id to calibrate; defaults to latest run")
     calibrate_parser.add_argument("--threshold", type=float, default=0.5, help="Current threshold for pass/fail")
+    calibrate_parser.add_argument("--dataset", help="Path to dataset folder (provides input/output context for optimization)")
+    calibrate_parser.add_argument("--no-optimize", action="store_true", help="Skip LLM-based prompt optimization")
+    calibrate_parser.add_argument("--model", default="gemini-2.5-flash-lite", help="LLM model for prompt optimization")
+    calibrate_parser.add_argument("--show-examples", action="store_true", help="Show example disagreement cases")
+    calibrate_parser.add_argument("--output", help="Path to save calibration record JSON")
     calibrate_parser.set_defaults(func=cmd_calibrate)
+
+    simulate_parser = subparsers.add_parser("simulate", help="Generate synthetic test data using LLM-based user simulation")
+    simulate_parser.add_argument("--dataset", required=True, help="Path to seed dataset directory or dataset.jsonl")
+    simulate_parser.add_argument("--target", help="Target function to run queries against (module:func or path/to/file.py:func)")
+    simulate_parser.add_argument("--output", help="Output directory for simulated data (default: <dataset>/simulations/)")
+    simulate_parser.add_argument("--modes", default="similar,outlier", help="Simulation modes: similar,outlier (comma-separated)")
+    simulate_parser.add_argument("--num-similar", type=int, default=3, help="Number of similar variations per seed item (default: 3)")
+    simulate_parser.add_argument("--num-outlier", type=int, default=1, help="Number of outlier/edge cases per seed item (default: 1)")
+    simulate_parser.add_argument("--max-seeds", type=int, default=50, help="Maximum seed items to use (default: 50)")
+    simulate_parser.add_argument("--model", default="gemini-2.5-flash-lite", help="LLM model for query generation")
+    simulate_parser.add_argument("--temp-similar", type=float, default=0.3, help="Temperature for similar queries (default: 0.3)")
+    simulate_parser.add_argument("--temp-outlier", type=float, default=0.8, help="Temperature for outlier queries (default: 0.8)")
+    simulate_parser.set_defaults(func=cmd_simulate)
 
     select_parser = subparsers.add_parser("select-metrics", help="LLM-guided selection from metric registry")
     select_parser.add_argument("--target", required=True, help="Callable to analyze in the form module:function")

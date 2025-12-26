@@ -350,14 +350,50 @@ class AnnotationItem:
 
 
 @dataclass
+class MetricLabel:
+    """Human label for a specific metric."""
+    metric_id: str
+    agree_with_llm: bool  # Does human agree with LLM judge?
+    human_label: bool     # Human's own judgement (pass/fail)
+    notes: str = ""
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "metric_id": self.metric_id,
+            "agree_with_llm": self.agree_with_llm,
+            "human_label": self.human_label,
+            "notes": self.notes,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "MetricLabel":
+        return cls(
+            metric_id=data.get("metric_id", ""),
+            agree_with_llm=data.get("agree_with_llm", True),
+            human_label=data.get("human_label", True),
+            notes=data.get("notes", ""),
+        )
+
+
+@dataclass
 class Annotation:
+    """
+    Human annotation for an eval item.
+
+    Supports two modes:
+    1. Simple mode: Just overall label (bool) for backwards compatibility
+    2. Per-metric mode: metric_labels dict with per-metric human judgements
+
+    confidence: 1-5 scale (1=very uncertain, 5=very confident)
+    """
     id: str
     target_id: str
-    label: Any
+    label: Any  # Overall pass/fail (bool) - for backwards compat
     rationale: Optional[str]
     annotator: str
     source: str = "human"
-    confidence: Optional[float] = None
+    confidence: Optional[int] = None  # 1-5 scale
+    metric_labels: Dict[str, MetricLabel] = field(default_factory=dict)  # metric_id -> MetricLabel
     created_at: datetime = field(default_factory=now_utc)
 
     def as_dict(self) -> Dict[str, Any]:
@@ -369,11 +405,18 @@ class Annotation:
             "annotator": self.annotator,
             "source": self.source,
             "confidence": self.confidence,
+            "metric_labels": {k: v.as_dict() for k, v in self.metric_labels.items()},
             "created_at": _iso(self.created_at),
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Annotation":
+        metric_labels_raw = data.get("metric_labels", {})
+        metric_labels = {}
+        for k, v in metric_labels_raw.items():
+            if isinstance(v, dict):
+                metric_labels[k] = MetricLabel.from_dict(v)
+
         return cls(
             id=data["id"],
             target_id=data["target_id"],
@@ -382,6 +425,7 @@ class Annotation:
             annotator=data.get("annotator", "unknown"),
             source=data.get("source", "human"),
             confidence=data.get("confidence"),
+            metric_labels=metric_labels,
             created_at=_parse_datetime(data.get("created_at")) or now_utc(),
         )
 

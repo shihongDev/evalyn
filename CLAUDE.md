@@ -47,7 +47,7 @@ evalyn build-dataset --project myproj --version v1 --limit 200
 evalyn suggest-metrics --target example_agent/agent.py:run_agent --num-traces 5 --mode basic
 
 # Suggest metrics (LLM-powered selection from 50+ metric registry using Gemini API)
-evalyn suggest-metrics --target example_agent/agent.py:run_agent --mode llm-registry --llm-mode api --model gemini-2.0-flash-exp
+evalyn suggest-metrics --target example_agent/agent.py:run_agent --mode llm-registry --llm-mode api --model gemini-2.5-flash-lite
 
 # Suggest metrics (LLM brainstorm - generates custom metrics)
 evalyn suggest-metrics --target example_agent/agent.py:run_agent --mode llm-brainstorm --llm-mode api --model gpt-4
@@ -59,30 +59,62 @@ evalyn suggest-metrics --target example_agent/agent.py:run_agent --mode llm-regi
 evalyn suggest-metrics --target example_agent/agent.py:run_agent --mode bundle --bundle research-agent
 
 # Save suggested metrics to dataset folder
-evalyn suggest-metrics --dataset data/myproj-v1-20250101 --target example_agent/agent.py:run_agent --mode llm-registry --llm-mode api --model gemini-2.0-flash-exp --metrics-name llm-selected
+evalyn suggest-metrics --dataset data/myproj-v1-20250101 --target example_agent/agent.py:run_agent --mode llm-registry --llm-mode api --model gemini-2.5-flash-lite --metrics-name llm-selected
 
-# Run evaluation on dataset using specified metrics (no re-running needed!)
+# Run evaluation on dataset (auto-detects metrics from meta.json)
+evalyn run-eval --dataset data/myproj-v1
+
+# Run evaluation with specific metrics file
 evalyn run-eval --dataset data/myproj-v1/dataset.jsonl --metrics data/myproj-v1/metrics/llm-registry.json
+
+# Run evaluation with multiple metrics files (comma-separated)
+evalyn run-eval --dataset data/myproj-v1 --metrics "metrics/basic.json,metrics/llm-registry.json"
+
+# Run evaluation with ALL metrics files from metrics/ folder
+evalyn run-eval --dataset data/myproj-v1 --metrics-all
 
 # List available metric templates
 evalyn list-metrics
 
-# View eval runs
+# View eval runs (stored as JSON in dataset/eval_runs/ folder)
 evalyn list-runs
 evalyn show-run --id <run_id>
 
 # Human Annotation Workflow
-# Export dataset for human annotation (includes eval results)
+# Interactive annotation (recommended - shows LLM judge results alongside)
+evalyn annotate --dataset data/myproj
+
+# Per-metric annotation (fine-grained: agree/disagree with each metric's LLM judge)
+evalyn annotate --dataset data/myproj --per-metric
+
+# Or: Export dataset for external annotation
 evalyn export-for-annotation --dataset data/myproj --output annotations.jsonl
 
 # View annotation coverage and agreement stats
 evalyn annotation-stats --dataset annotations.jsonl
 
-# Import completed human annotations
+# Import completed human annotations (if annotated externally)
 evalyn import-annotations --path annotations_completed.jsonl
 
 # Calibrate LLM judges based on human annotations
-evalyn calibrate --metric-id <metric_id> --annotations annotations.jsonl --run-id <run_id>
+# Basic calibration (alignment metrics only)
+evalyn calibrate --metric-id helpfulness_accuracy --annotations annotations.jsonl --no-optimize
+
+# Full calibration with LLM-based prompt optimization
+evalyn calibrate --metric-id helpfulness_accuracy --annotations annotations.jsonl --dataset data/myproj --show-examples
+
+# Save calibration record (includes improved rubric suggestions)
+evalyn calibrate --metric-id helpfulness_accuracy --annotations annotations.jsonl --output calibration.json
+
+# User Simulation (Synthetic Data Generation)
+# Generate synthetic queries from seed dataset (review before running agent)
+evalyn simulate --dataset data/myproj --modes similar,outlier
+
+# Generate and run through agent (full pipeline)
+evalyn simulate --dataset data/myproj --target example_agent/agent.py:run_agent
+
+# Control generation parameters
+evalyn simulate --dataset data/myproj --num-similar 5 --num-outlier 2 --max-seeds 20 --model gemini-2.5-flash-lite
 ```
 
 ### Testing
@@ -150,18 +182,101 @@ Core dataclasses:
 - `MetricSpec`: Metric definition (id, name, type, description, config)
 - `MetricResult`: Evaluation result (metric_id, score, passed, details)
 - `EvalRun`: Collection of metric results with summary stats
-- `Annotation`: Human labels for calibration
-- `CalibrationRecord`: Judge threshold adjustments
+- `Annotation`: Human labels for calibration (supports per-metric mode via `metric_labels` dict, confidence 1-5)
+- `MetricLabel`: Per-metric human annotation (agree_with_llm, human_label, notes)
+- `CalibrationRecord`: Calibration results with alignment metrics and prompt optimization
+
+**Calibration Classes** (`calibration.py`):
+- `AlignmentMetrics`: Precision, recall, F1, accuracy, specificity, Cohen's kappa
+- `PromptOptimizer`: LLM-based rubric improvement using disagreement analysis
+- `CalibrationEngine`: Full calibration pipeline combining metrics and optimization
+
+**User Simulator** (`simulator.py`):
+- `UserSimulator`: LLM-based query generator with two modes:
+  - Similar: Generate variations of seed queries (test robustness)
+  - Outlier: Generate edge cases, adversarial inputs, unusual requests
+- `AgentSimulator`: Full simulation pipeline (generate + run agent + save)
+- `SimulationConfig`: Configuration for synthetic data generation
+- Output: Versioned datasets in `simulations/sim-{mode}-{timestamp}/`
 
 ### Evaluation Pipeline Flow
 
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  1. INSTRUMENT & COLLECT                                            │
+│     @eval decorator → traces to SQLite                              │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    v
+┌─────────────────────────────────────────────────────────────────────┐
+│  2. BUILD DATASET                                                   │
+│     evalyn build-dataset → dataset.jsonl + meta.json                │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    v
+┌─────────────────────────────────────────────────────────────────────┐
+│  3. SELECT METRICS                                                  │
+│     evalyn suggest-metrics → metrics/*.json                         │
+│     (basic/llm-registry/llm-brainstorm/bundle modes)                │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    v
+┌─────────────────────────────────────────────────────────────────────┐
+│  4. RUN EVALUATION                                                  │
+│     evalyn run-eval → eval_runs/*.json                              │
+│     (objective metrics + LLM judge subjective metrics)              │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    v
+┌─────────────────────────────────────────────────────────────────────┐
+│  5. HUMAN ANNOTATION                                                │
+│     evalyn annotate --dataset ... (interactive CLI)                 │
+│     --per-metric: annotate each metric separately                   │
+│     Shows: input, output, LLM judge results                         │
+│     Collects: pass/fail, confidence (1-5), notes                    │
+│     Saves: annotations.jsonl                                        │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    v
+┌─────────────────────────────────────────────────────────────────────┐
+│  6. CALIBRATE                                                       │
+│     evalyn calibrate --metric-id ... --annotations ...              │
+│     Outputs: alignment metrics, disagreement analysis,              │
+│              LLM-optimized rubric suggestions                       │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    v
+                        ┌───────────────────────┐
+                        │ Apply improved rubric │
+                        │ Re-run eval (iterate) │
+                        └───────────────────────┘
+                                    │
+                                    v
+┌─────────────────────────────────────────────────────────────────────┐
+│  7. SIMULATE (expand coverage)                                      │
+│     evalyn simulate --dataset ... --modes similar,outlier           │
+│     Similar: variations of seed queries (test robustness)           │
+│     Outlier: edge cases, adversarial inputs                         │
+│     --target: run agent on generated queries                        │
+│     Saves: simulations/sim-{mode}-{timestamp}/                      │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    v
+                        ┌───────────────────────┐
+                        │ Run eval on synthetic │
+                        │ data (iterate)        │
+                        └───────────────────────┘
+```
+
+**Step-by-step:**
 1. **Instrument**: Add `@eval` decorator to function → captures traces to SQLite
 2. **Collect**: Run function(s) → traces accumulate in storage
 3. **Build Dataset**: Export traces to JSONL (`evalyn build-dataset`)
 4. **Select Metrics**: Use heuristic/LLM/bundle modes (`evalyn suggest-metrics`)
-5. **Run Evaluation**: Execute dataset with metrics (`evalyn run-dataset`)
-6. **Annotate**: Import human labels (`evalyn import-annotations`)
-7. **Calibrate**: Adjust judge thresholds (`evalyn calibrate`)
+5. **Run Evaluation**: Execute dataset with metrics (`evalyn run-eval`)
+6. **Annotate**: Interactive CLI annotation (`evalyn annotate --dataset ...`)
+7. **Calibrate**: Compute alignment metrics and optimize prompts (`evalyn calibrate`)
+8. **Simulate**: Generate synthetic test data (`evalyn simulate --dataset ...`)
 
 ### Metric Selection Strategies
 
@@ -178,7 +293,7 @@ The `evalyn suggest-metrics` command has two separate configuration dimensions:
 - `local`: Use local Ollama (requires `ollama` binary installed)
 
 **Model Selection (`--model`)** - only needed with LLM modes:
-- Gemini: `gemini-2.0-flash-exp`, `gemini-2.5-flash-lite`, `gemini-1.5-pro`
+- Gemini: `gemini-2.5-flash-lite` (default), `gemini-1.5-pro`, `gemini-2.0-flash-exp`
 - OpenAI: `gpt-4`, `gpt-4-turbo`, `gpt-3.5-turbo`
 - Ollama: `llama3.1`, `mistral`, etc.
 
@@ -187,8 +302,8 @@ The `evalyn suggest-metrics` command has two separate configuration dimensions:
 # Fast heuristic (no API key needed)
 evalyn suggest-metrics --target app.py:func --mode basic
 
-# LLM selection with Gemini
-evalyn suggest-metrics --target app.py:func --mode llm-registry --llm-mode api --model gemini-2.0-flash-exp
+# LLM selection with Gemini (default model)
+evalyn suggest-metrics --target app.py:func --mode llm-registry --llm-mode api
 
 # LLM brainstorm with OpenAI
 evalyn suggest-metrics --target app.py:func --mode llm-brainstorm --llm-mode api --model gpt-4
@@ -199,6 +314,21 @@ evalyn suggest-metrics --target app.py:func --mode llm-registry --llm-mode local
 # Pre-configured bundle
 evalyn suggest-metrics --target app.py:func --mode bundle --bundle research-agent
 ```
+
+### Reference-Based Metrics
+
+Some metrics require a **golden standard/reference** to compare against:
+- `bleu`, `rouge_l`, `rouge_1`, `rouge_2`, `token_overlap_f1`, `jaccard_similarity`
+- Numeric metrics: `numeric_mae`, `numeric_rmse`, `numeric_rel_error`
+
+When using `suggest-metrics` with a `--dataset` that has no reference values, these metrics are automatically excluded:
+```
+Note: Dataset has no reference/expected values. Reference-based metrics (ROUGE, BLEU, etc.) excluded.
+```
+
+Metrics that work without reference (always available):
+- **Objective**: `latency_ms`, `output_nonempty`, `json_valid`, `url_count`, `tool_call_count`, `llm_call_count`
+- **Subjective (LLM judge)**: `helpfulness_accuracy`, `toxicity_safety`, `hallucination_risk`, `completeness`
 
 Users can annotate functions with preferences:
 ```python
@@ -261,9 +391,13 @@ data/<project>-<version>-<timestamp>/
   metrics/
     llm-registry-<timestamp>.json   # LLM-selected metrics
     bundle-summarization.json       # Bundle metrics
+    basic-<timestamp>.json          # Heuristic-suggested metrics
+  eval_runs/
+    <timestamp>_<run_id>.json       # Eval run results with full details
 ```
 
-`meta.json` includes `active_metric_set` pointing to the most recent selection.
+- `meta.json` includes `active_metric_set` pointing to the most recent selection
+- `eval_runs/` contains JSON files for each evaluation run with full metric results, scores, and LLM judge reasoning
 
 ### OpenTelemetry Integration
 
