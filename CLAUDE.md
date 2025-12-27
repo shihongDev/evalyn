@@ -124,6 +124,19 @@ evalyn simulate --dataset data/myproj --target example_agent/agent.py:run_agent
 
 # Control generation parameters
 evalyn simulate --dataset data/myproj --num-similar 5 --num-outlier 2 --max-seeds 20 --model gemini-2.5-flash-lite
+
+# Utility Commands
+# Quick status overview
+evalyn status
+
+# List all calibrations across datasets
+evalyn list-calibrations
+evalyn list-calibrations --dataset data/myproj
+
+# Use --latest flag to auto-discover most recent dataset
+evalyn run-eval --latest
+evalyn annotate --latest
+evalyn calibrate --metric-id helpfulness_accuracy --annotations ann.jsonl --latest
 ```
 
 ### Testing
@@ -181,6 +194,10 @@ pytest -v  # verbose mode
 - Unified command-line interface for all SDK operations
 - Target loading: Supports both file paths (`path/to/file.py:func`) and module imports (`module:func`)
 - Metric bundles: Pre-configured metric sets (`summarization`, `orchestrator`, `research-agent`)
+- Config file support: `.evalynrc` or `evalyn.yaml` for default settings
+- `--latest` flag: Auto-discover most recent dataset (for `run-eval`, `annotate`, `calibrate`)
+- `status` command: Quick overview of storage state (calls, runs, datasets, calibrations)
+- `list-calibrations`: View all calibration records across datasets
 
 ### Data Models (`models.py`)
 
@@ -490,6 +507,25 @@ OTel is optional and controlled by environment variables:
 - `EVALYN_OTEL_ENDPOINT=http://...`: Set OTLP endpoint
 
 Default: SQLite exporter if OTel dependencies installed.
+
+### Configuration File
+
+Evalyn supports configuration files to set default values for CLI commands. Create `.evalynrc` or `evalyn.yaml` in your project root:
+
+```yaml
+# evalyn.yaml
+default_dataset: data/myproj-v1      # Default dataset for commands
+default_model: gemini-2.5-flash      # Default LLM model
+default_limit: 50                    # Default limit for list commands
+```
+
+Configuration is loaded automatically. CLI arguments override config values.
+
+Supported config paths (checked in order):
+- `.evalynrc`
+- `evalyn.yaml`
+- `evalyn.yml`
+- `.evalyn.yaml`
 
 ## Files to Ignore
 

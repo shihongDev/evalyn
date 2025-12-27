@@ -33,6 +33,7 @@ from .calibration import (
     AlignmentMetrics,
     PromptOptimizer,
     PromptOptimizationResult,
+    ValidationResult,
     GEPAConfig,
     GEPAOptimizer,
     GEPA_AVAILABLE,

@@ -99,6 +99,8 @@ def build_dataset_from_storage(
     project_id: Optional[str] = None,
     project_name: Optional[str] = None,
     version: Optional[str] = None,
+    simulation_only: bool = False,
+    production_only: bool = False,
     since: Optional[datetime] = None,
     until: Optional[datetime] = None,
     limit: int = 500,
@@ -118,6 +120,8 @@ def build_dataset_from_storage(
       - function_name: exact match on call.function_name
       - project_id/project_name: matches call.metadata.get("project_id") or metadata.get("project_name")
       - version: matches call.metadata.get("version")
+      - simulation_only: only include simulation traces (is_simulation=True)
+      - production_only: only include production traces (is_simulation=False)
       - since/until: call.started_at within range
       - success_only: skip calls with errors
       - limit: max number of matching calls to include (after filtering)
@@ -149,6 +153,12 @@ def build_dataset_from_storage(
                 continue
         if version and isinstance(call.metadata, dict):
             if call.metadata.get("version") != version:
+                continue
+        if simulation_only and isinstance(call.metadata, dict):
+            if not call.metadata.get("is_simulation", False):
+                continue
+        if production_only and isinstance(call.metadata, dict):
+            if call.metadata.get("is_simulation", False):
                 continue
         if since and started_at and started_at < since:
             continue

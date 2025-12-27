@@ -117,6 +117,7 @@ class EvalTracer:
         *,
         project: Optional[str] = None,
         version: Optional[str] = None,
+        is_simulation: bool = False,
         metric_mode: Optional[str] = None,
         metric_bundle: Optional[str] = None,
     ) -> Callable[..., Any]:
@@ -130,6 +131,7 @@ class EvalTracer:
             metadata["project_name"] = project
         if version:
             metadata["version"] = version
+        metadata["is_simulation"] = is_simulation
         if metric_mode:
             metadata["metric_mode"] = metric_mode
         if metric_bundle:

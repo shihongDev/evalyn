@@ -184,6 +184,33 @@ class PromptOptimizationResult:
         return result
 
 
+@dataclass
+class ValidationResult:
+    """Result of validating optimized prompt against validation set."""
+    original_f1: float
+    optimized_f1: float
+    original_accuracy: float
+    optimized_accuracy: float
+    improvement_delta: float
+    is_better: bool
+    confidence: str  # "high", "medium", "low"
+    recommendation: str  # "use_optimized", "keep_original", "uncertain"
+    validation_samples: int
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "original_f1": self.original_f1,
+            "optimized_f1": self.optimized_f1,
+            "original_accuracy": self.original_accuracy,
+            "optimized_accuracy": self.optimized_accuracy,
+            "improvement_delta": self.improvement_delta,
+            "is_better": self.is_better,
+            "confidence": self.confidence,
+            "recommendation": self.recommendation,
+            "validation_samples": self.validation_samples,
+        }
+
+
 class PromptOptimizer:
     """
     Uses LLM to analyze disagreement patterns and suggest rubric improvements.
@@ -739,6 +766,164 @@ class CalibrationEngine:
 
         return analysis
 
+    def _validate_optimization(
+        self,
+        original_prompt: str,
+        optimized_prompt: str,
+        metric_id: str,
+        metric_results: List[MetricResult],
+        annotations: List[Annotation],
+        dataset_items: Optional[List[DatasetItem]] = None,
+        val_split: float = 0.3,
+    ) -> Optional[ValidationResult]:
+        """
+        Validate optimized prompt against validation set.
+
+        1. Split data into train/val (70/30 by default)
+        2. Re-run LLM judge with both prompts on val set
+        3. Compare F1 scores
+        4. Return ValidationResult with recommendation
+
+        Returns None if validation cannot be performed.
+        """
+        if not dataset_items or len(annotations) < 10:
+            # Need at least 10 annotations for meaningful validation
+            return None
+
+        # Import judge here to avoid circular dependency
+        from .metrics.judges import GeminiJudge
+
+        # Split annotations into train/val
+        import random
+        ann_list = list(annotations)
+        random.shuffle(ann_list)
+        split_idx = int(len(ann_list) * (1 - val_split))
+        val_annotations = ann_list[split_idx:]
+
+        if len(val_annotations) < 3:
+            # Not enough validation samples
+            return None
+
+        # Get validation dataset items
+        ann_by_call = {ann.target_id: ann for ann in val_annotations}
+        val_items = [item for item in dataset_items if item.metadata.get("call_id") in ann_by_call]
+
+        if not val_items:
+            return None
+
+        # Create judges with original and optimized prompts
+        try:
+            original_judge = GeminiJudge(
+                name=f"{metric_id}_original",
+                prompt=original_prompt,
+                model=self.optimizer_model,
+                temperature=0.0,
+            )
+
+            optimized_judge = GeminiJudge(
+                name=f"{metric_id}_optimized",
+                prompt=optimized_prompt,
+                model=self.optimizer_model,
+                temperature=0.0,
+            )
+        except Exception:
+            return None
+
+        # Evaluate both prompts on validation set
+        original_metrics = AlignmentMetrics()
+        optimized_metrics = AlignmentMetrics()
+
+        from .models import FunctionCall
+
+        for item in val_items:
+            call_id = item.metadata.get("call_id")
+            ann = ann_by_call.get(call_id)
+            if not ann:
+                continue
+
+            # Create a fake FunctionCall for the judge
+            fake_call = FunctionCall(
+                id=call_id,
+                function_name="validation",
+                inputs=item.input or {},
+                output=item.output,
+                error=None,
+                started_at=now_utc(),
+                ended_at=now_utc(),
+                duration_ms=0.0,
+                session_id=None,
+                trace=[],
+                metadata={},
+            )
+
+            human_pass = bool(ann.label)
+
+            # Score with original prompt
+            try:
+                original_result = original_judge.score(fake_call, item)
+                original_pass = bool(original_result.get("passed"))
+
+                if original_pass and human_pass:
+                    original_metrics.true_positive += 1
+                elif not original_pass and not human_pass:
+                    original_metrics.true_negative += 1
+                elif original_pass and not human_pass:
+                    original_metrics.false_positive += 1
+                else:
+                    original_metrics.false_negative += 1
+            except Exception:
+                pass
+
+            # Score with optimized prompt
+            try:
+                optimized_result = optimized_judge.score(fake_call, item)
+                optimized_pass = bool(optimized_result.get("passed"))
+
+                if optimized_pass and human_pass:
+                    optimized_metrics.true_positive += 1
+                elif not optimized_pass and not human_pass:
+                    optimized_metrics.true_negative += 1
+                elif optimized_pass and not human_pass:
+                    optimized_metrics.false_positive += 1
+                else:
+                    optimized_metrics.false_negative += 1
+            except Exception:
+                pass
+
+        # Compare F1 scores
+        original_f1 = original_metrics.f1
+        optimized_f1 = optimized_metrics.f1
+        original_acc = original_metrics.accuracy
+        optimized_acc = optimized_metrics.accuracy
+        improvement_delta = optimized_f1 - original_f1
+
+        # Determine if optimized is better
+        is_better = improvement_delta > 0.02  # At least 2% improvement
+        is_worse = improvement_delta < -0.02  # More than 2% degradation
+
+        # Determine confidence and recommendation
+        if abs(improvement_delta) < 0.02:
+            confidence = "low"
+            recommendation = "uncertain"
+        elif abs(improvement_delta) < 0.05:
+            confidence = "medium"
+            recommendation = "use_optimized" if is_better else "keep_original"
+        else:
+            confidence = "high"
+            recommendation = "use_optimized" if is_better else "keep_original"
+
+        return ValidationResult(
+            original_f1=original_f1,
+            optimized_f1=optimized_f1,
+            original_accuracy=original_acc,
+            optimized_accuracy=optimized_acc,
+            improvement_delta=improvement_delta,
+            is_better=is_better and not is_worse,
+            confidence=confidence,
+            recommendation=recommendation,
+            validation_samples=len(val_items),
+        )
+
     def calibrate(
         self,
         metric_results: List[MetricResult],
@@ -799,6 +984,30 @@ class CalibrationEngine:
                     estimated_improvement="unknown",
                 )
 
+        # Step 5: Validate optimized prompt if available
+        validation_result = None
+        if prompt_optimization and dataset_items:
+            # Build original prompt for comparison
+            original_prompt = self.current_preamble
+            if self.current_rubric:
+                original_prompt += "\n\nEvaluate using this rubric (PASS only if all criteria met):\n"
+                original_prompt += "\n".join([f"- {r}" for r in self.current_rubric])
+
+            optimized_prompt = prompt_optimization.full_prompt if prompt_optimization.full_prompt else original_prompt
+
+            if optimized_prompt != original_prompt:
+                try:
+                    validation_result = self._validate_optimization(
+                        original_prompt=original_prompt,
+                        optimized_prompt=optimized_prompt,
+                        metric_id=self.judge_name,
+                        metric_results=metric_results,
+                        annotations=annotations,
+                        dataset_items=dataset_items,
+                    )
+                except Exception:
+                    validation_result = None
+
         # Build adjustments dict with all calibration data
         adjustments = {
             "current_threshold": self.current_threshold,
@@ -817,6 +1026,9 @@ class CalibrationEngine:
                     "reflection_lm": self.gepa_config.reflection_lm,
                     "max_metric_calls": self.gepa_config.max_metric_calls,
                 }
+
+        if validation_result:
+            adjustments["validation"] = validation_result.as_dict()
 
         return CalibrationRecord(
             id=str(uuid4()),

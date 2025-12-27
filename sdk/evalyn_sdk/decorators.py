@@ -47,6 +47,7 @@ def eval(
     name: Optional[str] = None,
     project: Optional[str] = None,
     version: Optional[str] = None,
+    is_simulation: bool = False,
     metric_mode: Optional[str] = None,
     metric_bundle: Optional[str] = None,
 ):
@@ -56,6 +57,16 @@ def eval(
     @eval
     def my_agent(user_input: str) -> str:
         ...
+
+    @eval(project="myproj", version="v1")
+    def my_agent(user_input: str) -> str:
+        ...
+
+    @eval(is_simulation=True)  # For simulation/test runs
+    def my_agent(user_input: str) -> str:
+        ...
+
+    is_simulation: Set to True for simulation/test runs (default: False for production)
     """
 
     def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
@@ -69,11 +80,13 @@ def eval(
 
         if mode and mode not in ALLOWED_METRIC_MODES:
             raise ValueError(f"Invalid metric_mode '{mode}'. Allowed: {sorted(ALLOWED_METRIC_MODES)}")
+
         wrapped = tracer_obj.instrument(
             fn,
             name=name,
             project=project,
             version=version,
+            is_simulation=is_simulation,
             metric_mode=mode,
             metric_bundle=bundle,
         )
@@ -81,6 +94,7 @@ def eval(
         setattr(wrapped, "_evalyn_metric_bundle", bundle)
         setattr(wrapped, "_evalyn_project", project)
         setattr(wrapped, "_evalyn_version", version)
+        setattr(wrapped, "_evalyn_is_simulation", is_simulation)
         return wrapped
 
     if func is not None:
