@@ -1,6 +1,6 @@
 # Evalyn SDK
 
-A Python SDK for tracing, evaluating, and calibrating LLM agents.
+A lightweight, flexible, and fully local Python SDK for tracing, evaluating, and calibrating LLM agents—designed to give developers detailed execution insights, systematic performance evaluation, and automated calibration, all while keeping data private and under your control.
 
 ## Quick Start
 

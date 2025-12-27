@@ -3094,13 +3094,52 @@ defaults:
 def cmd_one_click(args: argparse.Namespace) -> None:
     """Run the complete evaluation pipeline from dataset building to calibrated evaluation."""
     from datetime import datetime
+    from .storage import SQLiteStorage
+
+    # If no version specified, query available versions and prompt
+    if not args.version:
+        storage = SQLiteStorage()
+        calls = storage.list_calls(limit=500)
+        versions = set()
+        for call in calls:
+            meta = call.metadata or {}
+            if meta.get("project_name") == args.project or meta.get("project_id") == args.project:
+                v = meta.get("version")
+                if v:
+                    versions.add(v)
+
+        if len(versions) == 0:
+            print(f"No versions found for project '{args.project}'")
+            print("Proceeding without version filter (all traces)...")
+        elif len(versions) == 1:
+            args.version = list(versions)[0]
+            print(f"Auto-selected version: {args.version}")
+        else:
+            print(f"\nAvailable versions for project '{args.project}':")
+            version_list = sorted(versions)
+            for i, v in enumerate(version_list, 1):
+                print(f"  {i}. {v}")
+            print(f"  {len(version_list) + 1}. [all versions]")
+
+            try:
+                choice = input("\nSelect version (number): ").strip()
+                idx = int(choice) - 1
+                if 0 <= idx < len(version_list):
+                    args.version = version_list[idx]
+                elif idx == len(version_list):
+                    args.version = None  # all versions
+                else:
+                    print("Invalid selection, using all versions")
+            except (ValueError, EOFError):
+                print("Invalid input, using all versions")
 
     # Print header
     print("\n" + "=" * 70)
     print(" " * 15 + "EVALYN ONE-CLICK EVALUATION PIPELINE")
     print("=" * 70)
     print(f"\nProject:  {args.project}")
-    print(f"Target:   {args.target}")
+    if args.target:
+        print(f"Target:   {args.target}")
     if args.version:
         print(f"Version:  {args.version}")
     print(f"Mode:     {args.metric_mode}" + (f" ({args.model})" if args.metric_mode != "basic" else ""))
@@ -3139,14 +3178,14 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             print(f"  → Would save to: {dataset_dir}/dataset.jsonl\n")
         else:
             from .datasets import build_dataset_from_storage, save_dataset_with_meta
-            from .storage import get_default_storage
+            from .storage import SQLiteStorage
             from datetime import datetime as dt
 
             # Parse date filters
             since = dt.fromisoformat(args.since) if args.since else None
             until = dt.fromisoformat(args.until) if args.until else None
 
-            storage = get_default_storage()
+            storage = SQLiteStorage()
             items = build_dataset_from_storage(
                 storage,
                 project_name=args.project,
@@ -3219,14 +3258,17 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             from .metrics.suggester import HeuristicSuggester, LLMSuggester, LLMRegistrySelector
             from .metrics.registry import MetricRegistry
 
-            # Load target function
-            target_fn = load_target_from_spec(args.target)
-            if not target_fn:
-                print(f"  ✗ Could not load target function: {args.target}")
-                return
+            # Load target function if provided
+            target_fn = None
+            if args.target:
+                target_fn = load_target_from_spec(args.target)
+                if not target_fn:
+                    print(f"  ⚠ Could not load target function: {args.target}")
+                    print(f"  → Using trace-based suggestions only")
 
             # Get sample traces
-            storage = get_default_storage()
+            from .storage import SQLiteStorage
+            storage = SQLiteStorage()
             calls = storage.list_calls(limit=5)
 
             # Suggest metrics based on mode
@@ -3244,8 +3286,18 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 metric_specs = get_bundle_metrics(args.bundle) if args.bundle else []
 
             # Save metrics
+            payload = []
+            for spec in metric_specs:
+                payload.append({
+                    "id": spec.id,
+                    "name": getattr(spec, "name", spec.id),
+                    "type": spec.type,
+                    "description": spec.description,
+                    "config": spec.config,
+                    "why": getattr(spec, "why", ""),
+                })
             with open(metrics_path, "w") as f:
-                json.dump([spec.as_dict() for spec in metric_specs], f, indent=2)
+                json.dump(payload, f, indent=2)
 
             obj_count = sum(1 for spec in metric_specs if spec.type == "objective")
             subj_count = sum(1 for spec in metric_specs if spec.type == "subjective")
@@ -3274,15 +3326,40 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         else:
             # Run evaluation
             from .runner import EvalRunner
-            from .metrics.registry import MetricRegistry
             from .datasets import load_dataset
+            from .metrics.factory import build_objective_metric, build_subjective_metric
 
-            registry = MetricRegistry()
-            registry.add_from_file(str(metrics_path))
+            # Load metrics from file
+            with open(metrics_path) as f:
+                metrics_data = json.load(f)
 
-            items = load_dataset(dataset_path)
-            runner = EvalRunner(registry=registry)
-            eval_run = runner.run(items, target_fn=target_fn)
+            metrics = []
+            for spec_data in metrics_data:
+                spec = MetricSpec(
+                    id=spec_data["id"],
+                    name=spec_data.get("name", spec_data["id"]),
+                    type=spec_data["type"],
+                    description=spec_data.get("description", ""),
+                    config=spec_data.get("config", {}),
+                )
+                try:
+                    if spec.type == "objective":
+                        m = build_objective_metric(spec.id, spec.config)
+                    else:
+                        m = build_subjective_metric(spec.id, spec.config)
+                    if m:
+                        metrics.append(m)
+                except Exception:
+                    pass
+
+            items = list(load_dataset(dataset_path))
+            runner = EvalRunner(
+                target_fn=target_fn or (lambda: None),
+                metrics=metrics,
+                dataset_name=args.project,
+                instrument=False,  # Don't re-run, use existing outputs
+            )
+            eval_run = runner.run_dataset(items, use_synthetic=True)
 
             # Save run
             run_path = eval_dir / f"run_{timestamp}_{eval_run.id[:8]}.json"
@@ -3429,27 +3506,51 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 eval2_dir = output_dir / "6_calibrated_eval"
                 eval2_dir.mkdir(exist_ok=True)
 
-                # Re-run evaluation with --use-calibrated
+                # Re-run evaluation with calibrated prompts
                 from .runner import EvalRunner
-                from .metrics.registry import MetricRegistry
                 from .datasets import load_dataset
+                from .metrics.factory import build_objective_metric, build_subjective_metric
                 from .calibration import load_optimized_prompt
 
-                registry = MetricRegistry()
-                registry.add_from_file(str(metrics_path))
+                # Load metrics from file
+                with open(metrics_path) as f:
+                    metrics_data = json.load(f)
 
-                # Load calibrated prompts
+                metrics = []
                 calibrated_count = 0
-                for spec in registry.list_metrics():
+                for spec_data in metrics_data:
+                    spec = MetricSpec(
+                        id=spec_data["id"],
+                        name=spec_data.get("name", spec_data["id"]),
+                        type=spec_data["type"],
+                        description=spec_data.get("description", ""),
+                        config=spec_data.get("config", {}),
+                    )
+                    # Load calibrated prompt for subjective metrics
                     if spec.type == "subjective":
                         optimized_prompt = load_optimized_prompt(str(dataset_dir), spec.id)
                         if optimized_prompt:
+                            spec.config = dict(spec.config or {})
                             spec.config["prompt"] = optimized_prompt
                             calibrated_count += 1
+                    try:
+                        if spec.type == "objective":
+                            m = build_objective_metric(spec.id, spec.config)
+                        else:
+                            m = build_subjective_metric(spec.id, spec.config)
+                        if m:
+                            metrics.append(m)
+                    except Exception:
+                        pass
 
-                items = load_dataset(dataset_path)
-                runner = EvalRunner(registry=registry)
-                eval_run2 = runner.run(items, target_fn=target_fn)
+                items = list(load_dataset(dataset_path))
+                runner = EvalRunner(
+                    target_fn=target_fn or (lambda: None),
+                    metrics=metrics,
+                    dataset_name=args.project,
+                    instrument=False,
+                )
+                eval_run2 = runner.run_dataset(items, use_synthetic=True)
 
                 # Save run
                 run_path2 = eval2_dir / f"run_{timestamp}_{eval_run2.id[:8]}.json"
@@ -3475,6 +3576,10 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             print("[7/7] Generating Simulations")
             print("  ⏭️  SKIPPED (use --enable-simulation to enable)\n")
             state["steps"]["7_simulation"] = {"status": "skipped"}
+        elif not args.target:
+            print("[7/7] Generating Simulations")
+            print("  ⏭️  SKIPPED (--target required for simulation)\n")
+            state["steps"]["7_simulation"] = {"status": "skipped", "reason": "no target"}
         else:
             print("[7/7] Generating Simulations")
             if args.dry_run:
@@ -3750,7 +3855,7 @@ For more info on a command: evalyn <command> --help
     # One-click pipeline
     oneclick_parser = subparsers.add_parser("one-click", help="Run complete evaluation pipeline (dataset -> metrics -> eval -> annotate -> calibrate)")
     oneclick_parser.add_argument("--project", required=True, help="Project name to filter traces")
-    oneclick_parser.add_argument("--target", required=True, help="Target function (file.py:func or module:func)")
+    oneclick_parser.add_argument("--target", help="Target function (file.py:func or module:func). Optional - if not provided, uses existing trace outputs")
     oneclick_parser.add_argument("--version", help="Version filter (default: all versions)")
     oneclick_parser.add_argument("--production-only", action="store_true", help="Use only production traces")
     oneclick_parser.add_argument("--simulation-only", action="store_true", help="Use only simulation traces")
