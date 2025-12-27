@@ -36,4 +36,10 @@ __pycache__/
 *.egg-info/
 *.coverage
 
-CLAUDE.mdevalyn.sqlite
+# Claude
+.claude/
+CLAUDE.md
+
+# SQLite
+evalyn.sqlite
+evalyn.yaml

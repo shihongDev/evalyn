@@ -36,7 +36,8 @@
       "Bash(evalyn calibrate:*)",
       "Bash(evalyn annotate:*)",
       "Bash(timeout 5 evalyn annotate:*)",
-      "Bash(timeout 10 evalyn annotate:*)"
+      "Bash(timeout 10 evalyn annotate:*)",
+      "Bash(wc:*)"
     ]
   }
 }
