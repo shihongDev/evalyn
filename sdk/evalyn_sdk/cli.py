@@ -56,6 +56,22 @@ from .calibration import CalibrationEngine, GEPAConfig, GEPA_AVAILABLE, save_cal
 DEFAULT_CONFIG_PATHS = [".evalynrc", "evalyn.yaml", "evalyn.yml", ".evalyn.yaml"]
 
 
+def _expand_env_vars(value: Any) -> Any:
+    """Recursively expand environment variables in config values."""
+    if isinstance(value, str):
+        # Expand ${VAR} or $VAR patterns
+        import re
+        def replace_env(match):
+            var_name = match.group(1) or match.group(2)
+            return os.environ.get(var_name, match.group(0))
+        return re.sub(r'\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)', replace_env, value)
+    elif isinstance(value, dict):
+        return {k: _expand_env_vars(v) for k, v in value.items()}
+    elif isinstance(value, list):
+        return [_expand_env_vars(item) for item in value]
+    return value
+
+
 def load_config() -> Dict[str, Any]:
     """Load configuration from evalyn.yaml or .evalynrc if present."""
     for config_path in DEFAULT_CONFIG_PATHS:
@@ -65,12 +81,16 @@ def load_config() -> Dict[str, Any]:
                 import yaml  # Optional dependency
                 with open(path) as f:
                     config = yaml.safe_load(f) or {}
+                    # Expand environment variables
+                    config = _expand_env_vars(config)
                     return config
             except ImportError:
                 # Try JSON format if yaml not available
                 try:
                     with open(path) as f:
-                        return json.load(f)
+                        config = json.load(f)
+                        config = _expand_env_vars(config)
+                        return config
                 except Exception:
                     pass
             except Exception:
@@ -3039,6 +3059,38 @@ def cmd_simulate(args: argparse.Namespace) -> None:
         print(f"To run these queries through your agent, use --target flag")
 
 
+def cmd_init(args: argparse.Namespace) -> None:
+    """Initialize configuration file with default settings."""
+    output_path = Path(args.output)
+
+    if output_path.exists() and not args.force:
+        print(f"Error: {output_path} already exists. Use --force to overwrite.")
+        return
+
+    template = """# Evalyn Configuration
+
+# API Keys (use env vars or set directly)
+api_keys:
+  gemini: "${GEMINI_API_KEY}"
+  openai: "${OPENAI_API_KEY}"
+
+# Default model for LLM operations
+model: "gemini-2.5-flash-lite"
+
+# Default project settings
+defaults:
+  project: null      # e.g., "myproject"
+  version: null      # e.g., "v1"
+"""
+    with open(output_path, "w") as f:
+        f.write(template)
+
+    print(f"Created {output_path}")
+    print(f"\nSet your API key:")
+    print(f"  export GEMINI_API_KEY='your-key'")
+    print(f"  # or edit {output_path} directly")
+
+
 def cmd_one_click(args: argparse.Namespace) -> None:
     """Run the complete evaluation pipeline from dataset building to calibrated evaluation."""
     from datetime import datetime
@@ -3688,6 +3740,12 @@ For more info on a command: evalyn <command> --help
     list_cal_parser.add_argument("--latest", action="store_true", help="Use the most recently modified dataset")
     list_cal_parser.add_argument("--format", choices=["table", "json"], default="table", help="Output format (default: table)")
     list_cal_parser.set_defaults(func=cmd_list_calibrations)
+
+    # Init command
+    init_parser = subparsers.add_parser("init", help="Initialize configuration file")
+    init_parser.add_argument("--output", default="evalyn.yaml", help="Output path for config file (default: evalyn.yaml)")
+    init_parser.add_argument("--force", action="store_true", help="Overwrite existing config file")
+    init_parser.set_defaults(func=cmd_init)
 
     # One-click pipeline
     oneclick_parser = subparsers.add_parser("one-click", help="Run complete evaluation pipeline (dataset -> metrics -> eval -> annotate -> calibrate)")

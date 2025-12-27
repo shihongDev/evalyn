@@ -8,6 +8,10 @@ A Python SDK for instrumenting, tracing, and evaluating LLM agents with objectiv
 # Install
 pip install -e ".[dev,llm,otel,agent]"
 
+# Initialize configuration (optional but recommended)
+evalyn init
+# Edit evalyn.yaml to set API keys and defaults
+
 # Instrument your agent
 from evalyn_sdk import eval
 
@@ -1162,6 +1166,16 @@ data/<project>-<version>-<timestamp>/
 
 ## CLI Command Reference
 
+### Setup & Configuration
+
+```bash
+# Initialize configuration file
+evalyn init [--output evalyn.yaml] [--force]
+
+# Creates evalyn.yaml with default settings
+# Use --force to overwrite existing config
+```
+
 ### Tracing & Collection
 
 ```bash
@@ -1438,21 +1452,37 @@ results = agent_sim.run(seeds)
 
 ## Configuration
 
+### Config File
+
+```bash
+# Create config file
+evalyn init
+```
+
+**evalyn.yaml:**
+```yaml
+# API Keys (use env vars or set directly)
+api_keys:
+  gemini: "${GEMINI_API_KEY}"
+  openai: "${OPENAI_API_KEY}"
+
+# Default model
+model: "gemini-2.5-flash-lite"
+
+# Default project
+defaults:
+  project: "myproj"
+  version: "v1"
+```
+
+Config is auto-loaded from: `.evalynrc`, `evalyn.yaml`, `evalyn.yml`, or `.evalyn.yaml`
+
 ### Environment Variables
 
 ```bash
 # API Keys
 export GEMINI_API_KEY="your-key"
 export OPENAI_API_KEY="your-key"
-
-# OpenTelemetry (optional)
-export EVALYN_OTEL=off                    # Disable OTel
-export EVALYN_OTEL_SERVICE=myservice      # Service name
-export EVALYN_OTEL_EXPORTER=console       # console|sqlite
-export EVALYN_OTEL_ENDPOINT=http://...    # OTLP endpoint
-
-# Storage
-export EVALYN_STORAGE_PATH=/custom/path/evalyn.sqlite
 ```
 
 ### Function-Level Configuration

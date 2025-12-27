@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(export GEMINI_API_KEY=\"***REMOVED***\")",
+      "Bash(evalyn list-calls:*)",
+      "Bash(evalyn show-call:*)",
+      "Bash(evalyn show-projects:*)",
+      "Bash(evalyn list-metrics:*)",
+      "Bash(evalyn suggest-metrics:*)",
+      "Bash(cat:*)",
+      "Bash(evalyn run-dataset:*)",
+      "Bash(timeout 45 evalyn run-dataset:*)",
+      "Bash(evalyn list-runs:*)",
+      "Bash(evalyn show-run:*)",
+      "Bash(evalyn build-dataset:*)",
+      "Bash(python3:*)",
+      "Bash(evalyn run-eval:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(evalyn --help:*)",
+      "Bash(evalyn --version:*)",
+      "Bash(find:*)",
+      "Bash(pip install:*)",
+      "Bash(python -m evalyn_sdk.cli:*)",
+      "Bash(python:*)",
+      "Bash(ls:*)",
+      "Bash(if [ -n \"$GEMINI_API_KEY\" ])",
+      "Bash(then)",
+      "Bash(echo:*)",
+      "Bash(fi)",
+      "Bash(then echo \"GEMINI_API_KEY is set \\(length: $#GEMINI_API_KEY\\)\")",
+      "Bash(else echo \"GEMINI_API_KEY is NOT set\")",
+      "Bash(export GEMINI_API_KEY=\"invalid-key\")",
+      "Bash(unset GEMINI_API_KEY)",
+      "Bash(unset OPENAI_API_KEY)",
+      "Bash(evalyn calibrate:*)",
+      "Bash(evalyn annotate:*)",
+      "Bash(timeout 5 evalyn annotate:*)",
+      "Bash(timeout 10 evalyn annotate:*)"
+    ]
+  }
+}

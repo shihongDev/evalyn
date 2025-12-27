@@ -1,0 +1,15 @@
+# Evalyn Configuration
+# Copy to evalyn.yaml and set your values
+
+# API Keys (use env vars or set directly)
+api_keys:
+  gemini: "${GEMINI_API_KEY}"
+  openai: "${OPENAI_API_KEY}"
+
+# Default model for LLM operations
+model: "gemini-2.5-flash-lite"
+
+# Default project settings
+defaults:
+  project: null      # e.g., "myproject"
+  version: null      # e.g., "v1"
