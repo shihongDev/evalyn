@@ -9,7 +9,3 @@ api_keys:
 # Default model for LLM operations
 model: "gemini-2.5-flash-lite"
 
-# Default project settings
-defaults:
-  project: null      # e.g., "myproject"
-  version: null      # e.g., "v1"

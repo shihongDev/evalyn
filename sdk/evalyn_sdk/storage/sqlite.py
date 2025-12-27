@@ -16,8 +16,9 @@ def _dumps(data: object) -> str:
 class SQLiteStorage(StorageBackend):
     """Lightweight SQLite backend for local development."""
 
-    def __init__(self, path: str | Path = "evalyn.sqlite"):
+    def __init__(self, path: str | Path = "data/evalyn.sqlite"):
         self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(self.path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self._init_tables()
