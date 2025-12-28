@@ -384,8 +384,14 @@ def render_suggestion_prompt(
     sig_str = f"{fn_name}{signature}"
     example_lines = []
     for call in list(traces)[:3]:
+        output_str = str(call.output) if call.output else ""
+        # Show more context for long outputs, with length indicator
+        if len(output_str) > 800:
+            output_preview = repr(output_str[:400]) + f"... [{len(output_str)} chars]"
+        else:
+            output_preview = repr(call.output)[:500]
         example_lines.append(
-            f"- inputs={call.inputs}, output={repr(call.output)[:200]}, error={call.error}"
+            f"- inputs={call.inputs}, output={output_preview}, error={call.error}"
         )
     examples = "\n".join(example_lines) if example_lines else "No traces yet."
     count_hint = (
@@ -410,23 +416,20 @@ def render_suggestion_prompt(
         f"Function: {sig_str}\n"
         f"Recent traces:\n{examples}\n"
         f"{scope_guidance}"
-        "Propose metrics; include both objective and subjective.\n"
+        "Generate SUBJECTIVE metrics that an LLM judge can evaluate using custom rubrics.\n"
         f"{count_hint}\n"
         "Respond as JSON array ONLY (no prose) with fields:\n"
         "- id: unique identifier (snake_case)\n"
-        "- type: 'objective' or 'subjective'\n"
-        "- scope: 'overall', 'llm_call', 'tool_call', or 'trace'\n"
+        "- type: always 'subjective'\n"
         "- description: what this metric evaluates\n"
-        "- config: for subjective metrics, MUST include:\n"
-        "    - prompt: evaluation instructions for the LLM judge\n"
-        "    - rubric: list of criteria for PASS/FAIL (at least 2-3 items)\n"
+        "- config: MUST include:\n"
+        "    - rubric: list of 2-4 criteria for PASS/FAIL judgment\n"
         "- why: short reason for including this metric\n\n"
-        "Example subjective metric:\n"
-        '{"id": "factual_accuracy", "type": "subjective", "scope": "overall", "description": "Checks factual correctness", '
-        '"config": {"prompt": "Evaluate if the response is factually accurate.", '
-        '"rubric": ["No false claims", "Cites sources when appropriate", "Admits uncertainty when unsure"]}, '
+        "Example:\n"
+        '{"id": "factual_accuracy", "type": "subjective", "description": "Checks factual correctness", '
+        '"config": {"rubric": ["No false claims", "Cites sources when appropriate", "Admits uncertainty when unsure"]}, '
         '"why": "Ensures reliable information"}\n\n'
-        "If unsure, return []."
+        "Focus on quality aspects specific to this function's purpose."
     )
 
 

@@ -206,7 +206,7 @@ from .runner import EvalRunner
 from .metrics.suggester import HeuristicSuggester, LLMSuggester, LLMRegistrySelector, TemplateSelector, render_selection_prompt_with_templates
 from .tracing import EvalTracer
 from .models import MetricSpec
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Light bundles for quick manual selection (no LLM).
 BUNDLES: dict[str, list[str]] = {
@@ -1492,7 +1492,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         metrics_dir = dataset_dir / "metrics"
         metrics_dir.mkdir(parents=True, exist_ok=True)
 
-        ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         if args.metrics_name:
             metrics_name = args.metrics_name
         elif selected_mode == "bundle":
@@ -1501,6 +1501,19 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             metrics_name = f"{selected_mode}-{ts}"
         safe_name = re.sub(r"[^a-zA-Z0-9._-]+", "-", metrics_name).strip("-")
         metrics_file = metrics_dir / f"{safe_name}.json"
+
+        # Validate objective metrics - filter out custom ones that won't work
+        valid_objective_ids = {t["id"] for t in OBJECTIVE_TEMPLATES}
+        invalid_objectives = [s for s in specs if s.type == "objective" and s.id not in valid_objective_ids]
+        if invalid_objectives:
+            print(f"Removed {len(invalid_objectives)} unsupported custom objective metric(s):")
+            for s in invalid_objectives:
+                print(f"  - {s.id}: Use 'evalyn list-metrics --type objective' to see valid IDs")
+            specs = [s for s in specs if not (s.type == "objective" and s.id not in valid_objective_ids)]
+
+        if not specs:
+            print("No valid metrics to save.")
+            return
 
         payload = []
         for spec in specs:
@@ -1528,7 +1541,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             "name": safe_name,
             "file": f"metrics/{metrics_file.name}",
             "mode": selected_mode,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "num_metrics": len(payload),
         }
         metric_sets = [m for m in metric_sets if m.get("name") != safe_name]
@@ -1650,7 +1663,7 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
         include_metadata=True,
     )
 
-    ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     proj = args.project or "all"
     ver = args.version or "v0"
     dataset_name = f"{proj}-{ver}-{ts}"
@@ -1676,7 +1689,7 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
 
     meta = {
         "dataset_name": dataset_name,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "project": args.project,
         "version": args.version,
         "function": function_name,

@@ -113,7 +113,7 @@ evalyn one-click --project myapp
 | `evalyn one-click --project X` | Run full pipeline |
 | `evalyn list-calls` | View captured traces |
 | `evalyn build-dataset --project X` | Create dataset from traces |
-| `evalyn suggest-metrics --target file:func` | Get metric recommendations |
+| `evalyn suggest-metrics --project X` | Get metric recommendations |
 | `evalyn run-eval --latest` | Run evaluation |
 | `evalyn annotate --latest` | Human annotation (interactive) |
 | `evalyn calibrate --metric-id X` | Calibrate LLM judge |
@@ -129,10 +129,13 @@ evalyn one-click --project myapp
 - `completeness`, `coherence`, `instruction_following`
 
 ```bash
-evalyn list-metrics                    # See all 50+ metrics
-evalyn suggest-metrics --mode basic    # Fast heuristic
-evalyn suggest-metrics --mode llm-registry  # LLM picks best metrics
+evalyn list-metrics                              # See all 50+ metrics
+evalyn suggest-metrics --project X --mode basic  # Fast heuristic
+evalyn suggest-metrics --project X --mode llm-registry   # LLM picks from registry
+evalyn suggest-metrics --project X --mode llm-brainstorm # Custom metrics with rubrics
 ```
+
+**Brainstorm mode** generates custom subjective metrics tailored to your function's behavior.
 
 ## Calibration
 

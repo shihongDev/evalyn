@@ -30,7 +30,8 @@ evalyn build-dataset --project <name>
 ## Metrics
 
 ```bash
-evalyn suggest-metrics --target <file.py:func> --mode <mode>
+evalyn suggest-metrics --project <name> --mode <mode>
+evalyn suggest-metrics --project <name> --mode llm-brainstorm  # Custom subjective metrics
 evalyn list-metrics            # List available templates
 ```
 - [suggest-metrics](commands/suggest-metrics.md)

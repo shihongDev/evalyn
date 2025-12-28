@@ -5,6 +5,10 @@ Suggest evaluation metrics for a target function based on its signature and trac
 ## Usage
 
 ```bash
+# Preferred: use project name (no module loading required)
+evalyn suggest-metrics --project <name> [OPTIONS]
+
+# Alternative: specify function directly
 evalyn suggest-metrics --target <file.py:func> [OPTIONS]
 ```
 
@@ -12,8 +16,10 @@ evalyn suggest-metrics --target <file.py:func> [OPTIONS]
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--target SPEC` | Required | Target function (`file.py:func` or `module:func`) |
+| `--project NAME` | - | Project name (use `evalyn show-projects` to see available) |
+| `--target SPEC` | - | Target function (`file.py:func` or `module:func`) |
 | `--mode MODE` | auto | Selection mode (see below) |
+| `--scope SCOPE` | all | Filter by scope: `overall`, `llm_call`, `tool_call`, `trace`, or `all` |
 | `--llm-mode MODE` | api | LLM caller: `api` or `local` (ollama) |
 | `--model NAME` | gemini-2.5-flash-lite | Model name |
 | `--num-traces N` | 5 | Sample traces to analyze |
@@ -24,13 +30,32 @@ evalyn suggest-metrics --target <file.py:func> [OPTIONS]
 
 ## Selection Modes
 
-| Mode | Description | LLM Required |
-|------|-------------|--------------|
-| `basic` | Fast heuristic based on function signature | No |
-| `llm-registry` | LLM picks from 50+ built-in templates | Yes |
-| `llm-brainstorm` | LLM generates custom metric specs | Yes |
-| `bundle` | Pre-configured metric set | No |
-| `auto` | Uses function's `@eval` hints or defaults to `llm-registry` | Maybe |
+| Mode | Description | Output | LLM Required |
+|------|-------------|--------|--------------|
+| `basic` | Fast heuristic based on function signature | Objective + Subjective | No |
+| `llm-registry` | LLM picks from 50+ built-in templates | Objective + Subjective | Yes |
+| `llm-brainstorm` | LLM generates custom metrics with rubrics | **Subjective only** | Yes |
+| `bundle` | Pre-configured metric set | Objective + Subjective | No |
+| `auto` | Uses function's `@eval` hints or defaults to `llm-registry` | Varies | Maybe |
+
+### Brainstorm Mode
+
+Brainstorm mode generates **custom subjective metrics** tailored to your function. The LLM analyzes your function's traces and creates evaluation criteria with custom rubrics.
+
+```bash
+evalyn suggest-metrics --project myapp --mode llm-brainstorm --num-metrics 4
+```
+
+Example output:
+```
+- answer_completeness [subjective] :: Evaluates if the answer fully addresses the user's question
+- clarity_and_structure [subjective] :: Assesses readability and logical flow
+- relevance_and_focus [subjective] :: Determines if the answer stays on topic
+```
+
+Each metric includes a custom rubric used by the LLM judge at eval time.
+
+> **Note:** Brainstorm only generates subjective metrics because custom objective metrics require code implementation. For objective metrics, use `--mode bundle` or `--mode llm-registry`.
 
 ## Bundles
 
@@ -42,34 +67,57 @@ evalyn suggest-metrics --target <file.py:func> [OPTIONS]
 
 ## Examples
 
+### Using project name (recommended)
+```bash
+# First, see available projects
+evalyn show-projects
+
+# Then suggest metrics by project
+evalyn suggest-metrics --project myapp --mode basic
+```
+
 ### Basic heuristic (fast, no API key)
 ```bash
-evalyn suggest-metrics --target agent.py:run_agent --mode basic
+evalyn suggest-metrics --project myapp --mode basic
 ```
 
 ### LLM-powered selection from registry
 ```bash
-evalyn suggest-metrics --target agent.py:run_agent --mode llm-registry
+evalyn suggest-metrics --project myapp --mode llm-registry
 ```
 
 ### LLM brainstorm custom metrics
 ```bash
-evalyn suggest-metrics --target agent.py:run_agent --mode llm-brainstorm --model gpt-4
+evalyn suggest-metrics --project myapp --mode llm-brainstorm --num-metrics 5
 ```
 
 ### Use a pre-defined bundle
 ```bash
-evalyn suggest-metrics --target agent.py:run_agent --mode bundle --bundle research-agent
+evalyn suggest-metrics --project myapp --mode bundle --bundle research-agent
+```
+
+### Filter by scope
+```bash
+# Only metrics that evaluate the final output
+evalyn suggest-metrics --project myapp --mode bundle --bundle orchestrator --scope overall
+
+# Only trace-level aggregate metrics (counts, ratios)
+evalyn suggest-metrics --project myapp --mode bundle --bundle orchestrator --scope trace
 ```
 
 ### Save to dataset folder
 ```bash
-evalyn suggest-metrics --target agent.py:run_agent --dataset data/my-dataset --mode llm-registry
+evalyn suggest-metrics --project myapp --dataset data/my-dataset --mode llm-brainstorm --metrics-name custom
 ```
 
 ### Use local Ollama
 ```bash
-evalyn suggest-metrics --target agent.py:run_agent --mode llm-registry --llm-mode local --model llama3.1
+evalyn suggest-metrics --project myapp --mode llm-registry --llm-mode local --model llama3.1
+```
+
+### Using target function (alternative)
+```bash
+evalyn suggest-metrics --target agent.py:run_agent --mode basic
 ```
 
 ## Sample Output

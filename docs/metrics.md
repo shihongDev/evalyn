@@ -41,25 +41,50 @@ Evalyn provides 50+ metrics in two categories:
 
 ### Basic Mode (No LLM)
 ```bash
-evalyn suggest-metrics --target agent.py:func --mode basic
+evalyn suggest-metrics --project myapp --mode basic
 ```
-Fast heuristic based on function signature and traces.
+Fast heuristic based on function signature and traces. Returns objective + subjective metrics.
 
 ### LLM Registry Mode
 ```bash
-evalyn suggest-metrics --target agent.py:func --mode llm-registry --llm-mode api
+evalyn suggest-metrics --project myapp --mode llm-registry
 ```
-LLM analyzes your function and selects from 50+ templates.
+LLM analyzes your function and selects from 50+ templates. Returns objective + subjective metrics.
+
+### Brainstorm Mode
+```bash
+evalyn suggest-metrics --project myapp --mode llm-brainstorm --num-metrics 4
+```
+LLM generates **custom subjective metrics** with tailored rubrics based on your function's actual behavior. The LLM sees real traces and creates evaluation criteria specific to your use case.
+
+Example output:
+```
+- answer_completeness [subjective] :: Evaluates if the answer fully addresses the question
+- clarity_and_structure [subjective] :: Assesses readability and logical flow
+```
+
+> **Note:** Brainstorm only generates subjective metrics. Custom objective metrics require code implementation.
 
 ### Bundle Mode
 ```bash
-evalyn suggest-metrics --target agent.py:func --mode bundle --bundle research-agent
+evalyn suggest-metrics --project myapp --mode bundle --bundle research-agent
 ```
 
 **Available bundles:**
-- `summarization` - For text summarization agents
-- `orchestrator` - For multi-step orchestration
-- `research-agent` - For research/retrieval agents
+- `summarization` - ROUGE, BLEU, coherence, length
+- `orchestrator` - Tool usage, latency, error rates
+- `research-agent` - Accuracy, citations, completeness
+
+### Scope Filtering
+```bash
+# Only final output metrics
+evalyn suggest-metrics --project myapp --scope overall
+
+# Only trace aggregates (counts, ratios)
+evalyn suggest-metrics --project myapp --scope trace
+```
+
+Available scopes: `overall`, `llm_call`, `tool_call`, `trace`, `all`
 
 ## Using Metrics
 
