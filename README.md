@@ -7,7 +7,7 @@
 | | |
 |---|---|
 | **Fully Local** | All data stays on your machine. SQLite storage, no cloud dependencies. |
-| **One Decorator** | Add `@eval` to capture inputs, outputs, errors, latency automatically. |
+| **Zero Config** | Just `import evalyn_sdk` — LLM calls auto-captured with tokens & cost. |
 | **LLM Judges** | 50+ metrics including LLM-based judges for quality assessment. |
 | **Human Calibration** | Align LLM judges with human feedback through annotation workflow. |
 | **One Command** | Run the entire pipeline with `evalyn one-click`. |
@@ -25,7 +25,7 @@ from evalyn_sdk import eval
 
 @eval(project="myapp", version="v1")
 def my_agent(query: str) -> str:
-    return call_llm(query)
+    return call_llm(query)  # LLM calls auto-captured
 ```
 
 ```bash
@@ -34,29 +34,71 @@ python my_agent.py                           # Run agent, traces captured
 evalyn one-click --project myapp             # Full evaluation pipeline
 ```
 
+## Auto-Instrumentation
+
+**Just import `evalyn_sdk`** — LLM calls are captured automatically:
+
+```python
+import evalyn_sdk  # Auto-patches OpenAI, Anthropic, Gemini, LangChain
+
+# Your normal code - no changes needed
+response = openai.chat.completions.create(model="gpt-4o", messages=[...])
+# ^ Automatically logged with: tokens, cost, duration, request/response
+```
+
+**Captured automatically:**
+- All LLM API calls (OpenAI, Anthropic, Google Gemini)
+- Token usage (input/output)
+- Cost in USD
+- Duration
+- Errors
+
+**Disable if needed:**
+```bash
+export EVALYN_AUTO_INSTRUMENT=off
+```
+
+**For internal functions**, use `@trace`:
+```python
+from evalyn_sdk import trace
+
+@trace
+def process_results(data):
+    # Logged as trace event within parent @eval call
+    return transform(data)
+```
+
 ## The Pipeline
 
 ```
-  @eval decorator          build-dataset         suggest-metrics
-       │                        │                      │
-       ▼                        ▼                      ▼
-┌─────────────┐          ┌─────────────┐        ┌─────────────┐
-│   TRACE     │    →     │   DATASET   │   →    │   METRICS   │
-│  (SQLite)   │          │  (JSONL)    │        │   (JSON)    │
-└─────────────┘          └─────────────┘        └─────────────┘
-                                                       │
-       ┌───────────────────────────────────────────────┘
-       ▼
-┌─────────────┐          ┌─────────────┐        ┌─────────────┐
-│  EVALUATE   │    →     │  ANNOTATE   │   →    │  CALIBRATE  │
-│ (LLM Judge) │          │  (Human)    │        │ (Optimize)  │
-└─────────────┘          └─────────────┘        └─────────────┘
-       │                                               │
-       └───────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│  1. COLLECT                                                      │
+│                                                                  │
+│     @eval decorator  →  TRACE (SQLite)  →  DATASET (JSONL)       │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
                               │
                               ▼
-                    RE-EVALUATE WITH
-                   CALIBRATED PROMPTS
+┌──────────────────────────────────────────────────────────────────┐
+│  2. EVALUATE & CALIBRATE (iterate until aligned)                 │
+│                                                                  │
+│          ┌────────────────────────────────────┐                  │
+│          │                                    │                  │
+│          ▼                                    │                  │
+│     EVALUATE  ───→  ANNOTATE  ───→  CALIBRATE │                  │
+│    (LLM Judge)      (Human)       (Optimize)  │                  │
+│          │                                    │                  │
+│          └─────── RE-EVALUATE ◄───────────────┘                  │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────────┐
+│  3. EXPAND                                                       │
+│                                                                  │
+│     SIMULATE  →  Generate synthetic queries  →  Back to Step 2   │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 **Or just run:**

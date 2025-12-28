@@ -1,5 +1,4 @@
 import os
-import time
 
 from example_agent.tools_and_schemas import SearchQueryList, Reflection
 from dotenv import load_dotenv
@@ -31,7 +30,10 @@ from example_agent.utils import (
     insert_citation_markers,
     resolve_urls,
 )
-from evalyn_sdk import get_default_tracer
+
+# Import evalyn_sdk to enable auto-instrumentation
+# LLM calls are automatically captured (no manual logging needed)
+import evalyn_sdk  # noqa: F401
 
 load_dotenv()
 
@@ -40,21 +42,6 @@ if os.getenv("GEMINI_API_KEY") is None:
 
 # Used for Google Search API
 genai_client = Client(api_key=os.getenv("GEMINI_API_KEY"))
-tracer = get_default_tracer()
-
-
-def _instrumented_generate(model: str, contents, config=None):
-    start = time.time()
-    tracer.log_event("gemini.request", {"model": model, "contents": str(contents)[:500], "config": config})
-    try:
-        with tracer.span("gemini.generate_content", {"model": model}):
-            resp = genai_client.models.generate_content(model=model, contents=contents, config=config)
-        elapsed = (time.time() - start) * 1000
-        tracer.log_event("gemini.response", {"model": model, "elapsed_ms": elapsed, "text": getattr(resp, "text", None)})
-        return resp
-    except Exception as exc:
-        tracer.log_event("gemini.error", {"model": model, "error": str(exc)})
-        raise
 
 
 # Nodes
@@ -130,7 +117,8 @@ def web_research(state: WebSearchState, config: RunnableConfig) -> OverallState:
     )
 
     # Uses the google genai client as the langchain client doesn't return grounding metadata
-    response = _instrumented_generate(
+    # LLM calls are auto-instrumented by evalyn_sdk
+    response = genai_client.models.generate_content(
         model=configurable.query_generator_model,
         contents=formatted_prompt,
         config={

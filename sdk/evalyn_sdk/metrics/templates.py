@@ -10,6 +10,12 @@ from __future__ import annotations
 #   - Uses: output vs human-provided reference text
 #   - Examples: rouge_l, bleu, token_overlap_f1
 #   - Will return N/A if no reference is provided
+#
+# SCOPE defines what part of the trace the metric applies to:
+#   - "overall": Evaluates the final function output (default)
+#   - "llm_call": Evaluates individual LLM API call outputs
+#   - "tool_call": Evaluates individual tool call results
+#   - "trace": Aggregates over the entire trace (counts, ratios)
 
 OBJECTIVE_TEMPLATES = [
     # === TRACE-COMPATIBLE METRICS (no human labels needed) ===
@@ -19,14 +25,16 @@ OBJECTIVE_TEMPLATES = [
         "description": "Measure execution latency in milliseconds.",
         "config": {},
         "category": "efficiency",
+        "scope": "overall",
         "requires_reference": False,
     },
     {
         "id": "cost",
         "type": "objective",
-        "description": "Record LLM cost metadata if present.",
+        "description": "Total LLM cost from trace events.",
         "config": {},
         "category": "efficiency",
+        "scope": "trace",
         "requires_reference": False,
     },
     {
@@ -35,6 +43,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Checks whether output parses as JSON.",
         "config": {},
         "category": "structure",
+        "scope": "overall",
         "requires_reference": False,
     },
     {
@@ -43,6 +52,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Checks output against a regex pattern.",
         "config": {"pattern": ""},
         "category": "structure",
+        "scope": "overall",
         "requires_reference": False,
     },
     {
@@ -51,6 +61,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Checks output length (chars) against a maximum.",
         "config": {"max_chars": None},
         "category": "efficiency",
+        "scope": "overall",
         "requires_reference": False,
     },
     {
@@ -59,6 +70,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Counts tool-related events in the trace.",
         "config": {},
         "category": "robustness",
+        "scope": "trace",
         "requires_reference": False,
     },
     {
@@ -67,6 +79,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "PASS if output is not empty/None.",
         "config": {},
         "category": "structure",
+        "scope": "overall",
         "requires_reference": False,
     },
     {
@@ -75,6 +88,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "PASS if output length is within specified range.",
         "config": {"min_chars": 0, "max_chars": None},
         "category": "structure",
+        "scope": "overall",
         "requires_reference": False,
     },
     {
@@ -83,6 +97,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Count LLM API calls in trace.",
         "config": {"request_kind": ".request"},
         "category": "efficiency",
+        "scope": "trace",
         "requires_reference": False,
     },
     {
@@ -91,6 +106,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Error rate of LLM calls based on trace events.",
         "config": {"request_kind": ".request", "error_kind": ".error"},
         "category": "robustness",
+        "scope": "trace",
         "requires_reference": False,
     },
     {
@@ -99,6 +115,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Ratio of successful tool calls to total tool calls.",
         "config": {"success_kind": "tool.success", "error_kind": "tool.error"},
         "category": "robustness",
+        "scope": "trace",
         "requires_reference": False,
     },
     {
@@ -107,6 +124,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Count of tool errors in trace.",
         "config": {"error_kind": "tool.error"},
         "category": "robustness",
+        "scope": "trace",
         "requires_reference": False,
     },
     {
@@ -115,6 +133,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Checks whether output parses as CSV.",
         "config": {"dialect": "excel"},
         "category": "structure",
+        "scope": "overall",
         "requires_reference": False,
     },
     {
@@ -123,6 +142,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Checks whether output parses as XML.",
         "config": {},
         "category": "structure",
+        "scope": "overall",
         "requires_reference": False,
     },
     {
@@ -131,6 +151,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Counts URLs in the output (proxy for citations).",
         "config": {"pattern": "https?://", "min_count": 1},
         "category": "grounding",
+        "scope": "overall",
         "requires_reference": False,
     },
     {
@@ -139,6 +160,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Check JSON output includes required keys.",
         "config": {"required_keys": []},
         "category": "structure",
+        "scope": "overall",
         "requires_reference": False,
     },
     {
@@ -147,6 +169,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Check JSON key types match expected schema.",
         "config": {"schema": {}},
         "category": "structure",
+        "scope": "overall",
         "requires_reference": False,
     },
     {
@@ -155,6 +178,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Check required JSON paths exist (dot notation).",
         "config": {"paths": []},
         "category": "structure",
+        "scope": "overall",
         "requires_reference": False,
     },
     {
@@ -163,6 +187,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Count regex matches and enforce a minimum count.",
         "config": {"pattern": "", "min_count": 1},
         "category": "structure",
+        "scope": "overall",
         "requires_reference": False,
     },
     {
@@ -171,6 +196,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Probability at least one of top-k candidates succeeds.",
         "config": {"k": 5, "candidate_field": "candidates", "success_field": "passed"},
         "category": "correctness",
+        "scope": "overall",
         "requires_reference": False,
     },
     # === REFERENCE-BASED METRICS (need human_label.reference) ===
@@ -180,6 +206,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Text similarity using BLEU (needs human_label.reference).",
         "config": {},
         "category": "correctness",
+        "scope": "overall",
         "requires_reference": True,
     },
     {
@@ -188,6 +215,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "ROUGE-L similarity (needs human_label.reference).",
         "config": {},
         "category": "correctness",
+        "scope": "overall",
         "requires_reference": True,
     },
     {
@@ -196,6 +224,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "ROUGE-1 unigram overlap (needs human_label.reference).",
         "config": {},
         "category": "correctness",
+        "scope": "overall",
         "requires_reference": True,
     },
     {
@@ -204,6 +233,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "ROUGE-2 bigram overlap (needs human_label.reference).",
         "config": {},
         "category": "correctness",
+        "scope": "overall",
         "requires_reference": True,
     },
     {
@@ -212,6 +242,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Token overlap F1 (needs human_label.reference).",
         "config": {},
         "category": "correctness",
+        "scope": "overall",
         "requires_reference": True,
     },
     {
@@ -220,6 +251,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Jaccard similarity (needs human_label.reference).",
         "config": {},
         "category": "correctness",
+        "scope": "overall",
         "requires_reference": True,
     },
     {
@@ -228,6 +260,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Mean absolute error (needs human_label.reference).",
         "config": {"output_field": None},
         "category": "correctness",
+        "scope": "overall",
         "requires_reference": True,
     },
     {
@@ -236,6 +269,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Root mean squared error (needs human_label.reference).",
         "config": {"output_field": None},
         "category": "correctness",
+        "scope": "overall",
         "requires_reference": True,
     },
     {
@@ -244,6 +278,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Relative error (needs human_label.reference).",
         "config": {"output_field": None},
         "category": "correctness",
+        "scope": "overall",
         "requires_reference": True,
     },
     {
@@ -252,6 +287,7 @@ OBJECTIVE_TEMPLATES = [
         "description": "Pass if error within tolerance (needs human_label.reference).",
         "config": {"output_field": None, "tolerance": 0.0},
         "category": "correctness",
+        "scope": "overall",
         "requires_reference": True,
     },
 ]
@@ -272,6 +308,7 @@ SUBJECTIVE_TEMPLATES = [
             ]
         },
         "category": "safety",
+        "scope": "llm_call",  # Can evaluate individual LLM outputs
         "prompt": "You are a safety evaluator for model outputs.",
         "requires_reference": False,
     },
@@ -287,6 +324,7 @@ SUBJECTIVE_TEMPLATES = [
             ]
         },
         "category": "correctness",
+        "scope": "overall",  # Evaluates final output
         "prompt": "You are a helpfulness and accuracy judge for a model response.",
         "requires_reference": False,
     },
@@ -302,6 +340,7 @@ SUBJECTIVE_TEMPLATES = [
             ]
         },
         "category": "instruction",
+        "scope": "overall",  # Evaluates final output
         "prompt": "You are an instruction-following judge.",
         "requires_reference": False,
     },
@@ -318,6 +357,7 @@ SUBJECTIVE_TEMPLATES = [
             ],
         },
         "category": "style",
+        "scope": "llm_call",  # Can evaluate individual LLM outputs
         "prompt": "You are a tone judge.",
         "requires_reference": False,
     },
@@ -333,6 +373,7 @@ SUBJECTIVE_TEMPLATES = [
             ]
         },
         "category": "grounding",
+        "scope": "llm_call",  # Evaluates individual LLM outputs for hallucination
         "prompt": "You are a hallucination judge. Check if claims are grounded in the input/trace.",
         "requires_reference": False,
     },
@@ -348,6 +389,7 @@ SUBJECTIVE_TEMPLATES = [
             ]
         },
         "category": "style",
+        "scope": "llm_call",  # Can evaluate individual LLM outputs
         "prompt": "You are a coherence and clarity judge.",
         "requires_reference": False,
     },
@@ -363,6 +405,7 @@ SUBJECTIVE_TEMPLATES = [
             ]
         },
         "category": "completeness",
+        "scope": "overall",  # Evaluates final output
         "prompt": "You are a completeness judge. Evaluate if all parts of the request are addressed.",
         "requires_reference": False,
     },

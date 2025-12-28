@@ -155,9 +155,10 @@ class LLMSuggester(MetricSuggester):
         target_fn: Callable,
         traces: Optional[Iterable[FunctionCall]] = None,
         desired_count: Optional[int] = None,
+        scope: Optional[str] = None,
     ) -> List[Suggestion]:
         signature = inspect.signature(target_fn)
-        prompt = render_suggestion_prompt(target_fn.__name__, signature, traces or [], desired_count=desired_count)
+        prompt = render_suggestion_prompt(target_fn.__name__, signature, traces or [], desired_count=desired_count, scope=scope)
         raw = self.caller(prompt)
         raw_copy = raw
         if isinstance(raw, str):
@@ -378,6 +379,7 @@ def render_suggestion_prompt(
     signature,
     traces: Iterable[FunctionCall],
     desired_count: Optional[int] = None,
+    scope: Optional[str] = None,
 ) -> str:
     sig_str = f"{fn_name}{signature}"
     example_lines = []
@@ -391,22 +393,36 @@ def render_suggestion_prompt(
         if desired_count
         else "Return JSON array."
     )
+
+    # Scope-specific guidance
+    scope_guidance = ""
+    if scope == "overall":
+        scope_guidance = "\nFOCUS: Generate metrics that evaluate the FINAL OUTPUT of the function (helpfulness, correctness, format).\n"
+    elif scope == "llm_call":
+        scope_guidance = "\nFOCUS: Generate metrics for evaluating INDIVIDUAL LLM CALLS (safety, hallucination, tone, coherence).\n"
+    elif scope == "tool_call":
+        scope_guidance = "\nFOCUS: Generate metrics for evaluating TOOL CALLS (correct tool selection, argument correctness, success).\n"
+    elif scope == "trace":
+        scope_guidance = "\nFOCUS: Generate metrics that AGGREGATE over the trace (counts, ratios, total cost, error rates).\n"
+
     return (
         "You are designing evaluation metrics for an LLM-powered function.\n"
         f"Function: {sig_str}\n"
         f"Recent traces:\n{examples}\n"
+        f"{scope_guidance}"
         "Propose metrics; include both objective and subjective.\n"
         f"{count_hint}\n"
         "Respond as JSON array ONLY (no prose) with fields:\n"
         "- id: unique identifier (snake_case)\n"
         "- type: 'objective' or 'subjective'\n"
+        "- scope: 'overall', 'llm_call', 'tool_call', or 'trace'\n"
         "- description: what this metric evaluates\n"
         "- config: for subjective metrics, MUST include:\n"
         "    - prompt: evaluation instructions for the LLM judge\n"
         "    - rubric: list of criteria for PASS/FAIL (at least 2-3 items)\n"
         "- why: short reason for including this metric\n\n"
         "Example subjective metric:\n"
-        '{"id": "factual_accuracy", "type": "subjective", "description": "Checks factual correctness", '
+        '{"id": "factual_accuracy", "type": "subjective", "scope": "overall", "description": "Checks factual correctness", '
         '"config": {"prompt": "Evaluate if the response is factually accurate.", '
         '"rubric": ["No false claims", "Cites sources when appropriate", "Admits uncertainty when unsure"]}, '
         '"why": "Ensures reliable information"}\n\n'

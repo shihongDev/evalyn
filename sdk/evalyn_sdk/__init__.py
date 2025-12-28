@@ -2,6 +2,10 @@ __version__ = "0.0.1"
 
 from .decorators import eval, configure_tracer, get_default_tracer
 from .tracing import EvalTracer, eval_session
+
+# Auto-instrumentation (patches LLM libraries on import)
+from . import auto_instrument
+from .auto_instrument import trace, patch_all, is_patched, calculate_cost
 from .runner import EvalRunner
 from .metrics.registry import MetricRegistry, Metric
 from .metrics.objective import (
@@ -51,8 +55,27 @@ from .models import (
     MetricSpec,
     MetricType,
 )
+from .span_annotation import (
+    SpanAnnotation,
+    SpanType,
+    LLMCallAnnotation,
+    ToolCallAnnotation,
+    ReasoningAnnotation,
+    RetrievalAnnotation,
+    OverallAnnotation,
+    extract_spans_from_trace,
+    get_annotation_prompts,
+    ANNOTATION_SCHEMAS,
+)
 
 __all__ = [
+    # Auto-instrumentation
+    "auto_instrument",
+    "trace",
+    "patch_all",
+    "is_patched",
+    "calculate_cost",
+    # Models
     "Annotation",
     "CalibrationRecord",
     "DatasetItem",
@@ -61,19 +84,23 @@ __all__ = [
     "MetricResult",
     "MetricSpec",
     "MetricType",
+    # Core
     "EvalRunner",
     "EvalTracer",
     "MetricRegistry",
     "Metric",
+    # Judges
     "LLMJudge",
     "EchoJudge",
     "OpenAIJudge",
     "GeminiJudge",
+    # Suggesters
     "MetricSuggester",
     "HeuristicSuggester",
     "LLMSuggester",
     "LLMRegistrySelector",
     "DEFAULT_JUDGE_PROMPT",
+    # Calibration
     "CalibrationEngine",
     "AlignmentMetrics",
     "PromptOptimizer",
@@ -83,18 +110,22 @@ __all__ = [
     "GEPA_AVAILABLE",
     "save_calibration",
     "load_optimized_prompt",
+    # Datasets
     "build_dataset_from_storage",
-    "configure_otel",
-    "configure_default_otel",
-    "OTEL_AVAILABLE",
     "load_dataset",
     "save_dataset",
     "hash_inputs",
     "dataset_from_calls",
+    # OpenTelemetry
+    "configure_otel",
+    "configure_default_otel",
+    "OTEL_AVAILABLE",
+    # Tracing
     "eval_session",
     "eval",
     "configure_tracer",
     "get_default_tracer",
+    # Objective metrics
     "exact_match_metric",
     "latency_metric",
     "cost_metric",
@@ -105,14 +136,27 @@ __all__ = [
     "token_length_metric",
     "tool_call_count_metric",
     "register_builtin_metrics",
+    # Subjective metrics
     "subjective_metric",
     "tone_metric",
     "toxicity_metric",
     "DEFAULT_TONE_PROMPT",
     "DEFAULT_TOXICITY_PROMPT",
+    # Templates
     "OBJECTIVE_TEMPLATES",
     "SUBJECTIVE_TEMPLATES",
     "build_objective_metric",
     "build_subjective_metric",
     "list_template_ids",
+    # Span annotations
+    "SpanAnnotation",
+    "SpanType",
+    "LLMCallAnnotation",
+    "ToolCallAnnotation",
+    "ReasoningAnnotation",
+    "RetrievalAnnotation",
+    "OverallAnnotation",
+    "extract_spans_from_trace",
+    "get_annotation_prompts",
+    "ANNOTATION_SCHEMAS",
 ]

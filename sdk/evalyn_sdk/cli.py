@@ -48,6 +48,10 @@ class Spinner:
 
 from .annotations import import_annotations
 from .calibration import CalibrationEngine, GEPAConfig, GEPA_AVAILABLE, save_calibration, load_optimized_prompt
+from .span_annotation import (
+    SpanAnnotation, ANNOTATION_SCHEMAS, extract_spans_from_trace,
+    get_annotation_prompts, SpanType,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -1352,44 +1356,123 @@ def _dataset_has_reference(dataset_path: Optional[Path]) -> bool:
 
 
 def cmd_suggest_metrics(args: argparse.Namespace) -> None:
-    # Validate dataset path FIRST before doing any expensive work
+    tracer = get_default_tracer()
+
+    # Validate: need either --project or --target
+    if not args.project and not args.target:
+        print("Error: Either --project or --target is required.")
+        print("\nUsage:")
+        print("  evalyn suggest-metrics --project <name>    # Suggest based on project traces")
+        print("  evalyn suggest-metrics --target <path>     # Suggest based on function code")
+        print("\nTo see available projects:")
+        print("  evalyn show-projects")
+        sys.exit(1)
+
+    # Validate dataset path if provided
     dataset_path_obj: Optional[Path] = None
     if args.dataset:
         dataset_path_obj = Path(args.dataset)
         if dataset_path_obj.is_file():
-            # It's a file (e.g., dataset.jsonl)
             if not dataset_path_obj.exists():
                 print(f"Error: Dataset file not found: {dataset_path_obj}")
                 print("Please create the dataset first using 'evalyn build-dataset' or ensure the path is correct.")
                 sys.exit(1)
         else:
-            # It's a directory - should exist and contain a dataset
             if not dataset_path_obj.exists():
                 print(f"Error: Dataset directory not found: {dataset_path_obj}")
                 print("Please create the dataset first using 'evalyn build-dataset' or ensure the path is correct.")
                 sys.exit(1)
-            # Check if directory has a dataset file
             has_dataset = (dataset_path_obj / "dataset.jsonl").exists() or (dataset_path_obj / "dataset.json").exists()
             if not has_dataset:
                 print(f"Warning: Directory exists but no dataset.jsonl or dataset.json found in: {dataset_path_obj}")
-                print("Proceeding anyway, but this may not be a valid dataset directory.")
 
     # Check if dataset has reference values
     has_reference = _dataset_has_reference(dataset_path_obj)
     if dataset_path_obj and not has_reference:
         print("Note: Dataset has no reference/expected values. Reference-based metrics (ROUGE, BLEU, etc.) excluded.")
 
-    target_fn = _load_callable(args.target)
-    metric_mode_hint = getattr(target_fn, "_evalyn_metric_mode", None)
-    metric_bundle_hint = getattr(target_fn, "_evalyn_metric_bundle", None)
-    tracer = get_default_tracer()
-    traces = tracer.storage.list_calls(limit=args.num_traces) if tracer.storage else []
+    # Load traces and function info based on --project or --target
+    target_fn = None
+    metric_mode_hint = None
+    metric_bundle_hint = None
+    traces = []
+    function_name = "unknown"
+    function_signature = ""
+    function_docstring = ""
+
+    if args.project:
+        # Project-based: load traces from storage
+        if not tracer.storage:
+            print("Error: No storage configured. Cannot load project traces.")
+            sys.exit(1)
+
+        # Load all calls for this project
+        all_calls = tracer.storage.list_calls(limit=500)
+        project_traces = []
+        for call in all_calls:
+            meta = call.metadata if isinstance(call.metadata, dict) else {}
+            call_project = meta.get("project_id") or meta.get("project_name") or call.function_name
+            call_version = meta.get("version") or ""
+
+            if call_project == args.project:
+                if args.version and call_version != args.version:
+                    continue
+                project_traces.append(call)
+
+        if not project_traces:
+            print(f"Error: No traces found for project '{args.project}'")
+            if args.version:
+                print(f"  (filtered by version: {args.version})")
+            print("\nAvailable projects:")
+            print("  evalyn show-projects")
+            sys.exit(1)
+
+        traces = project_traces[:args.num_traces]
+        print(f"Found {len(project_traces)} traces for project '{args.project}'")
+        if args.version:
+            print(f"  (version: {args.version})")
+
+        # Extract function info from the first trace
+        first_call = project_traces[0]
+        function_name = first_call.function_name
+        meta = first_call.metadata if isinstance(first_call.metadata, dict) else {}
+        function_signature = meta.get("signature", "")
+        function_docstring = meta.get("docstring", "")
+
+        # Create a placeholder function for the suggester
+        def _placeholder_fn(*args, **kwargs):
+            pass
+        _placeholder_fn.__name__ = function_name
+        _placeholder_fn.__doc__ = function_docstring
+        target_fn = _placeholder_fn
+
+    else:
+        # Target-based: load callable directly
+        target_fn = _load_callable(args.target)
+        metric_mode_hint = getattr(target_fn, "_evalyn_metric_mode", None)
+        metric_bundle_hint = getattr(target_fn, "_evalyn_metric_bundle", None)
+        traces = tracer.storage.list_calls(limit=args.num_traces) if tracer.storage else []
+        function_name = target_fn.__name__
 
     selected_mode = args.mode
     if selected_mode == "auto":
         selected_mode = metric_mode_hint or "llm-registry"
     bundle_name = args.bundle or metric_bundle_hint
     max_metrics = args.num_metrics if args.num_metrics and args.num_metrics > 0 else None
+
+    # Get scope filter
+    scope_filter = getattr(args, 'scope', 'all')
+    if scope_filter == 'all':
+        scope_filter = None
+
+    def _filter_by_scope(templates: list) -> list:
+        """Filter templates by scope."""
+        if not scope_filter:
+            return templates
+        return [t for t in templates if t.get("scope", "overall") == scope_filter]
+
+    if scope_filter:
+        print(f"Filtering metrics by scope: {scope_filter}")
 
     def _print_spec(spec: MetricSpec) -> None:
         why = getattr(spec, "why", "") or ""
@@ -1461,7 +1544,8 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         if not ids:
             print(f"Unknown bundle '{args.bundle}'. Available: {', '.join(BUNDLES.keys())}")
             return
-        tpl_map = {t["id"]: t for t in OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES}
+        all_templates = _filter_by_scope(OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES)
+        tpl_map = {t["id"]: t for t in all_templates}
         specs = []
         skipped_ref_metrics = []
         for mid in ids:
@@ -1491,7 +1575,8 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
 
     if selected_mode == "llm-registry":
         caller = _build_llm_caller(args)
-        selector = TemplateSelector(caller, OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES, has_reference=has_reference)
+        filtered_templates = _filter_by_scope(OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES)
+        selector = TemplateSelector(caller, filtered_templates, has_reference=has_reference)
         selected = selector.select(
             target_fn,
             traces=traces,
@@ -1509,7 +1594,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
     if selected_mode == "llm-brainstorm":
         caller = _build_llm_caller(args)
         suggester = LLMSuggester(caller=caller)
-        specs = suggester.suggest(target_fn, traces, desired_count=max_metrics)
+        specs = suggester.suggest(target_fn, traces, desired_count=max_metrics, scope=scope_filter)
         if max_metrics:
             specs = specs[:max_metrics]
         if not specs:
@@ -1522,6 +1607,13 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
 
     suggester = HeuristicSuggester(has_reference=has_reference)
     specs = suggester.suggest(target_fn, traces)
+
+    # Filter by scope if specified (lookup scope from templates)
+    if scope_filter:
+        all_templates = OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES
+        template_scope = {t["id"]: t.get("scope", "overall") for t in all_templates}
+        specs = [s for s in specs if template_scope.get(s.id, "overall") == scope_filter]
+
     if max_metrics:
         specs = specs[:max_metrics]
     for spec in specs:
@@ -1920,9 +2012,302 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
     print("\n" + "=" * 60)
 
 
+def cmd_annotate_spans(args: argparse.Namespace) -> None:
+    """Interactive span-level annotation interface."""
+    import uuid
+
+    config = load_config()
+
+    # Resolve dataset path
+    dataset_arg = getattr(args, 'dataset', None)
+    use_latest = getattr(args, 'latest', False)
+    resolved_path = resolve_dataset_path(dataset_arg, use_latest, config)
+
+    if not resolved_path:
+        print("Error: No dataset specified. Use --dataset <path> or --latest")
+        sys.exit(1)
+
+    dataset_path = Path(resolved_path)
+    if dataset_path.is_dir():
+        dataset_dir = dataset_path
+        data_file = dataset_path / "dataset.jsonl"
+        if not data_file.exists():
+            data_file = dataset_path / "dataset.json"
+    else:
+        dataset_dir = dataset_path.parent
+        data_file = dataset_path
+
+    if not data_file.exists():
+        print(f"Error: Dataset file not found: {data_file}")
+        sys.exit(1)
+
+    # Load dataset items to get call_ids
+    dataset_items = load_dataset(data_file)
+    if not dataset_items:
+        print("No items in dataset.")
+        return
+
+    # Get storage to fetch full calls
+    tracer = get_default_tracer()
+    if not tracer.storage:
+        print("Error: No storage configured. Cannot retrieve call traces.")
+        sys.exit(1)
+
+    # Get span_type filter
+    span_type_filter = getattr(args, 'span_type', 'all')
+    if span_type_filter == 'all':
+        span_type_filter = None
+
+    # Output path for span annotations
+    output_path = Path(args.output) if args.output else dataset_dir / "span_annotations.jsonl"
+
+    # Load existing span annotations
+    existing_annotations: Dict[str, SpanAnnotation] = {}
+    if output_path.exists() and not getattr(args, 'restart', False):
+        try:
+            for line in output_path.read_text(encoding="utf-8").strip().splitlines():
+                if line.strip():
+                    data = json.loads(line)
+                    ann = SpanAnnotation.from_dict(data)
+                    existing_annotations[ann.span_id] = ann
+        except Exception:
+            pass
+
+    # Collect all spans to annotate
+    all_spans = []
+    for item in dataset_items:
+        call_id = item.metadata.get("call_id", item.id)
+
+        # Fetch the full call from storage
+        call = tracer.storage.get_call(call_id)
+        if not call:
+            continue
+
+        # Extract spans from the call
+        spans = extract_spans_from_trace(call)
+
+        # Filter by span_type if specified
+        if span_type_filter:
+            spans = [s for s in spans if s["span_type"] == span_type_filter]
+
+        # Skip already annotated spans
+        spans = [s for s in spans if s["span_id"] not in existing_annotations]
+
+        for span in spans:
+            span["call"] = call  # Attach call for context
+            all_spans.append(span)
+
+    if not all_spans:
+        print("No spans to annotate. All spans already annotated or no matching spans found.")
+        if span_type_filter:
+            print(f"Tip: Filter was set to '{span_type_filter}'. Try --span-type all")
+        return
+
+    # Group spans by type for summary
+    by_type = {}
+    for span in all_spans:
+        st = span["span_type"]
+        by_type[st] = by_type.get(st, 0) + 1
+
+    print("\n" + "=" * 70)
+    print("SPAN ANNOTATION MODE")
+    print("=" * 70)
+    print(f"Dataset: {data_file}")
+    print(f"Spans to annotate: {len(all_spans)}")
+    print(f"Already annotated: {len(existing_annotations)}")
+    print(f"Output: {output_path}")
+    print("\nSpan types:")
+    for st, count in sorted(by_type.items()):
+        print(f"  {st}: {count}")
+    print("\nCommands: [y/n/1-5] answer prompts  [s]kip span  [q]uit")
+    print("=" * 70)
+
+    annotations: List[SpanAnnotation] = list(existing_annotations.values())
+
+    def save_annotations() -> None:
+        with open(output_path, "w", encoding="utf-8") as f:
+            for ann in annotations:
+                f.write(json.dumps(ann.as_dict(), ensure_ascii=False) + "\n")
+
+    def truncate(text: str, max_len: int = 300) -> str:
+        text = str(text) if text else ""
+        text = text.replace("\n", " ").strip()
+        return text if len(text) <= max_len else text[:max_len] + "..."
+
+    def get_bool_input(prompt: str) -> Optional[bool]:
+        """Get yes/no input."""
+        while True:
+            try:
+                val = input(f"  {prompt} [y/n/s]: ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                return None
+            if val in ("y", "yes", "1", "true"):
+                return True
+            if val in ("n", "no", "0", "false"):
+                return False
+            if val in ("s", "skip", ""):
+                return None
+            print("  Invalid. Use y(es), n(o), or s(kip)")
+
+    def get_int_input(prompt: str, min_val: int, max_val: int) -> Optional[int]:
+        """Get integer input within range."""
+        while True:
+            try:
+                val = input(f"  {prompt} [{min_val}-{max_val}/s]: ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                return None
+            if val in ("s", "skip", ""):
+                return None
+            try:
+                num = int(val)
+                if min_val <= num <= max_val:
+                    return num
+                print(f"  Invalid. Use {min_val}-{max_val} or s(kip)")
+            except ValueError:
+                print(f"  Invalid. Use {min_val}-{max_val} or s(kip)")
+
+    def get_str_input(prompt: str) -> str:
+        """Get string input."""
+        try:
+            return input(f"  {prompt} ").strip()
+        except (EOFError, KeyboardInterrupt):
+            return ""
+
+    idx = 0
+    total = len(all_spans)
+
+    while idx < total:
+        span = all_spans[idx]
+        call = span["call"]
+        span_type = span["span_type"]
+        span_id = span["span_id"]
+
+        print(f"\n{'─' * 70}")
+        print(f"Span {idx + 1}/{total} [{span_type.upper()}]")
+        print(f"Call: {call.function_name} [{call.id[:12]}...]")
+        print("─" * 70)
+
+        # Show span context
+        print(f"\n📋 {span['summary']}")
+
+        if span_type == "overall":
+            # Show input/output for overall
+            print(f"\n📥 INPUT: {truncate(json.dumps(span.get('input', {}), ensure_ascii=False), 200)}")
+            print(f"📤 OUTPUT: {truncate(str(span.get('output', '')), 300)}")
+        elif span.get("detail"):
+            # Show detail for other span types
+            detail = span["detail"]
+            if span_type == "llm_call":
+                print(f"  Model: {detail.get('model', 'unknown')}")
+                print(f"  Tokens: {detail.get('input_tokens', '?')} in / {detail.get('output_tokens', '?')} out")
+                if detail.get('cost'):
+                    print(f"  Cost: ${detail.get('cost', 0):.6f}")
+                if detail.get('response_excerpt'):
+                    print(f"  Response: {truncate(detail.get('response_excerpt', ''), 200)}")
+            elif span_type == "tool_call":
+                print(f"  Tool: {detail.get('tool_name', 'unknown')}")
+                if detail.get('args'):
+                    print(f"  Args: {truncate(json.dumps(detail.get('args', {}), ensure_ascii=False), 150)}")
+                if detail.get('result'):
+                    print(f"  Result: {truncate(str(detail.get('result', '')), 150)}")
+            elif span_type == "reasoning":
+                if detail.get('content'):
+                    print(f"  Content: {truncate(str(detail.get('content', '')), 200)}")
+            elif span_type == "retrieval":
+                if detail.get('query'):
+                    print(f"  Query: {truncate(str(detail.get('query', '')), 100)}")
+                if detail.get('results_count'):
+                    print(f"  Results: {detail.get('results_count')} documents")
+
+        print("─" * 70)
+
+        # Get annotation prompts for this span type
+        prompts = get_annotation_prompts(span_type)
+        schema_cls = ANNOTATION_SCHEMAS[span_type]
+        annotation_values = {}
+
+        print(f"\nAnnotate this {span_type}:")
+
+        quit_requested = False
+        skip_span = False
+
+        for prompt_info in prompts:
+            field = prompt_info["field"]
+            question = prompt_info["question"]
+            field_type = prompt_info["type"]
+
+            if field_type == "bool":
+                val = get_bool_input(question)
+                if val is None:
+                    # Check for quit
+                    try:
+                        check = input("  Skip this span? [y/n/q]: ").strip().lower()
+                        if check in ("q", "quit"):
+                            quit_requested = True
+                            break
+                        if check in ("y", "yes"):
+                            skip_span = True
+                            break
+                    except (EOFError, KeyboardInterrupt):
+                        quit_requested = True
+                        break
+                    continue  # Skip this field
+                annotation_values[field] = val
+            elif field_type == "int":
+                range_info = prompt_info.get("range", (1, 5))
+                val = get_int_input(question, range_info[0], range_info[1])
+                if val is not None:
+                    annotation_values[field] = val
+            elif field_type == "str":
+                val = get_str_input(question)
+                if val:
+                    annotation_values[field] = val
+
+        if quit_requested:
+            save_annotations()
+            print(f"\nSaved {len(annotations)} span annotations to {output_path}")
+            return
+
+        if skip_span:
+            print("Skipped.")
+            idx += 1
+            continue
+
+        # Create annotation if we have any values
+        if annotation_values:
+            annotation_schema = schema_cls(**annotation_values)
+            span_ann = SpanAnnotation(
+                id=f"span-ann-{uuid.uuid4().hex[:8]}",
+                call_id=call.id,
+                span_id=span_id,
+                span_type=span_type,
+                annotation=annotation_schema,
+                annotator=getattr(args, 'annotator', None) or "human",
+            )
+            annotations.append(span_ann)
+            save_annotations()
+            print(f"✓ Saved annotation for {span_type}")
+        else:
+            print("No annotation recorded (all fields skipped).")
+
+        idx += 1
+
+    # Final save
+    save_annotations()
+    print("\n" + "=" * 70)
+    print("SPAN ANNOTATION COMPLETE")
+    print(f"Total annotated: {len(annotations)}")
+    print(f"Saved to: {output_path}")
+    print("=" * 70)
+
+
 def cmd_annotate(args: argparse.Namespace) -> None:
     """Interactive CLI annotation interface with per-metric support."""
     from .models import AnnotationItem, HumanLabel, Annotation, MetricLabel
+
+    # Check for span annotation mode
+    if getattr(args, 'spans', False):
+        return cmd_annotate_spans(args)
 
     config = load_config()
 
@@ -2874,17 +3259,16 @@ def cmd_list_metrics(args: argparse.Namespace) -> None:
 
     def _print_table(title: str, templates: list[dict]) -> None:
         print(title)
-        headers = ["id", "category", "inputs", "config", "desc"]
+        headers = ["id", "scope", "category", "config", "desc"]
         rows = []
         for tpl in templates:
-            inputs = tpl.get("inputs") or tpl.get("signals") or []
             rows.append(
                 [
                     tpl.get("id", ""),
+                    tpl.get("scope", "overall"),
                     tpl.get("category", ""),
-                    _compact(inputs, 45),
                     _config_summary(tpl.get("config", {})),
-                    _compact_text(tpl.get("description", ""), 55),
+                    _compact_text(tpl.get("description", ""), 50),
                 ]
             )
 
@@ -3711,8 +4095,10 @@ For more info on a command: evalyn <command> --help
     run_parser.add_argument("--format", choices=["table", "json"], default="table", help="Output format (default: table)")
     run_parser.set_defaults(func=cmd_run_eval)
 
-    suggest_parser = subparsers.add_parser("suggest-metrics", help="Suggest metrics for a target function")
-    suggest_parser.add_argument("--target", required=True, help="Callable to analyze in the form module:function")
+    suggest_parser = subparsers.add_parser("suggest-metrics", help="Suggest metrics for a project or target function")
+    suggest_parser.add_argument("--project", help="Project name (use 'evalyn show-projects' to see available projects)")
+    suggest_parser.add_argument("--version", help="Filter by version (optional, used with --project)")
+    suggest_parser.add_argument("--target", help="Callable to analyze in the form module:function (alternative to --project)")
     suggest_parser.add_argument("--num-traces", type=int, default=5, help="How many recent traces to include as examples")
     suggest_parser.add_argument("--num-metrics", type=int, help="Maximum number of metrics to return")
     suggest_parser.add_argument(
@@ -3737,6 +4123,12 @@ For more info on a command: evalyn <command> --help
     suggest_parser.add_argument("--bundle", help="Bundle name when --mode bundle (e.g., summarization, orchestrator, research-agent)")
     suggest_parser.add_argument("--dataset", help="Dataset directory (or dataset.jsonl/meta.json) to save metrics into")
     suggest_parser.add_argument("--metrics-name", help="Metrics set name when saving to a dataset")
+    suggest_parser.add_argument(
+        "--scope",
+        choices=["all", "overall", "llm_call", "tool_call", "trace"],
+        default="all",
+        help="Filter metrics by scope: overall (final output), llm_call (per LLM), tool_call (per tool), trace (aggregates), or all.",
+    )
     suggest_parser.set_defaults(func=cmd_suggest_metrics)
 
     build_ds = subparsers.add_parser("build-dataset", help="Build dataset from stored traces")
@@ -3790,6 +4182,8 @@ For more info on a command: evalyn <command> --help
     annotate_parser.add_argument("--annotator", default="human", help="Annotator name/id (default: human)")
     annotate_parser.add_argument("--restart", action="store_true", help="Restart annotation from scratch (ignore existing)")
     annotate_parser.add_argument("--per-metric", action="store_true", help="Annotate each metric separately (agree/disagree with LLM)")
+    annotate_parser.add_argument("--spans", action="store_true", help="Annotate individual spans (LLM calls, tool calls, etc.)")
+    annotate_parser.add_argument("--span-type", choices=["all", "llm_call", "tool_call", "reasoning", "retrieval"], default="all", help="Filter span types to annotate")
     annotate_parser.add_argument("--only-disagreements", action="store_true", help="Only show items where LLM and prior human labels disagree")
     annotate_parser.set_defaults(func=cmd_annotate)
 
