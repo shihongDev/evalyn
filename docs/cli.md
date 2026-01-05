@@ -71,6 +71,16 @@ evalyn simulate --dataset <path> --modes similar,outlier
 ```
 [Full documentation](commands/simulate.md)
 
+## Analysis
+
+```bash
+evalyn analyze --latest                           # Analyze latest eval run
+evalyn analyze --dataset <path> --verbose         # Show failed items
+evalyn analyze --dataset <path> --compare         # Compare multiple runs
+evalyn analyze --dataset <path> --format html     # Generate HTML report
+```
+[Full documentation](commands/analyze.md)
+
 ## One-Click Pipeline
 
 ```bash
