@@ -39,6 +39,7 @@ __pycache__/
 # Claude
 .claude/
 CLAUDE.md
+SPEC.md
 
 # SQLite
 evalyn.sqlite

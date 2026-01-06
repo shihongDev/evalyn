@@ -27,7 +27,7 @@ class SQLiteSpanExporter:
     Spans are keyed by evalyn.call_id (if present in attributes) for easy lookup.
     """
 
-    def __init__(self, path: str = "data/evalyn.sqlite"):
+    def __init__(self, path: str = "evalyn.sqlite"):
         import sqlite3
         from pathlib import Path
 
@@ -171,7 +171,7 @@ def configure_otel(
         processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
     elif exporter == "sqlite":
         processor = BatchSpanProcessor(
-            SQLiteSpanExporter(sqlite_path or "data/evalyn.sqlite")
+            SQLiteSpanExporter(sqlite_path or "evalyn.sqlite")
         )
     else:
         raise ValueError("Unsupported exporter; use 'console', 'otlp', or 'sqlite'")
