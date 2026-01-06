@@ -1,8 +1,8 @@
 # Evalyn
 
-Local-first evaluation and calibration framework for LLM agents
+**Local-first evaluation and calibration framework for LLM agents**
 
-**Evalyn focuses on making agent evaluation practical and iterative. It provides lightweight tracing, human-in-the-loop annotation, metric suggestion, and calibration workflows to help developers understand what to evaluate, align metrics with real usage, and continuously improve agent behavior over time.**
+Evalyn focuses on making GenAI App evaluation practical and easy. It provides lightweight tracing, human-in-the-loop annotation, metric suggestion, and calibration workflows to help developers/non-tech folks understand what to evaluate, align metrics with real usage, and continuously improve your GenAI App behavior over time.
 
 ## Why Evalyn?
 
