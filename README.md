@@ -9,9 +9,9 @@ Evalyn focuses on making GenAI App evaluation practical and easy. It provides li
 | | |
 |---|---|
 | **Fully Local** | All data stays on your machine. SQLite storage, no cloud dependencies. |
-| **Zero Config** | Just `import evalyn_sdk` — LLM calls auto-captured with tokens & cost. |
-| **LLM Judges** | 50+ metrics including LLM-based judges for quality assessment. |
-| **Human Calibration** | Align LLM judges with human feedback through annotation workflow. |
+| **Easy Onboarding** | Just `import evalyn_sdk` — LLM calls auto-captured with tokens & cost. |
+| **Metric Bank** | 50+ metrics including both code-based and LLM-based judges templates for quality assessment. |
+| **Auto Calibration** | Align LLM judges with human feedback through automatic prompt optimization such as GEPA. |
 | **One Command** | Run the entire pipeline with `evalyn one-click`. |
 
 ## Install
