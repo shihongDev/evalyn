@@ -199,10 +199,12 @@ def save_eval_run_json(
     runs_subdir: str = "eval_runs",
 ) -> Path:
     """
-    Save an EvalRun as JSON in the dataset folder.
+    Save an EvalRun as JSON in a dedicated folder.
 
     Structure:
-        <dataset_dir>/eval_runs/<run_id>.json
+        <dataset_dir>/eval_runs/<timestamp>_<run_id>/
+            results.json    # Eval results
+            report.html     # Analysis report (generated separately)
 
     Args:
         run: The EvalRun to save
@@ -210,41 +212,59 @@ def save_eval_run_json(
         runs_subdir: Subdirectory name for eval runs (default: "eval_runs")
 
     Returns:
-        Path to the saved JSON file
+        Path to the run folder (not the JSON file)
     """
     dataset_dir = Path(dataset_dir)
     runs_dir = dataset_dir / runs_subdir
-    runs_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create filename with timestamp for sorting
+    # Create folder with timestamp for sorting
     timestamp = run.created_at.strftime("%Y%m%d-%H%M%S") if run.created_at else "unknown"
-    filename = f"{timestamp}_{run.id[:8]}.json"
-    run_path = runs_dir / filename
+    folder_name = f"{timestamp}_{run.id[:8]}"
+    run_folder = runs_dir / folder_name
+    run_folder.mkdir(parents=True, exist_ok=True)
 
-    # Save as JSON
-    run_path.write_text(
+    # Save as results.json
+    results_path = run_folder / "results.json"
+    results_path.write_text(
         json.dumps(run.as_dict(), indent=2, ensure_ascii=False, default=str),
         encoding="utf-8"
     )
 
-    return run_path
+    return run_folder
 
 
 def load_eval_run_json(path: Union[str, Path]) -> EvalRun:
-    """Load an EvalRun from a JSON file."""
+    """Load an EvalRun from a JSON file or folder.
+
+    Args:
+        path: Path to results.json file, or folder containing results.json
+    """
     path = Path(path)
+    # Handle both folder path and direct JSON file path
+    if path.is_dir():
+        path = path / "results.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     return EvalRun.from_dict(data)
 
 
 def list_eval_runs_json(dataset_dir: Union[str, Path], runs_subdir: str = "eval_runs") -> List[EvalRun]:
-    """List all eval runs from JSON files in a dataset directory."""
+    """List all eval runs from folders in a dataset directory."""
     dataset_dir = Path(dataset_dir)
     runs_dir = dataset_dir / runs_subdir
     if not runs_dir.exists():
         return []
 
     runs = []
+    # Look for folders containing results.json
+    for run_folder in sorted(runs_dir.iterdir(), reverse=True):
+        if run_folder.is_dir():
+            results_file = run_folder / "results.json"
+            if results_file.exists():
+                try:
+                    runs.append(load_eval_run_json(results_file))
+                except Exception:
+                    continue
+    # Also support legacy flat JSON files
     for json_file in sorted(runs_dir.glob("*.json"), reverse=True):
         try:
             runs.append(load_eval_run_json(json_file))

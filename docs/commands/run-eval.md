@@ -83,13 +83,24 @@ helpfulness_accuracy| subjective | 92.0% pass
 hallucination_risk  | subjective | 88.0% pass
 completeness        | subjective | 85.0% pass
 
-Run saved to: data/my-dataset/eval_runs/20250115_143022_abc123.json
+Run folder: data/my-dataset/eval_runs/20250115-143022_abc12345
+  results.json - evaluation data
+  report.html  - analysis report
 ```
 
 ## Output Files
 
-Eval runs are saved to `<dataset>/eval_runs/<timestamp>_<id>.json`:
+Each eval run creates a dedicated folder in `<dataset>/eval_runs/<timestamp>_<run_id>/`:
 
+```
+eval_runs/
+└── 20250115-143022_abc12345/
+    ├── results.json   # Raw evaluation data
+    └── report.html    # Interactive analysis report
+```
+
+### results.json
+Raw evaluation data:
 ```json
 {
   "id": "abc123...",
@@ -102,6 +113,18 @@ Eval runs are saved to `<dataset>/eval_runs/<timestamp>_<id>.json`:
   "metric_results": [...]
 }
 ```
+
+### report.html
+Interactive visualization report with:
+- Summary statistics cards
+- Pass rate bar charts (color-coded by threshold)
+- Score distribution with min/max ranges
+- Pass/fail breakdown by metric
+- Metric correlation heatmap
+- Failed items list with failure reasons
+- Run metadata
+
+The HTML report uses Chart.js for interactive visualizations and is styled with Anthropic research paper aesthetics (light background, blue/coral colors).
 
 ## See Also
 

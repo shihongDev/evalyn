@@ -84,18 +84,41 @@ class RunAnalysis:
 
 
 def load_eval_run(path: Path) -> Dict[str, Any]:
-    """Load a single eval run JSON file."""
+    """Load a single eval run JSON file.
+
+    Args:
+        path: Path to results.json file, folder containing results.json, or legacy .json file
+    """
+    path = Path(path)
+    # Handle folder path
+    if path.is_dir():
+        path = path / "results.json"
     with open(path) as f:
         return json.load(f)
 
 
 def find_eval_runs(dataset_dir: Path) -> List[Path]:
-    """Find all eval run JSON files in a dataset directory."""
-    eval_runs_dir = dataset_dir / "eval_runs"
+    """Find all eval run folders/files in a dataset directory.
+
+    Returns paths to results.json files (new structure) or .json files (legacy).
+    """
+    eval_runs_dir = Path(dataset_dir) / "eval_runs"
     if not eval_runs_dir.exists():
         return []
 
-    runs = list(eval_runs_dir.glob("*.json"))
+    runs = []
+
+    # New folder structure: look for folders with results.json
+    for item in eval_runs_dir.iterdir():
+        if item.is_dir():
+            results_file = item / "results.json"
+            if results_file.exists():
+                runs.append(results_file)
+
+    # Legacy flat JSON files
+    for json_file in eval_runs_dir.glob("*.json"):
+        runs.append(json_file)
+
     # Sort by modification time, newest first
     runs.sort(key=lambda p: p.stat().st_mtime, reverse=True)
     return runs
@@ -115,7 +138,10 @@ def analyze_run(run_data: Dict[str, Any]) -> RunAnalysis:
     for result in run_data.get("metric_results", []):
         metric_id = result["metric_id"]
         item_id = result["item_id"]
-        score = result.get("score", 0.0)
+        score = result.get("score")
+        # Handle None scores (API errors, etc.)
+        if score is None:
+            score = 0.0
         passed = result.get("passed", False)
 
         # Update metric stats

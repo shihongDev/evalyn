@@ -40,11 +40,18 @@ evalyn list-metrics            # List available templates
 ## Evaluation
 
 ```bash
-evalyn run-eval --dataset <path>
-evalyn run-eval --latest
+evalyn run-eval --dataset <path>    # Runs eval and generates HTML report
+evalyn run-eval --latest            # Run on latest dataset
 evalyn list-runs
 evalyn show-run --id <id>
 ```
+
+Each `run-eval` automatically generates an HTML analysis report alongside the JSON results with:
+- Summary statistics and pass rates
+- Interactive Chart.js visualizations
+- Metric correlation analysis
+- Failed items breakdown
+
 - [run-eval](commands/run-eval.md)
 - [list-runs](commands/list-runs.md)
 - [show-run](commands/show-run.md)
@@ -70,16 +77,6 @@ evalyn calibrate --metric-id <id> --annotations <file>
 evalyn simulate --dataset <path> --modes similar,outlier
 ```
 [Full documentation](commands/simulate.md)
-
-## Analysis
-
-```bash
-evalyn analyze --latest                           # Analyze latest eval run
-evalyn analyze --dataset <path> --verbose         # Show failed items
-evalyn analyze --dataset <path> --compare         # Compare multiple runs
-evalyn analyze --dataset <path> --format html     # Generate HTML report
-```
-[Full documentation](commands/analyze.md)
 
 ## One-Click Pipeline
 

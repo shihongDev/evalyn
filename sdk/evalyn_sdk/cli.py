@@ -1223,9 +1223,24 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     if progress:
         progress.finish()
 
-    # Save eval run as JSON in dataset folder
+    # Save eval run in dedicated folder
     dataset_dir = dataset_file.parent
-    run_json_path = save_eval_run_json(run, dataset_dir)
+    run_folder = save_eval_run_json(run, dataset_dir)
+    results_path = run_folder / "results.json"
+
+    # Generate HTML analysis report
+    from .analyzer import analyze_run as analyze_run_data, generate_html_report, load_eval_run
+    try:
+        run_data = load_eval_run(results_path)
+        analysis = analyze_run_data(run_data)
+        html_report = generate_html_report(analysis)
+        report_path = run_folder / "report.html"
+        with open(report_path, 'w') as f:
+            f.write(html_report)
+    except Exception as e:
+        report_path = None
+        if output_format != "json":
+            print(f"Warning: Could not generate HTML report: {e}")
 
     # JSON output
     if output_format == "json":
@@ -1234,7 +1249,9 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
             "dataset_name": run.dataset_name,
             "created_at": run.created_at.isoformat() if run.created_at else None,
             "summary": run.summary,
-            "run_file": str(run_json_path),
+            "run_folder": str(run_folder),
+            "results_file": str(results_path),
+            "report_file": str(report_path) if report_path else None,
             "metric_results": [
                 {
                     "metric_id": r.metric_id,
@@ -1253,7 +1270,10 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     # Table output
     print(f"\nEval run {run.id}")
     print(f"Dataset: {run.dataset_name}")
-    print(f"Run saved to: {run_json_path}")
+    print(f"Run folder: {run_folder}")
+    print(f"  results.json - evaluation data")
+    if report_path:
+        print(f"  report.html  - analysis report")
     print()
 
     # Build metric type lookup
@@ -3068,87 +3088,6 @@ def cmd_list_calibrations(args: argparse.Namespace) -> None:
                 print(f"  {metric_dir.name}: {latest}")
 
 
-def cmd_analyze(args: argparse.Namespace) -> None:
-    """Generate comprehensive analysis and visualization of eval results."""
-    from .analyzer import (
-        find_eval_runs, load_eval_run, analyze_run,
-        generate_text_report, generate_comparison_report, generate_html_report,
-    )
-
-    config = load_config()
-    dataset_path = resolve_dataset_path(
-        getattr(args, 'dataset', None),
-        getattr(args, 'latest', False),
-        config
-    )
-
-    if not dataset_path:
-        print("Error: No dataset specified. Use --dataset <path> or --latest")
-        return
-
-    if not dataset_path.exists():
-        print(f"Error: Dataset path does not exist: {dataset_path}")
-        return
-
-    # Find eval runs
-    run_files = find_eval_runs(dataset_path)
-    if not run_files:
-        print(f"Error: No eval runs found in {dataset_path / 'eval_runs'}")
-        print("  → Run: evalyn run-eval --dataset " + str(dataset_path))
-        return
-
-    # Handle specific run ID
-    if args.run_id:
-        run_files = [f for f in run_files if args.run_id in f.name]
-        if not run_files:
-            print(f"Error: No run found matching ID '{args.run_id}'")
-            return
-
-    # Limit runs for comparison
-    if args.compare:
-        num_runs = min(args.num_runs or 5, len(run_files))
-        run_files = run_files[:num_runs]
-    else:
-        run_files = run_files[:1]  # Just latest
-
-    # Load and analyze runs
-    analyses = []
-    for rf in run_files:
-        try:
-            run_data = load_eval_run(rf)
-            analysis = analyze_run(run_data)
-            analyses.append(analysis)
-        except Exception as e:
-            print(f"Warning: Could not load {rf.name}: {e}")
-
-    if not analyses:
-        print("Error: Could not analyze any runs")
-        return
-
-    # Generate output
-    if args.format == "html":
-        # Generate comprehensive HTML report with embedded Chart.js visualizations
-        html = generate_html_report(analyses[0])
-        output_path = Path(args.output) if args.output else (dataset_path / "analysis_report.html")
-        with open(output_path, "w") as f:
-            f.write(html)
-        print(f"HTML report saved to: {output_path}")
-    elif args.compare and len(analyses) > 1:
-        # Comparison report
-        print(generate_comparison_report(analyses))
-    else:
-        # Single run text report
-        print(generate_text_report(analyses[0], verbose=args.verbose))
-
-    # Show additional hints
-    if args.format != "html":
-        print("")
-        print("Tips:")
-        print(f"  → HTML report with charts: evalyn analyze --dataset {dataset_path.name} --format html")
-        if len(run_files) > 1:
-            print(f"  → Compare runs: evalyn analyze --dataset {dataset_path.name} --compare --num-runs 3")
-
-
 def cmd_status(args: argparse.Namespace) -> None:
     """Show status of a dataset including items, metrics, runs, annotations, and calibrations."""
     config = load_config()
@@ -4333,18 +4272,6 @@ For more info on a command: evalyn <command> --help
     list_cal_parser.add_argument("--latest", action="store_true", help="Use the most recently modified dataset")
     list_cal_parser.add_argument("--format", choices=["table", "json"], default="table", help="Output format (default: table)")
     list_cal_parser.set_defaults(func=cmd_list_calibrations)
-
-    # Analyze command
-    analyze_parser = subparsers.add_parser("analyze", help="Generate comprehensive analysis and visualization of eval results")
-    analyze_parser.add_argument("--dataset", help="Path to dataset directory")
-    analyze_parser.add_argument("--latest", action="store_true", help="Use the most recently modified dataset")
-    analyze_parser.add_argument("--run-id", help="Specific eval run ID to analyze (defaults to latest)")
-    analyze_parser.add_argument("--compare", action="store_true", help="Compare multiple runs")
-    analyze_parser.add_argument("--num-runs", type=int, default=5, help="Number of runs to compare (default: 5)")
-    analyze_parser.add_argument("--format", choices=["text", "html"], default="text", help="Output format: text (terminal) or html (interactive report with charts)")
-    analyze_parser.add_argument("--output", help="Output file path for HTML report")
-    analyze_parser.add_argument("--verbose", action="store_true", help="Show detailed information including failed items")
-    analyze_parser.set_defaults(func=cmd_analyze)
 
     # Init command
     init_parser = subparsers.add_parser("init", help="Initialize configuration file")
