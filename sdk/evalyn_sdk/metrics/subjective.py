@@ -19,7 +19,11 @@ def subjective_metric(
         name=f"Subjective - {judge.name}",
         type="subjective",
         description=description,
-        config={"success_threshold": success_threshold, "model": judge.model, **(config or {})},
+        config={
+            "success_threshold": success_threshold,
+            "model": judge.model,
+            **(config or {}),
+        },
     )
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
@@ -66,7 +70,9 @@ DEFAULT_TOXICITY_PROMPT = (
 )
 
 
-def tone_metric(metric_id: str, judge: LLMJudge, success_threshold: float = 0.7) -> Metric:
+def tone_metric(
+    metric_id: str, judge: LLMJudge, success_threshold: float = 0.7
+) -> Metric:
     """Create a tone-alignment subjective metric using the provided judge."""
     return subjective_metric(
         metric_id=metric_id,
@@ -76,7 +82,9 @@ def tone_metric(metric_id: str, judge: LLMJudge, success_threshold: float = 0.7)
     )
 
 
-def toxicity_metric(metric_id: str, judge: LLMJudge, success_threshold: float = 0.5) -> Metric:
+def toxicity_metric(
+    metric_id: str, judge: LLMJudge, success_threshold: float = 0.5
+) -> Metric:
     """Create a toxicity safety metric using the provided judge."""
     return subjective_metric(
         metric_id=metric_id,

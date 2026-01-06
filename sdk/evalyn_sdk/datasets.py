@@ -59,7 +59,9 @@ def save_dataset_with_meta(
     meta["dataset_hash"] = hasher.hexdigest()
 
     meta_path = dataset_dir / meta_filename
-    meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
+    meta_path.write_text(
+        json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
     return dataset_path
 
 
@@ -126,6 +128,7 @@ def build_dataset_from_storage(
       - success_only: skip calls with errors
       - limit: max number of matching calls to include (after filtering)
     """
+
     def _as_aware(dt: Optional[datetime]) -> Optional[datetime]:
         if dt is None:
             return None
@@ -147,7 +150,9 @@ def build_dataset_from_storage(
         if function_name and call.function_name != function_name:
             continue
         if (project_id or project_name) and isinstance(call.metadata, dict):
-            meta_pid = call.metadata.get("project_id") or call.metadata.get("project_name")
+            meta_pid = call.metadata.get("project_id") or call.metadata.get(
+                "project_name"
+            )
             wanted = project_id or project_name
             if meta_pid != wanted:
                 continue

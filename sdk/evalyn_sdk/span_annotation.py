@@ -24,6 +24,7 @@ SpanType = Literal["llm_call", "tool_call", "reasoning", "retrieval", "overall"]
 @dataclass
 class LLMCallAnnotation:
     """Annotation schema for LLM API calls."""
+
     quality: Optional[int] = None  # 1-5 scale
     accurate: Optional[bool] = None  # Is the response factually correct?
     relevant: Optional[bool] = None  # Does it address the query?
@@ -42,6 +43,7 @@ class LLMCallAnnotation:
 @dataclass
 class ToolCallAnnotation:
     """Annotation schema for tool/function calls."""
+
     correct_tool: Optional[bool] = None  # Was the right tool chosen?
     correct_args: Optional[bool] = None  # Were the arguments correct?
     successful: Optional[bool] = None  # Did the tool succeed?
@@ -59,6 +61,7 @@ class ToolCallAnnotation:
 @dataclass
 class ReasoningAnnotation:
     """Annotation schema for reasoning/thinking steps."""
+
     logical: Optional[bool] = None  # Is the reasoning logical?
     coherent: Optional[bool] = None  # Does it flow well?
     complete: Optional[bool] = None  # Are all steps present?
@@ -76,6 +79,7 @@ class ReasoningAnnotation:
 @dataclass
 class RetrievalAnnotation:
     """Annotation schema for RAG retrieval steps."""
+
     relevant: Optional[bool] = None  # Are retrieved docs relevant?
     sufficient: Optional[bool] = None  # Enough context retrieved?
     accurate: Optional[bool] = None  # Is the retrieved info correct?
@@ -92,6 +96,7 @@ class RetrievalAnnotation:
 @dataclass
 class OverallAnnotation:
     """Annotation schema for overall result (backwards compatible)."""
+
     passed: Optional[bool] = None
     confidence: Optional[int] = None  # 1-5
     notes: str = ""
@@ -105,7 +110,13 @@ class OverallAnnotation:
 
 
 # Type alias for any annotation schema
-AnnotationSchema = LLMCallAnnotation | ToolCallAnnotation | ReasoningAnnotation | RetrievalAnnotation | OverallAnnotation
+AnnotationSchema = (
+    LLMCallAnnotation
+    | ToolCallAnnotation
+    | ReasoningAnnotation
+    | RetrievalAnnotation
+    | OverallAnnotation
+)
 
 
 ANNOTATION_SCHEMAS = {
@@ -129,6 +140,7 @@ class SpanAnnotation:
     - A retrieval step
     - The overall result
     """
+
     id: str
     call_id: str  # Parent FunctionCall ID
     span_id: str  # ID of the specific span/event
@@ -182,14 +194,16 @@ def extract_spans_from_trace(call) -> List[Dict[str, Any]]:
     spans = []
 
     # Add overall as the first span
-    spans.append({
-        "span_id": f"{call.id}:overall",
-        "span_type": "overall",
-        "event": None,
-        "summary": f"Overall result of {call.function_name}",
-        "input": call.inputs,
-        "output": call.output,
-    })
+    spans.append(
+        {
+            "span_id": f"{call.id}:overall",
+            "span_type": "overall",
+            "event": None,
+            "summary": f"Overall result of {call.function_name}",
+            "input": call.inputs,
+            "output": call.output,
+        }
+    )
 
     # Process trace events
     for i, event in enumerate(call.trace):
@@ -198,7 +212,13 @@ def extract_spans_from_trace(call) -> List[Dict[str, Any]]:
         detail = event.detail or {}
 
         # Classify span type
-        if "completion" in kind or "generate" in kind or "gemini" in kind.lower() or "openai" in kind.lower() or "anthropic" in kind.lower():
+        if (
+            "completion" in kind
+            or "generate" in kind
+            or "gemini" in kind.lower()
+            or "openai" in kind.lower()
+            or "anthropic" in kind.lower()
+        ):
             span_type = "llm_call"
             summary = f"LLM: {detail.get('model', 'unknown')} - {detail.get('input_tokens', '?')} in / {detail.get('output_tokens', '?')} out"
         elif "tool" in kind:
@@ -207,7 +227,9 @@ def extract_spans_from_trace(call) -> List[Dict[str, Any]]:
             summary = f"Tool: {tool_name}"
         elif "trace." in kind:
             span_type = "reasoning"
-            func_name = kind.replace("trace.", "").replace(".start", "").replace(".end", "")
+            func_name = (
+                kind.replace("trace.", "").replace(".start", "").replace(".end", "")
+            )
             summary = f"Step: {func_name}"
         elif "retriev" in kind.lower() or "search" in kind.lower():
             span_type = "retrieval"
@@ -216,13 +238,15 @@ def extract_spans_from_trace(call) -> List[Dict[str, Any]]:
             # Skip unknown event types
             continue
 
-        spans.append({
-            "span_id": span_id,
-            "span_type": span_type,
-            "event": event,
-            "summary": summary,
-            "detail": detail,
-        })
+        spans.append(
+            {
+                "span_id": span_id,
+                "span_type": span_type,
+                "event": event,
+                "summary": summary,
+                "detail": detail,
+            }
+        )
 
     return spans
 
@@ -235,15 +259,28 @@ def get_annotation_prompts(span_type: SpanType) -> List[Dict[str, Any]]:
     """
     prompts = {
         "llm_call": [
-            {"field": "quality", "question": "Quality (1-5)?", "type": "int", "range": (1, 5)},
+            {
+                "field": "quality",
+                "question": "Quality (1-5)?",
+                "type": "int",
+                "range": (1, 5),
+            },
             {"field": "accurate", "question": "Accurate?", "type": "bool"},
             {"field": "relevant", "question": "Relevant to query?", "type": "bool"},
-            {"field": "hallucinated", "question": "Contains hallucinations?", "type": "bool"},
+            {
+                "field": "hallucinated",
+                "question": "Contains hallucinations?",
+                "type": "bool",
+            },
             {"field": "helpful", "question": "Helpful?", "type": "bool"},
             {"field": "notes", "question": "Notes:", "type": "str"},
         ],
         "tool_call": [
-            {"field": "correct_tool", "question": "Correct tool chosen?", "type": "bool"},
+            {
+                "field": "correct_tool",
+                "question": "Correct tool chosen?",
+                "type": "bool",
+            },
             {"field": "correct_args", "question": "Correct arguments?", "type": "bool"},
             {"field": "successful", "question": "Succeeded?", "type": "bool"},
             {"field": "necessary", "question": "Was it necessary?", "type": "bool"},
@@ -264,7 +301,12 @@ def get_annotation_prompts(span_type: SpanType) -> List[Dict[str, Any]]:
         ],
         "overall": [
             {"field": "passed", "question": "Pass?", "type": "bool"},
-            {"field": "confidence", "question": "Confidence (1-5)?", "type": "int", "range": (1, 5)},
+            {
+                "field": "confidence",
+                "question": "Confidence (1-5)?",
+                "type": "int",
+                "range": (1, 5),
+            },
             {"field": "notes", "question": "Notes:", "type": "str"},
         ],
     }

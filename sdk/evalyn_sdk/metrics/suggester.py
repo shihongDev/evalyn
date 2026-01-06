@@ -81,7 +81,9 @@ class HeuristicSuggester(MetricSuggester):
                     config={},
                 )
             )
-        if traces and any("tool" in ev.kind.lower() for call in traces for ev in call.trace):
+        if traces and any(
+            "tool" in ev.kind.lower() for call in traces for ev in call.trace
+        ):
             suggestions.append(
                 MetricSpec(
                     id="tool_call_count",
@@ -158,7 +160,13 @@ class LLMSuggester(MetricSuggester):
         scope: Optional[str] = None,
     ) -> List[Suggestion]:
         signature = inspect.signature(target_fn)
-        prompt = render_suggestion_prompt(target_fn.__name__, signature, traces or [], desired_count=desired_count, scope=scope)
+        prompt = render_suggestion_prompt(
+            target_fn.__name__,
+            signature,
+            traces or [],
+            desired_count=desired_count,
+            scope=scope,
+        )
         raw = self.caller(prompt)
         raw_copy = raw
         if isinstance(raw, str):
@@ -268,7 +276,7 @@ def render_selection_prompt_with_templates(
         "Available metrics (objective + subjective):\n"
         f"{registry_desc}\n"
         "Pick a diverse subset that best evaluates correctness, safety, structure, and efficiency. "
-        f"{count_hint} Entries like {{\"id\": \"metric_id\", \"config\": {{...}}, \"why\": \"short reason\"}}.\n"
+        f'{count_hint} Entries like {{"id": "metric_id", "config": {{...}}, "why": "short reason"}}.\n'
         "For subjective metrics, you may override config (e.g., rubric/policy/desired_tone) if needed. "
         "Do not include prose outside JSON."
     )
@@ -286,7 +294,12 @@ class TemplateSelector:
                       If False, metrics with requires_reference=True are filtered out.
     """
 
-    def __init__(self, caller: Callable[[str], Any], templates: Iterable[dict], has_reference: bool = False):
+    def __init__(
+        self,
+        caller: Callable[[str], Any],
+        templates: Iterable[dict],
+        has_reference: bool = False,
+    ):
         self.caller = caller
         self.templates = list(templates)
         self.has_reference = has_reference
@@ -300,8 +313,12 @@ class TemplateSelector:
         desired_count: Optional[int] = None,
     ) -> List[MetricSpec]:
         prompt = render_selection_prompt_with_templates(
-            target_fn, traces or [], self.templates, code_meta,
-            desired_count=desired_count, has_reference=self.has_reference
+            target_fn,
+            traces or [],
+            self.templates,
+            code_meta,
+            desired_count=desired_count,
+            has_reference=self.has_reference,
         )
         raw = self.caller(prompt)
         # raw may be JSON string or already parsed
@@ -360,9 +377,15 @@ class LLMRegistrySelector:
             for item in raw:  # type: ignore[assignment]
                 if isinstance(item, dict) and "id" in item:
                     ids.append(str(item["id"]))
-        selected = [m.spec for m in specs if m.spec.id in ids] if hasattr(specs[0], "spec") else [
-            s for s in specs if s.id in ids  # type: ignore[attr-defined]
-        ]
+        selected = (
+            [m.spec for m in specs if m.spec.id in ids]
+            if hasattr(specs[0], "spec")
+            else [
+                s
+                for s in specs
+                if s.id in ids  # type: ignore[attr-defined]
+            ]
+        )
         if selected:
             return selected  # type: ignore[return-value]
         return [m.spec for m in specs] if hasattr(specs[0], "spec") else specs  # type: ignore[return-value]
@@ -471,5 +494,5 @@ def render_selection_prompt(
         f"Recent traces:\n{examples}\n"
         "Available metrics (choose a subset, return JSON array of metric ids):\n"
         f"{metrics_list}\n"
-        "Respond as a JSON array of metric ids to use (e.g., [\"latency_ms\", \"exact_match\"])."
+        'Respond as a JSON array of metric ids to use (e.g., ["latency_ms", "exact_match"]).'
     )

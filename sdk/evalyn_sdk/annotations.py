@@ -36,15 +36,17 @@ def import_annotations(path: str | Path) -> List[Annotation]:
                     # Convert AnnotationItem to Annotation
                     human_label = data.get("human_label")
                     if human_label:
-                        annotations.append(Annotation(
-                            id=str(uuid.uuid4()),
-                            target_id=data.get("id", ""),
-                            label=human_label.get("passed"),
-                            rationale=human_label.get("notes"),
-                            annotator=human_label.get("annotator", "unknown"),
-                            source="human",
-                            confidence=None,
-                        ))
+                        annotations.append(
+                            Annotation(
+                                id=str(uuid.uuid4()),
+                                target_id=data.get("id", ""),
+                                label=human_label.get("passed"),
+                                rationale=human_label.get("notes"),
+                                annotator=human_label.get("annotator", "unknown"),
+                                source="human",
+                                confidence=None,
+                            )
+                        )
                 else:
                     # Old format
                     annotations.append(Annotation.from_dict(data))

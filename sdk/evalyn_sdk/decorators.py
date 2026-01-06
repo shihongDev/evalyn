@@ -19,7 +19,7 @@ def get_default_tracer() -> EvalTracer:
         _default_tracer = EvalTracer(SQLiteStorage())
         if not OTEL_AVAILABLE:
             raise RuntimeError(
-                "OpenTelemetry dependencies are not installed. Install with: pip install -e \"sdk[otel]\""
+                'OpenTelemetry dependencies are not installed. Install with: pip install -e "sdk[otel]"'
             )
         # Auto-enable OpenTelemetry spans if not explicitly disabled.
         otel_flag = os.getenv("EVALYN_OTEL", "on").lower()
@@ -79,7 +79,9 @@ def eval(
             mode = "bundle"
 
         if mode and mode not in ALLOWED_METRIC_MODES:
-            raise ValueError(f"Invalid metric_mode '{mode}'. Allowed: {sorted(ALLOWED_METRIC_MODES)}")
+            raise ValueError(
+                f"Invalid metric_mode '{mode}'. Allowed: {sorted(ALLOWED_METRIC_MODES)}"
+            )
 
         wrapped = tracer_obj.instrument(
             fn,

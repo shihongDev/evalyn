@@ -4,6 +4,7 @@ Agent Simulator for generating synthetic test data.
 Uses LLM to generate variations of seed inputs (similar or outlier),
 runs the target agent, and saves results as a new dataset.
 """
+
 from __future__ import annotations
 
 import json
@@ -22,17 +23,19 @@ from .models import DatasetItem, FunctionCall, now_utc
 @dataclass
 class SimulationConfig:
     """Configuration for synthetic data generation."""
-    num_similar: int = 3          # Variations similar to seed per item
-    num_outlier: int = 1          # Outlier/edge cases per item
+
+    num_similar: int = 3  # Variations similar to seed per item
+    num_outlier: int = 1  # Outlier/edge cases per item
     model: str = "gemini-2.5-flash-lite"
     temperature_similar: float = 0.3  # Lower temp for similar variations
     temperature_outlier: float = 0.8  # Higher temp for creative outliers
-    max_seed_items: int = 50      # Max seed items to use
+    max_seed_items: int = 50  # Max seed items to use
 
 
 @dataclass
 class GeneratedQuery:
     """A generated query from the simulator."""
+
     query: str
     mode: str  # "similar" or "outlier"
     seed_id: str  # ID of the seed item this was generated from
@@ -60,7 +63,9 @@ class UserSimulator:
         self._api_key = api_key
 
     def _get_api_key(self) -> str:
-        key = self._api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        key = (
+            self._api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        )
         if not key:
             raise RuntimeError(
                 "Missing GEMINI_API_KEY. Set the environment variable or pass api_key."
@@ -121,11 +126,13 @@ class UserSimulator:
             input_data = item.input or item.inputs
             if isinstance(input_data, dict):
                 # Extract the main query/question
-                query = input_data.get("kwargs", {}).get("question") or \
-                       input_data.get("question") or \
-                       input_data.get("query") or \
-                       input_data.get("input") or \
-                       json.dumps(input_data)
+                query = (
+                    input_data.get("kwargs", {}).get("question")
+                    or input_data.get("question")
+                    or input_data.get("query")
+                    or input_data.get("input")
+                    or json.dumps(input_data)
+                )
             else:
                 query = str(input_data)
             seed_examples.append(query)
@@ -133,7 +140,7 @@ class UserSimulator:
         prompt = f"""You are a user simulator. Given these example user queries, generate {num_per_seed * len(seed_items)} NEW similar queries.
 
 EXAMPLE QUERIES FROM REAL USERS:
-{chr(10).join(f'- {q}' for q in seed_examples)}
+{chr(10).join(f"- {q}" for q in seed_examples)}
 
 Generate variations that:
 1. Ask about similar topics but with different phrasing
@@ -160,13 +167,15 @@ Generate exactly {num_per_seed * len(seed_items)} queries."""
         for i, q in enumerate(queries):
             seed_idx = i % len(seed_items)
             seed_item = seed_items[seed_idx]
-            results.append(GeneratedQuery(
-                query=q.get("query", ""),
-                mode="similar",
-                seed_id=seed_item.id,
-                seed_input=seed_item.input or seed_item.inputs or {},
-                generation_reason=q.get("reason", "similar variation"),
-            ))
+            results.append(
+                GeneratedQuery(
+                    query=q.get("query", ""),
+                    mode="similar",
+                    seed_id=seed_item.id,
+                    seed_input=seed_item.input or seed_item.inputs or {},
+                    generation_reason=q.get("reason", "similar variation"),
+                )
+            )
 
         return results
 
@@ -182,10 +191,12 @@ Generate exactly {num_per_seed * len(seed_items)} queries."""
         for item in seed_items[:10]:
             input_data = item.input or item.inputs
             if isinstance(input_data, dict):
-                query = input_data.get("kwargs", {}).get("question") or \
-                       input_data.get("question") or \
-                       input_data.get("query") or \
-                       json.dumps(input_data)
+                query = (
+                    input_data.get("kwargs", {}).get("question")
+                    or input_data.get("question")
+                    or input_data.get("query")
+                    or json.dumps(input_data)
+                )
             else:
                 query = str(input_data)
             seed_examples.append(query)
@@ -193,7 +204,7 @@ Generate exactly {num_per_seed * len(seed_items)} queries."""
         prompt = f"""You are a QA engineer designing edge case tests. Given these example user queries, generate {num_per_seed * len(seed_items)} OUTLIER/EDGE CASE queries.
 
 EXAMPLE QUERIES (normal usage):
-{chr(10).join(f'- {q}' for q in seed_examples)}
+{chr(10).join(f"- {q}" for q in seed_examples)}
 
 Generate edge cases that test:
 1. Ambiguous or unclear requests
@@ -226,13 +237,15 @@ Generate exactly {num_per_seed * len(seed_items)} queries."""
             seed_idx = i % len(seed_items)
             seed_item = seed_items[seed_idx]
             category = q.get("category", "edge_case")
-            results.append(GeneratedQuery(
-                query=q.get("query", ""),
-                mode="outlier",
-                seed_id=seed_item.id,
-                seed_input=seed_item.input or seed_item.inputs or {},
-                generation_reason=f"[{category}] {q.get('reason', 'edge case')}",
-            ))
+            results.append(
+                GeneratedQuery(
+                    query=q.get("query", ""),
+                    mode="outlier",
+                    seed_id=seed_item.id,
+                    seed_input=seed_item.input or seed_item.inputs or {},
+                    generation_reason=f"[{category}] {q.get('reason', 'edge case')}",
+                )
+            )
 
         return results
 
@@ -265,7 +278,7 @@ Generate exactly {num_per_seed * len(seed_items)} queries."""
                     depth -= 1
                     if depth == 0:
                         try:
-                            parsed = json.loads(text[start:i+1])
+                            parsed = json.loads(text[start : i + 1])
                             if isinstance(parsed, list):
                                 return parsed
                         except Exception:
@@ -308,7 +321,7 @@ class AgentSimulator:
         results = {}
 
         # Limit seed items
-        seed_items = seed_dataset[:self.config.max_seed_items]
+        seed_items = seed_dataset[: self.config.max_seed_items]
 
         for mode in modes:
             if mode == "similar":
@@ -332,14 +345,19 @@ class AgentSimulator:
             dataset_items = self._run_agent_on_queries(generated)
 
             # Save to output directory
-            mode_dir = output_dir / f"sim-{mode}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+            mode_dir = (
+                output_dir / f"sim-{mode}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+            )
             mode_dir.mkdir(parents=True, exist_ok=True)
 
             # Save dataset
             dataset_path = mode_dir / "dataset.jsonl"
             with open(dataset_path, "w", encoding="utf-8") as f:
                 for item in dataset_items:
-                    f.write(json.dumps(item.as_dict(), ensure_ascii=False, default=str) + "\n")
+                    f.write(
+                        json.dumps(item.as_dict(), ensure_ascii=False, default=str)
+                        + "\n"
+                    )
 
             # Save meta.json
             meta = {
@@ -371,7 +389,7 @@ class AgentSimulator:
         results = []
 
         for i, gq in enumerate(queries):
-            print(f"  Running query {i+1}/{len(queries)}: {gq.query[:50]}...")
+            print(f"  Running query {i + 1}/{len(queries)}: {gq.query[:50]}...")
 
             try:
                 # Prepare input - try to match the original input format

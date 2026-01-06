@@ -7,9 +7,12 @@ try:
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+
     # OTLP exporter import path differs by version; try modern path first.
     try:
-        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+            OTLPSpanExporter,
+        )
     except ImportError:
         from opentelemetry.sdk.trace.export import OTLPSpanExporter  # type: ignore
     OTEL_AVAILABLE = True
@@ -70,6 +73,7 @@ class SQLiteSpanExporter:
 
         cur = self.conn.cursor()
         for span in spans:
+
             def _format_id(value, width: int) -> str | None:
                 if value is None:
                     return None
@@ -94,7 +98,11 @@ class SQLiteSpanExporter:
 
             attrs = dict(span.attributes) if getattr(span, "attributes", None) else {}
             events = [
-                {"name": ev.name, "attributes": dict(ev.attributes), "timestamp": getattr(ev, "timestamp", None)}
+                {
+                    "name": ev.name,
+                    "attributes": dict(ev.attributes),
+                    "timestamp": getattr(ev, "timestamp", None),
+                }
                 for ev in getattr(span, "events", []) or []
             ]
             call_id = attrs.get("evalyn.call_id")
@@ -150,7 +158,9 @@ def configure_otel(
     endpoint: OTLP endpoint when exporter="otlp" (grpc/http depending on installed exporter)
     """
     if not OTEL_AVAILABLE:
-        raise RuntimeError("opentelemetry-sdk not installed. Install with extras: pip install -e '.[otel]'")
+        raise RuntimeError(
+            "opentelemetry-sdk not installed. Install with extras: pip install -e '.[otel]'"
+        )
 
     resource = Resource.create({"service.name": service_name})
     provider = TracerProvider(resource=resource)
@@ -160,7 +170,9 @@ def configure_otel(
     elif exporter == "otlp":
         processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
     elif exporter == "sqlite":
-        processor = BatchSpanProcessor(SQLiteSpanExporter(sqlite_path or "data/evalyn.sqlite"))
+        processor = BatchSpanProcessor(
+            SQLiteSpanExporter(sqlite_path or "data/evalyn.sqlite")
+        )
     else:
         raise ValueError("Unsupported exporter; use 'console', 'otlp', or 'sqlite'")
 
@@ -170,13 +182,17 @@ def configure_otel(
     return tracer
 
 
-def configure_default_otel(service_name: str = "evalyn", exporter: str = "sqlite", endpoint: str | None = None):
+def configure_default_otel(
+    service_name: str = "evalyn", exporter: str = "sqlite", endpoint: str | None = None
+):
     """
     Convenience wrapper that only acts if opentelemetry is installed; otherwise returns None.
     """
     if not OTEL_AVAILABLE:
         return None
     try:
-        return configure_otel(service_name=service_name, exporter=exporter, endpoint=endpoint)
+        return configure_otel(
+            service_name=service_name, exporter=exporter, endpoint=endpoint
+        )
     except Exception:
         return None

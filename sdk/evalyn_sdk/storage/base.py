@@ -38,7 +38,9 @@ class StorageBackend(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def list_annotations(self, target_id: Optional[str] = None, limit: int = 100) -> List[Annotation]:
+    def list_annotations(
+        self, target_id: Optional[str] = None, limit: int = 100
+    ) -> List[Annotation]:
         raise NotImplementedError
 
     def list_spans(self, call_id: str) -> List[Dict[str, Any]]:

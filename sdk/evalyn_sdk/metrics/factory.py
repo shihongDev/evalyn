@@ -54,7 +54,9 @@ def list_template_ids() -> List[str]:
     return sorted(list(_OBJECTIVE_TPL.keys()) + list(_SUBJECTIVE_TPL.keys()))
 
 
-def build_objective_metric(metric_id: str, config: Optional[Dict[str, Any]] = None) -> Metric:
+def build_objective_metric(
+    metric_id: str, config: Optional[Dict[str, Any]] = None
+) -> Metric:
     cfg = config or {}
     builders: Dict[str, Callable[[Dict[str, Any]], Metric]] = {
         "latency_ms": lambda c: latency_metric(),
@@ -75,13 +77,19 @@ def build_objective_metric(metric_id: str, config: Optional[Dict[str, Any]] = No
         "token_overlap_f1": lambda c: token_overlap_f1_metric(),
         "jaccard_similarity": lambda c: jaccard_similarity_metric(),
         "numeric_mae": lambda c: numeric_mae_metric(output_field=c.get("output_field")),
-        "numeric_rmse": lambda c: numeric_rmse_metric(output_field=c.get("output_field")),
-        "numeric_rel_error": lambda c: numeric_rel_error_metric(output_field=c.get("output_field")),
+        "numeric_rmse": lambda c: numeric_rmse_metric(
+            output_field=c.get("output_field")
+        ),
+        "numeric_rel_error": lambda c: numeric_rel_error_metric(
+            output_field=c.get("output_field")
+        ),
         "numeric_within_tolerance": lambda c: numeric_within_tolerance_metric(
             output_field=c.get("output_field"),
             tolerance=float(c.get("tolerance", 0.0)),
         ),
-        "json_schema_keys": lambda c: json_schema_keys_metric(required_keys=c.get("required_keys")),
+        "json_schema_keys": lambda c: json_schema_keys_metric(
+            required_keys=c.get("required_keys")
+        ),
         "json_types_match": lambda c: json_types_match_metric(schema=c.get("schema")),
         "json_path_present": lambda c: json_path_present_metric(paths=c.get("paths")),
         "regex_capture_count": lambda c: regex_capture_count_metric(
@@ -95,7 +103,9 @@ def build_objective_metric(metric_id: str, config: Optional[Dict[str, Any]] = No
             min_chars=int(c.get("min_chars", 0)),
             max_chars=c.get("max_chars"),
         ),
-        "llm_call_count": lambda c: llm_call_count_metric(request_kind=str(c.get("request_kind", ".request"))),
+        "llm_call_count": lambda c: llm_call_count_metric(
+            request_kind=str(c.get("request_kind", ".request"))
+        ),
         "llm_error_rate": lambda c: llm_error_rate_metric(
             request_kind=str(c.get("request_kind", ".request")),
             error_kind=str(c.get("error_kind", ".error")),
@@ -104,7 +114,9 @@ def build_objective_metric(metric_id: str, config: Optional[Dict[str, Any]] = No
             success_kind=str(c.get("success_kind", "tool.success")),
             error_kind=str(c.get("error_kind", "tool.error")),
         ),
-        "tool_error_count": lambda c: tool_error_count_metric(error_kind=str(c.get("error_kind", "tool.error"))),
+        "tool_error_count": lambda c: tool_error_count_metric(
+            error_kind=str(c.get("error_kind", "tool.error"))
+        ),
         "url_count": lambda c: url_count_metric(
             pattern=str(c.get("pattern", r"https?://")),
             min_count=int(c.get("min_count", 1)),
@@ -182,7 +194,9 @@ def build_subjective_metric(
         rubric = []
 
     if rubric:
-        rubric_lines = "\n".join([f"- {str(r).strip()}" for r in rubric if str(r).strip()])
+        rubric_lines = "\n".join(
+            [f"- {str(r).strip()}" for r in rubric if str(r).strip()]
+        )
         if prompt:
             prompt += "\n\n"
         prompt += "Evaluate using this rubric (PASS only if all criteria met):\n"

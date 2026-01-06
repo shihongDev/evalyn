@@ -11,11 +11,18 @@ from example_agent.graph import graph
 # Optional: enable OpenTelemetry spans if OTEL_CONSOLE=true is set.
 if os.getenv("OTEL_CONSOLE", "").lower() in {"1", "true", "yes"}:
     tracer = get_default_tracer()
-    tracer.attach_otel_tracer(configure_otel(service_name="example-agent", exporter="console"))
+    tracer.attach_otel_tracer(
+        configure_otel(service_name="example-agent", exporter="console")
+    )
 
 
 @eval(project="gemini-deep-research-agent", version="v1", name="research_agent")
-def run_agent(question: str, initial_queries: int = 3, max_loops: int = 2, reasoning_model: str = "gemini-2.5-flash-lite") -> str:
+def run_agent(
+    question: str,
+    initial_queries: int = 3,
+    max_loops: int = 2,
+    reasoning_model: str = "gemini-2.5-flash-lite",
+) -> str:
     """
     Main LLM-facing entrypoint for the research agent. Wrapped with @eval so calls are traced/stored.
     """

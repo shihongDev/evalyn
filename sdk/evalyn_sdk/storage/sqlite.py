@@ -206,10 +206,12 @@ class SQLiteStorage(StorageBackend):
                     ann.confidence,
                     ann.created_at.isoformat(),
                 ),
-        )
+            )
         self.conn.commit()
 
-    def list_annotations(self, target_id: Optional[str] = None, limit: int = 100) -> List[Annotation]:
+    def list_annotations(
+        self, target_id: Optional[str] = None, limit: int = 100
+    ) -> List[Annotation]:
         cur = self.conn.cursor()
         if target_id:
             cur.execute(
@@ -288,7 +290,9 @@ class SQLiteStorage(StorageBackend):
                     "start_time": r["start_time"],
                     "end_time": r["end_time"],
                     "status": r["status"],
-                    "attributes": json.loads(r["attributes"]) if r["attributes"] else {},
+                    "attributes": json.loads(r["attributes"])
+                    if r["attributes"]
+                    else {},
                     "events": json.loads(r["events"]) if r["events"] else [],
                 }
             )
@@ -320,9 +324,13 @@ class SQLiteStorage(StorageBackend):
                 "id": row["id"],
                 "dataset_name": row["dataset_name"],
                 "created_at": row["created_at"],
-                "metric_results": json.loads(row["metric_results"]) if row["metric_results"] else [],
+                "metric_results": json.loads(row["metric_results"])
+                if row["metric_results"]
+                else [],
                 "metrics": json.loads(row["metrics"]) if row["metrics"] else [],
-                "judge_configs": json.loads(row["judge_configs"]) if row["judge_configs"] else [],
+                "judge_configs": json.loads(row["judge_configs"])
+                if row["judge_configs"]
+                else [],
                 "summary": json.loads(row["summary"]) if row["summary"] else {},
             }
         )

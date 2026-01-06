@@ -163,6 +163,7 @@ def _log_tool_call(
 # OpenAI Patching
 # =============================================================================
 
+
 def patch_openai() -> bool:
     """Patch OpenAI library to auto-capture LLM calls."""
     if _patched["openai"]:
@@ -223,7 +224,13 @@ def _patch_openai_client_class():
                     duration_ms=duration_ms,
                     success=True,
                     request={"messages": str(messages)[:500]},
-                    response={"content": str(getattr(response.choices[0].message, "content", ""))[:500] if response.choices else None},
+                    response={
+                        "content": str(
+                            getattr(response.choices[0].message, "content", "")
+                        )[:500]
+                        if response.choices
+                        else None
+                    },
                 )
 
                 return response
@@ -290,6 +297,7 @@ def _patch_openai_completions(completions_module):
 # =============================================================================
 # Anthropic Patching
 # =============================================================================
+
 
 def patch_anthropic() -> bool:
     """Patch Anthropic library to auto-capture LLM calls."""
@@ -393,6 +401,7 @@ def patch_anthropic() -> bool:
 # Google Gemini Patching
 # =============================================================================
 
+
 def patch_gemini() -> bool:
     """Patch Google Gemini library to auto-capture LLM calls."""
     if _patched["gemini"]:
@@ -405,6 +414,7 @@ def patch_gemini() -> bool:
         try:
             # Try older google-generativeai package
             import google.generativeai as genai
+
             _patch_gemini_legacy(genai)
             _patched["gemini"] = True
             return True
@@ -429,7 +439,9 @@ def patch_gemini() -> bool:
                 # Extract token usage
                 usage = getattr(response, "usage_metadata", None)
                 input_tokens = getattr(usage, "prompt_token_count", 0) if usage else 0
-                output_tokens = getattr(usage, "candidates_token_count", 0) if usage else 0
+                output_tokens = (
+                    getattr(usage, "candidates_token_count", 0) if usage else 0
+                )
 
                 _log_llm_call(
                     provider="gemini",
@@ -476,7 +488,9 @@ def _patch_gemini_legacy(genai):
                 # Extract token usage
                 usage = getattr(response, "usage_metadata", None)
                 input_tokens = getattr(usage, "prompt_token_count", 0) if usage else 0
-                output_tokens = getattr(usage, "candidates_token_count", 0) if usage else 0
+                output_tokens = (
+                    getattr(usage, "candidates_token_count", 0) if usage else 0
+                )
 
                 _log_llm_call(
                     provider="gemini",
@@ -505,6 +519,7 @@ def _patch_gemini_legacy(genai):
 # =============================================================================
 # LangChain Patching
 # =============================================================================
+
 
 def patch_langchain() -> bool:
     """Patch LangChain to auto-capture LLM and tool calls."""
@@ -595,6 +610,7 @@ def patch_langchain() -> bool:
 
     # Make handler available
     import evalyn_sdk.auto_instrument as self_module
+
     self_module.langchain_handler = _langchain_handler
 
     _patched["langchain"] = True
@@ -604,6 +620,7 @@ def patch_langchain() -> bool:
 # =============================================================================
 # Trace Decorator
 # =============================================================================
+
 
 def trace(name: Optional[str] = None):
     """
@@ -621,78 +638,99 @@ def trace(name: Optional[str] = None):
         def another_function():
             pass
     """
+
     def decorator(func: Callable) -> Callable:
         func_name = name or func.__name__
 
         if inspect.iscoroutinefunction(func):
+
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):
                 tracer = get_default_tracer()
                 start = time.time()
                 call_id = str(uuid.uuid4())[:8]
 
-                tracer.log_event(f"trace.{func_name}.start", {
-                    "call_id": call_id,
-                    "args": str(args)[:200],
-                    "kwargs": str(kwargs)[:200],
-                    "parent_call_id": _get_parent_call_id(),
-                })
+                tracer.log_event(
+                    f"trace.{func_name}.start",
+                    {
+                        "call_id": call_id,
+                        "args": str(args)[:200],
+                        "kwargs": str(kwargs)[:200],
+                        "parent_call_id": _get_parent_call_id(),
+                    },
+                )
 
                 with _push_call(call_id):
                     try:
                         result = await func(*args, **kwargs)
                         duration_ms = (time.time() - start) * 1000
-                        tracer.log_event(f"trace.{func_name}.end", {
-                            "call_id": call_id,
-                            "duration_ms": duration_ms,
-                            "success": True,
-                            "result": str(result)[:200],
-                        })
+                        tracer.log_event(
+                            f"trace.{func_name}.end",
+                            {
+                                "call_id": call_id,
+                                "duration_ms": duration_ms,
+                                "success": True,
+                                "result": str(result)[:200],
+                            },
+                        )
                         return result
                     except Exception as e:
                         duration_ms = (time.time() - start) * 1000
-                        tracer.log_event(f"trace.{func_name}.error", {
-                            "call_id": call_id,
-                            "duration_ms": duration_ms,
-                            "success": False,
-                            "error": str(e),
-                        })
+                        tracer.log_event(
+                            f"trace.{func_name}.error",
+                            {
+                                "call_id": call_id,
+                                "duration_ms": duration_ms,
+                                "success": False,
+                                "error": str(e),
+                            },
+                        )
                         raise
 
             return async_wrapper
         else:
+
             @functools.wraps(func)
             def sync_wrapper(*args, **kwargs):
                 tracer = get_default_tracer()
                 start = time.time()
                 call_id = str(uuid.uuid4())[:8]
 
-                tracer.log_event(f"trace.{func_name}.start", {
-                    "call_id": call_id,
-                    "args": str(args)[:200],
-                    "kwargs": str(kwargs)[:200],
-                    "parent_call_id": _get_parent_call_id(),
-                })
+                tracer.log_event(
+                    f"trace.{func_name}.start",
+                    {
+                        "call_id": call_id,
+                        "args": str(args)[:200],
+                        "kwargs": str(kwargs)[:200],
+                        "parent_call_id": _get_parent_call_id(),
+                    },
+                )
 
                 with _push_call(call_id):
                     try:
                         result = func(*args, **kwargs)
                         duration_ms = (time.time() - start) * 1000
-                        tracer.log_event(f"trace.{func_name}.end", {
-                            "call_id": call_id,
-                            "duration_ms": duration_ms,
-                            "success": True,
-                            "result": str(result)[:200],
-                        })
+                        tracer.log_event(
+                            f"trace.{func_name}.end",
+                            {
+                                "call_id": call_id,
+                                "duration_ms": duration_ms,
+                                "success": True,
+                                "result": str(result)[:200],
+                            },
+                        )
                         return result
                     except Exception as e:
                         duration_ms = (time.time() - start) * 1000
-                        tracer.log_event(f"trace.{func_name}.error", {
-                            "call_id": call_id,
-                            "duration_ms": duration_ms,
-                            "success": False,
-                            "error": str(e),
-                        })
+                        tracer.log_event(
+                            f"trace.{func_name}.error",
+                            {
+                                "call_id": call_id,
+                                "duration_ms": duration_ms,
+                                "success": False,
+                                "error": str(e),
+                            },
+                        )
                         raise
 
             return sync_wrapper
@@ -709,6 +747,7 @@ def trace(name: Optional[str] = None):
 # =============================================================================
 # Main Entry Point
 # =============================================================================
+
 
 def patch_all() -> Dict[str, bool]:
     """
@@ -746,9 +785,15 @@ import os
 # Auto-patch on import (unless disabled)
 # =============================================================================
 
+
 def _auto_patch():
     """Automatically patch all libraries on import."""
-    if os.environ.get("EVALYN_AUTO_INSTRUMENT", "").lower() in ("off", "false", "0", "no"):
+    if os.environ.get("EVALYN_AUTO_INSTRUMENT", "").lower() in (
+        "off",
+        "false",
+        "0",
+        "no",
+    ):
         return {}
     return patch_all()
 

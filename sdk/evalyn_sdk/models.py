@@ -169,15 +169,16 @@ class DatasetItem:
 
     The old 'inputs' and 'expected' fields are kept for backwards compatibility.
     """
+
     id: str
     input: Dict[str, Any] = field(default_factory=dict)  # User input
-    output: Optional[Any] = None                          # Agent output
-    human_label: Optional[Dict[str, Any]] = None          # Human judgement
+    output: Optional[Any] = None  # Agent output
+    human_label: Optional[Dict[str, Any]] = None  # Human judgement
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     # Backwards compatibility
     inputs: Dict[str, Any] = field(default_factory=dict)  # Alias for input
-    expected: Optional[Any] = None                         # Deprecated
+    expected: Optional[Any] = None  # Deprecated
 
     def __post_init__(self):
         # Merge inputs into input for backwards compat
@@ -267,7 +268,9 @@ class EvalRun:
             id=data["id"],
             dataset_name=data["dataset_name"],
             created_at=_parse_datetime(data.get("created_at")) or now_utc(),
-            metric_results=[MetricResult.from_dict(r) for r in data.get("metric_results", [])],
+            metric_results=[
+                MetricResult.from_dict(r) for r in data.get("metric_results", [])
+            ],
             metrics=[MetricSpec(**m) for m in data.get("metrics", [])],
             judge_configs=[JudgeConfig(**j) for j in data.get("judge_configs", [])],
             summary=data.get("summary", {}),
@@ -286,6 +289,7 @@ class HumanLabel:
     - annotator: Annotator identifier
     - timestamp: When annotation was made
     """
+
     passed: bool
     scores: Dict[str, float] = field(default_factory=dict)
     notes: str = ""
@@ -319,10 +323,13 @@ class AnnotationItem:
 
     Contains the (input, output, eval_results) tuple for annotators to review.
     """
+
     id: str
     input: Dict[str, Any]
     output: Any
-    eval_results: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # metric_id -> result
+    eval_results: Dict[str, Dict[str, Any]] = field(
+        default_factory=dict
+    )  # metric_id -> result
     human_label: Optional[HumanLabel] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -344,7 +351,9 @@ class AnnotationItem:
             input=data.get("input", {}),
             output=data.get("output"),
             eval_results=data.get("eval_results", {}),
-            human_label=HumanLabel.from_dict(human_label_data) if human_label_data else None,
+            human_label=HumanLabel.from_dict(human_label_data)
+            if human_label_data
+            else None,
             metadata=data.get("metadata", {}),
         )
 
@@ -352,9 +361,10 @@ class AnnotationItem:
 @dataclass
 class MetricLabel:
     """Human label for a specific metric."""
+
     metric_id: str
     agree_with_llm: bool  # Does human agree with LLM judge?
-    human_label: bool     # Human's own judgement (pass/fail)
+    human_label: bool  # Human's own judgement (pass/fail)
     notes: str = ""
 
     def as_dict(self) -> Dict[str, Any]:
@@ -386,6 +396,7 @@ class Annotation:
 
     confidence: 1-5 scale (1=very uncertain, 5=very confident)
     """
+
     id: str
     target_id: str
     label: Any  # Overall pass/fail (bool) - for backwards compat
@@ -393,7 +404,9 @@ class Annotation:
     annotator: str
     source: str = "human"
     confidence: Optional[int] = None  # 1-5 scale
-    metric_labels: Dict[str, MetricLabel] = field(default_factory=dict)  # metric_id -> MetricLabel
+    metric_labels: Dict[str, MetricLabel] = field(
+        default_factory=dict
+    )  # metric_id -> MetricLabel
     created_at: datetime = field(default_factory=now_utc)
 
     def as_dict(self) -> Dict[str, Any]:

@@ -12,8 +12,8 @@ from typing import Any, Callable, Dict, Optional, Tuple
 from .models import FunctionCall, TraceEvent, now_utc
 from .storage.base import StorageBackend
 
-_current_session: contextvars.ContextVar[Optional[Dict[str, Any]]] = contextvars.ContextVar(
-    "evalyn_session", default=None
+_current_session: contextvars.ContextVar[Optional[Dict[str, Any]]] = (
+    contextvars.ContextVar("evalyn_session", default=None)
 )
 _active_call: contextvars.ContextVar[Optional[FunctionCall]] = contextvars.ContextVar(
     "evalyn_active_call", default=None
@@ -45,9 +45,14 @@ def _span_attr_value(value: Any) -> Any:
 
 
 @contextmanager
-def eval_session(session_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None):
+def eval_session(
+    session_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None
+):
     """Context manager to group calls under a shared session id."""
-    session_payload = {"id": session_id or str(uuid.uuid4()), "metadata": metadata or {}}
+    session_payload = {
+        "id": session_id or str(uuid.uuid4()),
+        "metadata": metadata or {},
+    }
     token = _current_session.set(session_payload)
     try:
         yield session_payload["id"]
@@ -56,7 +61,11 @@ def eval_session(session_id: Optional[str] = None, metadata: Optional[Dict[str, 
 
 
 class EvalTracer:
-    def __init__(self, storage: Optional[StorageBackend] = None, otel_tracer: Optional[Any] = None):
+    def __init__(
+        self,
+        storage: Optional[StorageBackend] = None,
+        otel_tracer: Optional[Any] = None,
+    ):
         self.storage = storage
         self._last_call: Optional[FunctionCall] = None
         self._function_meta_cache: Dict[int, Dict[str, Any]] = {}
@@ -77,10 +86,15 @@ class EvalTracer:
         call = _active_call.get()
         if call is None:
             return
-        call.trace.append(TraceEvent(kind=kind, timestamp=now_utc(), detail=detail or {}))
+        call.trace.append(
+            TraceEvent(kind=kind, timestamp=now_utc(), detail=detail or {})
+        )
 
     def start_call(
-        self, function_name: str, inputs: Dict[str, Any], metadata: Optional[Dict[str, Any]] = None
+        self,
+        function_name: str,
+        inputs: Dict[str, Any],
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Tuple[FunctionCall, contextvars.Token]:
         session = _current_session.get()
         call = FunctionCall.new(
@@ -144,7 +158,9 @@ class EvalTracer:
                 call = None
                 token = None
                 inputs = _normalize_inputs(args, kwargs)
-                call, token = tracer.start_call(function_name, inputs, metadata=metadata)
+                call, token = tracer.start_call(
+                    function_name, inputs, metadata=metadata
+                )
                 span_cm = tracer._otel_span_cm(function_name)
                 with span_cm as span:
                     if span:
@@ -155,7 +171,9 @@ class EvalTracer:
                         result = await func(*args, **kwargs)
                         tracer.finish_call(call, token, output=result)
                         if span:
-                            span.set_attribute("evalyn.duration_ms", call.duration_ms or 0.0)
+                            span.set_attribute(
+                                "evalyn.duration_ms", call.duration_ms or 0.0
+                            )
                         return result
                     except Exception as exc:  # pragma: no cover - re-raises
                         if call and token:
@@ -184,7 +202,9 @@ class EvalTracer:
                     result = func(*args, **kwargs)
                     tracer.finish_call(call, token, output=result)
                     if span:
-                        span.set_attribute("evalyn.duration_ms", call.duration_ms or 0.0)
+                        span.set_attribute(
+                            "evalyn.duration_ms", call.duration_ms or 0.0
+                        )
                     return result
                 except Exception as exc:  # pragma: no cover - re-raises
                     if call and token:

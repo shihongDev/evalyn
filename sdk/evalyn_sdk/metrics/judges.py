@@ -41,7 +41,12 @@ class EchoJudge(LLMJudge):
         expected = item.expected
         text = str(call.output or "")
         passed = expected is not None and str(expected) in text
-        return {"score": 1.0 if passed else 0.0, "passed": passed, "reason": "debug-echo", "raw": {"output": text}}
+        return {
+            "score": 1.0 if passed else 0.0,
+            "passed": passed,
+            "reason": "debug-echo",
+            "raw": {"output": text},
+        }
 
 
 def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
@@ -99,7 +104,9 @@ def _parse_passed(value: Any) -> Optional[bool]:
     return None
 
 
-def _safe_trace_excerpt(call: FunctionCall, max_events: int = 20, max_chars: int = 2000) -> str:
+def _safe_trace_excerpt(
+    call: FunctionCall, max_events: int = 20, max_chars: int = 2000
+) -> str:
     """Create a safe string excerpt of trace events for the judge prompt."""
     events = call.trace or []
     lines = []
@@ -134,7 +141,9 @@ class GeminiJudge(LLMJudge):
         self._api_key = api_key
 
     def _get_api_key(self) -> str:
-        key = self._api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        key = (
+            self._api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        )
         if not key:
             raise RuntimeError(
                 "Missing GEMINI_API_KEY. Set the environment variable or pass api_key to GeminiJudge."

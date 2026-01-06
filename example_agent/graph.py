@@ -255,10 +255,19 @@ def finalize_answer(state: OverallState, config: RunnableConfig):
         max_retries=2,
         api_key=os.getenv("GEMINI_API_KEY"),
     )
-    tracer.log_event("gemini.request", {"model": reasoning_model, "prompt_excerpt": formatted_prompt[:300]})
+    tracer.log_event(
+        "gemini.request",
+        {"model": reasoning_model, "prompt_excerpt": formatted_prompt[:300]},
+    )
     with tracer.span("gemini.invoke", {"model": reasoning_model}):
         result = llm.invoke(formatted_prompt)
-    tracer.log_event("gemini.response", {"model": reasoning_model, "length": len(result.content) if hasattr(result, "content") else None})
+    tracer.log_event(
+        "gemini.response",
+        {
+            "model": reasoning_model,
+            "length": len(result.content) if hasattr(result, "content") else None,
+        },
+    )
 
     # Replace the short urls with the original urls and add all used urls to the sources_gathered
     unique_sources = []

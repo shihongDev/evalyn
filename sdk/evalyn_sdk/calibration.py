@@ -14,6 +14,7 @@ from .models import Annotation, CalibrationRecord, MetricResult, DatasetItem, no
 # GEPA import (optional dependency)
 try:
     import gepa
+
     GEPA_AVAILABLE = True
 except ImportError:
     GEPA_AVAILABLE = False
@@ -25,15 +26,21 @@ class AlignmentMetrics:
     Alignment metrics between LLM judge and human annotations.
     Uses classification terminology: judge prediction vs human ground truth.
     """
+
     # Confusion matrix counts
-    true_positive: int = 0   # Both judge and human say PASS
-    true_negative: int = 0   # Both judge and human say FAIL
+    true_positive: int = 0  # Both judge and human say PASS
+    true_negative: int = 0  # Both judge and human say FAIL
     false_positive: int = 0  # Judge says PASS, human says FAIL
     false_negative: int = 0  # Judge says FAIL, human says PASS
 
     @property
     def total(self) -> int:
-        return self.true_positive + self.true_negative + self.false_positive + self.false_negative
+        return (
+            self.true_positive
+            + self.true_negative
+            + self.false_positive
+            + self.false_negative
+        )
 
     @property
     def accuracy(self) -> float:
@@ -81,7 +88,9 @@ class AlignmentMetrics:
         # Expected agreement (by chance)
         judge_pass_rate = (self.true_positive + self.false_positive) / self.total
         human_pass_rate = (self.true_positive + self.false_negative) / self.total
-        p_e = (judge_pass_rate * human_pass_rate) + ((1 - judge_pass_rate) * (1 - human_pass_rate))
+        p_e = (judge_pass_rate * human_pass_rate) + (
+            (1 - judge_pass_rate) * (1 - human_pass_rate)
+        )
 
         if p_e >= 1.0:
             return 1.0 if p_o >= 1.0 else 0.0
@@ -109,6 +118,7 @@ class AlignmentMetrics:
 @dataclass
 class DisagreementCase:
     """A single case where judge and human disagree."""
+
     call_id: str
     input_text: str
     output_text: str
@@ -134,6 +144,7 @@ class DisagreementCase:
 @dataclass
 class DisagreementAnalysis:
     """Analysis of disagreement patterns."""
+
     false_positives: List[DisagreementCase] = field(default_factory=list)
     false_negatives: List[DisagreementCase] = field(default_factory=list)
 
@@ -154,6 +165,7 @@ class DisagreementAnalysis:
 @dataclass
 class PromptOptimizationResult:
     """Result of prompt optimization (LLM or GEPA)."""
+
     original_rubric: List[str]
     improved_rubric: List[str]
     improvement_reasoning: str
@@ -187,6 +199,7 @@ class PromptOptimizationResult:
 @dataclass
 class ValidationResult:
     """Result of validating optimized prompt against validation set."""
+
     original_f1: float
     optimized_f1: float
     original_accuracy: float
@@ -227,7 +240,9 @@ class PromptOptimizer:
         self._api_key = api_key
 
     def _get_api_key(self) -> str:
-        key = self._api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        key = (
+            self._api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        )
         if not key:
             raise RuntimeError(
                 "Missing GEMINI_API_KEY. Set the environment variable or pass api_key to PromptOptimizer."
@@ -314,7 +329,11 @@ class PromptOptimizer:
         """Build prompt for rubric optimization."""
 
         # Format current rubric
-        rubric_text = "\n".join([f"- {r}" for r in current_rubric]) if current_rubric else "(no rubric defined)"
+        rubric_text = (
+            "\n".join([f"- {r}" for r in current_rubric])
+            if current_rubric
+            else "(no rubric defined)"
+        )
 
         # Format false positives (judge too lenient)
         fp_examples = ""
@@ -408,16 +427,24 @@ Return ONLY the JSON object, no other text."""
                     elif text[i] == "}":
                         depth -= 1
                         if depth == 0:
-                            json_str = text[start:i+1]
+                            json_str = text[start : i + 1]
                             parsed = json.loads(json_str)
 
                             return PromptOptimizationResult(
                                 original_rubric=original_rubric,
-                                improved_rubric=parsed.get("improved_rubric", original_rubric),
-                                improvement_reasoning=parsed.get("improvement_reasoning", ""),
-                                suggested_additions=parsed.get("suggested_additions", []),
+                                improved_rubric=parsed.get(
+                                    "improved_rubric", original_rubric
+                                ),
+                                improvement_reasoning=parsed.get(
+                                    "improvement_reasoning", ""
+                                ),
+                                suggested_additions=parsed.get(
+                                    "suggested_additions", []
+                                ),
                                 suggested_removals=parsed.get("suggested_removals", []),
-                                estimated_improvement=parsed.get("estimated_improvement", "unknown"),
+                                estimated_improvement=parsed.get(
+                                    "estimated_improvement", "unknown"
+                                ),
                             )
                             break
         except Exception:
@@ -437,6 +464,7 @@ Return ONLY the JSON object, no other text."""
 @dataclass
 class GEPAConfig:
     """Configuration for GEPA optimization."""
+
     task_lm: str = "gemini/gemini-2.5-flash"  # Model being optimized
     reflection_lm: str = "gemini/gemini-2.5-flash"  # Model for reflection
     max_metric_calls: int = 150  # Budget for optimization
@@ -496,15 +524,18 @@ class GEPAOptimizer:
                 input_text = json.dumps(item.input, default=str) if item.input else ""
                 output_text = str(item.output) if item.output else ""
 
-            examples.append({
-                "input": input_text,
-                "output": output_text,
-                "expected": "PASS" if ann.label else "FAIL",
-                "call_id": res.call_id,
-            })
+            examples.append(
+                {
+                    "input": input_text,
+                    "output": output_text,
+                    "expected": "PASS" if ann.label else "FAIL",
+                    "call_id": res.call_id,
+                }
+            )
 
         # Split into train/val
         import random
+
         random.shuffle(examples)
         split_idx = int(len(examples) * self.config.train_split)
         trainset = examples[:split_idx]
@@ -512,7 +543,9 @@ class GEPAOptimizer:
 
         return trainset, valset
 
-    def _build_seed_prompt(self, metric_id: str, current_preamble: str) -> Dict[str, str]:
+    def _build_seed_prompt(
+        self, metric_id: str, current_preamble: str
+    ) -> Dict[str, str]:
         """
         Build seed prompt with only the preamble (the part to be optimized).
         The rubric will be appended separately after optimization.
@@ -593,10 +626,13 @@ After your analysis, provide your verdict as a JSON object:
             rubric_text = f"\n\nEvaluate using this rubric (PASS only if all criteria met):\n{rubric_lines}"
 
         # Add rubric and output format as fixed suffix in the system prompt
-        fixed_suffix = rubric_text + """
+        fixed_suffix = (
+            rubric_text
+            + """
 
 After your analysis, provide your verdict as a JSON object:
 {"passed": true/false, "reason": "brief explanation", "score": 0.0-1.0}"""
+        )
 
         # The seed candidate is just the preamble; GEPA will optimize this
         seed_candidate = {"preamble": seed_prompt["preamble"]}
@@ -614,10 +650,14 @@ After your analysis, provide your verdict as a JSON object:
             )
 
             # Extract optimized preamble
-            optimized_preamble = gepa_result.best_candidate.get("preamble", seed_prompt["preamble"])
+            optimized_preamble = gepa_result.best_candidate.get(
+                "preamble", seed_prompt["preamble"]
+            )
 
             # Build the full optimized prompt (ready to use)
-            full_optimized_prompt = self._build_full_prompt(optimized_preamble, current_rubric)
+            full_optimized_prompt = self._build_full_prompt(
+                optimized_preamble, current_rubric
+            )
 
             # Return result with original rubric preserved and new preamble
             return PromptOptimizationResult(
@@ -626,7 +666,9 @@ After your analysis, provide your verdict as a JSON object:
                 improvement_reasoning=f"GEPA optimization completed. Best score: {getattr(gepa_result, 'best_score', 'N/A')}",
                 suggested_additions=[],
                 suggested_removals=[],
-                estimated_improvement="high" if optimized_preamble != seed_prompt["preamble"] else "low",
+                estimated_improvement="high"
+                if optimized_preamble != seed_prompt["preamble"]
+                else "low",
                 # New fields for storing the optimized prompt
                 original_preamble=current_preamble,
                 optimized_preamble=optimized_preamble,
@@ -795,6 +837,7 @@ class CalibrationEngine:
 
         # Split annotations into train/val
         import random
+
         ann_list = list(annotations)
         random.shuffle(ann_list)
         split_idx = int(len(ann_list) * (1 - val_split))
@@ -806,7 +849,11 @@ class CalibrationEngine:
 
         # Get validation dataset items
         ann_by_call = {ann.target_id: ann for ann in val_annotations}
-        val_items = [item for item in dataset_items if item.metadata.get("call_id") in ann_by_call]
+        val_items = [
+            item
+            for item in dataset_items
+            if item.metadata.get("call_id") in ann_by_call
+        ]
 
         if not val_items:
             return None
@@ -943,7 +990,9 @@ class CalibrationEngine:
         alignment = self.compute_alignment(metric_results, annotations)
 
         # Step 2: Analyze disagreements
-        disagreements = self.analyze_disagreements(metric_results, annotations, dataset_items)
+        disagreements = self.analyze_disagreements(
+            metric_results, annotations, dataset_items
+        )
 
         # Step 3: Suggest threshold adjustment (legacy behavior)
         suggested_threshold = self._suggest_threshold(metric_results, annotations)
@@ -955,7 +1004,9 @@ class CalibrationEngine:
                 if self.optimizer_type == "gepa":
                     # Use GEPA evolutionary optimization (preamble only, rubric stays fixed)
                     if not GEPA_AVAILABLE:
-                        raise ImportError("GEPA is not installed. Install with: pip install gepa")
+                        raise ImportError(
+                            "GEPA is not installed. Install with: pip install gepa"
+                        )
                     gepa_optimizer = GEPAOptimizer(config=self.gepa_config)
                     prompt_optimization = gepa_optimizer.optimize(
                         metric_id=self.judge_name,
@@ -990,10 +1041,16 @@ class CalibrationEngine:
             # Build original prompt for comparison
             original_prompt = self.current_preamble
             if self.current_rubric:
-                original_prompt += "\n\nEvaluate using this rubric (PASS only if all criteria met):\n"
+                original_prompt += (
+                    "\n\nEvaluate using this rubric (PASS only if all criteria met):\n"
+                )
                 original_prompt += "\n".join([f"- {r}" for r in self.current_rubric])
 
-            optimized_prompt = prompt_optimization.full_prompt if prompt_optimization.full_prompt else original_prompt
+            optimized_prompt = (
+                prompt_optimization.full_prompt
+                if prompt_optimization.full_prompt
+                else original_prompt
+            )
 
             if optimized_prompt != original_prompt:
                 try:
@@ -1038,11 +1095,17 @@ class CalibrationEngine:
             created_at=now_utc(),
         )
 
-    def _suggest_threshold(self, metric_results: List[MetricResult], annotations: List[Annotation]) -> float:
+    def _suggest_threshold(
+        self, metric_results: List[MetricResult], annotations: List[Annotation]
+    ) -> float:
         """Simple heuristic: align judge pass-rate with human positive rate."""
         ann_by_call: Dict[str, Annotation] = {ann.target_id: ann for ann in annotations}
         human_labels = [bool(ann.label) for ann in annotations]
-        judge_passes = [bool(res.passed) for res in metric_results if res.call_id in ann_by_call and res.passed is not None]
+        judge_passes = [
+            bool(res.passed)
+            for res in metric_results
+            if res.call_id in ann_by_call and res.passed is not None
+        ]
 
         human_rate = mean(human_labels) if human_labels else self.current_threshold
         judge_rate = mean(judge_passes) if judge_passes else self.current_threshold

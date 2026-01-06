@@ -46,11 +46,21 @@ class Spinner:
         if self._thread:
             self._thread.join(timeout=0.5)
 
+
 from .annotations import import_annotations
-from .calibration import CalibrationEngine, GEPAConfig, GEPA_AVAILABLE, save_calibration, load_optimized_prompt
+from .calibration import (
+    CalibrationEngine,
+    GEPAConfig,
+    GEPA_AVAILABLE,
+    save_calibration,
+    load_optimized_prompt,
+)
 from .span_annotation import (
-    SpanAnnotation, ANNOTATION_SCHEMAS, extract_spans_from_trace,
-    get_annotation_prompts, SpanType,
+    SpanAnnotation,
+    ANNOTATION_SCHEMAS,
+    extract_spans_from_trace,
+    get_annotation_prompts,
+    SpanType,
 )
 
 
@@ -65,10 +75,12 @@ def _expand_env_vars(value: Any) -> Any:
     if isinstance(value, str):
         # Expand ${VAR} or $VAR patterns
         import re
+
         def replace_env(match):
             var_name = match.group(1) or match.group(2)
             return os.environ.get(var_name, match.group(0))
-        return re.sub(r'\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)', replace_env, value)
+
+        return re.sub(r"\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)", replace_env, value)
     elif isinstance(value, dict):
         return {k: _expand_env_vars(v) for k, v in value.items()}
     elif isinstance(value, list):
@@ -83,6 +95,7 @@ def load_config() -> Dict[str, Any]:
         if path.exists():
             try:
                 import yaml  # Optional dependency
+
                 with open(path) as f:
                     config = yaml.safe_load(f) or {}
                     # Expand environment variables
@@ -138,7 +151,9 @@ def find_latest_dataset(data_dir: str = "data") -> Optional[Path]:
     return dataset_dirs[0]
 
 
-def resolve_dataset_path(dataset_arg: Optional[str], use_latest: bool = False, config: Optional[Dict] = None) -> Optional[Path]:
+def resolve_dataset_path(
+    dataset_arg: Optional[str], use_latest: bool = False, config: Optional[Dict] = None
+) -> Optional[Path]:
     """Resolve dataset path from argument, --latest flag, or config."""
     if dataset_arg:
         path = Path(dataset_arg)
@@ -188,14 +203,20 @@ class ProgressIndicator:
             eta = f" ETA: {int(remaining)}s"
 
         extra_str = f" {extra}" if extra else ""
-        sys.stderr.write(f"\r{self.message}: [{bar}] {self.current}/{self.total} ({pct:.0%}){eta}{extra_str}  ")
+        sys.stderr.write(
+            f"\r{self.message}: [{bar}] {self.current}/{self.total} ({pct:.0%}){eta}{extra_str}  "
+        )
         sys.stderr.flush()
 
     def finish(self, message: str = "Done"):
         """Complete the progress indicator."""
         elapsed = time.time() - self._start_time
-        sys.stderr.write(f"\r{self.message}: {message} ({elapsed:.1f}s)" + " " * 20 + "\n")
+        sys.stderr.write(
+            f"\r{self.message}: {message} ({elapsed:.1f}s)" + " " * 20 + "\n"
+        )
         sys.stderr.flush()
+
+
 from .datasets import load_dataset, save_dataset_with_meta, build_dataset_from_storage
 from .simulator import UserSimulator, AgentSimulator, SimulationConfig
 from .decorators import get_default_tracer
@@ -203,7 +224,13 @@ from .metrics.objective import register_builtin_metrics
 from .metrics.registry import MetricRegistry
 from .metrics.templates import OBJECTIVE_TEMPLATES, SUBJECTIVE_TEMPLATES
 from .runner import EvalRunner
-from .metrics.suggester import HeuristicSuggester, LLMSuggester, LLMRegistrySelector, TemplateSelector, render_selection_prompt_with_templates
+from .metrics.suggester import (
+    HeuristicSuggester,
+    LLMSuggester,
+    LLMRegistrySelector,
+    TemplateSelector,
+    render_selection_prompt_with_templates,
+)
 from .tracing import EvalTracer
 from .models import MetricSpec
 from datetime import datetime, timezone
@@ -246,6 +273,7 @@ BUNDLES: dict[str, list[str]] = {
 def _get_module_callables(module: Any) -> List[str]:
     """Get all callable names from a module for error suggestions."""
     import inspect
+
     callables = []
     for name in dir(module):
         if name.startswith("_"):
@@ -256,7 +284,9 @@ def _get_module_callables(module: Any) -> List[str]:
     return sorted(callables)
 
 
-def _suggest_similar(name: str, candidates: List[str], max_suggestions: int = 3) -> List[str]:
+def _suggest_similar(
+    name: str, candidates: List[str], max_suggestions: int = 3
+) -> List[str]:
     """Find similar names using simple substring matching."""
     name_lower = name.lower()
     # Exact prefix match first
@@ -264,7 +294,9 @@ def _suggest_similar(name: str, candidates: List[str], max_suggestions: int = 3)
     if prefix_matches:
         return prefix_matches[:max_suggestions]
     # Substring match
-    substr_matches = [c for c in candidates if name_lower in c.lower() or c.lower() in name_lower]
+    substr_matches = [
+        c for c in candidates if name_lower in c.lower() or c.lower() in name_lower
+    ]
     return substr_matches[:max_suggestions]
 
 
@@ -283,7 +315,9 @@ def _load_callable(target: str) -> Callable[..., Any]:
 
     left, func_name = target.split(":", 1)
 
-    def _get_attr_with_suggestions(module: Any, name: str, module_path: str) -> Callable[..., Any]:
+    def _get_attr_with_suggestions(
+        module: Any, name: str, module_path: str
+    ) -> Callable[..., Any]:
         """Get attribute with helpful error message if not found."""
         if hasattr(module, name):
             return getattr(module, name)
@@ -347,7 +381,9 @@ def _load_callable(target: str) -> Callable[..., Any]:
 def _ollama_caller(model: str) -> Callable[[str], List[dict]]:
     def _call(prompt: str) -> List[dict]:
         if not shutil.which("ollama"):
-            raise RuntimeError("ollama CLI not found. Install Ollama or choose --llm-mode api.")
+            raise RuntimeError(
+                "ollama CLI not found. Install Ollama or choose --llm-mode api."
+            )
         proc = subprocess.run(
             ["ollama", "run", model, prompt],
             capture_output=True,
@@ -383,17 +419,23 @@ def _parse_json_array(text: str) -> List[dict]:
     return []
 
 
-def _openai_caller(model: str, api_base: Optional[str] = None, api_key: Optional[str] = None) -> Callable[[str], List[dict]]:
+def _openai_caller(
+    model: str, api_base: Optional[str] = None, api_key: Optional[str] = None
+) -> Callable[[str], List[dict]]:
     def _call(prompt: str) -> List[dict]:
         # Gemini shortcut using google-genai if model name starts with "gemini"
         if model.lower().startswith("gemini"):
             key = api_key or os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
             if not key:
-                raise RuntimeError("Missing GOOGLE_API_KEY/GEMINI_API_KEY for Gemini model.")
+                raise RuntimeError(
+                    "Missing GOOGLE_API_KEY/GEMINI_API_KEY for Gemini model."
+                )
             try:
                 from google.genai import Client  # type: ignore
             except Exception as exc:
-                raise RuntimeError("google-genai package not installed. Install with: pip install google-genai") from exc
+                raise RuntimeError(
+                    "google-genai package not installed. Install with: pip install google-genai"
+                ) from exc
 
             try:
                 client = Client(api_key=key)
@@ -419,10 +461,16 @@ def _openai_caller(model: str, api_base: Optional[str] = None, api_key: Optional
         try:
             import openai
         except ImportError as exc:
-            raise RuntimeError("openai package not installed. Install with extras: pip install -e \"sdk[llm]\"") from exc
+            raise RuntimeError(
+                'openai package not installed. Install with extras: pip install -e "sdk[llm]"'
+            ) from exc
 
         key = api_key or os.getenv("OPENAI_API_KEY")
-        client = openai.OpenAI(api_key=key, base_url=api_base) if (key or api_base) else openai.OpenAI()
+        client = (
+            openai.OpenAI(api_key=key, base_url=api_base)
+            if (key or api_base)
+            else openai.OpenAI()
+        )
         resp = client.chat.completions.create(
             model=model,
             messages=[
@@ -439,11 +487,15 @@ def _openai_caller(model: str, api_base: Optional[str] = None, api_key: Optional
     return _call
 
 
-def _with_spinner(caller: Callable[[str], List[dict]], message: str = "Calling LLM") -> Callable[[str], List[dict]]:
+def _with_spinner(
+    caller: Callable[[str], List[dict]], message: str = "Calling LLM"
+) -> Callable[[str], List[dict]]:
     """Wrap a caller function with a spinner for visual feedback."""
+
     def _wrapped(prompt: str) -> List[dict]:
         with Spinner(message):
             return caller(prompt)
+
     return _wrapped
 
 
@@ -454,7 +506,10 @@ def _build_llm_caller(args: argparse.Namespace) -> Callable[[str], List[dict]]:
         return _with_spinner(_ollama_caller(args.model), spinner_msg)
     if args.llm_caller:
         return _with_spinner(_load_callable(args.llm_caller), spinner_msg)
-    return _with_spinner(_openai_caller(args.model, api_base=args.api_base, api_key=args.api_key), spinner_msg)
+    return _with_spinner(
+        _openai_caller(args.model, api_base=args.api_base, api_key=args.api_key),
+        spinner_msg,
+    )
 
 
 def _extract_code_meta(tracer: EvalTracer, fn: Callable[..., Any]) -> Optional[dict]:
@@ -495,14 +550,14 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
         calls = filtered
 
     # Filter by simulation/production if specified
-    if hasattr(args, 'simulation') and args.simulation and calls:
+    if hasattr(args, "simulation") and args.simulation and calls:
         filtered = []
         for c in calls:
             meta = c.metadata if isinstance(c.metadata, dict) else {}
             if meta.get("is_simulation", False):
                 filtered.append(c)
         calls = filtered
-    elif hasattr(args, 'production') and args.production and calls:
+    elif hasattr(args, "production") and args.production and calls:
         filtered = []
         for c in calls:
             meta = c.metadata if isinstance(c.metadata, dict) else {}
@@ -523,30 +578,55 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
     if output_format == "json":
         result = []
         for call in calls:
-            code = call.metadata.get("code", {}) if isinstance(call.metadata, dict) else {}
+            code = (
+                call.metadata.get("code", {}) if isinstance(call.metadata, dict) else {}
+            )
             project = ""
             version = ""
             if isinstance(call.metadata, dict):
-                project = call.metadata.get("project_id") or call.metadata.get("project_name") or ""
+                project = (
+                    call.metadata.get("project_id")
+                    or call.metadata.get("project_name")
+                    or ""
+                )
                 version = call.metadata.get("version", "")
-            is_sim = call.metadata.get("is_simulation", False) if isinstance(call.metadata, dict) else False
-            result.append({
-                "id": call.id,
-                "function": call.function_name,
-                "project": project,
-                "version": version,
-                "is_simulation": is_sim,
-                "status": "ERROR" if call.error else "OK",
-                "file": code.get("file_path") if isinstance(code, dict) else None,
-                "started_at": call.started_at.isoformat() if call.started_at else None,
-                "ended_at": call.ended_at.isoformat() if call.ended_at else None,
-                "duration_ms": call.duration_ms,
-            })
+            is_sim = (
+                call.metadata.get("is_simulation", False)
+                if isinstance(call.metadata, dict)
+                else False
+            )
+            result.append(
+                {
+                    "id": call.id,
+                    "function": call.function_name,
+                    "project": project,
+                    "version": version,
+                    "is_simulation": is_sim,
+                    "status": "ERROR" if call.error else "OK",
+                    "file": code.get("file_path") if isinstance(code, dict) else None,
+                    "started_at": call.started_at.isoformat()
+                    if call.started_at
+                    else None,
+                    "ended_at": call.ended_at.isoformat() if call.ended_at else None,
+                    "duration_ms": call.duration_ms,
+                }
+            )
         print(json.dumps(result, indent=2))
         return
 
     # Table output mode
-    headers = ["id", "function", "project", "version", "sim?", "status", "file", "start", "end", "duration_ms"]
+    headers = [
+        "id",
+        "function",
+        "project",
+        "version",
+        "sim?",
+        "status",
+        "file",
+        "start",
+        "end",
+        "duration_ms",
+    ]
     print(" | ".join(headers))
     print("-" * 140)
 
@@ -579,7 +659,11 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
         version = ""
         is_sim = False
         if isinstance(call.metadata, dict):
-            project = call.metadata.get("project_id") or call.metadata.get("project_name") or ""
+            project = (
+                call.metadata.get("project_id")
+                or call.metadata.get("project_name")
+                or ""
+            )
             version = call.metadata.get("version", "")
             is_sim = call.metadata.get("is_simulation", False)
         file_path = code.get("file_path") if isinstance(code, dict) else None
@@ -674,6 +758,7 @@ def cmd_show_call(args: argparse.Namespace) -> None:
         print(f"  preview: {_format_value(output_text, max_len=1000)}")
 
     if call.metadata:
+
         def _print_metadata(meta: dict) -> None:
             print("\nMetadata:")
             for key, value in meta.items():
@@ -682,12 +767,16 @@ def cmd_show_call(args: argparse.Namespace) -> None:
                     for sub_key, sub_val in value.items():
                         if sub_key == "source":
                             src = sub_val or ""
-                            src_preview = src if len(src) <= 1200 else src[:1200] + "..."
+                            src_preview = (
+                                src if len(src) <= 1200 else src[:1200] + "..."
+                            )
                             print("    source:")
                             for line in src_preview.splitlines()[:40]:
                                 print(f"      {line}")
                         else:
-                            print(f"    - {sub_key}: {_format_value(sub_val, max_len=400)}")
+                            print(
+                                f"    - {sub_key}: {_format_value(sub_val, max_len=400)}"
+                            )
                 else:
                     print(f"  - {key}: {_format_value(value, max_len=400)}")
 
@@ -794,7 +883,11 @@ def cmd_show_call(args: argparse.Namespace) -> None:
         for parent_id in children:
             children[parent_id].sort(key=_sort_key)
 
-        roots = [sid for sid, span in by_id.items() if span.get("parent_span_id") not in by_id]
+        roots = [
+            sid
+            for sid, span in by_id.items()
+            if span.get("parent_span_id") not in by_id
+        ]
         roots.sort(key=_sort_key)
 
         def _render(span_id, prefix, is_last):
@@ -809,7 +902,9 @@ def cmd_show_call(args: argparse.Namespace) -> None:
             dur_text = f"{dur_ms:.1f}ms" if dur_ms is not None else "n/a"
             rel_text = f"+{rel_ms:.1f}ms" if rel_ms is not None else "n/a"
             branch = "`- " if is_last else "|- "
-            line = f"{prefix}{branch}{span.get('name')} ({status}, {dur_text}, {rel_text})"
+            line = (
+                f"{prefix}{branch}{span.get('name')} ({status}, {dur_text}, {rel_text})"
+            )
             if attr_summary:
                 line += f" {attr_summary}"
             print(line)
@@ -828,6 +923,7 @@ def cmd_show_call(args: argparse.Namespace) -> None:
         _print_span_tree(spans, call_start_ts)
 
     if call.trace:
+
         def _format_time(ev):
             try:
                 delta = (ev.timestamp - call.started_at).total_seconds()
@@ -876,7 +972,14 @@ def cmd_show_call(args: argparse.Namespace) -> None:
                         parts.append(f"tools={','.join(tools)}")
                     else:
                         parts.append(f"config_keys={list(cfg.keys())}")
-                for key in ("status", "status_code", "elapsed_ms", "duration_ms", "count", "length"):
+                for key in (
+                    "status",
+                    "status_code",
+                    "elapsed_ms",
+                    "duration_ms",
+                    "count",
+                    "length",
+                ):
                     if key in detail and len(parts) < max_items:
                         parts.append(f"{key}={_format_inline(detail.get(key), 40)}")
                 for key in ("error", "url"):
@@ -894,7 +997,9 @@ def cmd_show_call(args: argparse.Namespace) -> None:
         reqs = sum(1 for ev in call.trace if ev.kind.lower().endswith(".request"))
         resps = sum(1 for ev in call.trace if ev.kind.lower().endswith(".response"))
         tool_cnt = sum(1 for ev in call.trace if "tool" in ev.kind.lower())
-        print(f"  total={total} | requests={reqs} | responses={resps} | tool_events={tool_cnt}")
+        print(
+            f"  total={total} | requests={reqs} | responses={resps} | tool_events={tool_cnt}"
+        )
         kind_counts = {}
         for ev in call.trace:
             kind_counts[ev.kind] = kind_counts.get(ev.kind, 0) + 1
@@ -907,18 +1012,26 @@ def cmd_show_call(args: argparse.Namespace) -> None:
         print("-" * 140)
         prev_ts = None
         for idx, ev in enumerate(call.trace, start=1):
-            elapsed_ms = (ev.timestamp - call.started_at).total_seconds() * 1000 if call.started_at else 0.0
+            elapsed_ms = (
+                (ev.timestamp - call.started_at).total_seconds() * 1000
+                if call.started_at
+                else 0.0
+            )
             delta_ms = (
                 (ev.timestamp - prev_ts).total_seconds() * 1000 if prev_ts else 0.0
             )
             summary = _summarize_detail(ev.detail or {})
-            print(f"{idx} | {elapsed_ms:7.1f} | {delta_ms:7.1f} | {ev.kind} | {summary}")
+            print(
+                f"{idx} | {elapsed_ms:7.1f} | {delta_ms:7.1f} | {ev.kind} | {summary}"
+            )
             prev_ts = ev.timestamp
 
     if not spans:
         print("\nSpan tree (OTel):")
         print("  <no spans found>")
-        print("  Tip: set EVALYN_OTEL_EXPORTER=sqlite and re-run to capture span data locally.")
+        print(
+            "  Tip: set EVALYN_OTEL_EXPORTER=sqlite and re-run to capture span data locally."
+        )
 
     print("\nOTel:")
     print(" Spans are emitted alongside this call (exporter-configured).")
@@ -926,9 +1039,7 @@ def cmd_show_call(args: argparse.Namespace) -> None:
 
 
 def _resolve_dataset_and_metrics(
-    dataset_arg: str,
-    metrics_arg: Optional[str],
-    metrics_all: bool = False
+    dataset_arg: str, metrics_arg: Optional[str], metrics_all: bool = False
 ) -> tuple[Path, List[Path]]:
     """
     Resolve dataset file and metrics file paths.
@@ -950,7 +1061,9 @@ def _resolve_dataset_and_metrics(
         if not dataset_file.exists():
             dataset_file = dataset_dir / "dataset.json"
         if not dataset_file.exists():
-            raise FileNotFoundError(f"No dataset.jsonl or dataset.json found in {dataset_dir}")
+            raise FileNotFoundError(
+                f"No dataset.jsonl or dataset.json found in {dataset_dir}"
+            )
     else:
         dataset_file = dataset_path
         dataset_dir = dataset_path.parent
@@ -1005,7 +1118,9 @@ def _resolve_dataset_and_metrics(
     metric_sets = meta.get("metric_sets", [])
     matching = [m for m in metric_sets if m.get("name") == active_set]
     if not matching:
-        raise ValueError(f"Metric set '{active_set}' not found in meta.json metric_sets.")
+        raise ValueError(
+            f"Metric set '{active_set}' not found in meta.json metric_sets."
+        )
 
     metrics_rel = matching[0].get("file")
     if not metrics_rel:
@@ -1057,8 +1172,8 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     config = load_config()
 
     # Resolve dataset path using --dataset, --latest, or config
-    dataset_arg = getattr(args, 'dataset', None)
-    use_latest = getattr(args, 'latest', False)
+    dataset_arg = getattr(args, "dataset", None)
+    use_latest = getattr(args, "latest", False)
     dataset_path = resolve_dataset_path(dataset_arg, use_latest, config)
 
     if not dataset_path:
@@ -1100,18 +1215,21 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     if output_format != "json" and len(metrics_paths) > 1:
-        print(f"Merged {len(all_metrics_data)} unique metrics from {len(metrics_paths)} files")
+        print(
+            f"Merged {len(all_metrics_data)} unique metrics from {len(metrics_paths)} files"
+        )
 
     # Build metrics from specs
     from .metrics.factory import build_objective_metric, build_subjective_metric
     from .calibration import load_optimized_prompt
+
     metrics = []
     objective_count = 0
     subjective_count = 0
     calibrated_count = 0
 
     # Check if we should use calibrated prompts
-    use_calibrated = getattr(args, 'use_calibrated', False)
+    use_calibrated = getattr(args, "use_calibrated", False)
 
     skipped_metrics = []
     for spec_data in all_metrics_data.values():
@@ -1136,7 +1254,9 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
                         print(f"  Using calibrated prompt for {spec.id}")
             except Exception as e:
                 if output_format != "json":
-                    print(f"  Warning: Could not load calibrated prompt for {spec.id}: {e}")
+                    print(
+                        f"  Warning: Could not load calibrated prompt for {spec.id}: {e}"
+                    )
 
         try:
             if spec.type == "objective":
@@ -1163,7 +1283,9 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         print(f"Skipped {len(skipped_metrics)} unknown metrics:")
         for mid, mtype, reason in skipped_metrics:
             if mtype == "objective":
-                print(f"  - {mid} [objective]: Custom objective metrics not supported. Use 'evalyn list-metrics' to see available templates.")
+                print(
+                    f"  - {mid} [objective]: Custom objective metrics not supported. Use 'evalyn list-metrics' to see available templates."
+                )
             else:
                 print(f"  - {mid}: {reason}")
 
@@ -1186,7 +1308,9 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
             if not gemini_key and not openai_key:
                 print()
                 print("⚠️  Warning: No API key found for LLM judges.")
-                print("   Set GEMINI_API_KEY or OPENAI_API_KEY to enable subjective metrics.")
+                print(
+                    "   Set GEMINI_API_KEY or OPENAI_API_KEY to enable subjective metrics."
+                )
                 print("   Continuing anyway, but LLM judge scores will fail.")
             elif gemini_key and len(gemini_key) < 10:
                 print()
@@ -1204,12 +1328,15 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     total_evals = len(dataset_list) * len(metrics)
     progress = ProgressBar(total_evals) if output_format != "json" else None
 
-    def progress_callback(current: int, total: int, metric: str, metric_type: str) -> None:
+    def progress_callback(
+        current: int, total: int, metric: str, metric_type: str
+    ) -> None:
         if progress:
             progress.update(current, total, metric, metric_type)
 
     # Run evaluation using cached traces (with synthetic call support)
     from .runner import EvalRunner, save_eval_run_json
+
     runner = EvalRunner(
         target_fn=lambda: None,  # Dummy function, won't be called
         metrics=metrics,
@@ -1229,13 +1356,18 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     results_path = run_folder / "results.json"
 
     # Generate HTML analysis report
-    from .analyzer import analyze_run as analyze_run_data, generate_html_report, load_eval_run
+    from .analyzer import (
+        analyze_run as analyze_run_data,
+        generate_html_report,
+        load_eval_run,
+    )
+
     try:
         run_data = load_eval_run(results_path)
         analysis = analyze_run_data(run_data)
         html_report = generate_html_report(analysis)
         report_path = run_folder / "report.html"
-        with open(report_path, 'w') as f:
+        with open(report_path, "w") as f:
             f.write(html_report)
     except Exception as e:
         report_path = None
@@ -1284,24 +1416,32 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     for result in run.metric_results:
         if result.details and isinstance(result.details, dict):
             reason = result.details.get("reason", "")
-            if "API" in reason and ("error" in reason.lower() or "failed" in reason.lower()):
-                api_errors_by_metric[result.metric_id] = api_errors_by_metric.get(result.metric_id, 0) + 1
+            if "API" in reason and (
+                "error" in reason.lower() or "failed" in reason.lower()
+            ):
+                api_errors_by_metric[result.metric_id] = (
+                    api_errors_by_metric.get(result.metric_id, 0) + 1
+                )
 
     print("Results:")
     print("-" * 80)
-    print(f"{'Metric':<25} {'Type':<10} {'Count':<6} {'Avg Score':<12} {'Pass Rate':<10} {'Errors':<8}")
+    print(
+        f"{'Metric':<25} {'Type':<10} {'Count':<6} {'Avg Score':<12} {'Pass Rate':<10} {'Errors':<8}"
+    )
     print("-" * 80)
 
     for metric_id, stats in run.summary.get("metrics", {}).items():
         mtype = metric_types.get(metric_id, "?")
         type_label = "obj" if mtype == "objective" else "llm"
-        avg_score = stats.get('avg_score')
+        avg_score = stats.get("avg_score")
         avg_score_str = f"{avg_score:.4f}" if avg_score is not None else "N/A"
-        pass_rate = stats.get('pass_rate')
-        pass_rate_str = f"{pass_rate*100:.1f}%" if pass_rate is not None else "N/A"
+        pass_rate = stats.get("pass_rate")
+        pass_rate_str = f"{pass_rate * 100:.1f}%" if pass_rate is not None else "N/A"
         error_count = api_errors_by_metric.get(metric_id, 0)
         error_str = f"{error_count}" if error_count > 0 else "-"
-        print(f"{metric_id:<25} [{type_label:<3}]    {stats['count']:<6} {avg_score_str:<12} {pass_rate_str:<10} {error_str:<8}")
+        print(
+            f"{metric_id:<25} [{type_label:<3}]    {stats['count']:<6} {avg_score_str:<12} {pass_rate_str:<10} {error_str:<8}"
+        )
 
     print("-" * 80)
 
@@ -1352,18 +1492,24 @@ def _dataset_has_reference(dataset_path: Optional[Path]) -> bool:
         items = load_dataset(str(dataset_file))
         for item in items:
             # Check for human_label with reference (this is the clear signal)
-            if hasattr(item, 'human_label') and item.human_label:
-                if isinstance(item.human_label, dict) and item.human_label.get('reference'):
+            if hasattr(item, "human_label") and item.human_label:
+                if isinstance(item.human_label, dict) and item.human_label.get(
+                    "reference"
+                ):
                     return True
 
             # Check metadata for explicit reference/golden fields
-            if hasattr(item, 'metadata') and item.metadata:
-                if item.metadata.get('reference') or item.metadata.get('golden') or item.metadata.get('golden_answer'):
+            if hasattr(item, "metadata") and item.metadata:
+                if (
+                    item.metadata.get("reference")
+                    or item.metadata.get("golden")
+                    or item.metadata.get("golden_answer")
+                ):
                     return True
 
             # If BOTH output AND expected exist AND they are DIFFERENT, then expected is the golden standard
-            has_output = hasattr(item, 'output') and item.output is not None
-            has_expected = hasattr(item, 'expected') and item.expected is not None
+            has_output = hasattr(item, "output") and item.output is not None
+            has_expected = hasattr(item, "expected") and item.expected is not None
             if has_output and has_expected:
                 # Only count as reference if they're actually different values
                 # (if same, expected is just a copy of output for backward compatibility)
@@ -1382,8 +1528,12 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
     if not args.project and not args.target:
         print("Error: Either --project or --target is required.")
         print("\nUsage:")
-        print("  evalyn suggest-metrics --project <name>    # Suggest based on project traces")
-        print("  evalyn suggest-metrics --target <path>     # Suggest based on function code")
+        print(
+            "  evalyn suggest-metrics --project <name>    # Suggest based on project traces"
+        )
+        print(
+            "  evalyn suggest-metrics --target <path>     # Suggest based on function code"
+        )
         print("\nTo see available projects:")
         print("  evalyn show-projects")
         sys.exit(1)
@@ -1395,21 +1545,31 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         if dataset_path_obj.is_file():
             if not dataset_path_obj.exists():
                 print(f"Error: Dataset file not found: {dataset_path_obj}")
-                print("Please create the dataset first using 'evalyn build-dataset' or ensure the path is correct.")
+                print(
+                    "Please create the dataset first using 'evalyn build-dataset' or ensure the path is correct."
+                )
                 sys.exit(1)
         else:
             if not dataset_path_obj.exists():
                 print(f"Error: Dataset directory not found: {dataset_path_obj}")
-                print("Please create the dataset first using 'evalyn build-dataset' or ensure the path is correct.")
+                print(
+                    "Please create the dataset first using 'evalyn build-dataset' or ensure the path is correct."
+                )
                 sys.exit(1)
-            has_dataset = (dataset_path_obj / "dataset.jsonl").exists() or (dataset_path_obj / "dataset.json").exists()
+            has_dataset = (dataset_path_obj / "dataset.jsonl").exists() or (
+                dataset_path_obj / "dataset.json"
+            ).exists()
             if not has_dataset:
-                print(f"Warning: Directory exists but no dataset.jsonl or dataset.json found in: {dataset_path_obj}")
+                print(
+                    f"Warning: Directory exists but no dataset.jsonl or dataset.json found in: {dataset_path_obj}"
+                )
 
     # Check if dataset has reference values
     has_reference = _dataset_has_reference(dataset_path_obj)
     if dataset_path_obj and not has_reference:
-        print("Note: Dataset has no reference/expected values. Reference-based metrics (ROUGE, BLEU, etc.) excluded.")
+        print(
+            "Note: Dataset has no reference/expected values. Reference-based metrics (ROUGE, BLEU, etc.) excluded."
+        )
 
     # Load traces and function info based on --project or --target
     target_fn = None
@@ -1431,7 +1591,9 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         project_traces = []
         for call in all_calls:
             meta = call.metadata if isinstance(call.metadata, dict) else {}
-            call_project = meta.get("project_id") or meta.get("project_name") or call.function_name
+            call_project = (
+                meta.get("project_id") or meta.get("project_name") or call.function_name
+            )
             call_version = meta.get("version") or ""
 
             if call_project == args.project:
@@ -1447,7 +1609,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             print("  evalyn show-projects")
             sys.exit(1)
 
-        traces = project_traces[:args.num_traces]
+        traces = project_traces[: args.num_traces]
         print(f"Found {len(project_traces)} traces for project '{args.project}'")
         if args.version:
             print(f"  (version: {args.version})")
@@ -1462,6 +1624,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         # Create a placeholder function for the suggester
         def _placeholder_fn(*args, **kwargs):
             pass
+
         _placeholder_fn.__name__ = function_name
         _placeholder_fn.__doc__ = function_docstring
         target_fn = _placeholder_fn
@@ -1471,18 +1634,22 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         target_fn = _load_callable(args.target)
         metric_mode_hint = getattr(target_fn, "_evalyn_metric_mode", None)
         metric_bundle_hint = getattr(target_fn, "_evalyn_metric_bundle", None)
-        traces = tracer.storage.list_calls(limit=args.num_traces) if tracer.storage else []
+        traces = (
+            tracer.storage.list_calls(limit=args.num_traces) if tracer.storage else []
+        )
         function_name = target_fn.__name__
 
     selected_mode = args.mode
     if selected_mode == "auto":
         selected_mode = metric_mode_hint or "llm-registry"
     bundle_name = args.bundle or metric_bundle_hint
-    max_metrics = args.num_metrics if args.num_metrics and args.num_metrics > 0 else None
+    max_metrics = (
+        args.num_metrics if args.num_metrics and args.num_metrics > 0 else None
+    )
 
     # Get scope filter
-    scope_filter = getattr(args, 'scope', 'all')
-    if scope_filter == 'all':
+    scope_filter = getattr(args, "scope", "all")
+    if scope_filter == "all":
         scope_filter = None
 
     def _filter_by_scope(templates: list) -> list:
@@ -1524,12 +1691,24 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
 
         # Validate objective metrics - filter out custom ones that won't work
         valid_objective_ids = {t["id"] for t in OBJECTIVE_TEMPLATES}
-        invalid_objectives = [s for s in specs if s.type == "objective" and s.id not in valid_objective_ids]
+        invalid_objectives = [
+            s
+            for s in specs
+            if s.type == "objective" and s.id not in valid_objective_ids
+        ]
         if invalid_objectives:
-            print(f"Removed {len(invalid_objectives)} unsupported custom objective metric(s):")
+            print(
+                f"Removed {len(invalid_objectives)} unsupported custom objective metric(s):"
+            )
             for s in invalid_objectives:
-                print(f"  - {s.id}: Use 'evalyn list-metrics --type objective' to see valid IDs")
-            specs = [s for s in specs if not (s.type == "objective" and s.id not in valid_objective_ids)]
+                print(
+                    f"  - {s.id}: Use 'evalyn list-metrics --type objective' to see valid IDs"
+                )
+            specs = [
+                s
+                for s in specs
+                if not (s.type == "objective" and s.id not in valid_objective_ids)
+            ]
 
         if not specs:
             print("No valid metrics to save.")
@@ -1546,7 +1725,9 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
                     "why": getattr(spec, "why", ""),
                 }
             )
-        metrics_file.write_text(json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8")
+        metrics_file.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8"
+        )
 
         meta_path = dataset_dir / "meta.json"
         if meta_path.exists():
@@ -1556,7 +1737,9 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
                 meta = {}
         else:
             meta = {}
-        metric_sets = meta.get("metric_sets") if isinstance(meta.get("metric_sets"), list) else []
+        metric_sets = (
+            meta.get("metric_sets") if isinstance(meta.get("metric_sets"), list) else []
+        )
         entry = {
             "name": safe_name,
             "file": f"metrics/{metrics_file.name}",
@@ -1568,14 +1751,18 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         metric_sets.append(entry)
         meta["metric_sets"] = metric_sets
         meta["active_metric_set"] = safe_name
-        meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=True), encoding="utf-8")
+        meta_path.write_text(
+            json.dumps(meta, indent=2, ensure_ascii=True), encoding="utf-8"
+        )
         print(f"Saved metrics to {metrics_file}")
 
     if selected_mode == "bundle":
         bundle = (bundle_name or "").lower()
         ids = BUNDLES.get(bundle)
         if not ids:
-            print(f"Unknown bundle '{args.bundle}'. Available: {', '.join(BUNDLES.keys())}")
+            print(
+                f"Unknown bundle '{args.bundle}'. Available: {', '.join(BUNDLES.keys())}"
+            )
             return
         all_templates = _filter_by_scope(OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES)
         tpl_map = {t["id"]: t for t in all_templates}
@@ -1598,7 +1785,9 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
                     )
                 )
         if skipped_ref_metrics:
-            print(f"Skipped reference-based metrics (no expected values): {', '.join(skipped_ref_metrics)}")
+            print(
+                f"Skipped reference-based metrics (no expected values): {', '.join(skipped_ref_metrics)}"
+            )
         if max_metrics:
             specs = specs[:max_metrics]
         for spec in specs:
@@ -1608,8 +1797,12 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
 
     if selected_mode == "llm-registry":
         caller = _build_llm_caller(args)
-        filtered_templates = _filter_by_scope(OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES)
-        selector = TemplateSelector(caller, filtered_templates, has_reference=has_reference)
+        filtered_templates = _filter_by_scope(
+            OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES
+        )
+        selector = TemplateSelector(
+            caller, filtered_templates, has_reference=has_reference
+        )
         selected = selector.select(
             target_fn,
             traces=traces,
@@ -1627,7 +1820,9 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
     if selected_mode == "llm-brainstorm":
         caller = _build_llm_caller(args)
         suggester = LLMSuggester(caller=caller)
-        specs = suggester.suggest(target_fn, traces, desired_count=max_metrics, scope=scope_filter)
+        specs = suggester.suggest(
+            target_fn, traces, desired_count=max_metrics, scope=scope_filter
+        )
         if max_metrics:
             specs = specs[:max_metrics]
         if not specs:
@@ -1645,7 +1840,9 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
     if scope_filter:
         all_templates = OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES
         template_scope = {t["id"]: t.get("scope", "overall") for t in all_templates}
-        specs = [s for s in specs if template_scope.get(s.id, "overall") == scope_filter]
+        specs = [
+            s for s in specs if template_scope.get(s.id, "overall") == scope_filter
+        ]
 
     if max_metrics:
         specs = specs[:max_metrics]
@@ -1674,8 +1871,8 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
         project_id=args.project,
         project_name=args.project,
         version=args.version,
-        simulation_only=getattr(args, 'simulation', False),
-        production_only=getattr(args, 'production', False),
+        simulation_only=getattr(args, "simulation", False),
+        production_only=getattr(args, "production", False),
         since=_parse_dt(args.since),
         until=_parse_dt(args.until),
         limit=args.limit,
@@ -1695,7 +1892,11 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
         dataset_file = os.path.basename(args.output)
 
     functions = sorted(
-        {item.metadata.get("function") for item in items if isinstance(item.metadata, dict) and item.metadata.get("function")}
+        {
+            item.metadata.get("function")
+            for item in items
+            if isinstance(item.metadata, dict) and item.metadata.get("function")
+        }
     )
     function_name = functions[0] if len(functions) == 1 else None
 
@@ -1720,10 +1921,15 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
             "include_errors": bool(args.include_errors),
         },
         "counts": {"items": len(items)},
-        "schema": {"inputs_keys": sorted(input_keys), "metadata_keys": sorted(meta_keys)},
+        "schema": {
+            "inputs_keys": sorted(input_keys),
+            "metadata_keys": sorted(meta_keys),
+        },
     }
 
-    dataset_path = save_dataset_with_meta(items, dataset_dir, meta, dataset_filename=dataset_file)
+    dataset_path = save_dataset_with_meta(
+        items, dataset_dir, meta, dataset_filename=dataset_file
+    )
     print(f"Wrote {len(items)} items to {dataset_path}")
 
 
@@ -1736,10 +1942,23 @@ def cmd_show_projects(args: argparse.Namespace) -> None:
     summary = {}
     for call in calls:
         meta = call.metadata if isinstance(call.metadata, dict) else {}
-        project = meta.get("project_id") or meta.get("project_name") or call.function_name or "unknown"
+        project = (
+            meta.get("project_id")
+            or meta.get("project_name")
+            or call.function_name
+            or "unknown"
+        )
         version = meta.get("version") or ""
         key = (project, version)
-        rec = summary.setdefault(key, {"total": 0, "errors": 0, "first": call.started_at, "last": call.started_at})
+        rec = summary.setdefault(
+            key,
+            {
+                "total": 0,
+                "errors": 0,
+                "first": call.started_at,
+                "last": call.started_at,
+            },
+        )
         rec["total"] += 1
         if call.error:
             rec["errors"] += 1
@@ -1762,6 +1981,7 @@ def cmd_show_projects(args: argparse.Namespace) -> None:
         ]
         print(" | ".join(row))
 
+
 def cmd_list_runs(args: argparse.Namespace) -> None:
     tracer = get_default_tracer()
     if not tracer.storage:
@@ -1780,14 +2000,18 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
     if output_format == "json":
         result = []
         for run in runs:
-            result.append({
-                "id": run.id,
-                "dataset_name": run.dataset_name,
-                "created_at": run.created_at.isoformat() if run.created_at else None,
-                "metrics_count": len(run.metrics),
-                "results_count": len(run.metric_results),
-                "summary": run.summary,
-            })
+            result.append(
+                {
+                    "id": run.id,
+                    "dataset_name": run.dataset_name,
+                    "created_at": run.created_at.isoformat()
+                    if run.created_at
+                    else None,
+                    "metrics_count": len(run.metrics),
+                    "results_count": len(run.metric_results),
+                    "summary": run.summary,
+                }
+            )
         print(json.dumps(result, indent=2))
         return
 
@@ -1873,7 +2097,9 @@ def cmd_export_for_annotation(args: argparse.Namespace) -> None:
     if args.run_id:
         run = tracer.storage.get_eval_run(args.run_id)
         if not run:
-            print(f"Warning: Eval run '{args.run_id}' not found. Exporting without eval results.")
+            print(
+                f"Warning: Eval run '{args.run_id}' not found. Exporting without eval results."
+            )
     else:
         # Try to get the latest run
         runs = tracer.storage.list_eval_runs(limit=1)
@@ -2000,22 +2226,31 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
             if llm_passed is None:
                 continue
             if metric_id not in agreement_stats:
-                agreement_stats[metric_id] = {"agree": 0, "disagree": 0, "fp": 0, "fn": 0}
+                agreement_stats[metric_id] = {
+                    "agree": 0,
+                    "disagree": 0,
+                    "fp": 0,
+                    "fn": 0,
+                }
             if human_passed == llm_passed:
                 agreement_stats[metric_id]["agree"] += 1
             else:
                 agreement_stats[metric_id]["disagree"] += 1
                 if llm_passed and not human_passed:
-                    agreement_stats[metric_id]["fp"] += 1  # LLM says pass, human says fail
+                    agreement_stats[metric_id]["fp"] += (
+                        1  # LLM says pass, human says fail
+                    )
                 else:
-                    agreement_stats[metric_id]["fn"] += 1  # LLM says fail, human says pass
+                    agreement_stats[metric_id]["fn"] += (
+                        1  # LLM says fail, human says pass
+                    )
 
     # Print report
     print("\n" + "=" * 60)
     print("ANNOTATION COVERAGE REPORT")
     print("=" * 60)
     print(f"\nTotal items:        {total}")
-    print(f"With human labels:  {with_labels} ({coverage*100:.1f}%)")
+    print(f"With human labels:  {with_labels} ({coverage * 100:.1f}%)")
     print(f"With eval results:  {with_evals}")
     print(f"Awaiting annotation: {total - with_labels}")
 
@@ -2027,18 +2262,24 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
         print("-" * 60)
         for metric_id, stats in sorted(metric_stats.items()):
             pass_rate = stats["passed"] / stats["total"] if stats["total"] > 0 else 0
-            print(f"{metric_id:<25} {stats['total']:<8} {stats['passed']:<8} {stats['failed']:<8} {pass_rate*100:.1f}%")
+            print(
+                f"{metric_id:<25} {stats['total']:<8} {stats['passed']:<8} {stats['failed']:<8} {pass_rate * 100:.1f}%"
+            )
 
     if agreement_stats:
         print("\n" + "-" * 60)
         print("HUMAN vs LLM AGREEMENT")
         print("-" * 60)
-        print(f"{'Metric':<25} {'Agree':<8} {'Disagree':<8} {'FP':<8} {'FN':<8} {'Agr %':<8}")
+        print(
+            f"{'Metric':<25} {'Agree':<8} {'Disagree':<8} {'FP':<8} {'FN':<8} {'Agr %':<8}"
+        )
         print("-" * 60)
         for metric_id, stats in sorted(agreement_stats.items()):
             total_compared = stats["agree"] + stats["disagree"]
             agr_rate = stats["agree"] / total_compared if total_compared > 0 else 0
-            print(f"{metric_id:<25} {stats['agree']:<8} {stats['disagree']:<8} {stats['fp']:<8} {stats['fn']:<8} {agr_rate*100:.1f}%")
+            print(
+                f"{metric_id:<25} {stats['agree']:<8} {stats['disagree']:<8} {stats['fp']:<8} {stats['fn']:<8} {agr_rate * 100:.1f}%"
+            )
         print("\nFP = False Positive (LLM=PASS, Human=FAIL)")
         print("FN = False Negative (LLM=FAIL, Human=PASS)")
 
@@ -2052,8 +2293,8 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
     config = load_config()
 
     # Resolve dataset path
-    dataset_arg = getattr(args, 'dataset', None)
-    use_latest = getattr(args, 'latest', False)
+    dataset_arg = getattr(args, "dataset", None)
+    use_latest = getattr(args, "latest", False)
     resolved_path = resolve_dataset_path(dataset_arg, use_latest, config)
 
     if not resolved_path:
@@ -2087,16 +2328,18 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     # Get span_type filter
-    span_type_filter = getattr(args, 'span_type', 'all')
-    if span_type_filter == 'all':
+    span_type_filter = getattr(args, "span_type", "all")
+    if span_type_filter == "all":
         span_type_filter = None
 
     # Output path for span annotations
-    output_path = Path(args.output) if args.output else dataset_dir / "span_annotations.jsonl"
+    output_path = (
+        Path(args.output) if args.output else dataset_dir / "span_annotations.jsonl"
+    )
 
     # Load existing span annotations
     existing_annotations: Dict[str, SpanAnnotation] = {}
-    if output_path.exists() and not getattr(args, 'restart', False):
+    if output_path.exists() and not getattr(args, "restart", False):
         try:
             for line in output_path.read_text(encoding="utf-8").strip().splitlines():
                 if line.strip():
@@ -2131,7 +2374,9 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
             all_spans.append(span)
 
     if not all_spans:
-        print("No spans to annotate. All spans already annotated or no matching spans found.")
+        print(
+            "No spans to annotate. All spans already annotated or no matching spans found."
+        )
         if span_type_filter:
             print(f"Tip: Filter was set to '{span_type_filter}'. Try --span-type all")
         return
@@ -2225,31 +2470,39 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
 
         if span_type == "overall":
             # Show input/output for overall
-            print(f"\n📥 INPUT: {truncate(json.dumps(span.get('input', {}), ensure_ascii=False), 200)}")
+            print(
+                f"\n📥 INPUT: {truncate(json.dumps(span.get('input', {}), ensure_ascii=False), 200)}"
+            )
             print(f"📤 OUTPUT: {truncate(str(span.get('output', '')), 300)}")
         elif span.get("detail"):
             # Show detail for other span types
             detail = span["detail"]
             if span_type == "llm_call":
                 print(f"  Model: {detail.get('model', 'unknown')}")
-                print(f"  Tokens: {detail.get('input_tokens', '?')} in / {detail.get('output_tokens', '?')} out")
-                if detail.get('cost'):
+                print(
+                    f"  Tokens: {detail.get('input_tokens', '?')} in / {detail.get('output_tokens', '?')} out"
+                )
+                if detail.get("cost"):
                     print(f"  Cost: ${detail.get('cost', 0):.6f}")
-                if detail.get('response_excerpt'):
-                    print(f"  Response: {truncate(detail.get('response_excerpt', ''), 200)}")
+                if detail.get("response_excerpt"):
+                    print(
+                        f"  Response: {truncate(detail.get('response_excerpt', ''), 200)}"
+                    )
             elif span_type == "tool_call":
                 print(f"  Tool: {detail.get('tool_name', 'unknown')}")
-                if detail.get('args'):
-                    print(f"  Args: {truncate(json.dumps(detail.get('args', {}), ensure_ascii=False), 150)}")
-                if detail.get('result'):
+                if detail.get("args"):
+                    print(
+                        f"  Args: {truncate(json.dumps(detail.get('args', {}), ensure_ascii=False), 150)}"
+                    )
+                if detail.get("result"):
                     print(f"  Result: {truncate(str(detail.get('result', '')), 150)}")
             elif span_type == "reasoning":
-                if detail.get('content'):
+                if detail.get("content"):
                     print(f"  Content: {truncate(str(detail.get('content', '')), 200)}")
             elif span_type == "retrieval":
-                if detail.get('query'):
+                if detail.get("query"):
                     print(f"  Query: {truncate(str(detail.get('query', '')), 100)}")
-                if detail.get('results_count'):
+                if detail.get("results_count"):
                     print(f"  Results: {detail.get('results_count')} documents")
 
         print("─" * 70)
@@ -2315,7 +2568,7 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
                 span_id=span_id,
                 span_type=span_type,
                 annotation=annotation_schema,
-                annotator=getattr(args, 'annotator', None) or "human",
+                annotator=getattr(args, "annotator", None) or "human",
             )
             annotations.append(span_ann)
             save_annotations()
@@ -2339,14 +2592,14 @@ def cmd_annotate(args: argparse.Namespace) -> None:
     from .models import AnnotationItem, HumanLabel, Annotation, MetricLabel
 
     # Check for span annotation mode
-    if getattr(args, 'spans', False):
+    if getattr(args, "spans", False):
         return cmd_annotate_spans(args)
 
     config = load_config()
 
     # Resolve dataset path using --dataset, --latest, or config
-    dataset_arg = getattr(args, 'dataset', None)
-    use_latest = getattr(args, 'latest', False)
+    dataset_arg = getattr(args, "dataset", None)
+    use_latest = getattr(args, "latest", False)
     resolved_path = resolve_dataset_path(dataset_arg, use_latest, config)
 
     if not resolved_path:
@@ -2396,7 +2649,9 @@ def cmd_annotate(args: argparse.Namespace) -> None:
             }
 
     # Load existing annotations if any
-    output_path = Path(args.output) if args.output else dataset_dir / "annotations.jsonl"
+    output_path = (
+        Path(args.output) if args.output else dataset_dir / "annotations.jsonl"
+    )
     existing_annotations: Dict[str, Annotation] = {}
     if output_path.exists() and not args.restart:
         try:
@@ -2450,7 +2705,9 @@ def cmd_annotate(args: argparse.Namespace) -> None:
         text = text.replace("\n", " ").strip()
         return text if len(text) <= max_len else text[:max_len] + "..."
 
-    def display_item(idx: int, item: DatasetItem, show_metric_numbers: bool = False) -> List[tuple]:
+    def display_item(
+        idx: int, item: DatasetItem, show_metric_numbers: bool = False
+    ) -> List[tuple]:
         """Display item and return list of (metric_id, llm_passed, reason) for subjective metrics."""
         call_id = item.metadata.get("call_id", item.id)
         print(f"\n{'─' * 70}")
@@ -2458,7 +2715,11 @@ def cmd_annotate(args: argparse.Namespace) -> None:
         print("─" * 70)
 
         # Input
-        input_text = json.dumps(item.input, ensure_ascii=False, indent=2) if item.input else "(no input)"
+        input_text = (
+            json.dumps(item.input, ensure_ascii=False, indent=2)
+            if item.input
+            else "(no input)"
+        )
         print(f"\n📥 INPUT:")
         if len(input_text) > 300:
             print(f"   {truncate(input_text, 300)}")
@@ -2518,7 +2779,9 @@ def cmd_annotate(args: argparse.Namespace) -> None:
             for ann in annotations:
                 f.write(json.dumps(ann.as_dict(), ensure_ascii=False) + "\n")
 
-    def annotate_per_metric(item: DatasetItem, subjective_metrics: List[tuple]) -> Optional[Annotation]:
+    def annotate_per_metric(
+        item: DatasetItem, subjective_metrics: List[tuple]
+    ) -> Optional[Annotation]:
         """Per-metric annotation flow."""
         call_id = item.metadata.get("call_id", item.id)
         metric_labels: Dict[str, MetricLabel] = {}
@@ -2663,7 +2926,9 @@ def cmd_annotate(args: argparse.Namespace) -> None:
         item = items_to_annotate[idx]
         call_id = item.metadata.get("call_id", item.id)
 
-        subjective_metrics = display_item(idx, item, show_metric_numbers=per_metric_mode)
+        subjective_metrics = display_item(
+            idx, item, show_metric_numbers=per_metric_mode
+        )
 
         if per_metric_mode:
             ann = annotate_per_metric(item, subjective_metrics)
@@ -2673,7 +2938,9 @@ def cmd_annotate(args: argparse.Namespace) -> None:
                     quit_check = input("\nQuit? [y/n]: ").strip().lower()
                     if quit_check in ("y", "yes"):
                         save_annotations()
-                        print(f"\nSaved {len(annotations)} annotations to {output_path}")
+                        print(
+                            f"\nSaved {len(annotations)} annotations to {output_path}"
+                        )
                         return
                 except (EOFError, KeyboardInterrupt):
                     save_annotations()
@@ -2700,11 +2967,16 @@ def cmd_annotate(args: argparse.Namespace) -> None:
         if per_metric_mode:
             agrees = sum(1 for ml in ann.metric_labels.values() if ml.agree_with_llm)
             total_metrics = len(ann.metric_labels)
-            print(f"\n✓ Saved: {agrees}/{total_metrics} agree with LLM, overall={('✅ PASS' if ann.label else '❌ FAIL')}")
+            print(
+                f"\n✓ Saved: {agrees}/{total_metrics} agree with LLM, overall={('✅ PASS' if ann.label else '❌ FAIL')}"
+            )
         else:
             status = "✅ PASS" if ann.label else "❌ FAIL"
             conf_str = f", confidence={ann.confidence}" if ann.confidence else ""
-            print(f"Saved: {status}{conf_str}" + (f" - {ann.rationale}" if ann.rationale else ""))
+            print(
+                f"Saved: {status}{conf_str}"
+                + (f" - {ann.rationale}" if ann.rationale else "")
+            )
 
         idx += 1
 
@@ -2715,7 +2987,9 @@ def cmd_annotate(args: argparse.Namespace) -> None:
     print(f"Total annotated: {len(annotations)}")
     print(f"Saved to: {output_path}")
     print("=" * 70)
-    print(f"\nNext step: evalyn calibrate --metric-id <metric> --annotations {output_path}")
+    print(
+        f"\nNext step: evalyn calibrate --metric-id <metric> --annotations {output_path}"
+    )
 
 
 def cmd_calibrate(args: argparse.Namespace) -> None:
@@ -2762,13 +3036,15 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     dataset_dir: Optional[Path] = None
 
     # Resolve dataset path using --dataset, --latest, or config
-    dataset_arg = getattr(args, 'dataset', None)
-    use_latest = getattr(args, 'latest', False)
+    dataset_arg = getattr(args, "dataset", None)
+    use_latest = getattr(args, "latest", False)
     resolved_dataset = resolve_dataset_path(dataset_arg, use_latest, config)
 
     if resolved_dataset:
         dataset_dir = Path(resolved_dataset)
-        dataset_file = dataset_dir / "dataset.jsonl" if dataset_dir.is_dir() else dataset_dir
+        dataset_file = (
+            dataset_dir / "dataset.jsonl" if dataset_dir.is_dir() else dataset_dir
+        )
         if dataset_file.exists():
             dataset_items = load_dataset(dataset_file)
             if dataset_dir.is_file():
@@ -2807,11 +3083,13 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
         record = engine.calibrate(metric_results, anns, dataset_items)
 
     # Display results
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"CALIBRATION REPORT: {args.metric_id}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Eval Run: {run.id}")
-    print(f"Samples:  {record.adjustments.get('alignment_metrics', {}).get('total_samples', 0)}")
+    print(
+        f"Samples:  {record.adjustments.get('alignment_metrics', {}).get('total_samples', 0)}"
+    )
 
     # Alignment metrics
     alignment = record.adjustments.get("alignment_metrics", {})
@@ -2829,8 +3107,12 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
         if cm:
             print(f"\nConfusion Matrix:")
             print(f"                   Human PASS  Human FAIL")
-            print(f"  Judge PASS       {cm.get('true_positive', 0):^10}  {cm.get('false_positive', 0):^10}")
-            print(f"  Judge FAIL       {cm.get('false_negative', 0):^10}  {cm.get('true_negative', 0):^10}")
+            print(
+                f"  Judge PASS       {cm.get('true_positive', 0):^10}  {cm.get('false_positive', 0):^10}"
+            )
+            print(
+                f"  Judge FAIL       {cm.get('false_negative', 0):^10}  {cm.get('true_negative', 0):^10}"
+            )
 
     # Disagreement patterns
     disagreements = record.adjustments.get("disagreement_patterns", {})
@@ -2850,17 +3132,25 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
                     print(f"\nFalse Positive Examples:")
                     for i, ex in enumerate(fp_examples, 1):
                         print(f"  {i}. call_id={ex.get('call_id', '')[:8]}...")
-                        print(f"     Judge reason: {ex.get('judge_reason', '')[:80]}...")
+                        print(
+                            f"     Judge reason: {ex.get('judge_reason', '')[:80]}..."
+                        )
                         if ex.get("human_notes"):
-                            print(f"     Human notes:  {ex.get('human_notes', '')[:80]}...")
+                            print(
+                                f"     Human notes:  {ex.get('human_notes', '')[:80]}..."
+                            )
 
                 if fn_examples:
                     print(f"\nFalse Negative Examples:")
                     for i, ex in enumerate(fn_examples, 1):
                         print(f"  {i}. call_id={ex.get('call_id', '')[:8]}...")
-                        print(f"     Judge reason: {ex.get('judge_reason', '')[:80]}...")
+                        print(
+                            f"     Judge reason: {ex.get('judge_reason', '')[:80]}..."
+                        )
                         if ex.get("human_notes"):
-                            print(f"     Human notes:  {ex.get('human_notes', '')[:80]}...")
+                            print(
+                                f"     Human notes:  {ex.get('human_notes', '')[:80]}..."
+                            )
 
     # Threshold suggestion
     print(f"\n--- THRESHOLD ---")
@@ -2873,7 +3163,9 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     if optimization:
         print(f"\n--- PROMPT OPTIMIZATION ---")
         print(f"Optimizer:             {optimizer_type.upper()}")
-        print(f"Estimated improvement: {optimization.get('estimated_improvement', 'unknown')}")
+        print(
+            f"Estimated improvement: {optimization.get('estimated_improvement', 'unknown')}"
+        )
 
         reasoning = optimization.get("improvement_reasoning", "")
         if reasoning:
@@ -2910,7 +3202,11 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
         if optimized_preamble:
             print(f"\nOPTIMIZED PREAMBLE:")
             # Show first 200 chars
-            preview = optimized_preamble[:200] + "..." if len(optimized_preamble) > 200 else optimized_preamble
+            preview = (
+                optimized_preamble[:200] + "..."
+                if len(optimized_preamble) > 200
+                else optimized_preamble
+            )
             for line in preview.split("\n"):
                 print(f"  {line}")
 
@@ -2956,9 +3252,13 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
         print(f"Optimized F1:    {optimized_f1:.3f}")
 
         if improvement_delta > 0:
-            print(f"Improvement:     +{improvement_delta:.3f} (+{improvement_delta*100:.1f}%)")
+            print(
+                f"Improvement:     +{improvement_delta:.3f} (+{improvement_delta * 100:.1f}%)"
+            )
         elif improvement_delta < 0:
-            print(f"Degradation:     {improvement_delta:.3f} ({improvement_delta*100:.1f}%)")
+            print(
+                f"Degradation:     {improvement_delta:.3f} ({improvement_delta * 100:.1f}%)"
+            )
         else:
             print(f"Change:          {improvement_delta:.3f}")
 
@@ -2986,12 +3286,12 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
             saved_files = save_calibration(record, str(dataset_dir), args.metric_id)
             print(f"\n--- SAVED FILES ---")
             print(f"Calibration: {saved_files.get('calibration', 'N/A')}")
-            if saved_files.get('preamble'):
+            if saved_files.get("preamble"):
                 print(f"Preamble:    {saved_files.get('preamble')}")
-            if saved_files.get('full_prompt'):
+            if saved_files.get("full_prompt"):
                 print(f"Full prompt: {saved_files.get('full_prompt')}")
         except Exception as e:
-                print(f"\nWarning: Could not save to calibrations folder: {e}")
+            print(f"\nWarning: Could not save to calibrations folder: {e}")
 
     # Also save to explicit output path if specified
     if args.output:
@@ -3000,16 +3300,14 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
             json.dump(record.as_dict(), f, indent=2, default=str)
         print(f"\nCalibration record also saved to: {output_path}")
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
 
 
 def cmd_list_calibrations(args: argparse.Namespace) -> None:
     """List calibration records for a dataset."""
     config = load_config()
     dataset_path = resolve_dataset_path(
-        getattr(args, 'dataset', None),
-        getattr(args, 'latest', False),
-        config
+        getattr(args, "dataset", None), getattr(args, "latest", False), config
     )
 
     if not dataset_path:
@@ -3035,20 +3333,26 @@ def cmd_list_calibrations(args: argparse.Namespace) -> None:
                     record = json.load(f)
                     # Parse timestamp from filename (e.g., 20250101_120000_gepa.json)
                     parts = cal_file.stem.split("_")
-                    timestamp = f"{parts[0]}_{parts[1]}" if len(parts) >= 2 else "unknown"
+                    timestamp = (
+                        f"{parts[0]}_{parts[1]}" if len(parts) >= 2 else "unknown"
+                    )
                     optimizer = parts[2] if len(parts) >= 3 else "unknown"
 
-                    alignment = record.get("adjustments", {}).get("alignment_metrics", {})
-                    calibrations.append({
-                        "metric_id": metric_id,
-                        "timestamp": timestamp,
-                        "optimizer": optimizer,
-                        "accuracy": alignment.get("accuracy", 0),
-                        "f1": alignment.get("f1", 0),
-                        "kappa": alignment.get("cohens_kappa", 0),
-                        "samples": alignment.get("total_samples", 0),
-                        "path": str(cal_file),
-                    })
+                    alignment = record.get("adjustments", {}).get(
+                        "alignment_metrics", {}
+                    )
+                    calibrations.append(
+                        {
+                            "metric_id": metric_id,
+                            "timestamp": timestamp,
+                            "optimizer": optimizer,
+                            "accuracy": alignment.get("accuracy", 0),
+                            "f1": alignment.get("f1", 0),
+                            "kappa": alignment.get("cohens_kappa", 0),
+                            "samples": alignment.get("total_samples", 0),
+                            "path": str(cal_file),
+                        }
+                    )
             except Exception:
                 pass
 
@@ -3060,22 +3364,26 @@ def cmd_list_calibrations(args: argparse.Namespace) -> None:
     calibrations.sort(key=lambda x: x["timestamp"], reverse=True)
 
     # Output format
-    output_format = getattr(args, 'format', 'table')
+    output_format = getattr(args, "format", "table")
     if output_format == "json":
         print(json.dumps(calibrations, indent=2))
         return
 
     # Table format
     print(f"\nCalibrations in {dataset_path.name}:")
-    print(f"{'='*80}")
-    print(f"{'Metric':<25} {'Timestamp':<17} {'Optimizer':<8} {'Acc':<7} {'F1':<7} {'Kappa':<7} {'N':<5}")
-    print(f"{'-'*80}")
+    print(f"{'=' * 80}")
+    print(
+        f"{'Metric':<25} {'Timestamp':<17} {'Optimizer':<8} {'Acc':<7} {'F1':<7} {'Kappa':<7} {'N':<5}"
+    )
+    print(f"{'-' * 80}")
     for cal in calibrations:
-        print(f"{cal['metric_id']:<25} {cal['timestamp']:<17} {cal['optimizer']:<8} "
-              f"{cal['accuracy']:.1%}   {cal['f1']:.1%}   {cal['kappa']:.3f}  {cal['samples']:<5}")
+        print(
+            f"{cal['metric_id']:<25} {cal['timestamp']:<17} {cal['optimizer']:<8} "
+            f"{cal['accuracy']:.1%}   {cal['f1']:.1%}   {cal['kappa']:.3f}  {cal['samples']:<5}"
+        )
 
     # Show prompt files if any
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print("Optimized prompts:")
     for metric_dir in calibrations_dir.iterdir():
         if not metric_dir.is_dir():
@@ -3092,9 +3400,7 @@ def cmd_status(args: argparse.Namespace) -> None:
     """Show status of a dataset including items, metrics, runs, annotations, and calibrations."""
     config = load_config()
     dataset_path = resolve_dataset_path(
-        getattr(args, 'dataset', None),
-        getattr(args, 'latest', False),
-        config
+        getattr(args, "dataset", None), getattr(args, "latest", False), config
     )
 
     if not dataset_path:
@@ -3102,10 +3408,16 @@ def cmd_status(args: argparse.Namespace) -> None:
         print("No dataset specified. Available datasets:")
         data_dir = Path("data")
         if data_dir.exists():
-            datasets = [d for d in data_dir.iterdir() if d.is_dir() and (d / "dataset.jsonl").exists()]
+            datasets = [
+                d
+                for d in data_dir.iterdir()
+                if d.is_dir() and (d / "dataset.jsonl").exists()
+            ]
             datasets.sort(key=lambda d: d.stat().st_mtime, reverse=True)
             for d in datasets[:10]:
-                mtime = datetime.fromtimestamp(d.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+                mtime = datetime.fromtimestamp(d.stat().st_mtime).strftime(
+                    "%Y-%m-%d %H:%M"
+                )
                 print(f"  {d.name:<40} (modified: {mtime})")
             if len(datasets) > 10:
                 print(f"  ... and {len(datasets) - 10} more")
@@ -3116,9 +3428,9 @@ def cmd_status(args: argparse.Namespace) -> None:
         print(f"Error: Dataset path does not exist: {dataset_path}")
         return
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"DATASET STATUS: {dataset_path.name}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Path: {dataset_path}")
 
     # Dataset items
@@ -3156,7 +3468,10 @@ def cmd_status(args: argparse.Namespace) -> None:
                 print(f"  {mf.name}: (error reading)")
     else:
         print("No metrics defined yet")
-        print("  → Run: evalyn suggest-metrics --target <func> --dataset " + str(dataset_path))
+        print(
+            "  → Run: evalyn suggest-metrics --target <func> --dataset "
+            + str(dataset_path)
+        )
 
     # Eval runs
     eval_runs_dir = dataset_path / "eval_runs"
@@ -3185,7 +3500,7 @@ def cmd_status(args: argparse.Namespace) -> None:
         with open(annotations_file) as f:
             ann_count = sum(1 for _ in f)
         coverage = f"{ann_count}/{item_count}" if item_count > 0 else str(ann_count)
-        pct = f" ({ann_count/item_count:.0%})" if item_count > 0 else ""
+        pct = f" ({ann_count / item_count:.0%})" if item_count > 0 else ""
         print(f"Annotated: {coverage}{pct}")
     else:
         print("No annotations yet")
@@ -3207,29 +3522,47 @@ def cmd_status(args: argparse.Namespace) -> None:
             print(f"Calibrations: {cal_count} across {len(metrics_with_cal)} metrics")
             for m in metrics_with_cal[:5]:
                 prompts_dir = calibrations_dir / m / "prompts"
-                has_prompt = "✓ prompt" if prompts_dir.exists() and list(prompts_dir.glob("*_full.txt")) else ""
+                has_prompt = (
+                    "✓ prompt"
+                    if prompts_dir.exists() and list(prompts_dir.glob("*_full.txt"))
+                    else ""
+                )
                 print(f"  {m} {has_prompt}")
         else:
             print("No calibrations yet")
     else:
         print("No calibrations yet")
-        print("  → Run: evalyn calibrate --metric-id <metric> --annotations ... --dataset " + str(dataset_path))
+        print(
+            "  → Run: evalyn calibrate --metric-id <metric> --annotations ... --dataset "
+            + str(dataset_path)
+        )
 
     # Suggested next step
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("SUGGESTED NEXT STEP:")
     if not metrics_dir.exists() or not list(metrics_dir.glob("*.json")):
-        print("  evalyn suggest-metrics --target <module:func> --dataset " + str(dataset_path))
+        print(
+            "  evalyn suggest-metrics --target <module:func> --dataset "
+            + str(dataset_path)
+        )
     elif not eval_runs_dir.exists() or not list(eval_runs_dir.glob("*.json")):
         print("  evalyn run-eval --dataset " + str(dataset_path))
     elif not annotations_file.exists():
         print("  evalyn annotate --dataset " + str(dataset_path))
     elif not calibrations_dir.exists():
-        print("  evalyn calibrate --metric-id <metric> --annotations " + str(annotations_file) + " --dataset " + str(dataset_path))
+        print(
+            "  evalyn calibrate --metric-id <metric> --annotations "
+            + str(annotations_file)
+            + " --dataset "
+            + str(dataset_path)
+        )
     else:
         print("  All steps complete! Consider:")
         print("  - Re-run eval with optimized prompts")
-        print("  - Generate synthetic data: evalyn simulate --dataset " + str(dataset_path))
+        print(
+            "  - Generate synthetic data: evalyn simulate --dataset "
+            + str(dataset_path)
+        )
 
 
 def cmd_select_metrics(args: argparse.Namespace) -> None:
@@ -3240,7 +3573,9 @@ def cmd_select_metrics(args: argparse.Namespace) -> None:
     if args.llm_caller:
         caller = _load_callable(args.llm_caller)
         selector = TemplateSelector(caller, OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES)
-        selected = selector.select(target_fn, traces=traces, code_meta=_extract_code_meta(tracer, target_fn))
+        selected = selector.select(
+            target_fn, traces=traces, code_meta=_extract_code_meta(tracer, target_fn)
+        )
     else:
         # fallback to heuristic/built-in registry selection
         registry = MetricRegistry()
@@ -3403,9 +3738,9 @@ def cmd_simulate(args: argparse.Namespace) -> None:
                 modes=modes,
             )
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("SIMULATION COMPLETE")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         for mode, path in results.items():
             # Count items
             dataset_file = path / "dataset.jsonl"
@@ -3425,12 +3760,12 @@ def cmd_simulate(args: argparse.Namespace) -> None:
             with Spinner(f"Generating {mode} queries"):
                 if mode == "similar":
                     generated = user_sim.generate_similar(
-                        seed_items[:config.max_seed_items],
+                        seed_items[: config.max_seed_items],
                         num_per_seed=config.num_similar,
                     )
                 else:
                     generated = user_sim.generate_outliers(
-                        seed_items[:config.max_seed_items],
+                        seed_items[: config.max_seed_items],
                         num_per_seed=config.num_outlier,
                     )
 
@@ -3445,12 +3780,18 @@ def cmd_simulate(args: argparse.Namespace) -> None:
             queries_file = mode_dir / "queries.jsonl"
             with open(queries_file, "w", encoding="utf-8") as f:
                 for gq in generated:
-                    f.write(json.dumps({
-                        "query": gq.query,
-                        "mode": gq.mode,
-                        "seed_id": gq.seed_id,
-                        "generation_reason": gq.generation_reason,
-                    }, ensure_ascii=False) + "\n")
+                    f.write(
+                        json.dumps(
+                            {
+                                "query": gq.query,
+                                "mode": gq.mode,
+                                "seed_id": gq.seed_id,
+                                "generation_reason": gq.generation_reason,
+                            },
+                            ensure_ascii=False,
+                        )
+                        + "\n"
+                    )
 
             # Save meta
             meta = {
@@ -3461,8 +3802,12 @@ def cmd_simulate(args: argparse.Namespace) -> None:
                 "num_queries": len(generated),
                 "config": {
                     "model": config.model,
-                    "num_per_seed": config.num_similar if mode == "similar" else config.num_outlier,
-                    "temperature": config.temperature_similar if mode == "similar" else config.temperature_outlier,
+                    "num_per_seed": config.num_similar
+                    if mode == "similar"
+                    else config.num_outlier,
+                    "temperature": config.temperature_similar
+                    if mode == "similar"
+                    else config.temperature_outlier,
                 },
             }
             with open(mode_dir / "meta.json", "w") as f:
@@ -3470,9 +3815,9 @@ def cmd_simulate(args: argparse.Namespace) -> None:
 
             print(f"  Generated {len(generated)} {mode} queries -> {mode_dir}")
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("QUERY GENERATION COMPLETE")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(f"To run these queries through your agent, use --target flag")
 
 
@@ -3520,7 +3865,10 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         versions = set()
         for call in calls:
             meta = call.metadata or {}
-            if meta.get("project_name") == args.project or meta.get("project_id") == args.project:
+            if (
+                meta.get("project_name") == args.project
+                or meta.get("project_id") == args.project
+            ):
                 v = meta.get("version")
                 if v:
                     versions.add(v)
@@ -3559,7 +3907,10 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         print(f"Target:   {args.target}")
     if args.version:
         print(f"Version:  {args.version}")
-    print(f"Mode:     {args.metric_mode}" + (f" ({args.model})" if args.metric_mode != "basic" else ""))
+    print(
+        f"Mode:     {args.metric_mode}"
+        + (f" ({args.model})" if args.metric_mode != "basic" else "")
+    )
 
     # Create output directory
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -3581,7 +3932,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         "started_at": datetime.now().isoformat(),
         "config": vars(args),
         "steps": {},
-        "output_dir": str(output_dir)
+        "output_dir": str(output_dir),
     }
 
     try:
@@ -3591,7 +3942,9 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         dataset_dir.mkdir(exist_ok=True)
 
         if args.dry_run:
-            print(f"  → Would build dataset with: project={args.project}, limit={args.dataset_limit}")
+            print(
+                f"  → Would build dataset with: project={args.project}, limit={args.dataset_limit}"
+            )
             print(f"  → Would save to: {dataset_dir}/dataset.jsonl\n")
         else:
             from .datasets import build_dataset_from_storage, save_dataset_with_meta
@@ -3613,7 +3966,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 until=until,
                 limit=args.dataset_limit,
                 success_only=True,
-                include_metadata=True
+                include_metadata=True,
             )
 
             if not items:
@@ -3630,7 +3983,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                     "since": args.since,
                     "until": args.until,
                 },
-                "item_count": len(items)
+                "item_count": len(items),
             }
 
             dataset_path = save_dataset_with_meta(items, dataset_dir, meta)
@@ -3640,7 +3993,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             state["steps"]["1_dataset"] = {
                 "status": "success",
                 "output": str(dataset_path),
-                "item_count": len(items)
+                "item_count": len(items),
             }
 
         # Step 2: Suggest Metrics
@@ -3661,18 +4014,24 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 num_traces=5,
                 num_metrics=None,
                 mode=args.metric_mode,
-                llm_mode=args.llm_mode if args.metric_mode in ["llm-registry", "llm-brainstorm"] else None,
+                llm_mode=args.llm_mode
+                if args.metric_mode in ["llm-registry", "llm-brainstorm"]
+                else None,
                 model=args.model,
                 api_base=None,
                 api_key=None,
                 llm_caller=None,
                 bundle=args.bundle,
                 dataset=str(dataset_dir),
-                metrics_name="suggested"
+                metrics_name="suggested",
             )
 
             # Run suggest metrics (this will save to dataset/metrics/suggested.json)
-            from .metrics.suggester import HeuristicSuggester, LLMSuggester, LLMRegistrySelector
+            from .metrics.suggester import (
+                HeuristicSuggester,
+                LLMSuggester,
+                LLMRegistrySelector,
+            )
             from .metrics.registry import MetricRegistry
 
             # Load target function if provided
@@ -3685,6 +4044,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
 
             # Get sample traces
             from .storage import SQLiteStorage
+
             storage = SQLiteStorage()
             calls = storage.list_calls(limit=5)
 
@@ -3694,32 +4054,41 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 metric_specs = suggester.suggest(target_fn, calls)
             elif args.metric_mode == "llm-registry":
                 selector = LLMRegistrySelector(model=args.model, llm_mode=args.llm_mode)
-                metric_specs = selector.select_metrics(target_fn, calls, num_metrics=args.num_metrics)
+                metric_specs = selector.select_metrics(
+                    target_fn, calls, num_metrics=args.num_metrics
+                )
             elif args.metric_mode == "llm-brainstorm":
                 suggester = LLMSuggester(model=args.model, llm_mode=args.llm_mode)
-                metric_specs = suggester.suggest(target_fn, calls, num_metrics=args.num_metrics)
+                metric_specs = suggester.suggest(
+                    target_fn, calls, num_metrics=args.num_metrics
+                )
             else:  # bundle
                 from .metrics.bundles import get_bundle_metrics
+
                 metric_specs = get_bundle_metrics(args.bundle) if args.bundle else []
 
             # Save metrics
             payload = []
             for spec in metric_specs:
-                payload.append({
-                    "id": spec.id,
-                    "name": getattr(spec, "name", spec.id),
-                    "type": spec.type,
-                    "description": spec.description,
-                    "config": spec.config,
-                    "why": getattr(spec, "why", ""),
-                })
+                payload.append(
+                    {
+                        "id": spec.id,
+                        "name": getattr(spec, "name", spec.id),
+                        "type": spec.type,
+                        "description": spec.description,
+                        "config": spec.config,
+                        "why": getattr(spec, "why", ""),
+                    }
+                )
             with open(metrics_path, "w") as f:
                 json.dump(payload, f, indent=2)
 
             obj_count = sum(1 for spec in metric_specs if spec.type == "objective")
             subj_count = sum(1 for spec in metric_specs if spec.type == "subjective")
 
-            print(f"  ✓ Selected {len(metric_specs)} metrics ({obj_count} objective, {subj_count} subjective)")
+            print(
+                f"  ✓ Selected {len(metric_specs)} metrics ({obj_count} objective, {subj_count} subjective)"
+            )
             for spec in metric_specs:
                 print(f"    - {spec.id} ({spec.type})")
             print(f"  ✓ Saved to: {metrics_path}\n")
@@ -3729,7 +4098,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 "output": str(metrics_path),
                 "total": len(metric_specs),
                 "objective": obj_count,
-                "subjective": subj_count
+                "subjective": subj_count,
             }
 
         # Step 3: Run Initial Evaluation
@@ -3795,7 +4164,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             state["steps"]["3_initial_eval"] = {
                 "status": "success",
                 "output": str(run_path),
-                "run_id": eval_run.id
+                "run_id": eval_run.id,
             }
 
         # Step 4: Human Annotation (optional)
@@ -3827,7 +4196,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                         annotator="human",
                         restart=False,
                         per_metric=args.per_metric,
-                        only_disagreements=False
+                        only_disagreements=False,
                     )
                     cmd_annotate(ann_args)
 
@@ -3840,7 +4209,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                         state["steps"]["4_annotation"] = {
                             "status": "success",
                             "output": str(ann_path),
-                            "count": ann_count
+                            "count": ann_count,
                         }
                     else:
                         print("  ⏭️  No annotations created\n")
@@ -3871,7 +4240,9 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 ann_path = output_dir / "4_annotations" / "annotations.jsonl"
 
                 # Get subjective metrics
-                subj_metrics = [spec for spec in metric_specs if spec.type == "subjective"]
+                subj_metrics = [
+                    spec for spec in metric_specs if spec.type == "subjective"
+                ]
 
                 print(f"  → Calibrating {len(subj_metrics)} subjective metrics...\n")
 
@@ -3894,7 +4265,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                         gepa_max_calls=150,
                         show_examples=False,
                         output=None,
-                        format="table"
+                        format="table",
                     )
 
                     try:
@@ -3905,7 +4276,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
 
                 state["steps"]["5_calibration"] = {
                     "status": "success",
-                    "metrics_calibrated": len(subj_metrics)
+                    "metrics_calibrated": len(subj_metrics),
                 }
 
         # Step 6: Re-evaluate with Calibrated Prompts (optional)
@@ -3926,7 +4297,10 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 # Re-run evaluation with calibrated prompts
                 from .runner import EvalRunner
                 from .datasets import load_dataset
-                from .metrics.factory import build_objective_metric, build_subjective_metric
+                from .metrics.factory import (
+                    build_objective_metric,
+                    build_subjective_metric,
+                )
                 from .calibration import load_optimized_prompt
 
                 # Load metrics from file
@@ -3945,7 +4319,9 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                     )
                     # Load calibrated prompt for subjective metrics
                     if spec.type == "subjective":
-                        optimized_prompt = load_optimized_prompt(str(dataset_dir), spec.id)
+                        optimized_prompt = load_optimized_prompt(
+                            str(dataset_dir), spec.id
+                        )
                         if optimized_prompt:
                             spec.config = dict(spec.config or {})
                             spec.config["prompt"] = optimized_prompt
@@ -3985,7 +4361,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 state["steps"]["6_calibrated_eval"] = {
                     "status": "success",
                     "output": str(run_path2),
-                    "calibrated_count": calibrated_count
+                    "calibrated_count": calibrated_count,
                 }
 
         # Step 7: Generate Simulations (optional)
@@ -3996,11 +4372,16 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         elif not args.target:
             print("[7/7] Generating Simulations")
             print("  ⏭️  SKIPPED (--target required for simulation)\n")
-            state["steps"]["7_simulation"] = {"status": "skipped", "reason": "no target"}
+            state["steps"]["7_simulation"] = {
+                "status": "skipped",
+                "reason": "no target",
+            }
         else:
             print("[7/7] Generating Simulations")
             if args.dry_run:
-                print(f"  → Would generate simulations: modes={args.simulation_modes}\n")
+                print(
+                    f"  → Would generate simulations: modes={args.simulation_modes}\n"
+                )
             else:
                 sim_dir = output_dir / "7_simulations"
                 sim_dir.mkdir(exist_ok=True)
@@ -4016,7 +4397,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                     max_seeds=args.max_sim_seeds,
                     model=args.model,
                     temp_similar=0.3,
-                    temp_outlier=0.8
+                    temp_outlier=0.8,
                 )
 
                 try:
@@ -4025,11 +4406,14 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                     print(f"  ✓ Saved to: {sim_dir}/\n")
                     state["steps"]["7_simulation"] = {
                         "status": "success",
-                        "output": str(sim_dir)
+                        "output": str(sim_dir),
                     }
                 except Exception as e:
                     print(f"  ✗ Simulation failed: {e}\n")
-                    state["steps"]["7_simulation"] = {"status": "failed", "error": str(e)}
+                    state["steps"]["7_simulation"] = {
+                        "status": "failed",
+                        "error": str(e),
+                    }
 
         # Save pipeline state
         state["completed_at"] = datetime.now().isoformat()
@@ -4045,14 +4429,23 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         print(f"\nSummary:")
         for step_name, step_info in state["steps"].items():
             status = step_info.get("status", "unknown")
-            status_icon = "✓" if status == "success" else ("⏭️" if status == "skipped" else "✗")
+            status_icon = (
+                "✓" if status == "success" else ("⏭️" if status == "skipped" else "✗")
+            )
             print(f"  {status_icon} {step_name}: {status}")
 
         print(f"\nNext steps:")
-        if "6_calibrated_eval" in state["steps"] and state["steps"]["6_calibrated_eval"]["status"] == "success":
-            print(f"  1. Review results: cat {state['steps']['6_calibrated_eval']['output']}")
+        if (
+            "6_calibrated_eval" in state["steps"]
+            and state["steps"]["6_calibrated_eval"]["status"] == "success"
+        ):
+            print(
+                f"  1. Review results: cat {state['steps']['6_calibrated_eval']['output']}"
+            )
         elif "3_initial_eval" in state["steps"]:
-            print(f"  1. Review results: cat {state['steps']['3_initial_eval']['output']}")
+            print(
+                f"  1. Review results: cat {state['steps']['3_initial_eval']['output']}"
+            )
         print(f"  2. View full summary: cat {state_path}")
         print()
 
@@ -4064,6 +4457,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         print(f"\n\n✗ Pipeline failed: {e}")
         print(f"Partial results saved to: {output_dir}\n")
         import traceback
+
         if args.verbose:
             traceback.print_exc()
 
@@ -4090,7 +4484,6 @@ For more info on a command: evalyn <command> --help
     subparsers = parser.add_subparsers(dest="command")
 
     def _print_ascii_help():
-
         # Dont change this ascii art
         art = r"""
          ______  __      __    /\       _     __     __  __   __   
@@ -4102,38 +4495,99 @@ For more info on a command: evalyn <command> --help
         |______|     \/   /_/      \_\ |______|  |_|     |_| \_|  
           
         """
-        print("================================================================================")
+        print(
+            "================================================================================"
+        )
         print(art)
-        print("================================================================================")
+        print(
+            "================================================================================"
+        )
         parser.print_help()
 
-    help_parser = subparsers.add_parser("help", help="Show available commands and examples", add_help=False)
+    help_parser = subparsers.add_parser(
+        "help", help="Show available commands and examples", add_help=False
+    )
     help_parser.set_defaults(func=lambda args: _print_ascii_help())
 
     list_parser = subparsers.add_parser("list-calls", help="List recent traced calls")
-    list_parser.add_argument("--limit", type=int, default=10, help="Maximum number of calls to display")
-    list_parser.add_argument("--project", help="Filter by project_id/project_name in call metadata")
-    list_parser.add_argument("--simulation", action="store_true", help="Show only simulation traces")
-    list_parser.add_argument("--production", action="store_true", help="Show only production traces")
-    list_parser.add_argument("--format", choices=["table", "json"], default="table", help="Output format (default: table)")
+    list_parser.add_argument(
+        "--limit", type=int, default=10, help="Maximum number of calls to display"
+    )
+    list_parser.add_argument(
+        "--project", help="Filter by project_id/project_name in call metadata"
+    )
+    list_parser.add_argument(
+        "--simulation", action="store_true", help="Show only simulation traces"
+    )
+    list_parser.add_argument(
+        "--production", action="store_true", help="Show only production traces"
+    )
+    list_parser.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format (default: table)",
+    )
     list_parser.set_defaults(func=cmd_list_calls)
 
-    run_parser = subparsers.add_parser("run-eval", help="Run evaluation on dataset using specified metrics")
-    run_parser.add_argument("--dataset", help="Path to JSON/JSONL dataset file or directory containing dataset.jsonl")
-    run_parser.add_argument("--latest", action="store_true", help="Use the most recently modified dataset")
-    run_parser.add_argument("--metrics", help="Path to metrics JSON file(s), comma-separated for multiple (auto-detected from meta.json if omitted)")
-    run_parser.add_argument("--metrics-all", action="store_true", help="Use all metrics files from the metrics/ folder")
-    run_parser.add_argument("--use-calibrated", action="store_true", help="Use calibrated prompts for subjective metrics (if available)")
-    run_parser.add_argument("--dataset-name", help="Name for the eval run (defaults to dataset filename)")
-    run_parser.add_argument("--format", choices=["table", "json"], default="table", help="Output format (default: table)")
+    run_parser = subparsers.add_parser(
+        "run-eval", help="Run evaluation on dataset using specified metrics"
+    )
+    run_parser.add_argument(
+        "--dataset",
+        help="Path to JSON/JSONL dataset file or directory containing dataset.jsonl",
+    )
+    run_parser.add_argument(
+        "--latest", action="store_true", help="Use the most recently modified dataset"
+    )
+    run_parser.add_argument(
+        "--metrics",
+        help="Path to metrics JSON file(s), comma-separated for multiple (auto-detected from meta.json if omitted)",
+    )
+    run_parser.add_argument(
+        "--metrics-all",
+        action="store_true",
+        help="Use all metrics files from the metrics/ folder",
+    )
+    run_parser.add_argument(
+        "--use-calibrated",
+        action="store_true",
+        help="Use calibrated prompts for subjective metrics (if available)",
+    )
+    run_parser.add_argument(
+        "--dataset-name", help="Name for the eval run (defaults to dataset filename)"
+    )
+    run_parser.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format (default: table)",
+    )
     run_parser.set_defaults(func=cmd_run_eval)
 
-    suggest_parser = subparsers.add_parser("suggest-metrics", help="Suggest metrics for a project or target function")
-    suggest_parser.add_argument("--project", help="Project name (use 'evalyn show-projects' to see available projects)")
-    suggest_parser.add_argument("--version", help="Filter by version (optional, used with --project)")
-    suggest_parser.add_argument("--target", help="Callable to analyze in the form module:function (alternative to --project)")
-    suggest_parser.add_argument("--num-traces", type=int, default=5, help="How many recent traces to include as examples")
-    suggest_parser.add_argument("--num-metrics", type=int, help="Maximum number of metrics to return")
+    suggest_parser = subparsers.add_parser(
+        "suggest-metrics", help="Suggest metrics for a project or target function"
+    )
+    suggest_parser.add_argument(
+        "--project",
+        help="Project name (use 'evalyn show-projects' to see available projects)",
+    )
+    suggest_parser.add_argument(
+        "--version", help="Filter by version (optional, used with --project)"
+    )
+    suggest_parser.add_argument(
+        "--target",
+        help="Callable to analyze in the form module:function (alternative to --project)",
+    )
+    suggest_parser.add_argument(
+        "--num-traces",
+        type=int,
+        default=5,
+        help="How many recent traces to include as examples",
+    )
+    suggest_parser.add_argument(
+        "--num-metrics", type=int, help="Maximum number of metrics to return"
+    )
     suggest_parser.add_argument(
         "--mode",
         choices=["auto", "llm-registry", "llm-brainstorm", "bundle", "basic"],
@@ -4146,16 +4600,32 @@ For more info on a command: evalyn <command> --help
         default="api",
         help="When using LLM modes: choose local (ollama) or api (OpenAI/Gemini-compatible).",
     )
-    suggest_parser.add_argument("--model", default="gemini-2.5-flash-lite", help="Model name (e.g., gemini-2.5-flash-lite, gpt-4, llama3.1 for Ollama)")
-    suggest_parser.add_argument("--api-base", help="Custom API base URL for --llm-mode api (optional)")
-    suggest_parser.add_argument("--api-key", help="API key override for --llm-mode api (optional)")
+    suggest_parser.add_argument(
+        "--model",
+        default="gemini-2.5-flash-lite",
+        help="Model name (e.g., gemini-2.5-flash-lite, gpt-4, llama3.1 for Ollama)",
+    )
+    suggest_parser.add_argument(
+        "--api-base", help="Custom API base URL for --llm-mode api (optional)"
+    )
+    suggest_parser.add_argument(
+        "--api-key", help="API key override for --llm-mode api (optional)"
+    )
     suggest_parser.add_argument(
         "--llm-caller",
         help="Optional callable path that accepts a prompt string and returns a list of metric dicts",
     )
-    suggest_parser.add_argument("--bundle", help="Bundle name when --mode bundle (e.g., summarization, orchestrator, research-agent)")
-    suggest_parser.add_argument("--dataset", help="Dataset directory (or dataset.jsonl/meta.json) to save metrics into")
-    suggest_parser.add_argument("--metrics-name", help="Metrics set name when saving to a dataset")
+    suggest_parser.add_argument(
+        "--bundle",
+        help="Bundle name when --mode bundle (e.g., summarization, orchestrator, research-agent)",
+    )
+    suggest_parser.add_argument(
+        "--dataset",
+        help="Dataset directory (or dataset.jsonl/meta.json) to save metrics into",
+    )
+    suggest_parser.add_argument(
+        "--metrics-name", help="Metrics set name when saving to a dataset"
+    )
     suggest_parser.add_argument(
         "--scope",
         choices=["all", "overall", "llm_call", "tool_call", "trace"],
@@ -4164,28 +4634,60 @@ For more info on a command: evalyn <command> --help
     )
     suggest_parser.set_defaults(func=cmd_suggest_metrics)
 
-    build_ds = subparsers.add_parser("build-dataset", help="Build dataset from stored traces")
-    build_ds.add_argument("--output", help="Path to write dataset JSONL (default: data/<project>-<version>-<timestamp>.jsonl)")
-    build_ds.add_argument("--project", help="Filter by metadata.project_id or project_name (recommended grouping)")
+    build_ds = subparsers.add_parser(
+        "build-dataset", help="Build dataset from stored traces"
+    )
+    build_ds.add_argument(
+        "--output",
+        help="Path to write dataset JSONL (default: data/<project>-<version>-<timestamp>.jsonl)",
+    )
+    build_ds.add_argument(
+        "--project",
+        help="Filter by metadata.project_id or project_name (recommended grouping)",
+    )
     build_ds.add_argument("--version", help="Filter by metadata.version")
-    build_ds.add_argument("--simulation", action="store_true", help="Include only simulation traces")
-    build_ds.add_argument("--production", action="store_true", help="Include only production traces")
+    build_ds.add_argument(
+        "--simulation", action="store_true", help="Include only simulation traces"
+    )
+    build_ds.add_argument(
+        "--production", action="store_true", help="Include only production traces"
+    )
     build_ds.add_argument("--since", help="ISO timestamp lower bound for started_at")
     build_ds.add_argument("--until", help="ISO timestamp upper bound for started_at")
-    build_ds.add_argument("--limit", type=int, default=500, help="Max number of items to include (after filtering)")
-    build_ds.add_argument("--include-errors", action="store_true", help="Include errored calls (default: skip)")
+    build_ds.add_argument(
+        "--limit",
+        type=int,
+        default=500,
+        help="Max number of items to include (after filtering)",
+    )
+    build_ds.add_argument(
+        "--include-errors",
+        action="store_true",
+        help="Include errored calls (default: skip)",
+    )
     build_ds.set_defaults(func=cmd_build_dataset)
 
-    show_projects = subparsers.add_parser("show-projects", help="Summaries per project/version")
-    show_projects.add_argument("--limit", type=int, default=5000, help="How many calls to scan")
+    show_projects = subparsers.add_parser(
+        "show-projects", help="Summaries per project/version"
+    )
+    show_projects.add_argument(
+        "--limit", type=int, default=5000, help="How many calls to scan"
+    )
     show_projects.set_defaults(func=cmd_show_projects)
 
     runs_parser = subparsers.add_parser("list-runs", help="List stored eval runs")
     runs_parser.add_argument("--limit", type=int, default=10)
-    runs_parser.add_argument("--format", choices=["table", "json"], default="table", help="Output format (default: table)")
+    runs_parser.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format (default: table)",
+    )
     runs_parser.set_defaults(func=cmd_list_runs)
 
-    show_call = subparsers.add_parser("show-call", help="Show details for a traced call")
+    show_call = subparsers.add_parser(
+        "show-call", help="Show details for a traced call"
+    )
     show_call.add_argument("--id", required=True, help="Call id to display")
     show_call.set_defaults(func=cmd_show_call)
 
@@ -4193,133 +4695,413 @@ For more info on a command: evalyn <command> --help
     show_run.add_argument("--id", required=True, help="Eval run id to display")
     show_run.set_defaults(func=cmd_show_run)
 
-    import_ann = subparsers.add_parser("import-annotations", help="Import annotations from a JSONL file")
+    import_ann = subparsers.add_parser(
+        "import-annotations", help="Import annotations from a JSONL file"
+    )
     import_ann.add_argument("--path", required=True, help="Path to annotations JSONL")
     import_ann.set_defaults(func=cmd_import_annotations)
 
-    export_ann = subparsers.add_parser("export-for-annotation", help="Export dataset with eval results for human annotation")
-    export_ann.add_argument("--dataset", required=True, help="Path to dataset directory or dataset.jsonl file")
-    export_ann.add_argument("--output", required=True, help="Output path for annotation JSONL file")
-    export_ann.add_argument("--run-id", help="Specific eval run ID to use (defaults to latest)")
+    export_ann = subparsers.add_parser(
+        "export-for-annotation",
+        help="Export dataset with eval results for human annotation",
+    )
+    export_ann.add_argument(
+        "--dataset",
+        required=True,
+        help="Path to dataset directory or dataset.jsonl file",
+    )
+    export_ann.add_argument(
+        "--output", required=True, help="Output path for annotation JSONL file"
+    )
+    export_ann.add_argument(
+        "--run-id", help="Specific eval run ID to use (defaults to latest)"
+    )
     export_ann.set_defaults(func=cmd_export_for_annotation)
 
-    ann_stats = subparsers.add_parser("annotation-stats", help="Show annotation coverage statistics")
-    ann_stats.add_argument("--dataset", required=True, help="Path to annotations.jsonl or dataset directory")
+    ann_stats = subparsers.add_parser(
+        "annotation-stats", help="Show annotation coverage statistics"
+    )
+    ann_stats.add_argument(
+        "--dataset",
+        required=True,
+        help="Path to annotations.jsonl or dataset directory",
+    )
     ann_stats.set_defaults(func=cmd_annotation_stats)
 
-    annotate_parser = subparsers.add_parser("annotate", help="Interactive CLI for annotating dataset items")
-    annotate_parser.add_argument("--dataset", help="Path to dataset directory or dataset.jsonl file")
-    annotate_parser.add_argument("--latest", action="store_true", help="Use the most recently modified dataset")
-    annotate_parser.add_argument("--run-id", help="Eval run ID to show LLM judge results (defaults to latest)")
-    annotate_parser.add_argument("--output", help="Output path for annotations (defaults to <dataset>/annotations.jsonl)")
-    annotate_parser.add_argument("--annotator", default="human", help="Annotator name/id (default: human)")
-    annotate_parser.add_argument("--restart", action="store_true", help="Restart annotation from scratch (ignore existing)")
-    annotate_parser.add_argument("--per-metric", action="store_true", help="Annotate each metric separately (agree/disagree with LLM)")
-    annotate_parser.add_argument("--spans", action="store_true", help="Annotate individual spans (LLM calls, tool calls, etc.)")
-    annotate_parser.add_argument("--span-type", choices=["all", "llm_call", "tool_call", "reasoning", "retrieval"], default="all", help="Filter span types to annotate")
-    annotate_parser.add_argument("--only-disagreements", action="store_true", help="Only show items where LLM and prior human labels disagree")
+    annotate_parser = subparsers.add_parser(
+        "annotate", help="Interactive CLI for annotating dataset items"
+    )
+    annotate_parser.add_argument(
+        "--dataset", help="Path to dataset directory or dataset.jsonl file"
+    )
+    annotate_parser.add_argument(
+        "--latest", action="store_true", help="Use the most recently modified dataset"
+    )
+    annotate_parser.add_argument(
+        "--run-id", help="Eval run ID to show LLM judge results (defaults to latest)"
+    )
+    annotate_parser.add_argument(
+        "--output",
+        help="Output path for annotations (defaults to <dataset>/annotations.jsonl)",
+    )
+    annotate_parser.add_argument(
+        "--annotator", default="human", help="Annotator name/id (default: human)"
+    )
+    annotate_parser.add_argument(
+        "--restart",
+        action="store_true",
+        help="Restart annotation from scratch (ignore existing)",
+    )
+    annotate_parser.add_argument(
+        "--per-metric",
+        action="store_true",
+        help="Annotate each metric separately (agree/disagree with LLM)",
+    )
+    annotate_parser.add_argument(
+        "--spans",
+        action="store_true",
+        help="Annotate individual spans (LLM calls, tool calls, etc.)",
+    )
+    annotate_parser.add_argument(
+        "--span-type",
+        choices=["all", "llm_call", "tool_call", "reasoning", "retrieval"],
+        default="all",
+        help="Filter span types to annotate",
+    )
+    annotate_parser.add_argument(
+        "--only-disagreements",
+        action="store_true",
+        help="Only show items where LLM and prior human labels disagree",
+    )
     annotate_parser.set_defaults(func=cmd_annotate)
 
-    calibrate_parser = subparsers.add_parser("calibrate", help="Calibrate a subjective metric using human annotations")
-    calibrate_parser.add_argument("--metric-id", required=True, help="Metric ID to calibrate (usually the judge metric id)")
-    calibrate_parser.add_argument("--annotations", required=True, help="Path to annotations JSONL (target_id must match call_id)")
-    calibrate_parser.add_argument("--run-id", help="Eval run id to calibrate; defaults to latest run")
-    calibrate_parser.add_argument("--threshold", type=float, default=0.5, help="Current threshold for pass/fail")
-    calibrate_parser.add_argument("--dataset", help="Path to dataset folder (provides input/output context for optimization)")
-    calibrate_parser.add_argument("--latest", action="store_true", help="Use the most recently modified dataset")
-    calibrate_parser.add_argument("--no-optimize", action="store_true", help="Skip LLM-based prompt optimization")
-    calibrate_parser.add_argument("--optimizer", choices=["llm", "gepa"], default="llm", help="Optimization method: 'llm' (default) or 'gepa' (evolutionary)")
-    calibrate_parser.add_argument("--model", default="gemini-2.5-flash-lite", help="LLM model for prompt optimization (llm mode)")
+    calibrate_parser = subparsers.add_parser(
+        "calibrate", help="Calibrate a subjective metric using human annotations"
+    )
+    calibrate_parser.add_argument(
+        "--metric-id",
+        required=True,
+        help="Metric ID to calibrate (usually the judge metric id)",
+    )
+    calibrate_parser.add_argument(
+        "--annotations",
+        required=True,
+        help="Path to annotations JSONL (target_id must match call_id)",
+    )
+    calibrate_parser.add_argument(
+        "--run-id", help="Eval run id to calibrate; defaults to latest run"
+    )
+    calibrate_parser.add_argument(
+        "--threshold", type=float, default=0.5, help="Current threshold for pass/fail"
+    )
+    calibrate_parser.add_argument(
+        "--dataset",
+        help="Path to dataset folder (provides input/output context for optimization)",
+    )
+    calibrate_parser.add_argument(
+        "--latest", action="store_true", help="Use the most recently modified dataset"
+    )
+    calibrate_parser.add_argument(
+        "--no-optimize", action="store_true", help="Skip LLM-based prompt optimization"
+    )
+    calibrate_parser.add_argument(
+        "--optimizer",
+        choices=["llm", "gepa"],
+        default="llm",
+        help="Optimization method: 'llm' (default) or 'gepa' (evolutionary)",
+    )
+    calibrate_parser.add_argument(
+        "--model",
+        default="gemini-2.5-flash-lite",
+        help="LLM model for prompt optimization (llm mode)",
+    )
     # GEPA-specific options
-    calibrate_parser.add_argument("--gepa-task-lm", default="gemini/gemini-2.5-flash", help="Task model for GEPA (model being optimized)")
-    calibrate_parser.add_argument("--gepa-reflection-lm", default="gemini/gemini-2.5-flash", help="Reflection model for GEPA (strong model for reflection)")
-    calibrate_parser.add_argument("--gepa-max-calls", type=int, default=150, help="Max metric calls budget for GEPA optimization")
-    calibrate_parser.add_argument("--show-examples", action="store_true", help="Show example disagreement cases")
-    calibrate_parser.add_argument("--output", help="Path to save calibration record JSON")
-    calibrate_parser.add_argument("--format", choices=["table", "json"], default="table", help="Output format (default: table)")
+    calibrate_parser.add_argument(
+        "--gepa-task-lm",
+        default="gemini/gemini-2.5-flash",
+        help="Task model for GEPA (model being optimized)",
+    )
+    calibrate_parser.add_argument(
+        "--gepa-reflection-lm",
+        default="gemini/gemini-2.5-flash",
+        help="Reflection model for GEPA (strong model for reflection)",
+    )
+    calibrate_parser.add_argument(
+        "--gepa-max-calls",
+        type=int,
+        default=150,
+        help="Max metric calls budget for GEPA optimization",
+    )
+    calibrate_parser.add_argument(
+        "--show-examples", action="store_true", help="Show example disagreement cases"
+    )
+    calibrate_parser.add_argument(
+        "--output", help="Path to save calibration record JSON"
+    )
+    calibrate_parser.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format (default: table)",
+    )
     calibrate_parser.set_defaults(func=cmd_calibrate)
 
-    simulate_parser = subparsers.add_parser("simulate", help="Generate synthetic test data using LLM-based user simulation")
-    simulate_parser.add_argument("--dataset", required=True, help="Path to seed dataset directory or dataset.jsonl")
-    simulate_parser.add_argument("--target", help="Target function to run queries against (module:func or path/to/file.py:func)")
-    simulate_parser.add_argument("--output", help="Output directory for simulated data (default: <dataset>/simulations/)")
-    simulate_parser.add_argument("--modes", default="similar,outlier", help="Simulation modes: similar,outlier (comma-separated)")
-    simulate_parser.add_argument("--num-similar", type=int, default=3, help="Number of similar variations per seed item (default: 3)")
-    simulate_parser.add_argument("--num-outlier", type=int, default=1, help="Number of outlier/edge cases per seed item (default: 1)")
-    simulate_parser.add_argument("--max-seeds", type=int, default=50, help="Maximum seed items to use (default: 50)")
-    simulate_parser.add_argument("--model", default="gemini-2.5-flash-lite", help="LLM model for query generation")
-    simulate_parser.add_argument("--temp-similar", type=float, default=0.3, help="Temperature for similar queries (default: 0.3)")
-    simulate_parser.add_argument("--temp-outlier", type=float, default=0.8, help="Temperature for outlier queries (default: 0.8)")
+    simulate_parser = subparsers.add_parser(
+        "simulate", help="Generate synthetic test data using LLM-based user simulation"
+    )
+    simulate_parser.add_argument(
+        "--dataset",
+        required=True,
+        help="Path to seed dataset directory or dataset.jsonl",
+    )
+    simulate_parser.add_argument(
+        "--target",
+        help="Target function to run queries against (module:func or path/to/file.py:func)",
+    )
+    simulate_parser.add_argument(
+        "--output",
+        help="Output directory for simulated data (default: <dataset>/simulations/)",
+    )
+    simulate_parser.add_argument(
+        "--modes",
+        default="similar,outlier",
+        help="Simulation modes: similar,outlier (comma-separated)",
+    )
+    simulate_parser.add_argument(
+        "--num-similar",
+        type=int,
+        default=3,
+        help="Number of similar variations per seed item (default: 3)",
+    )
+    simulate_parser.add_argument(
+        "--num-outlier",
+        type=int,
+        default=1,
+        help="Number of outlier/edge cases per seed item (default: 1)",
+    )
+    simulate_parser.add_argument(
+        "--max-seeds",
+        type=int,
+        default=50,
+        help="Maximum seed items to use (default: 50)",
+    )
+    simulate_parser.add_argument(
+        "--model",
+        default="gemini-2.5-flash-lite",
+        help="LLM model for query generation",
+    )
+    simulate_parser.add_argument(
+        "--temp-similar",
+        type=float,
+        default=0.3,
+        help="Temperature for similar queries (default: 0.3)",
+    )
+    simulate_parser.add_argument(
+        "--temp-outlier",
+        type=float,
+        default=0.8,
+        help="Temperature for outlier queries (default: 0.8)",
+    )
     simulate_parser.set_defaults(func=cmd_simulate)
 
-    select_parser = subparsers.add_parser("select-metrics", help="LLM-guided selection from metric registry")
-    select_parser.add_argument("--target", required=True, help="Callable to analyze in the form module:function")
-    select_parser.add_argument("--llm-caller", required=True, help="Callable that accepts a prompt and returns metric ids or dicts")
-    select_parser.add_argument("--limit", type=int, default=5, help="Recent traces to include as examples")
+    select_parser = subparsers.add_parser(
+        "select-metrics", help="LLM-guided selection from metric registry"
+    )
+    select_parser.add_argument(
+        "--target",
+        required=True,
+        help="Callable to analyze in the form module:function",
+    )
+    select_parser.add_argument(
+        "--llm-caller",
+        required=True,
+        help="Callable that accepts a prompt and returns metric ids or dicts",
+    )
+    select_parser.add_argument(
+        "--limit", type=int, default=5, help="Recent traces to include as examples"
+    )
     select_parser.set_defaults(func=cmd_select_metrics)
 
-    list_metrics = subparsers.add_parser("list-metrics", help="List available metric templates (objective + subjective)")
+    list_metrics = subparsers.add_parser(
+        "list-metrics", help="List available metric templates (objective + subjective)"
+    )
     list_metrics.set_defaults(func=cmd_list_metrics)
 
     # New commands
-    status_parser = subparsers.add_parser("status", help="Show status of a dataset (items, metrics, runs, annotations, calibrations)")
+    status_parser = subparsers.add_parser(
+        "status",
+        help="Show status of a dataset (items, metrics, runs, annotations, calibrations)",
+    )
     status_parser.add_argument("--dataset", help="Path to dataset directory")
-    status_parser.add_argument("--latest", action="store_true", help="Use the most recently modified dataset")
+    status_parser.add_argument(
+        "--latest", action="store_true", help="Use the most recently modified dataset"
+    )
     status_parser.set_defaults(func=cmd_status)
 
-    list_cal_parser = subparsers.add_parser("list-calibrations", help="List calibration records for a dataset")
+    list_cal_parser = subparsers.add_parser(
+        "list-calibrations", help="List calibration records for a dataset"
+    )
     list_cal_parser.add_argument("--dataset", help="Path to dataset directory")
-    list_cal_parser.add_argument("--latest", action="store_true", help="Use the most recently modified dataset")
-    list_cal_parser.add_argument("--format", choices=["table", "json"], default="table", help="Output format (default: table)")
+    list_cal_parser.add_argument(
+        "--latest", action="store_true", help="Use the most recently modified dataset"
+    )
+    list_cal_parser.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format (default: table)",
+    )
     list_cal_parser.set_defaults(func=cmd_list_calibrations)
 
     # Init command
     init_parser = subparsers.add_parser("init", help="Initialize configuration file")
-    init_parser.add_argument("--output", default="evalyn.yaml", help="Output path for config file (default: evalyn.yaml)")
-    init_parser.add_argument("--force", action="store_true", help="Overwrite existing config file")
+    init_parser.add_argument(
+        "--output",
+        default="evalyn.yaml",
+        help="Output path for config file (default: evalyn.yaml)",
+    )
+    init_parser.add_argument(
+        "--force", action="store_true", help="Overwrite existing config file"
+    )
     init_parser.set_defaults(func=cmd_init)
 
     # One-click pipeline
-    oneclick_parser = subparsers.add_parser("one-click", help="Run complete evaluation pipeline (dataset -> metrics -> eval -> annotate -> calibrate)")
-    oneclick_parser.add_argument("--project", required=True, help="Project name to filter traces")
-    oneclick_parser.add_argument("--target", help="Target function (file.py:func or module:func). Optional - if not provided, uses existing trace outputs")
-    oneclick_parser.add_argument("--version", help="Version filter (default: all versions)")
-    oneclick_parser.add_argument("--production-only", action="store_true", help="Use only production traces")
-    oneclick_parser.add_argument("--simulation-only", action="store_true", help="Use only simulation traces")
-    oneclick_parser.add_argument("--output-dir", help="Custom output directory (default: auto-generated)")
+    oneclick_parser = subparsers.add_parser(
+        "one-click",
+        help="Run complete evaluation pipeline (dataset -> metrics -> eval -> annotate -> calibrate)",
+    )
+    oneclick_parser.add_argument(
+        "--project", required=True, help="Project name to filter traces"
+    )
+    oneclick_parser.add_argument(
+        "--target",
+        help="Target function (file.py:func or module:func). Optional - if not provided, uses existing trace outputs",
+    )
+    oneclick_parser.add_argument(
+        "--version", help="Version filter (default: all versions)"
+    )
+    oneclick_parser.add_argument(
+        "--production-only", action="store_true", help="Use only production traces"
+    )
+    oneclick_parser.add_argument(
+        "--simulation-only", action="store_true", help="Use only simulation traces"
+    )
+    oneclick_parser.add_argument(
+        "--output-dir", help="Custom output directory (default: auto-generated)"
+    )
 
     # Dataset options
-    oneclick_parser.add_argument("--dataset-limit", type=int, default=100, help="Max dataset items (default: 100)")
-    oneclick_parser.add_argument("--since", help="Filter traces since date (ISO format)")
-    oneclick_parser.add_argument("--until", help="Filter traces until date (ISO format)")
+    oneclick_parser.add_argument(
+        "--dataset-limit",
+        type=int,
+        default=100,
+        help="Max dataset items (default: 100)",
+    )
+    oneclick_parser.add_argument(
+        "--since", help="Filter traces since date (ISO format)"
+    )
+    oneclick_parser.add_argument(
+        "--until", help="Filter traces until date (ISO format)"
+    )
 
     # Metrics options
-    oneclick_parser.add_argument("--metric-mode", choices=["basic", "llm-registry", "llm-brainstorm", "bundle"], default="basic", help="Metric selection mode (default: basic)")
-    oneclick_parser.add_argument("--llm-mode", choices=["api", "local"], default="api", help="LLM mode for metric selection (default: api)")
-    oneclick_parser.add_argument("--model", default="gemini-2.5-flash-lite", help="LLM model name (default: gemini-2.5-flash-lite)")
+    oneclick_parser.add_argument(
+        "--metric-mode",
+        choices=["basic", "llm-registry", "llm-brainstorm", "bundle"],
+        default="basic",
+        help="Metric selection mode (default: basic)",
+    )
+    oneclick_parser.add_argument(
+        "--llm-mode",
+        choices=["api", "local"],
+        default="api",
+        help="LLM mode for metric selection (default: api)",
+    )
+    oneclick_parser.add_argument(
+        "--model",
+        default="gemini-2.5-flash-lite",
+        help="LLM model name (default: gemini-2.5-flash-lite)",
+    )
     oneclick_parser.add_argument("--bundle", help="Bundle name (if metric-mode=bundle)")
 
     # Annotation options
-    oneclick_parser.add_argument("--skip-annotation", action="store_true", help="Skip annotation step (default: false)")
-    oneclick_parser.add_argument("--annotation-limit", type=int, default=20, help="Max items to annotate (default: 20)")
-    oneclick_parser.add_argument("--per-metric", action="store_true", help="Use per-metric annotation mode")
+    oneclick_parser.add_argument(
+        "--skip-annotation",
+        action="store_true",
+        help="Skip annotation step (default: false)",
+    )
+    oneclick_parser.add_argument(
+        "--annotation-limit",
+        type=int,
+        default=20,
+        help="Max items to annotate (default: 20)",
+    )
+    oneclick_parser.add_argument(
+        "--per-metric", action="store_true", help="Use per-metric annotation mode"
+    )
 
     # Calibration options
-    oneclick_parser.add_argument("--skip-calibration", action="store_true", help="Skip calibration step (default: false)")
-    oneclick_parser.add_argument("--optimizer", choices=["llm", "gepa"], default="llm", help="Prompt optimization method (default: llm)")
-    oneclick_parser.add_argument("--calibrate-all-metrics", action="store_true", help="Calibrate all subjective metrics (default: only poorly-aligned)")
+    oneclick_parser.add_argument(
+        "--skip-calibration",
+        action="store_true",
+        help="Skip calibration step (default: false)",
+    )
+    oneclick_parser.add_argument(
+        "--optimizer",
+        choices=["llm", "gepa"],
+        default="llm",
+        help="Prompt optimization method (default: llm)",
+    )
+    oneclick_parser.add_argument(
+        "--calibrate-all-metrics",
+        action="store_true",
+        help="Calibrate all subjective metrics (default: only poorly-aligned)",
+    )
 
     # Simulation options
-    oneclick_parser.add_argument("--enable-simulation", action="store_true", help="Enable simulation step (default: false)")
-    oneclick_parser.add_argument("--simulation-modes", default="similar", help="Simulation modes: similar,outlier (default: similar)")
-    oneclick_parser.add_argument("--num-similar", type=int, default=3, help="Similar queries per seed (default: 3)")
-    oneclick_parser.add_argument("--num-outlier", type=int, default=2, help="Outlier queries per seed (default: 2)")
-    oneclick_parser.add_argument("--max-sim-seeds", type=int, default=10, help="Max seeds for simulation (default: 10)")
+    oneclick_parser.add_argument(
+        "--enable-simulation",
+        action="store_true",
+        help="Enable simulation step (default: false)",
+    )
+    oneclick_parser.add_argument(
+        "--simulation-modes",
+        default="similar",
+        help="Simulation modes: similar,outlier (default: similar)",
+    )
+    oneclick_parser.add_argument(
+        "--num-similar",
+        type=int,
+        default=3,
+        help="Similar queries per seed (default: 3)",
+    )
+    oneclick_parser.add_argument(
+        "--num-outlier",
+        type=int,
+        default=2,
+        help="Outlier queries per seed (default: 2)",
+    )
+    oneclick_parser.add_argument(
+        "--max-sim-seeds",
+        type=int,
+        default=10,
+        help="Max seeds for simulation (default: 10)",
+    )
 
     # Behavior options
-    oneclick_parser.add_argument("--auto-yes", action="store_true", help="Skip all confirmation prompts (default: false)")
-    oneclick_parser.add_argument("--verbose", action="store_true", help="Show detailed logs (default: false)")
-    oneclick_parser.add_argument("--dry-run", action="store_true", help="Show what would be done without executing (default: false)")
+    oneclick_parser.add_argument(
+        "--auto-yes",
+        action="store_true",
+        help="Skip all confirmation prompts (default: false)",
+    )
+    oneclick_parser.add_argument(
+        "--verbose", action="store_true", help="Show detailed logs (default: false)"
+    )
+    oneclick_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without executing (default: false)",
+    )
     oneclick_parser.set_defaults(func=cmd_one_click)
 
     args = parser.parse_args(argv)
@@ -4327,6 +5109,7 @@ For more info on a command: evalyn <command> --help
     # Handle --version flag
     if args.version:
         from . import __version__
+
         print(f"evalyn {__version__}")
         return
 

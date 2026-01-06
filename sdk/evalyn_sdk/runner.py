@@ -87,7 +87,9 @@ class EvalRunner:
         self._cache: Dict[str, str] = {}  # cache key -> call id
         self._progress_callback = progress_callback
 
-    def run_dataset(self, dataset: Iterable[DatasetItem], use_synthetic: bool = True) -> EvalRun:
+    def run_dataset(
+        self, dataset: Iterable[DatasetItem], use_synthetic: bool = True
+    ) -> EvalRun:
         """
         Run evaluation on a dataset.
 
@@ -109,7 +111,11 @@ class EvalRunner:
             call = None
 
             # First, try to load call from metadata (for pre-built datasets)
-            if isinstance(item.metadata, dict) and "call_id" in item.metadata and self.tracer.storage:
+            if (
+                isinstance(item.metadata, dict)
+                and "call_id" in item.metadata
+                and self.tracer.storage
+            ):
                 call_id = item.metadata["call_id"]
                 call = self.tracer.storage.get_call(call_id)
 
@@ -118,7 +124,11 @@ class EvalRunner:
                 cache_key = hash_inputs(item.inputs)
                 if cache_key in self._cache and self.tracer.storage:
                     cached_id = self._cache[cache_key]
-                    cached_matches = [c for c in self.tracer.storage.list_calls(limit=1_000) if c.id == cached_id]
+                    cached_matches = [
+                        c
+                        for c in self.tracer.storage.list_calls(limit=1_000)
+                        if c.id == cached_id
+                    ]
                     call = cached_matches[0] if cached_matches else None
 
             # Third, create synthetic call from item data if enabled
@@ -187,7 +197,9 @@ class EvalRunner:
             summary["metrics"][metric_id] = {
                 "count": len(metric_results),
                 "avg_score": (sum(scores) / len(scores)) if scores else None,
-                "pass_rate": (sum(1 for p in passes if p) / len(passes)) if passes else None,
+                "pass_rate": (sum(1 for p in passes if p) / len(passes))
+                if passes
+                else None,
             }
         return summary
 
@@ -218,7 +230,9 @@ def save_eval_run_json(
     runs_dir = dataset_dir / runs_subdir
 
     # Create folder with timestamp for sorting
-    timestamp = run.created_at.strftime("%Y%m%d-%H%M%S") if run.created_at else "unknown"
+    timestamp = (
+        run.created_at.strftime("%Y%m%d-%H%M%S") if run.created_at else "unknown"
+    )
     folder_name = f"{timestamp}_{run.id[:8]}"
     run_folder = runs_dir / folder_name
     run_folder.mkdir(parents=True, exist_ok=True)
@@ -227,7 +241,7 @@ def save_eval_run_json(
     results_path = run_folder / "results.json"
     results_path.write_text(
         json.dumps(run.as_dict(), indent=2, ensure_ascii=False, default=str),
-        encoding="utf-8"
+        encoding="utf-8",
     )
 
     return run_folder
@@ -247,7 +261,9 @@ def load_eval_run_json(path: Union[str, Path]) -> EvalRun:
     return EvalRun.from_dict(data)
 
 
-def list_eval_runs_json(dataset_dir: Union[str, Path], runs_subdir: str = "eval_runs") -> List[EvalRun]:
+def list_eval_runs_json(
+    dataset_dir: Union[str, Path], runs_subdir: str = "eval_runs"
+) -> List[EvalRun]:
     """List all eval runs from folders in a dataset directory."""
     dataset_dir = Path(dataset_dir)
     runs_dir = dataset_dir / runs_subdir

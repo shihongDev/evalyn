@@ -372,7 +372,11 @@ def _simple_bleu(candidate: str, reference: str, max_n: int = 4) -> float:
     geo_mean = math.exp(sum(math.log(p) for p in precisions) / len(precisions))
 
     # brevity penalty
-    bp = 1.0 if len(cand_tokens) > len(ref_tokens) else math.exp(1 - len(ref_tokens) / max(len(cand_tokens), 1))
+    bp = (
+        1.0
+        if len(cand_tokens) > len(ref_tokens)
+        else math.exp(1 - len(ref_tokens) / max(len(cand_tokens), 1))
+    )
     return bp * geo_mean
 
 
@@ -394,7 +398,10 @@ def bleu_metric(metric_id: str = "bleu") -> Metric:
             call_id=call.id,
             score=score,
             passed=None,
-            details={"candidate": str(candidate)[:200], "reference": str(reference)[:200]},
+            details={
+                "candidate": str(candidate)[:200],
+                "reference": str(reference)[:200],
+            },
         )
 
     return Metric(spec, handler)
@@ -415,7 +422,11 @@ def pass_at_k_metric(
         name=f"Pass@{k}",
         type="objective",
         description=f"Probability at least one of top-{k} candidates succeeds.",
-        config={"k": k, "candidate_field": candidate_field, "success_field": success_field},
+        config={
+            "k": k,
+            "candidate_field": candidate_field,
+            "success_field": success_field,
+        },
     )
 
     def _extract_candidates(output: Any) -> Sequence[dict]:
@@ -427,7 +438,9 @@ def pass_at_k_metric(
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         candidates = _extract_candidates(call.output)
-        successes = [c.get(success_field, False) for c in candidates if isinstance(c, dict)]
+        successes = [
+            c.get(success_field, False) for c in candidates if isinstance(c, dict)
+        ]
         n = len(successes)
         if n == 0:
             return MetricResult(
@@ -472,7 +485,9 @@ def json_valid_metric(metric_id: str = "json_valid") -> Metric:
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         output_text = call.output or ""
         try:
-            json.loads(output_text if isinstance(output_text, str) else json.dumps(output_text))
+            json.loads(
+                output_text if isinstance(output_text, str) else json.dumps(output_text)
+            )
             passed = True
         except Exception as exc:
             passed = False
@@ -488,7 +503,9 @@ def json_valid_metric(metric_id: str = "json_valid") -> Metric:
     return Metric(spec, handler)
 
 
-def regex_match_metric(metric_id: str = "regex_match", pattern: Optional[str] = None) -> Metric:
+def regex_match_metric(
+    metric_id: str = "regex_match", pattern: Optional[str] = None
+) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="Regex Match",
@@ -595,7 +612,10 @@ def rouge_l_metric(metric_id: str = "rouge_l") -> Metric:
             call_id=call.id,
             score=score,
             passed=None,
-            details={"candidate_excerpt": candidate[:200], "reference_excerpt": reference[:200]},
+            details={
+                "candidate_excerpt": candidate[:200],
+                "reference_excerpt": reference[:200],
+            },
         )
 
     return Metric(spec, handler)
@@ -629,7 +649,10 @@ def rouge_1_metric(metric_id: str = "rouge_1") -> Metric:
             call_id=call.id,
             score=score,
             passed=None,
-            details={"candidate_excerpt": candidate[:200], "reference_excerpt": reference[:200]},
+            details={
+                "candidate_excerpt": candidate[:200],
+                "reference_excerpt": reference[:200],
+            },
         )
 
     return Metric(spec, handler)
@@ -663,7 +686,10 @@ def rouge_2_metric(metric_id: str = "rouge_2") -> Metric:
             call_id=call.id,
             score=score,
             passed=None,
-            details={"candidate_excerpt": candidate[:200], "reference_excerpt": reference[:200]},
+            details={
+                "candidate_excerpt": candidate[:200],
+                "reference_excerpt": reference[:200],
+            },
         )
 
     return Metric(spec, handler)
@@ -688,7 +714,10 @@ def token_overlap_f1_metric(metric_id: str = "token_overlap_f1") -> Metric:
             call_id=call.id,
             score=score,
             passed=None,
-            details={"candidate_excerpt": candidate[:200], "reference_excerpt": reference[:200]},
+            details={
+                "candidate_excerpt": candidate[:200],
+                "reference_excerpt": reference[:200],
+            },
         )
 
     return Metric(spec, handler)
@@ -727,7 +756,10 @@ def jaccard_similarity_metric(metric_id: str = "jaccard_similarity") -> Metric:
             call_id=call.id,
             score=score,
             passed=None,
-            details={"candidate_excerpt": candidate[:200], "reference_excerpt": reference[:200]},
+            details={
+                "candidate_excerpt": candidate[:200],
+                "reference_excerpt": reference[:200],
+            },
         )
 
     return Metric(spec, handler)
@@ -756,7 +788,11 @@ def numeric_mae_metric(
                 call_id=call.id,
                 score=None,
                 passed=None,
-                details={"expected": item.expected, "predicted": call.output, "error": "not_numeric"},
+                details={
+                    "expected": item.expected,
+                    "predicted": call.output,
+                    "error": "not_numeric",
+                },
             )
         err = abs(predicted - expected)
         return MetricResult(
@@ -794,7 +830,11 @@ def numeric_rmse_metric(
                 call_id=call.id,
                 score=None,
                 passed=None,
-                details={"expected": item.expected, "predicted": call.output, "error": "not_numeric"},
+                details={
+                    "expected": item.expected,
+                    "predicted": call.output,
+                    "error": "not_numeric",
+                },
             )
         err = predicted - expected
         rmse = math.sqrt(err * err)
@@ -833,7 +873,11 @@ def numeric_rel_error_metric(
                 call_id=call.id,
                 score=None,
                 passed=None,
-                details={"expected": item.expected, "predicted": call.output, "error": "not_numeric"},
+                details={
+                    "expected": item.expected,
+                    "predicted": call.output,
+                    "error": "not_numeric",
+                },
             )
         denom = abs(expected) if abs(expected) > 1e-12 else 1.0
         rel = abs(predicted - expected) / denom
@@ -860,13 +904,21 @@ def numeric_within_tolerance_metric(
         name="Numeric Within Tolerance",
         type="objective",
         description="Passes if numeric prediction is within tolerance of expected.",
-        config={"expected_field": expected_field, "output_field": output_field, "tolerance": tolerance},
+        config={
+            "expected_field": expected_field,
+            "output_field": output_field,
+            "tolerance": tolerance,
+        },
     )
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         expected = _extract_number(item.expected, None)
         predicted = _extract_number(call.output, output_field)
-        tol = tolerance if tolerance is not None else float(item.metadata.get("tolerance") or 0.0)
+        tol = (
+            tolerance
+            if tolerance is not None
+            else float(item.metadata.get("tolerance") or 0.0)
+        )
         if expected is None or predicted is None:
             return MetricResult(
                 metric_id=spec.id,
@@ -874,7 +926,11 @@ def numeric_within_tolerance_metric(
                 call_id=call.id,
                 score=0.0,
                 passed=False,
-                details={"expected": item.expected, "predicted": call.output, "error": "not_numeric"},
+                details={
+                    "expected": item.expected,
+                    "predicted": call.output,
+                    "error": "not_numeric",
+                },
             )
         err = abs(predicted - expected)
         passed = err <= tol
@@ -884,13 +940,20 @@ def numeric_within_tolerance_metric(
             call_id=call.id,
             score=1.0 if passed else 0.0,
             passed=passed,
-            details={"expected": expected, "predicted": predicted, "tolerance": tol, "abs_error": err},
+            details={
+                "expected": expected,
+                "predicted": predicted,
+                "tolerance": tol,
+                "abs_error": err,
+            },
         )
 
     return Metric(spec, handler)
 
 
-def json_schema_keys_metric(metric_id: str = "json_schema_keys", required_keys: Optional[List[str]] = None) -> Metric:
+def json_schema_keys_metric(
+    metric_id: str = "json_schema_keys", required_keys: Optional[List[str]] = None
+) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="JSON Required Keys",
@@ -925,7 +988,9 @@ def json_schema_keys_metric(metric_id: str = "json_schema_keys", required_keys: 
     return Metric(spec, handler)
 
 
-def json_types_match_metric(metric_id: str = "json_types_match", schema: Optional[dict] = None) -> Metric:
+def json_types_match_metric(
+    metric_id: str = "json_types_match", schema: Optional[dict] = None
+) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="JSON Types Match",
@@ -968,7 +1033,10 @@ def json_types_match_metric(metric_id: str = "json_types_match", schema: Optiona
                 mismatches[key] = {"expected_type": type_name, "actual": "missing"}
                 continue
             if isinstance(type_name, str) and not _type_ok(value.get(key), type_name):
-                mismatches[key] = {"expected_type": type_name, "actual_type": type(value.get(key)).__name__}
+                mismatches[key] = {
+                    "expected_type": type_name,
+                    "actual_type": type(value.get(key)).__name__,
+                }
         passed = not mismatches
         return MetricResult(
             metric_id=spec.id,
@@ -982,7 +1050,9 @@ def json_types_match_metric(metric_id: str = "json_types_match", schema: Optiona
     return Metric(spec, handler)
 
 
-def json_path_present_metric(metric_id: str = "json_path_present", paths: Optional[List[str]] = None) -> Metric:
+def json_path_present_metric(
+    metric_id: str = "json_path_present", paths: Optional[List[str]] = None
+) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="JSON Path Present",
@@ -1193,7 +1263,9 @@ def output_length_range_metric(
     return Metric(spec, handler)
 
 
-def llm_call_count_metric(metric_id: str = "llm_call_count", request_kind: str = ".request") -> Metric:
+def llm_call_count_metric(
+    metric_id: str = "llm_call_count", request_kind: str = ".request"
+) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="LLM Call Count",
@@ -1242,7 +1314,12 @@ def llm_error_rate_metric(
             call_id=call.id,
             score=rate,
             passed=None,
-            details={"requests": req, "errors": err, "request_kind": rk, "error_kind": ek},
+            details={
+                "requests": req,
+                "errors": err,
+                "request_kind": rk,
+                "error_kind": ek,
+            },
         )
 
     return Metric(spec, handler)
@@ -1274,13 +1351,21 @@ def tool_success_ratio_metric(
             call_id=call.id,
             score=ratio,
             passed=None,
-            details={"successes": successes, "errors": errors, "total": total, "success_kind": sk, "error_kind": ek},
+            details={
+                "successes": successes,
+                "errors": errors,
+                "total": total,
+                "success_kind": sk,
+                "error_kind": ek,
+            },
         )
 
     return Metric(spec, handler)
 
 
-def tool_error_count_metric(metric_id: str = "tool_error_count", error_kind: str = "tool.error") -> Metric:
+def tool_error_count_metric(
+    metric_id: str = "tool_error_count", error_kind: str = "tool.error"
+) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="Tool Error Count",
@@ -1304,7 +1389,9 @@ def tool_error_count_metric(metric_id: str = "tool_error_count", error_kind: str
     return Metric(spec, handler)
 
 
-def url_count_metric(metric_id: str = "url_count", pattern: str = r"https?://", min_count: int = 1) -> Metric:
+def url_count_metric(
+    metric_id: str = "url_count", pattern: str = r"https?://", min_count: int = 1
+) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="URL Count",

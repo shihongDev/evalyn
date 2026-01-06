@@ -3,6 +3,7 @@ Analyzer module for comprehensive eval results analysis and visualization.
 
 Generates a single self-contained HTML report with embedded Chart.js visualizations.
 """
+
 from __future__ import annotations
 
 import json
@@ -17,6 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 @dataclass
 class MetricStats:
     """Statistics for a single metric across items."""
+
     metric_id: str
     metric_type: str  # objective or subjective
     count: int = 0
@@ -52,10 +54,13 @@ class MetricStats:
 @dataclass
 class ItemStats:
     """Statistics for a single dataset item across metrics."""
+
     item_id: str
     metrics_passed: int = 0
     metrics_failed: int = 0
-    metric_results: Dict[str, Tuple[bool, float]] = field(default_factory=dict)  # metric_id -> (passed, score)
+    metric_results: Dict[str, Tuple[bool, float]] = field(
+        default_factory=dict
+    )  # metric_id -> (passed, score)
 
     @property
     def all_passed(self) -> bool:
@@ -65,6 +70,7 @@ class ItemStats:
 @dataclass
 class RunAnalysis:
     """Complete analysis of an eval run."""
+
     run_id: str
     dataset_name: str
     created_at: str
@@ -147,8 +153,7 @@ def analyze_run(run_data: Dict[str, Any]) -> RunAnalysis:
         # Update metric stats
         if metric_id not in metric_stats:
             metric_stats[metric_id] = MetricStats(
-                metric_id=metric_id,
-                metric_type=metric_types.get(metric_id, "unknown")
+                metric_id=metric_id, metric_type=metric_types.get(metric_id, "unknown")
             )
         ms = metric_stats[metric_id]
         ms.count += 1
@@ -169,8 +174,7 @@ def analyze_run(run_data: Dict[str, Any]) -> RunAnalysis:
 
     # Get failed items
     failed_items = [
-        item_id for item_id, stats in item_stats.items()
-        if not stats.all_passed
+        item_id for item_id, stats in item_stats.items() if not stats.all_passed
     ]
 
     return RunAnalysis(
@@ -189,7 +193,10 @@ def analyze_run(run_data: Dict[str, Any]) -> RunAnalysis:
 # ASCII Visualization Helpers (for terminal output)
 # =============================================================================
 
-def ascii_bar(value: float, max_width: int = 30, fill: str = "█", empty: str = "░") -> str:
+
+def ascii_bar(
+    value: float, max_width: int = 30, fill: str = "█", empty: str = "░"
+) -> str:
     """Create an ASCII progress bar."""
     filled = int(value * max_width)
     return fill * filled + empty * (max_width - filled)
@@ -214,19 +221,22 @@ def ascii_score_distribution(scores: List[float], metric_id: str) -> str:
         height = int((count / max_count) * 5) if max_count > 0 else 0
         bars.append("▁▂▃▄▅▆▇█"[min(height, 7)])
 
-    return f"  {metric_id:30} [{''.join(bars)}] avg={sum(scores)/len(scores):.2f}"
+    return f"  {metric_id:30} [{''.join(bars)}] avg={sum(scores) / len(scores):.2f}"
 
 
-def format_pass_rate_bar(metric_id: str, pass_rate: float, count: int, width: int = 25) -> str:
+def format_pass_rate_bar(
+    metric_id: str, pass_rate: float, count: int, width: int = 25
+) -> str:
     """Format a metric pass rate with a bar chart."""
     bar = ascii_bar(pass_rate, max_width=width)
-    pct = f"{pass_rate*100:5.1f}%"
+    pct = f"{pass_rate * 100:5.1f}%"
     return f"  {metric_id:30} {bar} {pct} (n={count})"
 
 
 # =============================================================================
 # Text Report Generation
 # =============================================================================
+
 
 def generate_text_report(analysis: RunAnalysis, verbose: bool = False) -> str:
     """Generate a comprehensive text report."""
@@ -239,7 +249,9 @@ def generate_text_report(analysis: RunAnalysis, verbose: bool = False) -> str:
     lines.append("")
     lines.append(f"  Run ID:     {analysis.run_id[:8]}...")
     lines.append(f"  Dataset:    {analysis.dataset_name}")
-    lines.append(f"  Created:    {analysis.created_at[:19] if analysis.created_at else 'unknown'}")
+    lines.append(
+        f"  Created:    {analysis.created_at[:19] if analysis.created_at else 'unknown'}"
+    )
     lines.append(f"  Items:      {analysis.total_items}")
     lines.append(f"  Metrics:    {analysis.total_metrics}")
     lines.append("")
@@ -249,7 +261,9 @@ def generate_text_report(analysis: RunAnalysis, verbose: bool = False) -> str:
     lines.append("  OVERALL SUMMARY")
     lines.append("-" * 70)
     all_passed = sum(1 for item in analysis.item_stats.values() if item.all_passed)
-    lines.append(f"  Items passing all metrics: {all_passed}/{analysis.total_items} ({analysis.overall_pass_rate*100:.1f}%)")
+    lines.append(
+        f"  Items passing all metrics: {all_passed}/{analysis.total_items} ({analysis.overall_pass_rate * 100:.1f}%)"
+    )
     lines.append(f"  Items with failures:       {len(analysis.failed_items)}")
     lines.append("")
 
@@ -259,10 +273,7 @@ def generate_text_report(analysis: RunAnalysis, verbose: bool = False) -> str:
     lines.append("-" * 70)
 
     # Sort by pass rate (lowest first to highlight problems)
-    sorted_metrics = sorted(
-        analysis.metric_stats.values(),
-        key=lambda m: m.pass_rate
-    )
+    sorted_metrics = sorted(analysis.metric_stats.values(), key=lambda m: m.pass_rate)
 
     for ms in sorted_metrics:
         lines.append(format_pass_rate_bar(ms.metric_id, ms.pass_rate, ms.count))
@@ -273,7 +284,7 @@ def generate_text_report(analysis: RunAnalysis, verbose: bool = False) -> str:
     lines.append("  SCORE STATISTICS")
     lines.append("-" * 70)
     lines.append(f"  {'Metric':<30} {'Avg':>8} {'Min':>8} {'Max':>8} {'StdDev':>8}")
-    lines.append(f"  {'-'*30} {'-'*8} {'-'*8} {'-'*8} {'-'*8}")
+    lines.append(f"  {'-' * 30} {'-' * 8} {'-' * 8} {'-' * 8} {'-' * 8}")
 
     for ms in sorted_metrics:
         lines.append(
@@ -323,13 +334,13 @@ def generate_comparison_report(analyses: List[RunAnalysis]) -> str:
 
     # Run info
     lines.append(f"  {'Run':<12} {'Date':<20} {'Items':>8} {'Overall':>10}")
-    lines.append(f"  {'-'*12} {'-'*20} {'-'*8} {'-'*10}")
+    lines.append(f"  {'-' * 12} {'-' * 20} {'-' * 8} {'-' * 10}")
 
     for a in analyses:
         date = a.created_at[:16] if a.created_at else "unknown"
         lines.append(
             f"  {a.run_id[:12]} {date:<20} {a.total_items:>8} "
-            f"{a.overall_pass_rate*100:>9.1f}%"
+            f"{a.overall_pass_rate * 100:>9.1f}%"
         )
     lines.append("")
 
@@ -346,10 +357,10 @@ def generate_comparison_report(analyses: List[RunAnalysis]) -> str:
     # Header
     header = f"  {'Metric':<25}"
     for i, a in enumerate(analyses):
-        header += f" {'Run'+str(i+1):>10}"
+        header += f" {'Run' + str(i + 1):>10}"
     header += f" {'Delta':>10}"
     lines.append(header)
-    lines.append(f"  {'-'*25}" + f" {'-'*10}" * (len(analyses) + 1))
+    lines.append(f"  {'-' * 25}" + f" {'-' * 10}" * (len(analyses) + 1))
 
     for metric_id in sorted(all_metrics):
         row = f"  {metric_id:<25}"
@@ -358,7 +369,7 @@ def generate_comparison_report(analyses: List[RunAnalysis]) -> str:
             if metric_id in a.metric_stats:
                 rate = a.metric_stats[metric_id].pass_rate
                 rates.append(rate)
-                row += f" {rate*100:>9.1f}%"
+                row += f" {rate * 100:>9.1f}%"
             else:
                 row += f" {'N/A':>10}"
 
@@ -366,7 +377,7 @@ def generate_comparison_report(analyses: List[RunAnalysis]) -> str:
         if len(rates) >= 2:
             delta = rates[-1] - rates[0]
             sign = "+" if delta >= 0 else ""
-            row += f" {sign}{delta*100:>8.1f}%"
+            row += f" {sign}{delta * 100:>8.1f}%"
         else:
             row += f" {'N/A':>10}"
 
@@ -382,6 +393,7 @@ def generate_comparison_report(analyses: List[RunAnalysis]) -> str:
 # HTML Report Generation (Single Self-Contained File)
 # =============================================================================
 
+
 def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
     """Generate a comprehensive single-page HTML report with all visualizations.
 
@@ -390,7 +402,9 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
     """
 
     # Prepare metric data sorted by pass rate
-    metrics_by_pass_rate = sorted(analysis.metric_stats.values(), key=lambda m: -m.pass_rate)
+    metrics_by_pass_rate = sorted(
+        analysis.metric_stats.values(), key=lambda m: -m.pass_rate
+    )
     metric_labels = json.dumps([m.metric_id for m in metrics_by_pass_rate])
     pass_rates = json.dumps([round(m.pass_rate * 100, 1) for m in metrics_by_pass_rate])
     avg_scores = json.dumps([round(m.avg_score, 3) for m in metrics_by_pass_rate])
@@ -400,24 +414,34 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
     failed_counts = json.dumps([m.failed for m in metrics_by_pass_rate])
 
     # Color coding for pass rates
-    pass_rate_colors = json.dumps([
-        '#4a90a4' if m.pass_rate >= 0.8 else '#e0a030' if m.pass_rate >= 0.5 else '#d65a4a'
-        for m in metrics_by_pass_rate
-    ])
+    pass_rate_colors = json.dumps(
+        [
+            "#4a90a4"
+            if m.pass_rate >= 0.8
+            else "#e0a030"
+            if m.pass_rate >= 0.5
+            else "#d65a4a"
+            for m in metrics_by_pass_rate
+        ]
+    )
 
     # Prepare per-item data for detailed view
     item_data_rows = []
     for item_id, item in analysis.item_stats.items():
-        failed_metrics = [m for m, (passed, _) in item.metric_results.items() if not passed]
+        failed_metrics = [
+            m for m, (passed, _) in item.metric_results.items() if not passed
+        ]
         status = "pass" if item.all_passed else "fail"
-        item_data_rows.append({
-            "id": item_id[:12] + "...",
-            "full_id": item_id,
-            "passed": item.metrics_passed,
-            "failed": item.metrics_failed,
-            "status": status,
-            "failed_metrics": ", ".join(failed_metrics) if failed_metrics else "-"
-        })
+        item_data_rows.append(
+            {
+                "id": item_id[:12] + "...",
+                "full_id": item_id,
+                "passed": item.metrics_passed,
+                "failed": item.metrics_failed,
+                "status": status,
+                "failed_metrics": ", ".join(failed_metrics) if failed_metrics else "-",
+            }
+        )
 
     # Score distribution data (for box plot simulation)
     score_dist_data = []
@@ -427,15 +451,17 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
             n = len(sorted_scores)
             q1_idx = n // 4
             q3_idx = (3 * n) // 4
-            score_dist_data.append({
-                "metric": ms.metric_id,
-                "min": ms.min_score,
-                "q1": sorted_scores[q1_idx] if n > 0 else 0,
-                "median": sorted_scores[n // 2] if n > 0 else 0,
-                "q3": sorted_scores[q3_idx] if n > 0 else 0,
-                "max": ms.max_score,
-                "avg": ms.avg_score,
-            })
+            score_dist_data.append(
+                {
+                    "metric": ms.metric_id,
+                    "min": ms.min_score,
+                    "q1": sorted_scores[q1_idx] if n > 0 else 0,
+                    "median": sorted_scores[n // 2] if n > 0 else 0,
+                    "q3": sorted_scores[q3_idx] if n > 0 else 0,
+                    "max": ms.max_score,
+                    "avg": ms.avg_score,
+                }
+            )
 
     # Calculate correlations if we have enough data
     correlation_data = None
@@ -462,12 +488,24 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                     row.append(1.0)
                 else:
                     # Pearson correlation
-                    x_vals = [score_matrix[k][i] for k in range(len(score_matrix)) if score_matrix[k][i] is not None and score_matrix[k][j] is not None]
-                    y_vals = [score_matrix[k][j] for k in range(len(score_matrix)) if score_matrix[k][i] is not None and score_matrix[k][j] is not None]
+                    x_vals = [
+                        score_matrix[k][i]
+                        for k in range(len(score_matrix))
+                        if score_matrix[k][i] is not None
+                        and score_matrix[k][j] is not None
+                    ]
+                    y_vals = [
+                        score_matrix[k][j]
+                        for k in range(len(score_matrix))
+                        if score_matrix[k][i] is not None
+                        and score_matrix[k][j] is not None
+                    ]
                     if len(x_vals) > 1:
                         x_mean = sum(x_vals) / len(x_vals)
                         y_mean = sum(y_vals) / len(y_vals)
-                        numerator = sum((x - x_mean) * (y - y_mean) for x, y in zip(x_vals, y_vals))
+                        numerator = sum(
+                            (x - x_mean) * (y - y_mean) for x, y in zip(x_vals, y_vals)
+                        )
                         denom_x = sum((x - x_mean) ** 2 for x in x_vals) ** 0.5
                         denom_y = sum((y - y_mean) ** 2 for y in y_vals) ** 0.5
                         if denom_x > 0 and denom_y > 0:
@@ -477,12 +515,11 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                     else:
                         row.append(0)
             correlations.append(row)
-        correlation_data = {
-            "labels": metric_ids,
-            "matrix": correlations
-        }
+        correlation_data = {"labels": metric_ids, "matrix": correlations}
 
-    all_passed_count = sum(1 for item in analysis.item_stats.values() if item.all_passed)
+    all_passed_count = sum(
+        1 for item in analysis.item_stats.values() if item.all_passed
+    )
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -754,7 +791,9 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
         <!-- Header -->
         <div class="header">
             <h1>Evaluation Results</h1>
-            <p class="subtitle">{analysis.dataset_name} · {analysis.total_items} items · {analysis.total_metrics} metrics</p>
+            <p class="subtitle">{analysis.dataset_name} · {
+        analysis.total_items
+    } items · {analysis.total_metrics} metrics</p>
         </div>
 
         <!-- Stats Grid -->
@@ -768,11 +807,19 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                 <div class="stat-label">Metrics</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value {'success' if analysis.overall_pass_rate >= 0.8 else 'warning' if analysis.overall_pass_rate >= 0.5 else 'error'}">{analysis.overall_pass_rate*100:.0f}%</div>
+                <div class="stat-value {
+        "success"
+        if analysis.overall_pass_rate >= 0.8
+        else "warning"
+        if analysis.overall_pass_rate >= 0.5
+        else "error"
+    }">{analysis.overall_pass_rate * 100:.0f}%</div>
                 <div class="stat-label">Pass Rate</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value {'success' if len(analysis.failed_items) == 0 else 'error'}">{len(analysis.failed_items)}</div>
+                <div class="stat-value {
+        "success" if len(analysis.failed_items) == 0 else "error"
+    }">{len(analysis.failed_items)}</div>
                 <div class="stat-label">Failed Items</div>
             </div>
         </div>
@@ -819,11 +866,13 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                     </tr>
                 </thead>
                 <tbody>
-                    {"".join(f'''
+                    {
+        "".join(
+            f'''
                     <tr>
                         <td><strong>{ms.metric_id}</strong></td>
                         <td>{ms.metric_type}</td>
-                        <td><span class="badge {'pass' if ms.pass_rate >= 0.8 else 'warn' if ms.pass_rate >= 0.5 else 'fail'}">{ms.pass_rate*100:.1f}%</span></td>
+                        <td><span class="badge {'pass' if ms.pass_rate >= 0.8 else 'warn' if ms.pass_rate >= 0.5 else 'fail'}">{ms.pass_rate * 100:.1f}%</span></td>
                         <td>{ms.avg_score:.3f}</td>
                         <td>{ms.min_score:.3f}</td>
                         <td>{ms.max_score:.3f}</td>
@@ -831,23 +880,35 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                         <td>{ms.passed}</td>
                         <td>{ms.failed if ms.failed == 0 else f'<span style="color: var(--error)">{ms.failed}</span>'}</td>
                     </tr>
-                    ''' for ms in metrics_by_pass_rate)}
+                    '''
+            for ms in metrics_by_pass_rate
+        )
+    }
                 </tbody>
             </table>
         </div>
 
-        {'<!-- Correlation Matrix -->' if correlation_data and len(correlation_data["labels"]) <= 10 else ''}
-        {f'''
+        {
+        "<!-- Correlation Matrix -->"
+        if correlation_data and len(correlation_data["labels"]) <= 10
+        else ""
+    }
+        {
+        f'''
         <div class="card">
             <h2>Metric Correlations</h2>
             <div class="chart-container">
                 <canvas id="correlationChart"></canvas>
             </div>
         </div>
-        ''' if correlation_data and len(correlation_data["labels"]) <= 10 else ''}
+        '''
+        if correlation_data and len(correlation_data["labels"]) <= 10
+        else ""
+    }
 
         <!-- Failed Items -->
-        {f'''
+        {
+        f'''
         <div class="card">
             <h2>Failed Items ({len(analysis.failed_items)})</h2>
             <div class="failed-items">
@@ -855,7 +916,10 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                 {f'<div class="failed-item" style="color: var(--text-muted)">...and {len(analysis.failed_items) - 30} more</div>' if len(analysis.failed_items) > 30 else ''}
             </div>
         </div>
-        ''' if analysis.failed_items else ''}
+        '''
+        if analysis.failed_items
+        else ""
+    }
 
         <!-- Metadata -->
         <div class="card">
@@ -875,7 +939,9 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                 </div>
                 <div class="metadata-item">
                     <span class="metadata-label">Items Passing All:</span>
-                    <span class="metadata-value">{all_passed_count}/{analysis.total_items}</span>
+                    <span class="metadata-value">{all_passed_count}/{
+        analysis.total_items
+    }</span>
                 </div>
             </div>
         </div>
@@ -1043,7 +1109,8 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
             }}
         }});
 
-        {f'''
+        {
+        f'''
         // Correlation Heatmap
         const corrData = {json.dumps(correlation_data)};
         if (corrData) {{
@@ -1121,7 +1188,10 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                 }}
             }});
         }}
-        ''' if correlation_data and len(correlation_data["labels"]) <= 10 else ''}
+        '''
+        if correlation_data and len(correlation_data["labels"]) <= 10
+        else ""
+    }
     </script>
 </body>
 </html>
@@ -1130,7 +1200,9 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
     return html
 
 
-def generate_report(analysis: RunAnalysis, output_path: Path, format: str = "html") -> Path:
+def generate_report(
+    analysis: RunAnalysis, output_path: Path, format: str = "html"
+) -> Path:
     """Generate a report file.
 
     Args:
@@ -1147,13 +1219,13 @@ def generate_report(analysis: RunAnalysis, output_path: Path, format: str = "htm
     if format == "html":
         content = generate_html_report(analysis)
         if not output_path.suffix:
-            output_path = output_path.with_suffix('.html')
+            output_path = output_path.with_suffix(".html")
     else:
         content = generate_text_report(analysis, verbose=True)
         if not output_path.suffix:
-            output_path = output_path.with_suffix('.txt')
+            output_path = output_path.with_suffix(".txt")
 
-    with open(output_path, 'w') as f:
+    with open(output_path, "w") as f:
         f.write(content)
 
     return output_path
