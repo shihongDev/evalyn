@@ -1,6 +1,8 @@
 # Evalyn
 
-**Trace, evaluate, and calibrate your LLM agents — fully local, fully yours.**
+Local-first evaluation and calibration framework for LLM agents
+
+**Evalyn focuses on making agent evaluation practical and iterative. It provides lightweight tracing, human-in-the-loop annotation, metric suggestion, and calibration workflows to help developers understand what to evaluate, align metrics with real usage, and continuously improve agent behavior over time.**
 
 ## Why Evalyn?
 
