@@ -34,39 +34,6 @@ python my_agent.py                           # Run agent, traces captured
 evalyn one-click --project myapp             # Full evaluation pipeline
 ```
 
-## Auto-Instrumentation
-
-**Just import `evalyn_sdk`** — LLM calls are captured automatically:
-
-```python
-import evalyn_sdk  # Auto-patches OpenAI, Anthropic, Gemini, LangChain
-
-# Your normal code - no changes needed
-response = openai.chat.completions.create(model="gpt-4o", messages=[...])
-# ^ Automatically logged with: tokens, cost, duration, request/response
-```
-
-**Captured automatically:**
-- All LLM API calls (OpenAI, Anthropic, Google Gemini)
-- Token usage (input/output)
-- Cost in USD
-- Duration
-- Errors
-
-**Disable if needed:**
-```bash
-export EVALYN_AUTO_INSTRUMENT=off
-```
-
-**For internal functions**, use `@trace`:
-```python
-from evalyn_sdk import trace
-
-@trace
-def process_results(data):
-    # Logged as trace event within parent @eval call
-    return transform(data)
-```
 
 ## The Pipeline
 
@@ -101,17 +68,14 @@ def process_results(data):
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-**Or just run:**
-```bash
-evalyn one-click --project myapp
-```
 
-## Workflow
+
+## Sample Workflow
 
 ### Step 1: Instrument & Collect
 ```bash
 # Add @eval decorator to your agent
-python my_agent.py "your query"          # Traces auto-captured to SQLite
+python my_agent.py                        # Traces auto-captured 
 evalyn list-calls                         # View traces
 ```
 
@@ -161,43 +125,6 @@ evalyn run-eval --dataset data/simulations/...    # Evaluate on synthetic data
 | `evalyn calibrate --metric-id X` | Calibrate LLM judge |
 | `evalyn simulate --latest` | Generate synthetic test data |
 
-## Metrics
-
-**Objective** (deterministic):
-- `latency_ms`, `output_nonempty`, `json_valid`, `token_length`
-- `bleu`, `rouge_l`, `jaccard_similarity` (need reference)
-
-**Subjective** (LLM judge):
-- `helpfulness_accuracy`, `hallucination_risk`, `toxicity_safety`
-- `completeness`, `coherence`, `instruction_following`
-
-```bash
-evalyn list-metrics                              # See all 50+ metrics
-evalyn suggest-metrics --project X --mode basic  # Fast heuristic
-evalyn suggest-metrics --project X --mode llm-registry   # LLM picks from registry
-evalyn suggest-metrics --project X --mode llm-brainstorm # Custom metrics with rubrics
-```
-
-**Brainstorm mode** generates custom subjective metrics tailored to your function's behavior.
-
-## Calibration
-
-LLM judges aren't perfect. Calibrate them with human feedback:
-
-```bash
-evalyn annotate --latest               # Label samples (pass/fail)
-evalyn calibrate --metric-id helpfulness_accuracy --annotations ann.jsonl
-evalyn run-eval --latest --use-calibrated  # Use improved prompts
-```
-
-Output: Precision, Recall, F1, Cohen's Kappa + optimized rubric.
-
-## Configuration
-
-```bash
-evalyn init                            # Create evalyn.yaml
-export GEMINI_API_KEY="your-key"       # Or OPENAI_API_KEY
-```
 
 ## Documentation
 
@@ -210,7 +137,7 @@ export GEMINI_API_KEY="your-key"       # Or OPENAI_API_KEY
 
 ## Example
 
-See [`example_agent/`](example_agent/) for a LangGraph integration.
+See [`example_agent/`](example_agent/) for a LangGraph integration. 
 
 ## License
 
