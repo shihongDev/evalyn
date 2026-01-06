@@ -14,29 +14,6 @@ Evalyn focuses on making GenAI App evaluation practical and easy. It provides li
 | **Auto Calibration** | Align LLM judges with human feedback through automatic prompt optimization such as GEPA. |
 | **One Command** | Run the entire pipeline with `evalyn one-click`. |
 
-## Install
-
-```bash
-pip install -e ".[dev,llm]"
-```
-
-## 30-Second Start
-
-```python
-from evalyn_sdk import eval
-
-@eval(project="myapp", version="v1")
-def my_agent(query: str) -> str:
-    return call_llm(query)  # LLM calls auto-captured
-```
-
-```bash
-export GEMINI_API_KEY="your-key"
-python my_agent.py                           # Run agent, traces captured
-evalyn one-click --project myapp             # Full evaluation pipeline
-```
-
-
 ## The Pipeline
 
 ```
@@ -70,9 +47,48 @@ evalyn one-click --project myapp             # Full evaluation pipeline
 └──────────────────────────────────────────────────────────────────┘
 ```
 
+## Install
+
+```bash
+pip install -e ".[dev,llm]"
+```
+
+## Quick Start
+
+### 1. Instrument Your Agent
+
+```python
+from evalyn_sdk import eval
+
+@eval(project="myapp", version="v1")
+def my_agent(query: str) -> str:
+    return call_llm(query)  # LLM calls auto-captured
+```
+
+### 2. Run Your Agent
+```bash
+python my_agent.py   # Traces auto-captured to SQLite
+```
+
+### 3. Choose Your Workflow
+
+**Option A: One-Click (Automated)** — Run the full pipeline in one command
+```bash
+evalyn init                              # Create config from template
+export GEMINI_API_KEY="your-key"         # Set API key for LLM judges
+evalyn one-click --project myapp         # Dataset → Metrics → Eval → Report
+```
+
+**Option B: Step-by-Step (Manual)** — See [Sample Workflow](#sample-workflow) for granular control over each step.
+
+
+
+
 
 
 ## Sample Workflow
+
+> For users who want manual control over each step. For automated pipeline, use `evalyn one-click` instead.
 
 ### Step 1: Instrument & Collect
 ```bash
