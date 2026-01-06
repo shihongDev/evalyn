@@ -74,42 +74,67 @@ evalyn one-click --project myapp             # Full evaluation pipeline
 
 ### Step 1: Instrument & Collect
 ```bash
-# Add @eval decorator to your agent
-python my_agent.py                        # Traces auto-captured 
-evalyn list-calls                         # View traces
+# Add @eval decorator to your agent, then run it
+python my_agent.py "your query"
+evalyn list-calls --limit 5
+```
+```
+id       | function | project | status | duration_ms
+---------|----------|---------|--------|------------
+fde2d07e | my_agent | myapp   | OK     | 1234.56
+47fe2576 | my_agent | myapp   | OK     | 2345.67
 ```
 
 ### Step 2: Build Dataset
 ```bash
-evalyn build-dataset --project myapp      # Creates data/myapp-v1-<timestamp>/
+evalyn build-dataset --project myapp
+```
+```
+Wrote 10 items to data/myapp-v1-20250115-120000/dataset.jsonl
 ```
 
 ### Step 3: Select Metrics
 ```bash
-evalyn suggest-metrics --latest --mode basic    # Fast, no LLM
-# or
-evalyn suggest-metrics --latest --mode llm-registry  # LLM picks from 50+ templates
+evalyn suggest-metrics --project myapp --dataset data/myapp-v1-20250115-120000 --mode basic
+```
+```
+- latency_ms [objective] :: Measure execution time
+- output_nonempty [objective] :: Check output is not empty
+- helpfulness_accuracy [subjective] :: LLM judge scoring
+Saved metrics to data/myapp-v1-20250115-120000/metrics/basic-20250115.json
 ```
 
 ### Step 4: Run Evaluation
 ```bash
-evalyn run-eval --latest                  # Runs eval + generates HTML report
-# Output: eval_runs/<timestamp>/
-#   ├── results.json
-#   └── report.html    ← Open in browser
+evalyn run-eval --dataset data/myapp-v1-20250115-120000
+```
+```
+Loaded 3 metrics (2 objective, 1 subjective)
+Dataset: 10 items
+
+Eval run abc12345-...
+Run folder: data/myapp-v1-20250115-120000/eval_runs/20250115-120500_abc12345
+  results.json - evaluation data
+  report.html  - analysis report   ← Open in browser
+
+Results:
+Metric                 Type    Pass Rate
+latency_ms             [obj]   N/A
+output_nonempty        [obj]   100.0%
+helpfulness_accuracy   [llm]   85.0%
 ```
 
 ### Step 5: Annotate & Calibrate (Optional)
 ```bash
-evalyn annotate --latest                  # Interactive: label pass/fail
+evalyn annotate --dataset data/myapp-v1-20250115-120000
 evalyn calibrate --metric-id helpfulness_accuracy --annotations annotations.jsonl
-evalyn run-eval --latest --use-calibrated # Re-run with calibrated prompts
+evalyn run-eval --dataset data/myapp-v1-20250115-120000 --use-calibrated
 ```
 
 ### Step 6: Expand with Simulation (Optional)
 ```bash
-evalyn simulate --latest --modes similar,outlier  # Generate synthetic queries
-evalyn run-eval --dataset data/simulations/...    # Evaluate on synthetic data
+evalyn simulate --dataset data/myapp-v1-20250115-120000 --modes similar,outlier
+evalyn run-eval --dataset data/myapp-v1-20250115-120000/simulations/sim-similar-...
 ```
 
 ## Key Commands
@@ -119,21 +144,45 @@ evalyn run-eval --dataset data/simulations/...    # Evaluate on synthetic data
 | `evalyn one-click --project X` | Run full pipeline |
 | `evalyn list-calls` | View captured traces |
 | `evalyn build-dataset --project X` | Create dataset from traces |
-| `evalyn suggest-metrics --latest` | Get metric recommendations |
-| `evalyn run-eval --latest` | Run evaluation + generate HTML report |
-| `evalyn annotate --latest` | Human annotation (interactive) |
+| `evalyn suggest-metrics --project X --dataset D` | Get metric recommendations |
+| `evalyn run-eval --dataset D` | Run evaluation + generate HTML report |
+| `evalyn annotate --dataset D` | Human annotation (interactive) |
 | `evalyn calibrate --metric-id X` | Calibrate LLM judge |
-| `evalyn simulate --latest` | Generate synthetic test data |
+| `evalyn simulate --dataset D` | Generate synthetic test data |
 
 
 ## Documentation
 
+### CLI Reference
+
+| Command | Description |
+|---------|-------------|
+| [one-click](docs/clis/one-click.md) | Run full evaluation pipeline |
+| [init](docs/clis/init.md) | Initialize config file |
+| **Tracing** | |
+| [list-calls](docs/clis/list-calls.md) | List captured traces |
+| [show-call](docs/clis/show-call.md) | View trace details |
+| [show-projects](docs/clis/show-projects.md) | View project summaries |
+| **Dataset** | |
+| [build-dataset](docs/clis/build-dataset.md) | Create dataset from traces |
+| **Metrics** | |
+| [suggest-metrics](docs/clis/suggest-metrics.md) | Get metric recommendations |
+| [list-metrics](docs/clis/list-metrics.md) | List available metric templates |
+| **Evaluation** | |
+| [run-eval](docs/clis/run-eval.md) | Run evaluation + generate report |
+| [list-runs](docs/clis/list-runs.md) | List past eval runs |
+| [show-run](docs/clis/show-run.md) | View eval run details |
+| **Calibration** | |
+| [annotate](docs/clis/annotate.md) | Human annotation (interactive) |
+| [calibrate](docs/clis/calibrate.md) | Calibrate LLM judges |
+| **Simulation** | |
+| [simulate](docs/clis/simulate.md) | Generate synthetic test data |
+
+### Guides
+
 | Guide | Description |
 |-------|-------------|
-| [docs/cli.md](docs/cli.md) | CLI reference |
-| [docs/commands/](docs/commands/) | Detailed command docs |
-| [docs/metrics.md](docs/metrics.md) | Metrics guide |
-| [docs/calibration.md](docs/calibration.md) | Calibration workflow |
+| [technical-manual.md](docs/technical-manual.md) | Architecture & internals |
 
 ## Example
 
