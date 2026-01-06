@@ -3822,32 +3822,51 @@ def cmd_simulate(args: argparse.Namespace) -> None:
 
 
 def cmd_init(args: argparse.Namespace) -> None:
-    """Initialize configuration file with default settings."""
+    """Initialize configuration file by copying from evalyn.yaml.example."""
+    import shutil
+
     output_path = Path(args.output)
 
     if output_path.exists() and not args.force:
         print(f"Error: {output_path} already exists. Use --force to overwrite.")
         return
 
-    template = """# Evalyn Configuration
+    # Find the example file - check multiple locations
+    example_paths = [
+        Path("evalyn.yaml.example"),  # Current directory
+        Path(__file__).parent.parent.parent.parent / "evalyn.yaml.example",  # Project root
+    ]
 
-# API Keys (use env vars or set directly)
+    example_path = None
+    for p in example_paths:
+        if p.exists():
+            example_path = p
+            break
+
+    if example_path:
+        shutil.copy(example_path, output_path)
+        print(f"Created {output_path} (from {example_path})")
+    else:
+        # Fallback: create minimal config if example not found
+        minimal = """# Evalyn Configuration
+# See evalyn.yaml.example for all available options
+
 api_keys:
   gemini: "${GEMINI_API_KEY}"
   openai: "${OPENAI_API_KEY}"
 
-# Default model for LLM operations
-model: "gemini-2.5-flash-lite"
+llm:
+  model: "gemini-2.5-flash-lite"
 
-# Default project settings
 defaults:
-  project: null      # e.g., "myproject"
-  version: null      # e.g., "v1"
+  project: null
+  version: null
 """
-    with open(output_path, "w") as f:
-        f.write(template)
+        with open(output_path, "w") as f:
+            f.write(minimal)
+        print(f"Created {output_path} (minimal config)")
+        print(f"Note: evalyn.yaml.example not found for full template")
 
-    print(f"Created {output_path}")
     print(f"\nSet your API key:")
     print(f"  export GEMINI_API_KEY='your-key'")
     print(f"  # or edit {output_path} directly")
@@ -3857,6 +3876,47 @@ def cmd_one_click(args: argparse.Namespace) -> None:
     """Run the complete evaluation pipeline from dataset building to calibrated evaluation."""
     from datetime import datetime
     from .storage import SQLiteStorage
+
+    # Load config and apply defaults (CLI args take precedence)
+    config = load_config()
+
+    # Apply config defaults for unset args
+    if not args.version:
+        args.version = get_config_default(config, "defaults", "version")
+    if not args.metric_mode or args.metric_mode == "basic":
+        args.metric_mode = get_config_default(config, "metrics", "mode", default="basic")
+    if not args.model:
+        args.model = get_config_default(config, "llm", "model", default="gemini-2.5-flash-lite")
+    if not args.llm_mode:
+        args.llm_mode = get_config_default(config, "llm", "mode", default="api")
+    if not args.bundle:
+        args.bundle = get_config_default(config, "metrics", "bundle")
+    if args.dataset_limit == 100:  # default value
+        args.dataset_limit = get_config_default(config, "dataset", "limit", default=100)
+    if not args.skip_annotation:
+        args.skip_annotation = get_config_default(config, "annotation", "skip", default=False)
+    if args.annotation_limit == 20:  # default value
+        args.annotation_limit = get_config_default(config, "annotation", "limit", default=20)
+    if not args.per_metric:
+        args.per_metric = get_config_default(config, "annotation", "per_metric", default=False)
+    if not args.skip_calibration:
+        args.skip_calibration = get_config_default(config, "calibration", "skip", default=False)
+    if not args.optimizer or args.optimizer == "llm":
+        args.optimizer = get_config_default(config, "calibration", "optimizer", default="llm")
+    if not args.enable_simulation:
+        args.enable_simulation = get_config_default(config, "simulation", "enable", default=False)
+    if not args.simulation_modes or args.simulation_modes == "similar":
+        args.simulation_modes = get_config_default(config, "simulation", "modes", default="similar")
+    if args.num_similar == 3:  # default value
+        args.num_similar = get_config_default(config, "simulation", "num_similar", default=3)
+    if args.num_outlier == 2:  # default value
+        args.num_outlier = get_config_default(config, "simulation", "num_outlier", default=1)
+    if args.max_sim_seeds == 10:  # default value
+        args.max_sim_seeds = get_config_default(config, "simulation", "max_seeds", default=50)
+    if not args.auto_yes:
+        args.auto_yes = get_config_default(config, "pipeline", "auto_yes", default=False)
+    if not args.verbose:
+        args.verbose = get_config_default(config, "pipeline", "verbose", default=False)
 
     # If no version specified, query available versions and prompt
     if not args.version:
@@ -3928,9 +3988,11 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         print("DRY RUN MODE - showing what would be done:\n")
 
     # Initialize state tracking
+    # Filter out non-serializable items (like func) from args
+    args_dict = {k: v for k, v in vars(args).items() if not callable(v)}
     state = {
         "started_at": datetime.now().isoformat(),
-        "config": vars(args),
+        "config": args_dict,
         "steps": {},
         "output_dir": str(output_dir),
     }
@@ -4037,9 +4099,11 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             # Load target function if provided
             target_fn = None
             if args.target:
-                target_fn = load_target_from_spec(args.target)
-                if not target_fn:
+                try:
+                    target_fn = _load_callable(args.target)
+                except Exception as e:
                     print(f"  ⚠ Could not load target function: {args.target}")
+                    print(f"    Error: {e}")
                     print(f"  → Using trace-based suggestions only")
 
             # Get sample traces
@@ -4049,7 +4113,46 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             calls = storage.list_calls(limit=5)
 
             # Suggest metrics based on mode
-            if args.metric_mode == "basic":
+            if args.metric_mode == "all":
+                # Comprehensive mode: run all modes and merge
+                all_metrics = []
+                seen_ids = set()
+
+                # 1. Basic mode (fast, offline)
+                print("    → Running basic mode...")
+                suggester = HeuristicSuggester()
+                basic_specs = suggester.suggest(target_fn, calls)
+                for spec in basic_specs:
+                    if spec.id not in seen_ids:
+                        all_metrics.append(spec)
+                        seen_ids.add(spec.id)
+
+                # 2. LLM-registry mode (LLM picks from templates)
+                print("    → Running llm-registry mode...")
+                try:
+                    selector = LLMRegistrySelector(model=args.model, llm_mode=args.llm_mode)
+                    llm_specs = selector.select_metrics(target_fn, calls)
+                    for spec in llm_specs:
+                        if spec.id not in seen_ids:
+                            all_metrics.append(spec)
+                            seen_ids.add(spec.id)
+                except Exception as e:
+                    print(f"    ⚠ LLM-registry failed: {e}")
+
+                # 3. Bundle mode (if bundle specified)
+                if args.bundle:
+                    print(f"    → Adding bundle: {args.bundle}...")
+                    from .metrics.bundles import get_bundle_metrics
+                    bundle_specs = get_bundle_metrics(args.bundle)
+                    for spec in bundle_specs:
+                        if spec.id not in seen_ids:
+                            all_metrics.append(spec)
+                            seen_ids.add(spec.id)
+
+                metric_specs = all_metrics
+                print(f"    → Merged {len(metric_specs)} unique metrics")
+
+            elif args.metric_mode == "basic":
                 suggester = HeuristicSuggester()
                 metric_specs = suggester.suggest(target_fn, calls)
             elif args.metric_mode == "llm-registry":
@@ -5007,9 +5110,10 @@ For more info on a command: evalyn <command> --help
     # Metrics options
     oneclick_parser.add_argument(
         "--metric-mode",
-        choices=["basic", "llm-registry", "llm-brainstorm", "bundle"],
+        choices=["basic", "llm-registry", "llm-brainstorm", "bundle", "all"],
         default="basic",
-        help="Metric selection mode (default: basic)",
+        help="Metric selection mode: basic (fast), llm-registry (LLM picks from templates), "
+        "llm-brainstorm (LLM generates custom), bundle (preset), all (comprehensive - runs all modes)",
     )
     oneclick_parser.add_argument(
         "--llm-mode",

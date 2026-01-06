@@ -1,11 +1,67 @@
 # Evalyn Configuration
 # Copy to evalyn.yaml and set your values
+# All settings are optional. CLI arguments override config values.
 
 # API Keys (use env vars or set directly)
 api_keys:
   gemini: "${GEMINI_API_KEY}"
   openai: "${OPENAI_API_KEY}"
 
-# Default model for LLM operations
-model: "gemini-2.5-flash-lite"
+# Default LLM settings
+llm:
+  model: "gemini-2.5-flash-lite"   # gemini-2.5-flash-lite | gpt-4 | llama3.1
+  mode: "api"                       # api | local (Ollama)
+  api_base: null                    # Custom API base URL (optional)
 
+# Project defaults
+defaults:
+  project: null                     # e.g., "myproject"
+  version: null                     # e.g., "v1"
+  dataset: null                     # Default dataset path
+
+# Dataset building options (evalyn build-dataset)
+dataset:
+  limit: 100                        # Max items to include
+  include_errors: false             # Include errored calls
+  production_only: false            # Only production traces
+  simulation_only: false            # Only simulation traces
+
+# Metric selection options (evalyn suggest-metrics)
+metrics:
+  mode: "basic"                     # basic | llm-registry | llm-brainstorm | bundle | all
+  bundle: null                      # summarization | orchestrator | research-agent
+  num_metrics: null                 # Max metrics to select (null = no limit)
+  num_traces: 5                     # Sample traces for LLM analysis
+
+# Evaluation options (evalyn run-eval)
+evaluation:
+  use_calibrated: false             # Use calibrated prompts if available
+
+# Annotation options (evalyn annotate)
+annotation:
+  skip: false                       # Skip annotation step in one-click
+  limit: 20                         # Max items to annotate
+  per_metric: false                 # Per-metric annotation mode
+  annotator: "human"                # Annotator identifier
+
+# Calibration options (evalyn calibrate)
+calibration:
+  skip: false                       # Skip calibration step in one-click
+  optimizer: "llm"                  # llm | gepa
+  threshold: 0.5                    # Pass/fail threshold
+  calibrate_all: false              # Calibrate all subjective metrics
+
+# Simulation options (evalyn simulate)
+simulation:
+  enable: false                     # Enable simulation in one-click
+  modes: "similar"                  # similar | outlier | similar,outlier
+  num_similar: 3                    # Similar queries per seed
+  num_outlier: 1                    # Outlier queries per seed
+  max_seeds: 50                     # Max seed items to use
+  temp_similar: 0.3                 # Temperature for similar (lower = consistent)
+  temp_outlier: 0.8                 # Temperature for outlier (higher = creative)
+
+# Pipeline behavior (evalyn one-click)
+pipeline:
+  auto_yes: false                   # Skip confirmation prompts
+  verbose: false                    # Show detailed logs
