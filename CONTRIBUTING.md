@@ -26,19 +26,6 @@ ruff format .
 ruff check .
 ```
 
-## Testing
-
-```bash
-# Run all tests
-pytest
-
-# Run specific test
-pytest tests/test_metrics.py -v
-
-# Run with coverage
-pytest --cov=evalyn_sdk
-```
-
 ## Pull Request Process
 
 1. **Fork & branch**: Create a feature branch from `main`

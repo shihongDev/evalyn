@@ -191,3 +191,6 @@ See [`example_agent/`](example_agent/) for a LangGraph integration.
 ## License
 
 MIT
+
+## Author & Contact
+Shawn Liu: lsh98jobs@gmail.com
