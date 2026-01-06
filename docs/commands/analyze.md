@@ -35,11 +35,21 @@ ASCII-based report with:
 
 ### HTML
 
-Interactive HTML report with:
-- Summary cards
-- Chart.js bar chart
-- Detailed metrics table
-- Color-coded indicators
+Self-contained interactive HTML report with embedded Chart.js visualizations:
+- Summary statistics cards (items, metrics, pass rate, failures)
+- Pass rate bar chart (color-coded by threshold)
+- Score distribution chart (min-max range with average markers)
+- Pass/fail stacked bar chart by metric
+- Detailed metrics table with all statistics
+- Metric correlation heatmap (when applicable)
+- Failed items list with failure reasons
+- Run metadata section
+
+The HTML report uses Anthropic research paper styling:
+- Light background (`#fafaf8`)
+- Blue accent color (`#4a90a4`) for success
+- Coral color (`#d65a4a`) for failures
+- Clean, minimal design with subtle borders
 
 ## Examples
 

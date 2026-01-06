@@ -3073,7 +3073,6 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     from .analyzer import (
         find_eval_runs, load_eval_run, analyze_run,
         generate_text_report, generate_comparison_report, generate_html_report,
-        generate_full_report, HAS_VISUALIZATION, HAS_SKLEARN
     )
 
     config = load_config()
@@ -3127,43 +3126,10 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         return
 
     # Generate output
-    if args.full:
-        # Full report with seaborn/sklearn visualizations
-        if not HAS_VISUALIZATION:
-            print("Warning: seaborn/matplotlib not installed. Install with: pip install seaborn matplotlib")
-            print("Falling back to text report...")
-            print(generate_text_report(analyses[0], verbose=True))
-            return
-
-        output_dir = Path(args.output) if args.output else (dataset_path / "analysis")
-        print(f"Generating full analysis report...")
-        print(f"  seaborn/matplotlib: {'available' if HAS_VISUALIZATION else 'not installed'}")
-        print(f"  sklearn: {'available' if HAS_SKLEARN else 'not installed'}")
-        print("")
-
-        result = generate_full_report(analyses[0], output_dir)
-
-        print(f"Generated files:")
-        print(f"  Text report:  {result['report_path']}")
-        print(f"  HTML report:  {result['html_path']}")
-        print(f"\nVisualizations:")
-        for name, path in result['visualizations'].items():
-            print(f"  {name}: {path}")
-
-        if result.get('pattern_analysis') and 'error' not in result['pattern_analysis']:
-            print(f"\nFailure Pattern Analysis:")
-            pa = result['pattern_analysis']
-            print(f"  Clusters found: {pa['n_clusters']}")
-            for cluster_name, info in pa['cluster_analysis'].items():
-                failures = ', '.join(f[0] for f in info['common_failures'][:2])
-                print(f"  {cluster_name}: {info['size']} items - common failures: {failures}")
-
-        print(f"\nOpen HTML report: {result['html_path']}")
-
-    elif args.format == "html":
-        # Generate HTML report
+    if args.format == "html":
+        # Generate comprehensive HTML report with embedded Chart.js visualizations
         html = generate_html_report(analyses[0])
-        output_path = args.output or (dataset_path / "analysis_report.html")
+        output_path = Path(args.output) if args.output else (dataset_path / "analysis_report.html")
         with open(output_path, "w") as f:
             f.write(html)
         print(f"HTML report saved to: {output_path}")
@@ -3175,11 +3141,10 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         print(generate_text_report(analyses[0], verbose=args.verbose))
 
     # Show additional hints
-    if not args.format == "html" and not args.full:
+    if args.format != "html":
         print("")
         print("Tips:")
-        print(f"  → Full report (seaborn): evalyn analyze --dataset {dataset_path.name} --full")
-        print(f"  → HTML report: evalyn analyze --dataset {dataset_path.name} --format html")
+        print(f"  → HTML report with charts: evalyn analyze --dataset {dataset_path.name} --format html")
         if len(run_files) > 1:
             print(f"  → Compare runs: evalyn analyze --dataset {dataset_path.name} --compare --num-runs 3")
 
@@ -4376,10 +4341,9 @@ For more info on a command: evalyn <command> --help
     analyze_parser.add_argument("--run-id", help="Specific eval run ID to analyze (defaults to latest)")
     analyze_parser.add_argument("--compare", action="store_true", help="Compare multiple runs")
     analyze_parser.add_argument("--num-runs", type=int, default=5, help="Number of runs to compare (default: 5)")
-    analyze_parser.add_argument("--format", choices=["text", "html"], default="text", help="Output format (default: text)")
-    analyze_parser.add_argument("--output", help="Output path (file for html, directory for --full)")
+    analyze_parser.add_argument("--format", choices=["text", "html"], default="text", help="Output format: text (terminal) or html (interactive report with charts)")
+    analyze_parser.add_argument("--output", help="Output file path for HTML report")
     analyze_parser.add_argument("--verbose", action="store_true", help="Show detailed information including failed items")
-    analyze_parser.add_argument("--full", action="store_true", help="Generate full report with seaborn/matplotlib charts and sklearn clustering")
     analyze_parser.set_defaults(func=cmd_analyze)
 
     # Init command
