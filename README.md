@@ -74,8 +74,8 @@ python my_agent.py   # Traces auto-captured to SQLite
 
 **Option A: One-Click (Automated)** — Run the full pipeline in one command
 ```bash
-evalyn init                              # Create config from template
-export GEMINI_API_KEY="your-key"         # Set API key for LLM judges
+evalyn init                              # Create evalyn.yaml config
+# Edit evalyn.yaml to set your GEMINI_API_KEY
 evalyn one-click --project myapp         # Dataset → Metrics → Eval → Report
 ```
 
