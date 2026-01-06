@@ -77,7 +77,7 @@ evalyn one-click --project myapp             # Full evaluation pipeline
 ### Step 1: Instrument & Collect
 ```bash
 # Add @eval decorator to your agent, then run it
-python my_agent.py "your query"
+python my_agent.py 
 evalyn list-calls --limit 5
 ```
 ```
