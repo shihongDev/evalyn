@@ -1136,14 +1136,18 @@ def _resolve_dataset_and_metrics(
 
 
 class ProgressBar:
-    """Simple progress bar for evaluation."""
+    """Progress bar with ETA for evaluation."""
 
     def __init__(self, total: int, width: int = 40):
+        import time
         self.total = total
         self.width = width
         self._current = 0
         self._current_metric = ""
         self._current_type = ""
+        self._start_time = time.time()
+        self._last_render_time = 0
+        self._errors: List[str] = []
 
     def update(self, current: int, total: int, metric: str, metric_type: str) -> None:
         self._current = current
@@ -1151,18 +1155,56 @@ class ProgressBar:
         self._current_type = metric_type
         self._render()
 
+    def add_error(self, error: str) -> None:
+        """Record an error to display."""
+        self._errors.append(error)
+
+    def _format_eta(self, seconds: float) -> str:
+        """Format seconds as human-readable time."""
+        if seconds < 60:
+            return f"{int(seconds)}s"
+        elif seconds < 3600:
+            mins = int(seconds // 60)
+            secs = int(seconds % 60)
+            return f"{mins}m {secs}s"
+        else:
+            hours = int(seconds // 3600)
+            mins = int((seconds % 3600) // 60)
+            return f"{hours}h {mins}m"
+
     def _render(self) -> None:
+        import time
         pct = self._current / self.total if self.total > 0 else 0
         filled = int(self.width * pct)
         bar = "=" * filled + "-" * (self.width - filled)
         type_label = "[obj]" if self._current_type == "objective" else "[llm]"
-        line = f"\r[{bar}] {self._current}/{self.total} {type_label} {self._current_metric[:20]:<20}"
+
+        # Calculate ETA
+        elapsed = time.time() - self._start_time
+        if self._current > 0 and pct < 1.0:
+            rate = self._current / elapsed
+            remaining = (self.total - self._current) / rate if rate > 0 else 0
+            eta_str = f"ETA: {self._format_eta(remaining)}"
+        elif pct >= 1.0:
+            eta_str = f"Done in {self._format_eta(elapsed)}"
+        else:
+            eta_str = "ETA: --"
+
+        line = f"\r[{bar}] {self._current}/{self.total} {type_label} {self._current_metric[:15]:<15} {eta_str}"
         sys.stderr.write(line)
         sys.stderr.flush()
 
     def finish(self) -> None:
-        sys.stderr.write("\r" + " " * 80 + "\r")
+        sys.stderr.write("\r" + " " * 100 + "\r")
         sys.stderr.flush()
+        # Show errors if any
+        if self._errors:
+            sys.stderr.write(f"  ⚠ {len(self._errors)} error(s) during evaluation\n")
+            for error in self._errors[:3]:  # Show first 3
+                sys.stderr.write(f"    - {error}\n")
+            if len(self._errors) > 3:
+                sys.stderr.write(f"    ... and {len(self._errors) - 3} more\n")
+            sys.stderr.flush()
 
 
 def cmd_run_eval(args: argparse.Namespace) -> None:
@@ -1337,6 +1379,15 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     # Run evaluation using cached traces (with synthetic call support)
     from .runner import EvalRunner, save_eval_run_json
 
+    # Checkpoint path for long-running evaluations
+    dataset_dir = dataset_file.parent
+    checkpoint_path = dataset_dir / ".eval_checkpoint.json"
+
+    # Check for existing checkpoint and notify user
+    if checkpoint_path.exists():
+        if output_format != "json":
+            print("  Resuming from checkpoint...")
+
     runner = EvalRunner(
         target_fn=lambda: None,  # Dummy function, won't be called
         metrics=metrics,
@@ -1344,6 +1395,8 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         tracer=tracer,
         instrument=False,  # Don't instrument since we're not calling the function
         progress_callback=progress_callback if output_format != "json" else None,
+        checkpoint_path=checkpoint_path,
+        checkpoint_interval=5,  # Save every 5 items
     )
     run = runner.run_dataset(dataset_list, use_synthetic=True)
 
@@ -1351,7 +1404,6 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         progress.finish()
 
     # Save eval run in dedicated folder
-    dataset_dir = dataset_file.parent
     run_folder = save_eval_run_json(run, dataset_dir)
     results_path = run_folder / "results.json"
 
@@ -2682,6 +2734,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
     total = len(items_to_annotate)
     annotated_count = len(existing_annotations)
     annotations: List[Annotation] = list(existing_annotations.values())
+    new_annotation_count = 0  # Track new annotations for progress display
     per_metric_mode = args.per_metric
 
     print("\n" + "=" * 70)
@@ -2693,6 +2746,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
     if run:
         print(f"Using eval run: {run.id[:8]}...")
     print(f"Output: {output_path}")
+    print(f"\n💾 Each annotation is saved immediately - safe to quit anytime")
     if per_metric_mode:
         print("\nPer-metric commands:")
         print("  [a]gree with LLM  [d]isagree (flip)  [s]kip metric")
@@ -2773,11 +2827,53 @@ def cmd_annotate(args: argparse.Namespace) -> None:
         except (EOFError, KeyboardInterrupt):
             return None
 
-    def save_annotations() -> None:
-        """Save all annotations to file."""
-        with open(output_path, "w", encoding="utf-8") as f:
-            for ann in annotations:
+    def save_single_annotation(ann: Annotation) -> bool:
+        """Append a single annotation atomically with fsync.
+
+        Returns True if saved successfully, False otherwise.
+        """
+        try:
+            # Append mode - each annotation is written immediately
+            with open(output_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(ann.as_dict(), ensure_ascii=False) + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+            return True
+        except IOError as e:
+            print(f"⚠ Warning: Failed to save annotation: {e}")
+            return False
+
+    def save_all_annotations_atomic() -> bool:
+        """Save all annotations atomically (for final save or recovery).
+
+        Writes to temp file, then renames for atomic operation.
+        Returns True if saved successfully, False otherwise.
+        """
+        import tempfile
+        try:
+            # Write to temp file in same directory for atomic rename
+            temp_fd, temp_path = tempfile.mkstemp(
+                dir=output_path.parent,
+                prefix=".annotations_",
+                suffix=".tmp"
+            )
+            try:
+                with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+                    for ann in annotations:
+                        f.write(json.dumps(ann.as_dict(), ensure_ascii=False) + "\n")
+                    f.flush()
+                    os.fsync(f.fileno())
+                # Atomic rename
+                os.replace(temp_path, output_path)
+                return True
+            except Exception:
+                # Clean up temp file on error
+                if os.path.exists(temp_path):
+                    os.unlink(temp_path)
+                raise
+        except IOError as e:
+            print(f"⚠ Warning: Failed to save annotations: {e}")
+            return False
 
     def annotate_per_metric(
         item: DatasetItem, subjective_metrics: List[tuple]
@@ -2937,31 +3033,37 @@ def cmd_annotate(args: argparse.Namespace) -> None:
                 try:
                     quit_check = input("\nQuit? [y/n]: ").strip().lower()
                     if quit_check in ("y", "yes"):
-                        save_annotations()
-                        print(
-                            f"\nSaved {len(annotations)} annotations to {output_path}"
-                        )
+                        print(f"\n✓ All annotations already saved ({new_annotation_count} new this session)")
+                        print(f"  Output: {output_path}")
                         return
                 except (EOFError, KeyboardInterrupt):
-                    save_annotations()
-                    print(f"\nSaved {len(annotations)} annotations to {output_path}")
+                    print(f"\n✓ All annotations already saved ({new_annotation_count} new this session)")
+                    print(f"  Output: {output_path}")
                     return
                 idx += 1
                 continue
         else:
             ann = annotate_simple(item)
             if ann is None:
-                save_annotations()
-                print(f"\nSaved {len(annotations)} annotations to {output_path}")
+                print(f"\n✓ All annotations already saved ({new_annotation_count} new this session)")
+                print(f"  Output: {output_path}")
                 return
             if ann == "skip":
                 print("Skipped.")
                 idx += 1
                 continue
 
-        # Save annotation
+        # Save annotation immediately (append mode with fsync)
         annotations.append(ann)
-        save_annotations()
+        if save_single_annotation(ann):
+            new_annotation_count += 1
+        else:
+            # Failed to save - try full atomic save as fallback
+            print("  Attempting full save as fallback...")
+            if save_all_annotations_atomic():
+                new_annotation_count += 1
+            else:
+                print("  ⚠ Could not save annotation. Please check disk space.")
 
         # Show summary
         if per_metric_mode:
@@ -2980,11 +3082,10 @@ def cmd_annotate(args: argparse.Namespace) -> None:
 
         idx += 1
 
-    # Final save
-    save_annotations()
+    # All annotations already saved incrementally - just show summary
     print("\n" + "=" * 70)
     print(f"ANNOTATION COMPLETE")
-    print(f"Total annotated: {len(annotations)}")
+    print(f"Total annotated: {len(annotations)} ({new_annotation_count} new this session)")
     print(f"Saved to: {output_path}")
     print("=" * 70)
     print(
@@ -3987,15 +4088,58 @@ def cmd_one_click(args: argparse.Namespace) -> None:
     if args.dry_run:
         print("DRY RUN MODE - showing what would be done:\n")
 
-    # Initialize state tracking
-    # Filter out non-serializable items (like func) from args
-    args_dict = {k: v for k, v in vars(args).items() if not callable(v)}
-    state = {
-        "started_at": datetime.now().isoformat(),
-        "config": args_dict,
-        "steps": {},
-        "output_dir": str(output_dir),
-    }
+    # State file path for persistence
+    state_path = output_dir / "pipeline_state.json"
+
+    def save_state_atomic(state: dict) -> None:
+        """Save state atomically after each step."""
+        import tempfile
+        try:
+            state["updated_at"] = datetime.now().isoformat()
+            temp_fd, temp_path = tempfile.mkstemp(
+                dir=output_dir,
+                prefix=".state_",
+                suffix=".tmp",
+            )
+            with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=2, ensure_ascii=False, default=str)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(temp_path, state_path)
+        except Exception:
+            # Non-fatal - continue even if state save fails
+            pass
+
+    # Check for resume mode
+    resumed = False
+    if state_path.exists() and getattr(args, "resume", False):
+        try:
+            with open(state_path, "r", encoding="utf-8") as f:
+                state = json.load(f)
+            print(f"  Resuming from previous run...")
+            print(f"  Completed steps: {', '.join(state.get('steps', {}).keys())}\n")
+            resumed = True
+        except Exception:
+            state = None
+
+    # Initialize state tracking if not resuming
+    if not resumed or state is None:
+        # Filter out non-serializable items (like func) from args
+        args_dict = {k: v for k, v in vars(args).items() if not callable(v)}
+        state = {
+            "started_at": datetime.now().isoformat(),
+            "config": args_dict,
+            "steps": {},
+            "output_dir": str(output_dir),
+        }
+
+    # Helper to check if a step is already done
+    def step_done(step_name: str) -> bool:
+        return (
+            resumed
+            and step_name in state.get("steps", {})
+            and state["steps"][step_name].get("status") == "success"
+        )
 
     try:
         # Step 1: Build Dataset
@@ -4003,7 +4147,9 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         dataset_dir = output_dir / "1_dataset"
         dataset_dir.mkdir(exist_ok=True)
 
-        if args.dry_run:
+        if step_done("1_dataset"):
+            print("  ✓ Already completed (skipping)\n")
+        elif args.dry_run:
             print(
                 f"  → Would build dataset with: project={args.project}, limit={args.dataset_limit}"
             )
@@ -4057,13 +4203,16 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 "output": str(dataset_path),
                 "item_count": len(items),
             }
+            save_state_atomic(state)
 
         # Step 2: Suggest Metrics
         print("[2/7] Suggesting Metrics")
         metrics_dir = output_dir / "2_metrics"
         metrics_dir.mkdir(exist_ok=True)
 
-        if args.dry_run:
+        if step_done("2_metrics"):
+            print("  ✓ Already completed (skipping)\n")
+        elif args.dry_run:
             print(f"  → Would suggest metrics with mode={args.metric_mode}")
             print(f"  → Would save to: {metrics_dir}/suggested.json\n")
         else:
@@ -4203,13 +4352,16 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 "objective": obj_count,
                 "subjective": subj_count,
             }
+            save_state_atomic(state)
 
         # Step 3: Run Initial Evaluation
         print("[3/7] Running Initial Evaluation")
         eval_dir = output_dir / "3_initial_eval"
         eval_dir.mkdir(exist_ok=True)
 
-        if args.dry_run:
+        if step_done("3_initial_eval"):
+            print("  ✓ Already completed (skipping)\n")
+        elif args.dry_run:
             print(f"  → Would run evaluation on {args.dataset_limit} items")
             print(f"  → Would save to: {eval_dir}/\n")
         else:
@@ -4269,12 +4421,17 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 "output": str(run_path),
                 "run_id": eval_run.id,
             }
+            save_state_atomic(state)
 
         # Step 4: Human Annotation (optional)
-        if args.skip_annotation:
+        if step_done("4_annotation"):
+            print("[4/7] Human Annotation")
+            print("  ✓ Already completed (skipping)\n")
+        elif args.skip_annotation:
             print("[4/7] Human Annotation")
             print("  ⏭️  SKIPPED (--skip-annotation)\n")
             state["steps"]["4_annotation"] = {"status": "skipped"}
+            save_state_atomic(state)
         else:
             print("[4/7] Human Annotation")
             if args.dry_run:
@@ -4314,23 +4471,30 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                             "output": str(ann_path),
                             "count": ann_count,
                         }
+                        save_state_atomic(state)
                     else:
                         print("  ⏭️  No annotations created\n")
                         state["steps"]["4_annotation"] = {"status": "skipped"}
+                        save_state_atomic(state)
                 except KeyboardInterrupt:
                     print("\n  ⏭️  Annotation interrupted by user\n")
                     state["steps"]["4_annotation"] = {"status": "interrupted"}
+                    save_state_atomic(state)
 
         # Step 5: Calibrate LLM Judges (optional)
         has_annotations = (output_dir / "4_annotations" / "annotations.jsonl").exists()
 
-        if args.skip_calibration or not has_annotations:
+        if step_done("5_calibration"):
+            print("[5/7] Calibrating LLM Judges")
+            print("  ✓ Already completed (skipping)\n")
+        elif args.skip_calibration or not has_annotations:
             print("[5/7] Calibrating LLM Judges")
             if args.skip_calibration:
                 print("  ⏭️  SKIPPED (--skip-calibration)\n")
             else:
                 print("  ⏭️  SKIPPED (requires annotations)\n")
             state["steps"]["5_calibration"] = {"status": "skipped"}
+            save_state_atomic(state)
         else:
             print("[5/7] Calibrating LLM Judges")
             if args.dry_run:
@@ -4381,14 +4545,19 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                     "status": "success",
                     "metrics_calibrated": len(subj_metrics),
                 }
+                save_state_atomic(state)
 
         # Step 6: Re-evaluate with Calibrated Prompts (optional)
         has_calibrations = (output_dir / "5_calibrations").exists()
 
-        if not has_calibrations:
+        if step_done("6_calibrated_eval"):
+            print("[6/7] Re-evaluating with Calibrated Prompts")
+            print("  ✓ Already completed (skipping)\n")
+        elif not has_calibrations:
             print("[6/7] Re-evaluating with Calibrated Prompts")
             print("  ⏭️  SKIPPED (no calibrations)\n")
             state["steps"]["6_calibrated_eval"] = {"status": "skipped"}
+            save_state_atomic(state)
         else:
             print("[6/7] Re-evaluating with Calibrated Prompts")
             if args.dry_run:
@@ -4466,12 +4635,17 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                     "output": str(run_path2),
                     "calibrated_count": calibrated_count,
                 }
+                save_state_atomic(state)
 
         # Step 7: Generate Simulations (optional)
-        if not args.enable_simulation:
+        if step_done("7_simulation"):
+            print("[7/7] Generating Simulations")
+            print("  ✓ Already completed (skipping)\n")
+        elif not args.enable_simulation:
             print("[7/7] Generating Simulations")
             print("  ⏭️  SKIPPED (use --enable-simulation to enable)\n")
             state["steps"]["7_simulation"] = {"status": "skipped"}
+            save_state_atomic(state)
         elif not args.target:
             print("[7/7] Generating Simulations")
             print("  ⏭️  SKIPPED (--target required for simulation)\n")
@@ -4479,6 +4653,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 "status": "skipped",
                 "reason": "no target",
             }
+            save_state_atomic(state)
         else:
             print("[7/7] Generating Simulations")
             if args.dry_run:
@@ -4511,17 +4686,19 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                         "status": "success",
                         "output": str(sim_dir),
                     }
+                    save_state_atomic(state)
                 except Exception as e:
                     print(f"  ✗ Simulation failed: {e}\n")
                     state["steps"]["7_simulation"] = {
                         "status": "failed",
                         "error": str(e),
                     }
+                    save_state_atomic(state)
 
-        # Save pipeline state
+        # Save final pipeline state (also saved as pipeline_summary.json for backwards compat)
         state["completed_at"] = datetime.now().isoformat()
-        state_path = output_dir / "pipeline_summary.json"
-        with open(state_path, "w") as f:
+        summary_path = output_dir / "pipeline_summary.json"
+        with open(summary_path, "w") as f:
             json.dump(state, f, indent=2)
 
         # Final summary
@@ -4549,16 +4726,19 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             print(
                 f"  1. Review results: cat {state['steps']['3_initial_eval']['output']}"
             )
-        print(f"  2. View full summary: cat {state_path}")
+        print(f"  2. View full summary: cat {summary_path}")
         print()
 
     except KeyboardInterrupt:
         print("\n\n⚠️  Pipeline interrupted by user")
-        print(f"Partial results saved to: {output_dir}")
-        print(f"Resume or inspect: cd {output_dir}\n")
+        save_state_atomic(state)  # Save current state
+        print(f"Progress saved to: {state_path}")
+        print(f"Resume with: evalyn one-click --project {args.project} --output-dir {output_dir} --resume\n")
     except Exception as e:
         print(f"\n\n✗ Pipeline failed: {e}")
-        print(f"Partial results saved to: {output_dir}\n")
+        save_state_atomic(state)  # Save current state
+        print(f"Progress saved to: {state_path}")
+        print(f"Resume with: evalyn one-click --project {args.project} --output-dir {output_dir} --resume\n")
         import traceback
 
         if args.verbose:
@@ -5091,6 +5271,11 @@ For more info on a command: evalyn <command> --help
     )
     oneclick_parser.add_argument(
         "--output-dir", help="Custom output directory (default: auto-generated)"
+    )
+    oneclick_parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from a previous incomplete run (auto-detects from output-dir)",
     )
 
     # Dataset options

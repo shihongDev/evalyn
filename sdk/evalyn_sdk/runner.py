@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from collections import defaultdict
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Union
@@ -59,6 +61,10 @@ class EvalRunner:
     """
     Executes a dataset against a target function, applies metrics, and stores the run.
     If `instrument=True`, the runner will wrap the target function with the tracer automatically.
+
+    Supports checkpointing for long-running evaluations:
+    - checkpoint_path: Path to save progress (default: None, no checkpointing)
+    - checkpoint_interval: Save checkpoint every N items (default: 5)
     """
 
     def __init__(
@@ -71,6 +77,8 @@ class EvalRunner:
         instrument: bool = True,
         cache_enabled: bool = True,
         progress_callback: Optional[ProgressCallback] = None,
+        checkpoint_path: Optional[Union[str, Path]] = None,
+        checkpoint_interval: int = 5,
     ):
         self.tracer = tracer or get_default_tracer()
         if storage:
@@ -86,6 +94,70 @@ class EvalRunner:
         self.cache_enabled = cache_enabled
         self._cache: Dict[str, str] = {}  # cache key -> call id
         self._progress_callback = progress_callback
+        self.checkpoint_path = Path(checkpoint_path) if checkpoint_path else None
+        self.checkpoint_interval = checkpoint_interval
+
+    def _load_checkpoint(self) -> Dict:
+        """Load checkpoint if it exists. Returns dict with 'results' and 'completed_items'."""
+        if not self.checkpoint_path or not self.checkpoint_path.exists():
+            return {"results": [], "completed_items": set(), "run_id": str(uuid4())}
+
+        try:
+            with open(self.checkpoint_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            # Convert results back to MetricResult objects
+            results = [MetricResult.from_dict(r) for r in data.get("results", [])]
+            completed = set(data.get("completed_items", []))
+            run_id = data.get("run_id", str(uuid4()))
+            return {"results": results, "completed_items": completed, "run_id": run_id}
+        except Exception:
+            # If checkpoint is corrupted, start fresh
+            return {"results": [], "completed_items": set(), "run_id": str(uuid4())}
+
+    def _save_checkpoint(
+        self, results: List[MetricResult], completed_items: set, run_id: str
+    ) -> bool:
+        """Save checkpoint atomically. Returns True on success."""
+        if not self.checkpoint_path:
+            return False
+
+        try:
+            # Prepare checkpoint data
+            data = {
+                "run_id": run_id,
+                "completed_items": list(completed_items),
+                "results": [r.as_dict() for r in results],
+                "saved_at": now_utc().isoformat(),
+            }
+
+            # Write to temp file, then atomic rename
+            self.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+            temp_fd, temp_path = tempfile.mkstemp(
+                dir=self.checkpoint_path.parent,
+                prefix=".checkpoint_",
+                suffix=".tmp",
+            )
+            try:
+                with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2, ensure_ascii=False, default=str)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.replace(temp_path, self.checkpoint_path)
+                return True
+            except Exception:
+                if os.path.exists(temp_path):
+                    os.unlink(temp_path)
+                raise
+        except Exception:
+            return False
+
+    def _cleanup_checkpoint(self) -> None:
+        """Remove checkpoint file after successful completion."""
+        if self.checkpoint_path and self.checkpoint_path.exists():
+            try:
+                self.checkpoint_path.unlink()
+            except Exception:
+                pass
 
     def run_dataset(
         self, dataset: Iterable[DatasetItem], use_synthetic: bool = True
@@ -97,17 +169,34 @@ class EvalRunner:
             dataset: Iterable of DatasetItem to evaluate
             use_synthetic: If True, create synthetic FunctionCall when trace not found.
                           This allows evaluation on datasets without original traces.
+
+        Supports checkpointing: if checkpoint_path is set, progress is saved every
+        checkpoint_interval items. On resume, already-evaluated items are skipped.
         """
-        metric_results: List[MetricResult] = []
+        # Load checkpoint if exists
+        checkpoint = self._load_checkpoint()
+        metric_results: List[MetricResult] = checkpoint["results"]
+        completed_items: set = checkpoint["completed_items"]
+        run_id = checkpoint["run_id"]
         failures: List[str] = []
 
         # Convert to list for progress tracking
         items = list(dataset)
         total_items = len(items)
-        total_evals = total_items * len(self.metrics)
-        current_eval = 0
 
-        for item_idx, item in enumerate(items):
+        # Filter out already completed items
+        pending_items = [(i, item) for i, item in enumerate(items) if item.id not in completed_items]
+        resumed = len(completed_items) > 0
+
+        if resumed and self._progress_callback:
+            # Log that we're resuming
+            pass
+
+        total_evals = len(pending_items) * len(self.metrics)
+        current_eval = 0
+        items_since_checkpoint = 0
+
+        for item_idx, item in pending_items:
             call = None
 
             # First, try to load call from metadata (for pre-built datasets)
@@ -167,11 +256,36 @@ class EvalRunner:
                         metric.spec.id,
                         metric.spec.type,
                     )
-                metric_results.append(metric.evaluate(call, item))
+                # Per-metric error isolation - don't let one metric failure kill the run
+                try:
+                    metric_results.append(metric.evaluate(call, item))
+                except Exception as e:
+                    # Record the error as a failed result
+                    metric_results.append(
+                        MetricResult(
+                            metric_id=metric.spec.id,
+                            call_id=call.id,
+                            score=None,
+                            passed=False,
+                            details={"error": str(e), "error_type": type(e).__name__},
+                        )
+                    )
+
+            # Mark item as completed and save checkpoint
+            completed_items.add(item.id)
+            items_since_checkpoint += 1
+
+            if self.checkpoint_path and items_since_checkpoint >= self.checkpoint_interval:
+                self._save_checkpoint(metric_results, completed_items, run_id)
+                items_since_checkpoint = 0
+
+        # Save final checkpoint before creating run
+        if self.checkpoint_path and items_since_checkpoint > 0:
+            self._save_checkpoint(metric_results, completed_items, run_id)
 
         summary = self._summarize(metric_results, failures)
         run = EvalRun(
-            id=str(uuid4()),
+            id=run_id,  # Use consistent run_id from checkpoint
             dataset_name=self.dataset_name,
             created_at=now_utc(),
             metric_results=metric_results,
@@ -181,6 +295,9 @@ class EvalRunner:
 
         if self.tracer.storage:
             self.tracer.storage.store_eval_run(run)
+
+        # Clean up checkpoint on successful completion
+        self._cleanup_checkpoint()
 
         return run
 
