@@ -179,10 +179,15 @@ def patch_openai() -> bool:
 
     # Patch sync client
     # Patch the module-level functions if they exist
-  
-    if hasattr(openai, "chat") and hasattr(openai.chat, "completions"):
-        _patch_openai_completions(openai.chat.completions)
-
+    # Note: In OpenAI SDK v1.0+, accessing openai.chat creates a default client
+    # which requires OPENAI_API_KEY. We wrap in try/except to handle missing key.
+    try:
+        if hasattr(openai, "chat") and hasattr(openai.chat, "completions"):
+            _patch_openai_completions(openai.chat.completions)
+    except Exception:
+        # No API key set or other error - skip module-level patching
+        # Will still patch client class below for when user creates client with key
+        pass
 
     # Also try to patch via client instances
     _patch_openai_client_class()

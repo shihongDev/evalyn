@@ -2,10 +2,12 @@
 # Copy to evalyn.yaml and set your values
 # All settings are optional. CLI arguments override config values.
 
-# API Keys (use env vars or set directly)
+# API Keys - only set the one(s) you need:
+#   - gemini: Required for example agent and default LLM judge
+#   - openai: Only if using OpenAI models for evaluation
 api_keys:
-  gemini: "${GEMINI_API_KEY}"
-  openai: "${OPENAI_API_KEY}"
+  gemini: "your-gemini-api-key-here"  # Get from https://aistudio.google.com/apikey
+  # openai: "your-openai-key"         # Optional - uncomment if needed
 
 # Default LLM settings
 llm:

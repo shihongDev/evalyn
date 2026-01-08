@@ -3975,9 +3975,10 @@ def cmd_init(args: argparse.Namespace) -> None:
         minimal = """# Evalyn Configuration
 # See evalyn.yaml.example for all available options
 
+# API Keys - only set what you need
 api_keys:
-  gemini: "${GEMINI_API_KEY}"
-  openai: "${OPENAI_API_KEY}"
+  gemini: "your-gemini-api-key-here"  # Required for example agent
+  # openai: "your-openai-key"         # Optional
 
 llm:
   model: "gemini-2.5-flash-lite"
