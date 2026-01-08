@@ -32,7 +32,7 @@ from example_agent.utils import (
 )
 
 # Import evalyn_sdk to enable auto-instrumentation
-# LLM calls are automatically captured (no manual logging needed)
+# The @eval decorator on run_agent captures traces automatically
 import evalyn_sdk  # noqa: F401
 
 load_dotenv()
@@ -81,8 +81,7 @@ def generate_query(state: OverallState, config: RunnableConfig) -> QueryGenerati
         number_queries=state["initial_search_query_count"],
     )
     # Generate the search queries
-    with tracer.span("gemini.invoke", {"model": configurable.query_generator_model}):
-        result = structured_llm.invoke(formatted_prompt)
+    result = structured_llm.invoke(formatted_prompt)
     return {"search_query": result.query}
 
 
@@ -175,8 +174,7 @@ def reflection(state: OverallState, config: RunnableConfig) -> ReflectionState:
         max_retries=2,
         api_key=os.getenv("GEMINI_API_KEY"),
     )
-    with tracer.span("gemini.invoke", {"model": reasoning_model}):
-        result = llm.with_structured_output(Reflection).invoke(formatted_prompt)
+    result = llm.with_structured_output(Reflection).invoke(formatted_prompt)
 
     return {
         "is_sufficient": result.is_sufficient,
@@ -255,19 +253,7 @@ def finalize_answer(state: OverallState, config: RunnableConfig):
         max_retries=2,
         api_key=os.getenv("GEMINI_API_KEY"),
     )
-    tracer.log_event(
-        "gemini.request",
-        {"model": reasoning_model, "prompt_excerpt": formatted_prompt[:300]},
-    )
-    with tracer.span("gemini.invoke", {"model": reasoning_model}):
-        result = llm.invoke(formatted_prompt)
-    tracer.log_event(
-        "gemini.response",
-        {
-            "model": reasoning_model,
-            "length": len(result.content) if hasattr(result, "content") else None,
-        },
-    )
+    result = llm.invoke(formatted_prompt)
 
     # Replace the short urls with the original urls and add all used urls to the sources_gathered
     unique_sources = []
