@@ -50,10 +50,10 @@ Evalyn focuses on making GenAI App evaluation practical and easy. It provides li
 ## Install
 
 ```bash
-pip install -e ".[dev,llm]"
+pip install -e "./sdk[dev,llm]"
 ```
 
-## Quick Start
+## Quick Start (Example Agent)
 
 ### 1. Instrument Your Agent
 
@@ -67,7 +67,8 @@ def my_agent(query: str) -> str:
 
 ### 2. Run Your Agent
 ```bash
-python my_agent.py   # Traces auto-captured to SQLite
+export GEMINI_API_KEY="api_key" ## Setup the gemini api key for the example agent
+python -m example_agent.agent.py   # Traces auto-captured to SQLite
 ```
 
 ### 3. Choose Your Workflow
