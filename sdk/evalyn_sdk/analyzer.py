@@ -13,6 +13,98 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+import html
+
+
+def _format_io_content(content: Any, max_length: int = 10000) -> str:
+    """Format input/output content for HTML display with escaping and truncation."""
+    if content is None:
+        return "No data available"
+
+    # Convert to string and format
+    if isinstance(content, dict):
+        try:
+            text = json.dumps(content, indent=2, ensure_ascii=False, default=str)
+        except Exception:
+            text = str(content)
+    else:
+        text = str(content)
+
+    # Truncate if too long
+    if len(text) > max_length:
+        text = text[:max_length] + "\n... (truncated)"
+
+    # HTML escape to prevent XSS and preserve formatting
+    return html.escape(text)
+
+
+def _render_failed_items(analysis: "RunAnalysis", item_details: dict) -> str:
+    """Render the failed items HTML section."""
+    parts = []
+    for i, item_id in enumerate(analysis.failed_items[:30]):
+        item_stats = analysis.item_stats[item_id]
+        failed_count = sum(
+            1 for m, r in item_stats.metric_results.items() if r["passed"] is False
+        )
+        total_with_pass_fail = sum(
+            1 for m, r in item_stats.metric_results.items() if r["passed"] is not None
+        )
+
+        # Get input/output from item_details
+        item_info = item_details.get(item_id, {})
+        input_content = _format_io_content(
+            item_info.get("input", "No input data available")
+        )
+        output_content = _format_io_content(
+            item_info.get("output", "No output data available")
+        )
+
+        # Render failed metrics with reasoning
+        metric_details_html = []
+        for m, r in item_stats.metric_results.items():
+            if r["passed"] is False:
+                score = r.get("score", 0) or 0
+                reason = (
+                    r.get("reason")
+                    or (r.get("details") or {}).get("error")
+                    or "No reasoning available"
+                )
+                reason_escaped = html.escape(str(reason))
+                metric_details_html.append(f"""<div class="metric-detail">
+                    <div class="metric-detail-header">
+                        <span class="metric-detail-name">✗ {html.escape(m)}</span>
+                        <span class="metric-detail-score">({score:.2f})</span>
+                    </div>
+                    <div class="metric-detail-reason">{reason_escaped}</div>
+                </div>""")
+
+        parts.append(f"""<div class="failed-item" id="item-{i}">
+            <div class="failed-item-header">
+                <div>
+                    <span class="failed-item-id">{html.escape(item_id[:24])}...</span>
+                    <span class="failed-item-summary">{failed_count}/{total_with_pass_fail} failed</span>
+                </div>
+                <button class="expand-btn" onclick="toggleExpand({i})">Expand</button>
+            </div>
+            <div class="failed-item-content">
+                <div class="io-section">
+                    <div class="io-block input">
+                        <div class="io-label">INPUT</div>
+                        <pre class="io-content">{input_content}</pre>
+                    </div>
+                    <div class="io-block output">
+                        <div class="io-label">OUTPUT</div>
+                        <pre class="io-content">{output_content}</pre>
+                    </div>
+                </div>
+                <div class="metric-details-section">
+                    <div class="io-label">FAILED METRICS</div>
+                    {"".join(metric_details_html)}
+                </div>
+            </div>
+        </div>""")
+
+    return "".join(parts)
 
 
 @dataclass
@@ -25,9 +117,13 @@ class MetricStats:
     passed: int = 0
     failed: int = 0
     scores: List[float] = field(default_factory=list)
+    has_pass_fail: bool = False  # True if metric has pass/fail semantics
 
     @property
-    def pass_rate(self) -> float:
+    def pass_rate(self) -> Optional[float]:
+        """Return pass rate or None if metric doesn't have pass/fail semantics."""
+        if not self.has_pass_fail:
+            return None
         return self.passed / self.count if self.count > 0 else 0.0
 
     @property
@@ -58,9 +154,9 @@ class ItemStats:
     item_id: str
     metrics_passed: int = 0
     metrics_failed: int = 0
-    metric_results: Dict[str, Tuple[bool, float]] = field(
+    metric_results: Dict[str, Dict[str, Any]] = field(
         default_factory=dict
-    )  # metric_id -> (passed, score)
+    )  # metric_id -> {passed, score, reason, details}
 
     @property
     def all_passed(self) -> bool:
@@ -145,10 +241,9 @@ def analyze_run(run_data: Dict[str, Any]) -> RunAnalysis:
         metric_id = result["metric_id"]
         item_id = result["item_id"]
         score = result.get("score")
-        # Handle None scores (API errors, etc.)
-        if score is None:
-            score = 0.0
-        passed = result.get("passed", False)
+        # Handle None scores (API errors, etc.) - keep as 0.0 for averaging
+        numeric_score = score if score is not None else 0.0
+        passed = result.get("passed")  # Can be True, False, or None
 
         # Update metric stats
         if metric_id not in metric_stats:
@@ -157,19 +252,30 @@ def analyze_run(run_data: Dict[str, Any]) -> RunAnalysis:
             )
         ms = metric_stats[metric_id]
         ms.count += 1
-        ms.scores.append(score)
-        if passed:
-            ms.passed += 1
-        else:
-            ms.failed += 1
+        ms.scores.append(numeric_score)
 
-        # Update item stats
+        # Only track pass/fail if the metric has pass/fail semantics (passed is not None)
+        if passed is not None:
+            ms.has_pass_fail = True
+            if passed:
+                ms.passed += 1
+            else:
+                ms.failed += 1
+
+        # Update item stats with full details
         if item_stats[item_id].item_id == "":
             item_stats[item_id].item_id = item_id
-        item_stats[item_id].metric_results[metric_id] = (passed, score)
-        if passed:
+        details = result.get("details", {})
+        item_stats[item_id].metric_results[metric_id] = {
+            "passed": passed,
+            "score": numeric_score,
+            "reason": details.get("reason"),
+            "details": details,
+        }
+        # Only count pass/fail for metrics that have pass/fail semantics
+        if passed is True:
             item_stats[item_id].metrics_passed += 1
-        else:
+        elif passed is False:
             item_stats[item_id].metrics_failed += 1
 
     # Get failed items
@@ -309,7 +415,7 @@ def generate_text_report(analysis: RunAnalysis, verbose: bool = False) -> str:
         for item_id in analysis.failed_items[:20]:  # Limit to 20
             item = analysis.item_stats[item_id]
             failed_metrics = [
-                m for m, (passed, _) in item.metric_results.items() if not passed
+                m for m, r in item.metric_results.items() if r["passed"] is False
             ]
             lines.append(f"  {item_id[:12]}... failed: {', '.join(failed_metrics)}")
         if len(analysis.failed_items) > 20:
@@ -394,42 +500,59 @@ def generate_comparison_report(analyses: List[RunAnalysis]) -> str:
 # =============================================================================
 
 
-def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
-    """Generate a comprehensive single-page HTML report with all visualizations.
+def generate_html_report(
+    analysis: RunAnalysis, verbose: bool = False, item_details: dict = None
+) -> str:
+    """Generate a high-density dark-themed evaluation dashboard.
 
     Uses Chart.js for interactive charts. No external images - everything is embedded.
-    Styled with Anthropic research paper aesthetic (light background, blue/coral colors).
-    """
+    Styled with dark observability aesthetic (dark green background, neon accents).
 
-    # Prepare metric data sorted by pass rate
+    Args:
+        analysis: The run analysis data
+        verbose: Include additional details
+        item_details: Optional dict mapping item_id -> {"input": ..., "output": ...}
+    """
+    item_details = item_details or {}
+
+    # Prepare metric data sorted by pass rate (metrics without pass/fail go to end)
     metrics_by_pass_rate = sorted(
-        analysis.metric_stats.values(), key=lambda m: -m.pass_rate
+        analysis.metric_stats.values(),
+        key=lambda m: -(m.pass_rate if m.pass_rate is not None else -1),
     )
     metric_labels = json.dumps([m.metric_id for m in metrics_by_pass_rate])
-    pass_rates = json.dumps([round(m.pass_rate * 100, 1) for m in metrics_by_pass_rate])
+    # For charts: use 0 for None pass rates (they'll be shown as N/A in table)
+    pass_rates = json.dumps(
+        [
+            round(m.pass_rate * 100, 1) if m.pass_rate is not None else 0
+            for m in metrics_by_pass_rate
+        ]
+    )
     avg_scores = json.dumps([round(m.avg_score, 3) for m in metrics_by_pass_rate])
     min_scores = json.dumps([round(m.min_score, 3) for m in metrics_by_pass_rate])
     max_scores = json.dumps([round(m.max_score, 3) for m in metrics_by_pass_rate])
     passed_counts = json.dumps([m.passed for m in metrics_by_pass_rate])
     failed_counts = json.dumps([m.failed for m in metrics_by_pass_rate])
 
-    # Color coding for pass rates
+    # Color coding for pass rates (dark theme)
+    def get_pass_rate_color(m):
+        if m.pass_rate is None:
+            return "#6b7280"  # Muted gray for metrics without pass/fail
+        if m.pass_rate >= 0.8:
+            return "#39ff14"  # Neon green for good
+        if m.pass_rate >= 0.5:
+            return "#ff9f1c"  # Amber for warning
+        return "#ef4444"  # Red for bad
+
     pass_rate_colors = json.dumps(
-        [
-            "#4a90a4"
-            if m.pass_rate >= 0.8
-            else "#e0a030"
-            if m.pass_rate >= 0.5
-            else "#d65a4a"
-            for m in metrics_by_pass_rate
-        ]
+        [get_pass_rate_color(m) for m in metrics_by_pass_rate]
     )
 
     # Prepare per-item data for detailed view
     item_data_rows = []
     for item_id, item in analysis.item_stats.items():
         failed_metrics = [
-            m for m, (passed, _) in item.metric_results.items() if not passed
+            m for m, r in item.metric_results.items() if r["passed"] is False
         ]
         status = "pass" if item.all_passed else "fail"
         item_data_rows.append(
@@ -473,8 +596,8 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
             row = []
             for metric_id in metric_ids:
                 if metric_id in analysis.item_stats[item_id].metric_results:
-                    _, score = analysis.item_stats[item_id].metric_results[metric_id]
-                    row.append(score)
+                    result = analysis.item_stats[item_id].metric_results[metric_id]
+                    row.append(result["score"])
                 else:
                     row.append(None)
             score_matrix.append(row)
@@ -526,20 +649,37 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eval Analysis - {analysis.dataset_name}</title>
+    <title>Eval Dashboard - {analysis.dataset_name}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {{
-            --bg: #fafaf8;
-            --bg-card: #ffffff;
-            --bg-alt: #f5f5f3;
-            --text: #1a1a1a;
-            --text-muted: #6b6b6b;
-            --border: #e5e5e0;
-            --accent: #4a90a4;
-            --success: #4a90a4;
-            --warning: #e0a030;
-            --error: #d65a4a;
+            /* Backgrounds - deep dark green */
+            --bg-primary: #0a1210;
+            --bg-secondary: #0f1a16;
+            --bg-tertiary: #152420;
+            --bg-hover: #1a2d28;
+
+            /* Accents */
+            --accent-primary: #39ff14;
+            --accent-secondary: #ff9f1c;
+            --accent-muted: #6b7280;
+            --accent-purple: #8b5cf6;
+
+            /* Status */
+            --status-pass: #39ff14;
+            --status-fail: #ef4444;
+            --status-warn: #ff9f1c;
+
+            /* Text */
+            --text-primary: #e5e7eb;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+
+            /* Borders */
+            --border-subtle: #1f2d28;
+            --border-strong: #2d403a;
         }}
 
         * {{
@@ -549,371 +689,701 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
         }}
 
         body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            line-height: 1.6;
-            padding: 40px 20px;
-        }}
-
-        .container {{
-            max-width: 1200px;
-            margin: 0 auto;
-        }}
-
-        /* Header */
-        .header {{
-            text-align: center;
-            margin-bottom: 48px;
-        }}
-
-        .header h1 {{
-            font-size: 28px;
-            font-weight: 500;
-            color: var(--text);
-            margin-bottom: 8px;
-        }}
-
-        .header .subtitle {{
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
             font-size: 14px;
-            color: var(--text-muted);
+            min-height: 100vh;
         }}
 
-        /* Stats Grid */
-        .stats-grid {{
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
+        .dashboard {{
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 24px;
+        }}
+
+        /* Header Bar */
+        .header {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            margin-bottom: 24px;
+        }}
+
+        .header-left {{
+            display: flex;
+            align-items: center;
             gap: 24px;
-            margin-bottom: 48px;
         }}
 
-        .stat-card {{
-            text-align: center;
-            padding: 32px 16px;
+        .header-title {{
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
         }}
 
-        .stat-value {{
-            font-size: 48px;
-            font-weight: 500;
-            color: var(--accent);
-            line-height: 1;
-            margin-bottom: 8px;
-        }}
-
-        .stat-value.success {{ color: var(--success); }}
-        .stat-value.warning {{ color: var(--warning); }}
-        .stat-value.error {{ color: var(--error); }}
-
-        .stat-label {{
+        .header-meta {{
+            display: flex;
+            gap: 16px;
             font-size: 13px;
             color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
         }}
 
-        /* Cards */
-        .card {{
-            background: var(--bg-card);
-            border-radius: 12px;
-            padding: 32px;
-            margin-bottom: 32px;
-            border: 1px solid var(--border);
+        .header-meta span {{
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }}
 
-        .card h2 {{
-            font-size: 16px;
-            font-weight: 500;
-            color: var(--text);
+        .header-meta .value {{
+            color: var(--text-secondary);
+            font-family: monospace;
+        }}
+
+        /* KPI Bar - horizontal, no cards */
+        .kpi-bar {{
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border-subtle);
             margin-bottom: 24px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid var(--border);
+            overflow-x: auto;
         }}
 
-        /* Charts */
-        .chart-container {{
-            position: relative;
-            height: 400px;
+        .kpi-item {{
+            flex: 1;
+            min-width: 120px;
+            padding: 0 24px;
+            border-right: 1px solid var(--border-subtle);
+            text-align: center;
+        }}
+
+        .kpi-item:last-child {{
+            border-right: none;
+        }}
+
+        .kpi-value {{
+            font-size: 32px;
+            font-weight: 700;
+            line-height: 1.1;
+            margin-bottom: 4px;
+            font-variant-numeric: tabular-nums;
+        }}
+
+        .kpi-value.pass {{ color: var(--status-pass); }}
+        .kpi-value.warn {{ color: var(--status-warn); }}
+        .kpi-value.fail {{ color: var(--status-fail); }}
+        .kpi-value.neutral {{ color: var(--text-primary); }}
+
+        .kpi-unit {{
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--text-muted);
+            margin-left: 2px;
+        }}
+
+        .kpi-label {{
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }}
+
+        .kpi-delta {{
+            font-size: 12px;
+            margin-top: 4px;
+        }}
+
+        .kpi-delta.up {{ color: var(--status-pass); }}
+        .kpi-delta.down {{ color: var(--status-fail); }}
+
+        /* Section layout */
+        .section {{
+            margin-bottom: 24px;
+        }}
+
+        .section-header {{
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-subtle);
+        }}
+
+        /* Charts Grid */
+        .charts-grid {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }}
+
+        .chart-box {{
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            padding: 20px;
+        }}
+
+        .chart-title {{
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
             margin-bottom: 16px;
         }}
 
-        .chart-container.tall {{
-            height: 500px;
+        .chart-container {{
+            position: relative;
+            height: 300px;
         }}
 
-        /* Tables */
+        /* Dense Table */
+        .table-wrapper {{
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            overflow-x: auto;
+        }}
+
         table {{
             width: 100%;
             border-collapse: collapse;
-            font-size: 14px;
-        }}
-
-        th, td {{
-            padding: 12px 16px;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+            font-variant-numeric: tabular-nums;
         }}
 
         th {{
+            padding: 10px 12px;
+            text-align: left;
             font-weight: 500;
-            color: var(--text-muted);
-            font-size: 12px;
+            font-size: 11px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            background: var(--bg-alt);
+            letter-spacing: 0.03em;
+            color: var(--text-muted);
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-strong);
+            white-space: nowrap;
+            cursor: pointer;
+            user-select: none;
+        }}
+
+        th:hover {{
+            color: var(--text-secondary);
+        }}
+
+        th.sort-asc,
+        th.sort-desc {{
+            color: var(--accent-primary);
+        }}
+
+        th.sort-asc::after {{
+            content: ' ↑';
+            color: var(--accent-primary);
+        }}
+
+        th.sort-desc::after {{
+            content: ' ↓';
+            color: var(--accent-primary);
+        }}
+
+        /* Pinned average row */
+        tr.avg-row {{
+            background: var(--bg-tertiary);
+            font-weight: 600;
+        }}
+
+        tr.avg-row td {{
+            border-bottom: 2px solid var(--border-strong);
+            color: var(--accent-primary);
+        }}
+
+        td {{
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
         }}
 
         tr:hover {{
-            background: var(--bg-alt);
+            background: var(--bg-hover);
         }}
 
-        .badge {{
+        /* Mini score bar */
+        .score-bar {{
             display: inline-block;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 500;
+            width: 40px;
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            overflow: hidden;
+            vertical-align: middle;
+            margin-right: 8px;
         }}
 
-        .badge.pass {{
-            background: rgba(74, 144, 164, 0.1);
-            color: var(--success);
+        .score-bar-fill {{
+            height: 100%;
+            border-radius: 3px;
         }}
 
-        .badge.fail {{
-            background: rgba(214, 90, 74, 0.1);
-            color: var(--error);
+        .score-bar-fill.high {{ background: var(--status-pass); }}
+        .score-bar-fill.mid {{ background: var(--status-warn); }}
+        .score-bar-fill.low {{ background: var(--status-fail); }}
+
+        /* Status indicators */
+        .status-pass {{
+            color: var(--status-pass);
         }}
 
-        .badge.warn {{
-            background: rgba(224, 160, 48, 0.1);
-            color: var(--warning);
+        .status-fail {{
+            color: var(--status-fail);
         }}
 
-        /* Grid layouts */
-        .two-col {{
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 32px;
+        .status-warn {{
+            color: var(--status-warn);
         }}
 
-        /* Metadata */
-        .metadata {{
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
-            padding: 20px;
-            background: var(--bg-alt);
-            border-radius: 8px;
-            font-size: 13px;
+        /* Failed Items Section */
+        .failed-section {{
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
         }}
 
-        .metadata-item {{
-            display: flex;
-            gap: 8px;
-        }}
-
-        .metadata-label {{
-            color: var(--text-muted);
-        }}
-
-        .metadata-value {{
-            font-weight: 500;
-        }}
-
-        /* Responsive */
-        @media (max-width: 768px) {{
-            .stats-grid {{
-                grid-template-columns: repeat(2, 1fr);
-            }}
-            .two-col {{
-                grid-template-columns: 1fr;
-            }}
-            .stat-value {{
-                font-size: 36px;
-            }}
-        }}
-
-        /* Correlation matrix */
-        .correlation-grid {{
-            display: grid;
-            gap: 2px;
-            font-size: 11px;
-        }}
-
-        .corr-cell {{
+        .failed-header {{
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-subtle);
             display: flex;
             align-items: center;
-            justify-content: center;
-            padding: 8px;
+            justify-content: space-between;
+        }}
+
+        .failed-header h3 {{
+            font-size: 13px;
             font-weight: 500;
+            color: var(--text-secondary);
         }}
 
-        .corr-label {{
-            padding: 8px;
-            font-size: 11px;
-            color: var(--text-muted);
-            text-align: right;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+        .failed-count {{
+            font-size: 12px;
+            color: var(--status-fail);
+            font-weight: 600;
         }}
 
-        /* Failed items section */
-        .failed-items {{
-            max-height: 300px;
+        .failed-list {{
+            max-height: 400px;
             overflow-y: auto;
         }}
 
         .failed-item {{
-            padding: 12px 16px;
-            border-bottom: 1px solid var(--border);
-            font-size: 13px;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-subtle);
         }}
 
         .failed-item:last-child {{
             border-bottom: none;
         }}
 
+        .failed-item-header {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }}
+
         .failed-item-id {{
-            font-family: monospace;
+            font-family: 'SF Mono', Monaco, monospace;
             font-size: 12px;
             color: var(--text-muted);
         }}
 
-        .failed-item-metrics {{
-            margin-top: 4px;
-            color: var(--error);
+        .failed-item-summary {{
+            font-size: 12px;
+            color: var(--status-fail);
+        }}
+
+        .failed-item-content {{
+            display: none;
+        }}
+
+        .failed-item.expanded .failed-item-content {{
+            display: block;
+        }}
+
+        .io-block {{
+            margin-top: 12px;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            max-height: 150px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }}
+
+        .io-label {{
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            font-family: 'Inter', sans-serif;
+        }}
+
+        .io-block.input {{
+            border-left: 3px solid var(--accent-purple);
+        }}
+
+        .io-block.output {{
+            border-left: 3px solid var(--accent-secondary);
+        }}
+
+        .failed-metrics {{
+            margin-top: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }}
+
+        .failed-metric-tag {{
+            font-size: 11px;
+            padding: 4px 8px;
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--status-fail);
+            border-radius: 4px;
+        }}
+
+        .expand-btn {{
+            background: none;
+            border: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            padding: 4px 10px;
+            font-size: 11px;
+            cursor: pointer;
+            border-radius: 4px;
+        }}
+
+        .expand-btn:hover {{
+            border-color: var(--text-muted);
+            color: var(--text-secondary);
+        }}
+
+        /* Enhanced failed item expansion */
+        .io-section {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }}
+
+        @media (max-width: 900px) {{
+            .io-section {{
+                grid-template-columns: 1fr;
+            }}
+        }}
+
+        .io-content {{
+            margin: 0;
+            padding: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 12px;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+            color: var(--text-secondary);
+        }}
+
+        .metric-details-section {{
+            margin-top: 16px;
+        }}
+
+        .metric-detail {{
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-left: 3px solid var(--status-fail);
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 8px;
+        }}
+
+        .metric-detail-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }}
+
+        .metric-detail-name {{
+            font-weight: 600;
+            color: var(--status-fail);
+            font-size: 13px;
+        }}
+
+        .metric-detail-score {{
+            font-size: 12px;
+            color: var(--text-muted);
+            font-family: 'SF Mono', Monaco, monospace;
+        }}
+
+        .metric-detail-reason {{
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 150px;
+            overflow-y: auto;
+        }}
+
+        /* Metadata footer */
+        .footer {{
+            margin-top: 24px;
+            padding: 16px 0;
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            gap: 32px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }}
+
+        .footer-item {{
+            display: flex;
+            gap: 8px;
+        }}
+
+        .footer-label {{
+            color: var(--text-muted);
+        }}
+
+        .footer-value {{
+            color: var(--text-secondary);
+            font-family: monospace;
+        }}
+
+        /* Responsive */
+        @media (max-width: 1024px) {{
+            .charts-grid {{
+                grid-template-columns: 1fr;
+            }}
+        }}
+
+        @media (max-width: 768px) {{
+            .kpi-bar {{
+                flex-wrap: wrap;
+            }}
+            .kpi-item {{
+                flex: 1 1 45%;
+                border-right: none;
+                border-bottom: 1px solid var(--border-subtle);
+                padding: 16px;
+            }}
+            .header {{
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }}
+        }}
+
+        /* Tooltip */
+        .tooltip {{
+            position: absolute;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-strong);
+            padding: 8px 12px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }}
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {{
+            width: 8px;
+            height: 8px;
+        }}
+
+        ::-webkit-scrollbar-track {{
+            background: var(--bg-secondary);
+        }}
+
+        ::-webkit-scrollbar-thumb {{
+            background: var(--border-strong);
+            border-radius: 4px;
+        }}
+
+        ::-webkit-scrollbar-thumb:hover {{
+            background: var(--text-muted);
         }}
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
+    <div class="dashboard">
+        <!-- Header Bar -->
         <div class="header">
-            <h1>Evaluation Results</h1>
-            <p class="subtitle">{analysis.dataset_name} · {
-        analysis.total_items
-    } items · {analysis.total_metrics} metrics</p>
-        </div>
-
-        <!-- Stats Grid -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-value">{analysis.total_items}</div>
-                <div class="stat-label">Items</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">{analysis.total_metrics}</div>
-                <div class="stat-label">Metrics</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value {
-        "success"
-        if analysis.overall_pass_rate >= 0.8
-        else "warning"
-        if analysis.overall_pass_rate >= 0.5
-        else "error"
-    }">{analysis.overall_pass_rate * 100:.0f}%</div>
-                <div class="stat-label">Pass Rate</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value {
-        "success" if len(analysis.failed_items) == 0 else "error"
-    }">{len(analysis.failed_items)}</div>
-                <div class="stat-label">Failed Items</div>
-            </div>
-        </div>
-
-        <!-- Pass Rate Chart -->
-        <div class="card">
-            <h2>Metric Pass Rates</h2>
-            <div class="chart-container">
-                <canvas id="passRateChart"></canvas>
-            </div>
-        </div>
-
-        <!-- Score Distribution & Results by Metric -->
-        <div class="two-col">
-            <div class="card">
-                <h2>Score Distribution</h2>
-                <div class="chart-container">
-                    <canvas id="scoreDistChart"></canvas>
+            <div class="header-left">
+                <div class="header-title">Evaluation Dashboard</div>
+                <div class="header-meta">
+                    <span>Dataset: <span class="value">{
+        analysis.dataset_name
+    }</span></span>
+                    <span>Run: <span class="value">{
+        analysis.run_id[:12]
+    }...</span></span>
+                    <span>Time: <span class="value">{
+        analysis.created_at[:19] if analysis.created_at else "N/A"
+    }</span></span>
                 </div>
             </div>
-            <div class="card">
-                <h2>Pass/Fail by Metric</h2>
+        </div>
+
+        <!-- KPI Bar -->
+        <div class="kpi-bar">
+            <div class="kpi-item">
+                <div class="kpi-value neutral">{analysis.total_items}</div>
+                <div class="kpi-label">Items</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value neutral">{analysis.total_metrics}</div>
+                <div class="kpi-label">Metrics</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value {
+        "pass"
+        if analysis.overall_pass_rate >= 0.8
+        else "warn"
+        if analysis.overall_pass_rate >= 0.5
+        else "fail"
+    }">{analysis.overall_pass_rate * 100:.1f}<span class="kpi-unit">%</span></div>
+                <div class="kpi-label">Pass Rate</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value {
+        "pass" if len(analysis.failed_items) == 0 else "fail"
+    }">{len(analysis.failed_items)}</div>
+                <div class="kpi-label">Failed</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value pass">{all_passed_count}</div>
+                <div class="kpi-label">All Passed</div>
+            </div>
+            {
+        "".join(
+            f'''<div class="kpi-item">
+                <div class="kpi-value {'pass' if ms.pass_rate is not None and ms.pass_rate >= 0.8 else 'warn' if ms.pass_rate is not None and ms.pass_rate >= 0.5 else 'neutral' if ms.pass_rate is None else 'fail'}">{f"{ms.pass_rate * 100:.0f}" if ms.pass_rate is not None else "N/A"}<span class="kpi-unit">{"%" if ms.pass_rate is not None else ""}</span></div>
+                <div class="kpi-label">{ms.metric_id[:12]}</div>
+            </div>'''
+            for ms in list(metrics_by_pass_rate)[:5]
+            if ms.has_pass_fail  # Only show metrics with pass/fail in KPI bar
+        )
+    }
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="charts-grid">
+            <div class="chart-box">
+                <div class="chart-title">Pass Rate by Metric</div>
                 <div class="chart-container">
-                    <canvas id="passFailChart"></canvas>
+                    <canvas id="passRateChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-box">
+                <div class="chart-title">Score Distribution</div>
+                <div class="chart-container">
+                    <canvas id="scoreDistChart"></canvas>
                 </div>
             </div>
         </div>
 
         <!-- Metric Details Table -->
-        <div class="card">
-            <h2>Metric Details</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Metric</th>
-                        <th>Type</th>
-                        <th>Pass Rate</th>
-                        <th>Avg Score</th>
-                        <th>Min</th>
-                        <th>Max</th>
-                        <th>Std Dev</th>
-                        <th>Passed</th>
-                        <th>Failed</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {
+        <div class="section">
+            <div class="section-header">Metric Details</div>
+            <div class="table-wrapper">
+                <table id="metricsTable">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable(0)">Metric</th>
+                            <th onclick="sortTable(1)">Type</th>
+                            <th onclick="sortTable(2)">Pass Rate</th>
+                            <th onclick="sortTable(3)">Avg Score</th>
+                            <th onclick="sortTable(4)">Min</th>
+                            <th onclick="sortTable(5)">Max</th>
+                            <th onclick="sortTable(6)">Std Dev</th>
+                            <th onclick="sortTable(7)">Passed</th>
+                            <th onclick="sortTable(8)">Failed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Average row pinned at top -->
+                        <tr class="avg-row">
+                            <td>AVG</td>
+                            <td>-</td>
+                            <td>{
+        f"{sum(m.pass_rate for m in metrics_by_pass_rate if m.pass_rate is not None) / max(1, sum(1 for m in metrics_by_pass_rate if m.pass_rate is not None)) * 100:.1f}%"
+        if any(m.pass_rate is not None for m in metrics_by_pass_rate)
+        else "N/A"
+    }</td>
+                            <td>{
+        sum(m.avg_score for m in metrics_by_pass_rate)
+        / len(metrics_by_pass_rate):.3f}</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>{
+        sum(m.passed for m in metrics_by_pass_rate if m.has_pass_fail)
+    }</td>
+                            <td>{
+        sum(m.failed for m in metrics_by_pass_rate if m.has_pass_fail)
+    }</td>
+                        </tr>
+                        {
         "".join(
-            f'''
-                    <tr>
-                        <td><strong>{ms.metric_id}</strong></td>
-                        <td>{ms.metric_type}</td>
-                        <td><span class="badge {'pass' if ms.pass_rate >= 0.8 else 'warn' if ms.pass_rate >= 0.5 else 'fail'}">{ms.pass_rate * 100:.1f}%</span></td>
-                        <td>{ms.avg_score:.3f}</td>
-                        <td>{ms.min_score:.3f}</td>
-                        <td>{ms.max_score:.3f}</td>
-                        <td>{ms.std_dev:.3f}</td>
-                        <td>{ms.passed}</td>
-                        <td>{ms.failed if ms.failed == 0 else f'<span style="color: var(--error)">{ms.failed}</span>'}</td>
-                    </tr>
-                    '''
+            f'''<tr>
+                            <td style="color: var(--text-primary); font-weight: 500;">{ms.metric_id}</td>
+                            <td><span class="{'status-pass' if ms.metric_type == 'objective' else 'status-warn'}">{ms.metric_type[:3]}</span></td>
+                            <td>
+                                {f'<span class="score-bar"><span class="score-bar-fill {"high" if ms.pass_rate >= 0.8 else "mid" if ms.pass_rate >= 0.5 else "low"}" style="width: {ms.pass_rate * 100}%"></span></span><span class="{"status-pass" if ms.pass_rate >= 0.8 else "status-warn" if ms.pass_rate >= 0.5 else "status-fail"}">{ms.pass_rate * 100:.1f}%</span>' if ms.pass_rate is not None else '<span style="color: var(--text-muted);">N/A</span>'}
+                            </td>
+                            <td>{ms.avg_score:.3f}</td>
+                            <td>{ms.min_score:.3f}</td>
+                            <td>{ms.max_score:.3f}</td>
+                            <td>{ms.std_dev:.3f}</td>
+                            <td class="{'status-pass' if ms.has_pass_fail else ''}">{ms.passed if ms.has_pass_fail else '-'}</td>
+                            <td class="{'status-fail' if ms.failed > 0 else ''}">{ms.failed if ms.has_pass_fail else '-'}</td>
+                        </tr>'''
             for ms in metrics_by_pass_rate
         )
     }
-                </tbody>
-            </table>
-        </div>
-
-        {
-        "<!-- Correlation Matrix -->"
-        if correlation_data and len(correlation_data["labels"]) <= 10
-        else ""
-    }
-        {
-        f'''
-        <div class="card">
-            <h2>Metric Correlations</h2>
-            <div class="chart-container">
-                <canvas id="correlationChart"></canvas>
+                    </tbody>
+                </table>
             </div>
         </div>
-        '''
-        if correlation_data and len(correlation_data["labels"]) <= 10
-        else ""
-    }
 
-        <!-- Failed Items -->
+        <!-- Failed Items Section -->
         {
         f'''
-        <div class="card">
-            <h2>Failed Items ({len(analysis.failed_items)})</h2>
-            <div class="failed-items">
-                {"".join(f'<div class="failed-item"><div class="failed-item-id">{item_id[:20]}...</div><div class="failed-item-metrics">Failed: {", ".join(m for m, (p, _) in analysis.item_stats[item_id].metric_results.items() if not p)}</div></div>' for item_id in analysis.failed_items[:30])}
-                {f'<div class="failed-item" style="color: var(--text-muted)">...and {len(analysis.failed_items) - 30} more</div>' if len(analysis.failed_items) > 30 else ''}
+        <div class="section">
+            <div class="section-header">Failed Items</div>
+            <div class="failed-section">
+                <div class="failed-header">
+                    <h3>Items with metric failures</h3>
+                    <span class="failed-count">{len(analysis.failed_items)} items</span>
+                </div>
+                <div class="failed-list">
+                    {_render_failed_items(analysis, item_details)}
+                    {
+            f'<div class="failed-item" style="color: var(--text-muted); text-align: center;">...and {len(analysis.failed_items) - 30} more</div>'
+            if len(analysis.failed_items) > 30
+            else ''
+        }
+                </div>
             </div>
         </div>
         '''
@@ -921,49 +1391,115 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
         else ""
     }
 
-        <!-- Metadata -->
-        <div class="card">
-            <h2>Run Metadata</h2>
-            <div class="metadata">
-                <div class="metadata-item">
-                    <span class="metadata-label">Run ID:</span>
-                    <span class="metadata-value">{analysis.run_id}</span>
-                </div>
-                <div class="metadata-item">
-                    <span class="metadata-label">Dataset:</span>
-                    <span class="metadata-value">{analysis.dataset_name}</span>
-                </div>
-                <div class="metadata-item">
-                    <span class="metadata-label">Created:</span>
-                    <span class="metadata-value">{analysis.created_at}</span>
-                </div>
-                <div class="metadata-item">
-                    <span class="metadata-label">Items Passing All:</span>
-                    <span class="metadata-value">{all_passed_count}/{
+        <!-- Footer -->
+        <div class="footer">
+            <div class="footer-item">
+                <span class="footer-label">Run ID:</span>
+                <span class="footer-value">{analysis.run_id}</span>
+            </div>
+            <div class="footer-item">
+                <span class="footer-label">Dataset:</span>
+                <span class="footer-value">{analysis.dataset_name}</span>
+            </div>
+            <div class="footer-item">
+                <span class="footer-label">Created:</span>
+                <span class="footer-value">{analysis.created_at}</span>
+            </div>
+            <div class="footer-item">
+                <span class="footer-label">Passing All:</span>
+                <span class="footer-value">{all_passed_count}/{
         analysis.total_items
     }</span>
-                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Anthropic-style colors
+        // Dark theme colors - observability style
         const colors = {{
-            accent: '#4a90a4',
-            error: '#d65a4a',
-            warning: '#e0a030',
-            success: '#4a90a4',
-            muted: '#6b6b6b',
-            border: '#e5e5e0',
-            bg: '#fafaf8'
+            accent: '#39ff14',      // Neon lime green
+            accentDim: 'rgba(57, 255, 20, 0.3)',
+            secondary: '#ff9f1c',   // Amber/orange
+            error: '#ef4444',       // Red
+            errorDim: 'rgba(239, 68, 68, 0.3)',
+            warning: '#ff9f1c',
+            success: '#39ff14',
+            muted: '#6b7280',
+            border: '#1f2d28',
+            gridLine: 'rgba(31, 45, 40, 0.5)',
+            bg: '#0a1210',
+            text: '#e5e7eb',
+            textMuted: '#9ca3af'
         }};
 
-        // Chart.js defaults
-        Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif";
-        Chart.defaults.color = '#6b6b6b';
+        // Chart.js defaults for dark theme
+        Chart.defaults.font.family = "'Inter', 'SF Pro Display', -apple-system, system-ui, sans-serif";
+        Chart.defaults.color = colors.textMuted;
+        Chart.defaults.borderColor = colors.border;
 
-        // Pass Rate Chart
+        // Toggle expand for failed items
+        function toggleExpand(idx) {{
+            const item = document.getElementById('item-' + idx);
+            if (item) {{
+                const content = item.querySelector('.failed-item-content');
+                const btn = item.querySelector('.expand-btn');
+                if (content.style.display === 'none' || !content.style.display) {{
+                    content.style.display = 'block';
+                    btn.textContent = 'Collapse';
+                    item.classList.add('expanded');
+                }} else {{
+                    content.style.display = 'none';
+                    btn.textContent = 'Expand';
+                    item.classList.remove('expanded');
+                }}
+            }}
+        }}
+
+        // Table sorting
+        let sortState = {{ column: null, ascending: true }};
+        function sortTable(colIndex) {{
+            const table = document.querySelector('.results-table');
+            if (!table) return;
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+
+            // Toggle direction if same column
+            if (sortState.column === colIndex) {{
+                sortState.ascending = !sortState.ascending;
+            }} else {{
+                sortState.column = colIndex;
+                sortState.ascending = true;
+            }}
+
+            rows.sort((a, b) => {{
+                const aCell = a.cells[colIndex];
+                const bCell = b.cells[colIndex];
+                let aVal = aCell?.textContent?.trim() || '';
+                let bVal = bCell?.textContent?.trim() || '';
+
+                // Try numeric comparison
+                const aNum = parseFloat(aVal.replace('%', ''));
+                const bNum = parseFloat(bVal.replace('%', ''));
+                if (!isNaN(aNum) && !isNaN(bNum)) {{
+                    return sortState.ascending ? aNum - bNum : bNum - aNum;
+                }}
+
+                // String comparison
+                return sortState.ascending ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            }});
+
+            rows.forEach(row => tbody.appendChild(row));
+
+            // Update header indicators
+            table.querySelectorAll('th').forEach((th, i) => {{
+                th.classList.remove('sort-asc', 'sort-desc');
+                if (i === colIndex) {{
+                    th.classList.add(sortState.ascending ? 'sort-asc' : 'sort-desc');
+                }}
+            }});
+        }}
+
+        // Pass Rate Chart - horizontal bars with thin styling
         const passRateCtx = document.getElementById('passRateChart').getContext('2d');
         new Chart(passRateCtx, {{
             type: 'bar',
@@ -972,8 +1508,11 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                 datasets: [{{
                     data: {pass_rates},
                     backgroundColor: {pass_rate_colors},
-                    borderRadius: 4,
+                    borderColor: {pass_rate_colors},
+                    borderWidth: 1,
+                    borderRadius: 2,
                     borderSkipped: false,
+                    barThickness: 16,
                 }}]
             }},
             options: {{
@@ -983,6 +1522,12 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                 plugins: {{
                     legend: {{ display: false }},
                     tooltip: {{
+                        backgroundColor: colors.bg,
+                        titleColor: colors.text,
+                        bodyColor: colors.text,
+                        borderColor: colors.border,
+                        borderWidth: 1,
+                        padding: 10,
                         callbacks: {{
                             label: (ctx) => ctx.raw.toFixed(1) + '%'
                         }}
@@ -992,17 +1537,22 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                     x: {{
                         beginAtZero: true,
                         max: 100,
-                        grid: {{ color: colors.border }},
+                        grid: {{
+                            color: colors.gridLine,
+                            lineWidth: 1
+                        }},
+                        ticks: {{ color: colors.textMuted }},
                         title: {{ display: true, text: 'Pass Rate (%)', color: colors.muted }}
                     }},
                     y: {{
-                        grid: {{ display: false }}
+                        grid: {{ display: false }},
+                        ticks: {{ color: colors.text }}
                     }}
                 }}
             }}
         }});
 
-        // Score Distribution Chart (floating bars for min-max range with avg point)
+        // Score Distribution Chart - thin lines with circular avg points
         const scoreDistCtx = document.getElementById('scoreDistChart').getContext('2d');
         const scoreDistData = {json.dumps(score_dist_data)};
         new Chart(scoreDistCtx, {{
@@ -1013,20 +1563,21 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                     {{
                         label: 'Score Range',
                         data: scoreDistData.map(d => [d.min, d.max]),
-                        backgroundColor: 'rgba(74, 144, 164, 0.3)',
+                        backgroundColor: colors.accentDim,
                         borderColor: colors.accent,
-                        borderWidth: 1,
-                        borderRadius: 4,
+                        borderWidth: 2,
+                        borderRadius: 2,
                         borderSkipped: false,
+                        barThickness: 8,
                     }},
                     {{
                         label: 'Average',
                         data: scoreDistData.map(d => d.avg),
                         type: 'scatter',
                         backgroundColor: colors.accent,
-                        borderColor: '#fff',
+                        borderColor: colors.bg,
                         borderWidth: 2,
-                        pointRadius: 8,
+                        pointRadius: 6,
                         pointStyle: 'circle',
                     }}
                 ]
@@ -1038,6 +1589,12 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                 plugins: {{
                     legend: {{ display: false }},
                     tooltip: {{
+                        backgroundColor: colors.bg,
+                        titleColor: colors.text,
+                        bodyColor: colors.text,
+                        borderColor: colors.border,
+                        borderWidth: 1,
+                        padding: 10,
                         callbacks: {{
                             label: (ctx) => {{
                                 if (ctx.datasetIndex === 0) {{
@@ -1052,17 +1609,22 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                     x: {{
                         beginAtZero: true,
                         max: 1.1,
-                        grid: {{ color: colors.border }},
+                        grid: {{
+                            color: colors.gridLine,
+                            lineWidth: 1
+                        }},
+                        ticks: {{ color: colors.textMuted }},
                         title: {{ display: true, text: 'Score', color: colors.muted }}
                     }},
                     y: {{
-                        grid: {{ display: false }}
+                        grid: {{ display: false }},
+                        ticks: {{ color: colors.text }}
                     }}
                 }}
             }}
         }});
 
-        // Pass/Fail Chart
+        // Pass/Fail Chart - stacked horizontal bars
         const passFailCtx = document.getElementById('passFailChart').getContext('2d');
         new Chart(passFailCtx, {{
             type: 'bar',
@@ -1073,15 +1635,21 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                         label: 'Passed',
                         data: {passed_counts},
                         backgroundColor: colors.accent,
-                        borderRadius: 4,
+                        borderColor: colors.accent,
+                        borderWidth: 1,
+                        borderRadius: 2,
                         borderSkipped: false,
+                        barThickness: 16,
                     }},
                     {{
                         label: 'Failed',
                         data: {failed_counts},
                         backgroundColor: colors.error,
-                        borderRadius: 4,
+                        borderColor: colors.error,
+                        borderWidth: 1,
+                        borderRadius: 2,
                         borderSkipped: false,
+                        barThickness: 16,
                     }}
                 ]
             }},
@@ -1092,18 +1660,35 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                 plugins: {{
                     legend: {{
                         position: 'bottom',
-                        labels: {{ usePointStyle: true, pointStyle: 'rect' }}
+                        labels: {{
+                            usePointStyle: true,
+                            pointStyle: 'rect',
+                            color: colors.text
+                        }}
+                    }},
+                    tooltip: {{
+                        backgroundColor: colors.bg,
+                        titleColor: colors.text,
+                        bodyColor: colors.text,
+                        borderColor: colors.border,
+                        borderWidth: 1,
+                        padding: 10
                     }}
                 }},
                 scales: {{
                     x: {{
                         stacked: true,
-                        grid: {{ color: colors.border }},
+                        grid: {{
+                            color: colors.gridLine,
+                            lineWidth: 1
+                        }},
+                        ticks: {{ color: colors.textMuted }},
                         title: {{ display: true, text: 'Count', color: colors.muted }}
                     }},
                     y: {{
                         stacked: true,
-                        grid: {{ display: false }}
+                        grid: {{ display: false }},
+                        ticks: {{ color: colors.text }}
                     }}
                 }}
             }}
@@ -1111,7 +1696,7 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
 
         {
         f'''
-        // Correlation Heatmap
+        // Correlation Heatmap - dark theme colors
         const corrData = {json.dumps(correlation_data)};
         if (corrData) {{
             const corrCtx = document.getElementById('correlationChart').getContext('2d');
@@ -1137,13 +1722,14 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                         }})),
                         backgroundColor: heatmapData.map(d => {{
                             const v = d.v;
-                            if (v >= 0.7) return 'rgba(74, 144, 164, 0.9)';
-                            if (v >= 0.3) return 'rgba(74, 144, 164, 0.5)';
-                            if (v >= -0.3) return 'rgba(200, 200, 200, 0.5)';
-                            if (v >= -0.7) return 'rgba(214, 90, 74, 0.5)';
-                            return 'rgba(214, 90, 74, 0.9)';
+                            // Dark theme: neon green for positive, red for negative
+                            if (v >= 0.7) return 'rgba(57, 255, 20, 0.9)';
+                            if (v >= 0.3) return 'rgba(57, 255, 20, 0.5)';
+                            if (v >= -0.3) return 'rgba(107, 114, 128, 0.5)';
+                            if (v >= -0.7) return 'rgba(239, 68, 68, 0.5)';
+                            return 'rgba(239, 68, 68, 0.9)';
                         }}),
-                        pointRadius: heatmapData.map(() => 20),
+                        pointRadius: heatmapData.map(() => 18),
                         pointStyle: 'rect'
                     }}]
                 }},
@@ -1153,6 +1739,12 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                     plugins: {{
                         legend: {{ display: false }},
                         tooltip: {{
+                            backgroundColor: colors.bg,
+                            titleColor: colors.text,
+                            bodyColor: colors.text,
+                            borderColor: colors.border,
+                            borderWidth: 1,
+                            padding: 10,
                             callbacks: {{
                                 label: (ctx) => {{
                                     const idx = ctx.dataIndex;
@@ -1170,7 +1762,8 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                             max: corrData.labels.length - 0.5,
                             ticks: {{
                                 stepSize: 1,
-                                callback: (v) => corrData.labels[v] || ''
+                                callback: (v) => corrData.labels[v] || '',
+                                color: colors.textMuted
                             }},
                             grid: {{ display: false }}
                         }},
@@ -1180,7 +1773,8 @@ def generate_html_report(analysis: RunAnalysis, verbose: bool = False) -> str:
                             max: corrData.labels.length - 0.5,
                             ticks: {{
                                 stepSize: 1,
-                                callback: (v) => corrData.labels[v] || ''
+                                callback: (v) => corrData.labels[v] || '',
+                                color: colors.textMuted
                             }},
                             grid: {{ display: false }}
                         }}

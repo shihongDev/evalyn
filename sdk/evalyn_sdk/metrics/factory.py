@@ -134,6 +134,7 @@ def build_subjective_metric(
     *,
     judge: Optional[LLMJudge] = None,
     description: Optional[str] = None,
+    api_key: Optional[str] = None,
 ) -> Metric:
     """
     Build a subjective metric from template ID OR custom config.
@@ -154,6 +155,7 @@ def build_subjective_metric(
     - model: Judge model name (default: gemini-2.5-flash-lite)
     - temperature: Judge temperature (default: 0.0)
     - description: Metric description (for custom metrics)
+    - api_key: API key for LLM judge (optional, falls back to env var)
     """
     tpl = _SUBJECTIVE_TPL.get(metric_id)
     cfg = config or {}
@@ -214,6 +216,7 @@ def build_subjective_metric(
             prompt=prompt,
             model=model,
             temperature=temperature,
+            api_key=api_key,
         )
 
     # Use provided description, or template description, or config description

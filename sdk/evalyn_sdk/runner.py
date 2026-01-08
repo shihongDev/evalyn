@@ -185,7 +185,9 @@ class EvalRunner:
         total_items = len(items)
 
         # Filter out already completed items
-        pending_items = [(i, item) for i, item in enumerate(items) if item.id not in completed_items]
+        pending_items = [
+            (i, item) for i, item in enumerate(items) if item.id not in completed_items
+        ]
         resumed = len(completed_items) > 0
 
         if resumed and self._progress_callback:
@@ -275,7 +277,10 @@ class EvalRunner:
             completed_items.add(item.id)
             items_since_checkpoint += 1
 
-            if self.checkpoint_path and items_since_checkpoint >= self.checkpoint_interval:
+            if (
+                self.checkpoint_path
+                and items_since_checkpoint >= self.checkpoint_interval
+            ):
                 self._save_checkpoint(metric_results, completed_items, run_id)
                 items_since_checkpoint = 0
 

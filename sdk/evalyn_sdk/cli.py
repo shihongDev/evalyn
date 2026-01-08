@@ -1140,6 +1140,7 @@ class ProgressBar:
 
     def __init__(self, total: int, width: int = 40):
         import time
+
         self.total = total
         self.width = width
         self._current = 0
@@ -1174,6 +1175,7 @@ class ProgressBar:
 
     def _render(self) -> None:
         import time
+
         pct = self._current / self.total if self.total > 0 else 0
         filled = int(self.width * pct)
         bar = "=" * filled + "-" * (self.width - filled)
@@ -1270,6 +1272,9 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     subjective_count = 0
     calibrated_count = 0
 
+    # Get API key from config for LLM judges
+    gemini_api_key = get_config_default(config, "api_keys", "gemini")
+
     # Check if we should use calibrated prompts
     use_calibrated = getattr(args, "use_calibrated", False)
 
@@ -1310,6 +1315,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
                     spec.id,
                     spec.config,
                     description=spec.description,
+                    api_key=gemini_api_key,
                 )
                 subjective_count += 1
             if metric:
@@ -1417,7 +1423,16 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     try:
         run_data = load_eval_run(results_path)
         analysis = analyze_run_data(run_data)
-        html_report = generate_html_report(analysis)
+
+        # Build item_details from dataset for showing input/output in failed items
+        item_details = {}
+        for item in dataset_list:
+            item_details[item.id] = {
+                "input": item.input or item.inputs,
+                "output": item.output or item.expected,
+            }
+
+        html_report = generate_html_report(analysis, item_details=item_details)
         report_path = run_folder / "report.html"
         with open(report_path, "w") as f:
             f.write(html_report)
@@ -2850,12 +2865,11 @@ def cmd_annotate(args: argparse.Namespace) -> None:
         Returns True if saved successfully, False otherwise.
         """
         import tempfile
+
         try:
             # Write to temp file in same directory for atomic rename
             temp_fd, temp_path = tempfile.mkstemp(
-                dir=output_path.parent,
-                prefix=".annotations_",
-                suffix=".tmp"
+                dir=output_path.parent, prefix=".annotations_", suffix=".tmp"
             )
             try:
                 with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
@@ -3033,11 +3047,15 @@ def cmd_annotate(args: argparse.Namespace) -> None:
                 try:
                     quit_check = input("\nQuit? [y/n]: ").strip().lower()
                     if quit_check in ("y", "yes"):
-                        print(f"\n✓ All annotations already saved ({new_annotation_count} new this session)")
+                        print(
+                            f"\n✓ All annotations already saved ({new_annotation_count} new this session)"
+                        )
                         print(f"  Output: {output_path}")
                         return
                 except (EOFError, KeyboardInterrupt):
-                    print(f"\n✓ All annotations already saved ({new_annotation_count} new this session)")
+                    print(
+                        f"\n✓ All annotations already saved ({new_annotation_count} new this session)"
+                    )
                     print(f"  Output: {output_path}")
                     return
                 idx += 1
@@ -3045,7 +3063,9 @@ def cmd_annotate(args: argparse.Namespace) -> None:
         else:
             ann = annotate_simple(item)
             if ann is None:
-                print(f"\n✓ All annotations already saved ({new_annotation_count} new this session)")
+                print(
+                    f"\n✓ All annotations already saved ({new_annotation_count} new this session)"
+                )
                 print(f"  Output: {output_path}")
                 return
             if ann == "skip":
@@ -3085,7 +3105,9 @@ def cmd_annotate(args: argparse.Namespace) -> None:
     # All annotations already saved incrementally - just show summary
     print("\n" + "=" * 70)
     print(f"ANNOTATION COMPLETE")
-    print(f"Total annotated: {len(annotations)} ({new_annotation_count} new this session)")
+    print(
+        f"Total annotated: {len(annotations)} ({new_annotation_count} new this session)"
+    )
     print(f"Saved to: {output_path}")
     print("=" * 70)
     print(
@@ -3935,7 +3957,8 @@ def cmd_init(args: argparse.Namespace) -> None:
     # Find the example file - check multiple locations
     example_paths = [
         Path("evalyn.yaml.example"),  # Current directory
-        Path(__file__).parent.parent.parent.parent / "evalyn.yaml.example",  # Project root
+        Path(__file__).parent.parent.parent.parent
+        / "evalyn.yaml.example",  # Project root
     ]
 
     example_path = None
@@ -3985,9 +4008,13 @@ def cmd_one_click(args: argparse.Namespace) -> None:
     if not args.version:
         args.version = get_config_default(config, "defaults", "version")
     if not args.metric_mode or args.metric_mode == "basic":
-        args.metric_mode = get_config_default(config, "metrics", "mode", default="basic")
+        args.metric_mode = get_config_default(
+            config, "metrics", "mode", default="basic"
+        )
     if not args.model:
-        args.model = get_config_default(config, "llm", "model", default="gemini-2.5-flash-lite")
+        args.model = get_config_default(
+            config, "llm", "model", default="gemini-2.5-flash-lite"
+        )
     if not args.llm_mode:
         args.llm_mode = get_config_default(config, "llm", "mode", default="api")
     if not args.bundle:
@@ -3995,27 +4022,49 @@ def cmd_one_click(args: argparse.Namespace) -> None:
     if args.dataset_limit == 100:  # default value
         args.dataset_limit = get_config_default(config, "dataset", "limit", default=100)
     if not args.skip_annotation:
-        args.skip_annotation = get_config_default(config, "annotation", "skip", default=False)
+        args.skip_annotation = get_config_default(
+            config, "annotation", "skip", default=False
+        )
     if args.annotation_limit == 20:  # default value
-        args.annotation_limit = get_config_default(config, "annotation", "limit", default=20)
+        args.annotation_limit = get_config_default(
+            config, "annotation", "limit", default=20
+        )
     if not args.per_metric:
-        args.per_metric = get_config_default(config, "annotation", "per_metric", default=False)
+        args.per_metric = get_config_default(
+            config, "annotation", "per_metric", default=False
+        )
     if not args.skip_calibration:
-        args.skip_calibration = get_config_default(config, "calibration", "skip", default=False)
+        args.skip_calibration = get_config_default(
+            config, "calibration", "skip", default=False
+        )
     if not args.optimizer or args.optimizer == "llm":
-        args.optimizer = get_config_default(config, "calibration", "optimizer", default="llm")
+        args.optimizer = get_config_default(
+            config, "calibration", "optimizer", default="llm"
+        )
     if not args.enable_simulation:
-        args.enable_simulation = get_config_default(config, "simulation", "enable", default=False)
+        args.enable_simulation = get_config_default(
+            config, "simulation", "enable", default=False
+        )
     if not args.simulation_modes or args.simulation_modes == "similar":
-        args.simulation_modes = get_config_default(config, "simulation", "modes", default="similar")
+        args.simulation_modes = get_config_default(
+            config, "simulation", "modes", default="similar"
+        )
     if args.num_similar == 3:  # default value
-        args.num_similar = get_config_default(config, "simulation", "num_similar", default=3)
+        args.num_similar = get_config_default(
+            config, "simulation", "num_similar", default=3
+        )
     if args.num_outlier == 2:  # default value
-        args.num_outlier = get_config_default(config, "simulation", "num_outlier", default=1)
+        args.num_outlier = get_config_default(
+            config, "simulation", "num_outlier", default=1
+        )
     if args.max_sim_seeds == 10:  # default value
-        args.max_sim_seeds = get_config_default(config, "simulation", "max_seeds", default=50)
+        args.max_sim_seeds = get_config_default(
+            config, "simulation", "max_seeds", default=50
+        )
     if not args.auto_yes:
-        args.auto_yes = get_config_default(config, "pipeline", "auto_yes", default=False)
+        args.auto_yes = get_config_default(
+            config, "pipeline", "auto_yes", default=False
+        )
     if not args.verbose:
         args.verbose = get_config_default(config, "pipeline", "verbose", default=False)
 
@@ -4094,6 +4143,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
     def save_state_atomic(state: dict) -> None:
         """Save state atomically after each step."""
         import tempfile
+
         try:
             state["updated_at"] = datetime.now().isoformat()
             temp_fd, temp_path = tempfile.mkstemp(
@@ -4279,7 +4329,9 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 # 2. LLM-registry mode (LLM picks from templates)
                 print("    → Running llm-registry mode...")
                 try:
-                    selector = LLMRegistrySelector(model=args.model, llm_mode=args.llm_mode)
+                    selector = LLMRegistrySelector(
+                        model=args.model, llm_mode=args.llm_mode
+                    )
                     llm_specs = selector.select_metrics(target_fn, calls)
                     for spec in llm_specs:
                         if spec.id not in seen_ids:
@@ -4292,6 +4344,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 if args.bundle:
                     print(f"    → Adding bundle: {args.bundle}...")
                     from .metrics.bundles import get_bundle_metrics
+
                     bundle_specs = get_bundle_metrics(args.bundle)
                     for spec in bundle_specs:
                         if spec.id not in seen_ids:
@@ -4383,11 +4436,13 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                     description=spec_data.get("description", ""),
                     config=spec_data.get("config", {}),
                 )
+                # Get API key from config
+                pipeline_gemini_key = get_config_default(config, "api_keys", "gemini")
                 try:
                     if spec.type == "objective":
                         m = build_objective_metric(spec.id, spec.config)
                     else:
-                        m = build_subjective_metric(spec.id, spec.config)
+                        m = build_subjective_metric(spec.id, spec.config, api_key=pipeline_gemini_key)
                     if m:
                         metrics.append(m)
                 except Exception:
@@ -4598,11 +4653,13 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                             spec.config = dict(spec.config or {})
                             spec.config["prompt"] = optimized_prompt
                             calibrated_count += 1
+                    # Get API key from config
+                    pipeline_gemini_key2 = get_config_default(config, "api_keys", "gemini")
                     try:
                         if spec.type == "objective":
                             m = build_objective_metric(spec.id, spec.config)
                         else:
-                            m = build_subjective_metric(spec.id, spec.config)
+                            m = build_subjective_metric(spec.id, spec.config, api_key=pipeline_gemini_key2)
                         if m:
                             metrics.append(m)
                     except Exception:
@@ -4733,12 +4790,16 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         print("\n\n⚠️  Pipeline interrupted by user")
         save_state_atomic(state)  # Save current state
         print(f"Progress saved to: {state_path}")
-        print(f"Resume with: evalyn one-click --project {args.project} --output-dir {output_dir} --resume\n")
+        print(
+            f"Resume with: evalyn one-click --project {args.project} --output-dir {output_dir} --resume\n"
+        )
     except Exception as e:
         print(f"\n\n✗ Pipeline failed: {e}")
         save_state_atomic(state)  # Save current state
         print(f"Progress saved to: {state_path}")
-        print(f"Resume with: evalyn one-click --project {args.project} --output-dir {output_dir} --resume\n")
+        print(
+            f"Resume with: evalyn one-click --project {args.project} --output-dir {output_dir} --resume\n"
+        )
         import traceback
 
         if args.verbose:
