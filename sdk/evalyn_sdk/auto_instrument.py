@@ -179,11 +179,11 @@ def patch_openai() -> bool:
 
     # Patch sync client
     # Patch the module-level functions if they exist
-    try: 
-        if hasattr(openai, "chat") and hasattr(openai.chat, "completions"):
-            _patch_openai_completions(openai.chat.completions)
-    except Exception:
-            
+  
+    if hasattr(openai, "chat") and hasattr(openai.chat, "completions"):
+        _patch_openai_completions(openai.chat.completions)
+
+
     # Also try to patch via client instances
     _patch_openai_client_class()
 
