@@ -9,14 +9,19 @@ import json
 from contextlib import contextmanager
 from typing import Any, Callable, Dict, Optional, Tuple
 
-from .models import FunctionCall, TraceEvent, now_utc
-from .storage.base import StorageBackend
+from ..models import FunctionCall, Span, TraceEvent, now_utc
+from ..storage.base import StorageBackend
+from . import context as span_context
 
 _current_session: contextvars.ContextVar[Optional[Dict[str, Any]]] = (
     contextvars.ContextVar("evalyn_session", default=None)
 )
 _active_call: contextvars.ContextVar[Optional[FunctionCall]] = contextvars.ContextVar(
     "evalyn_active_call", default=None
+)
+# Track root spans for each call
+_root_span: contextvars.ContextVar[Optional[Span]] = contextvars.ContextVar(
+    "evalyn_root_span", default=None
 )
 
 
@@ -97,13 +102,34 @@ class EvalTracer:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Tuple[FunctionCall, contextvars.Token]:
         session = _current_session.get()
+
+        # Check for parent call (nested @eval functions)
+        parent_call = _active_call.get()
+        parent_call_id = parent_call.id if parent_call else None
+
         call = FunctionCall.new(
             function_name=function_name,
             inputs=inputs,
             session_id=session["id"] if session else None,
             metadata=metadata or {},
+            parent_call_id=parent_call_id,
         )
         token = _active_call.set(call)
+
+        # Create root span for this call
+        root = Span.new(
+            name=function_name,
+            span_type="session",
+            parent_id=span_context.get_current_span_id(),  # May be nested
+            call_id=call.id,
+        )
+        _root_span.set(root)
+
+        # Initialize span collector and set current call in span_context
+        span_context.set_current_call(call)
+        span_context._span_collector.set([])
+        span_context._span_stack.set([root.id])
+
         return call, token
 
     def finish_call(
@@ -118,6 +144,20 @@ class EvalTracer:
         call.error = error
         call.ended_at = now_utc()
         call.duration_ms = (call.ended_at - call.started_at).total_seconds() * 1000
+
+        # Finish root span and collect all spans
+        root = _root_span.get()
+        if root:
+            root.finish(status="error" if error else "ok")
+            # Collect spans and add root
+            collected_spans = span_context.get_span_collector()
+            call.spans = collected_spans + [root]
+
+        # Clean up span context
+        _root_span.set(None)
+        span_context.set_current_call(None)
+        span_context._span_stack.set([])
+
         _active_call.reset(token)
         self._last_call = call
         if self.storage:

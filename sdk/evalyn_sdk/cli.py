@@ -47,15 +47,15 @@ class Spinner:
             self._thread.join(timeout=0.5)
 
 
-from .annotations import import_annotations
-from .calibration import (
+from .annotation import import_annotations
+from .annotation import (
     CalibrationEngine,
     GEPAConfig,
     GEPA_AVAILABLE,
     save_calibration,
     load_optimized_prompt,
 )
-from .span_annotation import (
+from .annotation import (
     SpanAnnotation,
     ANNOTATION_SCHEMAS,
     extract_spans_from_trace,
@@ -218,7 +218,7 @@ class ProgressIndicator:
 
 
 from .datasets import load_dataset, save_dataset_with_meta, build_dataset_from_storage
-from .simulator import UserSimulator, AgentSimulator, SimulationConfig
+from .simulation import UserSimulator, AgentSimulator, SimulationConfig
 from .decorators import get_default_tracer
 from .metrics.objective import register_builtin_metrics
 from .metrics.registry import MetricRegistry
@@ -231,7 +231,7 @@ from .metrics.suggester import (
     TemplateSelector,
     render_selection_prompt_with_templates,
 )
-from .tracing import EvalTracer
+from .trace.tracer import EvalTracer
 from .models import MetricSpec
 from datetime import datetime, timezone
 
@@ -1038,6 +1038,130 @@ def cmd_show_call(args: argparse.Namespace) -> None:
     print("=============================================\n")
 
 
+def cmd_show_trace(args: argparse.Namespace) -> None:
+    """Show hierarchical span tree for a traced call (Phoenix-style visualization)."""
+    tracer = get_default_tracer()
+    if not tracer.storage:
+        print("No storage configured.")
+        return
+
+    call = tracer.storage.get_call(args.id)
+    if not call:
+        print(f"No call found with id={args.id}")
+        return
+
+    def _format_duration(ms: float) -> str:
+        if ms is None:
+            return "?"
+        if ms < 1000:
+            return f"{ms:.0f}ms"
+        return f"{ms/1000:.1f}s"
+
+    def _format_tokens(attrs: dict) -> str:
+        """Format token info if present."""
+        input_t = attrs.get("input_tokens", 0)
+        output_t = attrs.get("output_tokens", 0)
+        if input_t or output_t:
+            return f" [{input_t}→{output_t} tokens]"
+        return ""
+
+    def _status_icon(status: str) -> str:
+        if status == "error":
+            return "✗"
+        elif status == "ok":
+            return "✓"
+        return "○"
+
+    # Build span tree from call.spans
+    spans = call.spans or []
+    if not spans:
+        # Try to build from trace events (backwards compat)
+        print(f"\nTrace: {call.function_name} ({_format_duration(call.duration_ms)})")
+        print("  <no spans captured>")
+        print("\n  Tip: Re-run with latest evalyn_sdk to capture spans.")
+
+        # Show trace events as fallback
+        if call.trace:
+            print(f"\n  Trace Events ({len(call.trace)}):")
+            for ev in call.trace[:20]:
+                print(f"    - {ev.kind}")
+            if len(call.trace) > 20:
+                print(f"    ... and {len(call.trace) - 20} more")
+        return
+
+    # Build tree structure
+    by_id = {s.id: {"span": s, "children": []} for s in spans}
+    roots = []
+
+    for s in spans:
+        node = by_id[s.id]
+        if s.parent_id and s.parent_id in by_id:
+            by_id[s.parent_id]["children"].append(node)
+        else:
+            roots.append(node)
+
+    # Sort children by start_time
+    def sort_children(node):
+        node["children"].sort(key=lambda n: n["span"].start_time)
+        for child in node["children"]:
+            sort_children(child)
+
+    for root in roots:
+        sort_children(root)
+
+    # Render tree
+    def render_node(node, prefix="", is_last=True):
+        span = node["span"]
+        connector = "└── " if is_last else "├── "
+        duration = _format_duration(span.duration_ms)
+        status = _status_icon(span.status)
+        tokens = _format_tokens(span.attributes)
+
+        # Format name based on span type
+        if span.span_type == "session":
+            label = f"{span.name} ({duration})"
+        elif span.span_type == "graph":
+            label = f"graph:{span.name.replace('graph:', '')} ({duration})"
+        elif span.span_type == "node":
+            label = f"node:{span.name.replace('node:', '')} ({duration})"
+        elif span.span_type == "llm_call":
+            label = f"llm_call {span.name}{tokens} ({duration})"
+        elif span.span_type == "tool_call":
+            label = f"tool_call {span.name} ({duration})"
+        elif span.span_type == "scorer":
+            score = span.attributes.get("score", "?")
+            label = f"{status} {span.name} (score: {score})"
+        else:
+            label = f"{span.name} ({duration})"
+
+        print(f"{prefix}{connector}{label}")
+
+        # Render children
+        child_prefix = prefix + ("    " if is_last else "│   ")
+        children = node["children"]
+        for i, child in enumerate(children):
+            render_node(child, child_prefix, i == len(children) - 1)
+
+    # Print header
+    status = "ERROR" if call.error else "OK"
+    print(f"\nTrace: {call.function_name} ({_format_duration(call.duration_ms)}) [{status}]")
+    print(f"Call ID: {call.id}")
+    if call.session_id:
+        print(f"Session: {call.session_id}")
+    print()
+
+    # Render all root spans
+    for i, root in enumerate(roots):
+        render_node(root, "", i == len(roots) - 1)
+
+    # Summary
+    llm_count = sum(1 for s in spans if s.span_type == "llm_call")
+    tool_count = sum(1 for s in spans if s.span_type == "tool_call")
+    node_count = sum(1 for s in spans if s.span_type == "node")
+
+    print(f"\nSummary: {len(spans)} spans | {llm_count} LLM calls | {tool_count} tool calls | {node_count} nodes")
+
+
 def _resolve_dataset_and_metrics(
     dataset_arg: str, metrics_arg: Optional[str], metrics_all: bool = False
 ) -> tuple[Path, List[Path]]:
@@ -1265,7 +1389,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
 
     # Build metrics from specs
     from .metrics.factory import build_objective_metric, build_subjective_metric
-    from .calibration import load_optimized_prompt
+    from .annotation import load_optimized_prompt
 
     metrics = []
     objective_count = 0
@@ -4629,7 +4753,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                     build_objective_metric,
                     build_subjective_metric,
                 )
-                from .calibration import load_optimized_prompt
+                from .annotation import load_optimized_prompt
 
                 # Load metrics from file
                 with open(metrics_path) as f:
@@ -5035,6 +5159,12 @@ For more info on a command: evalyn <command> --help
     )
     show_call.add_argument("--id", required=True, help="Call id to display")
     show_call.set_defaults(func=cmd_show_call)
+
+    show_trace = subparsers.add_parser(
+        "show-trace", help="Show hierarchical span tree for a call (Phoenix-style)"
+    )
+    show_trace.add_argument("--id", required=True, help="Call id to display")
+    show_trace.set_defaults(func=cmd_show_trace)
 
     show_run = subparsers.add_parser("show-run", help="Show details for an eval run")
     show_run.add_argument("--id", required=True, help="Eval run id to display")

@@ -1,11 +1,12 @@
 __version__ = "0.0.1"
 
 from .decorators import eval, configure_tracer, get_default_tracer
-from .tracing import EvalTracer, eval_session
+from .trace.tracer import EvalTracer, eval_session
 
 # Auto-instrumentation (patches LLM libraries on import)
-from . import auto_instrument
-from .auto_instrument import trace, patch_all, is_patched, calculate_cost
+from . import trace
+from .trace import auto_instrument
+from .trace.auto_instrument import trace as trace_decorator, patch_all, is_patched, calculate_cost
 from .runner import EvalRunner
 from .metrics.registry import MetricRegistry, Metric
 from .metrics.objective import (
@@ -48,7 +49,9 @@ from .metrics.suggester import (
     LLMRegistrySelector,
     DEFAULT_JUDGE_PROMPT,
 )
-from .calibration import (
+# Annotation and calibration
+from . import annotation
+from .annotation import (
     CalibrationEngine,
     AlignmentMetrics,
     PromptOptimizer,
@@ -59,19 +62,6 @@ from .calibration import (
     GEPA_AVAILABLE,
     save_calibration,
     load_optimized_prompt,
-)
-from .otel import configure_otel, configure_default_otel, OTEL_AVAILABLE
-from .models import (
-    Annotation,
-    CalibrationRecord,
-    DatasetItem,
-    EvalRun,
-    FunctionCall,
-    MetricResult,
-    MetricSpec,
-    MetricType,
-)
-from .span_annotation import (
     SpanAnnotation,
     SpanType,
     LLMCallAnnotation,
@@ -83,11 +73,34 @@ from .span_annotation import (
     get_annotation_prompts,
     ANNOTATION_SCHEMAS,
 )
+# Simulation
+from . import simulation
+from .simulation import (
+    UserSimulator,
+    AgentSimulator,
+    SimulationConfig,
+    GeneratedQuery,
+    synthetic_dataset,
+    simulate_agent,
+    random_prompt_variations,
+)
+from .trace.otel import configure_otel, configure_default_otel, OTEL_AVAILABLE
+from .models import (
+    Annotation,
+    CalibrationRecord,
+    DatasetItem,
+    EvalRun,
+    FunctionCall,
+    MetricResult,
+    MetricSpec,
+    MetricType,
+)
 
 __all__ = [
     # Auto-instrumentation
     "auto_instrument",
-    "trace",
+    "trace",  # trace module
+    "trace_decorator",  # @trace decorator
     "patch_all",
     "is_patched",
     "calculate_cost",
@@ -175,4 +188,15 @@ __all__ = [
     "extract_spans_from_trace",
     "get_annotation_prompts",
     "ANNOTATION_SCHEMAS",
+    # Modules
+    "annotation",
+    "simulation",
+    # Simulation
+    "UserSimulator",
+    "AgentSimulator",
+    "SimulationConfig",
+    "GeneratedQuery",
+    "synthetic_dataset",
+    "simulate_agent",
+    "random_prompt_variations",
 ]

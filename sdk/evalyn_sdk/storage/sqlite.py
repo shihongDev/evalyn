@@ -87,6 +87,7 @@ class SQLiteStorage(StorageBackend):
         )
         self.conn.commit()
         self._ensure_otel_columns()
+        self._ensure_span_columns()
 
     def _ensure_otel_columns(self) -> None:
         cur = self.conn.cursor()
@@ -100,13 +101,26 @@ class SQLiteStorage(StorageBackend):
                 cur.execute(f"ALTER TABLE otel_spans ADD COLUMN {col} {col_type}")
         self.conn.commit()
 
+    def _ensure_span_columns(self) -> None:
+        """Add hierarchical span columns to function_calls table."""
+        cur = self.conn.cursor()
+        cur.execute("PRAGMA table_info(function_calls)")
+        cols = {row[1] for row in cur.fetchall()}
+        for col, col_type in [
+            ("parent_call_id", "TEXT"),  # Parent @eval call
+            ("spans", "TEXT"),  # JSON array of Span objects
+        ]:
+            if col not in cols:
+                cur.execute(f"ALTER TABLE function_calls ADD COLUMN {col} {col_type}")
+        self.conn.commit()
+
     def store_call(self, call: FunctionCall) -> None:
         cur = self.conn.cursor()
         cur.execute(
             """
             INSERT OR REPLACE INTO function_calls
-            (id, function_name, session_id, started_at, ended_at, duration_ms, inputs, output, error, trace, metadata)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, function_name, session_id, started_at, ended_at, duration_ms, inputs, output, error, trace, metadata, parent_call_id, spans)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 call.id,
@@ -120,6 +134,8 @@ class SQLiteStorage(StorageBackend):
                 call.error,
                 _dumps([t.as_dict() for t in call.trace]),
                 _dumps(call.metadata),
+                call.parent_call_id,
+                _dumps([s.as_dict() for s in call.spans]) if call.spans else None,
             ),
         )
         self.conn.commit()
@@ -302,6 +318,18 @@ class SQLiteStorage(StorageBackend):
         self.conn.close()
 
     def _row_to_call(self, row: sqlite3.Row) -> FunctionCall:
+        # Handle new columns that may not exist in old databases
+        parent_call_id = None
+        spans = []
+        try:
+            parent_call_id = row["parent_call_id"]
+            spans_raw = row["spans"]
+            if spans_raw:
+                spans = json.loads(spans_raw)
+        except (KeyError, IndexError):
+            # Old database without new columns
+            pass
+
         return FunctionCall.from_dict(
             {
                 "id": row["id"],
@@ -315,6 +343,8 @@ class SQLiteStorage(StorageBackend):
                 "error": row["error"],
                 "trace": json.loads(row["trace"]) if row["trace"] else [],
                 "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
+                "parent_call_id": parent_call_id,
+                "spans": spans,
             }
         )
 

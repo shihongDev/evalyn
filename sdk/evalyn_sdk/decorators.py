@@ -5,9 +5,9 @@ from typing import Any, Callable, Optional
 
 ALLOWED_METRIC_MODES = {"llm-registry", "llm-brainstorm", "bundle"}
 
-from .tracing import EvalTracer
+from .trace.tracer import EvalTracer
 from .storage.sqlite import SQLiteStorage
-from .otel import configure_default_otel, OTEL_AVAILABLE
+from .trace.otel import configure_default_otel, OTEL_AVAILABLE
 
 _default_tracer: Optional[EvalTracer] = None
 

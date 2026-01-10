@@ -25,7 +25,14 @@ from contextlib import contextmanager
 from typing import Any, Callable, Dict, List, Optional
 import contextvars
 
-from .decorators import get_default_tracer
+from . import context as span_context
+from ..models import Span
+
+
+def _get_tracer():
+    """Lazy import to avoid circular dependency."""
+    from ..decorators import get_default_tracer
+    return get_default_tracer()
 
 # Track nested calls
 _call_stack: contextvars.ContextVar[List[str]] = contextvars.ContextVar(
@@ -58,6 +65,7 @@ _patched = {
     "anthropic": False,
     "gemini": False,
     "langchain": False,
+    "langgraph": False,
 }
 
 
@@ -106,8 +114,8 @@ def _log_llm_call(
     request: Optional[Dict[str, Any]] = None,
     response: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Log an LLM call to the tracer."""
-    tracer = get_default_tracer()
+    """Log an LLM call to the tracer and create a span."""
+    tracer = _get_tracer()
 
     cost = calculate_cost(model, input_tokens, output_tokens)
 
@@ -130,6 +138,30 @@ def _log_llm_call(
     if response:
         detail["response"] = response
 
+    # Create span for hierarchy
+    parent_span_id = span_context.get_current_span_id()
+    span = Span.new(
+        name=f"{provider}:{model}",
+        span_type="llm_call",
+        parent_id=parent_span_id,
+        provider=provider,
+        model=model,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        cost_usd=cost,
+    )
+    # Set duration retroactively (span was created after the call)
+    from datetime import timedelta
+    span.start_time = span.start_time - timedelta(milliseconds=duration_ms)
+    span.finish(status="error" if error else "ok")
+    if error:
+        span.attributes["error"] = error
+
+    # Add span to collector
+    span_context._add_span_to_collector(span)
+
+    # Also log as trace event for backwards compatibility
+    detail["span_id"] = span.id
     tracer.log_event(f"{provider}.completion", detail)
 
 
@@ -141,8 +173,8 @@ def _log_tool_call(
     success: bool = True,
     error: Optional[str] = None,
 ) -> None:
-    """Log a tool call to the tracer."""
-    tracer = get_default_tracer()
+    """Log a tool call to the tracer and create a span."""
+    tracer = _get_tracer()
 
     detail = {
         "tool_name": tool_name,
@@ -156,6 +188,26 @@ def _log_tool_call(
     if error:
         detail["error"] = error
 
+    # Create span for hierarchy
+    parent_span_id = span_context.get_current_span_id()
+    span = Span.new(
+        name=tool_name,
+        span_type="tool_call",
+        parent_id=parent_span_id,
+        tool_name=tool_name,
+    )
+    # Set duration retroactively
+    from datetime import timedelta
+    span.start_time = span.start_time - timedelta(milliseconds=duration_ms)
+    span.finish(status="error" if error else "ok")
+    if error:
+        span.attributes["error"] = error
+
+    # Add span to collector
+    span_context._add_span_to_collector(span)
+
+    # Also log as trace event for backwards compatibility
+    detail["span_id"] = span.id
     tracer.log_event("tool.call", detail)
 
 
@@ -616,7 +668,7 @@ def patch_langchain() -> bool:
     _langchain_handler = EvalynCallbackHandler()
 
     # Make handler available
-    import evalyn_sdk.auto_instrument as self_module
+    import evalyn_sdk.trace.auto_instrument as self_module
 
     self_module.langchain_handler = _langchain_handler
 
@@ -645,6 +697,8 @@ def trace(name: Optional[str] = None):
         def another_function():
             pass
     """
+    import inspect
+    import uuid
 
     def decorator(func: Callable) -> Callable:
         func_name = name or func.__name__
@@ -653,7 +707,7 @@ def trace(name: Optional[str] = None):
 
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):
-                tracer = get_default_tracer()
+                tracer = _get_tracer()
                 start = time.time()
                 call_id = str(uuid.uuid4())[:8]
 
@@ -699,7 +753,7 @@ def trace(name: Optional[str] = None):
 
             @functools.wraps(func)
             def sync_wrapper(*args, **kwargs):
-                tracer = get_default_tracer()
+                tracer = _get_tracer()
                 start = time.time()
                 call_id = str(uuid.uuid4())[:8]
 
@@ -756,6 +810,20 @@ def trace(name: Optional[str] = None):
 # =============================================================================
 
 
+def patch_langgraph() -> bool:
+    """Patch LangGraph to auto-capture node execution spans."""
+    if _patched["langgraph"]:
+        return True
+
+    try:
+        from .langgraph import patch_langgraph as _patch
+        result = _patch()
+        _patched["langgraph"] = result
+        return result
+    except ImportError:
+        return False
+
+
 def patch_all() -> Dict[str, bool]:
     """
     Patch all supported LLM libraries.
@@ -774,6 +842,7 @@ def patch_all() -> Dict[str, bool]:
         "anthropic": patch_anthropic(),
         "gemini": patch_gemini(),
         "langchain": patch_langchain(),
+        "langgraph": patch_langgraph(),
     }
 
 
@@ -782,9 +851,6 @@ def is_patched(library: str) -> bool:
     return _patched.get(library, False)
 
 
-# Import uuid and inspect for trace decorator
-import uuid
-import inspect
 import os
 
 

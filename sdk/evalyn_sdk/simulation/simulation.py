@@ -4,8 +4,8 @@ import random
 from typing import Callable, Iterable, List
 from uuid import uuid4
 
-from .models import DatasetItem, FunctionCall
-from .tracing import EvalTracer
+from ..models import DatasetItem, FunctionCall
+from ..trace.tracer import EvalTracer
 
 
 def synthetic_dataset(prompts: Iterable[str]) -> List[DatasetItem]:

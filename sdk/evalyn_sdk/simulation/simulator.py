@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from uuid import uuid4
 
-from .models import DatasetItem, FunctionCall, now_utc
+from ..models import DatasetItem, FunctionCall, now_utc
 
 
 @dataclass

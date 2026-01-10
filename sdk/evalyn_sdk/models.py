@@ -28,18 +28,125 @@ def _safe_details(data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     return data or {}
 
 
+# Span types for hierarchical tracing
+SpanType = Literal[
+    "session",      # Root session span
+    "graph",        # LangGraph execution
+    "node",         # LangGraph node
+    "llm_call",     # LLM API call
+    "tool_call",    # Tool/function call
+    "retrieval",    # RAG retrieval
+    "scorer",       # Metric evaluation
+    "custom",       # User-defined span
+]
+
+SpanStatus = Literal["ok", "error", "running"]
+
+
+@dataclass
+class Span:
+    """
+    A hierarchical span with parent-child relationships.
+
+    Enables Phoenix/LangSmith-style trace visualization:
+
+    Trace (run_agent)
+     └── graph.execution
+         ├── node (generate_query)
+         │    └── llm_call (gemini-2.5-flash)
+         └── node (finalize_answer)
+              └── llm_call (gemini-2.5-flash)
+     ├── scorer (helpfulness) ✓
+     └── scorer (hallucination) ✗
+    """
+    id: str
+    name: str
+    span_type: str  # SpanType
+    parent_id: Optional[str]  # Parent span ID (None for root)
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    status: str = "ok"  # SpanStatus
+    attributes: Dict[str, Any] = field(default_factory=dict)
+
+    # Computed properties
+    @property
+    def duration_ms(self) -> Optional[float]:
+        if self.end_time and self.start_time:
+            return (self.end_time - self.start_time).total_seconds() * 1000
+        return None
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "span_type": self.span_type,
+            "parent_id": self.parent_id,
+            "start_time": _iso(self.start_time),
+            "end_time": _iso(self.end_time),
+            "status": self.status,
+            "attributes": self.attributes,
+            "duration_ms": self.duration_ms,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Span":
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            span_type=data.get("span_type", "custom"),
+            parent_id=data.get("parent_id"),
+            start_time=_parse_datetime(data.get("start_time")) or now_utc(),
+            end_time=_parse_datetime(data.get("end_time")),
+            status=data.get("status", "ok"),
+            attributes=data.get("attributes", {}),
+        )
+
+    @classmethod
+    def new(
+        cls,
+        name: str,
+        span_type: str,
+        parent_id: Optional[str] = None,
+        **attributes: Any,
+    ) -> "Span":
+        """Create a new span with auto-generated ID."""
+        return cls(
+            id=_default_id(),
+            name=name,
+            span_type=span_type,
+            parent_id=parent_id,
+            start_time=now_utc(),
+            status="running",
+            attributes=attributes,
+        )
+
+    def finish(self, status: str = "ok", **extra_attributes: Any) -> "Span":
+        """Mark span as finished."""
+        self.end_time = now_utc()
+        self.status = status
+        self.attributes.update(extra_attributes)
+        return self
+
+
 @dataclass
 class TraceEvent:
     kind: str
     timestamp: datetime
     detail: Dict[str, Any] = field(default_factory=dict)
+    span_id: Optional[str] = None  # Link to associated Span
+    parent_span_id: Optional[str] = None  # Parent span for hierarchy
 
     def as_dict(self) -> Dict[str, Any]:
-        return {
+        result = {
             "kind": self.kind,
             "timestamp": _iso(self.timestamp),
             "detail": self.detail,
         }
+        if self.span_id:
+            result["span_id"] = self.span_id
+        if self.parent_span_id:
+            result["parent_span_id"] = self.parent_span_id
+        return result
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "TraceEvent":
@@ -47,6 +154,8 @@ class TraceEvent:
             kind=data["kind"],
             timestamp=_parse_datetime(data["timestamp"]) or now_utc(),
             detail=_safe_details(data.get("detail")),
+            span_id=data.get("span_id"),
+            parent_span_id=data.get("parent_span_id"),
         )
 
 
@@ -63,9 +172,12 @@ class FunctionCall:
     session_id: Optional[str]
     trace: List[TraceEvent] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    # Hierarchical span support
+    parent_call_id: Optional[str] = None  # Parent @eval call (for nested calls)
+    spans: List[Span] = field(default_factory=list)  # Hierarchical span tree
 
     def as_dict(self) -> Dict[str, Any]:
-        return {
+        result = {
             "id": self.id,
             "function_name": self.function_name,
             "inputs": self.inputs,
@@ -78,6 +190,11 @@ class FunctionCall:
             "trace": [t.as_dict() for t in self.trace],
             "metadata": self.metadata,
         }
+        if self.parent_call_id:
+            result["parent_call_id"] = self.parent_call_id
+        if self.spans:
+            result["spans"] = [s.as_dict() for s in self.spans]
+        return result
 
     @classmethod
     def new(
@@ -86,6 +203,7 @@ class FunctionCall:
         inputs: Dict[str, Any],
         session_id: Optional[str],
         metadata: Optional[Dict[str, Any]] = None,
+        parent_call_id: Optional[str] = None,
     ) -> "FunctionCall":
         return cls(
             id=_default_id(),
@@ -99,6 +217,8 @@ class FunctionCall:
             session_id=session_id,
             trace=[],
             metadata=metadata or {},
+            parent_call_id=parent_call_id,
+            spans=[],
         )
 
     @classmethod
@@ -115,7 +235,28 @@ class FunctionCall:
             session_id=data.get("session_id"),
             trace=[TraceEvent.from_dict(t) for t in data.get("trace", [])],
             metadata=data.get("metadata", {}),
+            parent_call_id=data.get("parent_call_id"),
+            spans=[Span.from_dict(s) for s in data.get("spans", [])],
         )
+
+    def add_span(self, span: Span) -> None:
+        """Add a span to this call's span tree."""
+        self.spans.append(span)
+
+    def get_span_tree(self) -> Dict[str, Any]:
+        """Build hierarchical span tree for visualization."""
+        # Build lookup by id
+        by_id = {s.id: {"span": s, "children": []} for s in self.spans}
+        roots = []
+
+        for s in self.spans:
+            node = by_id[s.id]
+            if s.parent_id and s.parent_id in by_id:
+                by_id[s.parent_id]["children"].append(node)
+            else:
+                roots.append(node)
+
+        return {"roots": roots, "by_id": by_id}
 
 
 MetricType = Literal["objective", "subjective"]

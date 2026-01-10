@@ -15,7 +15,7 @@ from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional, Literal
 from datetime import datetime
 
-from .models import now_utc
+from ..models import now_utc
 
 
 SpanType = Literal["llm_call", "tool_call", "reasoning", "retrieval", "overall"]

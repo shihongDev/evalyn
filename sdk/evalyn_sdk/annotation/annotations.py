@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 from typing import Iterable, List, Tuple
 
-from .models import Annotation, AnnotationItem, HumanLabel, DatasetItem
+from ..models import Annotation, AnnotationItem, HumanLabel, DatasetItem
 
 
 def export_annotations(annotations: Iterable[Annotation], path: str | Path) -> None:

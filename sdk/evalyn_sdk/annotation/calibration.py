@@ -9,7 +9,7 @@ from statistics import mean
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
-from .models import Annotation, CalibrationRecord, MetricResult, DatasetItem, now_utc
+from ..models import Annotation, CalibrationRecord, MetricResult, DatasetItem, now_utc
 
 # GEPA import (optional dependency)
 try:
@@ -833,7 +833,7 @@ class CalibrationEngine:
             return None
 
         # Import judge here to avoid circular dependency
-        from .metrics.judges import GeminiJudge
+        from ..metrics.judges import GeminiJudge
 
         # Split annotations into train/val
         import random
@@ -880,7 +880,7 @@ class CalibrationEngine:
         original_metrics = AlignmentMetrics()
         optimized_metrics = AlignmentMetrics()
 
-        from .models import FunctionCall
+        from ..models import FunctionCall
 
         for item in val_items:
             call_id = item.metadata.get("call_id")

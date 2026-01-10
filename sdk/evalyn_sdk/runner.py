@@ -13,7 +13,7 @@ from .datasets import hash_inputs
 from .metrics.registry import Metric
 from .models import DatasetItem, EvalRun, FunctionCall, MetricResult, now_utc
 from .storage.base import StorageBackend
-from .tracing import EvalTracer
+from .trace.tracer import EvalTracer
 
 
 # Progress callback type: (current_item, total_items, current_metric, metric_type)
