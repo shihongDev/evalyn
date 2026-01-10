@@ -18,6 +18,7 @@ Usage:
     # View trace tree:
     # evalyn show-trace --id <call_id>
 """
+
 from .context import (
     span,
     root_span,

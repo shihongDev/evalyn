@@ -12,6 +12,7 @@ Usage:
         # Any nested spans created here will have this span as parent
         do_work()
 """
+
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -25,7 +26,9 @@ if TYPE_CHECKING:
 
 # Context variables for span hierarchy
 _span_stack: ContextVar[List[str]] = ContextVar("_span_stack", default=[])
-_active_call: ContextVar[Optional["FunctionCall"]] = ContextVar("_active_call", default=None)
+_active_call: ContextVar[Optional["FunctionCall"]] = ContextVar(
+    "_active_call", default=None
+)
 _span_collector: ContextVar[List["Span"]] = ContextVar("_span_collector", default=[])
 
 

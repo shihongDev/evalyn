@@ -30,14 +30,14 @@ def _safe_details(data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 
 # Span types for hierarchical tracing
 SpanType = Literal[
-    "session",      # Root session span
-    "graph",        # LangGraph execution
-    "node",         # LangGraph node
-    "llm_call",     # LLM API call
-    "tool_call",    # Tool/function call
-    "retrieval",    # RAG retrieval
-    "scorer",       # Metric evaluation
-    "custom",       # User-defined span
+    "session",  # Root session span
+    "graph",  # LangGraph execution
+    "node",  # LangGraph node
+    "llm_call",  # LLM API call
+    "tool_call",  # Tool/function call
+    "retrieval",  # RAG retrieval
+    "scorer",  # Metric evaluation
+    "custom",  # User-defined span
 ]
 
 SpanStatus = Literal["ok", "error", "running"]
@@ -59,6 +59,7 @@ class Span:
      ├── scorer (helpfulness) ✓
      └── scorer (hallucination) ✗
     """
+
     id: str
     name: str
     span_type: str  # SpanType

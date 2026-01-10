@@ -40,6 +40,7 @@ __pycache__/
 .claude/
 CLAUDE.md
 SPEC.md
+tests/
 
 # SQLite
 evalyn.sqlite

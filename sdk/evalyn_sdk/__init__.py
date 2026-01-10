@@ -6,7 +6,12 @@ from .trace.tracer import EvalTracer, eval_session
 # Auto-instrumentation (patches LLM libraries on import)
 from . import trace
 from .trace import auto_instrument
-from .trace.auto_instrument import trace as trace_decorator, patch_all, is_patched, calculate_cost
+from .trace.auto_instrument import (
+    trace as trace_decorator,
+    patch_all,
+    is_patched,
+    calculate_cost,
+)
 from .runner import EvalRunner
 from .metrics.registry import MetricRegistry, Metric
 from .metrics.objective import (
@@ -49,6 +54,7 @@ from .metrics.suggester import (
     LLMRegistrySelector,
     DEFAULT_JUDGE_PROMPT,
 )
+
 # Annotation and calibration
 from . import annotation
 from .annotation import (
@@ -73,6 +79,7 @@ from .annotation import (
     get_annotation_prompts,
     ANNOTATION_SCHEMAS,
 )
+
 # Simulation
 from . import simulation
 from .simulation import (

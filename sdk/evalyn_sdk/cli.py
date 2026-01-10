@@ -1055,7 +1055,7 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
             return "?"
         if ms < 1000:
             return f"{ms:.0f}ms"
-        return f"{ms/1000:.1f}s"
+        return f"{ms / 1000:.1f}s"
 
     def _format_tokens(attrs: dict) -> str:
         """Format token info if present."""
@@ -1144,7 +1144,9 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
 
     # Print header
     status = "ERROR" if call.error else "OK"
-    print(f"\nTrace: {call.function_name} ({_format_duration(call.duration_ms)}) [{status}]")
+    print(
+        f"\nTrace: {call.function_name} ({_format_duration(call.duration_ms)}) [{status}]"
+    )
     print(f"Call ID: {call.id}")
     if call.session_id:
         print(f"Session: {call.session_id}")
@@ -1159,7 +1161,9 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
     tool_count = sum(1 for s in spans if s.span_type == "tool_call")
     node_count = sum(1 for s in spans if s.span_type == "node")
 
-    print(f"\nSummary: {len(spans)} spans | {llm_count} LLM calls | {tool_count} tool calls | {node_count} nodes")
+    print(
+        f"\nSummary: {len(spans)} spans | {llm_count} LLM calls | {tool_count} tool calls | {node_count} nodes"
+    )
 
 
 def _resolve_dataset_and_metrics(
@@ -4567,7 +4571,9 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                     if spec.type == "objective":
                         m = build_objective_metric(spec.id, spec.config)
                     else:
-                        m = build_subjective_metric(spec.id, spec.config, api_key=pipeline_gemini_key)
+                        m = build_subjective_metric(
+                            spec.id, spec.config, api_key=pipeline_gemini_key
+                        )
                     if m:
                         metrics.append(m)
                 except Exception:
@@ -4779,12 +4785,16 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                             spec.config["prompt"] = optimized_prompt
                             calibrated_count += 1
                     # Get API key from config
-                    pipeline_gemini_key2 = get_config_default(config, "api_keys", "gemini")
+                    pipeline_gemini_key2 = get_config_default(
+                        config, "api_keys", "gemini"
+                    )
                     try:
                         if spec.type == "objective":
                             m = build_objective_metric(spec.id, spec.config)
                         else:
-                            m = build_subjective_metric(spec.id, spec.config, api_key=pipeline_gemini_key2)
+                            m = build_subjective_metric(
+                                spec.id, spec.config, api_key=pipeline_gemini_key2
+                            )
                         if m:
                             metrics.append(m)
                     except Exception:

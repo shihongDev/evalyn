@@ -32,7 +32,9 @@ from ..models import Span
 def _get_tracer():
     """Lazy import to avoid circular dependency."""
     from ..decorators import get_default_tracer
+
     return get_default_tracer()
+
 
 # Track nested calls
 _call_stack: contextvars.ContextVar[List[str]] = contextvars.ContextVar(
@@ -152,6 +154,7 @@ def _log_llm_call(
     )
     # Set duration retroactively (span was created after the call)
     from datetime import timedelta
+
     span.start_time = span.start_time - timedelta(milliseconds=duration_ms)
     span.finish(status="error" if error else "ok")
     if error:
@@ -198,6 +201,7 @@ def _log_tool_call(
     )
     # Set duration retroactively
     from datetime import timedelta
+
     span.start_time = span.start_time - timedelta(milliseconds=duration_ms)
     span.finish(status="error" if error else "ok")
     if error:
@@ -817,6 +821,7 @@ def patch_langgraph() -> bool:
 
     try:
         from .langgraph import patch_langgraph as _patch
+
         result = _patch()
         _patched["langgraph"] = result
         return result
