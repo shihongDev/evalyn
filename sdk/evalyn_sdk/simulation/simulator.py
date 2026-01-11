@@ -8,16 +8,14 @@ runs the target agent, and saves results as a new dataset.
 from __future__ import annotations
 
 import json
-import os
-import urllib.request
-import urllib.error
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 from uuid import uuid4
 
-from ..models import DatasetItem, FunctionCall, now_utc
+from ..models import DatasetItem, now_utc
+from ..utils.api_client import GeminiClient
 
 
 @dataclass
@@ -52,8 +50,6 @@ class UserSimulator:
     2. Outlier: Generate edge cases, adversarial inputs, unusual requests
     """
 
-    API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-
     def __init__(
         self,
         model: str = "gemini-2.5-flash-lite",
@@ -61,57 +57,17 @@ class UserSimulator:
     ):
         self.model = model
         self._api_key = api_key
+        self._client: Optional[GeminiClient] = None
 
-    def _get_api_key(self) -> str:
-        key = (
-            self._api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-        )
-        if not key:
-            raise RuntimeError(
-                "Missing GEMINI_API_KEY. Set the environment variable or pass api_key."
+    @property
+    def client(self) -> GeminiClient:
+        """Lazy-initialized Gemini API client."""
+        if self._client is None:
+            self._client = GeminiClient(
+                model=self.model,
+                api_key=self._api_key,
             )
-        return key
-
-    def _call_api(self, prompt: str, temperature: float = 0.5) -> str:
-        """Make direct HTTP call to Gemini API."""
-        api_key = self._get_api_key()
-        url = self.API_URL.format(model=self.model) + f"?key={api_key}"
-
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": temperature,
-            },
-        }
-
-        data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            url,
-            data=data,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-
-        try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                response_data = json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            error_body = e.read().decode("utf-8") if e.fp else ""
-            raise RuntimeError(f"Gemini API error ({e.code}): {error_body}") from e
-        except urllib.error.URLError as e:
-            raise RuntimeError(f"Gemini API connection error: {e.reason}") from e
-
-        try:
-            candidates = response_data.get("candidates", [])
-            if candidates:
-                content = candidates[0].get("content", {})
-                parts = content.get("parts", [])
-                if parts:
-                    return parts[0].get("text", "")
-        except Exception:
-            pass
-
-        return ""
+        return self._client
 
     def generate_similar(
         self,
@@ -156,7 +112,7 @@ Return ONLY the JSON array, no other text.
 Generate exactly {num_per_seed * len(seed_items)} queries."""
 
         try:
-            response = self._call_api(prompt, temperature=0.3)
+            response = self.client.generate(prompt, temperature=0.3)
             queries = self._parse_query_response(response)
         except Exception as e:
             print(f"Warning: Failed to generate similar queries: {e}")
@@ -225,7 +181,7 @@ Return ONLY the JSON array, no other text.
 Generate exactly {num_per_seed * len(seed_items)} queries."""
 
         try:
-            response = self._call_api(prompt, temperature=0.8)
+            response = self.client.generate(prompt, temperature=0.8)
             queries = self._parse_query_response(response)
         except Exception as e:
             print(f"Warning: Failed to generate outlier queries: {e}")

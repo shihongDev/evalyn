@@ -62,7 +62,7 @@ from .annotation import (
     save_calibration,
     load_optimized_prompt,
     SpanAnnotation,
-    SpanType,
+    AnnotationSpanType,
     LLMCallAnnotation,
     ToolCallAnnotation,
     ReasoningAnnotation,
@@ -172,7 +172,7 @@ __all__ = [
     "list_template_ids",
     # Span annotations
     "SpanAnnotation",
-    "SpanType",
+    "AnnotationSpanType",
     "LLMCallAnnotation",
     "ToolCallAnnotation",
     "ReasoningAnnotation",

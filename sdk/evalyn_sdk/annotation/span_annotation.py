@@ -18,7 +18,8 @@ from datetime import datetime
 from ..models import now_utc
 
 
-SpanType = Literal["llm_call", "tool_call", "reasoning", "retrieval", "overall"]
+# Annotation span types (distinct from models.SpanType which covers execution spans)
+AnnotationSpanType = Literal["llm_call", "tool_call", "reasoning", "retrieval", "overall"]
 
 
 @dataclass
@@ -144,7 +145,7 @@ class SpanAnnotation:
     id: str
     call_id: str  # Parent FunctionCall ID
     span_id: str  # ID of the specific span/event
-    span_type: SpanType
+    span_type: AnnotationSpanType
     annotation: AnnotationSchema
     annotator: str = "human"
     created_at: datetime = field(default_factory=now_utc)
@@ -251,7 +252,7 @@ def extract_spans_from_trace(call) -> List[Dict[str, Any]]:
     return spans
 
 
-def get_annotation_prompts(span_type: SpanType) -> List[Dict[str, Any]]:
+def get_annotation_prompts(span_type: AnnotationSpanType) -> List[Dict[str, Any]]:
     """
     Get the annotation prompts for a given span type.
 

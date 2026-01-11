@@ -841,9 +841,9 @@ def patch_langgraph() -> bool:
         return True
 
     try:
-        from .langgraph import patch_langgraph as _patch
+        from .langgraph import _do_patch_langgraph
 
-        result = _patch()
+        result = _do_patch_langgraph()
         _patched["langgraph"] = result
         return result
     except ImportError:

@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 import json
-import os
-import urllib.request
-import urllib.error
 from dataclasses import dataclass, field
 from statistics import mean
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
 from ..models import Annotation, CalibrationRecord, MetricResult, DatasetItem, now_utc
+from ..utils.api_client import GeminiClient
 
 # GEPA import (optional dependency)
 try:
@@ -229,8 +227,6 @@ class PromptOptimizer:
     Uses LLM to analyze disagreement patterns and suggest rubric improvements.
     """
 
-    API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-
     def __init__(
         self,
         model: str = "gemini-2.5-flash-lite",
@@ -238,57 +234,19 @@ class PromptOptimizer:
     ):
         self.model = model
         self._api_key = api_key
+        self._client: Optional[GeminiClient] = None
 
-    def _get_api_key(self) -> str:
-        key = (
-            self._api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-        )
-        if not key:
-            raise RuntimeError(
-                "Missing GEMINI_API_KEY. Set the environment variable or pass api_key to PromptOptimizer."
+    @property
+    def client(self) -> GeminiClient:
+        """Lazy-initialized Gemini API client."""
+        if self._client is None:
+            self._client = GeminiClient(
+                model=self.model,
+                temperature=0.0,
+                api_key=self._api_key,
+                timeout=90,
             )
-        return key
-
-    def _call_api(self, prompt: str) -> str:
-        """Make direct HTTP call to Gemini API."""
-        api_key = self._get_api_key()
-        url = self.API_URL.format(model=self.model) + f"?key={api_key}"
-
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": 0.2,  # Low temp for consistent optimization
-            },
-        }
-
-        data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            url,
-            data=data,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-
-        try:
-            with urllib.request.urlopen(req, timeout=90) as resp:
-                response_data = json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            error_body = e.read().decode("utf-8") if e.fp else ""
-            raise RuntimeError(f"Gemini API error ({e.code}): {error_body}") from e
-        except urllib.error.URLError as e:
-            raise RuntimeError(f"Gemini API connection error: {e.reason}") from e
-
-        try:
-            candidates = response_data.get("candidates", [])
-            if candidates:
-                content = candidates[0].get("content", {})
-                parts = content.get("parts", [])
-                if parts:
-                    return parts[0].get("text", "")
-        except Exception:
-            pass
-
-        return ""
+        return self._client
 
     def optimize(
         self,
@@ -306,7 +264,7 @@ class PromptOptimizer:
         )
 
         try:
-            response_text = self._call_api(prompt)
+            response_text = self.client.generate(prompt)
             return self._parse_optimization_response(response_text, current_rubric)
         except Exception as e:
             # Return a fallback result on error

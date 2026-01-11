@@ -17,7 +17,7 @@ from .annotations import (
 )
 from .span_annotation import (
     SpanAnnotation,
-    SpanType,
+    AnnotationSpanType,
     LLMCallAnnotation,
     ToolCallAnnotation,
     ReasoningAnnotation,
@@ -52,7 +52,7 @@ __all__ = [
     "merge_annotations_into_dataset",
     # Span annotations
     "SpanAnnotation",
-    "SpanType",
+    "AnnotationSpanType",
     "LLMCallAnnotation",
     "ToolCallAnnotation",
     "ReasoningAnnotation",

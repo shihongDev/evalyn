@@ -15,12 +15,10 @@ Usage:
 from __future__ import annotations
 
 import json
-import os
-import urllib.error
-import urllib.request
 from typing import Any, Dict, List, Optional
 
 from ..models import DatasetItem, FunctionCall, Metric, MetricResult, MetricSpec
+from ..utils.api_client import GeminiClient
 
 
 # =============================================================================
@@ -199,7 +197,6 @@ class LLMJudge:
         metric = LLMJudge.from_template("helpfulness").as_metric("help_score")
     """
 
-    API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     TEMPLATES = JUDGE_TEMPLATES
 
     def __init__(
@@ -217,6 +214,18 @@ class LLMJudge:
         self.temperature = temperature
         self._api_key = api_key
         self.rubric = rubric or []
+        self._client: Optional[GeminiClient] = None
+
+    @property
+    def client(self) -> GeminiClient:
+        """Lazy-initialized Gemini API client."""
+        if self._client is None:
+            self._client = GeminiClient(
+                model=self.model,
+                temperature=self.temperature,
+                api_key=self._api_key,
+            )
+        return self._client
 
     @classmethod
     def from_template(
@@ -256,54 +265,6 @@ class LLMJudge:
         """List available template names."""
         return list(cls.TEMPLATES.keys())
 
-    def _get_api_key(self) -> str:
-        key = self._api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-        if not key:
-            raise RuntimeError(
-                "Missing GEMINI_API_KEY. Set the environment variable or pass api_key."
-            )
-        return key
-
-    def _call_api(self, prompt: str) -> str:
-        """Make direct HTTP call to Gemini API."""
-        api_key = self._get_api_key()
-        url = self.API_URL.format(model=self.model) + f"?key={api_key}"
-
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": self.temperature},
-        }
-
-        data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            url,
-            data=data,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-
-        try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                response_data = json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            error_body = e.read().decode("utf-8") if e.fp else ""
-            raise RuntimeError(f"Gemini API error ({e.code}): {error_body}") from e
-        except urllib.error.URLError as e:
-            raise RuntimeError(f"Gemini API connection error: {e.reason}") from e
-
-        # Extract text from response
-        try:
-            candidates = response_data.get("candidates", [])
-            if candidates:
-                content = candidates[0].get("content", {})
-                parts = content.get("parts", [])
-                if parts:
-                    return parts[0].get("text", "")
-        except Exception:
-            pass
-
-        return ""
-
     def _build_evaluation_prompt(self, call: FunctionCall, item: DatasetItem) -> str:
         """Build the full prompt for evaluation."""
         trace_excerpt = _safe_trace_excerpt(call)
@@ -338,7 +299,7 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
         full_prompt = self._build_evaluation_prompt(call, item)
 
         try:
-            raw_text = self._call_api(full_prompt)
+            raw_text = self.client.generate(full_prompt)
         except Exception as e:
             return {
                 "score": None,

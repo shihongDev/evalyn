@@ -34,19 +34,17 @@ from datetime import timedelta
 from . import context as span_context
 from ..models import Span
 
-_patched = False
+# Note: Patch state is tracked in auto_instrument.py's central _patched dict.
+# This module only provides the patching logic.
 
 
-def patch_langgraph() -> bool:
+def _do_patch_langgraph() -> bool:
     """
-    Patch LangGraph to emit spans for graph and node execution.
+    Internal: Patch LangGraph to emit spans for graph and node execution.
 
+    Called by auto_instrument.py which manages the patched state.
     Returns True if patching succeeded, False if LangGraph is not installed.
     """
-    global _patched
-    if _patched:
-        return True
-
     try:
         from langgraph.graph import StateGraph
         from langgraph.graph.graph import CompiledGraph
@@ -66,7 +64,6 @@ def patch_langgraph() -> bool:
     # Also patch CompiledGraph directly for already-compiled graphs
     _patch_compiled_graph_class(CompiledGraph)
 
-    _patched = True
     return True
 
 
@@ -266,8 +263,3 @@ def _wrap_node_function(node_name: str, node_func: Callable) -> Callable:
                 span_context._add_span_to_collector(node_span)
 
         return sync_wrapper
-
-
-def is_patched() -> bool:
-    """Check if LangGraph has been patched."""
-    return _patched

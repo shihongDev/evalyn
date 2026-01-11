@@ -60,7 +60,7 @@ from .annotation import (
     ANNOTATION_SCHEMAS,
     extract_spans_from_trace,
     get_annotation_prompts,
-    SpanType,
+    AnnotationSpanType,
 )
 
 
