@@ -4,8 +4,7 @@ import inspect
 import json
 from typing import Any, Callable, Iterable, List, Optional
 
-from ..models import FunctionCall, MetricSpec
-from ..metrics.registry import MetricRegistry
+from ..models import FunctionCall, MetricRegistry, MetricSpec
 
 Suggestion = MetricSpec
 

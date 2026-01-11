@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Callable, Dict, List, Literal, Optional
 import uuid
 
 
@@ -297,6 +297,42 @@ class MetricResult:
             details=data.get("details", {}),
             raw_judge=data.get("raw_judge"),
         )
+
+
+class Metric:
+    """Runtime metric that binds a spec to an evaluation function."""
+
+    def __init__(
+        self,
+        spec: MetricSpec,
+        handler: Callable[["FunctionCall", "DatasetItem"], MetricResult],
+    ):
+        self.spec = spec
+        self.handler = handler
+
+    def evaluate(self, call: "FunctionCall", item: "DatasetItem") -> MetricResult:
+        return self.handler(call, item)
+
+
+class MetricRegistry:
+    """Registry for managing multiple metrics."""
+
+    def __init__(self):
+        self._metrics: Dict[str, Metric] = {}
+
+    def register(self, metric: Metric) -> None:
+        self._metrics[metric.spec.id] = metric
+
+    def get(self, metric_id: str) -> Optional[Metric]:
+        return self._metrics.get(metric_id)
+
+    def list(self) -> List[Metric]:
+        return list(self._metrics.values())
+
+    def apply_all(
+        self, call: "FunctionCall", item: "DatasetItem"
+    ) -> List[MetricResult]:
+        return [metric.evaluate(call, item) for metric in self._metrics.values()]
 
 
 @dataclass

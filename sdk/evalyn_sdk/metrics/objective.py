@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import math
 import json
+import math
 import re
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from .registry import Metric
-from ..models import DatasetItem, FunctionCall, MetricResult, MetricSpec
+from ..models import DatasetItem, FunctionCall, Metric, MetricResult, MetricSpec
 
 
 def _as_text(value: Any) -> str:

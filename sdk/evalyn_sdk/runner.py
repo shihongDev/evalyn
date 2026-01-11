@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from .decorators import get_default_tracer
 from .datasets import hash_inputs
-from .metrics.registry import Metric
+from .models import Metric
 from .models import DatasetItem, EvalRun, FunctionCall, MetricResult, now_utc
 from .storage.base import StorageBackend
 from .trace.tracer import EvalTracer

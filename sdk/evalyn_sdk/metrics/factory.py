@@ -35,10 +35,9 @@ from .objective import (
     url_count_metric,
     xml_valid_metric,
 )
-from .registry import Metric
-from .subjective import subjective_metric
+from ..models import Metric
+from .judges import LLMJudge
 from .templates import OBJECTIVE_TEMPLATES, SUBJECTIVE_TEMPLATES
-from .judges import GeminiJudge, LLMJudge
 
 
 def _tpl_by_id(templates: List[dict]) -> Dict[str, dict]:
@@ -211,12 +210,13 @@ def build_subjective_metric(
     if judge is None:
         model = cfg.get("model", "gemini-2.5-flash-lite")
         temperature = float(cfg.get("temperature", 0.0))
-        judge = GeminiJudge(
+        judge = LLMJudge(
             name=metric_id,
             prompt=prompt,
             model=model,
             temperature=temperature,
             api_key=api_key,
+            rubric=rubric if rubric else None,
         )
 
     # Use provided description, or template description, or config description
@@ -227,10 +227,8 @@ def build_subjective_metric(
         or "LLM judge subjective score"
     )
 
-    return subjective_metric(
+    return judge.as_metric(
         metric_id=metric_id,
-        judge=judge,
+        threshold=threshold_f,
         description=str(final_description),
-        success_threshold=threshold_f,
-        config=cfg,
     )

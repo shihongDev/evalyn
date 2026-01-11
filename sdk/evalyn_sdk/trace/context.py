@@ -27,11 +27,15 @@ if TYPE_CHECKING:
 
 # Context variables for span hierarchy
 _span_stack: ContextVar[List[str]] = ContextVar("_span_stack", default=[])
-_active_call: ContextVar[Optional["FunctionCall"]] = ContextVar("_active_call", default=None)
+_active_call: ContextVar[Optional["FunctionCall"]] = ContextVar(
+    "_active_call", default=None
+)
 
 # Sentinel to detect uninitialized collector (for context propagation detection)
 _UNSET_COLLECTOR: List["Span"] = []
-_span_collector: ContextVar[List["Span"]] = ContextVar("_span_collector", default=_UNSET_COLLECTOR)
+_span_collector: ContextVar[List["Span"]] = ContextVar(
+    "_span_collector", default=_UNSET_COLLECTOR
+)
 
 # Thread-safe global collector fallback (for threads that don't inherit ContextVar)
 _global_lock = threading.Lock()

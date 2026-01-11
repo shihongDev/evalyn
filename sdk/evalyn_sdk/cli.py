@@ -221,7 +221,7 @@ from .datasets import load_dataset, save_dataset_with_meta, build_dataset_from_s
 from .simulation import UserSimulator, AgentSimulator, SimulationConfig
 from .decorators import get_default_tracer
 from .metrics.objective import register_builtin_metrics
-from .metrics.registry import MetricRegistry
+from .models import MetricRegistry
 from .metrics.templates import OBJECTIVE_TEMPLATES, SUBJECTIVE_TEMPLATES
 from .runner import EvalRunner
 from .metrics.suggester import (
@@ -687,9 +687,23 @@ def cmd_show_call(args: argparse.Namespace) -> None:
     if not tracer.storage:
         print("No storage configured.")
         return
-    call = tracer.storage.get_call(args.id)
+
+    # Handle --last flag or --id
+    if getattr(args, "last", False):
+        calls = tracer.storage.list_calls(limit=1)
+        if not calls:
+            print("No calls found.")
+            return
+        call_id = calls[0].id
+    elif args.id:
+        call_id = args.id
+    else:
+        print("Error: Must specify --id or --last")
+        return
+
+    call = tracer.storage.get_call(call_id)
     if not call:
-        print(f"No call found with id={args.id}")
+        print(f"No call found with id={call_id}")
         return
     status = "ERROR" if call.error else "OK"
 
@@ -916,12 +930,6 @@ def cmd_show_call(args: argparse.Namespace) -> None:
         for idx, root_id in enumerate(roots):
             _render(root_id, "", idx == len(roots) - 1)
 
-    spans = tracer.storage.list_spans(call.id) if tracer.storage else []
-    if spans:
-        print("\nSpan tree (OTel):")
-        call_start_ts = call.started_at.timestamp() if call.started_at else None
-        _print_span_tree(spans, call_start_ts)
-
     if call.trace:
 
         def _format_time(ev):
@@ -1026,14 +1034,7 @@ def cmd_show_call(args: argparse.Namespace) -> None:
             )
             prev_ts = ev.timestamp
 
-    if not spans:
-        print("\nSpan tree (OTel):")
-        print("  <no spans found>")
-        print(
-            "  Tip: set EVALYN_OTEL_EXPORTER=sqlite and re-run to capture span data locally."
-        )
-
-    # Show hierarchical spans from call.spans (new format)
+    # Show hierarchical spans from call.spans
     if call.spans:
 
         def _format_dur(ms):
@@ -1100,7 +1101,7 @@ def cmd_show_call(args: argparse.Namespace) -> None:
             for i, child in enumerate(children):
                 render_node(child, child_prefix, i == len(children) - 1)
 
-        print("\nSpan Tree (Hierarchical):")
+        print("\nSpan Tree:")
         for i, root in enumerate(roots):
             render_node(root, "", i == len(roots) - 1)
 
@@ -1112,8 +1113,6 @@ def cmd_show_call(args: argparse.Namespace) -> None:
             f"\n  {len(call.spans)} spans | {llm_count} LLM | {tool_count} tools | {node_count} nodes"
         )
 
-    print("\nOTel:")
-    print(" Spans are emitted alongside this call (exporter-configured).")
     print("=============================================\n")
 
 
@@ -1124,9 +1123,22 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
         print("No storage configured.")
         return
 
-    call = tracer.storage.get_call(args.id)
+    # Handle --last flag or --id
+    if getattr(args, "last", False):
+        calls = tracer.storage.list_calls(limit=1)
+        if not calls:
+            print("No calls found.")
+            return
+        call_id = calls[0].id
+    elif args.id:
+        call_id = args.id
+    else:
+        print("Error: Must specify --id or --last")
+        return
+
+    call = tracer.storage.get_call(call_id)
     if not call:
-        print(f"No call found with id={args.id}")
+        print(f"No call found with id={call_id}")
         return
 
     def _format_duration(ms: float) -> str:
@@ -1140,9 +1152,33 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
         """Format token info if present."""
         input_t = attrs.get("input_tokens", 0)
         output_t = attrs.get("output_tokens", 0)
+        tool_t = attrs.get("tool_tokens", 0)
         if input_t or output_t:
+            if tool_t:
+                return f" [{input_t}→{output_t} +{tool_t} tool tokens]"
             return f" [{input_t}→{output_t} tokens]"
         return ""
+
+    def _format_grounding(attrs: dict, prefix: str) -> list:
+        """Format grounding metadata (search queries, sources) as extra lines."""
+        lines = []
+        queries = attrs.get("search_queries")
+        if queries:
+            lines.append(f"{prefix}    🔍 Queries: {', '.join(queries[:3])}")
+            if len(queries) > 3:
+                lines.append(f"{prefix}       ... and {len(queries) - 3} more")
+        sources = attrs.get("sources")
+        if sources:
+            lines.append(f"{prefix}    📚 Sources:")
+            for src in sources[:3]:
+                title = src.get("title", "")[:50]
+                uri = src.get("uri", "")
+                lines.append(f"{prefix}       • {title}")
+                if uri:
+                    lines.append(f"{prefix}         {uri[:60]}...")
+            if len(sources) > 3:
+                lines.append(f"{prefix}       ... and {len(sources) - 3} more")
+        return lines
 
     def _status_icon(status: str) -> str:
         if status == "error":
@@ -1214,6 +1250,12 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
             label = f"{span.name} ({duration})"
 
         print(f"{prefix}{connector}{label}")
+
+        # Show grounding info for LLM calls with search/sources
+        if span.span_type == "llm_call":
+            grounding_lines = _format_grounding(span.attributes, prefix)
+            for line in grounding_lines:
+                print(line)
 
         # Render children
         child_prefix = prefix + ("    " if is_last else "│   ")
@@ -4360,15 +4402,7 @@ def cmd_analyze(args: argparse.Namespace) -> None:
             if run_files:
                 with open(run_files[0]) as f:
                     run_data = json.load(f)
-                    run = EvalRun(
-                        id=run_data.get("id", "unknown"),
-                        dataset_name=run_data.get("dataset_name", "unknown"),
-                        started_at=run_data.get("started_at"),
-                        finished_at=run_data.get("finished_at"),
-                        results=run_data.get("results", []),
-                        summary=run_data.get("summary", {}),
-                        metadata=run_data.get("metadata", {}),
-                    )
+                    run = EvalRun.from_dict(run_data)
                 print(f"Analyzing latest run: {run_files[0].name}")
         if not run:
             print("Error: No eval runs found. Run 'evalyn run-eval' first.")
@@ -4382,41 +4416,39 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     print(f"{'=' * 70}")
     print(f"\nRun ID:      {run.id}")
     print(f"Dataset:     {run.dataset_name}")
-    print(f"Items:       {len(run.results)}")
-    print(f"Started:     {run.started_at}")
+    print(f"Items:       {len(run.metric_results)}")
+    print(f"Created:     {run.created_at}")
 
     # Aggregate metrics
     metrics_stats = {}
     item_failures = {}  # item_id -> list of failed metrics
 
-    for result in run.results:
-        item_id = result.get("item_id", "unknown")
+    for mr in run.metric_results:
+        item_id = mr.item_id or "unknown"
+        metric_id = mr.metric_id
+        passed = mr.passed
+        score = mr.score
 
-        for metric_result in result.get("metrics", []):
-            metric_id = metric_result.get("metric_id", "unknown")
-            passed = metric_result.get("passed", True)
-            score = metric_result.get("score")
+        if metric_id not in metrics_stats:
+            metrics_stats[metric_id] = {
+                "total": 0,
+                "passed": 0,
+                "failed": 0,
+                "scores": [],
+                "failed_items": [],
+            }
 
-            if metric_id not in metrics_stats:
-                metrics_stats[metric_id] = {
-                    "total": 0,
-                    "passed": 0,
-                    "failed": 0,
-                    "scores": [],
-                    "failed_items": [],
-                }
+        stats = metrics_stats[metric_id]
+        stats["total"] += 1
+        if passed:
+            stats["passed"] += 1
+        else:
+            stats["failed"] += 1
+            stats["failed_items"].append(item_id)
+            item_failures.setdefault(item_id, []).append(metric_id)
 
-            stats = metrics_stats[metric_id]
-            stats["total"] += 1
-            if passed:
-                stats["passed"] += 1
-            else:
-                stats["failed"] += 1
-                stats["failed_items"].append(item_id)
-                item_failures.setdefault(item_id, []).append(metric_id)
-
-            if score is not None:
-                stats["scores"].append(score)
+        if score is not None:
+            stats["scores"].append(score)
 
     # Print metric summary
     print(f"\n{'=' * 70}")
@@ -5197,7 +5229,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 LLMSuggester,
                 LLMRegistrySelector,
             )
-            from .metrics.registry import MetricRegistry
+            from .models import MetricRegistry
 
             # Load target function if provided
             target_fn = None
@@ -5942,13 +5974,15 @@ For more info on a command: evalyn <command> --help
     show_call = subparsers.add_parser(
         "show-call", help="Show details for a traced call"
     )
-    show_call.add_argument("--id", required=True, help="Call id to display")
+    show_call.add_argument("--id", help="Call id to display")
+    show_call.add_argument("--last", action="store_true", help="Show most recent call")
     show_call.set_defaults(func=cmd_show_call)
 
     show_trace = subparsers.add_parser(
         "show-trace", help="Show hierarchical span tree for a call (Phoenix-style)"
     )
-    show_trace.add_argument("--id", required=True, help="Call id to display")
+    show_trace.add_argument("--id", help="Call id to display")
+    show_trace.add_argument("--last", action="store_true", help="Show most recent call")
     show_trace.set_defaults(func=cmd_show_trace)
 
     show_run = subparsers.add_parser("show-run", help="Show details for an eval run")

@@ -19,11 +19,15 @@ Or in code (before importing evalyn_sdk):
 
 from __future__ import annotations
 
-import functools
-import time
-from contextlib import contextmanager
-from typing import Any, Callable, Dict, List, Optional
 import contextvars
+import functools
+import inspect
+import os
+import time
+import uuid
+from contextlib import contextmanager
+from datetime import timedelta
+from typing import Any, Callable, Dict, List, Optional
 
 from . import context as span_context
 from ..models import Span
@@ -115,6 +119,9 @@ def _log_llm_call(
     error: Optional[str] = None,
     request: Optional[Dict[str, Any]] = None,
     response: Optional[Dict[str, Any]] = None,
+    tool_tokens: int = 0,
+    search_queries: Optional[List[str]] = None,
+    sources: Optional[List[Dict[str, str]]] = None,
 ) -> None:
     """Log an LLM call to the tracer and create a span."""
     tracer = _get_tracer()
@@ -139,6 +146,12 @@ def _log_llm_call(
         detail["request"] = request
     if response:
         detail["response"] = response
+    if tool_tokens:
+        detail["tool_tokens"] = tool_tokens
+    if search_queries:
+        detail["search_queries"] = search_queries
+    if sources:
+        detail["sources"] = sources
 
     # Create span for hierarchy
     parent_span_id = span_context.get_current_span_id()
@@ -152,9 +165,16 @@ def _log_llm_call(
         output_tokens=output_tokens,
         cost_usd=cost,
     )
-    # Set duration retroactively (span was created after the call)
-    from datetime import timedelta
 
+    # Add tool/grounding info to span
+    if tool_tokens:
+        span.attributes["tool_tokens"] = tool_tokens
+    if search_queries:
+        span.attributes["search_queries"] = search_queries
+    if sources:
+        span.attributes["sources"] = sources
+
+    # Set duration retroactively (span was created after the call)
     span.start_time = span.start_time - timedelta(milliseconds=duration_ms)
     span.finish(status="error" if error else "ok")
     if error:
@@ -200,8 +220,6 @@ def _log_tool_call(
         tool_name=tool_name,
     )
     # Set duration retroactively
-    from datetime import timedelta
-
     span.start_time = span.start_time - timedelta(milliseconds=duration_ms)
     span.finish(status="error" if error else "ok")
     if error:
@@ -230,22 +248,6 @@ def patch_openai() -> bool:
     except ImportError:
         return False
 
-    original_create = None
-    original_acreate = None
-
-    # Patch sync client
-    # Patch the module-level functions if they exist
-    # Note: In OpenAI SDK v1.0+, accessing openai.chat creates a default client
-    # which requires OPENAI_API_KEY. We wrap in try/except to handle missing key.
-    try:
-        if hasattr(openai, "chat") and hasattr(openai.chat, "completions"):
-            _patch_openai_completions(openai.chat.completions)
-    except Exception:
-        # No API key set or other error - skip module-level patching
-        # Will still patch client class below for when user creates client with key
-        pass
-
-    # Also try to patch via client instances
     _patch_openai_client_class()
 
     _patched["openai"] = True
@@ -350,11 +352,6 @@ def _patch_openai_client_class():
                 raise
 
         chat_completions.AsyncCompletions.create = patched_acreate
-
-
-def _patch_openai_completions(completions_module):
-    """Patch OpenAI completions module."""
-    pass  # Handled by _patch_openai_client_class
 
 
 # =============================================================================
@@ -505,6 +502,29 @@ def patch_gemini() -> bool:
                 output_tokens = (
                     getattr(usage, "candidates_token_count", 0) if usage else 0
                 )
+                tool_tokens = (
+                    getattr(usage, "tool_use_prompt_token_count", 0) if usage else 0
+                )
+
+                # Extract grounding metadata (search queries, sources)
+                search_queries = None
+                sources = None
+                if response.candidates:
+                    gm = getattr(response.candidates[0], "grounding_metadata", None)
+                    if gm:
+                        search_queries = getattr(gm, "web_search_queries", None)
+                        chunks = getattr(gm, "grounding_chunks", None)
+                        if chunks:
+                            sources = []
+                            for chunk in chunks[:5]:  # Limit to 5 sources
+                                web = getattr(chunk, "web", None)
+                                if web:
+                                    sources.append(
+                                        {
+                                            "title": getattr(web, "title", "")[:100],
+                                            "uri": getattr(web, "uri", "")[:200],
+                                        }
+                                    )
 
                 _log_llm_call(
                     provider="gemini",
@@ -514,6 +534,9 @@ def patch_gemini() -> bool:
                     duration_ms=duration_ms,
                     success=True,
                     response={"text": str(getattr(response, "text", ""))[:500]},
+                    tool_tokens=tool_tokens,
+                    search_queries=search_queries,
+                    sources=sources,
                 )
 
                 return response
@@ -701,8 +724,6 @@ def trace(name: Optional[str] = None):
         def another_function():
             pass
     """
-    import inspect
-    import uuid
 
     def decorator(func: Callable) -> Callable:
         func_name = name or func.__name__
@@ -854,9 +875,6 @@ def patch_all() -> Dict[str, bool]:
 def is_patched(library: str) -> bool:
     """Check if a library has been patched."""
     return _patched.get(library, False)
-
-
-import os
 
 
 # =============================================================================

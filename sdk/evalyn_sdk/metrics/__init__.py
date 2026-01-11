@@ -1,3 +1,5 @@
+from ..models import Metric, MetricRegistry
+
 from .objective import (
     exact_match_metric,
     latency_metric,
@@ -10,19 +12,13 @@ from .objective import (
     tool_call_count_metric,
     register_builtin_metrics,
 )
-from .registry import Metric, MetricRegistry
-from .subjective import (
-    subjective_metric,
-    tone_metric,
-    toxicity_metric,
-    DEFAULT_TONE_PROMPT,
-    DEFAULT_TOXICITY_PROMPT,
-)
+from .judges import LLMJudge, EchoJudge, JUDGE_TEMPLATES
 from .factory import build_objective_metric, build_subjective_metric, list_template_ids
 
 __all__ = [
     "Metric",
     "MetricRegistry",
+    # Objective metrics
     "exact_match_metric",
     "latency_metric",
     "cost_metric",
@@ -33,11 +29,11 @@ __all__ = [
     "token_length_metric",
     "tool_call_count_metric",
     "register_builtin_metrics",
-    "subjective_metric",
-    "tone_metric",
-    "toxicity_metric",
-    "DEFAULT_TONE_PROMPT",
-    "DEFAULT_TOXICITY_PROMPT",
+    # LLM Judges
+    "LLMJudge",
+    "EchoJudge",
+    "JUDGE_TEMPLATES",
+    # Factory
     "build_objective_metric",
     "build_subjective_metric",
     "list_template_ids",

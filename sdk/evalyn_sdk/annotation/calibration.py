@@ -833,7 +833,7 @@ class CalibrationEngine:
             return None
 
         # Import judge here to avoid circular dependency
-        from ..metrics.judges import GeminiJudge
+        from ..metrics.judges import LLMJudge
 
         # Split annotations into train/val
         import random
@@ -860,14 +860,14 @@ class CalibrationEngine:
 
         # Create judges with original and optimized prompts
         try:
-            original_judge = GeminiJudge(
+            original_judge = LLMJudge(
                 name=f"{metric_id}_original",
                 prompt=original_prompt,
                 model=self.optimizer_model,
                 temperature=0.0,
             )
 
-            optimized_judge = GeminiJudge(
+            optimized_judge = LLMJudge(
                 name=f"{metric_id}_optimized",
                 prompt=optimized_prompt,
                 model=self.optimizer_model,
