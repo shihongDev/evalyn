@@ -13,13 +13,15 @@ Complete documentation for all Evalyn CLI commands.
 | Command | Description |
 |---------|-------------|
 | [list-calls](list-calls.md) | List captured function traces |
-| [show-call](show-call.md) | View trace details |
+| [show-call](show-call.md) | View trace details with span tree |
+| [show-trace](show-trace.md) | View span tree only |
 | [show-projects](show-projects.md) | View project summaries |
 
 ### Datasets
 | Command | Description |
 |---------|-------------|
 | [build-dataset](build-dataset.md) | Build dataset from traces |
+| [validate](validate.md) | Validate dataset format |
 
 ### Metrics
 | Command | Description |
@@ -33,6 +35,9 @@ Complete documentation for all Evalyn CLI commands.
 | [run-eval](run-eval.md) | Run evaluation on dataset |
 | [list-runs](list-runs.md) | List evaluation runs |
 | [show-run](show-run.md) | View run details |
+| [analyze](analyze.md) | Analyze eval run insights |
+| [compare](compare.md) | Compare two eval runs |
+| [export](export.md) | Export results (JSON/CSV/MD/HTML) |
 
 ### Annotation & Calibration
 | Command | Description |

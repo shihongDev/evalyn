@@ -15,21 +15,28 @@ Usage:
 
 from __future__ import annotations
 
+import threading
+import uuid
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Generator, List, Optional, TYPE_CHECKING
-import uuid
+from typing import Any, Dict, Generator, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..models import Span, FunctionCall
 
 # Context variables for span hierarchy
 _span_stack: ContextVar[List[str]] = ContextVar("_span_stack", default=[])
-_active_call: ContextVar[Optional["FunctionCall"]] = ContextVar(
-    "_active_call", default=None
-)
-_span_collector: ContextVar[List["Span"]] = ContextVar("_span_collector", default=[])
+_active_call: ContextVar[Optional["FunctionCall"]] = ContextVar("_active_call", default=None)
+
+# Sentinel to detect uninitialized collector (for context propagation detection)
+_UNSET_COLLECTOR: List["Span"] = []
+_span_collector: ContextVar[List["Span"]] = ContextVar("_span_collector", default=_UNSET_COLLECTOR)
+
+# Thread-safe global collector fallback (for threads that don't inherit ContextVar)
+_global_lock = threading.Lock()
+_global_collectors: Dict[str, List["Span"]] = {}
+_global_call_id: Optional[str] = None
 
 
 def _generate_span_id() -> str:
@@ -52,26 +59,43 @@ def get_current_call() -> Optional["FunctionCall"]:
 
 
 def set_current_call(call: Optional["FunctionCall"]) -> None:
-    """Set the currently active FunctionCall."""
+    """Set the currently active FunctionCall and manage global collector."""
+    global _global_call_id
     _active_call.set(call)
+
+    with _global_lock:
+        if call is not None:
+            _global_collectors[call.id] = []
+            _global_call_id = call.id
+        elif _global_call_id:
+            _global_collectors.pop(_global_call_id, None)
+            _global_call_id = None
 
 
 def get_span_collector() -> List["Span"]:
-    """Get the list of spans collected for the current call."""
+    """Get the context-local span collector."""
     return _span_collector.get()
 
 
-def reset_span_collector() -> List["Span"]:
-    """Reset and return the collected spans."""
-    spans = _span_collector.get()
-    _span_collector.set([])
-    return spans
+def get_global_spans(call_id: str) -> List["Span"]:
+    """Pop and return spans from the global collector for a call."""
+    with _global_lock:
+        return _global_collectors.pop(call_id, [])
 
 
 def _add_span_to_collector(span: "Span") -> None:
-    """Add a span to the current collector."""
+    """Add span to collector. Falls back to global collector for threads."""
     collector = _span_collector.get()
-    collector.append(span)
+
+    # Use context-local collector if initialized
+    if collector is not _UNSET_COLLECTOR:
+        collector.append(span)
+        return
+
+    # Fallback: use global collector (for threads without ContextVar)
+    with _global_lock:
+        if _global_call_id and _global_call_id in _global_collectors:
+            _global_collectors[_global_call_id].append(span)
 
 
 @contextmanager

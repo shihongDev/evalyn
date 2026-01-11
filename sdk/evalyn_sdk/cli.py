@@ -1033,6 +1033,85 @@ def cmd_show_call(args: argparse.Namespace) -> None:
             "  Tip: set EVALYN_OTEL_EXPORTER=sqlite and re-run to capture span data locally."
         )
 
+    # Show hierarchical spans from call.spans (new format)
+    if call.spans:
+
+        def _format_dur(ms):
+            if ms is None:
+                return "?"
+            if ms < 1000:
+                return f"{ms:.0f}ms"
+            return f"{ms / 1000:.1f}s"
+
+        def _tokens_info(attrs):
+            input_t = attrs.get("input_tokens", 0)
+            output_t = attrs.get("output_tokens", 0)
+            if input_t or output_t:
+                return f" [{input_t}>{output_t} tok]"
+            return ""
+
+        def _status_icon(status):
+            if status == "error":
+                return "X"
+            elif status == "ok":
+                return "V"
+            return "o"
+
+        # Build tree structure
+        by_id = {s.id: {"span": s, "children": []} for s in call.spans}
+        roots = []
+        for s in call.spans:
+            node = by_id[s.id]
+            if s.parent_id and s.parent_id in by_id:
+                by_id[s.parent_id]["children"].append(node)
+            else:
+                roots.append(node)
+
+        # Sort children by start_time
+        def sort_children(node):
+            node["children"].sort(key=lambda n: n["span"].start_time or 0)
+            for child in node["children"]:
+                sort_children(child)
+
+        for root in roots:
+            sort_children(root)
+
+        # Render tree
+        def render_node(node, prefix="", is_last=True):
+            span = node["span"]
+            connector = "`-- " if is_last else "|-- "
+            dur = _format_dur(span.duration_ms)
+            tokens = _tokens_info(span.attributes or {})
+
+            if span.span_type == "llm_call":
+                label = f"llm: {span.name}{tokens} ({dur})"
+            elif span.span_type == "tool_call":
+                label = f"tool: {span.name} ({dur})"
+            elif span.span_type == "node":
+                label = f"node: {span.name.replace('node:', '')} ({dur})"
+            elif span.span_type == "graph":
+                label = f"graph: {span.name.replace('graph:', '')} ({dur})"
+            else:
+                label = f"{span.name} ({dur})"
+
+            print(f"{prefix}{connector}{label}")
+            child_prefix = prefix + ("    " if is_last else "|   ")
+            children = node["children"]
+            for i, child in enumerate(children):
+                render_node(child, child_prefix, i == len(children) - 1)
+
+        print("\nSpan Tree (Hierarchical):")
+        for i, root in enumerate(roots):
+            render_node(root, "", i == len(roots) - 1)
+
+        # Summary
+        llm_count = sum(1 for s in call.spans if s.span_type == "llm_call")
+        tool_count = sum(1 for s in call.spans if s.span_type == "tool_call")
+        node_count = sum(1 for s in call.spans if s.span_type == "node")
+        print(
+            f"\n  {len(call.spans)} spans | {llm_count} LLM | {tool_count} tools | {node_count} nodes"
+        )
+
     print("\nOTel:")
     print(" Spans are emitted alongside this call (exporter-configured).")
     print("=============================================\n")
@@ -4072,6 +4151,702 @@ def cmd_simulate(args: argparse.Namespace) -> None:
         print(f"To run these queries through your agent, use --target flag")
 
 
+# ===========================================================================
+# VALIDATE COMMAND
+# ===========================================================================
+
+
+def cmd_validate(args: argparse.Namespace) -> None:
+    """Validate dataset format and detect potential issues."""
+    from .datasets import load_dataset
+    from .models import DatasetItem
+
+    config = load_config()
+    dataset_path = resolve_dataset_path(args.dataset, args.latest, config)
+
+    if not dataset_path:
+        print("Error: No dataset specified. Use --dataset <path> or --latest")
+        sys.exit(1)
+
+    if not dataset_path.exists():
+        print(f"Error: Dataset path not found: {dataset_path}")
+        sys.exit(1)
+
+    # Find dataset file
+    if dataset_path.is_dir():
+        dataset_file = dataset_path / "dataset.jsonl"
+        if not dataset_file.exists():
+            dataset_file = dataset_path / "dataset.json"
+        dataset_dir = dataset_path
+    else:
+        dataset_file = dataset_path
+        dataset_dir = dataset_path.parent
+
+    if not dataset_file.exists():
+        print(f"Error: Dataset file not found: {dataset_file}")
+        sys.exit(1)
+
+    print(f"\nValidating: {dataset_file}\n")
+    print("-" * 60)
+
+    errors = []
+    warnings = []
+    stats = {
+        "total_items": 0,
+        "has_id": 0,
+        "has_inputs": 0,
+        "has_output": 0,
+        "has_expected": 0,
+        "has_metadata": 0,
+        "unique_ids": set(),
+        "duplicate_ids": [],
+    }
+
+    # Validate JSON format line by line
+    with open(dataset_file, "r", encoding="utf-8") as f:
+        for line_num, line in enumerate(f, start=1):
+            line = line.strip()
+            if not line:
+                continue
+
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError as e:
+                errors.append(f"Line {line_num}: Invalid JSON - {e}")
+                continue
+
+            stats["total_items"] += 1
+
+            # Check required fields
+            if "id" in item:
+                stats["has_id"] += 1
+                item_id = item["id"]
+                if item_id in stats["unique_ids"]:
+                    stats["duplicate_ids"].append((line_num, item_id))
+                else:
+                    stats["unique_ids"].add(item_id)
+
+            if "inputs" in item or "input" in item:
+                stats["has_inputs"] += 1
+            else:
+                errors.append(f"Line {line_num}: Missing 'inputs' or 'input' field")
+
+            if "output" in item:
+                stats["has_output"] += 1
+
+            if "expected" in item or "reference" in item:
+                stats["has_expected"] += 1
+
+            if "metadata" in item:
+                stats["has_metadata"] += 1
+
+    # Check for duplicates
+    for line_num, dup_id in stats["duplicate_ids"]:
+        errors.append(f"Line {line_num}: Duplicate ID '{dup_id}'")
+
+    # Print results
+    print("VALIDATION RESULTS")
+    print("-" * 60)
+
+    total = stats["total_items"]
+    print(f"\n  Total items:        {total}")
+    print(
+        f"  With 'id':          {stats['has_id']} ({100 * stats['has_id'] // max(1, total)}%)"
+    )
+    print(
+        f"  With 'inputs':      {stats['has_inputs']} ({100 * stats['has_inputs'] // max(1, total)}%)"
+    )
+    print(
+        f"  With 'output':      {stats['has_output']} ({100 * stats['has_output'] // max(1, total)}%)"
+    )
+    print(
+        f"  With 'expected':    {stats['has_expected']} ({100 * stats['has_expected'] // max(1, total)}%)"
+    )
+    print(
+        f"  With 'metadata':    {stats['has_metadata']} ({100 * stats['has_metadata'] // max(1, total)}%)"
+    )
+    print(f"  Unique IDs:         {len(stats['unique_ids'])}")
+
+    # Warnings
+    if stats["has_expected"] == 0:
+        warnings.append(
+            "No 'expected' or 'reference' values found. "
+            "Reference-based metrics (ROUGE, BLEU, etc.) will not work."
+        )
+
+    if stats["has_id"] < total:
+        warnings.append(
+            f"{total - stats['has_id']} items missing 'id' field. "
+            "Auto-generated IDs will be used."
+        )
+
+    # Check for meta.json
+    meta_file = dataset_dir / "meta.json"
+    if meta_file.exists():
+        try:
+            with open(meta_file) as f:
+                meta = json.load(f)
+            print(f"\n  meta.json:          ✓ Found")
+            if "project" in meta:
+                print(f"  Project:            {meta.get('project')}")
+            if "version" in meta:
+                print(f"  Version:            {meta.get('version')}")
+        except Exception as e:
+            errors.append(f"meta.json: Invalid JSON - {e}")
+    else:
+        warnings.append("No meta.json found. Consider adding metadata.")
+
+    # Check for metrics directory
+    metrics_dir = dataset_dir / "metrics"
+    if metrics_dir.exists():
+        metric_files = list(metrics_dir.glob("*.json"))
+        print(f"\n  Metrics files:      {len(metric_files)}")
+        for mf in metric_files[:5]:
+            print(f"    - {mf.name}")
+        if len(metric_files) > 5:
+            print(f"    ... and {len(metric_files) - 5} more")
+    else:
+        warnings.append(
+            "No metrics/ directory found. Run 'evalyn suggest-metrics' first."
+        )
+
+    # Print warnings and errors
+    if warnings:
+        print(f"\n⚠ WARNINGS ({len(warnings)}):")
+        for w in warnings:
+            print(f"  - {w}")
+
+    if errors:
+        print(f"\n✗ ERRORS ({len(errors)}):")
+        for e in errors[:20]:
+            print(f"  - {e}")
+        if len(errors) > 20:
+            print(f"  ... and {len(errors) - 20} more errors")
+        sys.exit(1)
+    else:
+        print(f"\n✓ Dataset is valid!")
+        sys.exit(0)
+
+
+# ===========================================================================
+# ANALYZE COMMAND
+# ===========================================================================
+
+
+def cmd_analyze(args: argparse.Namespace) -> None:
+    """Analyze evaluation results and generate insights."""
+    from .storage import SQLiteStorage
+    from .models import EvalRun
+
+    config = load_config()
+    dataset_path = resolve_dataset_path(args.dataset, args.latest, config)
+
+    # Load eval run
+    run = None
+    run_id = args.run
+
+    if run_id:
+        # Load from storage by ID
+        storage = SQLiteStorage()
+        run = storage.get_eval_run(run_id)
+        if not run:
+            print(f"Error: No eval run found with ID '{run_id}'")
+            sys.exit(1)
+    elif dataset_path:
+        # Load latest run from dataset's eval_runs directory
+        runs_dir = dataset_path / "eval_runs"
+        if runs_dir.exists():
+            run_files = sorted(runs_dir.glob("*.json"), reverse=True)
+            if run_files:
+                with open(run_files[0]) as f:
+                    run_data = json.load(f)
+                    run = EvalRun(
+                        id=run_data.get("id", "unknown"),
+                        dataset_name=run_data.get("dataset_name", "unknown"),
+                        started_at=run_data.get("started_at"),
+                        finished_at=run_data.get("finished_at"),
+                        results=run_data.get("results", []),
+                        summary=run_data.get("summary", {}),
+                        metadata=run_data.get("metadata", {}),
+                    )
+                print(f"Analyzing latest run: {run_files[0].name}")
+        if not run:
+            print("Error: No eval runs found. Run 'evalyn run-eval' first.")
+            sys.exit(1)
+    else:
+        print("Error: Specify --run <run_id> or --dataset <path>")
+        sys.exit(1)
+
+    print(f"\n{'=' * 70}")
+    print("  EVALUATION ANALYSIS")
+    print(f"{'=' * 70}")
+    print(f"\nRun ID:      {run.id}")
+    print(f"Dataset:     {run.dataset_name}")
+    print(f"Items:       {len(run.results)}")
+    print(f"Started:     {run.started_at}")
+
+    # Aggregate metrics
+    metrics_stats = {}
+    item_failures = {}  # item_id -> list of failed metrics
+
+    for result in run.results:
+        item_id = result.get("item_id", "unknown")
+
+        for metric_result in result.get("metrics", []):
+            metric_id = metric_result.get("metric_id", "unknown")
+            passed = metric_result.get("passed", True)
+            score = metric_result.get("score")
+
+            if metric_id not in metrics_stats:
+                metrics_stats[metric_id] = {
+                    "total": 0,
+                    "passed": 0,
+                    "failed": 0,
+                    "scores": [],
+                    "failed_items": [],
+                }
+
+            stats = metrics_stats[metric_id]
+            stats["total"] += 1
+            if passed:
+                stats["passed"] += 1
+            else:
+                stats["failed"] += 1
+                stats["failed_items"].append(item_id)
+                item_failures.setdefault(item_id, []).append(metric_id)
+
+            if score is not None:
+                stats["scores"].append(score)
+
+    # Print metric summary
+    print(f"\n{'=' * 70}")
+    print("  METRIC SUMMARY")
+    print(f"{'=' * 70}\n")
+
+    sorted_metrics = sorted(
+        metrics_stats.items(),
+        key=lambda x: x[1]["failed"] / max(1, x[1]["total"]),
+        reverse=True,
+    )
+
+    for metric_id, stats in sorted_metrics:
+        total = stats["total"]
+        passed = stats["passed"]
+        failed = stats["failed"]
+        pass_rate = 100 * passed / max(1, total)
+        status = "✓" if failed == 0 else "✗"
+
+        avg_score = ""
+        if stats["scores"]:
+            avg = sum(stats["scores"]) / len(stats["scores"])
+            avg_score = f"  avg={avg:.2f}"
+
+        print(
+            f"  {status} {metric_id:<30} {passed}/{total} passed ({pass_rate:.0f}%){avg_score}"
+        )
+
+    # Insights section
+    print(f"\n{'=' * 70}")
+    print("  INSIGHTS")
+    print(f"{'=' * 70}\n")
+
+    insights = []
+
+    # Find problematic metrics (< 80% pass rate)
+    problem_metrics = [
+        (m, s) for m, s in sorted_metrics if s["failed"] / max(1, s["total"]) > 0.2
+    ]
+    if problem_metrics:
+        worst = problem_metrics[0]
+        insights.append(
+            f"⚠ '{worst[0]}' has the highest failure rate "
+            f"({worst[1]['failed']}/{worst[1]['total']} failed). "
+            f"Consider reviewing the rubric or calibrating."
+        )
+
+    # Find items failing multiple metrics
+    multi_fail_items = [
+        (item, metrics) for item, metrics in item_failures.items() if len(metrics) >= 2
+    ]
+    if multi_fail_items:
+        worst_item = max(multi_fail_items, key=lambda x: len(x[1]))
+        insights.append(
+            f"⚠ Item '{worst_item[0][:20]}...' failed {len(worst_item[1])} metrics: "
+            f"{', '.join(worst_item[1][:3])}"
+            + ("..." if len(worst_item[1]) > 3 else "")
+        )
+
+    # Check for perfect metrics
+    perfect_metrics = [
+        m for m, s in sorted_metrics if s["failed"] == 0 and s["total"] > 1
+    ]
+    if perfect_metrics:
+        insights.append(
+            f"✓ {len(perfect_metrics)} metric(s) have 100% pass rate: "
+            f"{', '.join(perfect_metrics[:3])}"
+            + ("..." if len(perfect_metrics) > 3 else "")
+        )
+
+    # Overall health
+    total_evals = sum(s["total"] for s in metrics_stats.values())
+    total_passed = sum(s["passed"] for s in metrics_stats.values())
+    overall_rate = 100 * total_passed / max(1, total_evals)
+
+    if overall_rate >= 90:
+        insights.append(f"✓ Overall health is GOOD ({overall_rate:.0f}% pass rate)")
+    elif overall_rate >= 70:
+        insights.append(f"○ Overall health is MODERATE ({overall_rate:.0f}% pass rate)")
+    else:
+        insights.append(
+            f"✗ Overall health needs attention ({overall_rate:.0f}% pass rate)"
+        )
+
+    for insight in insights:
+        print(f"  {insight}\n")
+
+    # Recommendations
+    print(f"{'=' * 70}")
+    print("  RECOMMENDATIONS")
+    print(f"{'=' * 70}\n")
+
+    if problem_metrics:
+        print("  1. Run 'evalyn annotate' to provide human labels for failed items")
+        print("  2. Run 'evalyn calibrate' to improve metric alignment")
+
+    if not item_failures:
+        print("  ✓ All items passed! Consider adding more challenging test cases.")
+        print("    Run 'evalyn simulate --modes outlier' to generate edge cases.")
+
+    print()
+
+
+# ===========================================================================
+# COMPARE COMMAND
+# ===========================================================================
+
+
+def cmd_compare(args: argparse.Namespace) -> None:
+    """Compare two evaluation runs side-by-side."""
+    from .storage import SQLiteStorage
+    from .models import EvalRun
+
+    storage = SQLiteStorage()
+
+    # Load run 1
+    run1 = None
+    if args.run1:
+        run1 = storage.get_eval_run(args.run1)
+        if not run1:
+            # Try loading from file
+            run1_path = Path(args.run1)
+            if run1_path.exists():
+                with open(run1_path) as f:
+                    data = json.load(f)
+                    run1 = EvalRun(**data)
+
+    if not run1:
+        print(f"Error: Could not load run1: {args.run1}")
+        sys.exit(1)
+
+    # Load run 2
+    run2 = None
+    if args.run2:
+        run2 = storage.get_eval_run(args.run2)
+        if not run2:
+            run2_path = Path(args.run2)
+            if run2_path.exists():
+                with open(run2_path) as f:
+                    data = json.load(f)
+                    run2 = EvalRun(**data)
+
+    if not run2:
+        print(f"Error: Could not load run2: {args.run2}")
+        sys.exit(1)
+
+    print(f"\n{'=' * 70}")
+    print("  EVALUATION COMPARISON")
+    print(f"{'=' * 70}")
+
+    print(f"\n  Run 1: {run1.id[:12]}... ({run1.dataset_name})")
+    print(f"  Run 2: {run2.id[:12]}... ({run2.dataset_name})")
+
+    # Build metric stats for each run
+    def get_metric_stats(run):
+        stats = {}
+        for result in run.results:
+            for mr in result.get("metrics", []):
+                metric_id = mr.get("metric_id", "unknown")
+                if metric_id not in stats:
+                    stats[metric_id] = {"total": 0, "passed": 0, "scores": []}
+                stats[metric_id]["total"] += 1
+                if mr.get("passed", True):
+                    stats[metric_id]["passed"] += 1
+                if mr.get("score") is not None:
+                    stats[metric_id]["scores"].append(mr["score"])
+        return stats
+
+    stats1 = get_metric_stats(run1)
+    stats2 = get_metric_stats(run2)
+
+    # Get all metric IDs
+    all_metrics = set(stats1.keys()) | set(stats2.keys())
+
+    print(f"\n{'=' * 70}")
+    print("  METRIC COMPARISON")
+    print(f"{'=' * 70}\n")
+
+    print(f"  {'Metric':<25} {'Run 1':>12} {'Run 2':>12} {'Delta':>12}")
+    print(f"  {'-' * 25} {'-' * 12} {'-' * 12} {'-' * 12}")
+
+    improvements = 0
+    regressions = 0
+
+    for metric_id in sorted(all_metrics):
+        s1 = stats1.get(metric_id, {"total": 0, "passed": 0})
+        s2 = stats2.get(metric_id, {"total": 0, "passed": 0})
+
+        rate1 = 100 * s1["passed"] / max(1, s1["total"]) if s1["total"] > 0 else None
+        rate2 = 100 * s2["passed"] / max(1, s2["total"]) if s2["total"] > 0 else None
+
+        r1_str = f"{rate1:.0f}%" if rate1 is not None else "N/A"
+        r2_str = f"{rate2:.0f}%" if rate2 is not None else "N/A"
+
+        delta = ""
+        if rate1 is not None and rate2 is not None:
+            diff = rate2 - rate1
+            if diff > 0:
+                delta = f"+{diff:.0f}% ↑"
+                improvements += 1
+            elif diff < 0:
+                delta = f"{diff:.0f}% ↓"
+                regressions += 1
+            else:
+                delta = "="
+
+        print(f"  {metric_id:<25} {r1_str:>12} {r2_str:>12} {delta:>12}")
+
+    # Summary
+    print(f"\n{'=' * 70}")
+    print("  SUMMARY")
+    print(f"{'=' * 70}\n")
+
+    total1 = sum(s["passed"] for s in stats1.values())
+    total2 = sum(s["passed"] for s in stats2.values())
+    all1 = sum(s["total"] for s in stats1.values())
+    all2 = sum(s["total"] for s in stats2.values())
+
+    overall1 = 100 * total1 / max(1, all1)
+    overall2 = 100 * total2 / max(1, all2)
+    overall_delta = overall2 - overall1
+
+    print(f"  Overall pass rate:")
+    print(f"    Run 1: {overall1:.1f}% ({total1}/{all1})")
+    print(f"    Run 2: {overall2:.1f}% ({total2}/{all2})")
+
+    if overall_delta > 0:
+        print(f"    Change: +{overall_delta:.1f}% ↑ IMPROVED")
+    elif overall_delta < 0:
+        print(f"    Change: {overall_delta:.1f}% ↓ REGRESSED")
+    else:
+        print(f"    Change: No change")
+
+    print(f"\n  Metrics improved:  {improvements}")
+    print(f"  Metrics regressed: {regressions}")
+    print(f"  Metrics unchanged: {len(all_metrics) - improvements - regressions}")
+    print()
+
+
+# ===========================================================================
+# EXPORT COMMAND
+# ===========================================================================
+
+
+def cmd_export(args: argparse.Namespace) -> None:
+    """Export evaluation results in various formats."""
+    from .storage import SQLiteStorage
+    from .models import EvalRun
+    from datetime import datetime
+
+    config = load_config()
+    dataset_path = resolve_dataset_path(args.dataset, args.latest, config)
+
+    # Load eval run
+    run = None
+    run_data = None
+
+    if args.run:
+        storage = SQLiteStorage()
+        run = storage.get_eval_run(args.run)
+        if run:
+            run_data = {
+                "id": run.id,
+                "dataset_name": run.dataset_name,
+                "started_at": run.started_at,
+                "finished_at": run.finished_at,
+                "results": run.results,
+                "summary": run.summary,
+                "metadata": run.metadata,
+            }
+    elif dataset_path:
+        runs_dir = dataset_path / "eval_runs"
+        if runs_dir.exists():
+            run_files = sorted(runs_dir.glob("*.json"), reverse=True)
+            if run_files:
+                with open(run_files[0]) as f:
+                    run_data = json.load(f)
+
+    if not run_data:
+        print("Error: No eval run found. Specify --run <id> or --dataset <path>")
+        sys.exit(1)
+
+    output_path = Path(args.output) if args.output else None
+    format_type = args.format
+
+    if format_type == "json":
+        output = json.dumps(run_data, indent=2, default=str)
+        if output_path:
+            output_path.write_text(output)
+            print(f"Exported to: {output_path}")
+        else:
+            print(output)
+
+    elif format_type == "csv":
+        import csv
+        import io
+
+        rows = []
+        for result in run_data.get("results", []):
+            item_id = result.get("item_id", "")
+            for mr in result.get("metrics", []):
+                rows.append(
+                    {
+                        "item_id": item_id,
+                        "metric_id": mr.get("metric_id", ""),
+                        "score": mr.get("score", ""),
+                        "passed": mr.get("passed", ""),
+                        "reason": mr.get("reason", ""),
+                    }
+                )
+
+        if output_path:
+            with open(output_path, "w", newline="", encoding="utf-8") as f:
+                if rows:
+                    writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+                    writer.writeheader()
+                    writer.writerows(rows)
+            print(f"Exported {len(rows)} rows to: {output_path}")
+        else:
+            output = io.StringIO()
+            if rows:
+                writer = csv.DictWriter(output, fieldnames=rows[0].keys())
+                writer.writeheader()
+                writer.writerows(rows)
+            print(output.getvalue())
+
+    elif format_type == "markdown":
+        lines = []
+        lines.append(f"# Evaluation Report\n")
+        lines.append(f"**Run ID:** {run_data.get('id', 'unknown')}\n")
+        lines.append(f"**Dataset:** {run_data.get('dataset_name', 'unknown')}\n")
+        lines.append(f"**Started:** {run_data.get('started_at', 'unknown')}\n")
+        lines.append(f"\n## Summary\n")
+
+        summary = run_data.get("summary", {})
+        if summary:
+            lines.append("| Metric | Avg Score | Pass Rate |")
+            lines.append("|--------|-----------|-----------|")
+            for metric_id, stats in summary.items():
+                avg = stats.get("avg", "N/A")
+                pass_rate = stats.get("pass_rate", "N/A")
+                if isinstance(avg, float):
+                    avg = f"{avg:.2f}"
+                if isinstance(pass_rate, float):
+                    pass_rate = f"{pass_rate:.0%}"
+                lines.append(f"| {metric_id} | {avg} | {pass_rate} |")
+
+        lines.append(f"\n## Results ({len(run_data.get('results', []))} items)\n")
+
+        output = "\n".join(lines)
+        if output_path:
+            output_path.write_text(output)
+            print(f"Exported to: {output_path}")
+        else:
+            print(output)
+
+    elif format_type == "html":
+        # Generate standalone HTML report
+        summary = run_data.get("summary", {})
+        results = run_data.get("results", [])
+
+        # Build metric table
+        metric_rows = ""
+        for metric_id, stats in summary.items():
+            avg = stats.get("avg", "N/A")
+            pass_rate = stats.get("pass_rate", "N/A")
+            if isinstance(avg, float):
+                avg = f"{avg:.2f}"
+            if isinstance(pass_rate, float):
+                pct = pass_rate * 100
+                color = (
+                    "#4CAF50" if pct >= 80 else "#FF9800" if pct >= 60 else "#f44336"
+                )
+                pass_rate = f'<span style="color:{color}">{pct:.0f}%</span>'
+            metric_rows += (
+                f"<tr><td>{metric_id}</td><td>{avg}</td><td>{pass_rate}</td></tr>\n"
+            )
+
+        html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>Evalyn Report - {run_data.get("id", "unknown")[:12]}</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; background: #f5f5f5; }}
+        h1 {{ color: #333; border-bottom: 2px solid #4CAF50; padding-bottom: 10px; }}
+        h2 {{ color: #666; margin-top: 30px; }}
+        .meta {{ background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+        .meta p {{ margin: 5px 0; color: #666; }}
+        .meta strong {{ color: #333; }}
+        table {{ width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+        th {{ background: #4CAF50; color: white; padding: 12px; text-align: left; }}
+        td {{ padding: 10px 12px; border-bottom: 1px solid #eee; }}
+        tr:hover {{ background: #f9f9f9; }}
+        .pass {{ color: #4CAF50; }}
+        .fail {{ color: #f44336; }}
+        .footer {{ margin-top: 40px; color: #999; font-size: 12px; text-align: center; }}
+    </style>
+</head>
+<body>
+    <h1>Evalyn Evaluation Report</h1>
+    <div class="meta">
+        <p><strong>Run ID:</strong> {run_data.get("id", "unknown")}</p>
+        <p><strong>Dataset:</strong> {run_data.get("dataset_name", "unknown")}</p>
+        <p><strong>Started:</strong> {run_data.get("started_at", "unknown")}</p>
+        <p><strong>Items:</strong> {len(results)}</p>
+    </div>
+
+    <h2>Metric Summary</h2>
+    <table>
+        <tr><th>Metric</th><th>Avg Score</th><th>Pass Rate</th></tr>
+        {metric_rows}
+    </table>
+
+    <div class="footer">
+        Generated by Evalyn on {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    </div>
+</body>
+</html>"""
+
+        if output_path:
+            output_path.write_text(html)
+            print(f"Exported to: {output_path}")
+        else:
+            print(html)
+
+    else:
+        print(f"Error: Unknown format '{format_type}'")
+        sys.exit(1)
+
+
 def cmd_init(args: argparse.Namespace) -> None:
     """Initialize configuration file by copying from evalyn.yaml.example."""
     import shutil
@@ -5594,6 +6369,71 @@ For more info on a command: evalyn <command> --help
         help="Show what would be done without executing (default: false)",
     )
     oneclick_parser.set_defaults(func=cmd_one_click)
+
+    # -------------------------------------------------------------------------
+    # Validate command
+    # -------------------------------------------------------------------------
+    validate_parser = subparsers.add_parser(
+        "validate", help="Validate dataset format and detect potential issues"
+    )
+    validate_parser.add_argument("--dataset", help="Path to dataset directory or file")
+    validate_parser.add_argument(
+        "--latest", action="store_true", help="Use the most recently modified dataset"
+    )
+    validate_parser.set_defaults(func=cmd_validate)
+
+    # -------------------------------------------------------------------------
+    # Analyze command
+    # -------------------------------------------------------------------------
+    analyze_parser = subparsers.add_parser(
+        "analyze", help="Analyze evaluation results and generate insights"
+    )
+    analyze_parser.add_argument("--run", help="Eval run ID to analyze")
+    analyze_parser.add_argument(
+        "--dataset", help="Dataset path (uses latest run from eval_runs/)"
+    )
+    analyze_parser.add_argument(
+        "--latest", action="store_true", help="Use the most recently modified dataset"
+    )
+    analyze_parser.set_defaults(func=cmd_analyze)
+
+    # -------------------------------------------------------------------------
+    # Compare command
+    # -------------------------------------------------------------------------
+    compare_parser = subparsers.add_parser(
+        "compare", help="Compare two evaluation runs side-by-side"
+    )
+    compare_parser.add_argument(
+        "--run1", required=True, help="First eval run ID or path to run JSON file"
+    )
+    compare_parser.add_argument(
+        "--run2", required=True, help="Second eval run ID or path to run JSON file"
+    )
+    compare_parser.set_defaults(func=cmd_compare)
+
+    # -------------------------------------------------------------------------
+    # Export command
+    # -------------------------------------------------------------------------
+    export_parser = subparsers.add_parser(
+        "export", help="Export evaluation results in various formats"
+    )
+    export_parser.add_argument("--run", help="Eval run ID to export")
+    export_parser.add_argument(
+        "--dataset", help="Dataset path (uses latest run from eval_runs/)"
+    )
+    export_parser.add_argument(
+        "--latest", action="store_true", help="Use the most recently modified dataset"
+    )
+    export_parser.add_argument(
+        "--format",
+        choices=["json", "csv", "markdown", "html"],
+        default="json",
+        help="Output format (default: json)",
+    )
+    export_parser.add_argument(
+        "--output", "-o", help="Output file path (prints to stdout if not specified)"
+    )
+    export_parser.set_defaults(func=cmd_export)
 
     args = parser.parse_args(argv)
 

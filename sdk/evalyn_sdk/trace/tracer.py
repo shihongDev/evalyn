@@ -149,8 +149,13 @@ class EvalTracer:
         root = _root_span.get()
         if root:
             root.finish(status="error" if error else "ok")
-            # Collect spans and add root
+            # Collect spans from context-local collector
             collected_spans = span_context.get_span_collector()
+            # Also collect spans from global collector (context propagation fallback)
+            # This catches spans created in threads/async tasks that didn't inherit ContextVars
+            global_spans = span_context.get_global_spans(call.id)
+            if global_spans:
+                collected_spans = collected_spans + global_spans
             call.spans = collected_spans + [root]
 
         # Clean up span context
