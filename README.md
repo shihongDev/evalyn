@@ -205,7 +205,108 @@ evalyn run-eval --dataset data/myapp-v1-20250115-120000/simulations/sim-similar-
 
 ## Example
 
-See [`example_agent/`](example_agent/) for a LangGraph integration. 
+See [`example_agent/`](example_agent/) for a LangGraph integration.
+
+## Contribution
+
+We welcome community-contributed metrics. Follow this guide to submit your own.
+
+### Step 1: Choose Metric Type
+
+Decide whether your metric is:
+- **Objective**: Code-based evaluation (regex, JSON parsing, numeric checks, etc.)
+- **Subjective**: LLM judge-based evaluation (requires rubric and prompt)
+
+### Step 2: Define Your Metric
+
+**For objective metrics**, add to `sdk/evalyn_sdk/metrics/templates.py`:
+
+```python
+{
+    "id": "your_metric_name",           # Unique snake_case identifier
+    "type": "objective",
+    "description": "What this metric measures.",
+    "config": {},                        # Any configurable parameters
+    "category": "structure",             # One of: efficiency, structure, robustness, correctness, grounding
+    "scope": "overall",                  # One of: overall, llm_call, tool_call, trace
+    "requires_reference": False,         # True if needs human_label.reference
+    "author": "Your Name <email>",       # Optional: credit for your contribution
+}
+```
+
+**For subjective metrics**, add to `sdk/evalyn_sdk/metrics/subjective.py`:
+
+```python
+{
+    "id": "your_metric_name",
+    "type": "subjective",
+    "description": "What this metric evaluates.",
+    "category": "correctness",           # One of: safety, correctness, style, instruction, grounding, completeness, agent, ethics
+    "scope": "overall",
+    "prompt": "You are a judge for X. Evaluate whether...",
+    "config": {
+        "rubric": [
+            "Criterion 1: what to check.",
+            "Criterion 2: what to check.",
+            "If ANY issue is found, FAIL and explain.",
+        ],
+        "threshold": 0.5,
+    },
+    "requires_reference": False,
+    "author": "Your Name <email>",       # Optional: credit for your contribution
+}
+```
+
+### Step 3: Implement the Evaluation Logic (Objective Only)
+
+For objective metrics, add a handler function in `sdk/evalyn_sdk/metrics/handlers.py`:
+
+```python
+def compute_your_metric_name(output: str, config: dict, **kwargs) -> dict:
+    """Evaluate your metric."""
+    # Your logic here
+    score = ...
+    passed = score > config.get("threshold", 0.5)
+    return {"score": score, "passed": passed, "reason": "Explanation"}
+```
+
+Then register it in the `METRIC_HANDLERS` dict.
+
+### Step 4: Add Tests
+
+Add tests in `sdk/tests/test_metrics.py` to verify your metric works correctly:
+
+```python
+def test_your_metric_name():
+    result = compute_your_metric_name("test output", {})
+    assert "score" in result
+    assert "passed" in result
+```
+
+### Step 5: Submit a Pull Request
+
+1. Fork the repository
+2. Create a branch: `git checkout -b add-metric-your_metric_name`
+3. Make your changes
+4. Run tests: `uv run pytest sdk/tests/`
+5. Submit a PR with:
+   - Description of what the metric measures
+   - Example use cases
+   - Test results
+
+### Field Reference
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | Yes | Unique snake_case identifier |
+| `type` | Yes | `objective` or `subjective` |
+| `description` | Yes | Brief explanation of what it measures |
+| `category` | Yes | Metric category for grouping |
+| `scope` | Yes | What the metric evaluates: `overall`, `llm_call`, `tool_call`, `trace` |
+| `config` | Yes | Configuration options (can be empty `{}`) |
+| `requires_reference` | Yes | Whether human_label.reference is needed |
+| `prompt` | Subjective only | System prompt for the LLM judge |
+| `author` | No | Your name/email for attribution |
 
 ## License
 
