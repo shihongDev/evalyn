@@ -38,6 +38,7 @@ from .auto_instrument import (
     patch_langgraph,
     is_patched,
     trace,
+    ensure_patched,
 )
 
 __all__ = [
@@ -61,4 +62,5 @@ __all__ = [
     "patch_langgraph",
     "is_patched",
     "trace",
+    "ensure_patched",
 ]

@@ -101,6 +101,11 @@ class EvalTracer:
         inputs: Dict[str, Any],
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Tuple[FunctionCall, contextvars.Token]:
+        # Lazily patch LLM libraries on first trace (not at import time)
+        from .auto_instrument import ensure_patched
+
+        ensure_patched()
+
         session = _current_session.get()
 
         # Check for parent call (nested @eval functions)
