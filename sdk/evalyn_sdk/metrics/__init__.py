@@ -13,6 +13,13 @@ from .objective import (
     register_builtin_metrics,
 )
 from .judges import LLMJudge, EchoJudge, JUDGE_TEMPLATES
+from .subjective import (
+    SUBJECTIVE_TEMPLATES,
+    CATEGORIES,
+    list_templates,
+    get_template,
+    get_templates_by_category,
+)
 from .factory import build_objective_metric, build_subjective_metric, list_template_ids
 
 __all__ = [
@@ -33,6 +40,12 @@ __all__ = [
     "LLMJudge",
     "EchoJudge",
     "JUDGE_TEMPLATES",
+    # Subjective templates
+    "SUBJECTIVE_TEMPLATES",
+    "CATEGORIES",
+    "list_templates",
+    "get_template",
+    "get_templates_by_category",
     # Factory
     "build_objective_metric",
     "build_subjective_metric",
