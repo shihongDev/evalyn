@@ -30,6 +30,13 @@ class StorageBackend(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def list_eval_runs_by_project(
+        self, dataset_name: str, limit: int = 20
+    ) -> List[EvalRun]:
+        """List eval runs filtered by dataset_name (project), ordered by created_at DESC."""
+        raise NotImplementedError
+
+    @abstractmethod
     def get_eval_run(self, run_id: str) -> Optional[EvalRun]:
         raise NotImplementedError
 

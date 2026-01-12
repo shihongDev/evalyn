@@ -106,4 +106,5 @@ evalyn compare --run1 <before_id> --run2 <after_id>
 
 - [run-eval](run-eval.md) - Run evaluations
 - [analyze](analyze.md) - Analyze a single run
+- [trend](trend.md) - Show trends across multiple runs
 - [calibrate](calibrate.md) - Calibrate LLM judges

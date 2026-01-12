@@ -4879,6 +4879,76 @@ def cmd_export(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+# ===========================================================================
+# TREND COMMAND
+# ===========================================================================
+
+
+def cmd_trend(args: argparse.Namespace) -> None:
+    """Show evaluation trends over time for a project."""
+    from .storage import SQLiteStorage
+    from .analyzer import analyze_trends, generate_trend_text_report
+
+    storage = SQLiteStorage()
+
+    # Get runs for the project
+    runs = storage.list_eval_runs_by_project(args.project, limit=args.limit)
+
+    if not runs:
+        print(f"No eval runs found for project: {args.project}")
+        print("\nAvailable projects:")
+        # List unique dataset names from recent runs
+        all_runs = storage.list_eval_runs(limit=100)
+        projects = sorted(set(r.dataset_name for r in all_runs))
+        for p in projects[:20]:
+            print(f"  - {p}")
+        if len(projects) > 20:
+            print(f"  ... and {len(projects) - 20} more")
+        sys.exit(1)
+
+    # Analyze trends
+    trend = analyze_trends(runs)
+
+    # Output based on format
+    output_format = getattr(args, "format", "table")
+
+    if output_format == "json":
+        import json
+
+        result = {
+            "project": trend.project_name,
+            "runs_analyzed": len(trend.runs),
+            "runs": [
+                {
+                    "id": run.run_id,
+                    "created_at": run.created_at,
+                    "total_items": run.total_items,
+                    "overall_pass_rate": run.overall_pass_rate,
+                    "metrics": {
+                        m: {
+                            "pass_rate": ms.pass_rate,
+                            "avg_score": ms.avg_score,
+                            "count": ms.count,
+                        }
+                        for m, ms in run.metric_stats.items()
+                    },
+                }
+                for run in trend.runs
+            ],
+            "trends": {
+                "overall_delta": trend.overall_delta,
+                "improving_metrics": trend.improving_metrics,
+                "regressing_metrics": trend.regressing_metrics,
+                "stable_metrics": trend.stable_metrics,
+            },
+        }
+        print(json.dumps(result, indent=2))
+    else:
+        # ASCII table output
+        report = generate_trend_text_report(trend)
+        print(report)
+
+
 def cmd_init(args: argparse.Namespace) -> None:
     """Initialize configuration file by copying from evalyn.yaml.example."""
     import shutil

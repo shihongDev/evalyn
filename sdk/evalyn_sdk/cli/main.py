@@ -19,6 +19,7 @@ from ..cli_impl import (
     cmd_show_run,
     cmd_status,
     cmd_select_metrics,
+    cmd_trend,
     # Dataset commands
     cmd_build_dataset,
     cmd_export_for_annotation,
@@ -558,6 +559,28 @@ For more info on a command: evalyn <command> --help
         "--run2", required=True, help="Second eval run ID or path to run JSON file"
     )
     compare_parser.set_defaults(func=cmd_compare)
+
+    trend_parser = subparsers.add_parser(
+        "trend", help="Show evaluation trends over time for a project"
+    )
+    trend_parser.add_argument(
+        "--project",
+        required=True,
+        help="Project/dataset name to analyze trends for",
+    )
+    trend_parser.add_argument(
+        "--limit",
+        type=int,
+        default=20,
+        help="Maximum number of runs to analyze (default: 20)",
+    )
+    trend_parser.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format (default: table)",
+    )
+    trend_parser.set_defaults(func=cmd_trend)
 
     # ----- Infrastructure commands (to be extracted to commands/infrastructure.py) -----
     init_parser = subparsers.add_parser("init", help="Initialize configuration file")

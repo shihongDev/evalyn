@@ -37,6 +37,7 @@ Complete documentation for all Evalyn CLI commands.
 | [show-run](show-run.md) | View run details |
 | [analyze](analyze.md) | Analyze eval run insights |
 | [compare](compare.md) | Compare two eval runs |
+| [trend](trend.md) | Show eval trends over time |
 | [export](export.md) | Export results (JSON/CSV/MD/HTML) |
 
 ### Annotation & Calibration
