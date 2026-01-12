@@ -6,15 +6,15 @@ Automatically captures:
 - Token usage and cost
 - Nested call hierarchies
 
-Auto-instrumentation is ENABLED BY DEFAULT when evalyn_sdk is imported.
+Auto-instrumentation is ENABLED BY DEFAULT and runs lazily when the first
+trace starts (not at import time). This keeps CLI commands fast.
 
 To disable:
     export EVALYN_AUTO_INSTRUMENT=off
 
-Or in code (before importing evalyn_sdk):
+Or in code (before starting a trace):
     import os
     os.environ["EVALYN_AUTO_INSTRUMENT"] = "off"
-    import evalyn_sdk
 """
 
 from __future__ import annotations
@@ -878,12 +878,23 @@ def is_patched(library: str) -> bool:
 
 
 # =============================================================================
-# Auto-patch on import (unless disabled)
+# Lazy auto-patch (on first trace, not at import)
 # =============================================================================
 
+_auto_patched = False
 
-def _auto_patch():
-    """Automatically patch all libraries on import."""
+
+def ensure_patched() -> Dict[str, bool]:
+    """Lazily patch all libraries when first needed (not at import time).
+
+    This is called automatically when starting a trace. Call this explicitly
+    if you want to patch before the first trace.
+    """
+    global _auto_patched
+    if _auto_patched:
+        return _patched.copy()
+    _auto_patched = True
+
     if os.environ.get("EVALYN_AUTO_INSTRUMENT", "").lower() in (
         "off",
         "false",
@@ -892,7 +903,3 @@ def _auto_patch():
     ):
         return {}
     return patch_all()
-
-
-# Run auto-patch when this module is imported
-_auto_patch_results = _auto_patch()
