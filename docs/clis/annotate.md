@@ -128,5 +128,4 @@ Annotations are saved to `<dataset>/annotations.jsonl`:
 ## See Also
 
 - [run-eval](run-eval.md) - Run evaluation first to get LLM judge results
-- [annotation-stats](annotation-stats.md) - View annotation statistics
 - [calibrate](calibrate.md) - Calibrate judges using annotations

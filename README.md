@@ -10,7 +10,7 @@ Evalyn focuses on making GenAI App evaluation practical and easy. It provides li
 |---|---|
 | **Fully Local** | All data stays on your machine. SQLite storage, no cloud dependencies. |
 | **Easy Onboarding** | Just `import evalyn_sdk` — LLM calls auto-captured with tokens & cost. |
-| **Metric Bank** | 50+ metrics including both code-based and LLM-based judges templates for quality assessment. |
+| **Metric Bank** | 35+ metrics including both code-based and LLM-based judges templates for quality assessment. |
 | **Auto Calibration** | Align LLM judges with human feedback through automatic prompt optimization such as GEPA. |
 | **One Command** | Run the entire pipeline with `evalyn one-click`. |
 
@@ -68,7 +68,7 @@ def my_agent(query: str) -> str:
 ### 2. Run Your Agent
 ```bash
 export GEMINI_API_KEY="api_key" ## Setup the gemini api key for the example agent
-python -m example_agent.agent.py   # Traces auto-captured to SQLite
+python example_agent/agent.py      # Traces auto-captured to SQLite
 ```
 
 ### 3. Choose Your Workflow

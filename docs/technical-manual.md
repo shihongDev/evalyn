@@ -218,7 +218,7 @@ configure(storage_path="/custom/path/evalyn.sqlite")
 | Mode | Description | Output |
 |------|-------------|--------|
 | `basic` | Heuristic based on function signature | Objective + Subjective |
-| `llm-registry` | LLM selects from 50+ templates | Objective + Subjective |
+| `llm-registry` | LLM selects from 35+ templates | Objective + Subjective |
 | `llm-brainstorm` | LLM generates custom metrics | **Subjective only** |
 | `bundle` | Pre-configured sets | Objective + Subjective |
 
@@ -468,32 +468,46 @@ evalyn/
 │   └── evalyn_sdk/
 │       ├── __init__.py          # Public API exports
 │       ├── decorators.py        # @eval, @trace
-│       ├── tracing.py           # EvalTracer, session management
-│       ├── auto_instrument.py   # Monkey-patching logic
+│       ├── models.py            # Dataclasses
+│       ├── datasets.py          # Dataset I/O
+│       ├── runner.py            # EvalRunner
+│       ├── analyzer.py          # Analysis & visualization
+│       ├── cli_impl.py          # CLI command implementations
+│       ├── trace/
+│       │   ├── tracer.py        # EvalTracer, session management
+│       │   ├── context.py       # Context management
+│       │   ├── auto_instrument.py # Monkey-patching logic
+│       │   ├── langgraph.py     # LangGraph integration
+│       │   └── otel.py          # OpenTelemetry support
 │       ├── storage/
 │       │   ├── base.py          # StorageBackend interface
 │       │   └── sqlite.py        # SQLiteStorage
 │       ├── metrics/
-│       │   ├── registry.py      # MetricRegistry
-│       │   ├── templates.py     # 50+ metric definitions
+│       │   ├── templates.py     # 35+ metric definitions
 │       │   ├── objective.py     # Objective metric handlers
-│       │   ├── subjective.py    # Subjective metric handlers
 │       │   ├── judges.py        # LLM judge implementations
 │       │   ├── factory.py       # Metric builders
 │       │   └── suggester.py     # Metric suggestion logic
-│       ├── calibration.py       # Calibration engine
-│       ├── simulator.py         # Synthetic data generation
-│       ├── analyzer.py          # Analysis & visualization
-│       ├── datasets.py          # Dataset I/O
-│       ├── runner.py            # EvalRunner
-│       ├── models.py            # Dataclasses
-│       └── cli.py               # CLI commands
+│       ├── annotation/
+│       │   ├── annotations.py   # Annotation models
+│       │   ├── calibration.py   # Calibration engine
+│       │   └── span_annotation.py # Span-level annotation
+│       ├── simulation/
+│       │   ├── simulator.py     # Synthetic data generation
+│       │   └── simulation.py    # Simulation models
+│       ├── cli/
+│       │   ├── main.py          # CLI entry point
+│       │   ├── commands/        # CLI command modules
+│       │   └── utils/           # CLI utilities
+│       └── utils/
+│           └── api_client.py    # API client utilities
 ├── docs/
-│   ├── cli.md
-│   ├── metrics.md
-│   ├── calibration.md
 │   ├── technical-manual.md      # This file
-│   └── commands/
+│   └── clis/                    # CLI command documentation
+│       ├── README.md
+│       ├── one-click.md
+│       ├── run-eval.md
+│       └── ...                  # Other CLI docs
 └── example_agent/               # Reference implementation
 ```
 
@@ -512,4 +526,4 @@ evalyn/
 
 ---
 
-*Last updated: 2025-01-04*
+*Last updated: 2025-01-11*

@@ -14,7 +14,7 @@ evalyn build-dataset [OPTIONS]
 |--------|---------|-------------|
 | `--project NAME` | - | Filter by project name (recommended) |
 | `--version V` | - | Filter by version |
-| `--limit N` | 200 | Maximum number of items |
+| `--limit N` | 500 | Maximum number of items |
 | `--output PATH` | auto | Custom output path |
 | `--production` | false | Only production traces |
 | `--simulation` | false | Only simulation traces |

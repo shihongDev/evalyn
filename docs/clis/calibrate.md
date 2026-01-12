@@ -123,4 +123,3 @@ calibrations/
 
 - [annotate](annotate.md) - Create annotations first
 - [run-eval](run-eval.md) - Re-run eval with `--use-calibrated`
-- [list-calibrations](list-calibrations.md) - View calibration history
