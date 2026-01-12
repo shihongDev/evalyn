@@ -88,30 +88,39 @@ def _expand_env_vars(value: Any) -> Any:
     return value
 
 
-def load_config() -> Dict[str, Any]:
-    """Load configuration from evalyn.yaml or .evalynrc if present."""
+def find_active_config_path() -> Path | None:
+    """Find and return the path to the active config file, if one exists."""
     for config_path in DEFAULT_CONFIG_PATHS:
         path = Path(config_path)
         if path.exists():
-            try:
-                import yaml  # Optional dependency
+            return path
+    return None
 
-                with open(path) as f:
-                    config = yaml.safe_load(f) or {}
-                    # Expand environment variables
-                    config = _expand_env_vars(config)
-                    return config
-            except ImportError:
-                # Try JSON format if yaml not available
-                try:
-                    with open(path) as f:
-                        config = json.load(f)
-                        config = _expand_env_vars(config)
-                        return config
-                except Exception:
-                    pass
-            except Exception:
-                pass
+
+def load_config() -> Dict[str, Any]:
+    """Load configuration from evalyn.yaml or .evalynrc if present."""
+    path = find_active_config_path()
+    if not path:
+        return {}
+
+    try:
+        import yaml  # Optional dependency
+
+        with open(path) as f:
+            config = yaml.safe_load(f) or {}
+            config = _expand_env_vars(config)
+            return config
+    except ImportError:
+        # Try JSON format if yaml not available
+        try:
+            with open(path) as f:
+                config = json.load(f)
+                config = _expand_env_vars(config)
+                return config
+        except Exception:
+            pass
+    except Exception:
+        pass
     return {}
 
 
@@ -5140,6 +5149,11 @@ def cmd_one_click(args: argparse.Namespace) -> None:
     print(f"Output:   {output_dir}")
     print("\n" + "-" * 70 + "\n")
 
+    # Copy config file for reproducibility
+    config_source_path = find_active_config_path()
+    if config_source_path:
+        shutil.copy(config_source_path, output_dir / "evalyn.yaml")
+
     if args.dry_run:
         print("DRY RUN MODE - showing what would be done:\n")
 
@@ -5200,10 +5214,9 @@ def cmd_one_click(args: argparse.Namespace) -> None:
     try:
         # Step 1: Build Dataset
         print("[1/7] Building Dataset")
-        dataset_dir = output_dir / "1_dataset"
-        dataset_dir.mkdir(exist_ok=True)
+        dataset_dir = output_dir  # Save dataset files to root (flat structure)
 
-        if step_done("1_dataset"):
+        if step_done("dataset"):
             print("  ✓ Already completed (skipping)\n")
         elif args.dry_run:
             print(
@@ -5254,7 +5267,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             print(f"  ✓ Found {len(items)} items")
             print(f"  ✓ Saved to: {dataset_path}\n")
 
-            state["steps"]["1_dataset"] = {
+            state["steps"]["dataset"] = {
                 "status": "success",
                 "output": str(dataset_path),
                 "item_count": len(items),
@@ -5263,10 +5276,10 @@ def cmd_one_click(args: argparse.Namespace) -> None:
 
         # Step 2: Suggest Metrics
         print("[2/7] Suggesting Metrics")
-        metrics_dir = output_dir / "2_metrics"
+        metrics_dir = output_dir / "metrics"
         metrics_dir.mkdir(exist_ok=True)
 
-        if step_done("2_metrics"):
+        if step_done("metrics"):
             print("  ✓ Already completed (skipping)\n")
         elif args.dry_run:
             print(f"  → Would suggest metrics with mode={args.metric_mode}")
@@ -5404,7 +5417,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 print(f"    - {spec.id} ({spec.type})")
             print(f"  ✓ Saved to: {metrics_path}\n")
 
-            state["steps"]["2_metrics"] = {
+            state["steps"]["metrics"] = {
                 "status": "success",
                 "output": str(metrics_path),
                 "total": len(metric_specs),
@@ -5415,10 +5428,10 @@ def cmd_one_click(args: argparse.Namespace) -> None:
 
         # Step 3: Run Initial Evaluation
         print("[3/7] Running Initial Evaluation")
-        eval_dir = output_dir / "3_initial_eval"
+        eval_dir = output_dir / "eval_runs"
         eval_dir.mkdir(exist_ok=True)
 
-        if step_done("3_initial_eval"):
+        if step_done("initial_eval"):
             print("  ✓ Already completed (skipping)\n")
         elif args.dry_run:
             print(f"  → Would run evaluation on {args.dataset_limit} items")
@@ -5465,8 +5478,10 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             )
             eval_run = runner.run_dataset(items, use_synthetic=True)
 
-            # Save run
-            run_path = eval_dir / f"run_{timestamp}_{eval_run.id[:8]}.json"
+            # Save run in subdirectory (matching manual convention)
+            run_subdir = eval_dir / f"{timestamp}_{eval_run.id[:8]}"
+            run_subdir.mkdir(exist_ok=True)
+            run_path = run_subdir / "results.json"
             with open(run_path, "w") as f:
                 json.dump(eval_run.as_dict(), f, indent=2)
 
@@ -5479,7 +5494,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                     print(f"    {metric_id}: avg={summary['avg']:.1f}")
             print(f"  ✓ Saved to: {run_path}\n")
 
-            state["steps"]["3_initial_eval"] = {
+            state["steps"]["initial_eval"] = {
                 "status": "success",
                 "output": str(run_path),
                 "run_id": eval_run.id,
@@ -5487,13 +5502,13 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             save_state_atomic(state)
 
         # Step 4: Human Annotation (optional)
-        if step_done("4_annotation"):
+        if step_done("annotations"):
             print("[4/7] Human Annotation")
             print("  ✓ Already completed (skipping)\n")
         elif args.skip_annotation:
             print("[4/7] Human Annotation")
             print("  ⏭️  SKIPPED (--skip-annotation)\n")
-            state["steps"]["4_annotation"] = {"status": "skipped"}
+            state["steps"]["annotations"] = {"status": "skipped"}
             save_state_atomic(state)
         else:
             print("[4/7] Human Annotation")
@@ -5501,7 +5516,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 print(f"  → Would annotate {args.annotation_limit} items")
                 print(f"  → Mode: {'per-metric' if args.per_metric else 'overall'}\n")
             else:
-                ann_dir = output_dir / "4_annotations"
+                ann_dir = output_dir / "annotations"
                 ann_dir.mkdir(exist_ok=True)
                 ann_path = ann_dir / "annotations.jsonl"
 
@@ -5529,7 +5544,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                             ann_count = sum(1 for _ in f)
                         print(f"  ✓ Completed {ann_count} annotations")
                         print(f"  ✓ Saved to: {ann_path}\n")
-                        state["steps"]["4_annotation"] = {
+                        state["steps"]["annotations"] = {
                             "status": "success",
                             "output": str(ann_path),
                             "count": ann_count,
@@ -5537,17 +5552,17 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                         save_state_atomic(state)
                     else:
                         print("  ⏭️  No annotations created\n")
-                        state["steps"]["4_annotation"] = {"status": "skipped"}
+                        state["steps"]["annotations"] = {"status": "skipped"}
                         save_state_atomic(state)
                 except KeyboardInterrupt:
                     print("\n  ⏭️  Annotation interrupted by user\n")
-                    state["steps"]["4_annotation"] = {"status": "interrupted"}
+                    state["steps"]["annotations"] = {"status": "interrupted"}
                     save_state_atomic(state)
 
         # Step 5: Calibrate LLM Judges (optional)
-        has_annotations = (output_dir / "4_annotations" / "annotations.jsonl").exists()
+        has_annotations = (output_dir / "annotations" / "annotations.jsonl").exists()
 
-        if step_done("5_calibration"):
+        if step_done("calibrations"):
             print("[5/7] Calibrating LLM Judges")
             print("  ✓ Already completed (skipping)\n")
         elif args.skip_calibration or not has_annotations:
@@ -5556,7 +5571,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 print("  ⏭️  SKIPPED (--skip-calibration)\n")
             else:
                 print("  ⏭️  SKIPPED (requires annotations)\n")
-            state["steps"]["5_calibration"] = {"status": "skipped"}
+            state["steps"]["calibrations"] = {"status": "skipped"}
             save_state_atomic(state)
         else:
             print("[5/7] Calibrating LLM Judges")
@@ -5564,10 +5579,10 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 print(f"  → Would calibrate subjective metrics")
                 print(f"  → Optimizer: {args.optimizer}\n")
             else:
-                cal_dir = output_dir / "5_calibrations"
+                cal_dir = output_dir / "calibrations"
                 cal_dir.mkdir(exist_ok=True)
 
-                ann_path = output_dir / "4_annotations" / "annotations.jsonl"
+                ann_path = output_dir / "annotations" / "annotations.jsonl"
 
                 # Get subjective metrics
                 subj_metrics = [
@@ -5604,29 +5619,29 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                     except Exception as e:
                         print(f"    ✗ Calibration failed: {e}\n")
 
-                state["steps"]["5_calibration"] = {
+                state["steps"]["calibrations"] = {
                     "status": "success",
                     "metrics_calibrated": len(subj_metrics),
                 }
                 save_state_atomic(state)
 
         # Step 6: Re-evaluate with Calibrated Prompts (optional)
-        has_calibrations = (output_dir / "5_calibrations").exists()
+        has_calibrations = (output_dir / "calibrations").exists()
 
-        if step_done("6_calibrated_eval"):
+        if step_done("calibrated_eval"):
             print("[6/7] Re-evaluating with Calibrated Prompts")
             print("  ✓ Already completed (skipping)\n")
         elif not has_calibrations:
             print("[6/7] Re-evaluating with Calibrated Prompts")
             print("  ⏭️  SKIPPED (no calibrations)\n")
-            state["steps"]["6_calibrated_eval"] = {"status": "skipped"}
+            state["steps"]["calibrated_eval"] = {"status": "skipped"}
             save_state_atomic(state)
         else:
             print("[6/7] Re-evaluating with Calibrated Prompts")
             if args.dry_run:
                 print(f"  → Would re-run evaluation with calibrated prompts\n")
             else:
-                eval2_dir = output_dir / "6_calibrated_eval"
+                eval2_dir = output_dir / "eval_runs"  # Reuse eval_runs directory
                 eval2_dir.mkdir(exist_ok=True)
 
                 # Re-run evaluation with calibrated prompts
@@ -5686,8 +5701,10 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 )
                 eval_run2 = runner.run_dataset(items, use_synthetic=True)
 
-                # Save run
-                run_path2 = eval2_dir / f"run_{timestamp}_{eval_run2.id[:8]}.json"
+                # Save run in subdirectory (with calibrated_ prefix to distinguish)
+                run_subdir2 = eval2_dir / f"calibrated_{timestamp}_{eval_run2.id[:8]}"
+                run_subdir2.mkdir(exist_ok=True)
+                run_path2 = run_subdir2 / "results.json"
                 with open(run_path2, "w") as f:
                     json.dump(eval_run2.as_dict(), f, indent=2)
 
@@ -5699,7 +5716,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                         print(f"    {metric_id}: pass_rate={summary['pass_rate']:.2f}")
                 print(f"  ✓ Saved to: {run_path2}\n")
 
-                state["steps"]["6_calibrated_eval"] = {
+                state["steps"]["calibrated_eval"] = {
                     "status": "success",
                     "output": str(run_path2),
                     "calibrated_count": calibrated_count,
@@ -5707,18 +5724,18 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 save_state_atomic(state)
 
         # Step 7: Generate Simulations (optional)
-        if step_done("7_simulation"):
+        if step_done("simulations"):
             print("[7/7] Generating Simulations")
             print("  ✓ Already completed (skipping)\n")
         elif not args.enable_simulation:
             print("[7/7] Generating Simulations")
             print("  ⏭️  SKIPPED (use --enable-simulation to enable)\n")
-            state["steps"]["7_simulation"] = {"status": "skipped"}
+            state["steps"]["simulations"] = {"status": "skipped"}
             save_state_atomic(state)
         elif not args.target:
             print("[7/7] Generating Simulations")
             print("  ⏭️  SKIPPED (--target required for simulation)\n")
-            state["steps"]["7_simulation"] = {
+            state["steps"]["simulations"] = {
                 "status": "skipped",
                 "reason": "no target",
             }
@@ -5730,7 +5747,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                     f"  → Would generate simulations: modes={args.simulation_modes}\n"
                 )
             else:
-                sim_dir = output_dir / "7_simulations"
+                sim_dir = output_dir / "simulations"
                 sim_dir.mkdir(exist_ok=True)
 
                 # Run simulation
@@ -5751,14 +5768,14 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                     cmd_simulate(sim_args)
                     print(f"  ✓ Simulations generated")
                     print(f"  ✓ Saved to: {sim_dir}/\n")
-                    state["steps"]["7_simulation"] = {
+                    state["steps"]["simulations"] = {
                         "status": "success",
                         "output": str(sim_dir),
                     }
                     save_state_atomic(state)
                 except Exception as e:
                     print(f"  ✗ Simulation failed: {e}\n")
-                    state["steps"]["7_simulation"] = {
+                    state["steps"]["simulations"] = {
                         "status": "failed",
                         "error": str(e),
                     }
@@ -5785,15 +5802,15 @@ def cmd_one_click(args: argparse.Namespace) -> None:
 
         print(f"\nNext steps:")
         if (
-            "6_calibrated_eval" in state["steps"]
-            and state["steps"]["6_calibrated_eval"]["status"] == "success"
+            "calibrated_eval" in state["steps"]
+            and state["steps"]["calibrated_eval"]["status"] == "success"
         ):
             print(
-                f"  1. Review results: cat {state['steps']['6_calibrated_eval']['output']}"
+                f"  1. Review results: cat {state['steps']['calibrated_eval']['output']}"
             )
-        elif "3_initial_eval" in state["steps"]:
+        elif "initial_eval" in state["steps"]:
             print(
-                f"  1. Review results: cat {state['steps']['3_initial_eval']['output']}"
+                f"  1. Review results: cat {state['steps']['initial_eval']['output']}"
             )
         print(f"  2. View full summary: cat {summary_path}")
         print()
