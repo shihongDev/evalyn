@@ -197,6 +197,23 @@ class SQLiteStorage(StorageBackend):
         rows = cur.fetchall()
         return [self._row_to_eval_run(r) for r in rows]
 
+    def list_eval_runs_by_project(
+        self, dataset_name: str, limit: int = 20
+    ) -> List[EvalRun]:
+        """List eval runs for a specific project (dataset_name)."""
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            SELECT * FROM eval_runs
+            WHERE dataset_name = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (dataset_name, limit),
+        )
+        rows = cur.fetchall()
+        return [self._row_to_eval_run(r) for r in rows]
+
     def get_eval_run(self, run_id: str) -> Optional[EvalRun]:
         cur = self.conn.cursor()
         cur.execute("SELECT * FROM eval_runs WHERE id = ?", (run_id,))
