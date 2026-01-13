@@ -50,7 +50,15 @@ Evalyn focuses on making GenAI App evaluation practical and easy. It provides li
 ## Install
 
 ```bash
-pip install -e "./sdk[dev,llm]"
+# Install uv if not already installed 
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment with Python 3.11 
+uv venv --python 3.11
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install the package
+uv pip install -e "./sdk[dev,llm]"
 ```
 
 ## Quick Start (Example Agent)
