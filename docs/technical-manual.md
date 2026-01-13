@@ -218,7 +218,7 @@ configure(storage_path="/custom/path/evalyn.sqlite")
 | Mode | Description | Output |
 |------|-------------|--------|
 | `basic` | Heuristic based on function signature | Objective + Subjective |
-| `llm-registry` | LLM selects from 35+ templates | Objective + Subjective |
+| `llm-registry` | LLM selects from 50+ templates | Objective + Subjective |
 | `llm-brainstorm` | LLM generates custom metrics | **Subjective only** |
 | `bundle` | Pre-configured sets | Objective + Subjective |
 
@@ -483,7 +483,8 @@ evalyn/
 │       │   ├── base.py          # StorageBackend interface
 │       │   └── sqlite.py        # SQLiteStorage
 │       ├── metrics/
-│       │   ├── templates.py     # 35+ metric definitions
+│       │   ├── templates.py     # 30 objective metric definitions
+│       │   ├── subjective.py    # 22 subjective metric definitions
 │       │   ├── objective.py     # Objective metric handlers
 │       │   ├── judges.py        # LLM judge implementations
 │       │   ├── factory.py       # Metric builders

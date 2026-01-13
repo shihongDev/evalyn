@@ -179,23 +179,34 @@ evalyn run-eval --dataset data/myapp-v1-20250115-120000/simulations/sim-similar-
 |---------|-------------|
 | [one-click](docs/clis/one-click.md) | Run full evaluation pipeline |
 | [init](docs/clis/init.md) | Initialize config file |
+| [status](docs/clis/status.md) | Show dataset status overview |
 | **Tracing** | |
 | [list-calls](docs/clis/list-calls.md) | List captured traces |
 | [show-call](docs/clis/show-call.md) | View trace details |
+| [show-trace](docs/clis/show-trace.md) | View span tree only |
 | [show-projects](docs/clis/show-projects.md) | View project summaries |
 | **Dataset** | |
 | [build-dataset](docs/clis/build-dataset.md) | Create dataset from traces |
+| [validate](docs/clis/validate.md) | Validate dataset format |
 | **Metrics** | |
 | [suggest-metrics](docs/clis/suggest-metrics.md) | Get metric recommendations |
+| [select-metrics](docs/clis/select-metrics.md) | LLM-guided metric selection |
 | [list-metrics](docs/clis/list-metrics.md) | List available metric templates |
 | **Evaluation** | |
 | [run-eval](docs/clis/run-eval.md) | Run evaluation + generate report |
 | [list-runs](docs/clis/list-runs.md) | List past eval runs |
 | [show-run](docs/clis/show-run.md) | View eval run details |
+| [analyze](docs/clis/analyze.md) | Analyze eval run insights |
+| [compare](docs/clis/compare.md) | Compare two eval runs |
 | [trend](docs/clis/trend.md) | View metric trends across runs |
-| **Calibration** | |
+| [export](docs/clis/export.md) | Export results (JSON/CSV/MD/HTML) |
+| **Annotation & Calibration** | |
 | [annotate](docs/clis/annotate.md) | Human annotation (interactive) |
+| [annotation-stats](docs/clis/annotation-stats.md) | Show annotation statistics |
+| [export-for-annotation](docs/clis/export-for-annotation.md) | Export for external annotation |
+| [import-annotations](docs/clis/import-annotations.md) | Import annotations from file |
 | [calibrate](docs/clis/calibrate.md) | Calibrate LLM judges |
+| [list-calibrations](docs/clis/list-calibrations.md) | List calibration records |
 | **Simulation** | |
 | [simulate](docs/clis/simulate.md) | Generate synthetic test data |
 

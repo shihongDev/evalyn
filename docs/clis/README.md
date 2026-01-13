@@ -8,6 +8,7 @@ Complete documentation for all Evalyn CLI commands.
 |---------|-------------|
 | [init](init.md) | Initialize configuration file |
 | [one-click](one-click.md) | Run complete evaluation pipeline |
+| [status](status.md) | Show dataset status overview |
 
 ### Tracing
 | Command | Description |
@@ -27,6 +28,7 @@ Complete documentation for all Evalyn CLI commands.
 | Command | Description |
 |---------|-------------|
 | [suggest-metrics](suggest-metrics.md) | Suggest evaluation metrics |
+| [select-metrics](select-metrics.md) | LLM-guided metric selection |
 | [list-metrics](list-metrics.md) | List available metric templates |
 
 ### Evaluation
@@ -44,7 +46,11 @@ Complete documentation for all Evalyn CLI commands.
 | Command | Description |
 |---------|-------------|
 | [annotate](annotate.md) | Interactive annotation |
+| [annotation-stats](annotation-stats.md) | Show annotation statistics |
+| [export-for-annotation](export-for-annotation.md) | Export for external annotation |
+| [import-annotations](import-annotations.md) | Import annotations from file |
 | [calibrate](calibrate.md) | Calibrate LLM judges |
+| [list-calibrations](list-calibrations.md) | List calibration records |
 
 ### Simulation
 | Command | Description |
