@@ -855,8 +855,12 @@ def register_commands(subparsers) -> None:
     p.add_argument("--limit", type=int, default=20, help="Number of calls to list")
     p.add_argument("--project", help="Filter by project name")
     p.add_argument("--format", choices=["table", "json"], default="table")
-    p.add_argument("--simulation", action="store_true", help="Show only simulation calls")
-    p.add_argument("--production", action="store_true", help="Show only production calls")
+    p.add_argument(
+        "--simulation", action="store_true", help="Show only simulation calls"
+    )
+    p.add_argument(
+        "--production", action="store_true", help="Show only production calls"
+    )
     p.set_defaults(func=cmd_list_calls)
 
     # show-call
