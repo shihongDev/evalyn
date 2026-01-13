@@ -10,7 +10,7 @@ Evalyn focuses on making GenAI App evaluation practical and easy. It provides li
 |---|---|
 | **Fully Local** | All data stays on your machine. SQLite storage, no cloud dependencies. |
 | **Easy Onboarding** | Just `import evalyn_sdk` — LLM calls auto-captured with tokens & cost. |
-| **Metric Bank** | 35+ metrics including both code-based and LLM-based judges templates for quality assessment. |
+| **Metric Bank** | 50+ built-in metrics (30 objective, 22 LLM judges). Community contributions welcome. |
 | **Auto Calibration** | Align LLM judges with human feedback through automatic prompt optimization such as GEPA. |
 | **One Command** | Run the entire pipeline with `evalyn one-click`. |
 
@@ -165,6 +165,7 @@ evalyn run-eval --dataset data/myapp-v1-20250115-120000/simulations/sim-similar-
 | `evalyn build-dataset --project X` | Create dataset from traces |
 | `evalyn suggest-metrics --project X --dataset D` | Get metric recommendations |
 | `evalyn run-eval --dataset D` | Run evaluation + generate HTML report |
+| `evalyn trend --project X` | View metric trends across eval runs |
 | `evalyn annotate --dataset D` | Human annotation (interactive) |
 | `evalyn calibrate --metric-id X` | Calibrate LLM judge |
 | `evalyn simulate --dataset D` | Generate synthetic test data |
@@ -191,6 +192,7 @@ evalyn run-eval --dataset data/myapp-v1-20250115-120000/simulations/sim-similar-
 | [run-eval](docs/clis/run-eval.md) | Run evaluation + generate report |
 | [list-runs](docs/clis/list-runs.md) | List past eval runs |
 | [show-run](docs/clis/show-run.md) | View eval run details |
+| [trend](docs/clis/trend.md) | View metric trends across runs |
 | **Calibration** | |
 | [annotate](docs/clis/annotate.md) | Human annotation (interactive) |
 | [calibrate](docs/clis/calibrate.md) | Calibrate LLM judges |
@@ -209,7 +211,7 @@ See [`example_agent/`](example_agent/) for a LangGraph integration.
 
 ## Contribution
 
-We welcome community-contributed metrics. Follow this guide to submit your own.
+We welcome community-contributed metrics. Upload your own evaluation metrics to help grow the open-source metric bank.
 
 ### Step 1: Choose Metric Type
 
