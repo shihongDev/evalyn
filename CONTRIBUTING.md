@@ -64,28 +64,39 @@ Adds ROUGE-L score calculation for summarization evaluation.
 evalyn/
 ├── sdk/
 │   ├── evalyn_sdk/
-│   │   ├── cli/              # CLI module
-│   │   │   ├── main.py       # CLI entry point & command registration
-│   │   │   └── commands/     # Command implementations
-│   │   ├── cli_impl.py       # Command implementations
-│   │   ├── trace/            # Tracing & instrumentation
-│   │   │   ├── tracer.py     # Core tracing logic
-│   │   │   └── auto_instrument.py
-│   │   ├── decorators.py     # @eval decorator
-│   │   ├── runner.py         # Evaluation runner
-│   │   ├── analyzer.py       # Report generation
+│   │   ├── cli/                    # CLI module
+│   │   │   ├── main.py             # Entry point & command registration
+│   │   │   ├── commands/           # Command implementations
+│   │   │   │   └── traces.py       # Trace viewing commands
+│   │   │   └── utils/              # CLI utilities
+│   │   │       ├── ui.py           # Spinner, ProgressIndicator
+│   │   │       ├── config.py       # Config file loading
+│   │   │       ├── loaders.py      # Module/callable loading
+│   │   │       └── llm_callers.py  # LLM API callers
+│   │   ├── cli_impl.py             # Remaining command implementations
+│   │   ├── analysis/               # Report & analysis module
+│   │   │   ├── core.py             # RunAnalysis, MetricStats classes
+│   │   │   ├── reports.py          # Text/ASCII reports
+│   │   │   ├── html_report.py      # HTML dashboard generation
+│   │   │   └── trends.py           # Trend analysis over time
+│   │   ├── trace/                  # Tracing & instrumentation
+│   │   │   ├── tracer.py           # Core tracing logic
+│   │   │   └── auto_instrument.py  # Auto-patching for LLM libraries
 │   │   ├── metrics/
-│   │   │   ├── templates.py  # Objective metric templates (30)
-│   │   │   ├── subjective.py # LLM judge templates (22)
-│   │   │   └── objective.py  # Objective metric handlers
-│   │   ├── annotation/       # Human annotation support
-│   │   ├── simulation/       # Synthetic data generation
-│   │   └── storage/
-│   │       └── sqlite.py     # SQLite backend
+│   │   │   ├── templates.py        # Objective metric templates (30)
+│   │   │   ├── subjective.py       # LLM judge templates (22)
+│   │   │   ├── objective.py        # Objective metric handlers
+│   │   │   └── factory.py          # Metric builders
+│   │   ├── annotation/             # Human annotation & calibration
+│   │   ├── simulation/             # Synthetic data generation
+│   │   ├── storage/                # Persistence backends
+│   │   ├── decorators.py           # @eval decorator
+│   │   ├── runner.py               # Evaluation runner
+│   │   └── models.py               # Data models
 │   └── pyproject.toml
-├── example_agent/            # Reference LangGraph implementation
+├── example_agent/                  # Reference LangGraph implementation
 └── docs/
-    └── clis/                 # CLI command documentation
+    └── clis/                       # CLI command documentation
 ```
 
 ## Adding a New Metric

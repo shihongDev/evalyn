@@ -1,33 +1,53 @@
 """
-Analyzer module - Backwards compatibility wrapper.
+Analysis module for comprehensive eval results analysis and visualization.
 
-This module re-exports from the new analysis/ package structure.
-Import directly from analysis/ for new code:
+This module provides tools for analyzing evaluation runs, generating reports,
+and tracking trends over time.
 
-    from evalyn_sdk.analysis import analyze_run, generate_html_report
+Usage:
+    from evalyn_sdk.analysis import (
+        analyze_run,
+        generate_html_report,
+        generate_text_report,
+        analyze_trends,
+    )
+
+    # Analyze a run
+    run_data = load_eval_run("path/to/results.json")
+    analysis = analyze_run(run_data)
+
+    # Generate reports
+    html = generate_html_report(analysis)
+    text = generate_text_report(analysis)
+
+    # Analyze trends
+    trend = analyze_trends(runs)
 """
 
-# Re-export everything from the analysis package for backwards compatibility
-from .analysis import (
-    # Core classes
+from .core import (
     MetricStats,
     ItemStats,
     RunAnalysis,
-    # Core functions
     load_eval_run,
     find_eval_runs,
     analyze_run,
-    # Text reports
+)
+
+from .reports import (
     ascii_bar,
     ascii_score_distribution,
     format_pass_rate_bar,
     generate_text_report,
     generate_comparison_report,
-    # Trends
+)
+
+from .trends import (
     TrendAnalysis,
     analyze_trends,
     generate_trend_text_report,
-    # HTML reports
+)
+
+from .html_report import (
     generate_html_report,
     generate_report,
 )
