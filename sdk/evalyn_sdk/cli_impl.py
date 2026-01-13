@@ -62,6 +62,7 @@ from .annotation import (
     get_annotation_prompts,
     AnnotationSpanType,
 )
+from .cli.utils.hints import print_hint
 
 
 # ---------------------------------------------------------------------------
@@ -1771,6 +1772,13 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     if run.summary.get("failed_items"):
         print(f"Failed items: {run.summary['failed_items']}")
 
+    # Show hint for next step
+    print_hint(
+        f"To analyze results, run: evalyn analyze --run {run.id}",
+        quiet=getattr(args, "quiet", False),
+        format=getattr(args, "format", "table"),
+    )
+
 
 def _dataset_has_reference(dataset_path: Optional[Path]) -> bool:
     """
@@ -2071,6 +2079,10 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             json.dumps(meta, indent=2, ensure_ascii=True), encoding="utf-8"
         )
         print(f"Saved metrics to {metrics_file}")
+        print_hint(
+            f"To run evaluation, run: evalyn run-eval --dataset {dataset_dir}",
+            quiet=getattr(args, "quiet", False),
+        )
 
     if selected_mode == "bundle":
         bundle = (bundle_name or "").lower()
@@ -2247,6 +2259,10 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
         items, dataset_dir, meta, dataset_filename=dataset_file
     )
     print(f"Wrote {len(items)} items to {dataset_path}")
+    print_hint(
+        f"To suggest metrics, run: evalyn suggest-metrics --dataset {dataset_dir} --mode basic",
+        quiet=getattr(args, "quiet", False),
+    )
 
 
 def cmd_show_projects(args: argparse.Namespace) -> None:
@@ -2334,7 +2350,10 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
     headers = ["id", "dataset", "created_at", "metrics", "results"]
     print(" | ".join(headers))
     print("-" * 120)
+    first_run_id = None
     for run in runs:
+        if first_run_id is None:
+            first_run_id = run.id
         row = [
             run.id,
             run.dataset_name,
@@ -2343,6 +2362,12 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
             str(len(run.metric_results)),
         ]
         print(" | ".join(row))
+
+    if first_run_id:
+        print_hint(
+            f"To see details, run: evalyn show-run --id {first_run_id}",
+            quiet=getattr(args, "quiet", False),
+        )
 
 
 def cmd_show_run(args: argparse.Namespace) -> None:

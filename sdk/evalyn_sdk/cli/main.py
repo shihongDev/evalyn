@@ -83,6 +83,9 @@ For more info on a command: evalyn <command> --help
 """,
     )
     parser.add_argument("--version", action="store_true", help="Show version and exit")
+    parser.add_argument(
+        "-q", "--quiet", action="store_true", help="Suppress hint messages"
+    )
     subparsers = parser.add_subparsers(dest="command")
 
     # Help command

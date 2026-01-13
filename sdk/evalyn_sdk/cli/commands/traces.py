@@ -9,6 +9,7 @@ import sys
 from typing import Any
 
 from ...decorators import get_default_tracer
+from ..utils.hints import print_hint
 
 
 def cmd_list_calls(args: argparse.Namespace) -> None:
@@ -155,6 +156,14 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
             f"{call.duration_ms:.2f}",
         ]
         print(" | ".join(row))
+
+    # Show hint with first call ID
+    first_id = calls[0].id
+    print_hint(
+        f"To see details, run: evalyn show-call --id {first_id}",
+        quiet=getattr(args, "quiet", False),
+        format=output_format,
+    )
 
 
 def cmd_show_call(args: argparse.Namespace) -> None:
@@ -591,6 +600,13 @@ def cmd_show_call(args: argparse.Namespace) -> None:
 
     print("=============================================\n")
 
+    # Show hint to view span tree
+    if call.spans:
+        print_hint(
+            f"To see span tree, run: evalyn show-trace --id {call.id}",
+            quiet=getattr(args, "quiet", False),
+        )
+
 
 def cmd_show_trace(args: argparse.Namespace) -> None:
     """Show hierarchical span tree for a traced call (Phoenix-style visualization)."""
@@ -762,6 +778,15 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
         f"\nSummary: {len(spans)} spans | {llm_count} LLM calls | {tool_count} tool calls | {node_count} nodes"
     )
 
+    # Show hint to build dataset
+    meta = call.metadata if isinstance(call.metadata, dict) else {}
+    project = meta.get("project_id") or meta.get("project_name")
+    if project:
+        print_hint(
+            f"To build a dataset, run: evalyn build-dataset --project {project}",
+            quiet=getattr(args, "quiet", False),
+        )
+
 
 def cmd_show_projects(args: argparse.Namespace) -> None:
     """Show summary of projects and their traces."""
@@ -801,7 +826,10 @@ def cmd_show_projects(args: argparse.Namespace) -> None:
     headers = ["project", "version", "calls", "errors", "first", "last"]
     print(" | ".join(headers))
     print("-" * 120)
+    first_project = None
     for (project, version), rec in summary.items():
+        if first_project is None:
+            first_project = project
         row = [
             project,
             version,
@@ -811,6 +839,13 @@ def cmd_show_projects(args: argparse.Namespace) -> None:
             str(rec["last"]),
         ]
         print(" | ".join(row))
+
+    # Show hint to list calls for a project
+    if first_project:
+        print_hint(
+            f"To see calls, run: evalyn list-calls --project {first_project}",
+            quiet=getattr(args, "quiet", False),
+        )
 
 
 def register_commands(subparsers) -> None:
