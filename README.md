@@ -1,6 +1,12 @@
-# Evalyn
+<p align="center">
+  <img src="evalyn-banner.png" alt="Evalyn - Evaluation as a service. Let your agents evolve — privately." width="600">
+</p>
 
-**Local-first evaluation and calibration framework for LLM agents**
+<p align="center">
+  <strong>Local-first evaluation framework for LLM agents</strong>
+</p>
+
+---
 
 Evalyn focuses on making GenAI App evaluation practical and easy. It provides lightweight tracing, human-in-the-loop annotation, metric suggestion, and calibration workflows to help developers/non-tech folks understand what to evaluate, align metrics with real usage, and continuously improve your GenAI App behavior over time.
 
