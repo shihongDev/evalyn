@@ -11,11 +11,50 @@ import json
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional
 from uuid import uuid4
 
-from ..models import DatasetItem, now_utc
+from ..models import DatasetItem, FunctionCall, now_utc
+from ..trace.tracer import EvalTracer
 from ..utils.api_client import GeminiClient
+
+
+# =============================================================================
+# Simple Utilities
+# =============================================================================
+
+
+def synthetic_dataset(prompts: Iterable[str]) -> List[DatasetItem]:
+    """Create a toy dataset from a list of prompts."""
+    return [
+        DatasetItem(
+            id=str(uuid4()),
+            inputs={"user_input": prompt},
+            expected=None,
+            metadata={"tag": "synthetic"},
+        )
+        for prompt in prompts
+    ]
+
+
+def simulate_agent(
+    tracer: EvalTracer,
+    handler: Callable[[str], str],
+    prompts: Iterable[str],
+) -> List[FunctionCall]:
+    """Run a handler over prompts to produce traced FunctionCalls."""
+    wrapped = tracer.instrument(handler)
+    calls: List[FunctionCall] = []
+    for prompt in prompts:
+        wrapped(prompt)
+        if tracer.last_call:
+            calls.append(tracer.last_call)
+    return calls
+
+
+# =============================================================================
+# LLM-Based Simulators
+# =============================================================================
 
 
 @dataclass

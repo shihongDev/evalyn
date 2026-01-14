@@ -83,7 +83,6 @@ from .simulation import (
     GeneratedQuery,
     synthetic_dataset,
     simulate_agent,
-    random_prompt_variations,
 )
 from .trace.otel import configure_otel, configure_default_otel, OTEL_AVAILABLE
 from .models import (
@@ -192,5 +191,4 @@ __all__ = [
     "GeneratedQuery",
     "synthetic_dataset",
     "simulate_agent",
-    "random_prompt_variations",
 ]
