@@ -30,6 +30,7 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 .venv/
+uv.lock
 .env
 .envrc
 .python-version
@@ -44,6 +45,7 @@ SPEC.md
 # Test
 tests/
 test_data/
+test_all_cli.sh
 
 # SQLite
 evalyn.sqlite
