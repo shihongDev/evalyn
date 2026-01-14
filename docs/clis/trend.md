@@ -12,8 +12,8 @@ evalyn trend --project <dataset_name> [options]
 
 | Option | Description |
 |--------|-------------|
-| `--project`, `-p` | Project name (dataset_name) to analyze trends for (required) |
-| `--limit`, `-n` | Maximum number of runs to include (default: 10) |
+| `--project` | Project name (dataset_name) to analyze trends for (required) |
+| `--limit` | Maximum number of runs to include (default: 20) |
 | `--format` | Output format: `table` (default) or `json` |
 
 ## Description
@@ -82,9 +82,6 @@ evalyn trend --project my-agent --limit 5
 
 # JSON output for CI/CD pipelines
 evalyn trend --project my-agent --format json
-
-# Short form
-evalyn trend -p my-agent -n 5
 ```
 
 ## JSON Output

@@ -35,7 +35,7 @@ evalyn one-click --project <name> [OPTIONS]
 ### Metrics Options
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--metric-mode MODE` | basic | Mode: basic, llm-registry, llm-brainstorm, bundle |
+| `--metric-mode MODE` | basic | Mode: basic, llm-registry, llm-brainstorm, bundle, all |
 | `--llm-mode MODE` | api | LLM caller: api, local |
 | `--model NAME` | gemini-2.5-flash-lite | Model name |
 | `--bundle NAME` | - | Bundle name (for mode=bundle) |
@@ -58,10 +58,10 @@ evalyn one-click --project <name> [OPTIONS]
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--enable-simulation` | false | Enable simulation step |
-| `--simulation-modes M` | similar,outlier | Modes to run |
+| `--simulation-modes M` | similar | Modes to run |
 | `--num-similar N` | 3 | Similar queries per seed |
 | `--num-outlier N` | 2 | Outlier queries per seed |
-| `--max-sim-seeds N` | 20 | Max seeds for simulation |
+| `--max-sim-seeds N` | 10 | Max seeds for simulation |
 
 ## Pipeline Steps
 
