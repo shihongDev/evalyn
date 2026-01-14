@@ -471,8 +471,12 @@ evalyn/
 │       ├── models.py            # Dataclasses
 │       ├── datasets.py          # Dataset I/O
 │       ├── runner.py            # EvalRunner
-│       ├── analyzer.py          # Analysis & visualization
 │       ├── cli_impl.py          # CLI command implementations
+│       ├── analysis/            # Analysis & visualization module
+│       │   ├── core.py          # RunAnalysis, MetricStats classes
+│       │   ├── reports.py       # Text/ASCII reports
+│       │   ├── html_report.py   # HTML dashboard generation
+│       │   └── trends.py        # Trend analysis over time
 │       ├── trace/
 │       │   ├── tracer.py        # EvalTracer, session management
 │       │   ├── context.py       # Context management
@@ -483,9 +487,8 @@ evalyn/
 │       │   ├── base.py          # StorageBackend interface
 │       │   └── sqlite.py        # SQLiteStorage
 │       ├── metrics/
-│       │   ├── templates.py     # 30 objective metric definitions
+│       │   ├── objective.py     # 30 objective metric templates + handlers
 │       │   ├── subjective.py    # 22 subjective metric definitions
-│       │   ├── objective.py     # Objective metric handlers
 │       │   ├── judges.py        # LLM judge implementations
 │       │   ├── factory.py       # Metric builders
 │       │   └── suggester.py     # Metric suggestion logic

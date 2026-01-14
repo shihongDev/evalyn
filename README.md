@@ -246,7 +246,7 @@ Decide whether your metric is:
 
 ### Step 2: Define Your Metric
 
-**For objective metrics**, add to `sdk/evalyn_sdk/metrics/templates.py`:
+**For objective metrics**, add to `sdk/evalyn_sdk/metrics/objective.py`:
 
 ```python
 {
@@ -286,7 +286,7 @@ Decide whether your metric is:
 
 ### Step 3: Implement the Evaluation Logic (Objective Only)
 
-For objective metrics, add a handler function in `sdk/evalyn_sdk/metrics/handlers.py`:
+For objective metrics, add a handler function in `sdk/evalyn_sdk/metrics/objective.py`:
 
 ```python
 def compute_your_metric_name(output: str, config: dict, **kwargs) -> dict:
