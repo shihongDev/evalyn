@@ -27,7 +27,8 @@ from .metrics.objective import (
     register_builtin_metrics,
 )
 from .metrics.judges import LLMJudge, EchoJudge, JUDGE_TEMPLATES
-from .metrics.templates import OBJECTIVE_TEMPLATES, SUBJECTIVE_TEMPLATES
+from .metrics.objective import OBJECTIVE_TEMPLATES
+from .metrics.subjective import SUBJECTIVE_TEMPLATES
 from .metrics.factory import (
     build_objective_metric,
     build_subjective_metric,

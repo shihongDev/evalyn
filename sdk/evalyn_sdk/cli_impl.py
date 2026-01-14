@@ -223,7 +223,8 @@ from .simulation import UserSimulator, AgentSimulator, SimulationConfig
 from .decorators import get_default_tracer
 from .metrics.objective import register_builtin_metrics
 from .models import MetricRegistry
-from .metrics.templates import OBJECTIVE_TEMPLATES, SUBJECTIVE_TEMPLATES
+from .metrics.objective import OBJECTIVE_TEMPLATES
+from .metrics.subjective import SUBJECTIVE_TEMPLATES
 from .runner import EvalRunner
 from .metrics.suggester import (
     HeuristicSuggester,

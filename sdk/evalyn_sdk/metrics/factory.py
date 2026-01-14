@@ -37,7 +37,8 @@ from .objective import (
 )
 from ..models import Metric
 from .judges import LLMJudge
-from .templates import OBJECTIVE_TEMPLATES, SUBJECTIVE_TEMPLATES
+from .objective import OBJECTIVE_TEMPLATES
+from .subjective import SUBJECTIVE_TEMPLATES
 
 
 def _tpl_by_id(templates: List[dict]) -> Dict[str, dict]:
