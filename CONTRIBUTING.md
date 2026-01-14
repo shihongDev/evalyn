@@ -83,9 +83,9 @@ evalyn/
 │   │   │   ├── tracer.py           # Core tracing logic
 │   │   │   └── auto_instrument.py  # Auto-patching for LLM libraries
 │   │   ├── metrics/
-│   │   │   ├── templates.py        # Objective metric templates (30)
+│   │   │   ├── objective.py        # Objective metric templates (30) + handlers
 │   │   │   ├── subjective.py       # LLM judge templates (22)
-│   │   │   ├── objective.py        # Objective metric handlers
+│   │   │   ├── judges.py           # LLM judge implementations
 │   │   │   └── factory.py          # Metric builders
 │   │   ├── annotation/             # Human annotation & calibration
 │   │   ├── simulation/             # Synthetic data generation
@@ -103,9 +103,9 @@ evalyn/
 
 ### Objective Metrics
 
-1. Add template to `sdk/evalyn_sdk/metrics/templates.py`:
+1. Add template to `sdk/evalyn_sdk/metrics/objective.py` (in the `OBJECTIVE_REGISTRY` list):
 ```python
-# Add to OBJECTIVE_TEMPLATES list
+# Add to OBJECTIVE_REGISTRY list
 {
     "id": "my_metric",
     "type": "objective",
@@ -123,7 +123,7 @@ evalyn/
 
 1. Add template to `sdk/evalyn_sdk/metrics/subjective.py`:
 ```python
-# Add to SUBJECTIVE_TEMPLATES list
+# Add to SUBJECTIVE_REGISTRY list
 {
     "id": "my_judge_metric",
     "type": "subjective",

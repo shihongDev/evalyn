@@ -27,8 +27,8 @@ from .metrics.objective import (
     register_builtin_metrics,
 )
 from .metrics.judges import LLMJudge, EchoJudge, JUDGE_TEMPLATES
-from .metrics.objective import OBJECTIVE_TEMPLATES
-from .metrics.subjective import SUBJECTIVE_TEMPLATES
+from .metrics.objective import OBJECTIVE_REGISTRY
+from .metrics.subjective import SUBJECTIVE_REGISTRY
 from .metrics.factory import (
     build_objective_metric,
     build_subjective_metric,
@@ -166,8 +166,8 @@ __all__ = [
     "tool_call_count_metric",
     "register_builtin_metrics",
     # Templates
-    "OBJECTIVE_TEMPLATES",
-    "SUBJECTIVE_TEMPLATES",
+    "OBJECTIVE_REGISTRY",
+    "SUBJECTIVE_REGISTRY",
     "build_objective_metric",
     "build_subjective_metric",
     "list_template_ids",

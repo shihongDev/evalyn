@@ -223,8 +223,8 @@ from .simulation import UserSimulator, AgentSimulator, SimulationConfig
 from .decorators import get_default_tracer
 from .metrics.objective import register_builtin_metrics
 from .models import MetricRegistry
-from .metrics.objective import OBJECTIVE_TEMPLATES
-from .metrics.subjective import SUBJECTIVE_TEMPLATES
+from .metrics.objective import OBJECTIVE_REGISTRY
+from .metrics.subjective import SUBJECTIVE_REGISTRY
 from .runner import EvalRunner
 from .metrics.suggester import (
     HeuristicSuggester,
@@ -2015,7 +2015,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         metrics_file = metrics_dir / f"{safe_name}.json"
 
         # Validate objective metrics - filter out custom ones that won't work
-        valid_objective_ids = {t["id"] for t in OBJECTIVE_TEMPLATES}
+        valid_objective_ids = {t["id"] for t in OBJECTIVE_REGISTRY}
         invalid_objectives = [
             s
             for s in specs
@@ -2093,7 +2093,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
                 f"Unknown bundle '{args.bundle}'. Available: {', '.join(BUNDLES.keys())}"
             )
             return
-        all_templates = _filter_by_scope(OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES)
+        all_templates = _filter_by_scope(OBJECTIVE_REGISTRY + SUBJECTIVE_REGISTRY)
         tpl_map = {t["id"]: t for t in all_templates}
         specs = []
         skipped_ref_metrics = []
@@ -2127,7 +2127,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
     if selected_mode == "llm-registry":
         caller = _build_llm_caller(args)
         filtered_templates = _filter_by_scope(
-            OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES
+            OBJECTIVE_REGISTRY + SUBJECTIVE_REGISTRY
         )
         selector = TemplateSelector(
             caller, filtered_templates, has_reference=has_reference
@@ -2167,7 +2167,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
 
     # Filter by scope if specified (lookup scope from templates)
     if scope_filter:
-        all_templates = OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES
+        all_templates = OBJECTIVE_REGISTRY + SUBJECTIVE_REGISTRY
         template_scope = {t["id"]: t.get("scope", "overall") for t in all_templates}
         specs = [
             s for s in specs if template_scope.get(s.id, "overall") == scope_filter
@@ -3970,7 +3970,7 @@ def cmd_select_metrics(args: argparse.Namespace) -> None:
 
     if args.llm_caller:
         caller = _load_callable(args.llm_caller)
-        selector = TemplateSelector(caller, OBJECTIVE_TEMPLATES + SUBJECTIVE_TEMPLATES)
+        selector = TemplateSelector(caller, OBJECTIVE_REGISTRY + SUBJECTIVE_REGISTRY)
         selected = selector.select(
             target_fn, traces=traces, code_meta=_extract_code_meta(tracer, target_fn)
         )
@@ -4049,8 +4049,8 @@ def cmd_list_metrics(args: argparse.Namespace) -> None:
         for row in rows:
             print(" | ".join(str(cell).ljust(widths[i]) for i, cell in enumerate(row)))
 
-    _print_table("\nObjective metrics:", OBJECTIVE_TEMPLATES)
-    _print_table("\nSubjective metrics:", SUBJECTIVE_TEMPLATES)
+    _print_table("\nObjective metrics:", OBJECTIVE_REGISTRY)
+    _print_table("\nSubjective metrics:", SUBJECTIVE_REGISTRY)
 
 
 def cmd_simulate(args: argparse.Namespace) -> None:

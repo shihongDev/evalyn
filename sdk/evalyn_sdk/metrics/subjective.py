@@ -5,13 +5,13 @@ This module defines the canonical templates for all subjective metrics.
 Each template specifies a rubric that judges use to evaluate outputs.
 
 Usage:
-    from evalyn_sdk.metrics.subjective import SUBJECTIVE_TEMPLATES, JUDGE_TEMPLATES
+    from evalyn_sdk.metrics.subjective import SUBJECTIVE_REGISTRY, JUDGE_TEMPLATES
 
     # Get template by ID
     template = JUDGE_TEMPLATES["helpfulness_accuracy"]
 
     # List all templates
-    for t in SUBJECTIVE_TEMPLATES:
+    for t in SUBJECTIVE_REGISTRY:
         print(f"{t['id']}: {t['description']}")
 """
 
@@ -38,7 +38,7 @@ CATEGORIES: Dict[str, str] = {
 # Subjective Metric Templates
 # =============================================================================
 
-SUBJECTIVE_TEMPLATES: List[Dict[str, Any]] = [
+SUBJECTIVE_REGISTRY: List[Dict[str, Any]] = [
     # =========================================================================
     # EXISTING TEMPLATES (enhanced rubrics)
     # =========================================================================
@@ -499,7 +499,7 @@ SUBJECTIVE_TEMPLATES: List[Dict[str, Any]] = [
 # =============================================================================
 
 # Create dict for backward compatibility with judges.py
-JUDGE_TEMPLATES: Dict[str, Dict[str, Any]] = {t["id"]: t for t in SUBJECTIVE_TEMPLATES}
+JUDGE_TEMPLATES: Dict[str, Dict[str, Any]] = {t["id"]: t for t in SUBJECTIVE_REGISTRY}
 
 
 # =============================================================================
@@ -509,7 +509,7 @@ JUDGE_TEMPLATES: Dict[str, Dict[str, Any]] = {t["id"]: t for t in SUBJECTIVE_TEM
 
 def list_templates() -> List[str]:
     """List all available template IDs."""
-    return [t["id"] for t in SUBJECTIVE_TEMPLATES]
+    return [t["id"] for t in SUBJECTIVE_REGISTRY]
 
 
 def get_template(template_id: str) -> Dict[str, Any]:
@@ -522,11 +522,11 @@ def get_template(template_id: str) -> Dict[str, Any]:
 
 def get_templates_by_category(category: str) -> List[Dict[str, Any]]:
     """Get all templates in a given category."""
-    return [t for t in SUBJECTIVE_TEMPLATES if t.get("category") == category]
+    return [t for t in SUBJECTIVE_REGISTRY if t.get("category") == category]
 
 
 __all__ = [
-    "SUBJECTIVE_TEMPLATES",
+    "SUBJECTIVE_REGISTRY",
     "JUDGE_TEMPLATES",
     "CATEGORIES",
     "list_templates",

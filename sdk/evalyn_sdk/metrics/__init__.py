@@ -14,7 +14,7 @@ from .objective import (
 )
 from .judges import LLMJudge, EchoJudge, JUDGE_TEMPLATES
 from .subjective import (
-    SUBJECTIVE_TEMPLATES,
+    SUBJECTIVE_REGISTRY,
     CATEGORIES,
     list_templates,
     get_template,
@@ -41,7 +41,7 @@ __all__ = [
     "EchoJudge",
     "JUDGE_TEMPLATES",
     # Subjective templates
-    "SUBJECTIVE_TEMPLATES",
+    "SUBJECTIVE_REGISTRY",
     "CATEGORIES",
     "list_templates",
     "get_template",

@@ -37,16 +37,16 @@ from .objective import (
 )
 from ..models import Metric
 from .judges import LLMJudge
-from .objective import OBJECTIVE_TEMPLATES
-from .subjective import SUBJECTIVE_TEMPLATES
+from .objective import OBJECTIVE_REGISTRY
+from .subjective import SUBJECTIVE_REGISTRY
 
 
 def _tpl_by_id(templates: List[dict]) -> Dict[str, dict]:
     return {t["id"]: t for t in templates}
 
 
-_OBJECTIVE_TPL = _tpl_by_id(OBJECTIVE_TEMPLATES)
-_SUBJECTIVE_TPL = _tpl_by_id(SUBJECTIVE_TEMPLATES)
+_OBJECTIVE_TPL = _tpl_by_id(OBJECTIVE_REGISTRY)
+_SUBJECTIVE_TPL = _tpl_by_id(SUBJECTIVE_REGISTRY)
 
 
 def list_template_ids() -> List[str]:

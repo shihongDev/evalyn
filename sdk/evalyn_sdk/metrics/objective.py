@@ -25,7 +25,7 @@ from ..models import DatasetItem, FunctionCall, Metric, MetricResult, MetricSpec
 #   - "tool_call": Evaluates individual tool call results
 #   - "trace": Aggregates over the entire trace (counts, ratios)
 
-OBJECTIVE_TEMPLATES = [
+OBJECTIVE_REGISTRY = [
     # === TRACE-COMPATIBLE METRICS (no human labels needed) ===
     {
         "id": "latency_ms",
