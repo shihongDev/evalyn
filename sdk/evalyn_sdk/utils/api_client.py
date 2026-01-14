@@ -41,7 +41,9 @@ class GeminiClient:
 
     def _get_api_key(self) -> str:
         """Get API key from instance or environment."""
-        key = self._api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        key = (
+            self._api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        )
         if not key:
             raise RuntimeError(
                 "Missing GEMINI_API_KEY. Set the environment variable or pass api_key."
@@ -62,18 +64,25 @@ class GeminiClient:
             RuntimeError: If the API call fails
         """
         api_key = self._get_api_key()
-        url = self.API_URL.format(model=self.model) + f"?key={api_key}"
+        url = self.API_URL.format(model=self.model)
 
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": temperature if temperature is not None else self.temperature},
+            "generationConfig": {
+                "temperature": temperature
+                if temperature is not None
+                else self.temperature
+            },
         }
 
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
             url,
             data=data,
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "x-goog-api-key": api_key,
+            },
             method="POST",
         )
 
