@@ -1664,7 +1664,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     results_path = run_folder / "results.json"
 
     # Generate HTML analysis report
-    from .analyzer import (
+    from .analysis import (
         analyze_run as analyze_run_data,
         generate_html_report,
         load_eval_run,
@@ -4912,7 +4912,7 @@ def cmd_export(args: argparse.Namespace) -> None:
 def cmd_trend(args: argparse.Namespace) -> None:
     """Show evaluation trends over time for a project."""
     from .storage import SQLiteStorage
-    from .analyzer import analyze_trends, generate_trend_text_report
+    from .analysis import analyze_trends, generate_trend_text_report
 
     storage = SQLiteStorage()
 
