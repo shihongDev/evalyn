@@ -109,4 +109,25 @@ class GeminiClient:
         return ""
 
 
-__all__ = ["GeminiClient"]
+def call_gemini_api(
+    prompt: str,
+    model: str = "gemini-2.5-flash-lite",
+    api_key: Optional[str] = None,
+    temperature: float = 0.0,
+) -> str:
+    """Convenience function to call Gemini API.
+
+    Args:
+        prompt: The prompt to send to the model
+        model: Gemini model name (default: gemini-2.5-flash-lite)
+        api_key: Optional API key (default: from GEMINI_API_KEY env var)
+        temperature: Generation temperature (default: 0.0)
+
+    Returns:
+        The generated text response
+    """
+    client = GeminiClient(model=model, api_key=api_key, temperature=temperature)
+    return client.generate(prompt)
+
+
+__all__ = ["GeminiClient", "call_gemini_api"]
