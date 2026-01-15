@@ -32,6 +32,7 @@ import argparse
 import json
 import os
 import shutil
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -47,8 +48,11 @@ def cmd_init(args: argparse.Namespace) -> None:
     output_path = Path(args.output)
 
     if output_path.exists() and not args.force:
-        print(f"Error: {output_path} already exists. Use --force to overwrite.")
-        return
+        print(
+            f"Error: {output_path} already exists. Use --force to overwrite.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     # Find the example file - check multiple locations
     example_paths = [
@@ -83,7 +87,7 @@ defaults:
   project: null
   version: null
 """
-        with open(output_path, "w") as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(minimal)
         print(f"Created {output_path} (minimal config)")
         print("Note: evalyn.yaml.example not found for full template")
@@ -477,7 +481,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                         "why": getattr(spec, "why", ""),
                     }
                 )
-            with open(metrics_path, "w") as f:
+            with open(metrics_path, "w", encoding="utf-8") as f:
                 json.dump(payload, f, indent=2)
 
             obj_count = sum(1 for spec in metric_specs if spec.type == "objective")
@@ -518,7 +522,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             )
 
             # Load metrics from file
-            with open(metrics_path) as f:
+            with open(metrics_path, encoding="utf-8") as f:
                 metrics_data = json.load(f)
 
             metrics = []
@@ -556,7 +560,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
 
             # Save run
             run_path = eval_dir / f"run_{timestamp}_{eval_run.id[:8]}.json"
-            with open(run_path, "w") as f:
+            with open(run_path, "w", encoding="utf-8") as f:
                 json.dump(eval_run.as_dict(), f, indent=2)
 
             print(f"  Evaluated {len(items)} items")
@@ -616,7 +620,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
 
                     # Count annotations
                     if ann_path.exists():
-                        with open(ann_path) as f:
+                        with open(ann_path, encoding="utf-8") as f:
                             ann_count = sum(1 for _ in f)
                         print(f"  Completed {ann_count} annotations")
                         print(f"  Saved to: {ann_path}\n")
@@ -729,7 +733,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 from ...annotation import load_optimized_prompt
 
                 # Load metrics from file
-                with open(metrics_path) as f:
+                with open(metrics_path, encoding="utf-8") as f:
                     metrics_data = json.load(f)
 
                 metrics = []
@@ -779,7 +783,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
 
                 # Save run
                 run_path2 = eval2_dir / f"run_{timestamp}_{eval_run2.id[:8]}.json"
-                with open(run_path2, "w") as f:
+                with open(run_path2, "w", encoding="utf-8") as f:
                     json.dump(eval_run2.as_dict(), f, indent=2)
 
                 print(f"  Used {calibrated_count} calibrated prompts")
@@ -858,7 +862,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         # Save final pipeline state (also saved as pipeline_summary.json for backwards compat)
         state["completed_at"] = datetime.now().isoformat()
         summary_path = output_dir / "pipeline_summary.json"
-        with open(summary_path, "w") as f:
+        with open(summary_path, "w", encoding="utf-8") as f:
             json.dump(state, f, indent=2)
 
         # Final summary

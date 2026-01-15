@@ -43,7 +43,7 @@ def cmd_status(args: argparse.Namespace) -> None:
 
     if not dataset_path:
         # Try to show available datasets
-        print("No dataset specified. Available datasets:")
+        print("No dataset specified. Available datasets:", file=sys.stderr)
         data_dir = Path("data")
         if data_dir.exists():
             datasets = [
@@ -56,15 +56,18 @@ def cmd_status(args: argparse.Namespace) -> None:
                 mtime = datetime.fromtimestamp(d.stat().st_mtime).strftime(
                     "%Y-%m-%d %H:%M"
                 )
-                print(f"  {d.name:<40} (modified: {mtime})")
+                print(f"  {d.name:<40} (modified: {mtime})", file=sys.stderr)
             if len(datasets) > 10:
-                print(f"  ... and {len(datasets) - 10} more")
-        print("\nUse: evalyn status --dataset <path> or evalyn status --latest")
-        return
+                print(f"  ... and {len(datasets) - 10} more", file=sys.stderr)
+        print(
+            "\nUse: evalyn status --dataset <path> or evalyn status --latest",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     if not dataset_path.exists():
-        print(f"Error: Dataset path does not exist: {dataset_path}")
-        return
+        print(f"Error: Dataset path does not exist: {dataset_path}", file=sys.stderr)
+        sys.exit(1)
 
     print(f"\n{'=' * 60}")
     print(f"DATASET STATUS: {dataset_path.name}")
@@ -75,7 +78,7 @@ def cmd_status(args: argparse.Namespace) -> None:
     dataset_file = dataset_path / "dataset.jsonl"
     item_count = 0
     if dataset_file.exists():
-        with open(dataset_file) as f:
+        with open(dataset_file, encoding="utf-8") as f:
             item_count = sum(1 for _ in f)
     print("\n--- DATASET ---")
     print(f"Items: {item_count}")
@@ -83,7 +86,7 @@ def cmd_status(args: argparse.Namespace) -> None:
     # Meta info
     meta_file = dataset_path / "meta.json"
     if meta_file.exists():
-        with open(meta_file) as f:
+        with open(meta_file, encoding="utf-8") as f:
             meta = json.load(f)
             if "project" in meta:
                 print(f"Project: {meta.get('project')}")
@@ -98,7 +101,7 @@ def cmd_status(args: argparse.Namespace) -> None:
         print(f"Metric sets: {len(metric_files)}")
         for mf in sorted(metric_files):
             try:
-                with open(mf) as f:
+                with open(mf, encoding="utf-8") as f:
                     metrics = json.load(f)
                     count = len(metrics) if isinstance(metrics, list) else 0
                     print(f"  {mf.name}: {count} metrics")
@@ -120,7 +123,7 @@ def cmd_status(args: argparse.Namespace) -> None:
         # Show latest 3
         for rf in sorted(run_files, reverse=True)[:3]:
             try:
-                with open(rf) as f:
+                with open(rf, encoding="utf-8") as f:
                     run = json.load(f)
                     created = run.get("created_at", "")[:19]
                     results_count = len(run.get("metric_results", []))
@@ -135,7 +138,7 @@ def cmd_status(args: argparse.Namespace) -> None:
     annotations_file = dataset_path / "annotations.jsonl"
     print("\n--- ANNOTATIONS ---")
     if annotations_file.exists():
-        with open(annotations_file) as f:
+        with open(annotations_file, encoding="utf-8") as f:
             ann_count = sum(1 for _ in f)
         coverage = f"{ann_count}/{item_count}" if item_count > 0 else str(ann_count)
         pct = f" ({ann_count / item_count:.0%})" if item_count > 0 else ""
@@ -328,7 +331,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
     meta_file = dataset_dir / "meta.json"
     if meta_file.exists():
         try:
-            with open(meta_file) as f:
+            with open(meta_file, encoding="utf-8") as f:
                 meta = json.load(f)
             print("\n  meta.json:          Found")
             if "project" in meta:
@@ -409,7 +412,7 @@ def cmd_analyze(args: argparse.Namespace) -> None:
                 # Fallback to direct json files
                 run_files = sorted(runs_dir.glob("*.json"), reverse=True)
             if run_files:
-                with open(run_files[0]) as f:
+                with open(run_files[0], encoding="utf-8") as f:
                     run_data = json.load(f)
                     run = EvalRun.from_dict(run_data)
                 print(f"Analyzing latest run: {run_files[0].name}")
@@ -584,7 +587,7 @@ def cmd_compare(args: argparse.Namespace) -> None:
             # Try loading from file
             run1_path = Path(args.run1)
             if run1_path.exists():
-                with open(run1_path) as f:
+                with open(run1_path, encoding="utf-8") as f:
                     data = json.load(f)
                     run1 = EvalRun(**data)
 
@@ -599,7 +602,7 @@ def cmd_compare(args: argparse.Namespace) -> None:
         if not run2:
             run2_path = Path(args.run2)
             if run2_path.exists():
-                with open(run2_path) as f:
+                with open(run2_path, encoding="utf-8") as f:
                     data = json.load(f)
                     run2 = EvalRun(**data)
 

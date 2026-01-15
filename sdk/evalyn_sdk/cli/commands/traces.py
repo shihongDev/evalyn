@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from typing import Any
 
 from ...decorators import get_default_tracer
@@ -173,39 +174,48 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
         ]
         print(" | ".join(row))
 
-    # Show hint with first call ID
-    first_id = calls[0].id
-    print_hint(
-        f"To see details, run: evalyn show-call --id {first_id}",
-        quiet=getattr(args, "quiet", False),
-        format=output_format,
-    )
+    # Show hint with first call ID (guard against empty list after filtering)
+    if calls:
+        first_id = calls[0].id
+        print_hint(
+            f"To see details, run: evalyn show-call --id {first_id}",
+            quiet=getattr(args, "quiet", False),
+            format=output_format,
+        )
 
 
 def cmd_show_call(args: argparse.Namespace) -> None:
     """Show detailed information about a specific call."""
     tracer = get_default_tracer()
+    output_format = getattr(args, "format", "table")
+
     if not tracer.storage:
-        print("No storage configured.")
-        return
+        print("No storage configured.", file=sys.stderr)
+        sys.exit(1)
 
     # Handle --last flag or --id
     if getattr(args, "last", False):
         calls = tracer.storage.list_calls(limit=1)
         if not calls:
-            print("No calls found.")
-            return
+            print("No calls found.", file=sys.stderr)
+            sys.exit(1)
         call_id = calls[0].id
     elif args.id:
         call_id = args.id
     else:
-        print("Error: Must specify --id or --last")
-        return
+        print("Error: Must specify --id or --last", file=sys.stderr)
+        sys.exit(1)
 
     call = tracer.storage.get_call(call_id)
     if not call:
-        print(f"No call found with id={call_id}")
+        print(f"No call found with id={call_id}", file=sys.stderr)
+        sys.exit(1)
+
+    # JSON output mode
+    if output_format == "json":
+        print(json.dumps(call.as_dict(), indent=2, default=str))
         return
+
     status = "ERROR" if call.error else "OK"
 
     def _format_value(value, max_len=300):
@@ -628,26 +638,26 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
     """Show hierarchical span tree for a traced call (Phoenix-style visualization)."""
     tracer = get_default_tracer()
     if not tracer.storage:
-        print("No storage configured.")
-        return
+        print("No storage configured.", file=sys.stderr)
+        sys.exit(1)
 
     # Handle --last flag or --id
     if getattr(args, "last", False):
         calls = tracer.storage.list_calls(limit=1)
         if not calls:
-            print("No calls found.")
-            return
+            print("No calls found.", file=sys.stderr)
+            sys.exit(1)
         call_id = calls[0].id
     elif args.id:
         call_id = args.id
     else:
-        print("Error: Must specify --id or --last")
-        return
+        print("Error: Must specify --id or --last", file=sys.stderr)
+        sys.exit(1)
 
     call = tracer.storage.get_call(call_id)
     if not call:
-        print(f"No call found with id={call_id}")
-        return
+        print(f"No call found with id={call_id}", file=sys.stderr)
+        sys.exit(1)
 
     def _format_duration(ms: float) -> str:
         if ms is None:
@@ -808,8 +818,8 @@ def cmd_show_projects(args: argparse.Namespace) -> None:
     """Show summary of projects and their traces."""
     tracer = get_default_tracer()
     if not tracer.storage:
-        print("No storage configured.")
-        return
+        print("No storage configured.", file=sys.stderr)
+        sys.exit(1)
     calls = tracer.storage.list_calls(limit=args.limit)
     summary = {}
     for call in calls:
@@ -883,6 +893,9 @@ def register_commands(subparsers) -> None:
     p = subparsers.add_parser("show-call", help="Show details of a specific call")
     p.add_argument("--id", help="Call ID to show")
     p.add_argument("--last", action="store_true", help="Show the most recent call")
+    p.add_argument(
+        "--format", choices=["table", "json"], default="table", help="Output format"
+    )
     p.set_defaults(func=cmd_show_call)
 
     # show-trace

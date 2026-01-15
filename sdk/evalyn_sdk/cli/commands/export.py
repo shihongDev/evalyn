@@ -39,20 +39,20 @@ def cmd_export_for_annotation(args: argparse.Namespace) -> None:
 
     tracer = get_default_tracer()
     if not tracer.storage:
-        print("No storage configured.")
-        return
+        print("No storage configured.", file=sys.stderr)
+        sys.exit(1)
 
     # Load dataset
     config = load_config()
     dataset_path = resolve_dataset_path(args.dataset, False, config)
     if not dataset_path:
-        print("Error: --dataset required")
-        return
+        print("Error: --dataset required", file=sys.stderr)
+        sys.exit(1)
 
     dataset_file = dataset_path / "dataset.jsonl"
     if not dataset_file.exists():
-        print(f"Error: Dataset not found at {dataset_file}")
-        return
+        print(f"Error: Dataset not found at {dataset_file}", file=sys.stderr)
+        sys.exit(1)
 
     from ...datasets import load_dataset
 
@@ -151,7 +151,7 @@ def cmd_export(args: argparse.Namespace) -> None:
                 # Fallback to direct json files
                 run_files = sorted(runs_dir.glob("*.json"), reverse=True)
             if run_files:
-                with open(run_files[0]) as f:
+                with open(run_files[0], encoding="utf-8") as f:
                     run_data = json.load(f)
 
     if not run_data:

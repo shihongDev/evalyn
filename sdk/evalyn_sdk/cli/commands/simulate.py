@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -53,14 +54,14 @@ def cmd_simulate(args: argparse.Namespace) -> None:
         dataset_path = dataset_file.parent
 
     if not dataset_file.exists():
-        print(f"Error: Dataset not found at {dataset_file}")
-        return
+        print(f"Error: Dataset not found at {dataset_file}", file=sys.stderr)
+        sys.exit(1)
 
     # Load seed dataset
     seed_items = load_dataset(dataset_file)
     if not seed_items:
-        print("Error: No items found in seed dataset")
-        return
+        print("Error: No items found in seed dataset", file=sys.stderr)
+        sys.exit(1)
 
     print(f"Loaded {len(seed_items)} seed items from {dataset_file}")
 
@@ -128,7 +129,7 @@ def cmd_simulate(args: argparse.Namespace) -> None:
             # Count items
             sim_dataset_file = path / "dataset.jsonl"
             if sim_dataset_file.exists():
-                with open(sim_dataset_file) as f:
+                with open(sim_dataset_file, encoding="utf-8") as f:
                     count = sum(1 for _ in f)
                 print(f"  {mode}: {count} items -> {path}")
             else:
@@ -193,7 +194,7 @@ def cmd_simulate(args: argparse.Namespace) -> None:
                     else config.temperature_outlier,
                 },
             }
-            with open(mode_dir / "meta.json", "w") as f:
+            with open(mode_dir / "meta.json", "w", encoding="utf-8") as f:
                 json.dump(meta, f, indent=2)
 
             print(f"  Generated {len(generated)} {mode} queries -> {mode_dir}")

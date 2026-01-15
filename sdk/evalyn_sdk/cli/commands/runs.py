@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 
 from ...decorators import get_default_tracer
 from ..utils.hints import print_hint
@@ -35,8 +36,8 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
     """List stored eval runs."""
     tracer = get_default_tracer()
     if not tracer.storage:
-        print("No storage configured.")
-        return
+        print("No storage configured.", file=sys.stderr)
+        sys.exit(1)
     runs = tracer.storage.list_eval_runs(limit=args.limit)
     output_format = getattr(args, "format", "table")
 
@@ -92,12 +93,12 @@ def cmd_show_run(args: argparse.Namespace) -> None:
     """Show details for a specific eval run."""
     tracer = get_default_tracer()
     if not tracer.storage:
-        print("No storage configured.")
-        return
+        print("No storage configured.", file=sys.stderr)
+        sys.exit(1)
     run = tracer.storage.get_eval_run(args.id)
     if not run:
-        print(f"No eval run found with id={args.id}")
-        return
+        print(f"No eval run found with id={args.id}", file=sys.stderr)
+        sys.exit(1)
     print(f"\n=== Eval Run {run.id} ===")
     print(f"Dataset: {run.dataset_name}")
     print("Metrics summary:")

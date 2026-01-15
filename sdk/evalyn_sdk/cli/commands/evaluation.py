@@ -52,111 +52,12 @@ from ...models import MetricRegistry, MetricSpec
 from ..utils.config import load_config, get_config_default, resolve_dataset_path
 from ..utils.hints import print_hint
 from ..utils.loaders import _load_callable
-from ..utils.dataset_utils import ProgressBar
-
-
-def _resolve_dataset_and_metrics(
-    dataset_path: str, metrics_arg: Optional[str], metrics_all: bool = False
-) -> tuple:
-    """Resolve dataset file and metrics file paths.
-
-    Priority for metrics resolution:
-    1. --metrics-all: Use all JSON files in metrics/ folder
-    2. --metrics <path>: Use explicitly specified file(s)
-    3. meta.json active_metric_set: Use the active metric set
-    4. Fallback: First JSON file in metrics/ folder
-    """
-    dataset_path_obj = Path(dataset_path)
-
-    # Determine dataset file and directory
-    if dataset_path_obj.is_file():
-        dataset_file = dataset_path_obj
-        dataset_dir = dataset_path_obj.parent
-    else:
-        dataset_dir = dataset_path_obj
-        dataset_file = dataset_dir / "dataset.jsonl"
-        if not dataset_file.exists():
-            dataset_file = dataset_dir / "dataset.json"
-
-    if not dataset_file.exists():
-        raise FileNotFoundError(f"Dataset file not found: {dataset_file}")
-
-    # Determine metrics paths
-    metrics_paths = []
-
-    if metrics_all:
-        # Use all metrics files from metrics/ folder
-        metrics_dir = dataset_dir / "metrics"
-        if metrics_dir.exists():
-            metrics_paths = list(metrics_dir.glob("*.json"))
-            if not metrics_paths:
-                raise FileNotFoundError(f"No metrics files found in {metrics_dir}")
-        else:
-            raise FileNotFoundError(f"Metrics directory not found: {metrics_dir}")
-    elif metrics_arg:
-        # Use explicitly specified metrics files
-        for path_str in metrics_arg.split(","):
-            path = Path(path_str.strip())
-            if path.exists():
-                metrics_paths.append(path)
-            else:
-                # Try relative to dataset directory
-                rel_path = dataset_dir / path_str.strip()
-                if rel_path.exists():
-                    metrics_paths.append(rel_path)
-                else:
-                    raise FileNotFoundError(f"Metrics file not found: {path}")
-    else:
-        # Auto-detect from meta.json
-        meta_path = dataset_dir / "meta.json"
-        if meta_path.exists():
-            with open(meta_path) as f:
-                meta = json.load(f)
-            active_set = meta.get("active_metric_set")
-            metric_sets = meta.get("metric_sets", [])
-
-            if active_set:
-                for ms in metric_sets:
-                    if ms.get("name") == active_set:
-                        rel_file = ms.get("file")
-                        if rel_file:
-                            metrics_paths.append(dataset_dir / rel_file)
-                        break
-            elif metric_sets:
-                # Use first metric set
-                rel_file = metric_sets[0].get("file")
-                if rel_file:
-                    metrics_paths.append(dataset_dir / rel_file)
-
-        # Fallback to metrics/ directory
-        if not metrics_paths:
-            metrics_dir = dataset_dir / "metrics"
-            if metrics_dir.exists():
-                first_json = sorted(metrics_dir.glob("*.json"))
-                if first_json:
-                    metrics_paths.append(first_json[0])
-
-    if not metrics_paths:
-        raise ValueError(
-            "No metrics file found. Use --metrics <path> or create metrics/ folder."
-        )
-
-    return dataset_file, metrics_paths
-
-
-def _extract_code_meta(tracer, target_fn: Callable) -> Dict[str, Any]:
-    """Extract code metadata from target function."""
-    import inspect
-
-    code_meta = {}
-    try:
-        code_meta["function_name"] = target_fn.__name__
-        code_meta["signature"] = str(inspect.signature(target_fn))
-        code_meta["docstring"] = inspect.getdoc(target_fn) or ""
-        code_meta["source"] = inspect.getsource(target_fn)
-    except Exception:
-        pass
-    return code_meta
+from ..utils.dataset_utils import (
+    ProgressBar,
+    _resolve_dataset_and_metrics,
+    _dataset_has_reference,
+    _extract_code_meta,
+)
 
 
 def _build_llm_caller(args: argparse.Namespace) -> Callable:
@@ -175,53 +76,6 @@ def _build_llm_caller(args: argparse.Namespace) -> Callable:
         return call_gemini_api(prompt, model=model, api_key=api_key)
 
     return default_caller
-
-
-def _dataset_has_reference(dataset_path: Optional[Path]) -> bool:
-    """Check if a dataset has reference/expected values for comparison."""
-    if not dataset_path:
-        return False
-
-    # Find the actual dataset file
-    if dataset_path.is_file():
-        dataset_file = dataset_path
-    else:
-        if (dataset_path / "dataset.jsonl").exists():
-            dataset_file = dataset_path / "dataset.jsonl"
-        elif (dataset_path / "dataset.json").exists():
-            dataset_file = dataset_path / "dataset.json"
-        else:
-            return False
-
-    try:
-        items = load_dataset(str(dataset_file))
-        for item in items:
-            # Check for human_label with reference
-            if hasattr(item, "human_label") and item.human_label:
-                if isinstance(item.human_label, dict) and item.human_label.get(
-                    "reference"
-                ):
-                    return True
-
-            # Check metadata for explicit reference/golden fields
-            if hasattr(item, "metadata") and item.metadata:
-                if (
-                    item.metadata.get("reference")
-                    or item.metadata.get("golden")
-                    or item.metadata.get("golden_answer")
-                ):
-                    return True
-
-            # If BOTH output AND expected exist AND they are DIFFERENT
-            has_output = hasattr(item, "output") and item.output is not None
-            has_expected = hasattr(item, "expected") and item.expected is not None
-            if has_output and has_expected:
-                if item.output != item.expected:
-                    return True
-
-        return False
-    except Exception:
-        return False
 
 
 def cmd_run_eval(args: argparse.Namespace) -> None:
@@ -459,7 +313,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
 
         html_report = generate_html_report(analysis, item_details=item_details)
         report_path = run_folder / "report.html"
-        with open(report_path, "w") as f:
+        with open(report_path, "w", encoding="utf-8") as f:
             f.write(html_report)
     except Exception as e:
         report_path = None
@@ -576,16 +430,18 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
 
     # Validate: need either --project or --target
     if not args.project and not args.target:
-        print("Error: Either --project or --target is required.")
-        print("\nUsage:")
+        print("Error: Either --project or --target is required.", file=sys.stderr)
+        print("\nUsage:", file=sys.stderr)
         print(
-            "  evalyn suggest-metrics --project <name>    # Suggest based on project traces"
+            "  evalyn suggest-metrics --project <name>    # Suggest based on project traces",
+            file=sys.stderr,
         )
         print(
-            "  evalyn suggest-metrics --target <path>     # Suggest based on function code"
+            "  evalyn suggest-metrics --target <path>     # Suggest based on function code",
+            file=sys.stderr,
         )
-        print("\nTo see available projects:")
-        print("  evalyn show-projects")
+        print("\nTo see available projects:", file=sys.stderr)
+        print("  evalyn show-projects", file=sys.stderr)
         sys.exit(1)
 
     # Validate dataset path if provided
@@ -594,16 +450,24 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         dataset_path_obj = Path(args.dataset)
         if dataset_path_obj.is_file():
             if not dataset_path_obj.exists():
-                print(f"Error: Dataset file not found: {dataset_path_obj}")
                 print(
-                    "Please create the dataset first using 'evalyn build-dataset' or ensure the path is correct."
+                    f"Error: Dataset file not found: {dataset_path_obj}",
+                    file=sys.stderr,
+                )
+                print(
+                    "Please create the dataset first using 'evalyn build-dataset' or ensure the path is correct.",
+                    file=sys.stderr,
                 )
                 sys.exit(1)
         else:
             if not dataset_path_obj.exists():
-                print(f"Error: Dataset directory not found: {dataset_path_obj}")
                 print(
-                    "Please create the dataset first using 'evalyn build-dataset' or ensure the path is correct."
+                    f"Error: Dataset directory not found: {dataset_path_obj}",
+                    file=sys.stderr,
+                )
+                print(
+                    "Please create the dataset first using 'evalyn build-dataset' or ensure the path is correct.",
+                    file=sys.stderr,
                 )
                 sys.exit(1)
             has_dataset = (dataset_path_obj / "dataset.jsonl").exists() or (
@@ -631,7 +495,10 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
     if args.project:
         # Project-based: load traces from storage
         if not tracer.storage:
-            print("Error: No storage configured. Cannot load project traces.")
+            print(
+                "Error: No storage configured. Cannot load project traces.",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
         # Load all calls for this project
@@ -650,11 +517,13 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
                 project_traces.append(call)
 
         if not project_traces:
-            print(f"Error: No traces found for project '{args.project}'")
+            print(
+                f"Error: No traces found for project '{args.project}'", file=sys.stderr
+            )
             if args.version:
-                print(f"  (filtered by version: {args.version})")
-            print("\nAvailable projects:")
-            print("  evalyn show-projects")
+                print(f"  (filtered by version: {args.version})", file=sys.stderr)
+            print("\nAvailable projects:", file=sys.stderr)
+            print("  evalyn show-projects", file=sys.stderr)
             sys.exit(1)
 
         traces = project_traces[: args.num_traces]

@@ -982,11 +982,6 @@ def register_commands(subparsers) -> None:
         default="all",
         help="Filter span types to annotate",
     )
-    annotate_parser.add_argument(
-        "--only-disagreements",
-        action="store_true",
-        help="Only show items where LLM and prior human labels disagree",
-    )
     annotate_parser.set_defaults(func=cmd_annotate)
 
     # import-annotations

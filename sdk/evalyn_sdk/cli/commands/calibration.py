@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import List, Optional
 
@@ -64,21 +65,24 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     """
     tracer = get_default_tracer()
     if not tracer.storage:
-        print("No storage configured.")
-        return
+        print("No storage configured.", file=sys.stderr)
+        sys.exit(1)
 
     run = tracer.storage.get_eval_run(args.run_id) if args.run_id else None
     if run is None:
         runs = tracer.storage.list_eval_runs(limit=1)
         run = runs[0] if runs else None
     if run is None:
-        print("No eval runs available.")
-        return
+        print("No eval runs available.", file=sys.stderr)
+        sys.exit(1)
 
     metric_results = [r for r in run.metric_results if r.metric_id == args.metric_id]
     if not metric_results:
-        print(f"No metric results found for metric_id={args.metric_id} in run {run.id}")
-        return
+        print(
+            f"No metric results found for metric_id={args.metric_id} in run {run.id}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     # Load annotations
     anns = import_annotations(args.annotations)
@@ -123,8 +127,11 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     gepa_config = None
     if args.optimizer == "gepa":
         if not GEPA_AVAILABLE:
-            print("Error: GEPA is not installed. Install with: pip install gepa")
-            return
+            print(
+                "Error: GEPA is not installed. Install with: pip install gepa",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         gepa_config = GEPAConfig(
             task_lm=args.gepa_task_lm,
             reflection_lm=args.gepa_reflection_lm,
@@ -365,7 +372,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     # Also save to explicit output path if specified
     if args.output:
         output_path = Path(args.output)
-        with open(output_path, "w") as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             json.dump(record.as_dict(), f, indent=2, default=str)
         print(f"\nCalibration record also saved to: {output_path}")
 
@@ -380,13 +387,13 @@ def cmd_list_calibrations(args: argparse.Namespace) -> None:
     )
 
     if not dataset_path:
-        print("Error: No dataset specified. Use --dataset or --latest")
-        return
+        print("Error: No dataset specified. Use --dataset or --latest", file=sys.stderr)
+        sys.exit(1)
 
     calibrations_dir = dataset_path / "calibrations"
     if not calibrations_dir.exists():
-        print(f"No calibrations found in {dataset_path}")
-        return
+        print(f"No calibrations found in {dataset_path}", file=sys.stderr)
+        sys.exit(1)
 
     # Collect all calibration records
     calibrations = []
@@ -398,7 +405,7 @@ def cmd_list_calibrations(args: argparse.Namespace) -> None:
             if cal_file.name.startswith("."):
                 continue
             try:
-                with open(cal_file) as f:
+                with open(cal_file, encoding="utf-8") as f:
                     record = json.load(f)
                     # Parse timestamp from filename (e.g., 20250101_120000_gepa.json)
                     parts = cal_file.stem.split("_")
