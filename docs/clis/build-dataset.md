@@ -20,6 +20,7 @@ evalyn build-dataset [OPTIONS]
 | `--simulation` | false | Only simulation traces |
 | `--since DATE` | - | Filter traces after date (ISO format) |
 | `--until DATE` | - | Filter traces before date (ISO format) |
+| `--include-errors` | false | Include errored calls |
 
 ## Output Structure
 

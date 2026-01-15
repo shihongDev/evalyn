@@ -21,6 +21,9 @@ evalyn one-click --project <name> [OPTIONS]
 | `--target SPEC` | - | Target function (for simulation) |
 | `--version V` | prompt | Version filter (prompts if multiple) |
 | `--output-dir PATH` | auto | Custom output directory |
+| `--resume` | false | Resume from previous incomplete run |
+| `--auto-yes` | false | Skip all confirmation prompts |
+| `--verbose` | false | Show detailed logs |
 | `--dry-run` | false | Preview without executing |
 
 ### Dataset Options
