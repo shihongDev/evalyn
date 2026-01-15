@@ -1,5 +1,27 @@
 """CLI command modules."""
 
-from . import analysis, dataset, export, runs, simulate, traces
+from . import (
+    analysis,
+    annotation,
+    calibration,
+    dataset,
+    evaluation,
+    export,
+    infrastructure,
+    runs,
+    simulate,
+    traces,
+)
 
-__all__ = ["analysis", "dataset", "export", "runs", "simulate", "traces"]
+__all__ = [
+    "analysis",
+    "annotation",
+    "calibration",
+    "dataset",
+    "evaluation",
+    "export",
+    "infrastructure",
+    "runs",
+    "simulate",
+    "traces",
+]

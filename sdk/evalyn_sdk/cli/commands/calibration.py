@@ -1,0 +1,519 @@
+"""Calibration commands: calibrate, list-calibrations."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from ...annotation import import_annotations
+from ...annotation import (
+    CalibrationEngine,
+    GEPAConfig,
+    GEPA_AVAILABLE,
+    save_calibration,
+)
+from ...datasets import load_dataset
+from ...decorators import get_default_tracer
+from ...models import DatasetItem
+from ..utils.config import load_config, resolve_dataset_path
+from ..utils.ui import Spinner
+
+
+def cmd_calibrate(args: argparse.Namespace) -> None:
+    """Calibrate a subjective metric using human annotations."""
+    tracer = get_default_tracer()
+    if not tracer.storage:
+        print("No storage configured.")
+        return
+
+    run = tracer.storage.get_eval_run(args.run_id) if args.run_id else None
+    if run is None:
+        runs = tracer.storage.list_eval_runs(limit=1)
+        run = runs[0] if runs else None
+    if run is None:
+        print("No eval runs available.")
+        return
+
+    metric_results = [r for r in run.metric_results if r.metric_id == args.metric_id]
+    if not metric_results:
+        print(f"No metric results found for metric_id={args.metric_id} in run {run.id}")
+        return
+
+    # Load annotations
+    anns = import_annotations(args.annotations)
+
+    # Get current rubric and preamble from metric config if available
+    current_rubric: List[str] = []
+    current_preamble: str = ""
+    for metric_spec in run.metrics:
+        if metric_spec.id == args.metric_id:
+            cfg = metric_spec.config or {}
+            # Extract rubric (evaluation criteria)
+            rubric_val = cfg.get("rubric", [])
+            if isinstance(rubric_val, list):
+                current_rubric = [str(r) for r in rubric_val]
+            # Extract preamble (base prompt before rubric)
+            preamble_val = cfg.get("prompt", "")
+            if isinstance(preamble_val, str):
+                current_preamble = preamble_val
+            break
+
+    # Load dataset items for context (if dataset path provided)
+    config = load_config()
+    dataset_items: Optional[List[DatasetItem]] = None
+    dataset_dir: Optional[Path] = None
+
+    # Resolve dataset path using --dataset, --latest, or config
+    dataset_arg = getattr(args, "dataset", None)
+    use_latest = getattr(args, "latest", False)
+    resolved_dataset = resolve_dataset_path(dataset_arg, use_latest, config)
+
+    if resolved_dataset:
+        dataset_dir = Path(resolved_dataset)
+        dataset_file = (
+            dataset_dir / "dataset.jsonl" if dataset_dir.is_dir() else dataset_dir
+        )
+        if dataset_file.exists():
+            dataset_items = load_dataset(dataset_file)
+            if dataset_dir.is_file():
+                dataset_dir = dataset_dir.parent
+
+    # Build GEPA config if using GEPA optimizer
+    gepa_config = None
+    if args.optimizer == "gepa":
+        if not GEPA_AVAILABLE:
+            print("Error: GEPA is not installed. Install with: pip install gepa")
+            return
+        gepa_config = GEPAConfig(
+            task_lm=args.gepa_task_lm,
+            reflection_lm=args.gepa_reflection_lm,
+            max_metric_calls=args.gepa_max_calls,
+        )
+
+    # Run enhanced calibration
+    engine = CalibrationEngine(
+        judge_name=args.metric_id,
+        current_threshold=args.threshold,
+        current_rubric=current_rubric,
+        current_preamble=current_preamble,
+        optimize_prompts=not args.no_optimize,
+        optimizer_model=args.model,
+        optimizer_type=args.optimizer,
+        gepa_config=gepa_config,
+    )
+
+    # Use spinner for long-running operations (especially GEPA)
+    if args.optimizer == "gepa" and not args.no_optimize:
+        spinner_msg = f"Running GEPA optimization (max {args.gepa_max_calls} calls)"
+        with Spinner(spinner_msg):
+            record = engine.calibrate(metric_results, anns, dataset_items)
+    else:
+        record = engine.calibrate(metric_results, anns, dataset_items)
+
+    # Display results
+    print(f"\n{'=' * 60}")
+    print(f"CALIBRATION REPORT: {args.metric_id}")
+    print(f"{'=' * 60}")
+    print(f"Eval Run: {run.id}")
+    print(
+        f"Samples:  {record.adjustments.get('alignment_metrics', {}).get('total_samples', 0)}"
+    )
+
+    # Alignment metrics
+    alignment = record.adjustments.get("alignment_metrics", {})
+    if alignment:
+        print(f"\n--- ALIGNMENT METRICS ---")
+        print(f"Accuracy:       {alignment.get('accuracy', 0):.1%}")
+        print(f"Precision:      {alignment.get('precision', 0):.1%}")
+        print(f"Recall:         {alignment.get('recall', 0):.1%}")
+        print(f"F1 Score:       {alignment.get('f1', 0):.1%}")
+        print(f"Specificity:    {alignment.get('specificity', 0):.1%}")
+        print(f"Cohen's Kappa:  {alignment.get('cohens_kappa', 0):.3f}")
+
+        # Confusion matrix
+        cm = alignment.get("confusion_matrix", {})
+        if cm:
+            print(f"\nConfusion Matrix:")
+            print(f"                   Human PASS  Human FAIL")
+            print(
+                f"  Judge PASS       {cm.get('true_positive', 0):^10}  {cm.get('false_positive', 0):^10}"
+            )
+            print(
+                f"  Judge FAIL       {cm.get('false_negative', 0):^10}  {cm.get('true_negative', 0):^10}"
+            )
+
+    # Disagreement patterns
+    disagreements = record.adjustments.get("disagreement_patterns", {})
+    if disagreements:
+        fp_count = disagreements.get("false_positive_count", 0)
+        fn_count = disagreements.get("false_negative_count", 0)
+        if fp_count > 0 or fn_count > 0:
+            print(f"\n--- DISAGREEMENT PATTERNS ---")
+            print(f"False Positives (judge too lenient): {fp_count}")
+            print(f"False Negatives (judge too strict):  {fn_count}")
+
+            if args.show_examples:
+                fp_examples = disagreements.get("false_positive_examples", [])[:3]
+                fn_examples = disagreements.get("false_negative_examples", [])[:3]
+
+                if fp_examples:
+                    print(f"\nFalse Positive Examples:")
+                    for i, ex in enumerate(fp_examples, 1):
+                        print(f"  {i}. call_id={ex.get('call_id', '')[:8]}...")
+                        print(
+                            f"     Judge reason: {ex.get('judge_reason', '')[:80]}..."
+                        )
+                        if ex.get("human_notes"):
+                            print(
+                                f"     Human notes:  {ex.get('human_notes', '')[:80]}..."
+                            )
+
+                if fn_examples:
+                    print(f"\nFalse Negative Examples:")
+                    for i, ex in enumerate(fn_examples, 1):
+                        print(f"  {i}. call_id={ex.get('call_id', '')[:8]}...")
+                        print(
+                            f"     Judge reason: {ex.get('judge_reason', '')[:80]}..."
+                        )
+                        if ex.get("human_notes"):
+                            print(
+                                f"     Human notes:  {ex.get('human_notes', '')[:80]}..."
+                            )
+
+    # Threshold suggestion
+    print(f"\n--- THRESHOLD ---")
+    print(f"Current:   {record.adjustments.get('current_threshold', 0.5):.3f}")
+    print(f"Suggested: {record.adjustments.get('suggested_threshold', 0.5):.3f}")
+
+    # Prompt optimization results
+    optimizer_type = record.adjustments.get("optimizer_type", "llm")
+    optimization = record.adjustments.get("prompt_optimization", {})
+    if optimization:
+        print(f"\n--- PROMPT OPTIMIZATION ---")
+        print(f"Optimizer:             {optimizer_type.upper()}")
+        print(
+            f"Estimated improvement: {optimization.get('estimated_improvement', 'unknown')}"
+        )
+
+        reasoning = optimization.get("improvement_reasoning", "")
+        if reasoning:
+            # Word-wrap the reasoning
+            words = reasoning.split()
+            lines = []
+            current_line = ""
+            for word in words:
+                if len(current_line) + len(word) + 1 <= 70:
+                    current_line += (" " if current_line else "") + word
+                else:
+                    lines.append(current_line)
+                    current_line = word
+            if current_line:
+                lines.append(current_line)
+            print(f"\nReasoning:")
+            for line in lines:
+                print(f"  {line}")
+
+        additions = optimization.get("suggested_additions", [])
+        if additions:
+            print(f"\nSuggested ADDITIONS to rubric:")
+            for a in additions:
+                print(f"  + {a}")
+
+        removals = optimization.get("suggested_removals", [])
+        if removals:
+            print(f"\nSuggested REMOVALS from rubric:")
+            for r in removals:
+                print(f"  - {r}")
+
+        # Show optimized preamble (for GEPA)
+        optimized_preamble = optimization.get("optimized_preamble", "")
+        if optimized_preamble:
+            print(f"\nOPTIMIZED PREAMBLE:")
+            # Show first 200 chars
+            preview = (
+                optimized_preamble[:200] + "..."
+                if len(optimized_preamble) > 200
+                else optimized_preamble
+            )
+            for line in preview.split("\n"):
+                print(f"  {line}")
+
+        improved = optimization.get("improved_rubric", [])
+        if improved:
+            print(f"\nRUBRIC (unchanged):")
+            for i, criterion in enumerate(improved, 1):
+                print(f"  {i}. {criterion}")
+
+    # Validation results
+    validation = record.adjustments.get("validation", {})
+    if validation:
+        print(f"\n--- VALIDATION RESULTS ---")
+
+        is_better = validation.get("is_better", False)
+        original_f1 = validation.get("original_f1", 0.0)
+        optimized_f1 = validation.get("optimized_f1", 0.0)
+        improvement_delta = validation.get("improvement_delta", 0.0)
+        confidence = validation.get("confidence", "unknown")
+        recommendation = validation.get("recommendation", "uncertain")
+        val_samples = validation.get("validation_samples", 0)
+
+        # Status indicator
+        if is_better and improvement_delta > 0.05:
+            status_icon = "SUCCESS"
+            status_msg = "Optimized prompt is SIGNIFICANTLY BETTER"
+        elif is_better:
+            status_icon = "SUCCESS"
+            status_msg = "Optimized prompt is BETTER"
+        elif improvement_delta < -0.05:
+            status_icon = "DEGRADED"
+            status_msg = "Optimized prompt is SIGNIFICANTLY WORSE"
+        elif improvement_delta < 0:
+            status_icon = "DEGRADED"
+            status_msg = "Optimized prompt is WORSE"
+        else:
+            status_icon = "UNCERTAIN"
+            status_msg = "No significant difference"
+
+        print(f"{status_icon} - {status_msg}")
+        print()
+        print(f"Original F1:     {original_f1:.3f}")
+        print(f"Optimized F1:    {optimized_f1:.3f}")
+
+        if improvement_delta > 0:
+            print(
+                f"Improvement:     +{improvement_delta:.3f} (+{improvement_delta * 100:.1f}%)"
+            )
+        elif improvement_delta < 0:
+            print(
+                f"Degradation:     {improvement_delta:.3f} ({improvement_delta * 100:.1f}%)"
+            )
+        else:
+            print(f"Change:          {improvement_delta:.3f}")
+
+        print(f"Validation size: {val_samples} samples")
+        print(f"Confidence:      {confidence.upper()}")
+        print()
+
+        # Recommendation
+        if recommendation == "use_optimized":
+            print(f"RECOMMENDATION: USE OPTIMIZED PROMPT")
+            print(f"   Next: evalyn run-eval --latest --use-calibrated")
+        elif recommendation == "keep_original":
+            print(f"RECOMMENDATION: KEEP ORIGINAL PROMPT")
+            print(f"   The optimized prompt did not improve performance.")
+        else:
+            print(f"RECOMMENDATION: UNCERTAIN")
+            print(f"   Consider testing both prompts manually.")
+
+    # Save calibration record
+    saved_files = {}
+
+    # Auto-save to dataset's calibrations folder if dataset was resolved
+    if dataset_dir and dataset_dir.exists():
+        try:
+            saved_files = save_calibration(record, str(dataset_dir), args.metric_id)
+            print(f"\n--- SAVED FILES ---")
+            print(f"Calibration: {saved_files.get('calibration', 'N/A')}")
+            if saved_files.get("preamble"):
+                print(f"Preamble:    {saved_files.get('preamble')}")
+            if saved_files.get("full_prompt"):
+                print(f"Full prompt: {saved_files.get('full_prompt')}")
+        except Exception as e:
+            print(f"\nWarning: Could not save to calibrations folder: {e}")
+
+    # Also save to explicit output path if specified
+    if args.output:
+        output_path = Path(args.output)
+        with open(output_path, "w") as f:
+            json.dump(record.as_dict(), f, indent=2, default=str)
+        print(f"\nCalibration record also saved to: {output_path}")
+
+    print(f"\n{'=' * 60}")
+
+
+def cmd_list_calibrations(args: argparse.Namespace) -> None:
+    """List calibration records for a dataset."""
+    config = load_config()
+    dataset_path = resolve_dataset_path(
+        getattr(args, "dataset", None), getattr(args, "latest", False), config
+    )
+
+    if not dataset_path:
+        print("Error: No dataset specified. Use --dataset or --latest")
+        return
+
+    calibrations_dir = dataset_path / "calibrations"
+    if not calibrations_dir.exists():
+        print(f"No calibrations found in {dataset_path}")
+        return
+
+    # Collect all calibration records
+    calibrations = []
+    for metric_dir in calibrations_dir.iterdir():
+        if not metric_dir.is_dir():
+            continue
+        metric_id = metric_dir.name
+        for cal_file in metric_dir.glob("*.json"):
+            if cal_file.name.startswith("."):
+                continue
+            try:
+                with open(cal_file) as f:
+                    record = json.load(f)
+                    # Parse timestamp from filename (e.g., 20250101_120000_gepa.json)
+                    parts = cal_file.stem.split("_")
+                    timestamp = (
+                        f"{parts[0]}_{parts[1]}" if len(parts) >= 2 else "unknown"
+                    )
+                    optimizer = parts[2] if len(parts) >= 3 else "unknown"
+
+                    alignment = record.get("adjustments", {}).get(
+                        "alignment_metrics", {}
+                    )
+                    calibrations.append(
+                        {
+                            "metric_id": metric_id,
+                            "timestamp": timestamp,
+                            "optimizer": optimizer,
+                            "accuracy": alignment.get("accuracy", 0),
+                            "f1": alignment.get("f1", 0),
+                            "kappa": alignment.get("cohens_kappa", 0),
+                            "samples": alignment.get("total_samples", 0),
+                            "path": str(cal_file),
+                        }
+                    )
+            except Exception:
+                pass
+
+    if not calibrations:
+        print(f"No calibration records found in {calibrations_dir}")
+        return
+
+    # Sort by timestamp (most recent first)
+    calibrations.sort(key=lambda x: x["timestamp"], reverse=True)
+
+    # Output format
+    output_format = getattr(args, "format", "table")
+    if output_format == "json":
+        print(json.dumps(calibrations, indent=2))
+        return
+
+    # Table format
+    print(f"\nCalibrations in {dataset_path.name}:")
+    print(f"{'=' * 80}")
+    print(
+        f"{'Metric':<25} {'Timestamp':<17} {'Optimizer':<8} {'Acc':<7} {'F1':<7} {'Kappa':<7} {'N':<5}"
+    )
+    print(f"{'-' * 80}")
+    for cal in calibrations:
+        print(
+            f"{cal['metric_id']:<25} {cal['timestamp']:<17} {cal['optimizer']:<8} "
+            f"{cal['accuracy']:.1%}   {cal['f1']:.1%}   {cal['kappa']:.3f}  {cal['samples']:<5}"
+        )
+
+    # Show prompt files if any
+    print(f"\n{'=' * 80}")
+    print("Optimized prompts:")
+    for metric_dir in calibrations_dir.iterdir():
+        if not metric_dir.is_dir():
+            continue
+        prompts_dir = metric_dir / "prompts"
+        if prompts_dir.exists():
+            full_prompts = list(prompts_dir.glob("*_full.txt"))
+            if full_prompts:
+                latest = sorted(full_prompts, reverse=True)[0]
+                print(f"  {metric_dir.name}: {latest}")
+
+
+def register_commands(subparsers) -> None:
+    """Register calibration commands."""
+    # calibrate
+    calibrate_parser = subparsers.add_parser(
+        "calibrate", help="Calibrate a subjective metric using human annotations"
+    )
+    calibrate_parser.add_argument(
+        "--metric-id",
+        required=True,
+        help="Metric ID to calibrate (usually the judge metric id)",
+    )
+    calibrate_parser.add_argument(
+        "--annotations",
+        required=True,
+        help="Path to annotations JSONL (target_id must match call_id)",
+    )
+    calibrate_parser.add_argument(
+        "--run-id", help="Eval run id to calibrate; defaults to latest run"
+    )
+    calibrate_parser.add_argument(
+        "--threshold", type=float, default=0.5, help="Current threshold for pass/fail"
+    )
+    calibrate_parser.add_argument(
+        "--dataset",
+        help="Path to dataset folder (provides input/output context for optimization)",
+    )
+    calibrate_parser.add_argument(
+        "--latest", action="store_true", help="Use the most recently modified dataset"
+    )
+    calibrate_parser.add_argument(
+        "--no-optimize", action="store_true", help="Skip LLM-based prompt optimization"
+    )
+    calibrate_parser.add_argument(
+        "--optimizer",
+        choices=["llm", "gepa"],
+        default="llm",
+        help="Optimization method: 'llm' (default) or 'gepa' (evolutionary)",
+    )
+    calibrate_parser.add_argument(
+        "--model",
+        default="gemini-2.5-flash-lite",
+        help="LLM model for prompt optimization (llm mode)",
+    )
+    calibrate_parser.add_argument(
+        "--gepa-task-lm",
+        default="gemini/gemini-2.5-flash",
+        help="Task model for GEPA (model being optimized)",
+    )
+    calibrate_parser.add_argument(
+        "--gepa-reflection-lm",
+        default="gemini/gemini-2.5-flash",
+        help="Reflection model for GEPA (strong model for reflection)",
+    )
+    calibrate_parser.add_argument(
+        "--gepa-max-calls",
+        type=int,
+        default=150,
+        help="Max metric calls budget for GEPA optimization",
+    )
+    calibrate_parser.add_argument(
+        "--show-examples", action="store_true", help="Show example disagreement cases"
+    )
+    calibrate_parser.add_argument(
+        "--output", help="Path to save calibration record JSON"
+    )
+    calibrate_parser.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format (default: table)",
+    )
+    calibrate_parser.set_defaults(func=cmd_calibrate)
+
+    # list-calibrations
+    list_cal_parser = subparsers.add_parser(
+        "list-calibrations", help="List calibration records for a dataset"
+    )
+    list_cal_parser.add_argument("--dataset", help="Path to dataset directory")
+    list_cal_parser.add_argument(
+        "--latest", action="store_true", help="Use the most recently modified dataset"
+    )
+    list_cal_parser.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format (default: table)",
+    )
+    list_cal_parser.set_defaults(func=cmd_list_calibrations)
+
+
+__all__ = ["cmd_calibrate", "cmd_list_calibrations", "register_commands"]
