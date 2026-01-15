@@ -24,6 +24,7 @@ evalyn one-click --project <name> [OPTIONS]
 | `--resume` | false | Resume from previous incomplete run |
 | `--auto-yes` | false | Skip all confirmation prompts |
 | `--verbose` | false | Show detailed logs |
+| `--workers`, `-w` | 4 | Parallel workers for LLM evaluation (max: 16) |
 | `--dry-run` | false | Preview without executing |
 
 ### Dataset Options

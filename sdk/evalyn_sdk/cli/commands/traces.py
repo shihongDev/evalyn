@@ -1,4 +1,21 @@
-"""Trace viewing commands: list-calls, show-call, show-trace, show-projects."""
+"""Trace viewing commands: list-calls, show-call, show-trace, show-projects.
+
+This module provides CLI commands for inspecting traced function calls stored in the database.
+These commands are the entry point for understanding what your agent is doing.
+
+Commands:
+- list-calls: List captured function calls with filtering by project/simulation
+- show-call: Show detailed information about a specific call including inputs, outputs, metadata
+- show-trace: Show hierarchical span tree for a traced call (Phoenix-style visualization)
+- show-projects: Show summary of projects and their traces
+
+Typical workflow:
+1. Run your agent with @eval decorator to capture traces
+2. Use 'evalyn show-projects' to see available projects
+3. Use 'evalyn list-calls --project <name>' to see calls for a project
+4. Use 'evalyn show-call --id <id>' to inspect a specific call
+5. Use 'evalyn show-trace --id <id>' to visualize the span tree
+"""
 
 from __future__ import annotations
 

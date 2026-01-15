@@ -65,11 +65,11 @@ def _load_callable(target: str) -> Callable[..., Any]:
 
         error_msg = f"Function '{name}' not found in {module_path}"
         if similar:
-            error_msg += f"\n\nDid you mean one of these?\n"
+            error_msg += "\n\nDid you mean one of these?\n"
             for s in similar:
                 error_msg += f"  - {left}:{s}\n"
         elif available:
-            error_msg += f"\n\nAvailable functions:\n"
+            error_msg += "\n\nAvailable functions:\n"
             for fn in available[:10]:
                 error_msg += f"  - {fn}\n"
             if len(available) > 10:

@@ -1,4 +1,30 @@
-"""Evaluation commands: run-eval, suggest-metrics, select-metrics, list-metrics."""
+"""Evaluation commands: run-eval, suggest-metrics, select-metrics, list-metrics.
+
+This module provides CLI commands for the core evaluation workflow:
+suggesting metrics, running evaluations, and viewing available metric templates.
+
+Commands:
+- run-eval: Run evaluation on a dataset using metrics from JSON file(s)
+- suggest-metrics: Suggest metrics for a project using various modes (basic, llm-registry, llm-brainstorm, bundle)
+- select-metrics: LLM-guided selection from metric registry (advanced)
+- list-metrics: List all available objective and subjective metric templates
+
+Metric suggestion modes:
+- basic: Fast heuristic-based suggestion (no LLM required)
+- bundle: Preset metric bundles for common use cases (summarization, orchestrator, etc.)
+- llm-registry: LLM picks from the metric registry based on function analysis
+- llm-brainstorm: LLM generates custom metric ideas (most creative, requires API key)
+
+Metric types:
+- objective: Deterministic metrics (length, format checks, word count, etc.)
+- subjective: LLM-as-judge metrics (quality, relevance, safety, etc.)
+
+Typical workflow:
+1. Build dataset: 'evalyn build-dataset --project <name>'
+2. Suggest metrics: 'evalyn suggest-metrics --project <name> --dataset <path> --mode basic'
+3. Run evaluation: 'evalyn run-eval --dataset <path>'
+4. Analyze results: 'evalyn analyze --latest'
+"""
 
 from __future__ import annotations
 
@@ -32,7 +58,14 @@ from ..utils.dataset_utils import ProgressBar
 def _resolve_dataset_and_metrics(
     dataset_path: str, metrics_arg: Optional[str], metrics_all: bool = False
 ) -> tuple:
-    """Resolve dataset file and metrics file paths."""
+    """Resolve dataset file and metrics file paths.
+
+    Priority for metrics resolution:
+    1. --metrics-all: Use all JSON files in metrics/ folder
+    2. --metrics <path>: Use explicitly specified file(s)
+    3. meta.json active_metric_set: Use the active metric set
+    4. Fallback: First JSON file in metrics/ folder
+    """
     dataset_path_obj = Path(dataset_path)
 
     # Determine dataset file and directory
@@ -192,7 +225,19 @@ def _dataset_has_reference(dataset_path: Optional[Path]) -> bool:
 
 
 def cmd_run_eval(args: argparse.Namespace) -> None:
-    """Run evaluation using pre-computed traces from dataset and metrics from JSON file(s)."""
+    """Run evaluation using pre-computed traces from dataset and metrics from JSON file(s).
+
+    This command evaluates a dataset against a set of metrics:
+    1. Load dataset items (input/output pairs from traced calls)
+    2. Load metric specs from JSON file(s)
+    3. Build metric instances (objective or subjective/LLM-judge)
+    4. Run each metric against each item
+    5. Save results to eval_runs/<timestamp>/results.json
+    6. Generate HTML analysis report
+
+    For subjective metrics, an API key (GEMINI_API_KEY or OPENAI_API_KEY) is required.
+    Use --use-calibrated to apply optimized prompts from previous calibration.
+    """
     output_format = getattr(args, "format", "table")
     metrics_all = getattr(args, "metrics_all", False)
     config = load_config()
@@ -382,6 +427,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         progress_callback=progress_callback if output_format != "json" else None,
         checkpoint_path=checkpoint_path,
         checkpoint_interval=5,
+        max_workers=getattr(args, "workers", 1),
     )
     run = runner.run_dataset(dataset_list, use_synthetic=True)
 
@@ -449,9 +495,9 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     print(f"\nEval run {run.id}")
     print(f"Dataset: {run.dataset_name}")
     print(f"Run folder: {run_folder}")
-    print(f"  results.json - evaluation data")
+    print("  results.json - evaluation data")
     if report_path:
-        print(f"  report.html  - analysis report")
+        print("  report.html  - analysis report")
     print()
 
     # Build metric type lookup
@@ -512,7 +558,20 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
 
 
 def cmd_suggest_metrics(args: argparse.Namespace) -> None:
-    """Suggest metrics for a project or target function."""
+    """Suggest metrics for a project or target function.
+
+    Modes:
+    - basic: Fast heuristic based on function signature and traces (no LLM)
+    - bundle: Preset metrics for common patterns (summarization, orchestrator, etc.)
+    - llm-registry: LLM picks from objective/subjective registry templates
+    - llm-brainstorm: LLM generates custom metric ideas (most creative)
+
+    Scope filters:
+    - overall: Metrics that evaluate final output quality
+    - llm_call: Metrics that evaluate individual LLM calls
+    - tool_call: Metrics that evaluate tool usage
+    - trace: Metrics that aggregate across the entire trace
+    """
     tracer = get_default_tracer()
 
     # Validate: need either --project or --target
@@ -844,7 +903,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
 def cmd_select_metrics(args: argparse.Namespace) -> None:
     """LLM-guided selection from metric registry."""
     from ...metrics.suggester import TemplateSelector
-    from ...models import MetricRegistry, register_builtin_metrics
+    from ...models import register_builtin_metrics
 
     target_fn = _load_callable(args.target)
     tracer = get_default_tracer()
@@ -972,6 +1031,13 @@ def register_commands(subparsers) -> None:
         choices=["table", "json"],
         default="table",
         help="Output format (default: table)",
+    )
+    run_parser.add_argument(
+        "--workers",
+        "-w",
+        type=int,
+        default=4,
+        help="Parallel workers for LLM evaluation (default: 4, max: 16)",
     )
     run_parser.set_defaults(func=cmd_run_eval)
 

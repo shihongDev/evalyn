@@ -1,4 +1,23 @@
-"""Dataset commands: build-dataset."""
+"""Dataset commands: build-dataset.
+
+This module provides CLI commands for building datasets from stored traces.
+Datasets are the foundation for evaluation - they contain input/output pairs
+from real agent executions that can be evaluated against metrics.
+
+Commands:
+- build-dataset: Build a dataset.jsonl file from stored traces
+
+Key concepts:
+- Traces are grouped by project (--project) and optionally by version (--version)
+- Datasets can include only production or simulation traces
+- The output is a JSONL file with one item per line, plus meta.json with schema info
+
+Typical workflow:
+1. First run 'evalyn show-projects' to see available projects
+2. Then run 'evalyn build-dataset --project <name>' to create a dataset
+3. The dataset is saved to data/<project>-<version>-<timestamp>/dataset.jsonl
+4. Next step: 'evalyn suggest-metrics --dataset <path>' to suggest metrics
+"""
 
 from __future__ import annotations
 

@@ -109,7 +109,7 @@ def _resolve_dataset_and_metrics(
     active_set = meta.get("active_metric_set")
     if not active_set:
         raise ValueError(
-            f"No active_metric_set in meta.json. Run 'evalyn suggest-metrics' to select metrics."
+            "No active_metric_set in meta.json. Run 'evalyn suggest-metrics' to select metrics."
         )
 
     # Find the metrics file from metric_sets

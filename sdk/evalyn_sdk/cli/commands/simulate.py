@@ -1,4 +1,31 @@
-"""Simulation commands: simulate."""
+"""Simulation commands: simulate.
+
+This module provides CLI commands for generating synthetic test data using
+LLM-based user simulation. This helps expand test coverage beyond real traces.
+
+Commands:
+- simulate: Generate synthetic test data from seed dataset
+
+Simulation modes:
+- similar: Generate variations of existing queries (same intent, different phrasing)
+- outlier: Generate edge cases and unusual inputs to test robustness
+
+How it works:
+1. Load seed dataset with real input/output pairs
+2. LLM generates new queries based on patterns in seed data
+3. If --target is provided, run queries through the agent to get outputs
+4. Save results as new dataset for evaluation
+
+Temperature settings:
+- --temp-similar (default 0.3): Lower temperature for consistent variations
+- --temp-outlier (default 0.8): Higher temperature for creative edge cases
+
+Typical workflow:
+1. Build initial dataset: 'evalyn build-dataset --project <name>'
+2. Generate synthetic data: 'evalyn simulate --dataset <path> --target <fn>'
+3. The simulated data appears in <dataset>/simulations/
+4. Run evaluation on synthetic data to find edge case failures
+"""
 
 from __future__ import annotations
 

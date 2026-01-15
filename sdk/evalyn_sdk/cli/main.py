@@ -1,4 +1,53 @@
-"""Evalyn CLI main entry point."""
+"""Evalyn CLI main entry point.
+
+The Evalyn CLI provides commands for the complete LLM evaluation workflow:
+
+TRACE INSPECTION:
+  list-calls       List captured function calls from traced agents
+  show-call        Show detailed information about a specific call
+  show-trace       Show hierarchical span tree (LLM calls, tool calls)
+  show-projects    Show summary of projects with traces
+
+DATASET BUILDING:
+  build-dataset    Build evaluation dataset from stored traces
+
+METRIC SELECTION:
+  suggest-metrics  Suggest metrics (basic/bundle/llm-registry/llm-brainstorm modes)
+  select-metrics   LLM-guided metric selection from registry
+  list-metrics     List all available metric templates
+
+EVALUATION:
+  run-eval         Run evaluation on dataset using metrics
+  list-runs        List stored evaluation runs
+  show-run         Show details for a specific run
+
+ANALYSIS:
+  status           Show comprehensive dataset status
+  validate         Validate dataset format
+  analyze          Analyze results and generate insights
+  compare          Compare two evaluation runs
+  trend            Show evaluation trends over time
+
+HUMAN FEEDBACK:
+  annotate         Interactive annotation interface
+  annotation-stats Show annotation coverage statistics
+  import-annotations Import annotations from file
+
+CALIBRATION:
+  calibrate        Calibrate LLM judges using annotations
+  list-calibrations List calibration records
+
+SIMULATION:
+  simulate         Generate synthetic test data
+
+EXPORT:
+  export           Export results (json/csv/markdown/html)
+  export-for-annotation Export for external annotation tools
+
+PIPELINE:
+  init             Initialize configuration file
+  one-click        Run complete pipeline in one command
+"""
 
 from __future__ import annotations
 

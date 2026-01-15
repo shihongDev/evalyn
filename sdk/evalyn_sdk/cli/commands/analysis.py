@@ -1,4 +1,27 @@
-"""Analysis commands: status, validate, analyze, compare, trend."""
+"""Analysis commands: status, validate, analyze, compare, trend.
+
+This module provides CLI commands for analyzing evaluation results, comparing runs,
+tracking trends, and validating datasets. These commands help you understand
+your evaluation data and identify areas for improvement.
+
+Commands:
+- status: Show comprehensive status of a dataset (items, metrics, runs, annotations, calibrations)
+- validate: Validate dataset format and detect potential issues (missing fields, duplicates)
+- analyze: Analyze evaluation results and generate insights (pass rates, failure patterns)
+- compare: Compare two evaluation runs side-by-side (see improvements/regressions)
+- trend: Show evaluation trends over time for a project
+
+Key insights from analysis:
+- Identify metrics with low pass rates that need calibration
+- Find items that fail multiple metrics (potential outliers)
+- Track whether changes improve or regress overall quality
+- See if calibration is improving alignment with human judgment
+
+Typical workflow:
+1. After run-eval: 'evalyn analyze --latest' to see insights
+2. After calibration: 'evalyn compare --run1 <old> --run2 <new>' to verify improvement
+3. Over time: 'evalyn trend --project <name>' to track progress
+"""
 
 from __future__ import annotations
 
@@ -350,7 +373,15 @@ def cmd_validate(args: argparse.Namespace) -> None:
 
 
 def cmd_analyze(args: argparse.Namespace) -> None:
-    """Analyze evaluation results and generate insights."""
+    """Analyze evaluation results and generate insights.
+
+    Analysis includes:
+    - Metric summary: Pass rates and average scores per metric
+    - Problem metrics: Metrics with <80% pass rate
+    - Multi-fail items: Items failing multiple metrics (likely outliers)
+    - Perfect metrics: Metrics with 100% pass rate (may be too lenient)
+    - Overall health: Aggregate assessment and recommendations
+    """
     from ...storage import SQLiteStorage
     from ...models import EvalRun
 
@@ -531,7 +562,15 @@ def cmd_analyze(args: argparse.Namespace) -> None:
 
 
 def cmd_compare(args: argparse.Namespace) -> None:
-    """Compare two evaluation runs side-by-side."""
+    """Compare two evaluation runs side-by-side.
+
+    Useful for:
+    - Before/after calibration: Did the optimized prompt improve?
+    - A/B testing: Which model version performs better?
+    - Regression testing: Did changes break anything?
+
+    Shows per-metric pass rate changes and overall delta.
+    """
     from ...storage import SQLiteStorage
     from ...models import EvalRun
 

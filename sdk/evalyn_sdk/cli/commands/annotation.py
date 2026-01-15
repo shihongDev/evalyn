@@ -1,4 +1,30 @@
-"""Annotation commands: annotate, import-annotations, annotation-stats."""
+"""Annotation commands: annotate, import-annotations, annotation-stats.
+
+This module provides CLI commands for human annotation of dataset items.
+Annotations are used to calibrate LLM judges - by comparing LLM judgments
+to human labels, we can identify where the LLM is too strict or too lenient.
+
+Commands:
+- annotate: Interactive CLI for annotating dataset items (simple pass/fail or per-metric)
+- import-annotations: Import annotations from a JSONL file (from external tools)
+- annotation-stats: Show annotation coverage statistics and human-LLM agreement
+
+Annotation modes:
+- Simple mode: Mark each item as pass/fail overall
+- Per-metric mode (--per-metric): Agree/disagree with each LLM metric judgment
+- Span mode (--spans): Annotate individual spans (LLM calls, tool calls, etc.)
+
+Key concepts:
+- Annotations have confidence scores (1-5) to indicate certainty
+- Per-metric annotations track agreement with LLM judges
+- Disagreements are used by calibration to improve prompts
+
+Typical workflow:
+1. Run evaluation: 'evalyn run-eval --dataset <path>'
+2. Annotate items: 'evalyn annotate --dataset <path> --per-metric'
+3. Check coverage: 'evalyn annotation-stats --dataset <path>'
+4. Calibrate: 'evalyn calibrate --metric-id <id> --annotations <path>'
+"""
 
 from __future__ import annotations
 
@@ -19,7 +45,7 @@ from ...annotation import (
 )
 from ...datasets import load_dataset
 from ...decorators import get_default_tracer
-from ...models import AnnotationItem, HumanLabel, Annotation, MetricLabel, DatasetItem
+from ...models import AnnotationItem, Annotation, MetricLabel, DatasetItem
 from ..utils.config import load_config, resolve_dataset_path
 
 
@@ -559,7 +585,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
     if run:
         print(f"Using eval run: {run.id[:8]}...")
     print(f"Output: {output_path}")
-    print(f"\nEach annotation is saved immediately - safe to quit anytime")
+    print("\nEach annotation is saved immediately - safe to quit anytime")
     if per_metric_mode:
         print("\nPer-metric commands:")
         print("  [a]gree with LLM  [d]isagree (flip)  [s]kip metric")
@@ -587,7 +613,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
             if item.input
             else "(no input)"
         )
-        print(f"\nINPUT:")
+        print("\nINPUT:")
         if len(input_text) > 300:
             print(f"   {truncate(input_text, 300)}")
         else:
@@ -596,14 +622,14 @@ def cmd_annotate(args: argparse.Namespace) -> None:
 
         # Output
         output_text = str(item.output) if item.output else "(no output)"
-        print(f"\nOUTPUT:")
+        print("\nOUTPUT:")
         print(f"   {truncate(output_text, 500)}")
 
         # LLM Judge results
         eval_data = eval_results_by_call.get(call_id, {})
         subjective_metrics = []
         if eval_data:
-            print(f"\nLLM JUDGE RESULTS:")
+            print("\nLLM JUDGE RESULTS:")
             metric_num = 1
             for metric_id, result in eval_data.items():
                 passed = result.get("passed")
@@ -708,7 +734,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
 
             while True:
                 try:
-                    choice = input(f"  Your verdict [a/d/s/q]: ").strip().lower()
+                    choice = input("  Your verdict [a/d/s/q]: ").strip().lower()
                 except (EOFError, KeyboardInterrupt):
                     return None
 
@@ -734,7 +760,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
                     human_label = not llm_passed
                     human_status = "PASS" if human_label else "FAIL"
                     try:
-                        notes = input(f"      Notes (why disagree?): ").strip()
+                        notes = input("      Notes (why disagree?): ").strip()
                     except (EOFError, KeyboardInterrupt):
                         notes = ""
                     metric_labels[metric_id] = MetricLabel(
@@ -902,7 +928,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
 
     # All annotations already saved incrementally - just show summary
     print("\n" + "=" * 70)
-    print(f"ANNOTATION COMPLETE")
+    print("ANNOTATION COMPLETE")
     print(
         f"Total annotated: {len(annotations)} ({new_annotation_count} new this session)"
     )

@@ -1,4 +1,23 @@
-"""Export commands: export, export-for-annotation."""
+"""Export commands: export, export-for-annotation.
+
+This module provides CLI commands for exporting evaluation results and datasets
+in various formats for reporting, sharing, or further processing.
+
+Commands:
+- export: Export evaluation results in JSON, CSV, Markdown, or HTML formats
+- export-for-annotation: Export dataset items with eval results for human annotation
+
+Export formats:
+- json: Full structured data, good for programmatic access
+- csv: Tabular format with one row per metric result, good for spreadsheets
+- markdown: Human-readable report with summary table
+- html: Standalone HTML report with styling, good for sharing
+
+Typical workflow:
+1. Run evaluation: 'evalyn run-eval --dataset <path>'
+2. Export results: 'evalyn export --dataset <path> --format html -o report.html'
+3. For annotation: 'evalyn export-for-annotation --dataset <path> --output annotations.jsonl'
+"""
 
 from __future__ import annotations
 

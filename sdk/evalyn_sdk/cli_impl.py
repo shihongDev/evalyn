@@ -1654,6 +1654,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         progress_callback=progress_callback if output_format != "json" else None,
         checkpoint_path=checkpoint_path,
         checkpoint_interval=5,  # Save every 5 items
+        max_workers=getattr(args, "workers", 1),
     )
     run = runner.run_dataset(dataset_list, use_synthetic=True)
 
@@ -5513,6 +5514,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 metrics=metrics,
                 dataset_name=args.project,
                 instrument=False,  # Don't re-run, use existing outputs
+                max_workers=getattr(args, "workers", 4),
             )
             eval_run = runner.run_dataset(items, use_synthetic=True)
 
@@ -5734,6 +5736,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                     metrics=metrics,
                     dataset_name=args.project,
                     instrument=False,
+                    max_workers=getattr(args, "workers", 4),
                 )
                 eval_run2 = runner.run_dataset(items, use_synthetic=True)
 
@@ -5969,6 +5972,13 @@ For more info on a command: evalyn <command> --help
         choices=["table", "json"],
         default="table",
         help="Output format (default: table)",
+    )
+    run_parser.add_argument(
+        "--workers",
+        "-w",
+        type=int,
+        default=4,
+        help="Parallel workers for LLM evaluation (default: 4, max: 16)",
     )
     run_parser.set_defaults(func=cmd_run_eval)
 
@@ -6510,6 +6520,13 @@ For more info on a command: evalyn <command> --help
     )
 
     # Behavior options
+    oneclick_parser.add_argument(
+        "--workers",
+        "-w",
+        type=int,
+        default=4,
+        help="Parallel workers for LLM evaluation (default: 4, max: 16)",
+    )
     oneclick_parser.add_argument(
         "--auto-yes",
         action="store_true",

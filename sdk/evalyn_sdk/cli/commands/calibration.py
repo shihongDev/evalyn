@@ -1,11 +1,36 @@
-"""Calibration commands: calibrate, list-calibrations."""
+"""Calibration commands: calibrate, list-calibrations.
+
+This module provides CLI commands for calibrating LLM judges using human annotations.
+Calibration analyzes disagreements between LLM judgments and human labels,
+then optimizes the judge's prompt to improve alignment.
+
+Commands:
+- calibrate: Calibrate a subjective metric using human annotations
+- list-calibrations: List calibration records for a dataset
+
+Optimization methods:
+- llm (default): Uses LLM to analyze disagreement patterns and suggest prompt improvements
+- gepa: Uses GEPA evolutionary algorithm for systematic prompt optimization
+
+Calibration outputs:
+- Alignment metrics: Accuracy, precision, recall, F1, Cohen's Kappa
+- Confusion matrix: True/false positives/negatives
+- Suggested threshold: Optimal score cutoff for pass/fail
+- Optimized prompt: Improved preamble and rubric (saved to calibrations/ folder)
+
+Typical workflow:
+1. Annotate items: 'evalyn annotate --dataset <path> --per-metric'
+2. Calibrate: 'evalyn calibrate --metric-id <id> --annotations <path> --dataset <path>'
+3. Re-evaluate: 'evalyn run-eval --dataset <path> --use-calibrated'
+4. Compare: 'evalyn compare --run1 <before> --run2 <after>'
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from ...annotation import import_annotations
 from ...annotation import (
@@ -22,7 +47,21 @@ from ..utils.ui import Spinner
 
 
 def cmd_calibrate(args: argparse.Namespace) -> None:
-    """Calibrate a subjective metric using human annotations."""
+    """Calibrate a subjective metric using human annotations.
+
+    Calibration process:
+    1. Load metric results from an eval run (LLM judge verdicts)
+    2. Load human annotations (ground truth labels)
+    3. Calculate alignment metrics (accuracy, F1, Cohen's Kappa)
+    4. Analyze disagreement patterns (false positives/negatives)
+    5. Optimize the judge prompt to reduce disagreements
+    6. Validate the optimized prompt against held-out samples
+    7. Save calibration record and optimized prompt
+
+    Optimization methods:
+    - llm: Analyzes patterns and suggests rubric improvements
+    - gepa: Evolutionary algorithm for systematic optimization (slower but thorough)
+    """
     tracer = get_default_tracer()
     if not tracer.storage:
         print("No storage configured.")
@@ -124,7 +163,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     # Alignment metrics
     alignment = record.adjustments.get("alignment_metrics", {})
     if alignment:
-        print(f"\n--- ALIGNMENT METRICS ---")
+        print("\n--- ALIGNMENT METRICS ---")
         print(f"Accuracy:       {alignment.get('accuracy', 0):.1%}")
         print(f"Precision:      {alignment.get('precision', 0):.1%}")
         print(f"Recall:         {alignment.get('recall', 0):.1%}")
@@ -135,8 +174,8 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
         # Confusion matrix
         cm = alignment.get("confusion_matrix", {})
         if cm:
-            print(f"\nConfusion Matrix:")
-            print(f"                   Human PASS  Human FAIL")
+            print("\nConfusion Matrix:")
+            print("                   Human PASS  Human FAIL")
             print(
                 f"  Judge PASS       {cm.get('true_positive', 0):^10}  {cm.get('false_positive', 0):^10}"
             )
@@ -150,7 +189,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
         fp_count = disagreements.get("false_positive_count", 0)
         fn_count = disagreements.get("false_negative_count", 0)
         if fp_count > 0 or fn_count > 0:
-            print(f"\n--- DISAGREEMENT PATTERNS ---")
+            print("\n--- DISAGREEMENT PATTERNS ---")
             print(f"False Positives (judge too lenient): {fp_count}")
             print(f"False Negatives (judge too strict):  {fn_count}")
 
@@ -159,7 +198,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
                 fn_examples = disagreements.get("false_negative_examples", [])[:3]
 
                 if fp_examples:
-                    print(f"\nFalse Positive Examples:")
+                    print("\nFalse Positive Examples:")
                     for i, ex in enumerate(fp_examples, 1):
                         print(f"  {i}. call_id={ex.get('call_id', '')[:8]}...")
                         print(
@@ -171,7 +210,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
                             )
 
                 if fn_examples:
-                    print(f"\nFalse Negative Examples:")
+                    print("\nFalse Negative Examples:")
                     for i, ex in enumerate(fn_examples, 1):
                         print(f"  {i}. call_id={ex.get('call_id', '')[:8]}...")
                         print(
@@ -183,7 +222,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
                             )
 
     # Threshold suggestion
-    print(f"\n--- THRESHOLD ---")
+    print("\n--- THRESHOLD ---")
     print(f"Current:   {record.adjustments.get('current_threshold', 0.5):.3f}")
     print(f"Suggested: {record.adjustments.get('suggested_threshold', 0.5):.3f}")
 
@@ -191,7 +230,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     optimizer_type = record.adjustments.get("optimizer_type", "llm")
     optimization = record.adjustments.get("prompt_optimization", {})
     if optimization:
-        print(f"\n--- PROMPT OPTIMIZATION ---")
+        print("\n--- PROMPT OPTIMIZATION ---")
         print(f"Optimizer:             {optimizer_type.upper()}")
         print(
             f"Estimated improvement: {optimization.get('estimated_improvement', 'unknown')}"
@@ -211,26 +250,26 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
                     current_line = word
             if current_line:
                 lines.append(current_line)
-            print(f"\nReasoning:")
+            print("\nReasoning:")
             for line in lines:
                 print(f"  {line}")
 
         additions = optimization.get("suggested_additions", [])
         if additions:
-            print(f"\nSuggested ADDITIONS to rubric:")
+            print("\nSuggested ADDITIONS to rubric:")
             for a in additions:
                 print(f"  + {a}")
 
         removals = optimization.get("suggested_removals", [])
         if removals:
-            print(f"\nSuggested REMOVALS from rubric:")
+            print("\nSuggested REMOVALS from rubric:")
             for r in removals:
                 print(f"  - {r}")
 
         # Show optimized preamble (for GEPA)
         optimized_preamble = optimization.get("optimized_preamble", "")
         if optimized_preamble:
-            print(f"\nOPTIMIZED PREAMBLE:")
+            print("\nOPTIMIZED PREAMBLE:")
             # Show first 200 chars
             preview = (
                 optimized_preamble[:200] + "..."
@@ -242,14 +281,14 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
 
         improved = optimization.get("improved_rubric", [])
         if improved:
-            print(f"\nRUBRIC (unchanged):")
+            print("\nRUBRIC (unchanged):")
             for i, criterion in enumerate(improved, 1):
                 print(f"  {i}. {criterion}")
 
     # Validation results
     validation = record.adjustments.get("validation", {})
     if validation:
-        print(f"\n--- VALIDATION RESULTS ---")
+        print("\n--- VALIDATION RESULTS ---")
 
         is_better = validation.get("is_better", False)
         original_f1 = validation.get("original_f1", 0.0)
@@ -298,14 +337,14 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
 
         # Recommendation
         if recommendation == "use_optimized":
-            print(f"RECOMMENDATION: USE OPTIMIZED PROMPT")
-            print(f"   Next: evalyn run-eval --latest --use-calibrated")
+            print("RECOMMENDATION: USE OPTIMIZED PROMPT")
+            print("   Next: evalyn run-eval --latest --use-calibrated")
         elif recommendation == "keep_original":
-            print(f"RECOMMENDATION: KEEP ORIGINAL PROMPT")
-            print(f"   The optimized prompt did not improve performance.")
+            print("RECOMMENDATION: KEEP ORIGINAL PROMPT")
+            print("   The optimized prompt did not improve performance.")
         else:
-            print(f"RECOMMENDATION: UNCERTAIN")
-            print(f"   Consider testing both prompts manually.")
+            print("RECOMMENDATION: UNCERTAIN")
+            print("   Consider testing both prompts manually.")
 
     # Save calibration record
     saved_files = {}
@@ -314,7 +353,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     if dataset_dir and dataset_dir.exists():
         try:
             saved_files = save_calibration(record, str(dataset_dir), args.metric_id)
-            print(f"\n--- SAVED FILES ---")
+            print("\n--- SAVED FILES ---")
             print(f"Calibration: {saved_files.get('calibration', 'N/A')}")
             if saved_files.get("preamble"):
                 print(f"Preamble:    {saved_files.get('preamble')}")

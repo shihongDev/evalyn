@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import threading
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Union
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 from uuid import uuid4
 
 from .decorators import get_default_tracer
@@ -79,6 +81,7 @@ class EvalRunner:
         progress_callback: Optional[ProgressCallback] = None,
         checkpoint_path: Optional[Union[str, Path]] = None,
         checkpoint_interval: int = 5,
+        max_workers: int = 1,
     ):
         self.tracer = tracer or get_default_tracer()
         if storage:
@@ -96,6 +99,7 @@ class EvalRunner:
         self._progress_callback = progress_callback
         self.checkpoint_path = Path(checkpoint_path) if checkpoint_path else None
         self.checkpoint_interval = checkpoint_interval
+        self.max_workers = max(1, min(max_workers, 16))  # Clamp 1-16
 
     def _load_checkpoint(self) -> Dict:
         """Load checkpoint if it exists. Returns dict with 'results' and 'completed_items'."""
@@ -159,6 +163,66 @@ class EvalRunner:
             except Exception:
                 pass
 
+    def _evaluate_metric(
+        self, metric: Metric, call: FunctionCall, item: DatasetItem
+    ) -> MetricResult:
+        """Evaluate a single metric. Thread-safe."""
+        try:
+            return metric.evaluate(call, item)
+        except Exception as e:
+            return MetricResult(
+                metric_id=metric.spec.id,
+                call_id=call.id,
+                score=None,
+                passed=False,
+                details={"error": str(e), "error_type": type(e).__name__},
+            )
+
+    def _prepare_item_call(
+        self, item: DatasetItem, use_synthetic: bool, failures: List[str]
+    ) -> Optional[FunctionCall]:
+        """Prepare FunctionCall for an item. Returns None if cannot be resolved."""
+        call = None
+
+        # First, try to load call from metadata (for pre-built datasets)
+        if (
+            isinstance(item.metadata, dict)
+            and "call_id" in item.metadata
+            and self.tracer.storage
+        ):
+            call_id = item.metadata["call_id"]
+            call = self.tracer.storage.get_call(call_id)
+
+        # Second, check cache by input hash
+        if call is None and self.cache_enabled:
+            cache_key = hash_inputs(item.inputs)
+            if cache_key in self._cache and self.tracer.storage:
+                cached_id = self._cache[cache_key]
+                cached_matches = [
+                    c
+                    for c in self.tracer.storage.list_calls(limit=1_000)
+                    if c.id == cached_id
+                ]
+                call = cached_matches[0] if cached_matches else None
+
+        # Third, create synthetic call from item data if enabled
+        if call is None and use_synthetic and _get_item_output(item) is not None:
+            call = _synthetic_call_from_item(item)
+
+        # Fourth, try to re-run the function (only if not using synthetic)
+        if call is None and not use_synthetic:
+            try:
+                self.target_fn(**item.inputs)
+            except Exception:
+                failures.append(item.id)
+
+            call = self.tracer.last_call
+            cache_key = hash_inputs(item.inputs) if self.cache_enabled else None
+            if cache_key and call:
+                self._cache[cache_key] = call.id
+
+        return call
+
     def run_dataset(
         self, dataset: Iterable[DatasetItem], use_synthetic: bool = True
     ) -> EvalRun:
@@ -170,8 +234,7 @@ class EvalRunner:
             use_synthetic: If True, create synthetic FunctionCall when trace not found.
                           This allows evaluation on datasets without original traces.
 
-        Supports checkpointing: if checkpoint_path is set, progress is saved every
-        checkpoint_interval items. On resume, already-evaluated items are skipped.
+        Supports checkpointing and parallel execution (max_workers > 1).
         """
         # Load checkpoint if exists
         checkpoint = self._load_checkpoint()
@@ -182,62 +245,20 @@ class EvalRunner:
 
         # Convert to list for progress tracking
         items = list(dataset)
-        total_items = len(items)
 
         # Filter out already completed items
         pending_items = [
             (i, item) for i, item in enumerate(items) if item.id not in completed_items
         ]
-        resumed = len(completed_items) > 0
-
-        if resumed and self._progress_callback:
-            # Log that we're resuming
-            pass
 
         total_evals = len(pending_items) * len(self.metrics)
         current_eval = 0
         items_since_checkpoint = 0
 
+        # Prepare all items with their FunctionCalls first (sequential)
+        prepared: List[Tuple[DatasetItem, FunctionCall]] = []
         for item_idx, item in pending_items:
-            call = None
-
-            # First, try to load call from metadata (for pre-built datasets)
-            if (
-                isinstance(item.metadata, dict)
-                and "call_id" in item.metadata
-                and self.tracer.storage
-            ):
-                call_id = item.metadata["call_id"]
-                call = self.tracer.storage.get_call(call_id)
-
-            # Second, check cache by input hash
-            if call is None and self.cache_enabled:
-                cache_key = hash_inputs(item.inputs)
-                if cache_key in self._cache and self.tracer.storage:
-                    cached_id = self._cache[cache_key]
-                    cached_matches = [
-                        c
-                        for c in self.tracer.storage.list_calls(limit=1_000)
-                        if c.id == cached_id
-                    ]
-                    call = cached_matches[0] if cached_matches else None
-
-            # Third, create synthetic call from item data if enabled
-            if call is None and use_synthetic and _get_item_output(item) is not None:
-                call = _synthetic_call_from_item(item)
-
-            # Fourth, try to re-run the function (only if not using synthetic and target_fn is real)
-            if call is None and not use_synthetic:
-                try:
-                    self.target_fn(**item.inputs)
-                except Exception:
-                    failures.append(item.id)
-
-                call = self.tracer.last_call
-                cache_key = hash_inputs(item.inputs) if self.cache_enabled else None
-                if cache_key and call:
-                    self._cache[cache_key] = call.id
-
+            call = self._prepare_item_call(item, use_synthetic, failures)
             if call is None:
                 if use_synthetic:
                     raise RuntimeError(
@@ -248,45 +269,84 @@ class EvalRunner:
                     raise RuntimeError(
                         "No trace was captured for the last call. Ensure the function is instrumented with @eval."
                     )
+            prepared.append((item, call))
 
-            for metric in self.metrics:
-                current_eval += 1
-                if self._progress_callback:
-                    self._progress_callback(
-                        current_eval,
-                        total_evals,
-                        metric.spec.id,
-                        metric.spec.type,
-                    )
-                # Per-metric error isolation - don't let one metric failure kill the run
-                try:
-                    metric_results.append(metric.evaluate(call, item))
-                except Exception as e:
-                    # Record the error as a failed result
-                    metric_results.append(
-                        MetricResult(
-                            metric_id=metric.spec.id,
-                            call_id=call.id,
-                            score=None,
-                            passed=False,
-                            details={"error": str(e), "error_type": type(e).__name__},
-                        )
-                    )
+        if self.max_workers > 1:
+            # Parallel execution
+            progress_lock = threading.Lock()
 
-            # Mark item as completed and save checkpoint
-            completed_items.add(item.id)
-            items_since_checkpoint += 1
+            def eval_task(
+                metric: Metric, call: FunctionCall, item: DatasetItem
+            ) -> Tuple[str, MetricResult]:
+                """Task for parallel execution. Returns (item_id, result)."""
+                result = self._evaluate_metric(metric, call, item)
+                return (item.id, result)
 
-            if (
-                self.checkpoint_path
-                and items_since_checkpoint >= self.checkpoint_interval
-            ):
+            # Build all tasks
+            tasks = []
+            for item, call in prepared:
+                for metric in self.metrics:
+                    tasks.append((metric, call, item))
+
+            # Execute in parallel
+            results_by_item: Dict[str, List[MetricResult]] = defaultdict(list)
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                futures = {
+                    executor.submit(eval_task, m, c, i): (i.id, m.spec.id)
+                    for m, c, i in tasks
+                }
+                for future in as_completed(futures):
+                    item_id, result = future.result()
+                    results_by_item[item_id].append(result)
+
+                    # Update progress (thread-safe)
+                    with progress_lock:
+                        current_eval += 1
+                        if self._progress_callback:
+                            self._progress_callback(
+                                current_eval,
+                                total_evals,
+                                result.metric_id,
+                                "parallel",
+                            )
+
+            # Collect results in order
+            for item, call in prepared:
+                metric_results.extend(results_by_item[item.id])
+                completed_items.add(item.id)
+
+            # Save checkpoint after parallel batch
+            if self.checkpoint_path:
                 self._save_checkpoint(metric_results, completed_items, run_id)
-                items_since_checkpoint = 0
 
-        # Save final checkpoint before creating run
-        if self.checkpoint_path and items_since_checkpoint > 0:
-            self._save_checkpoint(metric_results, completed_items, run_id)
+        else:
+            # Sequential execution (original behavior)
+            for item, call in prepared:
+                for metric in self.metrics:
+                    current_eval += 1
+                    if self._progress_callback:
+                        self._progress_callback(
+                            current_eval,
+                            total_evals,
+                            metric.spec.id,
+                            metric.spec.type,
+                        )
+                    metric_results.append(self._evaluate_metric(metric, call, item))
+
+                # Mark item as completed and save checkpoint
+                completed_items.add(item.id)
+                items_since_checkpoint += 1
+
+                if (
+                    self.checkpoint_path
+                    and items_since_checkpoint >= self.checkpoint_interval
+                ):
+                    self._save_checkpoint(metric_results, completed_items, run_id)
+                    items_since_checkpoint = 0
+
+            # Save final checkpoint before creating run
+            if self.checkpoint_path and items_since_checkpoint > 0:
+                self._save_checkpoint(metric_results, completed_items, run_id)
 
         summary = self._summarize(metric_results, failures)
         run = EvalRun(

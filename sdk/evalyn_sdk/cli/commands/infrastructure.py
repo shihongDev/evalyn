@@ -1,4 +1,30 @@
-"""Infrastructure commands: init, one-click."""
+"""Infrastructure commands: init, one-click.
+
+This module provides CLI commands for setup and running the full evaluation pipeline.
+
+Commands:
+- init: Initialize configuration file (evalyn.yaml) from template
+- one-click: Run complete evaluation pipeline in one command
+
+The one-click pipeline:
+1. Build Dataset: Collect traces from storage by project/version
+2. Suggest Metrics: Select metrics based on mode (basic/llm-registry/llm-brainstorm/bundle)
+3. Run Initial Evaluation: Execute metrics on dataset items
+4. Human Annotation: Interactive annotation session (optional)
+5. Calibrate LLM Judges: Optimize prompts using annotations (optional)
+6. Re-evaluate with Calibrated Prompts: Run again with improved judges (optional)
+7. Generate Simulations: Create synthetic test data (optional)
+
+Pipeline state:
+- Progress is saved to pipeline_state.json for resume capability
+- Use --resume to continue from where you left off
+- Each step outputs to numbered folders (1_dataset, 2_metrics, etc.)
+
+Typical workflow:
+1. Initialize config: 'evalyn init'
+2. Set API key: 'export GEMINI_API_KEY=...'
+3. Run pipeline: 'evalyn one-click --project <name>'
+"""
 
 from __future__ import annotations
 
@@ -8,13 +34,11 @@ import os
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
 
 from ...datasets import load_dataset, build_dataset_from_storage, save_dataset_with_meta
-from ...decorators import get_default_tracer
 from ...models import MetricSpec
 from ...storage import SQLiteStorage
-from ..utils.config import load_config, get_config_default, resolve_dataset_path
+from ..utils.config import load_config, get_config_default
 from ..utils.loaders import _load_callable
 
 
@@ -29,7 +53,8 @@ def cmd_init(args: argparse.Namespace) -> None:
     # Find the example file - check multiple locations
     example_paths = [
         Path("evalyn.yaml.example"),  # Current directory
-        Path(__file__).parent.parent.parent.parent / "evalyn.yaml.example",  # Project root
+        Path(__file__).parent.parent.parent.parent
+        / "evalyn.yaml.example",  # Project root
     ]
 
     example_path = None
@@ -61,15 +86,27 @@ defaults:
         with open(output_path, "w") as f:
             f.write(minimal)
         print(f"Created {output_path} (minimal config)")
-        print(f"Note: evalyn.yaml.example not found for full template")
+        print("Note: evalyn.yaml.example not found for full template")
 
-    print(f"\nSet your API key:")
-    print(f"  export GEMINI_API_KEY='your-key'")
+    print("\nSet your API key:")
+    print("  export GEMINI_API_KEY='your-key'")
     print(f"  # or edit {output_path} directly")
 
 
 def cmd_one_click(args: argparse.Namespace) -> None:
-    """Run the complete evaluation pipeline from dataset building to calibrated evaluation."""
+    """Run the complete evaluation pipeline from dataset building to calibrated evaluation.
+
+    Pipeline steps:
+    [1/7] Build Dataset: Collect traces by project, save to 1_dataset/
+    [2/7] Suggest Metrics: Select metrics based on mode, save to 2_metrics/
+    [3/7] Run Initial Eval: Execute metrics, save to 3_initial_eval/
+    [4/7] Human Annotation: Interactive session, save to 4_annotations/ (optional)
+    [5/7] Calibrate Judges: Optimize prompts, save to 5_calibrations/ (optional)
+    [6/7] Calibrated Eval: Re-run with improved prompts, save to 6_calibrated_eval/
+    [7/7] Simulate: Generate synthetic data, save to 7_simulations/ (optional)
+
+    State is persisted to pipeline_state.json for resume capability.
+    """
     # Import here to avoid circular imports
     from .annotation import cmd_annotate
     from .calibration import cmd_calibrate
@@ -240,7 +277,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         try:
             with open(state_path, "r", encoding="utf-8") as f:
                 state = json.load(f)
-            print(f"  Resuming from previous run...")
+            print("  Resuming from previous run...")
             print(f"  Completed steps: {', '.join(state.get('steps', {}).keys())}\n")
             resumed = True
         except Exception:
@@ -307,7 +344,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             )
 
             if not items:
-                print(f"  No traces found matching filters")
+                print("  No traces found matching filters")
                 return
 
             meta = {
@@ -357,7 +394,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 except Exception as e:
                     print(f"  Could not load target function: {args.target}")
                     print(f"    Error: {e}")
-                    print(f"  -> Using trace-based suggestions only")
+                    print("  -> Using trace-based suggestions only")
 
             # Get sample traces
             storage = SQLiteStorage()
@@ -475,7 +512,10 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         else:
             # Run evaluation
             from ...runner import EvalRunner
-            from ...metrics.factory import build_objective_metric, build_subjective_metric
+            from ...metrics.factory import (
+                build_objective_metric,
+                build_subjective_metric,
+            )
 
             # Load metrics from file
             with open(metrics_path) as f:
@@ -510,6 +550,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 metrics=metrics,
                 dataset_name=args.project,
                 instrument=False,  # Don't re-run, use existing outputs
+                max_workers=getattr(args, "workers", 4),
             )
             eval_run = runner.run_dataset(items, use_synthetic=True)
 
@@ -519,7 +560,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 json.dump(eval_run.as_dict(), f, indent=2)
 
             print(f"  Evaluated {len(items)} items")
-            print(f"  RESULTS:")
+            print("  RESULTS:")
             for metric_id, summary in eval_run.summary.items():
                 if "pass_rate" in summary:
                     print(f"    {metric_id}: pass_rate={summary['pass_rate']:.2f}")
@@ -554,8 +595,8 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 ann_path = ann_dir / "annotations.jsonl"
 
                 print(f"  -> Annotating {args.annotation_limit} items...")
-                print(f"  -> Interactive annotation mode")
-                print(f"  -> Press Ctrl+C to skip this step\n")
+                print("  -> Interactive annotation mode")
+                print("  -> Press Ctrl+C to skip this step\n")
 
                 try:
                     # Call interactive annotation
@@ -611,7 +652,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         else:
             print("[5/7] Calibrating LLM Judges")
             if args.dry_run:
-                print(f"  -> Would calibrate subjective metrics")
+                print("  -> Would calibrate subjective metrics")
                 print(f"  -> Optimizer: {args.optimizer}\n")
             else:
                 cal_dir = output_dir / "5_calibrations"
@@ -674,7 +715,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         else:
             print("[6/7] Re-evaluating with Calibrated Prompts")
             if args.dry_run:
-                print(f"  -> Would re-run evaluation with calibrated prompts\n")
+                print("  -> Would re-run evaluation with calibrated prompts\n")
             else:
                 eval2_dir = output_dir / "6_calibrated_eval"
                 eval2_dir.mkdir(exist_ok=True)
@@ -732,6 +773,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                     metrics=metrics,
                     dataset_name=args.project,
                     instrument=False,
+                    max_workers=getattr(args, "workers", 4),
                 )
                 eval_run2 = runner.run_dataset(items, use_synthetic=True)
 
@@ -742,7 +784,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
 
                 print(f"  Used {calibrated_count} calibrated prompts")
                 print(f"  Evaluated {len(items)} items")
-                print(f"  RESULTS:")
+                print("  RESULTS:")
                 for metric_id, summary in eval_run2.summary.items():
                     if "pass_rate" in summary:
                         print(f"    {metric_id}: pass_rate={summary['pass_rate']:.2f}")
@@ -798,7 +840,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
 
                 try:
                     cmd_simulate(sim_args)
-                    print(f"  Simulations generated")
+                    print("  Simulations generated")
                     print(f"  Saved to: {sim_dir}/\n")
                     state["steps"]["7_simulation"] = {
                         "status": "success",
@@ -824,15 +866,17 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         print(" " * 20 + "PIPELINE COMPLETE")
         print("=" * 70)
         print(f"\nOutput directory: {output_dir}")
-        print(f"\nSummary:")
+        print("\nSummary:")
         for step_name, step_info in state["steps"].items():
             status = step_info.get("status", "unknown")
             status_icon = (
-                "[OK]" if status == "success" else ("[SKIP]" if status == "skipped" else "[FAIL]")
+                "[OK]"
+                if status == "success"
+                else ("[SKIP]" if status == "skipped" else "[FAIL]")
             )
             print(f"  {status_icon} {step_name}: {status}")
 
-        print(f"\nNext steps:")
+        print("\nNext steps:")
         if (
             "6_calibrated_eval" in state["steps"]
             and state["steps"]["6_calibrated_eval"]["status"] == "success"
@@ -998,6 +1042,13 @@ def register_commands(subparsers) -> None:
         type=int,
         default=10,
         help="Max seeds for simulation (default: 10)",
+    )
+    oneclick_parser.add_argument(
+        "--workers",
+        "-w",
+        type=int,
+        default=4,
+        help="Parallel workers for LLM evaluation (default: 4, max: 16)",
     )
     oneclick_parser.add_argument(
         "--auto-yes",

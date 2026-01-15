@@ -20,6 +20,7 @@ evalyn run-eval --latest [OPTIONS]
 | `--use-calibrated` | false | Use calibrated prompts if available |
 | `--dataset-name NAME` | - | Custom name for the run |
 | `--format FMT` | table | Output format: `table` or `json` |
+| `--workers`, `-w` | 4 | Parallel workers for LLM evaluation (max: 16) |
 
 ## Metrics Resolution
 

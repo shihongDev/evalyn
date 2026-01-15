@@ -1,4 +1,26 @@
-"""Run history commands: list-runs, show-run."""
+"""Run history commands: list-runs, show-run.
+
+This module provides CLI commands for viewing evaluation run history.
+Each time you run 'evalyn run-eval', a run record is stored in the database
+with metrics used, results, and summary statistics.
+
+Commands:
+- list-runs: List stored eval runs with basic info (dataset, metrics count, results count)
+- show-run: Show details for a specific eval run (metric summaries, individual results)
+
+Run information includes:
+- Run ID: Unique identifier for the run
+- Dataset name: Which dataset was evaluated
+- Metrics: Which metrics were used
+- Summary: Aggregated pass rates and scores per metric
+- Results: Individual metric results per item
+
+Typical workflow:
+1. Run evaluation: 'evalyn run-eval --dataset <path>'
+2. List runs: 'evalyn list-runs'
+3. View details: 'evalyn show-run --id <run_id>'
+4. Analyze: 'evalyn analyze --run <run_id>'
+"""
 
 from __future__ import annotations
 
