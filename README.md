@@ -63,8 +63,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv venv --python 3.11
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Install the package (otel enables tracing commands like list-calls, show-call)
-uv pip install -e "./sdk[dev,llm,otel]"
+# Install the package
+uv pip install -e "./sdk[llm,otel]"
 ```
 
 ## Quick Start (Example Agent)
