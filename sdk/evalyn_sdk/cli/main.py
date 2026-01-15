@@ -7,7 +7,7 @@ import sys
 from typing import List, Optional
 
 # Import command modules
-from .commands import traces
+from .commands import dataset, runs, simulate, traces
 
 # Temporarily import remaining commands from original cli_impl.py until extracted
 # These will be migrated to separate modules incrementally
@@ -15,13 +15,10 @@ from ..cli_impl import (
     # Evaluation commands
     cmd_run_eval,
     cmd_suggest_metrics,
-    cmd_list_runs,
-    cmd_show_run,
     cmd_status,
     cmd_select_metrics,
     cmd_trend,
-    # Dataset commands
-    cmd_build_dataset,
+    # Dataset/export commands
     cmd_export_for_annotation,
     cmd_export,
     cmd_validate,
@@ -33,8 +30,6 @@ from ..cli_impl import (
     # Calibration commands
     cmd_calibrate,
     cmd_list_calibrations,
-    # Simulation commands
-    cmd_simulate,
     # Analysis commands
     cmd_analyze,
     cmd_compare,
@@ -94,8 +89,11 @@ For more info on a command: evalyn <command> --help
     )
     help_parser.set_defaults(func=lambda args: _print_ascii_help(parser))
 
-    # Register trace commands from new module
+    # Register commands from extracted modules
     traces.register_commands(subparsers)
+    runs.register_commands(subparsers)
+    dataset.register_commands(subparsers)
+    simulate.register_commands(subparsers)
 
     # ----- Evaluation commands (to be extracted to commands/evaluation.py) -----
     run_parser = subparsers.add_parser(
@@ -202,20 +200,6 @@ For more info on a command: evalyn <command> --help
     )
     suggest_parser.set_defaults(func=cmd_suggest_metrics)
 
-    runs_parser = subparsers.add_parser("list-runs", help="List stored eval runs")
-    runs_parser.add_argument("--limit", type=int, default=10)
-    runs_parser.add_argument(
-        "--format",
-        choices=["table", "json"],
-        default="table",
-        help="Output format (default: table)",
-    )
-    runs_parser.set_defaults(func=cmd_list_runs)
-
-    show_run = subparsers.add_parser("show-run", help="Show details for an eval run")
-    show_run.add_argument("--id", required=True, help="Eval run id to display")
-    show_run.set_defaults(func=cmd_show_run)
-
     status_parser = subparsers.add_parser(
         "status",
         help="Show status of a dataset (items, metrics, runs, annotations, calibrations)",
@@ -244,40 +228,7 @@ For more info on a command: evalyn <command> --help
     )
     select_parser.set_defaults(func=cmd_select_metrics)
 
-    # ----- Dataset commands (to be extracted to commands/datasets.py) -----
-    build_ds = subparsers.add_parser(
-        "build-dataset", help="Build dataset from stored traces"
-    )
-    build_ds.add_argument(
-        "--output",
-        help="Path to write dataset JSONL (default: data/<project>-<version>-<timestamp>.jsonl)",
-    )
-    build_ds.add_argument(
-        "--project",
-        help="Filter by metadata.project_id or project_name (recommended grouping)",
-    )
-    build_ds.add_argument("--version", help="Filter by metadata.version")
-    build_ds.add_argument(
-        "--simulation", action="store_true", help="Include only simulation traces"
-    )
-    build_ds.add_argument(
-        "--production", action="store_true", help="Include only production traces"
-    )
-    build_ds.add_argument("--since", help="ISO timestamp lower bound for started_at")
-    build_ds.add_argument("--until", help="ISO timestamp upper bound for started_at")
-    build_ds.add_argument(
-        "--limit",
-        type=int,
-        default=500,
-        help="Max number of items to include (after filtering)",
-    )
-    build_ds.add_argument(
-        "--include-errors",
-        action="store_true",
-        help="Include errored calls (default: skip)",
-    )
-    build_ds.set_defaults(func=cmd_build_dataset)
-
+    # ----- Export/Annotation commands -----
     export_ann = subparsers.add_parser(
         "export-for-annotation",
         help="Export dataset with eval results for human annotation",
@@ -479,65 +430,6 @@ For more info on a command: evalyn <command> --help
         help="Output format (default: table)",
     )
     list_cal_parser.set_defaults(func=cmd_list_calibrations)
-
-    # ----- Simulation commands (to be extracted to commands/simulation.py) -----
-    simulate_parser = subparsers.add_parser(
-        "simulate", help="Generate synthetic test data using LLM-based user simulation"
-    )
-    simulate_parser.add_argument(
-        "--dataset",
-        required=True,
-        help="Path to seed dataset directory or dataset.jsonl",
-    )
-    simulate_parser.add_argument(
-        "--target",
-        help="Target function to run queries against (module:func or path/to/file.py:func)",
-    )
-    simulate_parser.add_argument(
-        "--output",
-        help="Output directory for simulated data (default: <dataset>/simulations/)",
-    )
-    simulate_parser.add_argument(
-        "--modes",
-        default="similar,outlier",
-        help="Simulation modes: similar,outlier (comma-separated)",
-    )
-    simulate_parser.add_argument(
-        "--num-similar",
-        type=int,
-        default=3,
-        help="Number of similar variations per seed item (default: 3)",
-    )
-    simulate_parser.add_argument(
-        "--num-outlier",
-        type=int,
-        default=1,
-        help="Number of outlier/edge cases per seed item (default: 1)",
-    )
-    simulate_parser.add_argument(
-        "--max-seeds",
-        type=int,
-        default=50,
-        help="Maximum seed items to use (default: 50)",
-    )
-    simulate_parser.add_argument(
-        "--model",
-        default="gemini-2.5-flash-lite",
-        help="LLM model for query generation",
-    )
-    simulate_parser.add_argument(
-        "--temp-similar",
-        type=float,
-        default=0.3,
-        help="Temperature for similar queries (default: 0.3)",
-    )
-    simulate_parser.add_argument(
-        "--temp-outlier",
-        type=float,
-        default=0.8,
-        help="Temperature for outlier queries (default: 0.8)",
-    )
-    simulate_parser.set_defaults(func=cmd_simulate)
 
     # ----- Analysis commands (to be extracted to commands/analysis.py) -----
     analyze_parser = subparsers.add_parser(
