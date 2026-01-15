@@ -392,8 +392,8 @@ def cmd_list_calibrations(args: argparse.Namespace) -> None:
 
     calibrations_dir = dataset_path / "calibrations"
     if not calibrations_dir.exists():
-        print(f"No calibrations found in {dataset_path}", file=sys.stderr)
-        sys.exit(1)
+        print(f"No calibrations found in {dataset_path}")
+        return
 
     # Collect all calibration records
     calibrations = []

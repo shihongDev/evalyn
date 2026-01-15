@@ -73,24 +73,26 @@ def cmd_export_for_annotation(args: argparse.Namespace) -> None:
     # Build annotation items
     output_items = []
     for item in items:
-        ann_item = AnnotationItem(
-            item_id=item.id,
-            inputs=item.inputs,
-            output=item.output,
-            reference=item.reference,
-            llm_results={},
-            human_labels=[],
-        )
+        eval_results = {}
 
-        # Add LLM results if we have a run
+        # Add eval results if we have a run
         if run:
             for mr in run.metric_results:
                 if mr.item_id == item.id:
-                    ann_item.llm_results[mr.metric_id] = {
+                    eval_results[mr.metric_id] = {
                         "score": mr.score,
                         "passed": mr.passed,
                         "reason": mr.details.get("reason") if mr.details else None,
                     }
+
+        ann_item = AnnotationItem(
+            id=item.id,
+            input=item.input if item.input else item.inputs,
+            output=item.output,
+            eval_results=eval_results,
+            human_label=None,
+            metadata={"expected": item.expected} if item.expected else {},
+        )
 
         output_items.append(ann_item)
 
@@ -103,14 +105,15 @@ def cmd_export_for_annotation(args: argparse.Namespace) -> None:
             f.write(
                 json.dumps(
                     {
-                        "item_id": item.item_id,
-                        "inputs": item.inputs,
+                        "id": item.id,
+                        "input": item.input,
                         "output": item.output,
-                        "reference": item.reference,
-                        "llm_results": item.llm_results,
-                        "human_labels": [],
+                        "eval_results": item.eval_results,
+                        "human_label": None,
+                        "metadata": item.metadata,
                     },
                     ensure_ascii=False,
+                    default=str,
                 )
                 + "\n"
             )
