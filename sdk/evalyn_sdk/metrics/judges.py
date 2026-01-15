@@ -12,6 +12,7 @@ Usage:
     # List available templates
     print(LLMJudge.list_templates())
 """
+
 from __future__ import annotations
 
 import json
@@ -292,8 +293,12 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
         # Get defaults from template if available
         tpl = self.TEMPLATES.get(self.name, {})
         final_id = metric_id or self.name
-        final_threshold = threshold if threshold is not None else tpl.get("threshold", 0.5)
-        final_description = description or tpl.get("description", "LLM judge evaluation")
+        final_threshold = (
+            threshold if threshold is not None else tpl.get("threshold", 0.5)
+        )
+        final_description = description or tpl.get(
+            "description", "LLM judge evaluation"
+        )
 
         spec = MetricSpec(
             id=final_id,

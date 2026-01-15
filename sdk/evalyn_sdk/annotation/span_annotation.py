@@ -19,7 +19,9 @@ from ..models import now_utc
 
 
 # Annotation span types (distinct from models.SpanType which covers execution spans)
-AnnotationSpanType = Literal["llm_call", "tool_call", "reasoning", "retrieval", "overall"]
+AnnotationSpanType = Literal[
+    "llm_call", "tool_call", "reasoning", "retrieval", "overall"
+]
 
 
 @dataclass

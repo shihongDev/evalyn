@@ -838,21 +838,37 @@ def _render_header(analysis: RunAnalysis) -> str:
         </div>"""
 
 
-def _render_kpi_bar(analysis: RunAnalysis, metrics_by_pass_rate: List, all_passed_count: int) -> str:
+def _render_kpi_bar(
+    analysis: RunAnalysis, metrics_by_pass_rate: List, all_passed_count: int
+) -> str:
     """Render the KPI bar section."""
-    pass_class = "pass" if analysis.overall_pass_rate >= 0.8 else "warn" if analysis.overall_pass_rate >= 0.5 else "fail"
+    pass_class = (
+        "pass"
+        if analysis.overall_pass_rate >= 0.8
+        else "warn"
+        if analysis.overall_pass_rate >= 0.5
+        else "fail"
+    )
     failed_class = "pass" if len(analysis.failed_items) == 0 else "fail"
 
     metric_kpis = ""
     for ms in list(metrics_by_pass_rate)[:5]:
         if ms.has_pass_fail:
-            kpi_class = 'pass' if ms.pass_rate is not None and ms.pass_rate >= 0.8 else 'warn' if ms.pass_rate is not None and ms.pass_rate >= 0.5 else 'neutral' if ms.pass_rate is None else 'fail'
+            kpi_class = (
+                "pass"
+                if ms.pass_rate is not None and ms.pass_rate >= 0.8
+                else "warn"
+                if ms.pass_rate is not None and ms.pass_rate >= 0.5
+                else "neutral"
+                if ms.pass_rate is None
+                else "fail"
+            )
             value = f"{ms.pass_rate * 100:.0f}" if ms.pass_rate is not None else "N/A"
             unit = "%" if ms.pass_rate is not None else ""
-            metric_kpis += f'''<div class="kpi-item">
+            metric_kpis += f"""<div class="kpi-item">
                 <div class="kpi-value {kpi_class}">{value}<span class="kpi-unit">{unit}</span></div>
                 <div class="kpi-label">{ms.metric_id[:12]}</div>
-            </div>'''
+            </div>"""
 
     return f"""<!-- KPI Bar -->
         <div class="kpi-bar">
@@ -880,7 +896,12 @@ def _render_kpi_bar(analysis: RunAnalysis, metrics_by_pass_rate: List, all_passe
         </div>"""
 
 
-def _render_charts_section(metric_labels: str, pass_rates: str, pass_rate_colors: str, score_dist_data: List[Dict]) -> str:
+def _render_charts_section(
+    metric_labels: str,
+    pass_rates: str,
+    pass_rate_colors: str,
+    score_dist_data: List[Dict],
+) -> str:
     """Render the charts grid section."""
     return """<!-- Charts Grid -->
         <div class="charts-grid">
@@ -903,25 +924,45 @@ def _render_metrics_table(analysis: RunAnalysis, metrics_by_pass_rate: List) -> 
     """Render the metrics details table."""
     # Calculate averages
     pass_rate_metrics = [m for m in metrics_by_pass_rate if m.pass_rate is not None]
-    avg_pass_rate = f"{sum(m.pass_rate for m in pass_rate_metrics) / len(pass_rate_metrics) * 100:.1f}%" if pass_rate_metrics else "N/A"
-    avg_score = sum(m.avg_score for m in metrics_by_pass_rate) / len(metrics_by_pass_rate) if metrics_by_pass_rate else 0
+    avg_pass_rate = (
+        f"{sum(m.pass_rate for m in pass_rate_metrics) / len(pass_rate_metrics) * 100:.1f}%"
+        if pass_rate_metrics
+        else "N/A"
+    )
+    avg_score = (
+        sum(m.avg_score for m in metrics_by_pass_rate) / len(metrics_by_pass_rate)
+        if metrics_by_pass_rate
+        else 0
+    )
     total_passed = sum(m.passed for m in metrics_by_pass_rate if m.has_pass_fail)
     total_failed = sum(m.failed for m in metrics_by_pass_rate if m.has_pass_fail)
 
     rows = ""
     for ms in metrics_by_pass_rate:
-        type_class = 'status-pass' if ms.metric_type == 'objective' else 'status-warn'
+        type_class = "status-pass" if ms.metric_type == "objective" else "status-warn"
         if ms.pass_rate is not None:
-            bar_class = "high" if ms.pass_rate >= 0.8 else "mid" if ms.pass_rate >= 0.5 else "low"
-            status_class = "status-pass" if ms.pass_rate >= 0.8 else "status-warn" if ms.pass_rate >= 0.5 else "status-fail"
+            bar_class = (
+                "high"
+                if ms.pass_rate >= 0.8
+                else "mid"
+                if ms.pass_rate >= 0.5
+                else "low"
+            )
+            status_class = (
+                "status-pass"
+                if ms.pass_rate >= 0.8
+                else "status-warn"
+                if ms.pass_rate >= 0.5
+                else "status-fail"
+            )
             pass_rate_cell = f'<span class="score-bar"><span class="score-bar-fill {bar_class}" style="width: {ms.pass_rate * 100}%"></span></span><span class="{status_class}">{ms.pass_rate * 100:.1f}%</span>'
         else:
             pass_rate_cell = '<span style="color: var(--text-muted);">N/A</span>'
 
-        passed_cell = ms.passed if ms.has_pass_fail else '-'
-        passed_class = 'status-pass' if ms.has_pass_fail else ''
-        failed_cell = ms.failed if ms.has_pass_fail else '-'
-        failed_class = 'status-fail' if ms.failed > 0 else ''
+        passed_cell = ms.passed if ms.has_pass_fail else "-"
+        passed_class = "status-pass" if ms.has_pass_fail else ""
+        failed_cell = ms.failed if ms.has_pass_fail else "-"
+        failed_class = "status-fail" if ms.failed > 0 else ""
 
         rows += f'''<tr>
             <td style="color: var(--text-primary); font-weight: 500;">{ms.metric_id}</td>
@@ -978,7 +1019,11 @@ def _render_failed_items_section(analysis: RunAnalysis, item_details: dict) -> s
     if not analysis.failed_items:
         return ""
 
-    more_text = f'<div class="failed-item" style="color: var(--text-muted); text-align: center;">...and {len(analysis.failed_items) - 30} more</div>' if len(analysis.failed_items) > 30 else ''
+    more_text = (
+        f'<div class="failed-item" style="color: var(--text-muted); text-align: center;">...and {len(analysis.failed_items) - 30} more</div>'
+        if len(analysis.failed_items) > 30
+        else ""
+    )
 
     return f"""<!-- Failed Items Section -->
         <div class="section">

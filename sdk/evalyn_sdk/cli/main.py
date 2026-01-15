@@ -732,8 +732,8 @@ For more info on a command: evalyn <command> --help
     # Parse and execute
     args = parser.parse_args(argv)
 
-    # Handle --version flag
-    if args.version:
+    # Handle --version flag (only when it's a boolean True, not a string value from subcommands)
+    if args.version is True:
         from .. import __version__
 
         print(f"evalyn {__version__}")

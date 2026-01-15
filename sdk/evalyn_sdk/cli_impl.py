@@ -1733,9 +1733,11 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     api_errors_by_metric: Dict[str, int] = {}
     for result in run.metric_results:
         if result.details and isinstance(result.details, dict):
-            reason = result.details.get("reason", "")
-            if "API" in reason and (
-                "error" in reason.lower() or "failed" in reason.lower()
+            reason = result.details.get("reason") or ""
+            if (
+                reason
+                and "API" in reason
+                and ("error" in reason.lower() or "failed" in reason.lower())
             ):
                 api_errors_by_metric[result.metric_id] = (
                     api_errors_by_metric.get(result.metric_id, 0) + 1
@@ -2126,9 +2128,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
 
     if selected_mode == "llm-registry":
         caller = _build_llm_caller(args)
-        filtered_templates = _filter_by_scope(
-            OBJECTIVE_REGISTRY + SUBJECTIVE_REGISTRY
-        )
+        filtered_templates = _filter_by_scope(OBJECTIVE_REGISTRY + SUBJECTIVE_REGISTRY)
         selector = TemplateSelector(
             caller, filtered_templates, has_reference=has_reference
         )
@@ -4424,7 +4424,11 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         # Load latest run from dataset's eval_runs directory
         runs_dir = dataset_path / "eval_runs"
         if runs_dir.exists():
-            run_files = sorted(runs_dir.glob("*.json"), reverse=True)
+            # Look for results.json in timestamped subdirectories
+            run_files = sorted(runs_dir.glob("*/results.json"), reverse=True)
+            if not run_files:
+                # Fallback to direct json files
+                run_files = sorted(runs_dir.glob("*.json"), reverse=True)
             if run_files:
                 with open(run_files[0]) as f:
                     run_data = json.load(f)
@@ -4631,16 +4635,21 @@ def cmd_compare(args: argparse.Namespace) -> None:
     # Build metric stats for each run
     def get_metric_stats(run):
         stats = {}
-        for result in run.results:
-            for mr in result.get("metrics", []):
-                metric_id = mr.get("metric_id", "unknown")
-                if metric_id not in stats:
-                    stats[metric_id] = {"total": 0, "passed": 0, "scores": []}
-                stats[metric_id]["total"] += 1
-                if mr.get("passed", True):
-                    stats[metric_id]["passed"] += 1
-                if mr.get("score") is not None:
-                    stats[metric_id]["scores"].append(mr["score"])
+        for mr in run.metric_results:
+            metric_id = (
+                mr.metric_id
+                if hasattr(mr, "metric_id")
+                else mr.get("metric_id", "unknown")
+            )
+            if metric_id not in stats:
+                stats[metric_id] = {"total": 0, "passed": 0, "scores": []}
+            stats[metric_id]["total"] += 1
+            passed = mr.passed if hasattr(mr, "passed") else mr.get("passed", True)
+            if passed:
+                stats[metric_id]["passed"] += 1
+            score = mr.score if hasattr(mr, "score") else mr.get("score")
+            if score is not None:
+                stats[metric_id]["scores"].append(score)
         return stats
 
     stats1 = get_metric_stats(run1)
@@ -4748,7 +4757,11 @@ def cmd_export(args: argparse.Namespace) -> None:
     elif dataset_path:
         runs_dir = dataset_path / "eval_runs"
         if runs_dir.exists():
-            run_files = sorted(runs_dir.glob("*.json"), reverse=True)
+            # Look for results.json in timestamped subdirectories
+            run_files = sorted(runs_dir.glob("*/results.json"), reverse=True)
+            if not run_files:
+                # Fallback to direct json files
+                run_files = sorted(runs_dir.glob("*.json"), reverse=True)
             if run_files:
                 with open(run_files[0]) as f:
                     run_data = json.load(f)
@@ -4810,11 +4823,17 @@ def cmd_export(args: argparse.Namespace) -> None:
         lines.append(f"\n## Summary\n")
 
         summary = run_data.get("summary", {})
-        if summary:
+        # Handle both old format (summary.items) and new format (summary.metrics.items)
+        metrics_summary = (
+            summary.get("metrics", summary) if isinstance(summary, dict) else {}
+        )
+        if metrics_summary and isinstance(metrics_summary, dict):
             lines.append("| Metric | Avg Score | Pass Rate |")
             lines.append("|--------|-----------|-----------|")
-            for metric_id, stats in summary.items():
-                avg = stats.get("avg", "N/A")
+            for metric_id, stats in metrics_summary.items():
+                if not isinstance(stats, dict):
+                    continue
+                avg = stats.get("avg_score", stats.get("avg", "N/A"))
                 pass_rate = stats.get("pass_rate", "N/A")
                 if isinstance(avg, float):
                     avg = f"{avg:.2f}"
@@ -4834,12 +4853,18 @@ def cmd_export(args: argparse.Namespace) -> None:
     elif format_type == "html":
         # Generate standalone HTML report
         summary = run_data.get("summary", {})
+        # Handle both old format and new format
+        metrics_summary = (
+            summary.get("metrics", summary) if isinstance(summary, dict) else {}
+        )
         results = run_data.get("results", [])
 
         # Build metric table
         metric_rows = ""
-        for metric_id, stats in summary.items():
-            avg = stats.get("avg", "N/A")
+        for metric_id, stats in metrics_summary.items():
+            if not isinstance(stats, dict):
+                continue
+            avg = stats.get("avg_score", stats.get("avg", "N/A"))
             pass_rate = stats.get("pass_rate", "N/A")
             if isinstance(avg, float):
                 avg = f"{avg:.2f}"

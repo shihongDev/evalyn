@@ -36,6 +36,7 @@ def _parse_json_array(text: str) -> List[dict]:
 
 def _ollama_caller(model: str) -> Callable[[str], List[dict]]:
     """Create an Ollama-based LLM caller."""
+
     def _call(prompt: str) -> List[dict]:
         if not shutil.which("ollama"):
             raise RuntimeError(
@@ -60,6 +61,7 @@ def _openai_caller(
     model: str, api_base: Optional[str] = None, api_key: Optional[str] = None
 ) -> Callable[[str], List[dict]]:
     """Create an OpenAI/Gemini-based LLM caller."""
+
     def _call(prompt: str) -> List[dict]:
         # Gemini shortcut using google-genai if model name starts with "gemini"
         if model.lower().startswith("gemini"):

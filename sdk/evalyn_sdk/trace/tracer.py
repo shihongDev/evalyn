@@ -102,9 +102,10 @@ class EvalTracer:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Tuple[FunctionCall, contextvars.Token]:
         # Lazily patch LLM libraries on first trace (not at import time)
-        from .auto_instrument import ensure_patched
+        from .auto_instrument import ensure_patched, _auto_patched
 
-        ensure_patched()
+        first_patch = not _auto_patched
+        patch_results = ensure_patched()
 
         session = _current_session.get()
 
@@ -134,6 +135,12 @@ class EvalTracer:
         span_context.set_current_call(call)
         span_context._span_collector.set([])
         span_context._span_stack.set([root.id])
+
+        # Log patched clients on first trace only
+        if first_patch and patch_results:
+            patched = [k for k, v in patch_results.items() if v]
+            if patched:
+                self.log_event("evalyn.clients_patched", {"clients": patched})
 
         return call, token
 

@@ -52,7 +52,9 @@ class TrendAnalysis:
 
     @property
     def regressing_metrics(self) -> List[str]:
-        return [m for m, d in self.metric_deltas.items() if d is not None and d < -0.001]
+        return [
+            m for m, d in self.metric_deltas.items() if d is not None and d < -0.001
+        ]
 
     @property
     def stable_metrics(self) -> List[str]:
@@ -171,7 +173,9 @@ def generate_trend_text_report(trend: TrendAnalysis) -> str:
                 delta_str = "="
         prev_rate = rate
 
-        lines.append(f"  {run_id:<14} {date:<18} {items:>8} {rate:>11.1f}% {delta_str:>10}")
+        lines.append(
+            f"  {run_id:<14} {date:<18} {items:>8} {rate:>11.1f}% {delta_str:>10}"
+        )
 
     lines.append("")
 
@@ -265,7 +269,9 @@ def generate_trend_text_report(trend: TrendAnalysis) -> str:
         else:
             change_str = "no change"
 
-        lines.append(f"  Overall change: {change_str} ({first_rate:.1f}% to {last_rate:.1f}%)")
+        lines.append(
+            f"  Overall change: {change_str} ({first_rate:.1f}% to {last_rate:.1f}%)"
+        )
     else:
         lines.append(f"  Overall pass rate: {trend.overall_trends[0] * 100:.1f}%")
 
@@ -273,17 +279,23 @@ def generate_trend_text_report(trend: TrendAnalysis) -> str:
 
     # Metric summary
     if trend.improving_metrics:
-        lines.append(f"  Metrics improving ({len(trend.improving_metrics)}):  {', '.join(sorted(trend.improving_metrics)[:5])}")
+        lines.append(
+            f"  Metrics improving ({len(trend.improving_metrics)}):  {', '.join(sorted(trend.improving_metrics)[:5])}"
+        )
         if len(trend.improving_metrics) > 5:
             lines.append(f"    ... and {len(trend.improving_metrics) - 5} more")
 
     if trend.regressing_metrics:
-        lines.append(f"  Metrics regressing ({len(trend.regressing_metrics)}): {', '.join(sorted(trend.regressing_metrics)[:5])}")
+        lines.append(
+            f"  Metrics regressing ({len(trend.regressing_metrics)}): {', '.join(sorted(trend.regressing_metrics)[:5])}"
+        )
         if len(trend.regressing_metrics) > 5:
             lines.append(f"    ... and {len(trend.regressing_metrics) - 5} more")
 
     if trend.stable_metrics:
-        lines.append(f"  Metrics stable ({len(trend.stable_metrics)}):     {', '.join(sorted(trend.stable_metrics)[:5])}")
+        lines.append(
+            f"  Metrics stable ({len(trend.stable_metrics)}):     {', '.join(sorted(trend.stable_metrics)[:5])}"
+        )
         if len(trend.stable_metrics) > 5:
             lines.append(f"    ... and {len(trend.stable_metrics) - 5} more")
 
@@ -296,7 +308,9 @@ def generate_trend_text_report(trend: TrendAnalysis) -> str:
         item_delta = last_items - first_items
         if item_delta != 0:
             sign = "+" if item_delta > 0 else ""
-            lines.append(f"  Item count change: {sign}{item_delta} ({first_items} to {last_items})")
+            lines.append(
+                f"  Item count change: {sign}{item_delta} ({first_items} to {last_items})"
+            )
 
     lines.append("=" * 70)
 
