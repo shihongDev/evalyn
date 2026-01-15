@@ -28,8 +28,7 @@ from __future__ import annotations
 
 import functools
 import time
-from typing import Any, Callable, Dict, Optional
-from datetime import timedelta
+from typing import Any, Callable
 
 from . import context as span_context
 from ..models import Span

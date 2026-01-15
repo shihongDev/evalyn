@@ -60,7 +60,6 @@ from .annotation import (
     ANNOTATION_SCHEMAS,
     extract_spans_from_trace,
     get_annotation_prompts,
-    AnnotationSpanType,
 )
 from .cli.utils.hints import print_hint
 
@@ -231,7 +230,6 @@ from .metrics.suggester import (
     LLMSuggester,
     LLMRegistrySelector,
     TemplateSelector,
-    render_selection_prompt_with_templates,
 )
 from .trace.tracer import EvalTracer
 from .models import MetricSpec
@@ -329,11 +327,11 @@ def _load_callable(target: str) -> Callable[..., Any]:
 
         error_msg = f"Function '{name}' not found in {module_path}"
         if similar:
-            error_msg += f"\n\nDid you mean one of these?\n"
+            error_msg += "\n\nDid you mean one of these?\n"
             for s in similar:
                 error_msg += f"  - {left}:{s}\n"
         elif available:
-            error_msg += f"\n\nAvailable functions:\n"
+            error_msg += "\n\nAvailable functions:\n"
             for fn in available[:10]:
                 error_msg += f"  - {fn}\n"
             if len(available) > 10:
@@ -1362,7 +1360,7 @@ def _resolve_dataset_and_metrics(
     active_set = meta.get("active_metric_set")
     if not active_set:
         raise ValueError(
-            f"No active_metric_set in meta.json. Run 'evalyn suggest-metrics' to select metrics."
+            "No active_metric_set in meta.json. Run 'evalyn suggest-metrics' to select metrics."
         )
 
     # Find the metrics file from metric_sets
@@ -1516,7 +1514,6 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
 
     # Build metrics from specs
     from .metrics.factory import build_objective_metric, build_subjective_metric
-    from .annotation import load_optimized_prompt
 
     metrics = []
     objective_count = 0
@@ -1634,7 +1631,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
             progress.update(current, total, metric, metric_type)
 
     # Run evaluation using cached traces (with synthetic call support)
-    from .runner import EvalRunner, save_eval_run_json
+    from .runner import save_eval_run_json
 
     # Checkpoint path for long-running evaluations
     dataset_dir = dataset_file.parent
@@ -1722,9 +1719,9 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     print(f"\nEval run {run.id}")
     print(f"Dataset: {run.dataset_name}")
     print(f"Run folder: {run_folder}")
-    print(f"  results.json - evaluation data")
+    print("  results.json - evaluation data")
     if report_path:
-        print(f"  report.html  - analysis report")
+        print("  report.html  - analysis report")
     print()
 
     # Build metric type lookup
@@ -2504,7 +2501,7 @@ def cmd_export_for_annotation(args: argparse.Namespace) -> None:
 
 def cmd_annotation_stats(args: argparse.Namespace) -> None:
     """Show annotation coverage statistics."""
-    from .models import AnnotationItem, HumanLabel
+    from .models import AnnotationItem
 
     # Resolve dataset path
     dataset_path = Path(args.dataset)
@@ -2932,7 +2929,7 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
 
 def cmd_annotate(args: argparse.Namespace) -> None:
     """Interactive CLI annotation interface with per-metric support."""
-    from .models import AnnotationItem, HumanLabel, Annotation, MetricLabel
+    from .models import Annotation, MetricLabel
 
     # Check for span annotation mode
     if getattr(args, "spans", False):
@@ -3037,7 +3034,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
     if run:
         print(f"Using eval run: {run.id[:8]}...")
     print(f"Output: {output_path}")
-    print(f"\n💾 Each annotation is saved immediately - safe to quit anytime")
+    print("\n💾 Each annotation is saved immediately - safe to quit anytime")
     if per_metric_mode:
         print("\nPer-metric commands:")
         print("  [a]gree with LLM  [d]isagree (flip)  [s]kip metric")
@@ -3065,7 +3062,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
             if item.input
             else "(no input)"
         )
-        print(f"\n📥 INPUT:")
+        print("\n📥 INPUT:")
         if len(input_text) > 300:
             print(f"   {truncate(input_text, 300)}")
         else:
@@ -3074,14 +3071,14 @@ def cmd_annotate(args: argparse.Namespace) -> None:
 
         # Output
         output_text = str(item.output) if item.output else "(no output)"
-        print(f"\n📤 OUTPUT:")
+        print("\n📤 OUTPUT:")
         print(f"   {truncate(output_text, 500)}")
 
         # LLM Judge results
         eval_data = eval_results_by_call.get(call_id, {})
         subjective_metrics = []
         if eval_data:
-            print(f"\n🤖 LLM JUDGE RESULTS:")
+            print("\n🤖 LLM JUDGE RESULTS:")
             metric_num = 1
             for metric_id, result in eval_data.items():
                 passed = result.get("passed")
@@ -3186,7 +3183,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
 
             while True:
                 try:
-                    choice = input(f"  Your verdict [a/d/s/q]: ").strip().lower()
+                    choice = input("  Your verdict [a/d/s/q]: ").strip().lower()
                 except (EOFError, KeyboardInterrupt):
                     return None
 
@@ -3212,7 +3209,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
                     human_label = not llm_passed
                     human_status = "✅ PASS" if human_label else "❌ FAIL"
                     try:
-                        notes = input(f"      Notes (why disagree?): ").strip()
+                        notes = input("      Notes (why disagree?): ").strip()
                     except (EOFError, KeyboardInterrupt):
                         notes = ""
                     metric_labels[metric_id] = MetricLabel(
@@ -3380,7 +3377,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
 
     # All annotations already saved incrementally - just show summary
     print("\n" + "=" * 70)
-    print(f"ANNOTATION COMPLETE")
+    print("ANNOTATION COMPLETE")
     print(
         f"Total annotated: {len(annotations)} ({new_annotation_count} new this session)"
     )
@@ -3493,7 +3490,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     # Alignment metrics
     alignment = record.adjustments.get("alignment_metrics", {})
     if alignment:
-        print(f"\n--- ALIGNMENT METRICS ---")
+        print("\n--- ALIGNMENT METRICS ---")
         print(f"Accuracy:       {alignment.get('accuracy', 0):.1%}")
         print(f"Precision:      {alignment.get('precision', 0):.1%}")
         print(f"Recall:         {alignment.get('recall', 0):.1%}")
@@ -3504,8 +3501,8 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
         # Confusion matrix
         cm = alignment.get("confusion_matrix", {})
         if cm:
-            print(f"\nConfusion Matrix:")
-            print(f"                   Human PASS  Human FAIL")
+            print("\nConfusion Matrix:")
+            print("                   Human PASS  Human FAIL")
             print(
                 f"  Judge PASS       {cm.get('true_positive', 0):^10}  {cm.get('false_positive', 0):^10}"
             )
@@ -3519,7 +3516,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
         fp_count = disagreements.get("false_positive_count", 0)
         fn_count = disagreements.get("false_negative_count", 0)
         if fp_count > 0 or fn_count > 0:
-            print(f"\n--- DISAGREEMENT PATTERNS ---")
+            print("\n--- DISAGREEMENT PATTERNS ---")
             print(f"False Positives (judge too lenient): {fp_count}")
             print(f"False Negatives (judge too strict):  {fn_count}")
 
@@ -3528,7 +3525,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
                 fn_examples = disagreements.get("false_negative_examples", [])[:3]
 
                 if fp_examples:
-                    print(f"\nFalse Positive Examples:")
+                    print("\nFalse Positive Examples:")
                     for i, ex in enumerate(fp_examples, 1):
                         print(f"  {i}. call_id={ex.get('call_id', '')[:8]}...")
                         print(
@@ -3540,7 +3537,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
                             )
 
                 if fn_examples:
-                    print(f"\nFalse Negative Examples:")
+                    print("\nFalse Negative Examples:")
                     for i, ex in enumerate(fn_examples, 1):
                         print(f"  {i}. call_id={ex.get('call_id', '')[:8]}...")
                         print(
@@ -3552,7 +3549,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
                             )
 
     # Threshold suggestion
-    print(f"\n--- THRESHOLD ---")
+    print("\n--- THRESHOLD ---")
     print(f"Current:   {record.adjustments.get('current_threshold', 0.5):.3f}")
     print(f"Suggested: {record.adjustments.get('suggested_threshold', 0.5):.3f}")
 
@@ -3560,7 +3557,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     optimizer_type = record.adjustments.get("optimizer_type", "llm")
     optimization = record.adjustments.get("prompt_optimization", {})
     if optimization:
-        print(f"\n--- PROMPT OPTIMIZATION ---")
+        print("\n--- PROMPT OPTIMIZATION ---")
         print(f"Optimizer:             {optimizer_type.upper()}")
         print(
             f"Estimated improvement: {optimization.get('estimated_improvement', 'unknown')}"
@@ -3580,26 +3577,26 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
                     current_line = word
             if current_line:
                 lines.append(current_line)
-            print(f"\nReasoning:")
+            print("\nReasoning:")
             for line in lines:
                 print(f"  {line}")
 
         additions = optimization.get("suggested_additions", [])
         if additions:
-            print(f"\nSuggested ADDITIONS to rubric:")
+            print("\nSuggested ADDITIONS to rubric:")
             for a in additions:
                 print(f"  + {a}")
 
         removals = optimization.get("suggested_removals", [])
         if removals:
-            print(f"\nSuggested REMOVALS from rubric:")
+            print("\nSuggested REMOVALS from rubric:")
             for r in removals:
                 print(f"  - {r}")
 
         # Show optimized preamble (for GEPA)
         optimized_preamble = optimization.get("optimized_preamble", "")
         if optimized_preamble:
-            print(f"\nOPTIMIZED PREAMBLE:")
+            print("\nOPTIMIZED PREAMBLE:")
             # Show first 200 chars
             preview = (
                 optimized_preamble[:200] + "..."
@@ -3611,14 +3608,14 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
 
         improved = optimization.get("improved_rubric", [])
         if improved:
-            print(f"\nRUBRIC (unchanged):")
+            print("\nRUBRIC (unchanged):")
             for i, criterion in enumerate(improved, 1):
                 print(f"  {i}. {criterion}")
 
     # Validation results
     validation = record.adjustments.get("validation", {})
     if validation:
-        print(f"\n--- VALIDATION RESULTS ---")
+        print("\n--- VALIDATION RESULTS ---")
 
         is_better = validation.get("is_better", False)
         original_f1 = validation.get("original_f1", 0.0)
@@ -3667,14 +3664,14 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
 
         # Recommendation
         if recommendation == "use_optimized":
-            print(f"💡 RECOMMENDATION: USE OPTIMIZED PROMPT")
-            print(f"   Next: evalyn run-eval --latest --use-calibrated")
+            print("💡 RECOMMENDATION: USE OPTIMIZED PROMPT")
+            print("   Next: evalyn run-eval --latest --use-calibrated")
         elif recommendation == "keep_original":
-            print(f"💡 RECOMMENDATION: KEEP ORIGINAL PROMPT")
-            print(f"   The optimized prompt did not improve performance.")
+            print("💡 RECOMMENDATION: KEEP ORIGINAL PROMPT")
+            print("   The optimized prompt did not improve performance.")
         else:
-            print(f"💡 RECOMMENDATION: UNCERTAIN")
-            print(f"   Consider testing both prompts manually.")
+            print("💡 RECOMMENDATION: UNCERTAIN")
+            print("   Consider testing both prompts manually.")
 
     # Save calibration record
     saved_files = {}
@@ -3683,7 +3680,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     if dataset_dir and dataset_dir.exists():
         try:
             saved_files = save_calibration(record, str(dataset_dir), args.metric_id)
-            print(f"\n--- SAVED FILES ---")
+            print("\n--- SAVED FILES ---")
             print(f"Calibration: {saved_files.get('calibration', 'N/A')}")
             if saved_files.get("preamble"):
                 print(f"Preamble:    {saved_files.get('preamble')}")
@@ -3838,7 +3835,7 @@ def cmd_status(args: argparse.Namespace) -> None:
     if dataset_file.exists():
         with open(dataset_file) as f:
             item_count = sum(1 for _ in f)
-    print(f"\n--- DATASET ---")
+    print("\n--- DATASET ---")
     print(f"Items: {item_count}")
 
     # Meta info
@@ -3853,7 +3850,7 @@ def cmd_status(args: argparse.Namespace) -> None:
 
     # Metrics
     metrics_dir = dataset_path / "metrics"
-    print(f"\n--- METRICS ---")
+    print("\n--- METRICS ---")
     if metrics_dir.exists():
         metric_files = list(metrics_dir.glob("*.json"))
         print(f"Metric sets: {len(metric_files)}")
@@ -3874,7 +3871,7 @@ def cmd_status(args: argparse.Namespace) -> None:
 
     # Eval runs
     eval_runs_dir = dataset_path / "eval_runs"
-    print(f"\n--- EVAL RUNS ---")
+    print("\n--- EVAL RUNS ---")
     if eval_runs_dir.exists():
         run_files = list(eval_runs_dir.glob("*.json"))
         print(f"Eval runs: {len(run_files)}")
@@ -3894,7 +3891,7 @@ def cmd_status(args: argparse.Namespace) -> None:
 
     # Annotations
     annotations_file = dataset_path / "annotations.jsonl"
-    print(f"\n--- ANNOTATIONS ---")
+    print("\n--- ANNOTATIONS ---")
     if annotations_file.exists():
         with open(annotations_file) as f:
             ann_count = sum(1 for _ in f)
@@ -3907,7 +3904,7 @@ def cmd_status(args: argparse.Namespace) -> None:
 
     # Calibrations
     calibrations_dir = dataset_path / "calibrations"
-    print(f"\n--- CALIBRATIONS ---")
+    print("\n--- CALIBRATIONS ---")
     if calibrations_dir.exists():
         cal_count = 0
         metrics_with_cal = []
@@ -4056,7 +4053,6 @@ def cmd_list_metrics(args: argparse.Namespace) -> None:
 
 def cmd_simulate(args: argparse.Namespace) -> None:
     """Generate synthetic test data using LLM-based user simulation."""
-    from .models import DatasetItem
     from .decorators import eval as eval_decorator
 
     # Resolve dataset path
@@ -4114,7 +4110,7 @@ def cmd_simulate(args: argparse.Namespace) -> None:
     else:
         # Default: create sim-<timestamp> folder inside dataset directory
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        output_dir = dataset_path / f"simulations"
+        output_dir = dataset_path / "simulations"
 
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Output directory: {output_dir}")
@@ -4217,7 +4213,7 @@ def cmd_simulate(args: argparse.Namespace) -> None:
         print(f"\n{'=' * 60}")
         print("QUERY GENERATION COMPLETE")
         print(f"{'=' * 60}")
-        print(f"To run these queries through your agent, use --target flag")
+        print("To run these queries through your agent, use --target flag")
 
 
 # ===========================================================================
@@ -4227,8 +4223,6 @@ def cmd_simulate(args: argparse.Namespace) -> None:
 
 def cmd_validate(args: argparse.Namespace) -> None:
     """Validate dataset format and detect potential issues."""
-    from .datasets import load_dataset
-    from .models import DatasetItem
 
     config = load_config()
     dataset_path = resolve_dataset_path(args.dataset, args.latest, config)
@@ -4355,7 +4349,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
         try:
             with open(meta_file) as f:
                 meta = json.load(f)
-            print(f"\n  meta.json:          ✓ Found")
+            print("\n  meta.json:          ✓ Found")
             if "project" in meta:
                 print(f"  Project:            {meta.get('project')}")
             if "version" in meta:
@@ -4393,7 +4387,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
             print(f"  ... and {len(errors) - 20} more errors")
         sys.exit(1)
     else:
-        print(f"\n✓ Dataset is valid!")
+        print("\n✓ Dataset is valid!")
         sys.exit(0)
 
 
@@ -4707,7 +4701,7 @@ def cmd_compare(args: argparse.Namespace) -> None:
     overall2 = 100 * total2 / max(1, all2)
     overall_delta = overall2 - overall1
 
-    print(f"  Overall pass rate:")
+    print("  Overall pass rate:")
     print(f"    Run 1: {overall1:.1f}% ({total1}/{all1})")
     print(f"    Run 2: {overall2:.1f}% ({total2}/{all2})")
 
@@ -4716,7 +4710,7 @@ def cmd_compare(args: argparse.Namespace) -> None:
     elif overall_delta < 0:
         print(f"    Change: {overall_delta:.1f}% ↓ REGRESSED")
     else:
-        print(f"    Change: No change")
+        print("    Change: No change")
 
     print(f"\n  Metrics improved:  {improvements}")
     print(f"  Metrics regressed: {regressions}")
@@ -4732,7 +4726,6 @@ def cmd_compare(args: argparse.Namespace) -> None:
 def cmd_export(args: argparse.Namespace) -> None:
     """Export evaluation results in various formats."""
     from .storage import SQLiteStorage
-    from .models import EvalRun
     from datetime import datetime
 
     config = load_config()
@@ -4817,11 +4810,11 @@ def cmd_export(args: argparse.Namespace) -> None:
 
     elif format_type == "markdown":
         lines = []
-        lines.append(f"# Evaluation Report\n")
+        lines.append("# Evaluation Report\n")
         lines.append(f"**Run ID:** {run_data.get('id', 'unknown')}\n")
         lines.append(f"**Dataset:** {run_data.get('dataset_name', 'unknown')}\n")
         lines.append(f"**Started:** {run_data.get('started_at', 'unknown')}\n")
-        lines.append(f"\n## Summary\n")
+        lines.append("\n## Summary\n")
 
         summary = run_data.get("summary", {})
         # Handle both old format (summary.items) and new format (summary.metrics.items)
@@ -5047,10 +5040,10 @@ defaults:
         with open(output_path, "w") as f:
             f.write(minimal)
         print(f"Created {output_path} (minimal config)")
-        print(f"Note: evalyn.yaml.example not found for full template")
+        print("Note: evalyn.yaml.example not found for full template")
 
-    print(f"\nSet your API key:")
-    print(f"  export GEMINI_API_KEY='your-key'")
+    print("\nSet your API key:")
+    print("  export GEMINI_API_KEY='your-key'")
     print(f"  # or edit {output_path} directly")
 
 
@@ -5224,7 +5217,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         try:
             with open(state_path, "r", encoding="utf-8") as f:
                 state = json.load(f)
-            print(f"  Resuming from previous run...")
+            print("  Resuming from previous run...")
             print(f"  Completed steps: {', '.join(state.get('steps', {}).keys())}\n")
             resumed = True
         except Exception:
@@ -5286,7 +5279,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             )
 
             if not items:
-                print(f"  ✗ No traces found matching filters")
+                print("  ✗ No traces found matching filters")
                 return
 
             meta = {
@@ -5351,7 +5344,6 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 LLMSuggester,
                 LLMRegistrySelector,
             )
-            from .models import MetricRegistry
 
             # Load target function if provided
             target_fn = None
@@ -5361,7 +5353,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 except Exception as e:
                     print(f"  ⚠ Could not load target function: {args.target}")
                     print(f"    Error: {e}")
-                    print(f"  → Using trace-based suggestions only")
+                    print("  → Using trace-based suggestions only")
 
             # Get sample traces
             from .storage import SQLiteStorage
@@ -5524,7 +5516,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 json.dump(eval_run.as_dict(), f, indent=2)
 
             print(f"  ✓ Evaluated {len(items)} items")
-            print(f"  RESULTS:")
+            print("  RESULTS:")
             for metric_id, summary in eval_run.summary.items():
                 if "pass_rate" in summary:
                     print(f"    {metric_id}: pass_rate={summary['pass_rate']:.2f}")
@@ -5559,8 +5551,8 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 ann_path = ann_dir / "annotations.jsonl"
 
                 print(f"  → Annotating {args.annotation_limit} items...")
-                print(f"  → Interactive annotation mode")
-                print(f"  → Press Ctrl+C to skip this step\n")
+                print("  → Interactive annotation mode")
+                print("  → Press Ctrl+C to skip this step\n")
 
                 try:
                     # Call interactive annotation
@@ -5614,7 +5606,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         else:
             print("[5/7] Calibrating LLM Judges")
             if args.dry_run:
-                print(f"  → Would calibrate subjective metrics")
+                print("  → Would calibrate subjective metrics")
                 print(f"  → Optimizer: {args.optimizer}\n")
             else:
                 cal_dir = output_dir / "5_calibrations"
@@ -5677,7 +5669,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         else:
             print("[6/7] Re-evaluating with Calibrated Prompts")
             if args.dry_run:
-                print(f"  → Would re-run evaluation with calibrated prompts\n")
+                print("  → Would re-run evaluation with calibrated prompts\n")
             else:
                 eval2_dir = output_dir / "6_calibrated_eval"
                 eval2_dir.mkdir(exist_ok=True)
@@ -5747,7 +5739,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
 
                 print(f"  ✓ Used {calibrated_count} calibrated prompts")
                 print(f"  ✓ Evaluated {len(items)} items")
-                print(f"  RESULTS:")
+                print("  RESULTS:")
                 for metric_id, summary in eval_run2.summary.items():
                     if "pass_rate" in summary:
                         print(f"    {metric_id}: pass_rate={summary['pass_rate']:.2f}")
@@ -5803,7 +5795,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
 
                 try:
                     cmd_simulate(sim_args)
-                    print(f"  ✓ Simulations generated")
+                    print("  ✓ Simulations generated")
                     print(f"  ✓ Saved to: {sim_dir}/\n")
                     state["steps"]["7_simulation"] = {
                         "status": "success",
@@ -5829,7 +5821,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         print(" " * 20 + "PIPELINE COMPLETE")
         print("=" * 70)
         print(f"\nOutput directory: {output_dir}")
-        print(f"\nSummary:")
+        print("\nSummary:")
         for step_name, step_info in state["steps"].items():
             status = step_info.get("status", "unknown")
             status_icon = (
@@ -5837,7 +5829,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             )
             print(f"  {status_icon} {step_name}: {status}")
 
-        print(f"\nNext steps:")
+        print("\nNext steps:")
         if (
             "6_calibrated_eval" in state["steps"]
             and state["steps"]["6_calibrated_eval"]["status"] == "success"

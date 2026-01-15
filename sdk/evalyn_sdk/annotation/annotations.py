@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 import uuid
 from pathlib import Path
-from typing import Iterable, List, Tuple
+from typing import Iterable, List
 
-from ..models import Annotation, AnnotationItem, HumanLabel, DatasetItem
+from ..models import Annotation, AnnotationItem, DatasetItem
 
 
 def export_annotations(annotations: Iterable[Annotation], path: str | Path) -> None:

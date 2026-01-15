@@ -786,7 +786,7 @@ def json_valid_metric(metric_id: str = "json_valid") -> Metric:
                 output_text if isinstance(output_text, str) else json.dumps(output_text)
             )
             passed = True
-        except Exception as exc:
+        except Exception:
             passed = False
         return MetricResult(
             metric_id=spec.id,
