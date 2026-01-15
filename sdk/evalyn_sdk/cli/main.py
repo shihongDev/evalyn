@@ -7,7 +7,7 @@ import sys
 from typing import List, Optional
 
 # Import command modules
-from .commands import dataset, runs, simulate, traces
+from .commands import analysis, dataset, export, runs, simulate, traces
 
 # Temporarily import remaining commands from original cli_impl.py until extracted
 # These will be migrated to separate modules incrementally
@@ -15,13 +15,7 @@ from ..cli_impl import (
     # Evaluation commands
     cmd_run_eval,
     cmd_suggest_metrics,
-    cmd_status,
     cmd_select_metrics,
-    cmd_trend,
-    # Dataset/export commands
-    cmd_export_for_annotation,
-    cmd_export,
-    cmd_validate,
     cmd_list_metrics,
     # Annotation commands
     cmd_annotate,
@@ -30,9 +24,6 @@ from ..cli_impl import (
     # Calibration commands
     cmd_calibrate,
     cmd_list_calibrations,
-    # Analysis commands
-    cmd_analyze,
-    cmd_compare,
     # Infrastructure commands
     cmd_init,
     cmd_one_click,
@@ -94,6 +85,8 @@ For more info on a command: evalyn <command> --help
     runs.register_commands(subparsers)
     dataset.register_commands(subparsers)
     simulate.register_commands(subparsers)
+    export.register_commands(subparsers)
+    analysis.register_commands(subparsers)
 
     # ----- Evaluation commands (to be extracted to commands/evaluation.py) -----
     run_parser = subparsers.add_parser(
@@ -200,16 +193,6 @@ For more info on a command: evalyn <command> --help
     )
     suggest_parser.set_defaults(func=cmd_suggest_metrics)
 
-    status_parser = subparsers.add_parser(
-        "status",
-        help="Show status of a dataset (items, metrics, runs, annotations, calibrations)",
-    )
-    status_parser.add_argument("--dataset", help="Path to dataset directory")
-    status_parser.add_argument(
-        "--latest", action="store_true", help="Use the most recently modified dataset"
-    )
-    status_parser.set_defaults(func=cmd_status)
-
     select_parser = subparsers.add_parser(
         "select-metrics", help="LLM-guided selection from metric registry"
     )
@@ -227,54 +210,6 @@ For more info on a command: evalyn <command> --help
         "--limit", type=int, default=5, help="Recent traces to include as examples"
     )
     select_parser.set_defaults(func=cmd_select_metrics)
-
-    # ----- Export/Annotation commands -----
-    export_ann = subparsers.add_parser(
-        "export-for-annotation",
-        help="Export dataset with eval results for human annotation",
-    )
-    export_ann.add_argument(
-        "--dataset",
-        required=True,
-        help="Path to dataset directory or dataset.jsonl file",
-    )
-    export_ann.add_argument(
-        "--output", required=True, help="Output path for annotation JSONL file"
-    )
-    export_ann.add_argument(
-        "--run-id", help="Specific eval run ID to use (defaults to latest)"
-    )
-    export_ann.set_defaults(func=cmd_export_for_annotation)
-
-    export_parser = subparsers.add_parser(
-        "export", help="Export evaluation results in various formats"
-    )
-    export_parser.add_argument("--run", help="Eval run ID to export")
-    export_parser.add_argument(
-        "--dataset", help="Dataset path (uses latest run from eval_runs/)"
-    )
-    export_parser.add_argument(
-        "--latest", action="store_true", help="Use the most recently modified dataset"
-    )
-    export_parser.add_argument(
-        "--format",
-        choices=["json", "csv", "markdown", "html"],
-        default="json",
-        help="Output format (default: json)",
-    )
-    export_parser.add_argument(
-        "--output", "-o", help="Output file path (prints to stdout if not specified)"
-    )
-    export_parser.set_defaults(func=cmd_export)
-
-    validate_parser = subparsers.add_parser(
-        "validate", help="Validate dataset format and detect potential issues"
-    )
-    validate_parser.add_argument("--dataset", help="Path to dataset directory or file")
-    validate_parser.add_argument(
-        "--latest", action="store_true", help="Use the most recently modified dataset"
-    )
-    validate_parser.set_defaults(func=cmd_validate)
 
     list_metrics = subparsers.add_parser(
         "list-metrics", help="List available metric templates (objective + subjective)"
@@ -430,52 +365,6 @@ For more info on a command: evalyn <command> --help
         help="Output format (default: table)",
     )
     list_cal_parser.set_defaults(func=cmd_list_calibrations)
-
-    # ----- Analysis commands (to be extracted to commands/analysis.py) -----
-    analyze_parser = subparsers.add_parser(
-        "analyze", help="Analyze evaluation results and generate insights"
-    )
-    analyze_parser.add_argument("--run", help="Eval run ID to analyze")
-    analyze_parser.add_argument(
-        "--dataset", help="Dataset path (uses latest run from eval_runs/)"
-    )
-    analyze_parser.add_argument(
-        "--latest", action="store_true", help="Use the most recently modified dataset"
-    )
-    analyze_parser.set_defaults(func=cmd_analyze)
-
-    compare_parser = subparsers.add_parser(
-        "compare", help="Compare two evaluation runs side-by-side"
-    )
-    compare_parser.add_argument(
-        "--run1", required=True, help="First eval run ID or path to run JSON file"
-    )
-    compare_parser.add_argument(
-        "--run2", required=True, help="Second eval run ID or path to run JSON file"
-    )
-    compare_parser.set_defaults(func=cmd_compare)
-
-    trend_parser = subparsers.add_parser(
-        "trend", help="Show evaluation trends over time for a project"
-    )
-    trend_parser.add_argument(
-        "--project",
-        required=True,
-        help="Project/dataset name to analyze trends for",
-    )
-    trend_parser.add_argument(
-        "--limit",
-        type=int,
-        default=20,
-        help="Maximum number of runs to analyze (default: 20)",
-    )
-    trend_parser.add_argument(
-        "--format",
-        choices=["table", "json"],
-        default="table",
-        help="Output format (default: table)",
-    )
-    trend_parser.set_defaults(func=cmd_trend)
 
     # ----- Infrastructure commands (to be extracted to commands/infrastructure.py) -----
     init_parser = subparsers.add_parser("init", help="Initialize configuration file")
