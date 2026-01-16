@@ -296,6 +296,15 @@ Examples:
 
   # Or use eval for immediate effect:
   eval "$(evalyn completion bash)"
+
+Optional: Inline suggestions (grey text as you type)
+  Standard completion shows options after pressing Tab. For inline
+  grey suggestions, use zsh with zsh-autosuggestions:
+
+  1. Install zsh: sudo apt install zsh
+  2. Install plugin: https://github.com/zsh-users/zsh-autosuggestions
+  3. Add completion: evalyn completion zsh >> ~/.zshrc
+  4. Switch shell: chsh -s $(which zsh)
 """,
     )
     p.add_argument(
