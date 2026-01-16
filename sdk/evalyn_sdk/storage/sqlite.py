@@ -220,6 +220,52 @@ class SQLiteStorage(StorageBackend):
         row = cur.fetchone()
         return self._row_to_eval_run(row) if row else None
 
+    def resolve_call_id(self, short_id: str) -> Optional[str]:
+        """Resolve a short ID prefix to full call ID.
+
+        Returns the full ID if exactly one match found, None otherwise.
+        Supports both short prefixes (e.g., '6cf21eb3') and full UUIDs.
+        """
+        # First try exact match
+        cur = self.conn.cursor()
+        cur.execute("SELECT id FROM function_calls WHERE id = ?", (short_id,))
+        row = cur.fetchone()
+        if row:
+            return row[0]
+
+        # Try prefix match
+        cur.execute(
+            "SELECT id FROM function_calls WHERE id LIKE ? ORDER BY started_at DESC LIMIT 2",
+            (short_id + "%",),
+        )
+        rows = cur.fetchall()
+        if len(rows) == 1:
+            return rows[0][0]
+        return None  # Ambiguous or not found
+
+    def resolve_eval_run_id(self, short_id: str) -> Optional[str]:
+        """Resolve a short ID prefix to full eval run ID.
+
+        Returns the full ID if exactly one match found, None otherwise.
+        Supports both short prefixes and full UUIDs.
+        """
+        # First try exact match
+        cur = self.conn.cursor()
+        cur.execute("SELECT id FROM eval_runs WHERE id = ?", (short_id,))
+        row = cur.fetchone()
+        if row:
+            return row[0]
+
+        # Try prefix match
+        cur.execute(
+            "SELECT id FROM eval_runs WHERE id LIKE ? ORDER BY created_at DESC LIMIT 2",
+            (short_id + "%",),
+        )
+        rows = cur.fetchall()
+        if len(rows) == 1:
+            return rows[0][0]
+        return None  # Ambiguous or not found
+
     def store_annotations(self, annotations: Iterable[Annotation]) -> None:
         cur = self.conn.cursor()
         for ann in annotations:

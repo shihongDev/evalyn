@@ -72,9 +72,11 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
     first_run_id = None
     for run in runs:
         if first_run_id is None:
-            first_run_id = run.id
+            first_run_id = run.id[:8]  # Use short ID for hint
+        # Use short ID (first 8 chars) for easier copy-paste
+        short_id = run.id[:8]
         row = [
-            run.id,
+            short_id,
             run.dataset_name,
             str(run.created_at),
             str(len(run.metrics)),
@@ -97,9 +99,23 @@ def cmd_show_run(args: argparse.Namespace) -> None:
     if not tracer.storage:
         print("No storage configured.", file=sys.stderr)
         sys.exit(1)
-    run = tracer.storage.get_eval_run(args.id)
+
+    # Resolve short ID to full ID (supports prefixes like '6cf21eb3')
+    input_id = args.id
+    if hasattr(tracer.storage, "resolve_eval_run_id"):
+        resolved = tracer.storage.resolve_eval_run_id(input_id)
+        if resolved:
+            run_id = resolved
+        else:
+            print(f"No eval run found matching '{input_id}'", file=sys.stderr)
+            print("Hint: Use more characters for a unique match", file=sys.stderr)
+            sys.exit(1)
+    else:
+        run_id = input_id
+
+    run = tracer.storage.get_eval_run(run_id)
     if not run:
-        print(f"No eval run found with id={args.id}", file=sys.stderr)
+        print(f"No eval run found with id={run_id}", file=sys.stderr)
         sys.exit(1)
 
     # JSON output mode

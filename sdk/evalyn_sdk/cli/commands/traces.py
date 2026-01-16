@@ -216,8 +216,10 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
             version = call.metadata.get("version", "")
             is_sim = call.metadata.get("is_simulation", False)
         file_path = code.get("file_path") if isinstance(code, dict) else None
+        # Use short ID (first 8 chars) for easier copy-paste
+        short_id = call.id[:8]
         row = [
-            call.id,
+            short_id,
             call.function_name,
             project,
             version,
@@ -239,9 +241,10 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
 
     # Show hint with first call ID (guard against empty list after filtering)
     if calls:
-        first_id = calls[0].id
+        # Use short ID (first 8 chars) in hint for easier copy-paste
+        short_id = calls[0].id[:8]
         print_hint(
-            f"To see details, run: evalyn show-call --id {first_id}",
+            f"To see details, run: evalyn show-call --id {short_id}",
             quiet=getattr(args, "quiet", False),
             format=output_format,
         )
@@ -264,7 +267,18 @@ def cmd_show_call(args: argparse.Namespace) -> None:
             sys.exit(1)
         call_id = calls[0].id
     elif args.id:
-        call_id = args.id
+        # Resolve short ID to full ID (supports prefixes like '6cf21eb3')
+        input_id = args.id
+        if hasattr(tracer.storage, "resolve_call_id"):
+            resolved = tracer.storage.resolve_call_id(input_id)
+            if resolved:
+                call_id = resolved
+            else:
+                print(f"No call found matching '{input_id}'", file=sys.stderr)
+                print("Hint: Use more characters for a unique match", file=sys.stderr)
+                sys.exit(1)
+        else:
+            call_id = input_id
     else:
         print("Error: Must specify --id or --last", file=sys.stderr)
         sys.exit(1)
@@ -712,7 +726,18 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
             sys.exit(1)
         call_id = calls[0].id
     elif args.id:
-        call_id = args.id
+        # Resolve short ID to full ID (supports prefixes like '6cf21eb3')
+        input_id = args.id
+        if hasattr(tracer.storage, "resolve_call_id"):
+            resolved = tracer.storage.resolve_call_id(input_id)
+            if resolved:
+                call_id = resolved
+            else:
+                print(f"No call found matching '{input_id}'", file=sys.stderr)
+                print("Hint: Use more characters for a unique match", file=sys.stderr)
+                sys.exit(1)
+        else:
+            call_id = input_id
     else:
         print("Error: Must specify --id or --last", file=sys.stderr)
         sys.exit(1)
