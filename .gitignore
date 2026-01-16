@@ -42,6 +42,10 @@ uv.lock
 CLAUDE.md
 SPEC.md
 
+# Internal docs
+docs/bugs.md
+docs/CLI_IMPROVEMENTS.md
+
 # Test
 tests/
 test_data/

@@ -32,7 +32,12 @@ from ..utils.hints import print_hint
 def cmd_list_calls(args: argparse.Namespace) -> None:
     """List captured function calls."""
     tracer = get_default_tracer()
-    calls = tracer.storage.list_calls(limit=args.limit) if tracer.storage else []
+    # Fetch more calls for filtering (we'll slice later for pagination)
+    fetch_limit = args.limit + getattr(args, "offset", 0) + 100
+    all_calls = tracer.storage.list_calls(limit=fetch_limit) if tracer.storage else []
+    calls = list(all_calls)
+
+    # Filter by project
     if args.project and calls:
         filtered = []
         for c in calls:
@@ -41,6 +46,15 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
             if pid == args.project:
                 filtered.append(c)
         calls = filtered
+
+    # Filter by function name
+    if getattr(args, "function", None) and calls:
+        func_filter = args.function.lower()
+        calls = [c for c in calls if func_filter in c.function_name.lower()]
+
+    # Filter by error-only
+    if getattr(args, "error_only", False) and calls:
+        calls = [c for c in calls if c.error]
 
     # Filter by simulation/production if specified
     if hasattr(args, "simulation") and args.simulation and calls:
@@ -58,18 +72,53 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
                 filtered.append(c)
         calls = filtered
 
+    # Sorting
+    sort_field = getattr(args, "sort", "started_at")
+    sort_reverse = True  # Default descending (newest first)
+    if sort_field.startswith("+"):
+        sort_field = sort_field[1:]
+        sort_reverse = False
+    elif sort_field.startswith("-"):
+        sort_field = sort_field[1:]
+        sort_reverse = True
+
+    def get_sort_key(call):
+        if sort_field == "started_at":
+            return call.started_at or ""
+        elif sort_field == "duration":
+            return call.duration_ms or 0
+        elif sort_field == "function":
+            return call.function_name or ""
+        elif sort_field == "status":
+            return 1 if call.error else 0
+        return call.started_at or ""
+
+    calls.sort(key=get_sort_key, reverse=sort_reverse)
+
+    # Track total before pagination for "more available" indicator
+    total_after_filter = len(calls)
+
+    # Pagination: apply offset and limit
+    offset = getattr(args, "offset", 0)
+    if offset > 0:
+        calls = calls[offset:]
+    calls = calls[: args.limit]
+
     output_format = getattr(args, "format", "table")
 
     if not calls:
         if output_format == "json":
-            print("[]")
+            print(json.dumps({"calls": [], "total": 0, "showing": 0, "offset": offset}))
         else:
             print("No calls found.")
         return
 
+    # Calculate "more available"
+    more_available = max(0, total_after_filter - offset - len(calls))
+
     # JSON output mode
     if output_format == "json":
-        result = []
+        result_calls = []
         for call in calls:
             code = (
                 call.metadata.get("code", {}) if isinstance(call.metadata, dict) else {}
@@ -88,7 +137,7 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
                 if isinstance(call.metadata, dict)
                 else False
             )
-            result.append(
+            result_calls.append(
                 {
                     "id": call.id,
                     "function": call.function_name,
@@ -104,6 +153,13 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
                     "duration_ms": call.duration_ms,
                 }
             )
+        result = {
+            "calls": result_calls,
+            "total": total_after_filter,
+            "showing": len(calls),
+            "offset": offset,
+            "more_available": more_available,
+        }
         print(json.dumps(result, indent=2))
         return
 
@@ -173,6 +229,13 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
             f"{call.duration_ms:.2f}",
         ]
         print(" | ".join(row))
+
+    # Show "more available" indicator
+    if more_available > 0:
+        next_offset = offset + len(calls)
+        print(
+            f"\n({more_available} more available. Use --offset {next_offset} to see next page)"
+        )
 
     # Show hint with first call ID (guard against empty list after filtering)
     if calls:
@@ -682,16 +745,16 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
         lines = []
         queries = attrs.get("search_queries")
         if queries:
-            lines.append(f"{prefix}    🔍 Queries: {', '.join(queries[:3])}")
+            lines.append(f"{prefix}    [Search] Queries: {', '.join(queries[:3])}")
             if len(queries) > 3:
                 lines.append(f"{prefix}       ... and {len(queries) - 3} more")
         sources = attrs.get("sources")
         if sources:
-            lines.append(f"{prefix}    📚 Sources:")
+            lines.append(f"{prefix}    [Sources]:")
             for src in sources[:3]:
                 title = src.get("title", "")[:50]
                 uri = src.get("uri", "")
-                lines.append(f"{prefix}       • {title}")
+                lines.append(f"{prefix}       - {title}")
                 if uri:
                     lines.append(f"{prefix}         {uri[:60]}...")
             if len(sources) > 3:
@@ -700,10 +763,10 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
 
     def _status_icon(status: str) -> str:
         if status == "error":
-            return "✗"
+            return "[X]"
         elif status == "ok":
-            return "✓"
-        return "○"
+            return "[OK]"
+        return "[-]"
 
     # Build span tree from call.spans
     spans = call.spans or []
@@ -879,7 +942,19 @@ def register_commands(subparsers) -> None:
     # list-calls
     p = subparsers.add_parser("list-calls", help="List captured function calls")
     p.add_argument("--limit", type=int, default=20, help="Number of calls to list")
+    p.add_argument(
+        "--offset", type=int, default=0, help="Skip first N results (pagination)"
+    )
     p.add_argument("--project", help="Filter by project name")
+    p.add_argument("--function", help="Filter by function name (substring match)")
+    p.add_argument(
+        "--error-only", action="store_true", help="Show only calls with errors"
+    )
+    p.add_argument(
+        "--sort",
+        default="started_at",
+        help="Sort by field: started_at, duration, function, status. Prefix with + for ascending, - for descending (default: -started_at)",
+    )
     p.add_argument("--format", choices=["table", "json"], default="table")
     p.add_argument(
         "--simulation", action="store_true", help="Show only simulation calls"

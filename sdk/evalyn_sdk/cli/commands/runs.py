@@ -92,6 +92,8 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
 def cmd_show_run(args: argparse.Namespace) -> None:
     """Show details for a specific eval run."""
     tracer = get_default_tracer()
+    output_format = getattr(args, "format", "table")
+
     if not tracer.storage:
         print("No storage configured.", file=sys.stderr)
         sys.exit(1)
@@ -99,6 +101,33 @@ def cmd_show_run(args: argparse.Namespace) -> None:
     if not run:
         print(f"No eval run found with id={args.id}", file=sys.stderr)
         sys.exit(1)
+
+    # JSON output mode
+    if output_format == "json":
+        result = {
+            "id": run.id,
+            "dataset_name": run.dataset_name,
+            "created_at": run.created_at.isoformat() if run.created_at else None,
+            "metrics": [
+                m.as_dict() if hasattr(m, "as_dict") else m for m in run.metrics
+            ],
+            "summary": run.summary,
+            "metric_results": [
+                {
+                    "metric_id": res.metric_id,
+                    "item_id": res.item_id,
+                    "call_id": res.call_id,
+                    "score": res.score,
+                    "passed": res.passed,
+                    "details": res.details,
+                }
+                for res in run.metric_results
+            ],
+        }
+        print(json.dumps(result, indent=2, default=str))
+        return
+
+    # Table output mode
     print(f"\n=== Eval Run {run.id} ===")
     print(f"Dataset: {run.dataset_name}")
     print("Metrics summary:")
@@ -133,6 +162,12 @@ def register_commands(subparsers) -> None:
     # show-run
     p = subparsers.add_parser("show-run", help="Show details for an eval run")
     p.add_argument("--id", required=True, help="Eval run id to display")
+    p.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format (default: table)",
+    )
     p.set_defaults(func=cmd_show_run)
 
 

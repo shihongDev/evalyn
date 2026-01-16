@@ -32,6 +32,7 @@ from datetime import datetime
 from pathlib import Path
 
 from ..utils.config import load_config, resolve_dataset_path
+from ..utils.hints import print_hint
 
 
 def cmd_status(args: argparse.Namespace) -> None:
@@ -388,6 +389,7 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     from ...storage import SQLiteStorage
     from ...models import EvalRun
 
+    output_format = getattr(args, "format", "table")
     config = load_config()
     dataset_path = resolve_dataset_path(args.dataset, args.latest, config)
 
@@ -415,21 +417,14 @@ def cmd_analyze(args: argparse.Namespace) -> None:
                 with open(run_files[0], encoding="utf-8") as f:
                     run_data = json.load(f)
                     run = EvalRun.from_dict(run_data)
-                print(f"Analyzing latest run: {run_files[0].name}")
+                if output_format != "json":
+                    print(f"Analyzing latest run: {run_files[0].name}")
         if not run:
             print("Error: No eval runs found. Run 'evalyn run-eval' first.")
             sys.exit(1)
     else:
         print("Error: Specify --run <run_id> or --dataset <path>")
         sys.exit(1)
-
-    print(f"\n{'=' * 70}")
-    print("  EVALUATION ANALYSIS")
-    print(f"{'=' * 70}")
-    print(f"\nRun ID:      {run.id}")
-    print(f"Dataset:     {run.dataset_name}")
-    print(f"Items:       {len(run.metric_results)}")
-    print(f"Created:     {run.created_at}")
 
     # Aggregate metrics
     metrics_stats = {}
@@ -462,38 +457,13 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         if score is not None:
             stats["scores"].append(score)
 
-    # Print metric summary
-    print(f"\n{'=' * 70}")
-    print("  METRIC SUMMARY")
-    print(f"{'=' * 70}\n")
-
     sorted_metrics = sorted(
         metrics_stats.items(),
         key=lambda x: x[1]["failed"] / max(1, x[1]["total"]),
         reverse=True,
     )
 
-    for metric_id, stats in sorted_metrics:
-        total = stats["total"]
-        passed = stats["passed"]
-        failed = stats["failed"]
-        pass_rate = 100 * passed / max(1, total)
-        status = "PASS" if failed == 0 else "FAIL"
-
-        avg_score = ""
-        if stats["scores"]:
-            avg = sum(stats["scores"]) / len(stats["scores"])
-            avg_score = f"  avg={avg:.2f}"
-
-        print(
-            f"  [{status}] {metric_id:<30} {passed}/{total} passed ({pass_rate:.0f}%){avg_score}"
-        )
-
-    # Insights section
-    print(f"\n{'=' * 70}")
-    print("  INSIGHTS")
-    print(f"{'=' * 70}\n")
-
+    # Build insights
     insights = []
 
     # Find problematic metrics (< 80% pass rate)
@@ -537,13 +507,82 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     overall_rate = 100 * total_passed / max(1, total_evals)
 
     if overall_rate >= 90:
-        insights.append(f"Overall health is GOOD ({overall_rate:.0f}% pass rate)")
+        health_status = "GOOD"
     elif overall_rate >= 70:
-        insights.append(f"Overall health is MODERATE ({overall_rate:.0f}% pass rate)")
+        health_status = "MODERATE"
     else:
-        insights.append(
-            f"Overall health needs attention ({overall_rate:.0f}% pass rate)"
+        health_status = "NEEDS_ATTENTION"
+    insights.append(
+        f"Overall health is {health_status} ({overall_rate:.0f}% pass rate)"
+    )
+
+    # JSON output
+    if output_format == "json":
+        result = {
+            "run_id": run.id,
+            "dataset_name": run.dataset_name,
+            "created_at": run.created_at.isoformat() if run.created_at else None,
+            "total_results": len(run.metric_results),
+            "overall_pass_rate": overall_rate,
+            "health_status": health_status,
+            "metrics": {
+                m: {
+                    "total": s["total"],
+                    "passed": s["passed"],
+                    "failed": s["failed"],
+                    "pass_rate": 100 * s["passed"] / max(1, s["total"]),
+                    "avg_score": sum(s["scores"]) / len(s["scores"])
+                    if s["scores"]
+                    else None,
+                    "failed_items": s["failed_items"][:10],
+                }
+                for m, s in sorted_metrics
+            },
+            "problem_metrics": [m for m, _ in problem_metrics],
+            "perfect_metrics": perfect_metrics,
+            "multi_fail_items": [
+                {"item_id": item, "failed_metrics": metrics}
+                for item, metrics in multi_fail_items[:10]
+            ],
+            "insights": insights,
+        }
+        print(json.dumps(result, indent=2, default=str))
+        return
+
+    # Table output
+    print(f"\n{'=' * 70}")
+    print("  EVALUATION ANALYSIS")
+    print(f"{'=' * 70}")
+    print(f"\nRun ID:      {run.id}")
+    print(f"Dataset:     {run.dataset_name}")
+    print(f"Items:       {len(run.metric_results)}")
+    print(f"Created:     {run.created_at}")
+
+    # Print metric summary
+    print(f"\n{'=' * 70}")
+    print("  METRIC SUMMARY")
+    print(f"{'=' * 70}\n")
+
+    for metric_id, stats in sorted_metrics:
+        total = stats["total"]
+        passed = stats["passed"]
+        failed = stats["failed"]
+        pass_rate = 100 * passed / max(1, total)
+        status = "PASS" if failed == 0 else "FAIL"
+
+        avg_score = ""
+        if stats["scores"]:
+            avg = sum(stats["scores"]) / len(stats["scores"])
+            avg_score = f"  avg={avg:.2f}"
+
+        print(
+            f"  [{status}] {metric_id:<30} {passed}/{total} passed ({pass_rate:.0f}%){avg_score}"
         )
+
+    # Insights section
+    print(f"\n{'=' * 70}")
+    print("  INSIGHTS")
+    print(f"{'=' * 70}\n")
 
     for insight in insights:
         print(f"  {insight}\n")
@@ -579,36 +618,91 @@ def cmd_compare(args: argparse.Namespace) -> None:
 
     storage = SQLiteStorage()
 
-    # Load run 1
-    run1 = None
-    if args.run1:
-        run1 = storage.get_eval_run(args.run1)
+    # Validate args: need either (--run1 and --run2) or --latest
+    use_latest = getattr(args, "latest", False)
+    has_runs = args.run1 and args.run2
+
+    if not use_latest and not has_runs:
+        print(
+            "Error: Either provide --run1 and --run2, or use --latest",
+            file=sys.stderr,
+        )
+        print("\nUsage:", file=sys.stderr)
+        print(
+            "  evalyn compare --run1 <id> --run2 <id>    # Compare specific runs",
+            file=sys.stderr,
+        )
+        print(
+            "  evalyn compare --latest --dataset <path>  # Compare two most recent runs",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # If --latest with --dataset, compare two most recent runs
+    if use_latest:
+        config = load_config()
+        dataset_path = resolve_dataset_path(
+            getattr(args, "dataset", None), True, config
+        )
+        if not dataset_path:
+            print("Error: No dataset found. Use --dataset <path>", file=sys.stderr)
+            sys.exit(1)
+
+        runs_dir = dataset_path / "eval_runs"
+        if not runs_dir.exists():
+            print(f"Error: No eval_runs directory in {dataset_path}", file=sys.stderr)
+            sys.exit(1)
+
+        # Find the two most recent runs
+        run_files = sorted(runs_dir.glob("*/results.json"), reverse=True)
+        if not run_files:
+            run_files = sorted(runs_dir.glob("*.json"), reverse=True)
+
+        if len(run_files) < 2:
+            print(
+                f"Error: Need at least 2 runs to compare. Found: {len(run_files)}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        with open(run_files[0], encoding="utf-8") as f:
+            run2 = EvalRun.from_dict(json.load(f))
+        with open(run_files[1], encoding="utf-8") as f:
+            run1 = EvalRun.from_dict(json.load(f))
+
+        print(f"Comparing two most recent runs from {dataset_path.name}")
+    else:
+        # Original behavior: load from --run1 and --run2
+        # Load run 1
+        run1 = None
+        if args.run1:
+            run1 = storage.get_eval_run(args.run1)
+            if not run1:
+                # Try loading from file
+                run1_path = Path(args.run1)
+                if run1_path.exists():
+                    with open(run1_path, encoding="utf-8") as f:
+                        data = json.load(f)
+                        run1 = EvalRun(**data)
+
         if not run1:
-            # Try loading from file
-            run1_path = Path(args.run1)
-            if run1_path.exists():
-                with open(run1_path, encoding="utf-8") as f:
-                    data = json.load(f)
-                    run1 = EvalRun(**data)
+            print(f"Error: Could not load run1: {args.run1}", file=sys.stderr)
+            sys.exit(1)
 
-    if not run1:
-        print(f"Error: Could not load run1: {args.run1}")
-        sys.exit(1)
+        # Load run 2
+        run2 = None
+        if args.run2:
+            run2 = storage.get_eval_run(args.run2)
+            if not run2:
+                run2_path = Path(args.run2)
+                if run2_path.exists():
+                    with open(run2_path, encoding="utf-8") as f:
+                        data = json.load(f)
+                        run2 = EvalRun(**data)
 
-    # Load run 2
-    run2 = None
-    if args.run2:
-        run2 = storage.get_eval_run(args.run2)
         if not run2:
-            run2_path = Path(args.run2)
-            if run2_path.exists():
-                with open(run2_path, encoding="utf-8") as f:
-                    data = json.load(f)
-                    run2 = EvalRun(**data)
-
-    if not run2:
-        print(f"Error: Could not load run2: {args.run2}")
-        sys.exit(1)
+            print(f"Error: Could not load run2: {args.run2}", file=sys.stderr)
+            sys.exit(1)
 
     print(f"\n{'=' * 70}")
     print("  EVALUATION COMPARISON")
@@ -707,6 +801,18 @@ def cmd_compare(args: argparse.Namespace) -> None:
     print(f"  Metrics unchanged: {len(all_metrics) - improvements - regressions}")
     print()
 
+    # Show helpful hints based on results
+    if regressions > improvements:
+        print_hint(
+            "Run 2 shows regression. Consider: evalyn analyze --run " + run2.id,
+            quiet=getattr(args, "quiet", False),
+        )
+    elif improvements > 0:
+        print_hint(
+            f"Run 2 shows improvement. To see trends: evalyn trend --project {run2.dataset_name}",
+            quiet=getattr(args, "quiet", False),
+        )
+
 
 def cmd_trend(args: argparse.Namespace) -> None:
     """Show evaluation trends over time for a project."""
@@ -715,11 +821,36 @@ def cmd_trend(args: argparse.Namespace) -> None:
 
     storage = SQLiteStorage()
 
+    # Resolve project name from --project or --latest
+    project_name = args.project
+    use_latest = getattr(args, "latest", False)
+
+    if use_latest and not project_name:
+        config = load_config()
+        dataset_path = resolve_dataset_path(
+            getattr(args, "dataset", None), True, config
+        )
+        if dataset_path:
+            project_name = dataset_path.name
+        else:
+            print(
+                "Error: No dataset found. Use --project or --dataset with --latest",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    if not project_name:
+        print(
+            "Error: --project is required (or use --latest with --dataset)",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     # Get runs for the project
-    runs = storage.list_eval_runs_by_project(args.project, limit=args.limit)
+    runs = storage.list_eval_runs_by_project(project_name, limit=args.limit)
 
     if not runs:
-        print(f"No eval runs found for project: {args.project}")
+        print(f"No eval runs found for project: {project_name}")
         print("\nAvailable projects:")
         # List unique dataset names from recent runs
         all_runs = storage.list_eval_runs(limit=100)
@@ -770,6 +901,18 @@ def cmd_trend(args: argparse.Namespace) -> None:
         report = generate_trend_text_report(trend)
         print(report)
 
+        # Show helpful hints based on trend results
+        if trend.regressing_metrics:
+            print_hint(
+                f"Metrics regressing: {', '.join(trend.regressing_metrics[:3])}. Consider calibration.",
+                quiet=getattr(args, "quiet", False),
+            )
+        elif trend.overall_delta and trend.overall_delta > 0:
+            print_hint(
+                "Overall trend is improving. Keep up the good work!",
+                quiet=getattr(args, "quiet", False),
+            )
+
 
 def register_commands(subparsers) -> None:
     """Register analysis commands."""
@@ -803,17 +946,25 @@ def register_commands(subparsers) -> None:
     p.add_argument(
         "--latest", action="store_true", help="Use the most recently modified dataset"
     )
+    p.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format (default: table)",
+    )
     p.set_defaults(func=cmd_analyze)
 
     # compare
     p = subparsers.add_parser(
         "compare", help="Compare two evaluation runs side-by-side"
     )
+    p.add_argument("--run1", help="First eval run ID or path to run JSON file")
+    p.add_argument("--run2", help="Second eval run ID or path to run JSON file")
+    p.add_argument("--dataset", help="Dataset path (used with --latest)")
     p.add_argument(
-        "--run1", required=True, help="First eval run ID or path to run JSON file"
-    )
-    p.add_argument(
-        "--run2", required=True, help="Second eval run ID or path to run JSON file"
+        "--latest",
+        action="store_true",
+        help="Compare the two most recent runs from the dataset",
     )
     p.set_defaults(func=cmd_compare)
 
@@ -823,8 +974,16 @@ def register_commands(subparsers) -> None:
     )
     p.add_argument(
         "--project",
-        required=True,
         help="Project/dataset name to analyze trends for",
+    )
+    p.add_argument(
+        "--dataset",
+        help="Dataset path (used with --latest to infer project name)",
+    )
+    p.add_argument(
+        "--latest",
+        action="store_true",
+        help="Use the most recently modified dataset as project name",
     )
     p.add_argument(
         "--limit",

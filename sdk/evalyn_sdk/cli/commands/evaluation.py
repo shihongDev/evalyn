@@ -120,6 +120,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
 
     # Load and merge metrics from all files (deduplicate by ID)
     all_metrics_data: Dict[str, dict] = {}  # id -> spec_data
+    duplicate_ids: List[str] = []  # Track duplicates for warning
     for metrics_path in metrics_paths:
         try:
             file_data = json.loads(metrics_path.read_text(encoding="utf-8"))
@@ -129,11 +130,25 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
                 continue
             for spec_data in file_data:
                 metric_id = spec_data.get("id")
-                if metric_id and metric_id not in all_metrics_data:
-                    all_metrics_data[metric_id] = spec_data
+                if metric_id:
+                    if metric_id in all_metrics_data:
+                        duplicate_ids.append(metric_id)
+                    else:
+                        all_metrics_data[metric_id] = spec_data
         except Exception as e:
             if output_format != "json":
                 print(f"Warning: Failed to load {metrics_path}: {e}")
+
+    # Warn about duplicate metric IDs
+    if duplicate_ids and output_format != "json":
+        unique_dups = sorted(set(duplicate_ids))
+        print(
+            f"Warning: {len(unique_dups)} duplicate metric ID(s) found (first definition wins):"
+        )
+        for dup_id in unique_dups[:5]:
+            print(f"  - {dup_id}")
+        if len(unique_dups) > 5:
+            print(f"  ... and {len(unique_dups) - 5} more")
 
     if not all_metrics_data:
         print("Error: No valid metrics loaded from files")
@@ -426,6 +441,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
     - tool_call: Metrics that evaluate tool usage
     - trace: Metrics that aggregate across the entire trace
     """
+    output_format = getattr(args, "format", "table")
     tracer = get_default_tracer()
 
     # Validate: need either --project or --target
@@ -444,10 +460,21 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         print("  evalyn show-projects", file=sys.stderr)
         sys.exit(1)
 
-    # Validate dataset path if provided
+    # Resolve dataset path using --dataset or --latest
+    config = load_config()
     dataset_path_obj: Optional[Path] = None
-    if args.dataset:
-        dataset_path_obj = Path(args.dataset)
+    use_latest = getattr(args, "latest", False)
+
+    if args.dataset or use_latest:
+        resolved = resolve_dataset_path(args.dataset, use_latest, config)
+        if resolved:
+            dataset_path_obj = resolved
+        elif args.dataset:
+            # Try as direct path if resolve failed
+            dataset_path_obj = Path(args.dataset)
+
+    # Validate dataset path if provided
+    if dataset_path_obj:
         if dataset_path_obj.is_file():
             if not dataset_path_obj.exists():
                 print(
@@ -473,14 +500,14 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             has_dataset = (dataset_path_obj / "dataset.jsonl").exists() or (
                 dataset_path_obj / "dataset.json"
             ).exists()
-            if not has_dataset:
+            if not has_dataset and output_format != "json":
                 print(
                     f"Warning: Directory exists but no dataset.jsonl or dataset.json found in: {dataset_path_obj}"
                 )
 
     # Check if dataset has reference values
     has_reference = _dataset_has_reference(dataset_path_obj)
-    if dataset_path_obj and not has_reference:
+    if dataset_path_obj and not has_reference and output_format != "json":
         print(
             "Note: Dataset has no reference/expected values. Reference-based metrics (ROUGE, BLEU, etc.) excluded."
         )
@@ -527,9 +554,10 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             sys.exit(1)
 
         traces = project_traces[: args.num_traces]
-        print(f"Found {len(project_traces)} traces for project '{args.project}'")
-        if args.version:
-            print(f"  (version: {args.version})")
+        if output_format != "json":
+            print(f"Found {len(project_traces)} traces for project '{args.project}'")
+            if args.version:
+                print(f"  (version: {args.version})")
 
         # Extract function info from the first trace
         first_call = project_traces[0]
@@ -574,23 +602,44 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             return templates
         return [t for t in templates if t.get("scope", "overall") == scope_filter]
 
-    if scope_filter:
+    if scope_filter and output_format != "json":
         print(f"Filtering metrics by scope: {scope_filter}")
 
     def _print_spec(spec: MetricSpec) -> None:
+        if output_format == "json":
+            return
         why = getattr(spec, "why", "") or ""
         suffix = f" | why: {why}" if why else ""
         print(f"- {spec.id} [{spec.type}] :: {spec.description}{suffix}")
 
-    def _save_metrics(specs: List[MetricSpec]) -> None:
-        if not args.dataset:
-            return
-        # Dataset path already validated
-        dataset_path = Path(args.dataset)
-        if dataset_path.is_file():
-            dataset_dir = dataset_path.parent
+    def _output_json(
+        specs: List[MetricSpec], saved_path: Optional[Path] = None
+    ) -> None:
+        result = {
+            "metrics": [
+                {
+                    "id": s.id,
+                    "type": s.type,
+                    "name": s.name,
+                    "description": s.description,
+                    "config": s.config,
+                    "why": getattr(s, "why", ""),
+                }
+                for s in specs
+            ],
+            "count": len(specs),
+            "saved_to": str(saved_path) if saved_path else None,
+        }
+        print(json.dumps(result, indent=2))
+
+    def _save_metrics(specs: List[MetricSpec]) -> Optional[Path]:
+        if not dataset_path_obj:
+            return None
+        # Dataset path already validated and resolved (via --dataset or --latest)
+        if dataset_path_obj.is_file():
+            dataset_dir = dataset_path_obj.parent
         else:
-            dataset_dir = dataset_path
+            dataset_dir = dataset_path_obj
 
         metrics_dir = dataset_dir / "metrics"
         metrics_dir.mkdir(parents=True, exist_ok=True)
@@ -612,7 +661,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             for s in specs
             if s.type == "objective" and s.id not in valid_objective_ids
         ]
-        if invalid_objectives:
+        if invalid_objectives and output_format != "json":
             print(
                 f"Removed {len(invalid_objectives)} unsupported custom objective metric(s):"
             )
@@ -620,15 +669,16 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
                 print(
                     f"  - {s.id}: Use 'evalyn list-metrics --type objective' to see valid IDs"
                 )
-            specs = [
-                s
-                for s in specs
-                if not (s.type == "objective" and s.id not in valid_objective_ids)
-            ]
+        specs = [
+            s
+            for s in specs
+            if not (s.type == "objective" and s.id not in valid_objective_ids)
+        ]
 
         if not specs:
-            print("No valid metrics to save.")
-            return
+            if output_format != "json":
+                print("No valid metrics to save.")
+            return None
 
         payload = []
         for spec in specs:
@@ -670,19 +720,31 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         meta_path.write_text(
             json.dumps(meta, indent=2, ensure_ascii=True), encoding="utf-8"
         )
-        print(f"Saved metrics to {metrics_file}")
-        print_hint(
-            f"To run evaluation, run: evalyn run-eval --dataset {dataset_dir}",
-            quiet=getattr(args, "quiet", False),
-        )
+        if output_format != "json":
+            print(f"Saved metrics to {metrics_file}")
+            print_hint(
+                f"To run evaluation, run: evalyn run-eval --dataset {dataset_dir}",
+                quiet=getattr(args, "quiet", False),
+            )
+        return metrics_file
 
     if selected_mode == "bundle":
         bundle = (bundle_name or "").lower()
         ids = BUNDLES.get(bundle)
         if not ids:
-            print(
-                f"Unknown bundle '{args.bundle}'. Available: {', '.join(BUNDLES.keys())}"
-            )
+            if output_format == "json":
+                print(
+                    json.dumps(
+                        {
+                            "error": f"Unknown bundle '{args.bundle}'",
+                            "available": list(BUNDLES.keys()),
+                        }
+                    )
+                )
+            else:
+                print(
+                    f"Unknown bundle '{args.bundle}'. Available: {', '.join(BUNDLES.keys())}"
+                )
             return
         all_templates = _filter_by_scope(OBJECTIVE_REGISTRY + SUBJECTIVE_REGISTRY)
         tpl_map = {t["id"]: t for t in all_templates}
@@ -704,7 +766,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
                         config=tpl.get("config", {}),
                     )
                 )
-        if skipped_ref_metrics:
+        if skipped_ref_metrics and output_format != "json":
             print(
                 f"Skipped reference-based metrics (no expected values): {', '.join(skipped_ref_metrics)}"
             )
@@ -712,7 +774,9 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             specs = specs[:max_metrics]
         for spec in specs:
             _print_spec(spec)
-        _save_metrics(specs)
+        saved_path = _save_metrics(specs)
+        if output_format == "json":
+            _output_json(specs, saved_path)
         return
 
     if selected_mode == "llm-registry":
@@ -732,7 +796,9 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             specs = specs[:max_metrics]
         for spec in specs:
             _print_spec(spec)
-        _save_metrics(specs)
+        saved_path = _save_metrics(specs)
+        if output_format == "json":
+            _output_json(specs, saved_path)
         return
 
     if selected_mode == "llm-brainstorm":
@@ -744,11 +810,16 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         if max_metrics:
             specs = specs[:max_metrics]
         if not specs:
-            print("No metrics were returned by the LLM (brainstorm mode).")
+            if output_format == "json":
+                print(json.dumps({"metrics": [], "count": 0, "saved_to": None}))
+            else:
+                print("No metrics were returned by the LLM (brainstorm mode).")
         else:
             for spec in specs:
                 _print_spec(spec)
-            _save_metrics(specs)
+            saved_path = _save_metrics(specs)
+            if output_format == "json":
+                _output_json(specs, saved_path)
         return
 
     suggester = HeuristicSuggester(has_reference=has_reference)
@@ -766,7 +837,9 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         specs = specs[:max_metrics]
     for spec in specs:
         _print_spec(spec)
-    _save_metrics(specs)
+    saved_path = _save_metrics(specs)
+    if output_format == "json":
+        _output_json(specs, saved_path)
 
 
 def cmd_select_metrics(args: argparse.Namespace) -> None:
@@ -798,6 +871,18 @@ def cmd_select_metrics(args: argparse.Namespace) -> None:
 
 def cmd_list_metrics(args: argparse.Namespace) -> None:
     """List available metric templates (objective + subjective)."""
+    output_format = getattr(args, "format", "table")
+
+    # JSON output mode
+    if output_format == "json":
+        result = {
+            "objective": OBJECTIVE_REGISTRY,
+            "subjective": SUBJECTIVE_REGISTRY,
+            "objective_count": len(OBJECTIVE_REGISTRY),
+            "subjective_count": len(SUBJECTIVE_REGISTRY),
+        }
+        print(json.dumps(result, indent=2))
+        return
 
     def _compact(value, max_len: int = 60) -> str:
         try:
@@ -970,6 +1055,11 @@ def register_commands(subparsers) -> None:
         help="Dataset directory (or dataset.jsonl/meta.json) to save metrics into",
     )
     suggest_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Use the most recently modified dataset",
+    )
+    suggest_parser.add_argument(
         "--metrics-name", help="Metrics set name when saving to a dataset"
     )
     suggest_parser.add_argument(
@@ -977,6 +1067,12 @@ def register_commands(subparsers) -> None:
         choices=["all", "overall", "llm_call", "tool_call", "trace"],
         default="all",
         help="Filter metrics by scope: overall (final output), llm_call (per LLM), tool_call (per tool), trace (aggregates), or all.",
+    )
+    suggest_parser.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format (default: table)",
     )
     suggest_parser.set_defaults(func=cmd_suggest_metrics)
 
@@ -1002,6 +1098,12 @@ def register_commands(subparsers) -> None:
     # list-metrics
     list_metrics = subparsers.add_parser(
         "list-metrics", help="List available metric templates (objective + subjective)"
+    )
+    list_metrics.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format (default: table)",
     )
     list_metrics.set_defaults(func=cmd_list_metrics)
 
