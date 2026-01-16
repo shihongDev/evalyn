@@ -6,15 +6,20 @@ Show evaluation trends over time for a project across multiple runs.
 
 ```bash
 evalyn trend --project <dataset_name> [options]
+evalyn trend --latest [options]
 ```
 
 ## Options
 
 | Option | Description |
 |--------|-------------|
-| `--project` | Project name (dataset_name) to analyze trends for (required) |
-| `--limit` | Maximum number of runs to include (default: 20) |
+| `--project NAME` | Project name (dataset_name) to analyze trends for |
+| `--dataset PATH` | Dataset path (used with --latest to infer project name) |
+| `--latest` | Use the most recently modified dataset as project name |
+| `--limit N` | Maximum number of runs to include (default: 20) |
 | `--format` | Output format: `table` (default) or `json` |
+
+One of `--project` or `--latest` (with optional `--dataset`) is required.
 
 ## Description
 
@@ -76,6 +81,12 @@ This is an enhanced version of `compare` that works with more than two runs and 
 ```bash
 # Show trends for a project
 evalyn trend --project my-agent
+
+# Show trends for the most recently modified dataset
+evalyn trend --latest
+
+# Show trends using a specific dataset path
+evalyn trend --dataset data/my-agent --latest
 
 # Limit to last 5 runs
 evalyn trend --project my-agent --limit 5

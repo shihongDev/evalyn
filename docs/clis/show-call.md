@@ -6,13 +6,18 @@ Display detailed information about a specific function call trace.
 
 ```bash
 evalyn show-call --id <call_id>
+evalyn show-call --last
 ```
 
 ## Options
 
-| Option | Required | Description |
-|--------|----------|-------------|
-| `--id ID` | Yes | The call ID to display |
+| Option | Description |
+|--------|-------------|
+| `--id ID` | The call ID to display |
+| `--last` | Show the most recent call |
+| `--format` | Output format: table (default) or json |
+
+One of `--id` or `--last` is required.
 
 ## Output
 
@@ -30,6 +35,16 @@ Displays:
 ### View a specific call
 ```bash
 evalyn show-call --id 47fe2576-03c3-4438-8708-b8ab38cf52e9
+```
+
+### View the most recent call
+```bash
+evalyn show-call --last
+```
+
+### JSON output for scripting
+```bash
+evalyn show-call --last --format json
 ```
 
 ### Get call ID from list-calls first

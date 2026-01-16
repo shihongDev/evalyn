@@ -17,6 +17,7 @@ evalyn analyze --latest
 | `--run ID` | Eval run ID to analyze |
 | `--dataset PATH` | Dataset path (uses latest run from eval_runs/) |
 | `--latest` | Use the most recently modified dataset |
+| `--format` | Output format: table (default) or json |
 
 ## Description
 

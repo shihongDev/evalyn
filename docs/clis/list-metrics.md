@@ -10,7 +10,9 @@ evalyn list-metrics
 
 ## Options
 
-None.
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--format` | table | Output format: table or json |
 
 ## Output
 

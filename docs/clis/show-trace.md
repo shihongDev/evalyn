@@ -5,14 +5,19 @@ Display the hierarchical span tree for a traced call (Phoenix-style visualizatio
 ## Usage
 
 ```bash
-evalyn show-trace --call <call_id>
+evalyn show-trace --id <call_id>
+evalyn show-trace --last
 ```
 
 ## Options
 
-| Option | Required | Description |
-|--------|----------|-------------|
-| `--call ID` | Yes | The call ID to display spans for |
+| Option | Description |
+|--------|-------------|
+| `--id ID` | The call ID to display spans for |
+| `--last` | Show the most recent call |
+| `--max-depth N` | Maximum depth of span tree to display (default: unlimited) |
+
+One of `--id` or `--last` is required.
 
 ## Description
 
@@ -58,11 +63,17 @@ Summary: 7 spans | 3 LLM calls | 0 tool calls | 2 nodes
 
 ```bash
 # View span tree for a specific call
-evalyn show-trace --call 47fe2576-03c3-4438-8708-b8ab38cf52e9
+evalyn show-trace --id 47fe2576-03c3-4438-8708-b8ab38cf52e9
+
+# View the most recent call
+evalyn show-trace --last
+
+# Limit tree depth to 3 levels
+evalyn show-trace --last --max-depth 3
 
 # Get call ID first, then view trace
 evalyn list-calls --limit 1
-evalyn show-trace --call <id-from-list>
+evalyn show-trace --id <id-from-list>
 ```
 
 ## See Also

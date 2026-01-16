@@ -13,12 +13,18 @@ evalyn show-run --id <run_id>
 | Option | Required | Description |
 |--------|----------|-------------|
 | `--id ID` | Yes | The run ID to display |
+| `--format` | No | Output format: table (default) or json |
 
 ## Examples
 
 ### View run details
 ```bash
 evalyn show-run --id abc123
+```
+
+### JSON output for scripting
+```bash
+evalyn show-run --id abc123 --format json
 ```
 
 ## Sample Output

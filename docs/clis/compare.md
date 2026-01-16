@@ -6,14 +6,19 @@ Compare two evaluation runs side-by-side to measure improvement or regression.
 
 ```bash
 evalyn compare --run1 <id_or_path> --run2 <id_or_path>
+evalyn compare --dataset <path> --latest
 ```
 
 ## Options
 
 | Option | Description |
 |--------|-------------|
-| `--run1 ID` | First eval run ID or path to run JSON file (required) |
-| `--run2 ID` | Second eval run ID or path to run JSON file (required) |
+| `--run1 ID` | First eval run ID or path to run JSON file |
+| `--run2 ID` | Second eval run ID or path to run JSON file |
+| `--dataset PATH` | Dataset path (used with --latest) |
+| `--latest` | Compare the two most recent runs from the dataset |
+
+Either provide `--run1` and `--run2`, or use `--dataset` with `--latest`.
 
 ## Description
 
@@ -64,6 +69,9 @@ The `compare` command helps you:
 ```bash
 # Compare two runs by ID
 evalyn compare --run1 abc123 --run2 def456
+
+# Compare the two most recent runs from a dataset
+evalyn compare --dataset data/my-agent --latest
 
 # Compare run files directly
 evalyn compare --run1 data/v1/eval_runs/run1.json --run2 data/v2/eval_runs/run2.json

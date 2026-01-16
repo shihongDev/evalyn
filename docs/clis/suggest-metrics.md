@@ -26,7 +26,9 @@ evalyn suggest-metrics --target <file.py:func> [OPTIONS]
 | `--num-metrics N` | - | Max metrics to return |
 | `--bundle NAME` | - | Bundle name (when mode=bundle) |
 | `--dataset PATH` | - | Save metrics to dataset folder |
+| `--latest` | false | Use the most recently modified dataset |
 | `--metrics-name NAME` | - | Custom metrics filename |
+| `--format` | table | Output format: table or json |
 
 ## Selection Modes
 
