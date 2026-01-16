@@ -169,11 +169,11 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
         "function",
         "project",
         "version",
-        "sim?",
+        "sim",
         "status",
         "file",
-        "start",
-        "end",
+        "started_at",
+        "ended_at",
         "duration_ms",
     ]
     print(" | ".join(headers))
@@ -805,8 +805,16 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
     for root in roots:
         sort_children(root)
 
-    # Render tree
-    def render_node(node, prefix="", is_last=True):
+    # Render tree with optional depth limit
+    max_depth = getattr(args, "max_depth", None)
+    truncated_count = [0]  # Use list to allow mutation in nested function
+
+    def render_node(node, prefix="", is_last=True, depth=0):
+        # Check depth limit
+        if max_depth is not None and depth >= max_depth:
+            truncated_count[0] += 1 + _count_descendants(node)
+            return
+
         span = node["span"]
         connector = "└── " if is_last else "├── "
         duration = _format_duration(span.duration_ms)
@@ -842,7 +850,13 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
         child_prefix = prefix + ("    " if is_last else "│   ")
         children = node["children"]
         for i, child in enumerate(children):
-            render_node(child, child_prefix, i == len(children) - 1)
+            render_node(child, child_prefix, i == len(children) - 1, depth + 1)
+
+    def _count_descendants(node):
+        count = len(node["children"])
+        for child in node["children"]:
+            count += _count_descendants(child)
+        return count
 
     # Print header
     status = "ERROR" if call.error else "OK"
@@ -863,9 +877,12 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
     tool_count = sum(1 for s in spans if s.span_type == "tool_call")
     node_count = sum(1 for s in spans if s.span_type == "node")
 
-    print(
-        f"\nSummary: {len(spans)} spans | {llm_count} LLM calls | {tool_count} tool calls | {node_count} nodes"
-    )
+    summary_line = f"\nSummary: {len(spans)} spans | {llm_count} LLM calls | {tool_count} tool calls | {node_count} nodes"
+    if truncated_count[0] > 0:
+        summary_line += (
+            f" | ({truncated_count[0]} spans hidden, use --max-depth to see more)"
+        )
+    print(summary_line)
 
     # Show hint to build dataset
     meta = call.metadata if isinstance(call.metadata, dict) else {}
@@ -977,6 +994,11 @@ def register_commands(subparsers) -> None:
     p = subparsers.add_parser("show-trace", help="Show hierarchical span tree")
     p.add_argument("--id", help="Call ID to show")
     p.add_argument("--last", action="store_true", help="Show the most recent call")
+    p.add_argument(
+        "--max-depth",
+        type=int,
+        help="Maximum depth of span tree to display (default: unlimited)",
+    )
     p.set_defaults(func=cmd_show_trace)
 
     # show-projects
