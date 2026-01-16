@@ -60,6 +60,7 @@ from .commands import (
     analysis,
     annotation,
     calibration,
+    completion,
     dataset,
     evaluation,
     export,
@@ -131,6 +132,7 @@ For more info on a command: evalyn <command> --help
     calibration.register_commands(subparsers)
     evaluation.register_commands(subparsers)
     infrastructure.register_commands(subparsers)
+    completion.register_commands(subparsers)
 
     # Parse and execute
     args = parser.parse_args(argv)

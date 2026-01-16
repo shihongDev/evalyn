@@ -100,22 +100,33 @@ def cmd_show_run(args: argparse.Namespace) -> None:
         print("No storage configured.", file=sys.stderr)
         sys.exit(1)
 
-    # Resolve short ID to full ID (supports prefixes like '6cf21eb3')
-    input_id = args.id
-    if hasattr(tracer.storage, "resolve_eval_run_id"):
-        resolved = tracer.storage.resolve_eval_run_id(input_id)
-        if resolved:
-            run_id = resolved
-        else:
-            print(f"No eval run found matching '{input_id}'", file=sys.stderr)
-            print("Hint: Use more characters for a unique match", file=sys.stderr)
+    # Handle --last flag to show most recent run
+    if getattr(args, "last", False):
+        runs = tracer.storage.list_eval_runs(limit=1)
+        if not runs:
+            print("No eval runs found.", file=sys.stderr)
             sys.exit(1)
+        run = runs[0]
+    elif args.id:
+        # Resolve short ID to full ID (supports prefixes like '6cf21eb3')
+        input_id = args.id
+        if hasattr(tracer.storage, "resolve_eval_run_id"):
+            resolved = tracer.storage.resolve_eval_run_id(input_id)
+            if resolved:
+                run_id = resolved
+            else:
+                print(f"No eval run found matching '{input_id}'", file=sys.stderr)
+                print("Hint: Use more characters for a unique match", file=sys.stderr)
+                sys.exit(1)
+        else:
+            run_id = input_id
+        run = tracer.storage.get_eval_run(run_id)
     else:
-        run_id = input_id
+        print("Error: --id or --last required", file=sys.stderr)
+        sys.exit(1)
 
-    run = tracer.storage.get_eval_run(run_id)
     if not run:
-        print(f"No eval run found with id={run_id}", file=sys.stderr)
+        print(f"No eval run found with id={args.id}", file=sys.stderr)
         sys.exit(1)
 
     # JSON output mode
@@ -177,7 +188,8 @@ def register_commands(subparsers) -> None:
 
     # show-run
     p = subparsers.add_parser("show-run", help="Show details for an eval run")
-    p.add_argument("--id", required=True, help="Eval run id to display")
+    p.add_argument("--id", help="Eval run id to display")
+    p.add_argument("--last", action="store_true", help="Show the most recent eval run")
     p.add_argument(
         "--format",
         choices=["table", "json"],
