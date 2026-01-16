@@ -56,15 +56,18 @@ Evalyn focuses on making GenAI App evaluation practical and easy. It provides li
 ## Install
 
 ```bash
-# Install uv if not already installed 
+# Install uv if not already installed
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Create virtual environment with Python 3.11 
-uv venv --python 3.11
+# Create virtual environment (Python 3.10+)
+uv venv --python 3.10
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Install the package
+# Install the SDK
 uv pip install -e "./sdk[llm,otel]"
+
+# To run the example agent, also install agent dependencies:
+uv pip install -e "./sdk[agent]"
 ```
 
 ## Quick Start (Example Agent)
@@ -81,17 +84,17 @@ def my_agent(query: str) -> str:
 
 ### 2. Run Your Agent
 ```bash
-export GEMINI_API_KEY="api_key" ## Setup the gemini api key for the example agent
-python example_agent/agent.py      # Traces auto-captured to SQLite
+export GEMINI_API_KEY="your_api_key"
+python example_agent/agent.py "What is the capital of France?"  # Traces auto-captured to SQLite
 ```
 
 ### 3. Choose Your Workflow
 
 **Option A: One-Click (Automated)** — Run the full pipeline in one command
 ```bash
-evalyn init                              # Create evalyn.yaml config
+evalyn init                                              # Create evalyn.yaml config
 # Edit evalyn.yaml to set your GEMINI_API_KEY
-evalyn one-click --project myapp         # Dataset → Metrics → Eval → Report
+evalyn one-click --project gemini-deep-research-agent    # Dataset -> Metrics -> Eval -> Report
 ```
 
 **Option B: Step-by-Step (Manual)** — See [Sample Workflow](#sample-workflow) for granular control over each step.

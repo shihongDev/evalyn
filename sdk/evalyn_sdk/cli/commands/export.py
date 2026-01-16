@@ -30,6 +30,7 @@ from datetime import datetime
 from pathlib import Path
 
 from ..utils.config import load_config, resolve_dataset_path
+from ..utils.hints import print_hint
 
 
 def cmd_export_for_annotation(args: argparse.Namespace) -> None:
@@ -119,6 +120,11 @@ def cmd_export_for_annotation(args: argparse.Namespace) -> None:
             )
 
     print(f"Exported {len(output_items)} items to {output_path}")
+
+    print_hint(
+        f"After annotating, import with: evalyn import-annotations --path {output_path}",
+        quiet=getattr(args, "quiet", False),
+    )
 
 
 def cmd_export(args: argparse.Namespace) -> None:

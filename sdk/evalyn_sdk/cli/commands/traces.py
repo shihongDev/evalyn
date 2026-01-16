@@ -706,7 +706,7 @@ def cmd_show_call(args: argparse.Namespace) -> None:
     # Show hint to view span tree
     if call.spans:
         print_hint(
-            f"To see span tree, run: evalyn show-trace --id {call.id}",
+            f"To see span tree, run: evalyn show-trace --id {call.id[:8]}",
             quiet=getattr(args, "quiet", False),
         )
 

@@ -38,6 +38,7 @@ from pathlib import Path
 from ...datasets import load_dataset
 from ...decorators import eval as eval_decorator
 from ...simulation import AgentSimulator, SimulationConfig, UserSimulator
+from ..utils.hints import print_hint
 from ..utils.loaders import _load_callable
 from ..utils.ui import Spinner
 
@@ -134,6 +135,14 @@ def cmd_simulate(args: argparse.Namespace) -> None:
                 print(f"  {mode}: {count} items -> {path}")
             else:
                 print(f"  {mode}: -> {path}")
+
+        # Show hint for next step - use first simulation output
+        first_result_path = list(results.values())[0] if results else None
+        if first_result_path:
+            print_hint(
+                f"To evaluate simulated data, run: evalyn run-eval --dataset {first_result_path}",
+                quiet=getattr(args, "quiet", False),
+            )
     else:
         # Query generation only (no target function)
         user_sim = UserSimulator(model=args.model)
@@ -202,7 +211,11 @@ def cmd_simulate(args: argparse.Namespace) -> None:
         print(f"\n{'=' * 60}")
         print("QUERY GENERATION COMPLETE")
         print(f"{'=' * 60}")
-        print("To run these queries through your agent, use --target flag")
+
+        print_hint(
+            f"To run these queries through your agent, add --target <module:func> flag",
+            quiet=getattr(args, "quiet", False),
+        )
 
 
 def register_commands(subparsers) -> None:

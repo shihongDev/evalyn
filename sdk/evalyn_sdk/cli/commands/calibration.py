@@ -44,6 +44,7 @@ from ...datasets import load_dataset
 from ...decorators import get_default_tracer
 from ...models import DatasetItem
 from ..utils.config import load_config, resolve_dataset_path
+from ..utils.hints import print_hint
 from ..utils.ui import Spinner
 
 
@@ -378,6 +379,13 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
 
     print(f"\n{'=' * 60}")
 
+    # Show hint for next step
+    if dataset_dir:
+        print_hint(
+            f"To re-run evaluation with calibrated prompts, run: evalyn run-eval --dataset {dataset_dir} --use-calibrated",
+            quiet=getattr(args, "quiet", False),
+        )
+
 
 def cmd_list_calibrations(args: argparse.Namespace) -> None:
     """List calibration records for a dataset."""
@@ -470,6 +478,13 @@ def cmd_list_calibrations(args: argparse.Namespace) -> None:
             if full_prompts:
                 latest = sorted(full_prompts, reverse=True)[0]
                 print(f"  {metric_dir.name}: {latest}")
+
+    # Show hint for next step
+    if calibrations:
+        print_hint(
+            f"To re-run evaluation with calibrated prompts, run: evalyn run-eval --dataset {dataset_path} --use-calibrated",
+            quiet=getattr(args, "quiet", False),
+        )
 
 
 def register_commands(subparsers) -> None:

@@ -47,6 +47,7 @@ from ...datasets import load_dataset
 from ...decorators import get_default_tracer
 from ...models import AnnotationItem, Annotation, MetricLabel, DatasetItem
 from ..utils.config import load_config, resolve_dataset_path
+from ..utils.hints import print_hint
 
 
 def cmd_import_annotations(args: argparse.Namespace) -> None:
@@ -58,6 +59,11 @@ def cmd_import_annotations(args: argparse.Namespace) -> None:
     anns = import_annotations(args.path)
     tracer.storage.store_annotations(anns)
     print(f"Imported {len(anns)} annotations into storage.")
+
+    print_hint(
+        "To view annotation statistics, run: evalyn annotation-stats --dataset <path>",
+        quiet=getattr(args, "quiet", False),
+    )
 
 
 def cmd_annotation_stats(args: argparse.Namespace) -> None:
@@ -179,6 +185,17 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
         print("FN = False Negative (LLM=FAIL, Human=PASS)")
 
     print("\n" + "=" * 60)
+
+    # Show hint for next step
+    if agreement_stats:
+        # If there are disagreements, suggest calibration
+        total_disagree = sum(s["disagree"] for s in agreement_stats.values())
+        if total_disagree > 0:
+            print_hint(
+                "To calibrate LLM judges based on disagreements, run: evalyn calibrate --metric-id <metric> --dataset "
+                + str(dataset_path),
+                quiet=getattr(args, "quiet", False),
+            )
 
 
 def cmd_annotate_spans(args: argparse.Namespace) -> None:
@@ -934,8 +951,10 @@ def cmd_annotate(args: argparse.Namespace) -> None:
     )
     print(f"Saved to: {output_path}")
     print("=" * 70)
-    print(
-        f"\nNext step: evalyn calibrate --metric-id <metric> --annotations {output_path}"
+
+    print_hint(
+        f"To calibrate LLM judges, run: evalyn calibrate --metric-id <metric> --dataset {dataset_dir}",
+        quiet=getattr(args, "quiet", False),
     )
 
 
