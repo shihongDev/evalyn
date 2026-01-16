@@ -367,6 +367,8 @@ class LLMRegistrySelector:
         code_meta: Optional[dict] = None,
     ) -> List[MetricSpec]:
         specs = registry.list()
+        if not specs:
+            return []
         prompt = render_selection_prompt(target_fn, specs, traces or [], code_meta)
         raw = self.caller(prompt)
         ids: List[str] = []
@@ -376,9 +378,10 @@ class LLMRegistrySelector:
             for item in raw:  # type: ignore[assignment]
                 if isinstance(item, dict) and "id" in item:
                     ids.append(str(item["id"]))
+        has_spec_attr = hasattr(specs[0], "spec")
         selected = (
             [m.spec for m in specs if m.spec.id in ids]
-            if hasattr(specs[0], "spec")
+            if has_spec_attr
             else [
                 s
                 for s in specs
@@ -387,7 +390,7 @@ class LLMRegistrySelector:
         )
         if selected:
             return selected  # type: ignore[return-value]
-        return [m.spec for m in specs] if hasattr(specs[0], "spec") else specs  # type: ignore[return-value]
+        return [m.spec for m in specs] if has_spec_attr else specs  # type: ignore[return-value]
 
 
 DEFAULT_JUDGE_PROMPT = (

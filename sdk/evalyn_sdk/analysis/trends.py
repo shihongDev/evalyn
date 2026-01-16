@@ -272,8 +272,10 @@ def generate_trend_text_report(trend: TrendAnalysis) -> str:
         lines.append(
             f"  Overall change: {change_str} ({first_rate:.1f}% to {last_rate:.1f}%)"
         )
-    else:
+    elif len(trend.overall_trends) == 1:
         lines.append(f"  Overall pass rate: {trend.overall_trends[0] * 100:.1f}%")
+    else:
+        lines.append("  No trend data available")
 
     lines.append("")
 
