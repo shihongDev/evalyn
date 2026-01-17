@@ -28,6 +28,8 @@ from .dataset_utils import (
 )
 from .dataset_resolver import DatasetResolver, DatasetInfo, get_dataset
 from .formatters import OutputFormatter, get_formatter
+from .pipeline import PipelineStep, PipelineOrchestrator, PipelineState, StepResult
+from .pipeline_steps import create_pipeline_steps
 
 __all__ = [
     # UI
@@ -61,4 +63,10 @@ __all__ = [
     # Formatters
     "OutputFormatter",
     "get_formatter",
+    # Pipeline
+    "PipelineStep",
+    "PipelineOrchestrator",
+    "PipelineState",
+    "StepResult",
+    "create_pipeline_steps",
 ]

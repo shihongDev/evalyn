@@ -376,9 +376,35 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         print("Error: Specify --run <run_id> or --dataset <path>")
         sys.exit(1)
 
+    # Load annotations if available (for alignment stats)
+    # Build lookup: (item_id, metric_id) -> human_label (bool)
+    human_labels: dict[tuple[str, str], bool] = {}
+    annotations_path = None
+    if dataset_path:
+        annotations_path = dataset_path / "annotations.jsonl"
+    if annotations_path and annotations_path.exists():
+        try:
+            with open(annotations_path, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    data = json.loads(line)
+                    ann = Annotation.from_dict(data)
+                    # Per-metric labels take precedence
+                    if ann.metric_labels:
+                        for metric_id, ml in ann.metric_labels.items():
+                            human_labels[(ann.target_id, metric_id)] = ml.human_label
+                    elif ann.label is not None:
+                        # Fallback: apply overall label to all metrics for this item
+                        human_labels[(ann.target_id, "__overall__")] = bool(ann.label)
+        except Exception:
+            pass  # Silently ignore annotation loading errors
+
     # Aggregate metrics
     metrics_stats = {}
     item_failures = {}  # item_id -> list of failed metrics
+    alignment_stats: dict[str, AlignmentMetrics] = {}  # metric_id -> alignment
 
     for mr in run.metric_results:
         item_id = mr.item_id or "unknown"
@@ -394,6 +420,7 @@ def cmd_analyze(args: argparse.Namespace) -> None:
                 "scores": [],
                 "failed_items": [],
             }
+            alignment_stats[metric_id] = AlignmentMetrics()
 
         stats = metrics_stats[metric_id]
         stats["total"] += 1
@@ -406,6 +433,21 @@ def cmd_analyze(args: argparse.Namespace) -> None:
 
         if score is not None:
             stats["scores"].append(score)
+
+        # Track alignment if we have human labels
+        human_label = human_labels.get((item_id, metric_id))
+        if human_label is None:
+            human_label = human_labels.get((item_id, "__overall__"))
+        if human_label is not None:
+            align = alignment_stats[metric_id]
+            if passed and human_label:
+                align.true_positive += 1
+            elif not passed and not human_label:
+                align.true_negative += 1
+            elif passed and not human_label:
+                align.false_positive += 1
+            else:  # not passed and human_label
+                align.false_negative += 1
 
     sorted_metrics = sorted(
         metrics_stats.items(),
@@ -468,6 +510,25 @@ def cmd_analyze(args: argparse.Namespace) -> None:
 
     # JSON output
     if output_format == "json":
+        # Build alignment data for JSON
+        alignment_data = {}
+        for m, _ in sorted_metrics:
+            a = alignment_stats[m]
+            if a.total > 0:
+                alignment_data[m] = {
+                    "n": a.total,
+                    "accuracy": a.accuracy,
+                    "precision": a.precision,
+                    "recall": a.recall,
+                    "f1": a.f1,
+                    "cohens_kappa": a.cohens_kappa,
+                    "confusion": {
+                        "tp": a.true_positive,
+                        "tn": a.true_negative,
+                        "fp": a.false_positive,
+                        "fn": a.false_negative,
+                    },
+                }
         result = {
             "run_id": run.id,
             "dataset_name": run.dataset_name,
@@ -488,6 +549,7 @@ def cmd_analyze(args: argparse.Namespace) -> None:
                 }
                 for m, s in sorted_metrics
             },
+            "alignment": alignment_data if alignment_data else None,
             "problem_metrics": [m for m, _ in problem_metrics],
             "perfect_metrics": perfect_metrics,
             "multi_fail_items": [
@@ -528,6 +590,40 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         print(
             f"  [{status}] {metric_id:<30} {passed}/{total} passed ({pass_rate:.0f}%){avg_score}"
         )
+
+    # Alignment stats section (only if annotations exist)
+    has_alignment = any(a.total > 0 for a in alignment_stats.values())
+    if has_alignment:
+        print(f"\n{'=' * 70}")
+        print("  ALIGNMENT STATS (vs human annotations)")
+        print(f"{'=' * 70}\n")
+        print(
+            f"  {'Metric':<25} {'N':>4} {'Acc':>6} {'Prec':>6} {'Rec':>6} {'F1':>6} {'Kappa':>6}"
+        )
+        print(f"  {'-' * 61}")
+        for metric_id, _ in sorted_metrics:
+            align = alignment_stats[metric_id]
+            if align.total == 0:
+                continue
+            print(
+                f"  {metric_id:<25} {align.total:>4} "
+                f"{align.accuracy:>5.0%} {align.precision:>5.0%} "
+                f"{align.recall:>5.0%} {align.f1:>5.0%} {align.cohens_kappa:>6.2f}"
+            )
+        # Summary row
+        total_align = AlignmentMetrics(
+            true_positive=sum(a.true_positive for a in alignment_stats.values()),
+            true_negative=sum(a.true_negative for a in alignment_stats.values()),
+            false_positive=sum(a.false_positive for a in alignment_stats.values()),
+            false_negative=sum(a.false_negative for a in alignment_stats.values()),
+        )
+        if total_align.total > 0:
+            print(f"  {'-' * 61}")
+            print(
+                f"  {'OVERALL':<25} {total_align.total:>4} "
+                f"{total_align.accuracy:>5.0%} {total_align.precision:>5.0%} "
+                f"{total_align.recall:>5.0%} {total_align.f1:>5.0%} {total_align.cohens_kappa:>6.2f}"
+            )
 
     # Insights section
     print(f"\n{'=' * 70}")
