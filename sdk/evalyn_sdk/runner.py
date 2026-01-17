@@ -1,28 +1,23 @@
 from __future__ import annotations
 
-import itertools
 import json
 import logging
 import os
 import tempfile
-import threading
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 from uuid import uuid4
 
 from .decorators import get_default_tracer
 from .datasets import hash_inputs
+from .execution import ProgressCallback, create_strategy
 from .models import Metric
 from .models import DatasetItem, EvalRun, FunctionCall, MetricResult, now_utc
 from .storage.base import StorageBackend
 from .trace.tracer import EvalTracer
 
 logger = logging.getLogger(__name__)
-
-# Progress callback type: (current_item, total_items, current_metric, metric_type)
-ProgressCallback = Callable[[int, int, str, str], None]
 
 
 def _synthetic_call_from_item(item: DatasetItem) -> FunctionCall:
@@ -254,10 +249,6 @@ class EvalRunner:
             (i, item) for i, item in enumerate(items) if item.id not in completed_items
         ]
 
-        total_evals = len(pending_items) * len(self.metrics)
-        current_eval = 0
-        items_since_checkpoint = 0
-
         # Prepare all items with their FunctionCalls first (sequential)
         prepared: List[Tuple[DatasetItem, FunctionCall]] = []
         for item_idx, item in pending_items:
@@ -274,98 +265,23 @@ class EvalRunner:
                     )
             prepared.append((item, call))
 
-        if self.max_workers > 1:
-            # Parallel execution with thread-safe counter
-            progress_lock = threading.Lock()
-            eval_counter = itertools.count(1)  # Thread-safe counter
+        # Create execution strategy and run
+        checkpoint_fn = self._save_checkpoint if self.checkpoint_path else None
+        strategy = create_strategy(
+            max_workers=self.max_workers,
+            evaluate_fn=self._evaluate_metric,
+            checkpoint_fn=checkpoint_fn,
+            checkpoint_interval=self.checkpoint_interval,
+        )
 
-            def eval_task(
-                metric: Metric, call: FunctionCall, item: DatasetItem
-            ) -> Tuple[str, MetricResult]:
-                """Task for parallel execution. Returns (item_id, result)."""
-                result = self._evaluate_metric(metric, call, item)
-                return (item.id, result)
-
-            # Build all tasks with metric info for progress reporting
-            tasks = []
-            for item, call in prepared:
-                for metric in self.metrics:
-                    tasks.append((metric, call, item))
-
-            # Execute in parallel
-            results_by_item: Dict[str, List[MetricResult]] = defaultdict(list)
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                futures = {
-                    executor.submit(eval_task, m, c, i): (i.id, m.spec.id, m.spec.type)
-                    for m, c, i in tasks
-                }
-                for future in as_completed(futures):
-                    future_info = futures[future]
-                    item_id_hint, metric_id, metric_type = future_info
-
-                    try:
-                        item_id, result = future.result()
-                        results_by_item[item_id].append(result)
-                    except Exception as e:
-                        # Worker raised an unexpected exception - log and create error result
-                        logger.warning(f"Evaluation task failed: {e}")
-                        result = MetricResult(
-                            metric_id=metric_id,
-                            call_id=f"error-{item_id_hint}",
-                            score=None,
-                            passed=False,
-                            details={"error": str(e), "error_type": type(e).__name__},
-                        )
-                        results_by_item[item_id_hint].append(result)
-
-                    # Update progress (thread-safe)
-                    with progress_lock:
-                        current_eval = next(eval_counter)
-                        if self._progress_callback:
-                            self._progress_callback(
-                                current_eval,
-                                total_evals,
-                                result.metric_id,
-                                metric_type,  # Use consistent metric_type parameter
-                            )
-
-            # Collect results in order
-            for item, call in prepared:
-                metric_results.extend(results_by_item[item.id])
-                completed_items.add(item.id)
-
-            # Save checkpoint after parallel batch
-            if self.checkpoint_path:
-                self._save_checkpoint(metric_results, completed_items, run_id)
-
-        else:
-            # Sequential execution (original behavior)
-            for item, call in prepared:
-                for metric in self.metrics:
-                    current_eval += 1
-                    if self._progress_callback:
-                        self._progress_callback(
-                            current_eval,
-                            total_evals,
-                            metric.spec.id,
-                            metric.spec.type,
-                        )
-                    metric_results.append(self._evaluate_metric(metric, call, item))
-
-                # Mark item as completed and save checkpoint
-                completed_items.add(item.id)
-                items_since_checkpoint += 1
-
-                if (
-                    self.checkpoint_path
-                    and items_since_checkpoint >= self.checkpoint_interval
-                ):
-                    self._save_checkpoint(metric_results, completed_items, run_id)
-                    items_since_checkpoint = 0
-
-            # Save final checkpoint before creating run
-            if self.checkpoint_path and items_since_checkpoint > 0:
-                self._save_checkpoint(metric_results, completed_items, run_id)
+        new_results = strategy.execute(
+            prepared=prepared,
+            metrics=self.metrics,
+            progress_callback=self._progress_callback,
+            run_id=run_id,
+            completed_items=completed_items,
+        )
+        metric_results.extend(new_results)
 
         summary = self._summarize(metric_results, failures)
         run = EvalRun(
