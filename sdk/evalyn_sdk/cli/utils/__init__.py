@@ -26,6 +26,8 @@ from .dataset_utils import (
     _dataset_has_reference,
     ProgressBar,
 )
+from .dataset_resolver import DatasetResolver, DatasetInfo, get_dataset
+from .formatters import OutputFormatter, get_formatter
 
 __all__ = [
     # UI
@@ -52,4 +54,11 @@ __all__ = [
     "_resolve_dataset_and_metrics",
     "_dataset_has_reference",
     "ProgressBar",
+    # Dataset resolver
+    "DatasetResolver",
+    "DatasetInfo",
+    "get_dataset",
+    # Formatters
+    "OutputFormatter",
+    "get_formatter",
 ]

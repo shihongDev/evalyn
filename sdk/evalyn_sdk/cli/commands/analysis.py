@@ -28,79 +28,40 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime
 from pathlib import Path
 
 from ..utils.config import load_config, resolve_dataset_path
+from ..utils.dataset_resolver import get_dataset
 from ..utils.hints import print_hint
 
 
 def cmd_status(args: argparse.Namespace) -> None:
     """Show status of a dataset including items, metrics, runs, annotations, and calibrations."""
-    config = load_config()
-    dataset_path = resolve_dataset_path(
-        getattr(args, "dataset", None), getattr(args, "latest", False), config
+    ds = get_dataset(
+        getattr(args, "dataset", None),
+        getattr(args, "latest", False),
+        require=True,
     )
 
-    if not dataset_path:
-        # Try to show available datasets
-        print("No dataset specified. Available datasets:", file=sys.stderr)
-        data_dir = Path("data")
-        if data_dir.exists():
-            datasets = [
-                d
-                for d in data_dir.iterdir()
-                if d.is_dir() and (d / "dataset.jsonl").exists()
-            ]
-            datasets.sort(key=lambda d: d.stat().st_mtime, reverse=True)
-            for d in datasets[:10]:
-                mtime = datetime.fromtimestamp(d.stat().st_mtime).strftime(
-                    "%Y-%m-%d %H:%M"
-                )
-                print(f"  {d.name:<40} (modified: {mtime})", file=sys.stderr)
-            if len(datasets) > 10:
-                print(f"  ... and {len(datasets) - 10} more", file=sys.stderr)
-        print(
-            "\nUse: evalyn status --dataset <path> or evalyn status --latest",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    if not dataset_path.exists():
-        print(f"Error: Dataset path does not exist: {dataset_path}", file=sys.stderr)
-        sys.exit(1)
-
     print(f"\n{'=' * 60}")
-    print(f"DATASET STATUS: {dataset_path.name}")
+    print(f"DATASET STATUS: {ds.name}")
     print(f"{'=' * 60}")
-    print(f"Path: {dataset_path}")
+    print(f"Path: {ds.path}")
 
     # Dataset items
-    dataset_file = dataset_path / "dataset.jsonl"
-    item_count = 0
-    if dataset_file.exists():
-        with open(dataset_file, encoding="utf-8") as f:
-            item_count = sum(1 for _ in f)
     print("\n--- DATASET ---")
-    print(f"Items: {item_count}")
-
-    # Meta info
-    meta_file = dataset_path / "meta.json"
-    if meta_file.exists():
-        with open(meta_file, encoding="utf-8") as f:
-            meta = json.load(f)
-            if "project" in meta:
-                print(f"Project: {meta.get('project')}")
-            if "version" in meta:
-                print(f"Version: {meta.get('version')}")
+    print(f"Items: {ds.item_count}")
+    if ds.project:
+        print(f"Project: {ds.project}")
+    if ds.version:
+        print(f"Version: {ds.version}")
 
     # Metrics
-    metrics_dir = dataset_path / "metrics"
     print("\n--- METRICS ---")
-    if metrics_dir.exists():
-        metric_files = list(metrics_dir.glob("*.json"))
+    metric_files = ds.list_metrics_files()
+    if metric_files:
         print(f"Metric sets: {len(metric_files)}")
-        for mf in sorted(metric_files):
+        for mf in metric_files:
             try:
                 with open(mf, encoding="utf-8") as f:
                     metrics = json.load(f)
@@ -110,46 +71,48 @@ def cmd_status(args: argparse.Namespace) -> None:
                 print(f"  {mf.name}: (error reading)")
     else:
         print("No metrics defined yet")
-        print(
-            "  -> Run: evalyn suggest-metrics --target <func> --dataset "
-            + str(dataset_path)
-        )
+        print(f"  -> Run: evalyn suggest-metrics --dataset {ds.path}")
 
     # Eval runs
-    eval_runs_dir = dataset_path / "eval_runs"
     print("\n--- EVAL RUNS ---")
-    if eval_runs_dir.exists():
-        run_files = list(eval_runs_dir.glob("*.json"))
-        print(f"Eval runs: {len(run_files)}")
+    eval_runs = ds.list_eval_runs()
+    if eval_runs:
+        # Count JSON files in each run dir
+        run_count = sum(1 for d in eval_runs if list(d.glob("*.json")))
+        print(f"Eval runs: {run_count}")
         # Show latest 3
-        for rf in sorted(run_files, reverse=True)[:3]:
-            try:
-                with open(rf, encoding="utf-8") as f:
-                    run = json.load(f)
-                    created = run.get("created_at", "")[:19]
-                    results_count = len(run.get("metric_results", []))
-                    print(f"  {rf.stem}: {results_count} results ({created})")
-            except Exception:
-                pass
+        for rd in eval_runs[:3]:
+            results_file = rd / "results.json"
+            if results_file.exists():
+                try:
+                    with open(results_file, encoding="utf-8") as f:
+                        run = json.load(f)
+                        created = run.get("created_at", "")[:19]
+                        results_count = len(run.get("metric_results", []))
+                        print(f"  {rd.name}: {results_count} results ({created})")
+                except Exception:
+                    pass
     else:
         print("No eval runs yet")
-        print("  -> Run: evalyn run-eval --dataset " + str(dataset_path))
+        print(f"  -> Run: evalyn run-eval --dataset {ds.path}")
 
     # Annotations
-    annotations_file = dataset_path / "annotations.jsonl"
+    annotations_file = ds.path / "annotations.jsonl"
     print("\n--- ANNOTATIONS ---")
     if annotations_file.exists():
         with open(annotations_file, encoding="utf-8") as f:
             ann_count = sum(1 for _ in f)
-        coverage = f"{ann_count}/{item_count}" if item_count > 0 else str(ann_count)
-        pct = f" ({ann_count / item_count:.0%})" if item_count > 0 else ""
+        coverage = (
+            f"{ann_count}/{ds.item_count}" if ds.item_count > 0 else str(ann_count)
+        )
+        pct = f" ({ann_count / ds.item_count:.0%})" if ds.item_count > 0 else ""
         print(f"Annotated: {coverage}{pct}")
     else:
         print("No annotations yet")
-        print("  -> Run: evalyn annotate --dataset " + str(dataset_path))
+        print(f"  -> Run: evalyn annotate --dataset {ds.path}")
 
     # Calibrations
-    calibrations_dir = dataset_path / "calibrations"
+    calibrations_dir = ds.path / "calibrations"
     print("\n--- CALIBRATIONS ---")
     if calibrations_dir.exists():
         cal_count = 0
@@ -174,37 +137,23 @@ def cmd_status(args: argparse.Namespace) -> None:
             print("No calibrations yet")
     else:
         print("No calibrations yet")
-        print(
-            "  -> Run: evalyn calibrate --metric-id <metric> --annotations ... --dataset "
-            + str(dataset_path)
-        )
+        print(f"  -> Run: evalyn calibrate --metric-id <metric> --dataset {ds.path}")
 
     # Suggested next step
     print(f"\n{'=' * 60}")
     print("SUGGESTED NEXT STEP:")
-    if not metrics_dir.exists() or not list(metrics_dir.glob("*.json")):
-        print(
-            "  evalyn suggest-metrics --target <module:func> --dataset "
-            + str(dataset_path)
-        )
-    elif not eval_runs_dir.exists() or not list(eval_runs_dir.glob("*.json")):
-        print("  evalyn run-eval --dataset " + str(dataset_path))
+    if not metric_files:
+        print(f"  evalyn suggest-metrics --dataset {ds.path}")
+    elif not eval_runs:
+        print(f"  evalyn run-eval --dataset {ds.path}")
     elif not annotations_file.exists():
-        print("  evalyn annotate --dataset " + str(dataset_path))
+        print(f"  evalyn annotate --dataset {ds.path}")
     elif not calibrations_dir.exists():
-        print(
-            "  evalyn calibrate --metric-id <metric> --annotations "
-            + str(annotations_file)
-            + " --dataset "
-            + str(dataset_path)
-        )
+        print(f"  evalyn calibrate --metric-id <metric> --dataset {ds.path}")
     else:
         print("  All steps complete! Consider:")
         print("  - Re-run eval with optimized prompts")
-        print(
-            "  - Generate synthetic data: evalyn simulate --dataset "
-            + str(dataset_path)
-        )
+        print(f"  - Generate synthetic data: evalyn simulate --dataset {ds.path}")
 
 
 def cmd_validate(args: argparse.Namespace) -> None:
@@ -387,7 +336,8 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     - Overall health: Aggregate assessment and recommendations
     """
     from ...storage import SQLiteStorage
-    from ...models import EvalRun
+    from ...models import EvalRun, Annotation
+    from ...annotation.calibration import AlignmentMetrics
 
     output_format = getattr(args, "format", "table")
     config = load_config()
