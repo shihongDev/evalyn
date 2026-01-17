@@ -108,11 +108,6 @@ class SuggestMetricsStep(PipelineStep):
     def execute(
         self, output_dir: Path, context: Dict[str, Any]
     ) -> Tuple[StepResult, Dict[str, Any]]:
-        from ...metrics.suggester import (
-            HeuristicSuggester,
-            LLMSuggester,
-            LLMRegistrySelector,
-        )
         from ...storage import SQLiteStorage
 
         metrics_dir = output_dir / self.name
@@ -146,14 +141,16 @@ class SuggestMetricsStep(PipelineStep):
         # Save metrics
         payload = []
         for spec in metric_specs:
-            payload.append({
-                "id": spec.id,
-                "name": getattr(spec, "name", spec.id),
-                "type": spec.type,
-                "description": spec.description,
-                "config": spec.config,
-                "why": getattr(spec, "why", ""),
-            })
+            payload.append(
+                {
+                    "id": spec.id,
+                    "name": getattr(spec, "name", spec.id),
+                    "type": spec.type,
+                    "description": spec.description,
+                    "config": spec.config,
+                    "why": getattr(spec, "why", ""),
+                }
+            )
         with open(metrics_path, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)
 
@@ -178,12 +175,21 @@ class SuggestMetricsStep(PipelineStep):
                     "subjective": subj_count,
                 },
             ),
-            {"metrics_path": metrics_path, "metric_specs": metric_specs, "target_fn": target_fn},
+            {
+                "metrics_path": metrics_path,
+                "metric_specs": metric_specs,
+                "target_fn": target_fn,
+            },
         )
 
     def _suggest_metrics(
-        self, mode: str, model: str, llm_mode: str, bundle: Optional[str],
-        target_fn: Any, calls: List
+        self,
+        mode: str,
+        model: str,
+        llm_mode: str,
+        bundle: Optional[str],
+        target_fn: Any,
+        calls: List,
     ) -> List:
         """Suggest metrics based on mode."""
         from ...metrics.suggester import (
@@ -205,11 +211,16 @@ class SuggestMetricsStep(PipelineStep):
             return suggester.suggest(target_fn, calls)
         else:  # bundle
             from ...metrics.bundles import get_bundle_metrics
+
             return get_bundle_metrics(bundle) if bundle else []
 
     def _suggest_all_modes(
-        self, model: str, llm_mode: str, bundle: Optional[str],
-        target_fn: Any, calls: List
+        self,
+        model: str,
+        llm_mode: str,
+        bundle: Optional[str],
+        target_fn: Any,
+        calls: List,
     ) -> List:
         """Comprehensive mode: run all modes and merge."""
         from ...metrics.suggester import (
@@ -243,6 +254,7 @@ class SuggestMetricsStep(PipelineStep):
         if bundle:
             print(f"    -> Adding bundle: {bundle}...")
             from ...metrics.bundles import get_bundle_metrics
+
             for spec in get_bundle_metrics(bundle):
                 if spec.id not in seen_ids:
                     all_metrics.append(spec)
@@ -271,9 +283,7 @@ class InitialEvalStep(PipelineStep):
         self, output_dir: Path, context: Dict[str, Any]
     ) -> Tuple[StepResult, Dict[str, Any]]:
         from ...datasets import load_dataset
-        from ...models import MetricSpec
         from ...runner import EvalRunner
-        from ...metrics.factory import build_objective_metric, build_subjective_metric
 
         eval_dir = output_dir / self.name
         eval_dir.mkdir(exist_ok=True)
@@ -327,7 +337,9 @@ class InitialEvalStep(PipelineStep):
             {"eval_run_path": run_path},
         )
 
-    def _build_metrics(self, metrics_data: List[Dict], gemini_key: Optional[str]) -> List:
+    def _build_metrics(
+        self, metrics_data: List[Dict], gemini_key: Optional[str]
+    ) -> List:
         """Build metric instances from spec data."""
         from ...models import MetricSpec
         from ...metrics.factory import build_objective_metric, build_subjective_metric
@@ -345,7 +357,9 @@ class InitialEvalStep(PipelineStep):
                 if spec.type == "objective":
                     m = build_objective_metric(spec.id, spec.config)
                 else:
-                    m = build_subjective_metric(spec.id, spec.config, api_key=gemini_key)
+                    m = build_subjective_metric(
+                        spec.id, spec.config, api_key=gemini_key
+                    )
                 if m:
                     metrics.append(m)
             except Exception:
@@ -452,7 +466,9 @@ class CalibrationStep(PipelineStep):
         ann_path = output_dir / "4_annotations" / "annotations.jsonl"
         if not ann_path.exists():
             print("  SKIPPED (requires annotations)\n")
-            return StepResult(status="skipped", details={"reason": "no annotations"}), {}
+            return StepResult(
+                status="skipped", details={"reason": "no annotations"}
+            ), {}
 
         cal_dir = output_dir / "5_calibrations"
         cal_dir.mkdir(exist_ok=True)
@@ -464,7 +480,9 @@ class CalibrationStep(PipelineStep):
 
         if not subj_metrics:
             print("  SKIPPED (no subjective metrics)\n")
-            return StepResult(status="skipped", details={"reason": "no subjective metrics"}), {}
+            return StepResult(
+                status="skipped", details={"reason": "no subjective metrics"}
+            ), {}
 
         print(f"  -> Calibrating {len(subj_metrics)} subjective metrics...\n")
 
@@ -522,16 +540,15 @@ class CalibratedEvalStep(PipelineStep):
     def execute(
         self, output_dir: Path, context: Dict[str, Any]
     ) -> Tuple[StepResult, Dict[str, Any]]:
-        from ...annotation import load_optimized_prompt
         from ...datasets import load_dataset
-        from ...models import MetricSpec
         from ...runner import EvalRunner
-        from ...metrics.factory import build_objective_metric, build_subjective_metric
 
         cal_dir = output_dir / "5_calibrations"
         if not cal_dir.exists():
             print("  SKIPPED (no calibrations)\n")
-            return StepResult(status="skipped", details={"reason": "no calibrations"}), {}
+            return StepResult(
+                status="skipped", details={"reason": "no calibrations"}
+            ), {}
 
         eval_dir = output_dir / self.name
         eval_dir.mkdir(exist_ok=True)
@@ -619,7 +636,9 @@ class CalibratedEvalStep(PipelineStep):
                 if spec.type == "objective":
                     m = build_objective_metric(spec.id, spec.config)
                 else:
-                    m = build_subjective_metric(spec.id, spec.config, api_key=gemini_key)
+                    m = build_subjective_metric(
+                        spec.id, spec.config, api_key=gemini_key
+                    )
                 if m:
                     metrics.append(m)
             except Exception:
