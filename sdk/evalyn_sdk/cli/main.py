@@ -71,7 +71,7 @@ from .commands import (
 
 
 def _print_ascii_help(parser: argparse.ArgumentParser) -> None:
-    """Print ASCII art banner and help."""
+    """Print ASCII art banner and grouped command help."""
     # Dont change this ascii art
     art = r"""
          ______  __      __    /\       _     __     __  __   __
@@ -86,7 +86,64 @@ def _print_ascii_help(parser: argparse.ArgumentParser) -> None:
     print("=" * 80)
     print(art)
     print("=" * 80)
-    parser.print_help()
+
+    # Print grouped commands instead of raw argparse help
+    grouped_help = """
+QUICK START
+  workflow         Show evaluation workflow and next steps
+  one-click        Run complete pipeline in one command
+  init             Initialize configuration file
+
+TRACING
+  list-calls       List captured function calls
+  show-call        Show details of a specific call (supports short IDs)
+  show-trace       Show hierarchical span tree
+  show-projects    Show project summary
+
+DATASET
+  build-dataset    Build dataset from stored traces
+  validate         Validate dataset format
+  status           Show dataset status
+
+METRICS
+  suggest-metrics  Suggest metrics for evaluation
+  select-metrics   LLM-guided metric selection
+  list-metrics     List available metric templates
+
+EVALUATION
+  run-eval         Run evaluation on dataset
+  list-runs        List stored evaluation runs
+  show-run         Show details for an eval run
+  analyze          Analyze results and generate insights
+  compare          Compare two evaluation runs
+  trend            Show evaluation trends over time
+
+ANNOTATION & CALIBRATION
+  annotate         Interactive annotation interface
+  annotation-stats Show annotation statistics
+  calibrate        Calibrate LLM judges
+  list-calibrations List calibration records
+
+EXPORT & SIMULATION
+  export           Export results (json/csv/markdown/html)
+  export-for-annotation  Export for external annotation
+  simulate         Generate synthetic test data
+
+OPTIONS
+  -h, --help       Show this help
+  -q, --quiet      Suppress hint messages
+  --version        Show version
+
+EXAMPLES
+  evalyn workflow                              # See what to do next
+  evalyn list-calls --limit 5                  # View recent traces
+  evalyn build-dataset --project myapp         # Build dataset
+  evalyn run-eval --dataset data/myapp/        # Run evaluation
+  evalyn show-run --last                       # View latest results
+
+For command details: evalyn <command> --help
+"""
+    print(grouped_help)
 
 
 def main(argv: Optional[List[str]] = None) -> None:

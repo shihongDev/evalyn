@@ -915,8 +915,89 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             traceback.print_exc()
 
 
+def cmd_workflow(args: argparse.Namespace) -> None:
+    """Show the evaluation workflow and next steps."""
+    workflow = """
+EVALYN WORKFLOW
+===============
+
+The evaluation pipeline has 3 phases:
+
+PHASE 1: COLLECT
+----------------
+  1. Add @eval decorator to your agent function
+  2. Run your agent to collect traces
+  3. Build a dataset from traces
+
+  Commands:
+    evalyn list-calls              # View captured traces
+    evalyn show-projects           # See project summary
+    evalyn build-dataset --project <name>  # Create dataset
+
+PHASE 2: EVALUATE
+-----------------
+  4. Select metrics for evaluation
+  5. Run evaluation
+  6. Analyze results
+
+  Commands:
+    evalyn suggest-metrics --dataset <path> --mode basic
+    evalyn run-eval --dataset <path>
+    evalyn analyze --dataset <path>
+
+PHASE 3: CALIBRATE (optional)
+-----------------------------
+  7. Annotate results (human feedback)
+  8. Calibrate LLM judges
+  9. Re-evaluate with calibrated prompts
+
+  Commands:
+    evalyn annotate --dataset <path>
+    evalyn calibrate --dataset <path> --metric-id <id>
+    evalyn run-eval --dataset <path> --use-calibrated
+
+ONE-CLICK OPTION
+----------------
+  Run the entire pipeline automatically:
+    evalyn one-click --project <name>
+
+NEXT STEPS
+----------
+"""
+    print(workflow)
+
+    # Show context-aware next steps
+    from ...decorators import get_default_tracer
+
+    tracer = get_default_tracer()
+    if tracer.storage:
+        calls = tracer.storage.list_calls(limit=10)
+        if calls:
+            projects = set()
+            for call in calls:
+                if isinstance(call.metadata, dict):
+                    proj = call.metadata.get("project_id") or call.metadata.get("project")
+                    if proj:
+                        projects.add(proj)
+            if projects:
+                print(f"  You have traces for: {', '.join(sorted(projects))}")
+                print(f"  Try: evalyn build-dataset --project {sorted(projects)[0]}")
+            else:
+                print("  You have traces. Try: evalyn build-dataset")
+        else:
+            print("  No traces yet. Add @eval decorator to your agent and run it.")
+    else:
+        print("  No storage configured. Run your @eval-decorated agent first.")
+
+
 def register_commands(subparsers) -> None:
     """Register infrastructure commands."""
+    # workflow
+    workflow_parser = subparsers.add_parser(
+        "workflow", help="Show evaluation workflow and next steps"
+    )
+    workflow_parser.set_defaults(func=cmd_workflow)
+
     # init
     init_parser = subparsers.add_parser("init", help="Initialize configuration file")
     init_parser.add_argument(

@@ -33,10 +33,35 @@ from ..utils.hints import print_hint
 
 def cmd_build_dataset(args: argparse.Namespace) -> None:
     """Build dataset from stored traces."""
+    import sys
+
     tracer = get_default_tracer()
     if not tracer.storage:
         print("No storage configured.")
         return
+
+    # Check if --project is specified; if not, warn about building from all projects
+    if not args.project and not getattr(args, "all", False):
+        # Get unique projects from recent calls
+        calls = tracer.storage.list_calls(limit=500)
+        projects = set()
+        for call in calls:
+            if isinstance(call.metadata, dict):
+                proj = call.metadata.get("project_id") or call.metadata.get("project")
+                if proj:
+                    projects.add(proj)
+
+        if len(projects) > 1:
+            print("Warning: No --project specified. Found multiple projects:", file=sys.stderr)
+            for p in sorted(projects):
+                print(f"  - {p}", file=sys.stderr)
+            print("\nUse --project <name> to filter, or --all to include all.", file=sys.stderr)
+            print("Hint: Run 'evalyn show-projects' to see project details.", file=sys.stderr)
+            sys.exit(1)
+        elif len(projects) == 1:
+            # Auto-select the only project
+            args.project = list(projects)[0]
+            print(f"Auto-selected project: {args.project}")
 
     def _parse_dt(value: Optional[str]) -> Optional[datetime]:
         if not value:
@@ -128,7 +153,12 @@ def register_commands(subparsers) -> None:
     )
     p.add_argument(
         "--project",
-        help="Filter by metadata.project_id or project_name (recommended grouping)",
+        help="Filter by metadata.project_id or project_name (recommended)",
+    )
+    p.add_argument(
+        "--all",
+        action="store_true",
+        help="Include all projects (use with caution)",
     )
     p.add_argument("--version", help="Filter by metadata.version")
     p.add_argument(
