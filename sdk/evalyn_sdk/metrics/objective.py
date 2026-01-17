@@ -803,7 +803,12 @@ def regex_match_metric(
         passed = bool(patt.search(text)) if patt.pattern else False
         score = 1.0 if passed else 0.0
         return _make_result(
-            spec, item, call, score, passed, {"pattern": patt.pattern, "output_excerpt": text[:200]}
+            spec,
+            item,
+            call,
+            score,
+            passed,
+            {"pattern": patt.pattern, "output_excerpt": text[:200]},
         )
 
     return Metric(spec, handler)
@@ -866,13 +871,24 @@ def rouge_l_metric(metric_id: str = "rouge_l") -> Metric:
         candidate = _get_output(call, item)
         if not reference:
             return _make_result(
-                spec, item, call, None, None,
+                spec,
+                item,
+                call,
+                None,
+                None,
                 {"error": "No reference text (set human_label.reference)"},
             )
         score = _rouge_l_f1(candidate, reference)
         return _make_result(
-            spec, item, call, score, None,
-            {"candidate_excerpt": candidate[:200], "reference_excerpt": reference[:200]},
+            spec,
+            item,
+            call,
+            score,
+            None,
+            {
+                "candidate_excerpt": candidate[:200],
+                "reference_excerpt": reference[:200],
+            },
         )
 
     return Metric(spec, handler)
@@ -892,13 +908,24 @@ def rouge_1_metric(metric_id: str = "rouge_1") -> Metric:
         candidate = _get_output(call, item)
         if not reference:
             return _make_result(
-                spec, item, call, None, None,
+                spec,
+                item,
+                call,
+                None,
+                None,
                 {"error": "No reference text (set human_label.reference)"},
             )
         score = _overlap_f1(candidate, reference, n=1)
         return _make_result(
-            spec, item, call, score, None,
-            {"candidate_excerpt": candidate[:200], "reference_excerpt": reference[:200]},
+            spec,
+            item,
+            call,
+            score,
+            None,
+            {
+                "candidate_excerpt": candidate[:200],
+                "reference_excerpt": reference[:200],
+            },
         )
 
     return Metric(spec, handler)
@@ -918,13 +945,24 @@ def rouge_2_metric(metric_id: str = "rouge_2") -> Metric:
         candidate = _get_output(call, item)
         if not reference:
             return _make_result(
-                spec, item, call, None, None,
+                spec,
+                item,
+                call,
+                None,
+                None,
                 {"error": "No reference text (set human_label.reference)"},
             )
         score = _overlap_f1(candidate, reference, n=2)
         return _make_result(
-            spec, item, call, score, None,
-            {"candidate_excerpt": candidate[:200], "reference_excerpt": reference[:200]},
+            spec,
+            item,
+            call,
+            score,
+            None,
+            {
+                "candidate_excerpt": candidate[:200],
+                "reference_excerpt": reference[:200],
+            },
         )
 
     return Metric(spec, handler)
@@ -944,8 +982,15 @@ def token_overlap_f1_metric(metric_id: str = "token_overlap_f1") -> Metric:
         candidate = _get_output(call, item)
         score = _overlap_f1(candidate, reference, n=1)
         return _make_result(
-            spec, item, call, score, None,
-            {"candidate_excerpt": candidate[:200], "reference_excerpt": reference[:200]},
+            spec,
+            item,
+            call,
+            score,
+            None,
+            {
+                "candidate_excerpt": candidate[:200],
+                "reference_excerpt": reference[:200],
+            },
         )
 
     return Metric(spec, handler)
@@ -965,7 +1010,11 @@ def jaccard_similarity_metric(metric_id: str = "jaccard_similarity") -> Metric:
         candidate = _get_output(call, item)
         if not reference:
             return _make_result(
-                spec, item, call, None, None,
+                spec,
+                item,
+                call,
+                None,
+                None,
                 {"error": "No reference text (set human_label.reference)"},
             )
         cand_set = set(_tokenize(candidate))
@@ -975,8 +1024,15 @@ def jaccard_similarity_metric(metric_id: str = "jaccard_similarity") -> Metric:
         else:
             score = len(cand_set & ref_set) / len(cand_set | ref_set)
         return _make_result(
-            spec, item, call, score, None,
-            {"candidate_excerpt": candidate[:200], "reference_excerpt": reference[:200]},
+            spec,
+            item,
+            call,
+            score,
+            None,
+            {
+                "candidate_excerpt": candidate[:200],
+                "reference_excerpt": reference[:200],
+            },
         )
 
     return Metric(spec, handler)
@@ -1000,12 +1056,24 @@ def numeric_mae_metric(
         predicted = _extract_number(call.output, output_field)
         if expected is None or predicted is None:
             return _make_result(
-                spec, item, call, None, None,
-                {"expected": item.expected, "predicted": call.output, "error": "not_numeric"},
+                spec,
+                item,
+                call,
+                None,
+                None,
+                {
+                    "expected": item.expected,
+                    "predicted": call.output,
+                    "error": "not_numeric",
+                },
             )
         err = abs(predicted - expected)
         return _make_result(
-            spec, item, call, err, None,
+            spec,
+            item,
+            call,
+            err,
+            None,
             {"expected": expected, "predicted": predicted, "mae": err},
         )
 
@@ -1030,13 +1098,25 @@ def numeric_rmse_metric(
         predicted = _extract_number(call.output, output_field)
         if expected is None or predicted is None:
             return _make_result(
-                spec, item, call, None, None,
-                {"expected": item.expected, "predicted": call.output, "error": "not_numeric"},
+                spec,
+                item,
+                call,
+                None,
+                None,
+                {
+                    "expected": item.expected,
+                    "predicted": call.output,
+                    "error": "not_numeric",
+                },
             )
         err = predicted - expected
         rmse = math.sqrt(err * err)
         return _make_result(
-            spec, item, call, rmse, None,
+            spec,
+            item,
+            call,
+            rmse,
+            None,
             {"expected": expected, "predicted": predicted, "rmse": rmse},
         )
 
@@ -1061,13 +1141,25 @@ def numeric_rel_error_metric(
         predicted = _extract_number(call.output, output_field)
         if expected is None or predicted is None:
             return _make_result(
-                spec, item, call, None, None,
-                {"expected": item.expected, "predicted": call.output, "error": "not_numeric"},
+                spec,
+                item,
+                call,
+                None,
+                None,
+                {
+                    "expected": item.expected,
+                    "predicted": call.output,
+                    "error": "not_numeric",
+                },
             )
         denom = abs(expected) if abs(expected) > 1e-12 else 1.0
         rel = abs(predicted - expected) / denom
         return _make_result(
-            spec, item, call, rel, None,
+            spec,
+            item,
+            call,
+            rel,
+            None,
             {"expected": expected, "predicted": predicted, "rel_error": rel},
         )
 
@@ -1102,15 +1194,32 @@ def numeric_within_tolerance_metric(
         )
         if expected is None or predicted is None:
             return _make_result(
-                spec, item, call, 0.0, False,
-                {"expected": item.expected, "predicted": call.output, "error": "not_numeric"},
+                spec,
+                item,
+                call,
+                0.0,
+                False,
+                {
+                    "expected": item.expected,
+                    "predicted": call.output,
+                    "error": "not_numeric",
+                },
             )
         err = abs(predicted - expected)
         passed = err <= tol
         score = 1.0 if passed else 0.0
         return _make_result(
-            spec, item, call, score, passed,
-            {"expected": expected, "predicted": predicted, "tolerance": tol, "abs_error": err},
+            spec,
+            item,
+            call,
+            score,
+            passed,
+            {
+                "expected": expected,
+                "predicted": predicted,
+                "tolerance": tol,
+                "abs_error": err,
+            },
         )
 
     return Metric(spec, handler)
@@ -1132,14 +1241,23 @@ def json_schema_keys_metric(
         value, err = _parse_json_value(call.output)
         if err or not isinstance(value, dict):
             return _make_result(
-                spec, item, call, 0.0, False,
+                spec,
+                item,
+                call,
+                0.0,
+                False,
                 {"error": err or "not_object", "required_keys": required},
             )
         missing = [k for k in required if k not in value]
         passed = len(missing) == 0
         score = 1.0 if passed else 0.0
         return _make_result(
-            spec, item, call, score, passed, {"missing": missing, "required_keys": required}
+            spec,
+            item,
+            call,
+            score,
+            passed,
+            {"missing": missing, "required_keys": required},
         )
 
     return Metric(spec, handler)
@@ -1177,7 +1295,11 @@ def json_types_match_metric(
         value, err = _parse_json_value(call.output)
         if err or not isinstance(value, dict):
             return _make_result(
-                spec, item, call, 0.0, False,
+                spec,
+                item,
+                call,
+                0.0,
+                False,
                 {"error": err or "not_object", "schema": effective_schema},
             )
         mismatches = {}
@@ -1193,7 +1315,11 @@ def json_types_match_metric(
         passed = not mismatches
         score = 1.0 if passed else 0.0
         return _make_result(
-            spec, item, call, score, passed,
+            spec,
+            item,
+            call,
+            score,
+            passed,
             {"mismatches": mismatches, "schema": effective_schema},
         )
 
@@ -1226,7 +1352,12 @@ def json_path_present_metric(
         passed = len(missing) == 0
         score = 1.0 if passed else 0.0
         return _make_result(
-            spec, item, call, score, passed, {"missing": missing, "paths": effective_paths}
+            spec,
+            item,
+            call,
+            score,
+            passed,
+            {"missing": missing, "paths": effective_paths},
         )
 
     return Metric(spec, handler)
@@ -1253,7 +1384,11 @@ def regex_capture_count_metric(
         required = item.metadata.get("min_count", min_count)
         passed = count >= int(required or 0)
         return _make_result(
-            spec, item, call, float(count), passed,
+            spec,
+            item,
+            call,
+            float(count),
+            passed,
             {"pattern": patt.pattern, "count": count, "min_count": required},
         )
 
@@ -1283,7 +1418,11 @@ def csv_valid_metric(metric_id: str = "csv_valid", dialect: str = "excel") -> Me
             passed = len(widths) <= 1
             score = 1.0 if passed else 0.0
             return _make_result(
-                spec, item, call, score, passed,
+                spec,
+                item,
+                call,
+                score,
+                passed,
                 {"rows": len(rows), "widths": sorted(widths)},
             )
         except Exception as exc:
@@ -1353,7 +1492,11 @@ def output_length_range_metric(
         passed = length >= int(min_v or 0) and (max_v is None or length <= int(max_v))
         score = 1.0 if passed else 0.0
         return _make_result(
-            spec, item, call, score, passed,
+            spec,
+            item,
+            call,
+            score,
+            passed,
             {"length": length, "min_chars": min_v, "max_chars": max_v},
         )
 
@@ -1401,7 +1544,11 @@ def llm_error_rate_metric(
         err = sum(1 for ev in (call.trace or []) if ek in ev.kind.lower())
         rate = (err / req) if req else None
         return _make_result(
-            spec, item, call, rate, None,
+            spec,
+            item,
+            call,
+            rate,
+            None,
             {"requests": req, "errors": err, "request_kind": rk, "error_kind": ek},
         )
 
@@ -1429,8 +1576,18 @@ def tool_success_ratio_metric(
         total = successes + errors
         ratio = (successes / total) if total else None
         return _make_result(
-            spec, item, call, ratio, None,
-            {"successes": successes, "errors": errors, "total": total, "success_kind": sk, "error_kind": ek},
+            spec,
+            item,
+            call,
+            ratio,
+            None,
+            {
+                "successes": successes,
+                "errors": errors,
+                "total": total,
+                "success_kind": sk,
+                "error_kind": ek,
+            },
         )
 
     return Metric(spec, handler)
@@ -1477,7 +1634,11 @@ def url_count_metric(
         min_v = int(item.metadata.get("min_count") or min_count)
         passed = count >= min_v
         return _make_result(
-            spec, item, call, float(count), passed,
+            spec,
+            item,
+            call,
+            float(count),
+            passed,
             {"count": count, "min_count": min_v, "pattern": str(patt)},
         )
 

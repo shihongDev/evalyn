@@ -595,9 +595,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         metric_mode_hint or "llm-registry" if args.mode == "auto" else args.mode
     )
     bundle_name = args.bundle or metric_bundle_hint
-    max_metrics = (
-        args.num_metrics if args.num_metrics and args.num_metrics > 0 else None
-    )
+    max_metrics = args.num_metrics
 
     # Get scope filter (None means "all")
     scope_filter = getattr(args, "scope", "all")
@@ -1022,7 +1020,11 @@ def register_commands(subparsers) -> None:
         help="How many recent traces to include as examples",
     )
     suggest_parser.add_argument(
-        "--num-metrics", type=int, help="Maximum number of metrics to return"
+        "-n",
+        "--num-metrics",
+        type=int,
+        default=5,
+        help="Maximum number of metrics to return (default: 5)",
     )
     suggest_parser.add_argument(
         "--mode",
@@ -1078,6 +1080,11 @@ def register_commands(subparsers) -> None:
         choices=["table", "json"],
         default="table",
         help="Output format (default: table)",
+    )
+    suggest_parser.add_argument(
+        "--append",
+        action="store_true",
+        help="Append to existing metrics.json instead of overwriting. Duplicates by ID are skipped.",
     )
     suggest_parser.set_defaults(func=cmd_suggest_metrics)
 
