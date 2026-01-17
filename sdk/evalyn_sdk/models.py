@@ -37,6 +37,7 @@ SpanType = Literal[
     "tool_call",  # Tool/function call
     "retrieval",  # RAG retrieval
     "scorer",  # Metric evaluation
+    "agent",  # Agent execution (Google ADK, Anthropic Agents, etc.)
     "custom",  # User-defined span
 ]
 

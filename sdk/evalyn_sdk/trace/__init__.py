@@ -4,6 +4,8 @@ Tracing module - hierarchical span tracking for LLM agents.
 This module provides Phoenix/LangSmith-style trace visualization with:
 - Hierarchical spans with parent-child relationships
 - Auto-instrumentation for OpenAI, Anthropic, Gemini, LangChain, LangGraph
+- OTEL-native instrumentation for Google ADK
+- Hook-based instrumentation for Anthropic Agent SDK
 - Context propagation for nested spans
 
 Usage:
@@ -17,6 +19,14 @@ Usage:
 
     # View trace tree:
     # evalyn show-trace --id <call_id>
+
+For advanced instrumentation:
+    from evalyn_sdk.trace.instrumentation import (
+        instrument,       # Instrument specific SDKs
+        instrument_all,   # Instrument all available SDKs
+        list_available,   # List installed SDKs
+        create_agent_hooks,  # Create hooks for Anthropic Agent SDK
+    )
 """
 
 from .context import (
@@ -41,6 +51,19 @@ from .auto_instrument import (
     ensure_patched,
 )
 
+# New instrumentation API
+from .instrumentation import (
+    instrument,
+    instrument_all,
+    uninstrument,
+    uninstrument_all,
+    is_instrumented,
+    list_available,
+    list_instrumented,
+    get_hooks,
+    create_agent_hooks,
+)
+
 __all__ = [
     # Context
     "span",
@@ -53,7 +76,7 @@ __all__ = [
     # Tracer
     "EvalTracer",
     "eval_session",
-    # Auto-instrumentation
+    # Auto-instrumentation (legacy API - backwards compat)
     "patch_all",
     "patch_openai",
     "patch_anthropic",
@@ -63,4 +86,14 @@ __all__ = [
     "is_patched",
     "trace",
     "ensure_patched",
+    # New instrumentation API
+    "instrument",
+    "instrument_all",
+    "uninstrument",
+    "uninstrument_all",
+    "is_instrumented",
+    "list_available",
+    "list_instrumented",
+    "get_hooks",
+    "create_agent_hooks",
 ]

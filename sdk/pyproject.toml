@@ -33,6 +33,12 @@ agent = [
   "python-dotenv>=1.0.1,<2.0",
   "pydantic>=2.6.0,<3.0",
 ]
+# Note: google-adk requires google-genai>=1.14.0 which conflicts with agent extra's
+# google-genai<1.0. Users should install google-adk separately if needed.
+# google-adk = ["google-adk>=1.0.0", "opentelemetry-sdk>=1.27.0"]
+anthropic-agents = [
+  "anthropic>=0.40.0",
+]
 
 [project.scripts]
 evalyn = "evalyn_sdk.cli:main"

@@ -1,0 +1,177 @@
+"""
+Shared utilities for instrumentation providers.
+
+Contains common functionality used across monkey-patch instrumentors.
+"""
+
+from __future__ import annotations
+
+from datetime import timedelta
+from typing import Any, Dict, List, Optional
+
+from ....models import Span
+from ... import context as span_context
+
+
+# Cost per 1M tokens (as of Jan 2025, approximate)
+COST_PER_1M_TOKENS = {
+    # OpenAI
+    "gpt-4o": {"input": 2.50, "output": 10.00},
+    "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+    "gpt-4-turbo": {"input": 10.00, "output": 30.00},
+    "gpt-4": {"input": 30.00, "output": 60.00},
+    "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
+    # Anthropic
+    "claude-3-5-sonnet": {"input": 3.00, "output": 15.00},
+    "claude-3-opus": {"input": 15.00, "output": 75.00},
+    "claude-3-sonnet": {"input": 3.00, "output": 15.00},
+    "claude-3-haiku": {"input": 0.25, "output": 1.25},
+    # Google
+    "gemini-1.5-pro": {"input": 1.25, "output": 5.00},
+    "gemini-1.5-flash": {"input": 0.075, "output": 0.30},
+    "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
+    "gemini-2.5-flash-lite": {"input": 0.075, "output": 0.30},
+}
+
+
+def calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
+    """Calculate cost in USD for a given model and token counts."""
+    model_lower = model.lower()
+
+    for model_key, costs in COST_PER_1M_TOKENS.items():
+        if model_key in model_lower:
+            input_cost = (input_tokens / 1_000_000) * costs["input"]
+            output_cost = (output_tokens / 1_000_000) * costs["output"]
+            return input_cost + output_cost
+
+    # Default estimate if model not found
+    return (input_tokens + output_tokens) / 1_000_000 * 1.0
+
+
+def _get_tracer():
+    """Lazy import to avoid circular dependency."""
+    from ....decorators import get_default_tracer
+
+    return get_default_tracer()
+
+
+def log_llm_call(
+    provider: str,
+    model: str,
+    input_tokens: int = 0,
+    output_tokens: int = 0,
+    duration_ms: float = 0,
+    success: bool = True,
+    error: Optional[str] = None,
+    request: Optional[Dict[str, Any]] = None,
+    response: Optional[Dict[str, Any]] = None,
+    tool_tokens: int = 0,
+    search_queries: Optional[List[str]] = None,
+    sources: Optional[List[Dict[str, str]]] = None,
+) -> None:
+    """Log an LLM call to the tracer and create a span."""
+    tracer = _get_tracer()
+
+    cost = calculate_cost(model, input_tokens, output_tokens)
+
+    detail = {
+        "provider": provider,
+        "model": model,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": input_tokens + output_tokens,
+        "cost_usd": cost,
+        "duration_ms": duration_ms,
+        "success": success,
+    }
+
+    if error:
+        detail["error"] = error
+    if request:
+        detail["request"] = request
+    if response:
+        detail["response"] = response
+    if tool_tokens:
+        detail["tool_tokens"] = tool_tokens
+    if search_queries:
+        detail["search_queries"] = search_queries
+    if sources:
+        detail["sources"] = sources
+
+    # Create span for hierarchy
+    parent_span_id = span_context.get_current_span_id()
+    span = Span.new(
+        name=f"{provider}:{model}",
+        span_type="llm_call",
+        parent_id=parent_span_id,
+        provider=provider,
+        model=model,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        cost_usd=cost,
+    )
+
+    # Add tool/grounding info to span
+    if tool_tokens:
+        span.attributes["tool_tokens"] = tool_tokens
+    if search_queries:
+        span.attributes["search_queries"] = search_queries
+    if sources:
+        span.attributes["sources"] = sources
+
+    # Set duration retroactively (span was created after the call)
+    span.start_time = span.start_time - timedelta(milliseconds=duration_ms)
+    span.finish(status="error" if error else "ok")
+    if error:
+        span.attributes["error"] = error
+
+    # Add span to collector
+    span_context._add_span_to_collector(span)
+
+    # Also log as trace event for backwards compatibility
+    detail["span_id"] = span.id
+    tracer.log_event(f"{provider}.completion", detail)
+
+
+def log_tool_call(
+    tool_name: str,
+    tool_input: Any,
+    tool_output: Any = None,
+    duration_ms: float = 0,
+    success: bool = True,
+    error: Optional[str] = None,
+) -> None:
+    """Log a tool call to the tracer and create a span."""
+    tracer = _get_tracer()
+
+    detail = {
+        "tool_name": tool_name,
+        "input": str(tool_input)[:1000],  # Truncate for storage
+        "output": str(tool_output)[:1000] if tool_output else None,
+        "duration_ms": duration_ms,
+        "success": success,
+    }
+
+    if error:
+        detail["error"] = error
+
+    # Create span for hierarchy
+    parent_span_id = span_context.get_current_span_id()
+    span = Span.new(
+        name=tool_name,
+        span_type="tool_call",
+        parent_id=parent_span_id,
+        tool_name=tool_name,
+    )
+    # Set duration retroactively
+    span.start_time = span.start_time - timedelta(milliseconds=duration_ms)
+    span.finish(status="error" if error else "ok")
+    if error:
+        span.attributes["error"] = error
+
+    # Add span to collector
+    span_context._add_span_to_collector(span)
+
+    # Also log as trace event for backwards compatibility
+    detail["span_id"] = span.id
+    tracer.log_event("tool.call", detail)
