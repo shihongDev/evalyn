@@ -491,8 +491,10 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     overall_rate = 100 * total_passed / max(1, total_evals)
 
     health_status = (
-        "GOOD" if overall_rate >= 90
-        else "MODERATE" if overall_rate >= 70
+        "GOOD"
+        if overall_rate >= 90
+        else "MODERATE"
+        if overall_rate >= 70
         else "NEEDS_ATTENTION"
     )
     insights.append(

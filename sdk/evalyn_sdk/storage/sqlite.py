@@ -1,12 +1,22 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from pathlib import Path
 from typing import Iterable, List, Optional
 
 from .base import StorageBackend
 from ..models import Annotation, EvalRun, FunctionCall
+
+# Default paths for prod/test separation
+DEFAULT_PROD_DB = "data/prod/traces.sqlite"
+DEFAULT_TEST_DB = "data/test/traces.sqlite"
+
+
+def _get_default_db_path() -> str:
+    """Get default DB path, respecting EVALYN_DB env var."""
+    return os.getenv("EVALYN_DB", DEFAULT_PROD_DB)
 
 
 def _dumps(data: object) -> str:
@@ -16,8 +26,8 @@ def _dumps(data: object) -> str:
 class SQLiteStorage(StorageBackend):
     """Lightweight SQLite backend for local development."""
 
-    def __init__(self, path: str | Path = "data/evalyn.sqlite"):
-        self.path = Path(path)
+    def __init__(self, path: str | Path | None = None):
+        self.path = Path(path if path is not None else _get_default_db_path())
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(self.path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row

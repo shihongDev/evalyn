@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="evalyn-banner.png" alt="Evalyn - Evaluation as a service. Let your agents evolve — privately." width="600">
+  <img src="docs/evalyn-banner.png" alt="Evalyn - Evaluation as a service. Let your agents evolve — privately." width="600">
 </p>
 
 <p align="center">

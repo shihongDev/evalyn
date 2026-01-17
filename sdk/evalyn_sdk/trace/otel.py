@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import os
 from typing import Optional
 
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+
+# Default path for prod/test separation
+DEFAULT_PROD_DB = "data/prod/traces.sqlite"
 
 # OTLP exporter import path differs by version; try modern path first.
 try:
@@ -25,12 +29,12 @@ class SQLiteSpanExporter:
     Spans are keyed by evalyn.call_id (if present in attributes) for easy lookup.
     """
 
-    def __init__(self, path: str = "data/evalyn.sqlite"):
+    def __init__(self, path: str | None = None):
         import sqlite3
         from pathlib import Path
 
-        self.path = path
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        self.path = path or os.getenv("EVALYN_DB", DEFAULT_PROD_DB)
+        Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(self.path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self._init_table()
@@ -163,9 +167,7 @@ def configure_otel(
     elif exporter == "otlp":
         processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
     elif exporter == "sqlite":
-        processor = BatchSpanProcessor(
-            SQLiteSpanExporter(sqlite_path or "data/evalyn.sqlite")
-        )
+        processor = BatchSpanProcessor(SQLiteSpanExporter(sqlite_path))
     else:
         raise ValueError("Unsupported exporter; use 'console', 'otlp', or 'sqlite'")
 

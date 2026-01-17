@@ -8,10 +8,15 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+package-lock.json
 dist
 dist-ssr
-data/
 *.local
+
+# Data - ignore contents but keep structure
+data/prod/
+data/test/
+data/test-output/
 
 # Editor directories and files
 .vscode/*
@@ -44,11 +49,10 @@ SPEC.md
 
 # Internal docs
 docs/bugs.md
-docs/CLI_IMPROVEMENTS.md
+docs/spaghetti-analysis.md
 
 # Test
 tests/
-test_data/
 test_all_cli.sh
 
 # SQLite
