@@ -150,7 +150,7 @@ def span(
     # Push onto stack
     stack = _span_stack.get()
     new_stack = stack + [span_id]
-    token = _span_stack.set(new_stack)
+    _token = _span_stack.set(new_stack)  # noqa: F841
 
     try:
         yield span_obj
@@ -207,7 +207,7 @@ def root_span(
     # Push onto stack
     stack = _span_stack.get()
     new_stack = stack + [span_id]
-    token = _span_stack.set(new_stack)
+    _token = _span_stack.set(new_stack)  # noqa: F841
 
     try:
         yield root

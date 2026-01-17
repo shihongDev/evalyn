@@ -133,9 +133,6 @@ def generate_html_report(
             for m in metrics_by_pass_rate
         ]
     )
-    avg_scores = json.dumps([round(m.avg_score, 3) for m in metrics_by_pass_rate])
-    min_scores = json.dumps([round(m.min_score, 3) for m in metrics_by_pass_rate])
-    max_scores = json.dumps([round(m.max_score, 3) for m in metrics_by_pass_rate])
     passed_counts = json.dumps([m.passed for m in metrics_by_pass_rate])
     failed_counts = json.dumps([m.failed for m in metrics_by_pass_rate])
 
@@ -1293,7 +1290,7 @@ def generate_report(
         if not output_path.suffix:
             output_path = output_path.with_suffix(".txt")
 
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(content)
 
     return output_path

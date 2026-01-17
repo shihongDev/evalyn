@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import contextvars
 import functools
+import importlib.util
 import inspect
 import os
 import time
@@ -243,9 +244,7 @@ def patch_openai() -> bool:
     if _patched["openai"]:
         return True
 
-    try:
-        import openai
-    except ImportError:
+    if importlib.util.find_spec("openai") is None:
         return False
 
     _patch_openai_client_class()
@@ -257,7 +256,6 @@ def patch_openai() -> bool:
 def _patch_openai_client_class():
     """Patch OpenAI client class to intercept completions."""
     try:
-        from openai import OpenAI, AsyncOpenAI
         from openai.resources.chat import completions as chat_completions
     except ImportError:
         return
@@ -320,7 +318,6 @@ def _patch_openai_client_class():
         async def patched_acreate(self, *args, **kwargs):
             start = time.time()
             model = kwargs.get("model", "unknown")
-            messages = kwargs.get("messages", [])
 
             try:
                 response = await original_acreate(self, *args, **kwargs)
@@ -365,7 +362,6 @@ def patch_anthropic() -> bool:
         return True
 
     try:
-        from anthropic import Anthropic, AsyncAnthropic
         from anthropic.resources import messages as messages_module
     except ImportError:
         return False
@@ -614,7 +610,6 @@ def patch_langchain() -> bool:
 
     try:
         from langchain_core.callbacks import BaseCallbackHandler
-        from langchain_core.callbacks.manager import CallbackManager
     except ImportError:
         return False
 

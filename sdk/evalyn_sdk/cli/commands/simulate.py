@@ -213,7 +213,7 @@ def cmd_simulate(args: argparse.Namespace) -> None:
         print(f"{'=' * 60}")
 
         print_hint(
-            f"To run these queries through your agent, add --target <module:func> flag",
+            "To run these queries through your agent, add --target <module:func> flag",
             quiet=getattr(args, "quiet", False),
         )
 

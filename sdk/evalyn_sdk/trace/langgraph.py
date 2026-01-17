@@ -27,7 +27,6 @@ Usage:
 from __future__ import annotations
 
 import functools
-import time
 from typing import Any, Callable
 
 from . import context as span_context
@@ -86,7 +85,7 @@ def _wrap_compiled_graph(graph: Any) -> Any:
         # Push graph span onto stack so node spans are children
         stack = span_context._span_stack.get()
         new_stack = stack + [graph_span.id]
-        token = span_context._span_stack.set(new_stack)
+        _token = span_context._span_stack.set(new_stack)  # noqa: F841
 
         try:
             result = original_invoke(input_data, config=config, **kwargs)
@@ -118,7 +117,7 @@ def _wrap_compiled_graph(graph: Any) -> Any:
 
             stack = span_context._span_stack.get()
             new_stack = stack + [graph_span.id]
-            token = span_context._span_stack.set(new_stack)
+            _token = span_context._span_stack.set(new_stack)  # noqa: F841
 
             try:
                 result = await original_ainvoke(input_data, config=config, **kwargs)
@@ -144,7 +143,6 @@ def _patch_compiled_graph_class(CompiledGraph: type) -> None:
 
         @functools.wraps(original_execute)
         def patched_execute(self, node_name, *args, **kwargs):
-            start_time = time.time()
             parent_span_id = span_context.get_current_span_id()
 
             # Create node span
@@ -158,7 +156,7 @@ def _patch_compiled_graph_class(CompiledGraph: type) -> None:
             # Push node span so LLM/tool calls are children
             stack = span_context._span_stack.get()
             new_stack = stack + [node_span.id]
-            token = span_context._span_stack.set(new_stack)
+            _token = span_context._span_stack.set(new_stack)  # noqa: F841
 
             try:
                 result = original_execute(self, node_name, *args, **kwargs)
@@ -220,7 +218,7 @@ def _wrap_node_function(node_name: str, node_func: Callable) -> Callable:
 
             stack = span_context._span_stack.get()
             new_stack = stack + [node_span.id]
-            token = span_context._span_stack.set(new_stack)
+            _token = span_context._span_stack.set(new_stack)  # noqa: F841
 
             try:
                 result = await node_func(*args, **kwargs)
@@ -248,7 +246,7 @@ def _wrap_node_function(node_name: str, node_func: Callable) -> Callable:
 
             stack = span_context._span_stack.get()
             new_stack = stack + [node_span.id]
-            token = span_context._span_stack.set(new_stack)
+            _token = span_context._span_stack.set(new_stack)  # noqa: F841
 
             try:
                 result = node_func(*args, **kwargs)

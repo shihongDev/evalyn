@@ -133,6 +133,7 @@ __all__ = [
     "AlignmentMetrics",
     "PromptOptimizer",
     "PromptOptimizationResult",
+    "ValidationResult",
     "GEPAConfig",
     "GEPAOptimizer",
     "GEPA_AVAILABLE",

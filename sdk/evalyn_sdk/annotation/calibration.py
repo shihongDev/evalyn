@@ -576,22 +576,6 @@ After your analysis, provide your verdict as a JSON object:
         # Build seed prompt (only the preamble, not the rubric)
         seed_prompt = self._build_seed_prompt(metric_id, current_preamble)
 
-        # For GEPA, we need to provide the full prompt but only optimize the preamble.
-        # We'll inject the fixed rubric into the trainset/valset format instructions.
-        rubric_text = ""
-        if current_rubric:
-            rubric_lines = "\n".join([f"- {r}" for r in current_rubric])
-            rubric_text = f"\n\nEvaluate using this rubric (PASS only if all criteria met):\n{rubric_lines}"
-
-        # Add rubric and output format as fixed suffix in the system prompt
-        fixed_suffix = (
-            rubric_text
-            + """
-
-After your analysis, provide your verdict as a JSON object:
-{"passed": true/false, "reason": "brief explanation", "score": 0.0-1.0}"""
-        )
-
         # The seed candidate is just the preamble; GEPA will optimize this
         seed_candidate = {"preamble": seed_prompt["preamble"]}
 

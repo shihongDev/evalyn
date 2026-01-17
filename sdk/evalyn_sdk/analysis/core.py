@@ -102,7 +102,7 @@ def load_eval_run(path: Path) -> Dict[str, Any]:
     # Handle folder path
     if path.is_dir():
         path = path / "results.json"
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 

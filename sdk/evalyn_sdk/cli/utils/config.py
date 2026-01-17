@@ -35,7 +35,7 @@ def load_config() -> Dict[str, Any]:
             try:
                 import yaml  # Optional dependency
 
-                with open(path) as f:
+                with open(path, encoding="utf-8") as f:
                     config = yaml.safe_load(f) or {}
                     # Expand environment variables
                     config = _expand_env_vars(config)
@@ -43,7 +43,7 @@ def load_config() -> Dict[str, Any]:
             except ImportError:
                 # Try JSON format if yaml not available
                 try:
-                    with open(path) as f:
+                    with open(path, encoding="utf-8") as f:
                         config = json.load(f)
                         config = _expand_env_vars(config)
                         return config

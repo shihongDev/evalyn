@@ -11,8 +11,39 @@ import subprocess
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
+
+from .annotation import import_annotations
+from .annotation import (
+    CalibrationEngine,
+    GEPAConfig,
+    GEPA_AVAILABLE,
+    save_calibration,
+    load_optimized_prompt,
+)
+from .annotation import (
+    SpanAnnotation,
+    ANNOTATION_SCHEMAS,
+    extract_spans_from_trace,
+    get_annotation_prompts,
+)
+from .cli.utils.hints import print_hint
+from .datasets import load_dataset, save_dataset_with_meta, build_dataset_from_storage
+from .decorators import get_default_tracer
+from .metrics.objective import register_builtin_metrics, OBJECTIVE_REGISTRY
+from .metrics.subjective import SUBJECTIVE_REGISTRY
+from .metrics.suggester import (
+    HeuristicSuggester,
+    LLMSuggester,
+    LLMRegistrySelector,
+    TemplateSelector,
+)
+from .models import DatasetItem, MetricRegistry, MetricSpec
+from .runner import EvalRunner
+from .simulation import UserSimulator, AgentSimulator, SimulationConfig
+from .trace.tracer import EvalTracer
 
 
 class Spinner:
@@ -47,23 +78,6 @@ class Spinner:
             self._thread.join(timeout=0.5)
 
 
-from .annotation import import_annotations
-from .annotation import (
-    CalibrationEngine,
-    GEPAConfig,
-    GEPA_AVAILABLE,
-    save_calibration,
-    load_optimized_prompt,
-)
-from .annotation import (
-    SpanAnnotation,
-    ANNOTATION_SCHEMAS,
-    extract_spans_from_trace,
-    get_annotation_prompts,
-)
-from .cli.utils.hints import print_hint
-
-
 # ---------------------------------------------------------------------------
 # Config file support
 # ---------------------------------------------------------------------------
@@ -96,7 +110,7 @@ def load_config() -> Dict[str, Any]:
             try:
                 import yaml  # Optional dependency
 
-                with open(path) as f:
+                with open(path, encoding="utf-8") as f:
                     config = yaml.safe_load(f) or {}
                     # Expand environment variables
                     config = _expand_env_vars(config)
@@ -104,7 +118,7 @@ def load_config() -> Dict[str, Any]:
             except ImportError:
                 # Try JSON format if yaml not available
                 try:
-                    with open(path) as f:
+                    with open(path, encoding="utf-8") as f:
                         config = json.load(f)
                         config = _expand_env_vars(config)
                         return config
@@ -216,24 +230,6 @@ class ProgressIndicator:
         )
         sys.stderr.flush()
 
-
-from .datasets import load_dataset, save_dataset_with_meta, build_dataset_from_storage
-from .simulation import UserSimulator, AgentSimulator, SimulationConfig
-from .decorators import get_default_tracer
-from .metrics.objective import register_builtin_metrics
-from .models import MetricRegistry
-from .metrics.objective import OBJECTIVE_REGISTRY
-from .metrics.subjective import SUBJECTIVE_REGISTRY
-from .runner import EvalRunner
-from .metrics.suggester import (
-    HeuristicSuggester,
-    LLMSuggester,
-    LLMRegistrySelector,
-    TemplateSelector,
-)
-from .trace.tracer import EvalTracer
-from .models import MetricSpec
-from datetime import datetime, timezone
 
 # Light bundles for quick manual selection (no LLM).
 BUNDLES: dict[str, list[str]] = {
@@ -1539,7 +1535,9 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         # Load calibrated prompt for subjective metrics if --use-calibrated is set
         if use_calibrated and spec.type == "subjective":
             try:
-                optimized_prompt = load_optimized_prompt(str(dataset_dir), spec.id)
+                optimized_prompt = load_optimized_prompt(
+                    str(dataset_file.parent), spec.id
+                )
                 if optimized_prompt:
                     # Update config with optimized prompt
                     spec.config = dict(spec.config or {})
@@ -1683,7 +1681,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
 
         html_report = generate_html_report(analysis, item_details=item_details)
         report_path = run_folder / "report.html"
-        with open(report_path, "w") as f:
+        with open(report_path, "w", encoding="utf-8") as f:
             f.write(html_report)
     except Exception as e:
         report_path = None
@@ -1902,7 +1900,6 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
     metric_bundle_hint = None
     traces = []
     function_name = "unknown"
-    function_signature = ""
     function_docstring = ""
 
     if args.project:
@@ -1943,7 +1940,6 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         first_call = project_traces[0]
         function_name = first_call.function_name
         meta = first_call.metadata if isinstance(first_call.metadata, dict) else {}
-        function_signature = meta.get("signature", "")
         function_docstring = meta.get("docstring", "")
 
         # Create a placeholder function for the suggester
@@ -2743,7 +2739,7 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
     annotations: List[SpanAnnotation] = list(existing_annotations.values())
 
     def save_annotations() -> None:
-        with open(output_path, "w", encoding="utf-8") as f:
+        with open(output_path, "w", encoding="utf-8", encoding="utf-8") as f:
             for ann in annotations:
                 f.write(json.dumps(ann.as_dict(), ensure_ascii=False) + "\n")
 
@@ -3122,7 +3118,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
         """
         try:
             # Append mode - each annotation is written immediately
-            with open(output_path, "a", encoding="utf-8") as f:
+            with open(output_path, "a", encoding="utf-8", encoding="utf-8") as f:
                 f.write(json.dumps(ann.as_dict(), ensure_ascii=False) + "\n")
                 f.flush()
                 os.fsync(f.fileno())
@@ -3692,7 +3688,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     # Also save to explicit output path if specified
     if args.output:
         output_path = Path(args.output)
-        with open(output_path, "w") as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             json.dump(record.as_dict(), f, indent=2, default=str)
         print(f"\nCalibration record also saved to: {output_path}")
 
@@ -3725,7 +3721,7 @@ def cmd_list_calibrations(args: argparse.Namespace) -> None:
             if cal_file.name.startswith("."):
                 continue
             try:
-                with open(cal_file) as f:
+                with open(cal_file, encoding="utf-8") as f:
                     record = json.load(f)
                     # Parse timestamp from filename (e.g., 20250101_120000_gepa.json)
                     parts = cal_file.stem.split("_")
@@ -3833,7 +3829,7 @@ def cmd_status(args: argparse.Namespace) -> None:
     dataset_file = dataset_path / "dataset.jsonl"
     item_count = 0
     if dataset_file.exists():
-        with open(dataset_file) as f:
+        with open(dataset_file, encoding="utf-8") as f:
             item_count = sum(1 for _ in f)
     print("\n--- DATASET ---")
     print(f"Items: {item_count}")
@@ -3841,7 +3837,7 @@ def cmd_status(args: argparse.Namespace) -> None:
     # Meta info
     meta_file = dataset_path / "meta.json"
     if meta_file.exists():
-        with open(meta_file) as f:
+        with open(meta_file, encoding="utf-8") as f:
             meta = json.load(f)
             if "project" in meta:
                 print(f"Project: {meta.get('project')}")
@@ -3856,7 +3852,7 @@ def cmd_status(args: argparse.Namespace) -> None:
         print(f"Metric sets: {len(metric_files)}")
         for mf in sorted(metric_files):
             try:
-                with open(mf) as f:
+                with open(mf, encoding="utf-8") as f:
                     metrics = json.load(f)
                     count = len(metrics) if isinstance(metrics, list) else 0
                     print(f"  {mf.name}: {count} metrics")
@@ -3878,7 +3874,7 @@ def cmd_status(args: argparse.Namespace) -> None:
         # Show latest 3
         for rf in sorted(run_files, reverse=True)[:3]:
             try:
-                with open(rf) as f:
+                with open(rf, encoding="utf-8") as f:
                     run = json.load(f)
                     created = run.get("created_at", "")[:19]
                     results_count = len(run.get("metric_results", []))
@@ -3893,7 +3889,7 @@ def cmd_status(args: argparse.Namespace) -> None:
     annotations_file = dataset_path / "annotations.jsonl"
     print("\n--- ANNOTATIONS ---")
     if annotations_file.exists():
-        with open(annotations_file) as f:
+        with open(annotations_file, encoding="utf-8") as f:
             ann_count = sum(1 for _ in f)
         coverage = f"{ann_count}/{item_count}" if item_count > 0 else str(ann_count)
         pct = f" ({ann_count / item_count:.0%})" if item_count > 0 else ""
@@ -4140,7 +4136,7 @@ def cmd_simulate(args: argparse.Namespace) -> None:
             # Count items
             dataset_file = path / "dataset.jsonl"
             if dataset_file.exists():
-                with open(dataset_file) as f:
+                with open(dataset_file, encoding="utf-8") as f:
                     count = sum(1 for _ in f)
                 print(f"  {mode}: {count} items -> {path}")
             else:
@@ -4173,7 +4169,7 @@ def cmd_simulate(args: argparse.Namespace) -> None:
             mode_dir.mkdir(parents=True, exist_ok=True)
 
             queries_file = mode_dir / "queries.jsonl"
-            with open(queries_file, "w", encoding="utf-8") as f:
+            with open(queries_file, "w", encoding="utf-8", encoding="utf-8") as f:
                 for gq in generated:
                     f.write(
                         json.dumps(
@@ -4205,7 +4201,7 @@ def cmd_simulate(args: argparse.Namespace) -> None:
                     else config.temperature_outlier,
                 },
             }
-            with open(mode_dir / "meta.json", "w") as f:
+            with open(mode_dir / "meta.json", "w", encoding="utf-8") as f:
                 json.dump(meta, f, indent=2)
 
             print(f"  Generated {len(generated)} {mode} queries -> {mode_dir}")
@@ -4266,7 +4262,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
     }
 
     # Validate JSON format line by line
-    with open(dataset_file, "r", encoding="utf-8") as f:
+    with open(dataset_file, "r", encoding="utf-8", encoding="utf-8") as f:
         for line_num, line in enumerate(f, start=1):
             line = line.strip()
             if not line:
@@ -4347,7 +4343,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
     meta_file = dataset_dir / "meta.json"
     if meta_file.exists():
         try:
-            with open(meta_file) as f:
+            with open(meta_file, encoding="utf-8") as f:
                 meta = json.load(f)
             print("\n  meta.json:          ✓ Found")
             if "project" in meta:
@@ -4425,7 +4421,7 @@ def cmd_analyze(args: argparse.Namespace) -> None:
                 # Fallback to direct json files
                 run_files = sorted(runs_dir.glob("*.json"), reverse=True)
             if run_files:
-                with open(run_files[0]) as f:
+                with open(run_files[0], encoding="utf-8") as f:
                     run_data = json.load(f)
                     run = EvalRun.from_dict(run_data)
                 print(f"Analyzing latest run: {run_files[0].name}")
@@ -4597,7 +4593,7 @@ def cmd_compare(args: argparse.Namespace) -> None:
             # Try loading from file
             run1_path = Path(args.run1)
             if run1_path.exists():
-                with open(run1_path) as f:
+                with open(run1_path, encoding="utf-8") as f:
                     data = json.load(f)
                     run1 = EvalRun(**data)
 
@@ -4612,7 +4608,7 @@ def cmd_compare(args: argparse.Namespace) -> None:
         if not run2:
             run2_path = Path(args.run2)
             if run2_path.exists():
-                with open(run2_path) as f:
+                with open(run2_path, encoding="utf-8") as f:
                     data = json.load(f)
                     run2 = EvalRun(**data)
 
@@ -4757,7 +4753,7 @@ def cmd_export(args: argparse.Namespace) -> None:
                 # Fallback to direct json files
                 run_files = sorted(runs_dir.glob("*.json"), reverse=True)
             if run_files:
-                with open(run_files[0]) as f:
+                with open(run_files[0], encoding="utf-8") as f:
                     run_data = json.load(f)
 
     if not run_data:
@@ -4794,7 +4790,7 @@ def cmd_export(args: argparse.Namespace) -> None:
                 )
 
         if output_path:
-            with open(output_path, "w", newline="", encoding="utf-8") as f:
+            with open(output_path, "w", newline="", encoding="utf-8", encoding="utf-8") as f:
                 if rows:
                     writer = csv.DictWriter(f, fieldnames=rows[0].keys())
                     writer.writeheader()
@@ -5037,7 +5033,7 @@ defaults:
   project: null
   version: null
 """
-        with open(output_path, "w") as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(minimal)
         print(f"Created {output_path} (minimal config)")
         print("Note: evalyn.yaml.example not found for full template")
@@ -5215,7 +5211,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
     resumed = False
     if state_path.exists() and getattr(args, "resume", False):
         try:
-            with open(state_path, "r", encoding="utf-8") as f:
+            with open(state_path, "r", encoding="utf-8", encoding="utf-8") as f:
                 state = json.load(f)
             print("  Resuming from previous run...")
             print(f"  Completed steps: {', '.join(state.get('steps', {}).keys())}\n")
@@ -5320,24 +5316,6 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             # Call suggest-metrics logic
             metrics_path = metrics_dir / "suggested.json"
 
-            # Create a mock args object for suggest_metrics
-            suggest_args = argparse.Namespace(
-                target=args.target,
-                num_traces=5,
-                num_metrics=None,
-                mode=args.metric_mode,
-                llm_mode=args.llm_mode
-                if args.metric_mode in ["llm-registry", "llm-brainstorm"]
-                else None,
-                model=args.model,
-                api_base=None,
-                api_key=None,
-                llm_caller=None,
-                bundle=args.bundle,
-                dataset=str(dataset_dir),
-                metrics_name="suggested",
-            )
-
             # Run suggest metrics (this will save to dataset/metrics/suggested.json)
             from .metrics.suggester import (
                 HeuristicSuggester,
@@ -5435,7 +5413,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                         "why": getattr(spec, "why", ""),
                     }
                 )
-            with open(metrics_path, "w") as f:
+            with open(metrics_path, "w", encoding="utf-8") as f:
                 json.dump(payload, f, indent=2)
 
             obj_count = sum(1 for spec in metric_specs if spec.type == "objective")
@@ -5474,7 +5452,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             from .metrics.factory import build_objective_metric, build_subjective_metric
 
             # Load metrics from file
-            with open(metrics_path) as f:
+            with open(metrics_path, encoding="utf-8") as f:
                 metrics_data = json.load(f)
 
             metrics = []
@@ -5512,7 +5490,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
 
             # Save run
             run_path = eval_dir / f"run_{timestamp}_{eval_run.id[:8]}.json"
-            with open(run_path, "w") as f:
+            with open(run_path, "w", encoding="utf-8") as f:
                 json.dump(eval_run.as_dict(), f, indent=2)
 
             print(f"  ✓ Evaluated {len(items)} items")
@@ -5570,7 +5548,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
 
                     # Count annotations
                     if ann_path.exists():
-                        with open(ann_path) as f:
+                        with open(ann_path, encoding="utf-8") as f:
                             ann_count = sum(1 for _ in f)
                         print(f"  ✓ Completed {ann_count} annotations")
                         print(f"  ✓ Saved to: {ann_path}\n")
@@ -5684,7 +5662,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
                 from .annotation import load_optimized_prompt
 
                 # Load metrics from file
-                with open(metrics_path) as f:
+                with open(metrics_path, encoding="utf-8") as f:
                     metrics_data = json.load(f)
 
                 metrics = []
@@ -5734,7 +5712,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
 
                 # Save run
                 run_path2 = eval2_dir / f"run_{timestamp}_{eval_run2.id[:8]}.json"
-                with open(run_path2, "w") as f:
+                with open(run_path2, "w", encoding="utf-8") as f:
                     json.dump(eval_run2.as_dict(), f, indent=2)
 
                 print(f"  ✓ Used {calibrated_count} calibrated prompts")
@@ -5813,7 +5791,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         # Save final pipeline state (also saved as pipeline_summary.json for backwards compat)
         state["completed_at"] = datetime.now().isoformat()
         summary_path = output_dir / "pipeline_summary.json"
-        with open(summary_path, "w") as f:
+        with open(summary_path, "w", encoding="utf-8") as f:
             json.dump(state, f, indent=2)
 
         # Final summary

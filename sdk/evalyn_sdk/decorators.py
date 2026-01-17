@@ -3,11 +3,11 @@ from __future__ import annotations
 import os
 from typing import Any, Callable, Optional
 
-ALLOWED_METRIC_MODES = {"llm-registry", "llm-brainstorm", "bundle"}
-
-from .trace.tracer import EvalTracer
 from .storage.sqlite import SQLiteStorage
 from .trace.otel import configure_default_otel, OTEL_AVAILABLE
+from .trace.tracer import EvalTracer
+
+ALLOWED_METRIC_MODES = {"llm-registry", "llm-brainstorm", "bundle"}
 
 _default_tracer: Optional[EvalTracer] = None
 
