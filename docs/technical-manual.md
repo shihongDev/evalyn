@@ -11,6 +11,8 @@ Internal technical reference for Evalyn SDK architecture, design decisions, and 
 5. [Calibration Pipeline](#calibration-pipeline)
 6. [Data Models](#data-models)
 7. [Analysis & Visualization](#analysis--visualization)
+8. [Environment Variables](#environment-variables)
+9. [CLI Conveniences](#cli-conveniences)
 
 ---
 
@@ -522,6 +524,7 @@ evalyn/
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `EVALYN_AUTO_INSTRUMENT` | `on` | Enable/disable auto-patching |
+| `EVALYN_NO_HINTS` | `off` | Set to `1` or `true` to suppress CLI hint messages |
 | `GEMINI_API_KEY` | - | Gemini API key for LLM judges |
 | `OPENAI_API_KEY` | - | OpenAI API key (alternative) |
 | `EVALYN_OTEL` | `off` | Enable OpenTelemetry spans |
@@ -530,4 +533,44 @@ evalyn/
 
 ---
 
-*Last updated: 2026-01-15*
+## CLI Conveniences
+
+### Short IDs
+
+All IDs in Evalyn are UUIDs, but commands accept 8-character prefixes for convenience:
+
+```bash
+# Full UUID
+evalyn show-call --id fde2d07e-1234-5678-90ab-cdef12345678
+
+# Short ID (first 8 chars) - works the same
+evalyn show-call --id fde2d07e
+```
+
+The `list-calls` and `list-runs` commands display short IDs by default. If a short ID matches multiple records, you'll be prompted to use more characters.
+
+### Quick Access Flags
+
+Several commands support `--last` to quickly access the most recent record:
+
+```bash
+evalyn show-call --last    # Most recent trace
+evalyn show-trace --last   # Most recent trace (span tree)
+evalyn show-run --last     # Most recent eval run
+```
+
+### Suppressing Hints
+
+Hint messages appear after commands to guide next steps. To suppress them:
+
+```bash
+# Per-command
+evalyn list-calls --quiet
+
+# Globally (environment variable)
+export EVALYN_NO_HINTS=1
+```
+
+---
+
+*Last updated: 2026-01-16*

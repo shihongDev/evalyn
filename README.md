@@ -111,7 +111,7 @@ evalyn one-click --project gemini-deep-research-agent    # Dataset -> Metrics ->
 ### Step 1: Instrument & Collect
 ```bash
 # Add @eval decorator to your agent, then run it
-python my_agent.py 
+python my_agent.py
 evalyn list-calls --limit 5
 ```
 ```
@@ -120,6 +120,8 @@ id       | function | project | status | duration_ms
 fde2d07e | my_agent | myapp   | OK     | 1234.56
 47fe2576 | my_agent | myapp   | OK     | 2345.67
 ```
+
+> **Tip:** IDs are displayed as 8-character prefixes. Use `evalyn show-call --id fde2d07e` with just the short ID.
 
 ### Step 2: Build Dataset
 ```bash
@@ -179,13 +181,24 @@ evalyn run-eval --dataset data/myapp-v1-20250115-120000/simulations/sim-similar-
 |---------|--------------|
 | `evalyn one-click --project X` | Run full pipeline |
 | `evalyn list-calls` | View captured traces |
+| `evalyn show-call --id abc123` | View trace details (supports short IDs) |
+| `evalyn show-call --last` | View most recent trace |
 | `evalyn build-dataset --project X` | Create dataset from traces |
 | `evalyn suggest-metrics --project X --dataset D` | Get metric recommendations |
 | `evalyn run-eval --dataset D` | Run evaluation + generate HTML report |
+| `evalyn show-run --last` | View most recent eval run |
 | `evalyn trend --project X` | View metric trends across eval runs |
 | `evalyn annotate --dataset D` | Human annotation (interactive) |
 | `evalyn calibrate --metric-id X` | Calibrate LLM judge |
 | `evalyn simulate --dataset D` | Generate synthetic test data |
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `GEMINI_API_KEY` | Gemini API key for LLM judges |
+| `EVALYN_NO_HINTS` | Set to `1` to suppress hint messages |
+| `EVALYN_AUTO_INSTRUMENT` | Set to `off` to disable auto-patching |
 
 
 ## Documentation
