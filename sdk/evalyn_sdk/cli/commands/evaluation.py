@@ -657,6 +657,26 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             f"metrics-{safe_name}.json" if args.metrics_name else "metrics.json"
         )
 
+        # Handle --append: merge with existing metrics, skip duplicates
+        existing_metrics: List[dict] = []
+        if getattr(args, "append", False) and metrics_file.exists():
+            try:
+                existing_metrics = json.loads(metrics_file.read_text(encoding="utf-8"))
+                existing_ids = {m["id"] for m in existing_metrics}
+                new_specs = [s for s in specs if s.id not in existing_ids]
+                if not new_specs:
+                    if output_format != "json":
+                        print("All suggested metrics already exist. Nothing to add.")
+                    return metrics_file
+                specs = new_specs
+                if output_format != "json":
+                    print(
+                        f"Appending {len(new_specs)} new metric(s) to {len(existing_metrics)} existing."
+                    )
+            except Exception as e:
+                if output_format != "json":
+                    print(f"Warning: Could not read existing metrics for append: {e}")
+
         # Validate objective metrics - filter out custom ones
         valid_objective_ids = {t["id"] for t in OBJECTIVE_REGISTRY}
         invalid_objectives = [
@@ -683,17 +703,16 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
                 print("No valid metrics to save.")
             return None
 
-        payload = []
-        for spec in specs:
-            payload.append(
-                {
-                    "id": spec.id,
-                    "type": spec.type,
-                    "description": spec.description,
-                    "config": spec.config,
-                    "why": getattr(spec, "why", ""),
-                }
-            )
+        payload = existing_metrics + [
+            {
+                "id": spec.id,
+                "type": spec.type,
+                "description": spec.description,
+                "config": spec.config,
+                "why": getattr(spec, "why", ""),
+            }
+            for spec in specs
+        ]
         metrics_file.write_text(
             json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8"
         )
