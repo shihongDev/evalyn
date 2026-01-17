@@ -61,6 +61,108 @@ from ..utils.dataset_utils import (
 )
 
 
+def _save_suggested_metrics(
+    specs: List[MetricSpec],
+    dataset_path: Optional[Path],
+    metrics_name: Optional[str],
+    append: bool,
+    selected_mode: str,
+    output_format: str,
+    quiet: bool,
+) -> Optional[Path]:
+    """Save suggested metrics to dataset's metrics directory.
+
+    Args:
+        specs: List of metric specs to save
+        dataset_path: Path to dataset directory or file
+        metrics_name: Optional name for the metrics file
+        append: Whether to append to existing metrics
+        selected_mode: The suggestion mode used (for metadata)
+        output_format: Output format ('json' or 'table')
+        quiet: Whether to suppress hints
+
+    Returns:
+        Path to saved metrics file, or None if not saved
+    """
+    if not dataset_path:
+        return None
+
+    dataset_dir = dataset_path.parent if dataset_path.is_file() else dataset_path
+    metrics_dir = dataset_dir / "metrics"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+
+    # Standardized naming
+    if metrics_name:
+        safe_name = re.sub(r"[^a-zA-Z0-9._-]+", "-", metrics_name).strip("-")
+    else:
+        safe_name = "default"
+    metrics_file = metrics_dir / (f"metrics-{safe_name}.json" if metrics_name else "metrics.json")
+
+    # Handle --append: merge with existing metrics
+    existing_metrics: List[dict] = []
+    if append and metrics_file.exists():
+        try:
+            existing_metrics = json.loads(metrics_file.read_text(encoding="utf-8"))
+            existing_ids = {m["id"] for m in existing_metrics}
+            new_specs = [s for s in specs if s.id not in existing_ids]
+            if not new_specs:
+                if output_format != "json":
+                    print("All suggested metrics already exist. Nothing to add.")
+                return metrics_file
+            specs = new_specs
+            if output_format != "json":
+                print(f"Appending {len(new_specs)} new metric(s) to {len(existing_metrics)} existing.")
+        except Exception as e:
+            if output_format != "json":
+                print(f"Warning: Could not read existing metrics for append: {e}")
+
+    # Validate objective metrics - filter out custom ones
+    valid_objective_ids = {t["id"] for t in OBJECTIVE_REGISTRY}
+    invalid_objectives = [s for s in specs if s.type == "objective" and s.id not in valid_objective_ids]
+    if invalid_objectives and output_format != "json":
+        print(f"Removed {len(invalid_objectives)} unsupported custom objective metric(s):")
+        for s in invalid_objectives:
+            print(f"  - {s.id}: Use 'evalyn list-metrics --type objective' to see valid IDs")
+    specs = [s for s in specs if not (s.type == "objective" and s.id not in valid_objective_ids)]
+
+    if not specs:
+        if output_format != "json":
+            print("No valid metrics to save.")
+        return None
+
+    payload = existing_metrics + [
+        {"id": spec.id, "type": spec.type, "description": spec.description, "config": spec.config, "why": getattr(spec, "why", "")}
+        for spec in specs
+    ]
+    metrics_file.write_text(json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8")
+
+    # Update meta.json
+    meta_path = dataset_dir / "meta.json"
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+    except Exception:
+        meta = {}
+    existing_sets = meta.get("metric_sets")
+    metric_sets = existing_sets if isinstance(existing_sets, list) else []
+    entry = {
+        "name": safe_name,
+        "file": f"metrics/{metrics_file.name}",
+        "mode": selected_mode,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "num_metrics": len(payload),
+    }
+    metric_sets = [m for m in metric_sets if m.get("name") != safe_name]
+    metric_sets.append(entry)
+    meta["metric_sets"] = metric_sets
+    meta["active_metric_set"] = safe_name
+    meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=True), encoding="utf-8")
+
+    if output_format != "json":
+        print(f"Saved metrics to {metrics_file}")
+        print_hint(f"To run evaluation, run: evalyn run-eval --dataset {dataset_dir}", quiet=quiet)
+    return metrics_file
+
+
 def _build_llm_caller(args: argparse.Namespace) -> Callable:
     """Build an LLM caller from args."""
     from ...utils.api_client import call_gemini_api
@@ -608,122 +710,17 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         final_specs = specs[:max_metrics] if max_metrics else specs
         for spec in final_specs:
             _print_spec(spec)
-        saved_path = _save_metrics(final_specs)
+        saved_path = _save_suggested_metrics(
+            final_specs,
+            dataset_path_obj,
+            args.metrics_name,
+            getattr(args, "append", False),
+            selected_mode,
+            output_format,
+            getattr(args, "quiet", False),
+        )
         if output_format == "json":
             _output_json(final_specs, saved_path)
-
-    def _save_metrics(specs: List[MetricSpec]) -> Optional[Path]:
-        if not dataset_path_obj:
-            return None
-        # Dataset path already validated and resolved (via --dataset or --latest)
-        dataset_dir = (
-            dataset_path_obj.parent if dataset_path_obj.is_file() else dataset_path_obj
-        )
-
-        metrics_dir = dataset_dir / "metrics"
-        metrics_dir.mkdir(parents=True, exist_ok=True)
-
-        # Standardized naming: metrics.json (default) or metrics-<name>.json
-        if args.metrics_name:
-            safe_name = re.sub(r"[^a-zA-Z0-9._-]+", "-", args.metrics_name).strip("-")
-        else:
-            safe_name = "default"
-        metrics_file = metrics_dir / (
-            f"metrics-{safe_name}.json" if args.metrics_name else "metrics.json"
-        )
-
-        # Handle --append: merge with existing metrics, skip duplicates
-        existing_metrics: List[dict] = []
-        if getattr(args, "append", False) and metrics_file.exists():
-            try:
-                existing_metrics = json.loads(metrics_file.read_text(encoding="utf-8"))
-                existing_ids = {m["id"] for m in existing_metrics}
-                new_specs = [s for s in specs if s.id not in existing_ids]
-                if not new_specs:
-                    if output_format != "json":
-                        print("All suggested metrics already exist. Nothing to add.")
-                    return metrics_file
-                specs = new_specs
-                if output_format != "json":
-                    print(
-                        f"Appending {len(new_specs)} new metric(s) to {len(existing_metrics)} existing."
-                    )
-            except Exception as e:
-                if output_format != "json":
-                    print(f"Warning: Could not read existing metrics for append: {e}")
-
-        # Validate objective metrics - filter out custom ones
-        valid_objective_ids = {t["id"] for t in OBJECTIVE_REGISTRY}
-        invalid_objectives = [
-            s
-            for s in specs
-            if s.type == "objective" and s.id not in valid_objective_ids
-        ]
-        if invalid_objectives and output_format != "json":
-            print(
-                f"Removed {len(invalid_objectives)} unsupported custom objective metric(s):"
-            )
-            for s in invalid_objectives:
-                print(
-                    f"  - {s.id}: Use 'evalyn list-metrics --type objective' to see valid IDs"
-                )
-        specs = [
-            s
-            for s in specs
-            if not (s.type == "objective" and s.id not in valid_objective_ids)
-        ]
-
-        if not specs:
-            if output_format != "json":
-                print("No valid metrics to save.")
-            return None
-
-        payload = existing_metrics + [
-            {
-                "id": spec.id,
-                "type": spec.type,
-                "description": spec.description,
-                "config": spec.config,
-                "why": getattr(spec, "why", ""),
-            }
-            for spec in specs
-        ]
-        metrics_file.write_text(
-            json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8"
-        )
-
-        meta_path = dataset_dir / "meta.json"
-        try:
-            meta = (
-                json.loads(meta_path.read_text(encoding="utf-8"))
-                if meta_path.exists()
-                else {}
-            )
-        except Exception:
-            meta = {}
-        existing_sets = meta.get("metric_sets")
-        metric_sets = existing_sets if isinstance(existing_sets, list) else []
-        entry = {
-            "name": safe_name,
-            "file": f"metrics/{metrics_file.name}",
-            "mode": selected_mode,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "num_metrics": len(payload),
-        }
-        metric_sets = [m for m in metric_sets if m.get("name") != safe_name]
-        metric_sets.append(entry)
-        meta["metric_sets"] = metric_sets
-        meta["active_metric_set"] = safe_name
-        meta_path.write_text(
-            json.dumps(meta, indent=2, ensure_ascii=True), encoding="utf-8"
-        )
-        if output_format != "json":
-            print(f"Saved metrics to {metrics_file}")
-            print_hint(
-                f"To run evaluation, run: evalyn run-eval --dataset {dataset_dir}",
-                quiet=getattr(args, "quiet", False),
-            )
-        return metrics_file
 
     if selected_mode == "bundle":
         bundle = (bundle_name or "").lower()
