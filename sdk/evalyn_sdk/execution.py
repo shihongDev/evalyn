@@ -13,12 +13,9 @@ import threading
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 from .models import DatasetItem, FunctionCall, Metric, MetricResult
-
-if TYPE_CHECKING:
-    from .runner import EvalRunner
 
 logger = logging.getLogger(__name__)
 
@@ -103,10 +100,7 @@ class SequentialStrategy(ExecutionStrategy):
             completed_items.add(item.id)
             items_since_checkpoint += 1
 
-            if (
-                self._checkpoint
-                and items_since_checkpoint >= self._checkpoint_interval
-            ):
+            if self._checkpoint and items_since_checkpoint >= self._checkpoint_interval:
                 self._checkpoint(results, completed_items, run_id)
                 items_since_checkpoint = 0
 
@@ -151,11 +145,7 @@ class ParallelStrategy(ExecutionStrategy):
             return (item.id, result)
 
         # Build all tasks
-        tasks = [
-            (metric, call, item)
-            for item, call in prepared
-            for metric in metrics
-        ]
+        tasks = [(metric, call, item) for item, call in prepared for metric in metrics]
 
         # Execute in parallel
         results_by_item: Dict[str, List[MetricResult]] = defaultdict(list)
