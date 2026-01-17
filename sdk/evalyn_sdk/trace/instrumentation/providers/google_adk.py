@@ -33,17 +33,11 @@ class GoogleADKInstrumentor(Instrumentor):
         return InstrumentorType.OTEL_NATIVE
 
     def is_available(self) -> bool:
-        # Check for both google-adk and opentelemetry SDK
+        # Check for google-adk (OTEL is always available as required dep)
         try:
-            has_adk = importlib.util.find_spec("google.adk") is not None
+            return importlib.util.find_spec("google.adk") is not None
         except (ModuleNotFoundError, ImportError):
-            has_adk = False
-        try:
-            has_otel = importlib.util.find_spec("opentelemetry.sdk") is not None
-        except (ModuleNotFoundError, ImportError):
-            has_otel = False
-        # openinference is optional - we can work without it
-        return has_adk and has_otel
+            return False
 
     def is_instrumented(self) -> bool:
         return self._instrumented

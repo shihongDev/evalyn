@@ -80,13 +80,7 @@ def create_evalyn_tracer_provider() -> Any:
 
     Returns a TracerProvider with EvalynSpanProcessor attached.
     """
-    try:
-        from opentelemetry.sdk.trace import TracerProvider
-    except ImportError:
-        raise ImportError(
-            "opentelemetry-sdk is required for OTEL-native instrumentation. "
-            "Install with: pip install opentelemetry-sdk"
-        )
+    from opentelemetry.sdk.trace import TracerProvider
 
     provider = TracerProvider()
     provider.add_span_processor(EvalynSpanProcessor())
@@ -101,14 +95,8 @@ def get_or_create_tracer_provider() -> Any:
     If OpenTelemetry already has a global provider set, returns that.
     Otherwise creates a new provider with EvalynSpanProcessor.
     """
-    try:
-        from opentelemetry import trace
-        from opentelemetry.sdk.trace import TracerProvider
-    except ImportError:
-        raise ImportError(
-            "opentelemetry-sdk is required for OTEL-native instrumentation. "
-            "Install with: pip install opentelemetry-sdk"
-        )
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
 
     current = trace.get_tracer_provider()
 

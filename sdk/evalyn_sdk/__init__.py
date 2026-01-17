@@ -84,7 +84,7 @@ from .simulation import (
     synthetic_dataset,
     simulate_agent,
 )
-from .trace.otel import configure_otel, configure_default_otel, OTEL_AVAILABLE
+from .trace.otel import configure_otel, configure_default_otel
 from .models import (
     Annotation,
     CalibrationRecord,
@@ -148,7 +148,6 @@ __all__ = [
     # OpenTelemetry
     "configure_otel",
     "configure_default_otel",
-    "OTEL_AVAILABLE",
     # Tracing
     "eval_session",
     "eval",

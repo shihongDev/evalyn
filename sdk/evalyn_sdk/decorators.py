@@ -4,7 +4,7 @@ import os
 from typing import Any, Callable, Optional
 
 from .storage.sqlite import SQLiteStorage
-from .trace.otel import configure_default_otel, OTEL_AVAILABLE
+from .trace.otel import configure_default_otel
 from .trace.tracer import EvalTracer
 
 ALLOWED_METRIC_MODES = {"llm-registry", "llm-brainstorm", "bundle"}
@@ -17,17 +17,16 @@ def get_default_tracer() -> EvalTracer:
     global _default_tracer
     if _default_tracer is None:
         _default_tracer = EvalTracer(SQLiteStorage())
-        # Auto-enable OpenTelemetry spans if available and not explicitly disabled.
-        if OTEL_AVAILABLE:
-            otel_flag = os.getenv("EVALYN_OTEL", "on").lower()
-            if otel_flag not in {"0", "off", "false"}:
-                otel_tracer = configure_default_otel(
-                    service_name=os.getenv("EVALYN_OTEL_SERVICE", "evalyn"),
-                    exporter=os.getenv("EVALYN_OTEL_EXPORTER", "sqlite"),
-                    endpoint=os.getenv("EVALYN_OTEL_ENDPOINT"),
-                )
-                if otel_tracer:
-                    _default_tracer.attach_otel_tracer(otel_tracer)
+        # Auto-enable OpenTelemetry spans unless explicitly disabled.
+        otel_flag = os.getenv("EVALYN_OTEL", "on").lower()
+        if otel_flag not in {"0", "off", "false"}:
+            otel_tracer = configure_default_otel(
+                service_name=os.getenv("EVALYN_OTEL_SERVICE", "evalyn"),
+                exporter=os.getenv("EVALYN_OTEL_EXPORTER", "sqlite"),
+                endpoint=os.getenv("EVALYN_OTEL_ENDPOINT"),
+            )
+            if otel_tracer:
+                _default_tracer.attach_otel_tracer(otel_tracer)
     return _default_tracer
 
 

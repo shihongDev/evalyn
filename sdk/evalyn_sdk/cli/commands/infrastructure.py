@@ -187,16 +187,13 @@ def cmd_one_click(args: argparse.Namespace) -> None:
     if not args.version:
         storage = SQLiteStorage()
         calls = storage.list_calls(limit=500)
-        versions = set()
-        for call in calls:
-            meta = call.metadata or {}
-            if (
-                meta.get("project_name") == args.project
-                or meta.get("project_id") == args.project
-            ):
-                v = meta.get("version")
-                if v:
-                    versions.add(v)
+        versions = {
+            (call.metadata or {}).get("version")
+            for call in calls
+            if (call.metadata or {}).get("project_name") == args.project
+            or (call.metadata or {}).get("project_id") == args.project
+        }
+        versions.discard(None)
 
         if len(versions) == 0:
             print(f"No versions found for project '{args.project}'")
@@ -871,13 +868,10 @@ def cmd_one_click(args: argparse.Namespace) -> None:
         print("=" * 70)
         print(f"\nOutput directory: {output_dir}")
         print("\nSummary:")
+        status_icons = {"success": "[OK]", "skipped": "[SKIP]"}
         for step_name, step_info in state["steps"].items():
             status = step_info.get("status", "unknown")
-            status_icon = (
-                "[OK]"
-                if status == "success"
-                else ("[SKIP]" if status == "skipped" else "[FAIL]")
-            )
+            status_icon = status_icons.get(status, "[FAIL]")
             print(f"  {status_icon} {step_name}: {status}")
 
         print("\nNext steps:")

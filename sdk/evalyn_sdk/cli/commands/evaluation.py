@@ -601,18 +601,17 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         )
         function_name = target_fn.__name__
 
-    selected_mode = args.mode
-    if selected_mode == "auto":
-        selected_mode = metric_mode_hint or "llm-registry"
+    selected_mode = (
+        metric_mode_hint or "llm-registry" if args.mode == "auto" else args.mode
+    )
     bundle_name = args.bundle or metric_bundle_hint
     max_metrics = (
         args.num_metrics if args.num_metrics and args.num_metrics > 0 else None
     )
 
-    # Get scope filter
+    # Get scope filter (None means "all")
     scope_filter = getattr(args, "scope", "all")
-    if scope_filter == "all":
-        scope_filter = None
+    scope_filter = None if scope_filter == "all" else scope_filter
 
     def _filter_by_scope(templates: list) -> list:
         """Filter templates by scope."""
@@ -654,10 +653,9 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         if not dataset_path_obj:
             return None
         # Dataset path already validated and resolved (via --dataset or --latest)
-        if dataset_path_obj.is_file():
-            dataset_dir = dataset_path_obj.parent
-        else:
-            dataset_dir = dataset_path_obj
+        dataset_dir = (
+            dataset_path_obj.parent if dataset_path_obj.is_file() else dataset_path_obj
+        )
 
         metrics_dir = dataset_dir / "metrics"
         metrics_dir.mkdir(parents=True, exist_ok=True)
@@ -665,10 +663,11 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         # Standardized naming: metrics.json (default) or metrics-<name>.json
         if args.metrics_name:
             safe_name = re.sub(r"[^a-zA-Z0-9._-]+", "-", args.metrics_name).strip("-")
-            metrics_file = metrics_dir / f"metrics-{safe_name}.json"
         else:
             safe_name = "default"
-            metrics_file = metrics_dir / "metrics.json"
+        metrics_file = metrics_dir / (
+            f"metrics-{safe_name}.json" if args.metrics_name else "metrics.json"
+        )
 
         # Validate objective metrics - filter out custom ones
         valid_objective_ids = {t["id"] for t in OBJECTIVE_REGISTRY}
@@ -712,16 +711,16 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         )
 
         meta_path = dataset_dir / "meta.json"
-        if meta_path.exists():
-            try:
-                meta = json.loads(meta_path.read_text(encoding="utf-8"))
-            except Exception:
-                meta = {}
-        else:
+        try:
+            meta = (
+                json.loads(meta_path.read_text(encoding="utf-8"))
+                if meta_path.exists()
+                else {}
+            )
+        except Exception:
             meta = {}
-        metric_sets = (
-            meta.get("metric_sets") if isinstance(meta.get("metric_sets"), list) else []
-        )
+        existing_sets = meta.get("metric_sets")
+        metric_sets = existing_sets if isinstance(existing_sets, list) else []
         entry = {
             "name": safe_name,
             "file": f"metrics/{metrics_file.name}",
