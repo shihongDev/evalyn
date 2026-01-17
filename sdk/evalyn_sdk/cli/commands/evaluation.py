@@ -644,15 +644,12 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         metrics_dir = dataset_dir / "metrics"
         metrics_dir.mkdir(parents=True, exist_ok=True)
 
-        ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        # Standardized naming: metrics.json (default) or metrics-<name>.json
         if args.metrics_name:
-            metrics_name = args.metrics_name
-        elif selected_mode == "bundle":
-            metrics_name = f"bundle-{(bundle_name or 'bundle')}"
+            safe_name = re.sub(r"[^a-zA-Z0-9._-]+", "-", args.metrics_name).strip("-")
+            metrics_file = metrics_dir / f"metrics-{safe_name}.json"
         else:
-            metrics_name = f"{selected_mode}-{ts}"
-        safe_name = re.sub(r"[^a-zA-Z0-9._-]+", "-", metrics_name).strip("-")
-        metrics_file = metrics_dir / f"{safe_name}.json"
+            metrics_file = metrics_dir / "metrics.json"
 
         # Validate objective metrics - filter out custom ones
         valid_objective_ids = {t["id"] for t in OBJECTIVE_REGISTRY}

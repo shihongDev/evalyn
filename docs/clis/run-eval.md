@@ -42,12 +42,12 @@ evalyn run-eval --latest
 
 ### Specify metrics file
 ```bash
-evalyn run-eval --dataset data/my-dataset --metrics metrics/llm-registry.json
+evalyn run-eval --dataset data/my-dataset --metrics metrics/metrics.json
 ```
 
 ### Use multiple metrics files
 ```bash
-evalyn run-eval --dataset data/my-dataset --metrics "metrics/basic.json,metrics/custom.json"
+evalyn run-eval --dataset data/my-dataset --metrics "metrics/metrics.json,metrics/metrics-custom.json"
 ```
 
 ### Use all available metrics

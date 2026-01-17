@@ -153,7 +153,7 @@ Output:   data/my-agent-v1-20250115_143022-oneclick
     - helpfulness_accuracy (subjective)
     - hallucination_risk (subjective)
     - completeness (subjective)
-  ✓ Saved to: data/.../2_metrics/suggested.json
+  ✓ Saved to: data/.../2_metrics/metrics.json
 
 [3/7] Running Initial Evaluation
   ✓ Evaluated 156 items
@@ -207,7 +207,7 @@ data/my-agent-v1-20250115_143022-oneclick/
     dataset.jsonl
     meta.json
   2_metrics/
-    suggested.json
+    metrics.json
   3_initial_eval/
     run_20250115_abc123.json
   4_annotation/

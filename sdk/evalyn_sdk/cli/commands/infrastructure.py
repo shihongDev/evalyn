@@ -385,10 +385,10 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             metrics_path = Path(state["steps"]["2_metrics"]["output"])
         elif args.dry_run:
             print(f"  -> Would suggest metrics with mode={args.metric_mode}")
-            print(f"  -> Would save to: {metrics_dir}/suggested.json\n")
+            print(f"  -> Would save to: {metrics_dir}/metrics.json\n")
         else:
             # Call suggest-metrics logic
-            metrics_path = metrics_dir / "suggested.json"
+            metrics_path = metrics_dir / "metrics.json"
 
             # Load target function if provided
             target_fn = None

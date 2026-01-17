@@ -159,7 +159,7 @@ Examples:
   evalyn build-dataset --project myproj     Build dataset from traces
   evalyn suggest-metrics --target app.py:func --mode basic
                                             Suggest metrics (fast heuristic)
-  evalyn run-eval --dataset data/myproj/dataset.jsonl --metrics data/myproj/metrics/basic.json
+  evalyn run-eval --dataset data/myproj/dataset.jsonl --metrics data/myproj/metrics/metrics.json
                                             Run evaluation on dataset
 
 For more info on a command: evalyn <command> --help

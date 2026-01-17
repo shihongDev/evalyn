@@ -2000,15 +2000,12 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         metrics_dir = dataset_dir / "metrics"
         metrics_dir.mkdir(parents=True, exist_ok=True)
 
-        ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        # Standardized naming: metrics.json (default) or metrics-<name>.json
         if args.metrics_name:
-            metrics_name = args.metrics_name
-        elif selected_mode == "bundle":
-            metrics_name = f"bundle-{(bundle_name or 'bundle')}"
+            safe_name = re.sub(r"[^a-zA-Z0-9._-]+", "-", args.metrics_name).strip("-")
+            metrics_file = metrics_dir / f"metrics-{safe_name}.json"
         else:
-            metrics_name = f"{selected_mode}-{ts}"
-        safe_name = re.sub(r"[^a-zA-Z0-9._-]+", "-", metrics_name).strip("-")
-        metrics_file = metrics_dir / f"{safe_name}.json"
+            metrics_file = metrics_dir / "metrics.json"
 
         # Validate objective metrics - filter out custom ones that won't work
         valid_objective_ids = {t["id"] for t in OBJECTIVE_REGISTRY}
@@ -5311,12 +5308,12 @@ def cmd_one_click(args: argparse.Namespace) -> None:
             print("  ✓ Already completed (skipping)\n")
         elif args.dry_run:
             print(f"  → Would suggest metrics with mode={args.metric_mode}")
-            print(f"  → Would save to: {metrics_dir}/suggested.json\n")
+            print(f"  → Would save to: {metrics_dir}/metrics.json\n")
         else:
             # Call suggest-metrics logic
-            metrics_path = metrics_dir / "suggested.json"
+            metrics_path = metrics_dir / "metrics.json"
 
-            # Run suggest metrics (this will save to dataset/metrics/suggested.json)
+            # Run suggest metrics (this will save to dataset/metrics/metrics.json)
             from .metrics.suggester import (
                 HeuristicSuggester,
                 LLMSuggester,
@@ -5854,7 +5851,7 @@ Examples:
   evalyn build-dataset --project myproj     Build dataset from traces
   evalyn suggest-metrics --target app.py:func --mode basic
                                             Suggest metrics (fast heuristic)
-  evalyn run-eval --dataset data/myproj/dataset.jsonl --metrics data/myproj/metrics/basic.json
+  evalyn run-eval --dataset data/myproj/dataset.jsonl --metrics data/myproj/metrics/metrics.json
                                             Run evaluation on dataset
 
 For more info on a command: evalyn <command> --help

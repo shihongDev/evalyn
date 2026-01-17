@@ -135,7 +135,7 @@ Suggested metrics (llm-registry):
 - helpfulness_accuracy [subjective] :: LLM judges if response is helpful and accurate
 - hallucination_risk [subjective] :: LLM checks for unsupported claims
 
-Saved to: data/my-dataset/metrics/llm-registry-20250115.json
+Saved to: data/my-dataset/metrics/metrics.json
 ```
 
 ## See Also

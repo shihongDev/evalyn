@@ -20,35 +20,49 @@ Internal technical reference for Evalyn SDK architecture, design decisions, and 
 
 ### Overview
 
-Evalyn automatically captures LLM calls by monkey-patching client libraries at import time.
+Evalyn automatically captures LLM calls by instrumenting client libraries **lazily** when the first trace starts (not at import time). This keeps CLI commands fast.
 
 ```python
-import evalyn_sdk  # Patches happen here
+import evalyn_sdk
+# Instrumentation happens when the first @eval function is called, not here
 ```
 
-### Patched Libraries
+### Supported SDKs
 
-| Library | Method Patched | Captured Data |
-|---------|----------------|---------------|
-| OpenAI | `openai.chat.completions.create` | tokens, cost, duration, request/response |
-| Anthropic | `anthropic.messages.create` | tokens, cost, duration, request/response |
-| Google Gemini | `genai.models.generate_content` | tokens, cost, duration, request/response |
-| LangChain | Callback handler injection | LLM calls, tool calls |
+| SDK | Instrumentation Type | Captured Data |
+|-----|---------------------|---------------|
+| OpenAI | Monkey-patch | tokens, cost, duration, request/response |
+| Anthropic Client | Monkey-patch | tokens, cost, duration, request/response |
+| Anthropic Agent SDK | Hook-based | agent turns, tool calls, handoffs |
+| Google Gemini | Monkey-patch | tokens, cost, duration, request/response |
+| Google ADK | OTEL-native | agent spans via SpanProcessor |
+| LangChain | Callback handler | LLM calls, tool calls |
+| LangGraph | Monkey-patch | graph/node execution spans |
 
-### How Patching Works
+### Instrumentation Types
+
+The instrumentation registry supports three strategies:
+
+| Type | Description | SDKs |
+|------|-------------|------|
+| `MONKEY_PATCH` | Wrap SDK methods directly | OpenAI, Anthropic, Gemini |
+| `OTEL_NATIVE` | Use SDK's built-in OTEL with custom SpanProcessor | Google ADK |
+| `HOOK_BASED` | Use SDK's hook/callback system | Anthropic Agent SDK |
+
+### How Instrumentation Works
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  import evalyn_sdk                                          │
+│  First @eval function call                                  │
 │                                                             │
-│    1. Check if library is installed                         │
-│    2. Store original method reference                       │
-│    3. Replace with wrapper that:                            │
-│       - Records start time                                  │
-│       - Calls original method                               │
-│       - Captures response (tokens, cost)                    │
-│       - Logs to current trace session                       │
-│       - Returns original response                           │
+│    1. InstrumentorRegistry.ensure_instrumented()            │
+│    2. For each registered instrumentor:                     │
+│       a. Check if SDK is installed (is_available)           │
+│       b. Apply instrumentation strategy:                    │
+│          - MONKEY_PATCH: Wrap methods                       │
+│          - OTEL_NATIVE: Add SpanProcessor                   │
+│          - HOOK_BASED: Register callbacks                   │
+│    3. Instrumented calls log to current trace session       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -60,7 +74,7 @@ import evalyn_sdk  # Patches happen here
 | Token usage & cost | Tool execution logic |
 | Request/response content | Agent loop structure |
 | Call duration | Business logic between calls |
-| Errors | LangGraph node transitions |
+| Errors | - |
 
 ### LangChain Callback Handler
 
@@ -482,9 +496,19 @@ evalyn/
 │       ├── trace/
 │       │   ├── tracer.py        # EvalTracer, session management
 │       │   ├── context.py       # Context management
-│       │   ├── auto_instrument.py # Monkey-patching logic
-│       │   ├── langgraph.py     # LangGraph integration
-│       │   └── otel.py          # OpenTelemetry support
+│       │   ├── auto_instrument.py # Backward-compat wrapper
+│       │   ├── otel.py          # OpenTelemetry support
+│       │   └── instrumentation/ # SDK instrumentation
+│       │       ├── registry.py  # InstrumentorRegistry
+│       │       ├── base.py      # Instrumentor base class
+│       │       └── providers/   # Per-SDK instrumentors
+│       │           ├── openai.py
+│       │           ├── anthropic.py
+│       │           ├── anthropic_agents.py
+│       │           ├── gemini.py
+│       │           ├── google_adk.py
+│       │           ├── langchain.py
+│       │           └── langgraph.py
 │       ├── storage/
 │       │   ├── base.py          # StorageBackend interface
 │       │   └── sqlite.py        # SQLiteStorage
