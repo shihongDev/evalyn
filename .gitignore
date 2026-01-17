@@ -17,8 +17,6 @@ dist-ssr
 data/prod/
 data/test/
 data/test-output/
-sdk/data/prod/
-sdk/data/test/
 
 # Editor directories and files
 .vscode/*

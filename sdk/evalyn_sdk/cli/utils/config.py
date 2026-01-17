@@ -11,6 +11,20 @@ from typing import Any, Dict, Optional
 from ..constants import DEFAULT_CONFIG_PATHS
 
 
+def get_data_dir(subdir: str = "prod/datasets") -> Path:
+    """Get the project's data directory (relative to cwd).
+
+    Args:
+        subdir: Subdirectory within data/ (default: "prod/datasets")
+
+    Returns:
+        Path to data subdirectory
+    """
+    data_dir = Path("data") / subdir
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir
+
+
 def _expand_env_vars(value: Any) -> Any:
     """Recursively expand environment variables in config values."""
     if isinstance(value, str):
@@ -110,6 +124,7 @@ def resolve_dataset_path(
 
 __all__ = [
     "_expand_env_vars",
+    "get_data_dir",
     "load_config",
     "get_config_default",
     "find_latest_dataset",

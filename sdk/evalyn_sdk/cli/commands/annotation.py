@@ -37,6 +37,7 @@ from typing import Any, Dict, List, Optional
 
 from ...annotation import import_annotations
 from ..utils.errors import fatal_error
+from ..utils.input_helpers import truncate_text, get_bool_input, get_int_input, get_str_input
 from ...annotation import (
     SpanAnnotation,
     ANNOTATION_SCHEMAS,
@@ -197,6 +198,31 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
             )
 
 
+def _display_span_detail(span_type: str, detail: dict) -> None:
+    """Display span-specific details based on type."""
+    if span_type == "llm_call":
+        print(f"  Model: {detail.get('model', 'unknown')}")
+        print(f"  Tokens: {detail.get('input_tokens', '?')} in / {detail.get('output_tokens', '?')} out")
+        if detail.get("cost"):
+            print(f"  Cost: ${detail.get('cost', 0):.6f}")
+        if detail.get("response_excerpt"):
+            print(f"  Response: {truncate_text(detail.get('response_excerpt', ''), 200)}")
+    elif span_type == "tool_call":
+        print(f"  Tool: {detail.get('tool_name', 'unknown')}")
+        if detail.get("args"):
+            print(f"  Args: {truncate_text(json.dumps(detail.get('args', {}), ensure_ascii=False), 150)}")
+        if detail.get("result"):
+            print(f"  Result: {truncate_text(str(detail.get('result', '')), 150)}")
+    elif span_type == "reasoning":
+        if detail.get("content"):
+            print(f"  Content: {truncate_text(str(detail.get('content', '')), 200)}")
+    elif span_type == "retrieval":
+        if detail.get("query"):
+            print(f"  Query: {truncate_text(str(detail.get('query', '')), 100)}")
+        if detail.get("results_count"):
+            print(f"  Results: {detail.get('results_count')} documents")
+
+
 def cmd_annotate_spans(args: argparse.Namespace) -> None:
     """Interactive span-level annotation interface."""
     config = load_config()
@@ -313,50 +339,6 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
             for ann in annotations:
                 f.write(json.dumps(ann.as_dict(), ensure_ascii=False) + "\n")
 
-    def truncate(text: str, max_len: int = 300) -> str:
-        text = str(text) if text else ""
-        text = text.replace("\n", " ").strip()
-        return text if len(text) <= max_len else text[:max_len] + "..."
-
-    def get_bool_input(prompt: str) -> Optional[bool]:
-        """Get yes/no input."""
-        while True:
-            try:
-                val = input(f"  {prompt} [y/n/s]: ").strip().lower()
-            except (EOFError, KeyboardInterrupt):
-                return None
-            if val in ("y", "yes", "1", "true"):
-                return True
-            if val in ("n", "no", "0", "false"):
-                return False
-            if val in ("s", "skip", ""):
-                return None
-            print("  Invalid. Use y(es), n(o), or s(kip)")
-
-    def get_int_input(prompt: str, min_val: int, max_val: int) -> Optional[int]:
-        """Get integer input within range."""
-        while True:
-            try:
-                val = input(f"  {prompt} [{min_val}-{max_val}/s]: ").strip().lower()
-            except (EOFError, KeyboardInterrupt):
-                return None
-            if val in ("s", "skip", ""):
-                return None
-            try:
-                num = int(val)
-                if min_val <= num <= max_val:
-                    return num
-                print(f"  Invalid. Use {min_val}-{max_val} or s(kip)")
-            except ValueError:
-                print(f"  Invalid. Use {min_val}-{max_val} or s(kip)")
-
-    def get_str_input(prompt: str) -> str:
-        """Get string input."""
-        try:
-            return input(f"  {prompt} ").strip()
-        except (EOFError, KeyboardInterrupt):
-            return ""
-
     idx = 0
     total = len(all_spans)
 
@@ -376,40 +358,10 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
 
         if span_type == "overall":
             # Show input/output for overall
-            print(
-                f"\nINPUT: {truncate(json.dumps(span.get('input', {}), ensure_ascii=False), 200)}"
-            )
-            print(f"OUTPUT: {truncate(str(span.get('output', '')), 300)}")
+            print(f"\nINPUT: {truncate_text(json.dumps(span.get('input', {}), ensure_ascii=False), 200)}")
+            print(f"OUTPUT: {truncate_text(str(span.get('output', '')), 300)}")
         elif span.get("detail"):
-            # Show detail for other span types
-            detail = span["detail"]
-            if span_type == "llm_call":
-                print(f"  Model: {detail.get('model', 'unknown')}")
-                print(
-                    f"  Tokens: {detail.get('input_tokens', '?')} in / {detail.get('output_tokens', '?')} out"
-                )
-                if detail.get("cost"):
-                    print(f"  Cost: ${detail.get('cost', 0):.6f}")
-                if detail.get("response_excerpt"):
-                    print(
-                        f"  Response: {truncate(detail.get('response_excerpt', ''), 200)}"
-                    )
-            elif span_type == "tool_call":
-                print(f"  Tool: {detail.get('tool_name', 'unknown')}")
-                if detail.get("args"):
-                    print(
-                        f"  Args: {truncate(json.dumps(detail.get('args', {}), ensure_ascii=False), 150)}"
-                    )
-                if detail.get("result"):
-                    print(f"  Result: {truncate(str(detail.get('result', '')), 150)}")
-            elif span_type == "reasoning":
-                if detail.get("content"):
-                    print(f"  Content: {truncate(str(detail.get('content', '')), 200)}")
-            elif span_type == "retrieval":
-                if detail.get("query"):
-                    print(f"  Query: {truncate(str(detail.get('query', '')), 100)}")
-                if detail.get("results_count"):
-                    print(f"  Results: {detail.get('results_count')} documents")
+            _display_span_detail(span_type, span["detail"])
 
         print("---" * 23)
 
@@ -604,7 +556,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
         print("\nCommands: [y]es/pass  [n]o/fail  [s]kip  [v]iew full  [q]uit")
     print("=" * 70)
 
-    def truncate(text: str, max_len: int = 500) -> str:
+    def truncate_text(text: str, max_len: int = 500) -> str:
         text = str(text) if text else ""
         text = text.replace("\n", " ").strip()
         return text if len(text) <= max_len else text[:max_len] + "..."
@@ -626,7 +578,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
         )
         print("\nINPUT:")
         if len(input_text) > 300:
-            print(f"   {truncate(input_text, 300)}")
+            print(f"   {truncate_text(input_text, 300)}")
         else:
             for line in input_text.split("\n")[:5]:
                 print(f"   {line}")
@@ -634,7 +586,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
         # Output
         output_text = str(item.output) if item.output else "(no output)"
         print("\nOUTPUT:")
-        print(f"   {truncate(output_text, 500)}")
+        print(f"   {truncate_text(output_text, 500)}")
 
         # LLM Judge results
         eval_data = eval_results_by_call.get(call_id, {})
@@ -653,7 +605,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
                 else:
                     print(f"   {metric_id}: {status}")
                 if reason:
-                    print(f"       Reason: {truncate(reason, 200)}")
+                    print(f"       Reason: {truncate_text(reason, 200)}")
                 subjective_metrics.append((metric_id, passed, reason))
                 metric_num += 1
 
@@ -741,7 +693,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
             status = "PASS" if llm_passed else "FAIL"
             print(f"\n  [{i}/{len(subjective_metrics)}] {metric_id}: LLM says {status}")
             if reason:
-                print(f"      Reason: {truncate(reason, 150)}")
+                print(f"      Reason: {truncate_text(reason, 150)}")
 
             while True:
                 try:

@@ -28,6 +28,7 @@ from typing import Optional
 
 from ...datasets import build_dataset_from_storage, save_dataset_with_meta
 from ...decorators import get_default_tracer
+from ..utils.config import get_data_dir
 from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
 from ..utils.validation import extract_project_id
@@ -91,7 +92,7 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
     ver = args.version or "v0"
     dataset_name = f"{proj}-{ver}-{ts}"
 
-    dataset_dir = args.output or os.path.join("data", dataset_name)
+    dataset_dir = args.output or str(get_data_dir() / dataset_name)
     dataset_file = "dataset.jsonl"
     if args.output and args.output.endswith(".jsonl"):
         dataset_dir = os.path.dirname(args.output) or "."

@@ -30,6 +30,96 @@ from ..utils.hints import print_hint
 from ..utils.validation import extract_project_id
 
 
+# ---------------------------------------------------------------------------
+# Trace formatting helpers (extracted from cmd_show_call for reuse)
+# ---------------------------------------------------------------------------
+
+
+def _format_value(value: Any, max_len: int = 300) -> str:
+    """Format a value for display, truncating if needed."""
+    if isinstance(value, str):
+        return value if len(value) <= max_len else value[:max_len] + "..."
+    try:
+        text = json.dumps(value, indent=2)
+        return text if len(text) <= max_len else text[:max_len] + "..."
+    except Exception:
+        text = str(value)
+        return text if len(text) <= max_len else text[:max_len] + "..."
+
+
+def _truncate(text: Any, max_len: int = 120) -> str:
+    """Truncate text to max_len characters."""
+    if text is None:
+        return ""
+    text = str(text)
+    return text if len(text) <= max_len else text[:max_len] + "..."
+
+
+def _normalize_span_time(raw: Any) -> float | None:
+    """Normalize span timestamp to Unix seconds."""
+    if raw is None:
+        return None
+    if isinstance(raw, (int, float)):
+        value = float(raw)
+        if value > 1e12:
+            return value / 1e9
+        if value > 1e10:
+            return value / 1e9
+        if value > 1e6:
+            return value / 1e3
+        return value
+    if isinstance(raw, str):
+        raw = raw.strip()
+        try:
+            if raw.isdigit():
+                return _normalize_span_time(int(raw))
+            return _normalize_span_time(float(raw))
+        except ValueError:
+            pass
+        try:
+            import datetime as _dt
+            return _dt.datetime.fromisoformat(raw).timestamp()
+        except Exception:
+            return None
+    return None
+
+
+def _span_duration_ms(span: dict) -> float | None:
+    """Calculate span duration in milliseconds."""
+    start_ts = _normalize_span_time(span.get("start_time"))
+    end_ts = _normalize_span_time(span.get("end_time"))
+    if start_ts is None or end_ts is None:
+        return None
+    return max(0.0, (end_ts - start_ts) * 1000)
+
+
+def _span_status(span: dict) -> str:
+    """Get span status as normalized string."""
+    status = span.get("status")
+    if status is None:
+        return "UNSET"
+    text = str(status).upper()
+    if "ERROR" in text:
+        return "ERROR"
+    if "OK" in text:
+        return "OK"
+    return text
+
+
+def _format_dur(ms: float | None) -> str:
+    """Format duration for display."""
+    if ms is None:
+        return "?"
+    if ms < 1000:
+        return f"{ms:.0f}ms"
+    return f"{ms / 1000:.1f}s"
+
+
+# ---------------------------------------------------------------------------
+# CLI Commands
+# ---------------------------------------------------------------------------
+
+
 def cmd_list_calls(args: argparse.Namespace) -> None:
     """List captured function calls."""
     tracer = get_default_tracer()
@@ -283,16 +373,6 @@ def cmd_show_call(args: argparse.Namespace) -> None:
 
     status = "ERROR" if call.error else "OK"
 
-    def _format_value(value, max_len=300):
-        if isinstance(value, str):
-            return value if len(value) <= max_len else value[:max_len] + "..."
-        try:
-            text = json.dumps(value, indent=2)
-            return text if len(text) <= max_len else text[:max_len] + "..."
-        except Exception:
-            text = str(value)
-            return text if len(text) <= max_len else text[:max_len] + "..."
-
     def _detect_turns(inputs) -> tuple[str, int]:
         if isinstance(inputs, dict):
             kwargs = inputs.get("kwargs", {})
@@ -371,52 +451,6 @@ def cmd_show_call(args: argparse.Namespace) -> None:
                     print(f"  - {key}: {_format_value(value, max_len=400)}")
 
         _print_metadata(call.metadata)
-
-    def _normalize_span_time(raw):
-        if raw is None:
-            return None
-        if isinstance(raw, (int, float)):
-            value = float(raw)
-            if value > 1e12:
-                return value / 1e9
-            if value > 1e10:
-                return value / 1e9
-            if value > 1e6:
-                return value / 1e3
-            return value
-        if isinstance(raw, str):
-            raw = raw.strip()
-            try:
-                if raw.isdigit():
-                    return _normalize_span_time(int(raw))
-                return _normalize_span_time(float(raw))
-            except ValueError:
-                pass
-            try:
-                import datetime as _dt
-
-                return _dt.datetime.fromisoformat(raw).timestamp()
-            except Exception:
-                return None
-        return None
-
-    def _span_duration_ms(span):
-        start_ts = _normalize_span_time(span.get("start_time"))
-        end_ts = _normalize_span_time(span.get("end_time"))
-        if start_ts is None or end_ts is None:
-            return None
-        return max(0.0, (end_ts - start_ts) * 1000)
-
-    def _span_status(span):
-        status = span.get("status")
-        if status is None:
-            return "UNSET"
-        text = str(status).upper()
-        if "ERROR" in text:
-            return "ERROR"
-        if "OK" in text:
-            return "OK"
-        return text
 
     def _span_attr_summary(attrs, max_items=3):
         if not isinstance(attrs, dict) or not attrs:
@@ -612,13 +646,6 @@ def cmd_show_call(args: argparse.Namespace) -> None:
 
     # Show hierarchical spans from call.spans
     if call.spans:
-
-        def _format_dur(ms):
-            if ms is None:
-                return "?"
-            if ms < 1000:
-                return f"{ms:.0f}ms"
-            return f"{ms / 1000:.1f}s"
 
         def _tokens_info(attrs):
             input_t = attrs.get("input_tokens", 0)
