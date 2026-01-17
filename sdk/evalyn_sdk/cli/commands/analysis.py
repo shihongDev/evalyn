@@ -602,6 +602,27 @@ def cmd_analyze(args: argparse.Namespace) -> None:
 
     print()
 
+    # Show hint for next step
+    dataset_flag = f"--dataset {dataset_path}" if dataset_path else "--latest"
+    if problem_metrics:
+        print_hint(
+            f"To improve '{problem_metrics[0][0]}', run: evalyn calibrate {dataset_flag} --metric {problem_metrics[0][0]}",
+            quiet=getattr(args, "quiet", False),
+            format=output_format,
+        )
+    elif multi_fail_items:
+        print_hint(
+            f"To annotate failing items, run: evalyn annotate {dataset_flag}",
+            quiet=getattr(args, "quiet", False),
+            format=output_format,
+        )
+    else:
+        print_hint(
+            f"To see trends over time, run: evalyn trend --project {run.dataset_name}",
+            quiet=getattr(args, "quiet", False),
+            format=output_format,
+        )
+
 
 def cmd_compare(args: argparse.Namespace) -> None:
     """Compare two evaluation runs side-by-side.
