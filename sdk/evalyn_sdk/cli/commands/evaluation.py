@@ -52,6 +52,7 @@ from ...models import MetricRegistry, MetricSpec
 from ..utils.config import load_config, get_config_default, resolve_dataset_path
 from ..utils.hints import print_hint
 from ..utils.loaders import _load_callable
+from ..utils.validation import check_llm_api_keys
 from ..utils.dataset_utils import (
     ProgressBar,
     _resolve_dataset_and_metrics,
@@ -245,18 +246,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
 
         # Check for API key if subjective metrics are present
         if subjective_count > 0:
-            gemini_key = os.environ.get("GEMINI_API_KEY", "")
-            openai_key = os.environ.get("OPENAI_API_KEY", "")
-            if not gemini_key and not openai_key:
-                print()
-                print("Warning: No API key found for LLM judges.")
-                print(
-                    "   Set GEMINI_API_KEY or OPENAI_API_KEY to enable subjective metrics."
-                )
-                print("   Continuing anyway, but LLM judge scores will fail.")
-            elif gemini_key and len(gemini_key) < 10:
-                print()
-                print("Warning: GEMINI_API_KEY appears to be invalid (too short).")
+            check_llm_api_keys(quiet=False)
 
         print()
 

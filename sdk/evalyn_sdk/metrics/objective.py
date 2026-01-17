@@ -7,6 +7,26 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from ..models import DatasetItem, FunctionCall, Metric, MetricResult, MetricSpec
 
+
+def _make_result(
+    spec: MetricSpec,
+    item: DatasetItem,
+    call: FunctionCall,
+    score: Optional[float],
+    passed: Optional[bool],
+    details: Optional[Dict[str, Any]] = None,
+) -> MetricResult:
+    """Factory for MetricResult with common boilerplate."""
+    return MetricResult(
+        metric_id=spec.id,
+        item_id=item.id,
+        call_id=call.id,
+        score=score,
+        passed=passed,
+        details=details or {},
+    )
+
+
 # =============================================================================
 # Objective Metric Templates
 # =============================================================================
@@ -492,13 +512,8 @@ def latency_metric(metric_id: str = "latency_ms") -> Metric:
     )
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=call.duration_ms,
-            passed=None,
-            details={"duration_ms": call.duration_ms},
+        return _make_result(
+            spec, item, call, call.duration_ms, None, {"duration_ms": call.duration_ms}
         )
 
     return Metric(spec, handler)
@@ -520,13 +535,8 @@ def exact_match_metric(
         actual = call.output
         passed = actual == expected
         score = 1.0 if passed else 0.0
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=score,
-            passed=passed,
-            details={"expected": expected, "actual": actual},
+        return _make_result(
+            spec, item, call, score, passed, {"expected": expected, "actual": actual}
         )
 
     return Metric(spec, handler)
@@ -549,13 +559,13 @@ def substring_metric(
         output_text = call.output or ""
         passed = target in output_text
         score = 1.0 if passed else 0.0
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=score,
-            passed=passed,
-            details={"target": target, "output_excerpt": str(output_text)[:200]},
+        return _make_result(
+            spec,
+            item,
+            call,
+            score,
+            passed,
+            {"target": target, "output_excerpt": str(output_text)[:200]},
         )
 
     return Metric(spec, handler)
@@ -571,14 +581,8 @@ def cost_metric(metric_id: str = "cost") -> Metric:
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         cost_info: Any = call.metadata.get("cost")
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=cost_info.get("total") if isinstance(cost_info, dict) else None,
-            passed=None,
-            details={"cost": cost_info},
-        )
+        score = cost_info.get("total") if isinstance(cost_info, dict) else None
+        return _make_result(spec, item, call, score, None, {"cost": cost_info})
 
     return Metric(spec, handler)
 
@@ -689,16 +693,13 @@ def bleu_metric(metric_id: str = "bleu") -> Metric:
         reference = item.expected or ""
         candidate = call.output or ""
         score = _simple_bleu(str(candidate), str(reference))
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=score,
-            passed=None,
-            details={
-                "candidate": str(candidate)[:200],
-                "reference": str(reference)[:200],
-            },
+        return _make_result(
+            spec,
+            item,
+            call,
+            score,
+            None,
+            {"candidate": str(candidate)[:200], "reference": str(reference)[:200]},
         )
 
     return Metric(spec, handler)
@@ -740,14 +741,7 @@ def pass_at_k_metric(
         ]
         n = len(successes)
         if n == 0:
-            return MetricResult(
-                metric_id=spec.id,
-                item_id=item.id,
-                call_id=call.id,
-                score=0.0,
-                passed=False,
-                details={"candidates": 0, "k": k},
-            )
+            return _make_result(spec, item, call, 0.0, False, {"candidates": 0, "k": k})
 
         k_eff = min(k, n)
         # pass@k estimate: 1 - ((n - c choose k) / (n choose k)) where c = successes count
@@ -759,13 +753,8 @@ def pass_at_k_metric(
 
             score = 1.0 - (comb(n - c, k_eff) / comb(n, k_eff))
 
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=score,
-            passed=None,
-            details={"candidates": n, "successes": c, "k": k_eff},
+        return _make_result(
+            spec, item, call, score, None, {"candidates": n, "successes": c, "k": k_eff}
         )
 
     return Metric(spec, handler)
@@ -788,13 +777,9 @@ def json_valid_metric(metric_id: str = "json_valid") -> Metric:
             passed = True
         except Exception:
             passed = False
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=1.0 if passed else 0.0,
-            passed=passed,
-            details={"output_excerpt": str(output_text)[:200]},
+        score = 1.0 if passed else 0.0
+        return _make_result(
+            spec, item, call, score, passed, {"output_excerpt": str(output_text)[:200]}
         )
 
     return Metric(spec, handler)
@@ -816,13 +801,9 @@ def regex_match_metric(
         patt = compiled or re.compile(item.metadata.get("regex_pattern", "") or "")
         text = str(call.output or "")
         passed = bool(patt.search(text)) if patt.pattern else False
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=1.0 if passed else 0.0,
-            passed=passed,
-            details={"pattern": patt.pattern, "output_excerpt": text[:200]},
+        score = 1.0 if passed else 0.0
+        return _make_result(
+            spec, item, call, score, passed, {"pattern": patt.pattern, "output_excerpt": text[:200]}
         )
 
     return Metric(spec, handler)
@@ -845,13 +826,9 @@ def token_length_metric(
         length = len(str(text))
         limit = max_chars or item.metadata.get("max_chars")
         passed = True if not limit else length <= limit
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=1.0 if passed else 0.0,
-            passed=passed,
-            details={"length": length, "max_chars": limit},
+        score = 1.0 if passed else 0.0
+        return _make_result(
+            spec, item, call, score, passed, {"length": length, "max_chars": limit}
         )
 
     return Metric(spec, handler)
@@ -868,13 +845,8 @@ def tool_call_count_metric(metric_id: str = "tool_call_count") -> Metric:
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         events = call.trace or []
         count = sum(1 for ev in events if "tool" in ev.kind.lower())
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=float(count),
-            passed=None,
-            details={"tool_events": count},
+        return _make_result(
+            spec, item, call, float(count), None, {"tool_events": count}
         )
 
     return Metric(spec, handler)
@@ -892,27 +864,15 @@ def rouge_l_metric(metric_id: str = "rouge_l") -> Metric:
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         reference = _get_reference(item)
         candidate = _get_output(call, item)
-        # If no reference, return N/A
         if not reference:
-            return MetricResult(
-                metric_id=spec.id,
-                item_id=item.id,
-                call_id=call.id,
-                score=None,
-                passed=None,
-                details={"error": "No reference text (set human_label.reference)"},
+            return _make_result(
+                spec, item, call, None, None,
+                {"error": "No reference text (set human_label.reference)"},
             )
         score = _rouge_l_f1(candidate, reference)
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=score,
-            passed=None,
-            details={
-                "candidate_excerpt": candidate[:200],
-                "reference_excerpt": reference[:200],
-            },
+        return _make_result(
+            spec, item, call, score, None,
+            {"candidate_excerpt": candidate[:200], "reference_excerpt": reference[:200]},
         )
 
     return Metric(spec, handler)
@@ -931,25 +891,14 @@ def rouge_1_metric(metric_id: str = "rouge_1") -> Metric:
         reference = _get_reference(item)
         candidate = _get_output(call, item)
         if not reference:
-            return MetricResult(
-                metric_id=spec.id,
-                item_id=item.id,
-                call_id=call.id,
-                score=None,
-                passed=None,
-                details={"error": "No reference text (set human_label.reference)"},
+            return _make_result(
+                spec, item, call, None, None,
+                {"error": "No reference text (set human_label.reference)"},
             )
         score = _overlap_f1(candidate, reference, n=1)
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=score,
-            passed=None,
-            details={
-                "candidate_excerpt": candidate[:200],
-                "reference_excerpt": reference[:200],
-            },
+        return _make_result(
+            spec, item, call, score, None,
+            {"candidate_excerpt": candidate[:200], "reference_excerpt": reference[:200]},
         )
 
     return Metric(spec, handler)
@@ -968,25 +917,14 @@ def rouge_2_metric(metric_id: str = "rouge_2") -> Metric:
         reference = _get_reference(item)
         candidate = _get_output(call, item)
         if not reference:
-            return MetricResult(
-                metric_id=spec.id,
-                item_id=item.id,
-                call_id=call.id,
-                score=None,
-                passed=None,
-                details={"error": "No reference text (set human_label.reference)"},
+            return _make_result(
+                spec, item, call, None, None,
+                {"error": "No reference text (set human_label.reference)"},
             )
         score = _overlap_f1(candidate, reference, n=2)
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=score,
-            passed=None,
-            details={
-                "candidate_excerpt": candidate[:200],
-                "reference_excerpt": reference[:200],
-            },
+        return _make_result(
+            spec, item, call, score, None,
+            {"candidate_excerpt": candidate[:200], "reference_excerpt": reference[:200]},
         )
 
     return Metric(spec, handler)
@@ -1005,16 +943,9 @@ def token_overlap_f1_metric(metric_id: str = "token_overlap_f1") -> Metric:
         reference = _get_reference(item)
         candidate = _get_output(call, item)
         score = _overlap_f1(candidate, reference, n=1)
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=score,
-            passed=None,
-            details={
-                "candidate_excerpt": candidate[:200],
-                "reference_excerpt": reference[:200],
-            },
+        return _make_result(
+            spec, item, call, score, None,
+            {"candidate_excerpt": candidate[:200], "reference_excerpt": reference[:200]},
         )
 
     return Metric(spec, handler)
@@ -1033,13 +964,9 @@ def jaccard_similarity_metric(metric_id: str = "jaccard_similarity") -> Metric:
         reference = _get_reference(item)
         candidate = _get_output(call, item)
         if not reference:
-            return MetricResult(
-                metric_id=spec.id,
-                item_id=item.id,
-                call_id=call.id,
-                score=None,
-                passed=None,
-                details={"error": "No reference text (set human_label.reference)"},
+            return _make_result(
+                spec, item, call, None, None,
+                {"error": "No reference text (set human_label.reference)"},
             )
         cand_set = set(_tokenize(candidate))
         ref_set = set(_tokenize(reference))
@@ -1047,16 +974,9 @@ def jaccard_similarity_metric(metric_id: str = "jaccard_similarity") -> Metric:
             score = 0.0
         else:
             score = len(cand_set & ref_set) / len(cand_set | ref_set)
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=score,
-            passed=None,
-            details={
-                "candidate_excerpt": candidate[:200],
-                "reference_excerpt": reference[:200],
-            },
+        return _make_result(
+            spec, item, call, score, None,
+            {"candidate_excerpt": candidate[:200], "reference_excerpt": reference[:200]},
         )
 
     return Metric(spec, handler)
@@ -1079,26 +999,14 @@ def numeric_mae_metric(
         expected = _extract_number(item.expected, None)
         predicted = _extract_number(call.output, output_field)
         if expected is None or predicted is None:
-            return MetricResult(
-                metric_id=spec.id,
-                item_id=item.id,
-                call_id=call.id,
-                score=None,
-                passed=None,
-                details={
-                    "expected": item.expected,
-                    "predicted": call.output,
-                    "error": "not_numeric",
-                },
+            return _make_result(
+                spec, item, call, None, None,
+                {"expected": item.expected, "predicted": call.output, "error": "not_numeric"},
             )
         err = abs(predicted - expected)
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=err,
-            passed=None,
-            details={"expected": expected, "predicted": predicted, "mae": err},
+        return _make_result(
+            spec, item, call, err, None,
+            {"expected": expected, "predicted": predicted, "mae": err},
         )
 
     return Metric(spec, handler)
@@ -1121,27 +1029,15 @@ def numeric_rmse_metric(
         expected = _extract_number(item.expected, None)
         predicted = _extract_number(call.output, output_field)
         if expected is None or predicted is None:
-            return MetricResult(
-                metric_id=spec.id,
-                item_id=item.id,
-                call_id=call.id,
-                score=None,
-                passed=None,
-                details={
-                    "expected": item.expected,
-                    "predicted": call.output,
-                    "error": "not_numeric",
-                },
+            return _make_result(
+                spec, item, call, None, None,
+                {"expected": item.expected, "predicted": call.output, "error": "not_numeric"},
             )
         err = predicted - expected
         rmse = math.sqrt(err * err)
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=rmse,
-            passed=None,
-            details={"expected": expected, "predicted": predicted, "rmse": rmse},
+        return _make_result(
+            spec, item, call, rmse, None,
+            {"expected": expected, "predicted": predicted, "rmse": rmse},
         )
 
     return Metric(spec, handler)
@@ -1164,27 +1060,15 @@ def numeric_rel_error_metric(
         expected = _extract_number(item.expected, None)
         predicted = _extract_number(call.output, output_field)
         if expected is None or predicted is None:
-            return MetricResult(
-                metric_id=spec.id,
-                item_id=item.id,
-                call_id=call.id,
-                score=None,
-                passed=None,
-                details={
-                    "expected": item.expected,
-                    "predicted": call.output,
-                    "error": "not_numeric",
-                },
+            return _make_result(
+                spec, item, call, None, None,
+                {"expected": item.expected, "predicted": call.output, "error": "not_numeric"},
             )
         denom = abs(expected) if abs(expected) > 1e-12 else 1.0
         rel = abs(predicted - expected) / denom
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=rel,
-            passed=None,
-            details={"expected": expected, "predicted": predicted, "rel_error": rel},
+        return _make_result(
+            spec, item, call, rel, None,
+            {"expected": expected, "predicted": predicted, "rel_error": rel},
         )
 
     return Metric(spec, handler)
@@ -1217,32 +1101,16 @@ def numeric_within_tolerance_metric(
             else float(item.metadata.get("tolerance") or 0.0)
         )
         if expected is None or predicted is None:
-            return MetricResult(
-                metric_id=spec.id,
-                item_id=item.id,
-                call_id=call.id,
-                score=0.0,
-                passed=False,
-                details={
-                    "expected": item.expected,
-                    "predicted": call.output,
-                    "error": "not_numeric",
-                },
+            return _make_result(
+                spec, item, call, 0.0, False,
+                {"expected": item.expected, "predicted": call.output, "error": "not_numeric"},
             )
         err = abs(predicted - expected)
         passed = err <= tol
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=1.0 if passed else 0.0,
-            passed=passed,
-            details={
-                "expected": expected,
-                "predicted": predicted,
-                "tolerance": tol,
-                "abs_error": err,
-            },
+        score = 1.0 if passed else 0.0
+        return _make_result(
+            spec, item, call, score, passed,
+            {"expected": expected, "predicted": predicted, "tolerance": tol, "abs_error": err},
         )
 
     return Metric(spec, handler)
@@ -1263,23 +1131,15 @@ def json_schema_keys_metric(
         required = required_keys or item.metadata.get("required_keys") or []
         value, err = _parse_json_value(call.output)
         if err or not isinstance(value, dict):
-            return MetricResult(
-                metric_id=spec.id,
-                item_id=item.id,
-                call_id=call.id,
-                score=0.0,
-                passed=False,
-                details={"error": err or "not_object", "required_keys": required},
+            return _make_result(
+                spec, item, call, 0.0, False,
+                {"error": err or "not_object", "required_keys": required},
             )
         missing = [k for k in required if k not in value]
         passed = len(missing) == 0
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=1.0 if passed else 0.0,
-            passed=passed,
-            details={"missing": missing, "required_keys": required},
+        score = 1.0 if passed else 0.0
+        return _make_result(
+            spec, item, call, score, passed, {"missing": missing, "required_keys": required}
         )
 
     return Metric(spec, handler)
@@ -1316,13 +1176,9 @@ def json_types_match_metric(
         effective_schema = schema or item.metadata.get("schema") or {}
         value, err = _parse_json_value(call.output)
         if err or not isinstance(value, dict):
-            return MetricResult(
-                metric_id=spec.id,
-                item_id=item.id,
-                call_id=call.id,
-                score=0.0,
-                passed=False,
-                details={"error": err or "not_object", "schema": effective_schema},
+            return _make_result(
+                spec, item, call, 0.0, False,
+                {"error": err or "not_object", "schema": effective_schema},
             )
         mismatches = {}
         for key, type_name in (effective_schema or {}).items():
@@ -1335,13 +1191,10 @@ def json_types_match_metric(
                     "actual_type": type(value.get(key)).__name__,
                 }
         passed = not mismatches
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=1.0 if passed else 0.0,
-            passed=passed,
-            details={"mismatches": mismatches, "schema": effective_schema},
+        score = 1.0 if passed else 0.0
+        return _make_result(
+            spec, item, call, score, passed,
+            {"mismatches": mismatches, "schema": effective_schema},
         )
 
     return Metric(spec, handler)
@@ -1362,13 +1215,8 @@ def json_path_present_metric(
         effective_paths = paths or item.metadata.get("paths") or []
         value, err = _parse_json_value(call.output)
         if err:
-            return MetricResult(
-                metric_id=spec.id,
-                item_id=item.id,
-                call_id=call.id,
-                score=0.0,
-                passed=False,
-                details={"error": err, "paths": effective_paths},
+            return _make_result(
+                spec, item, call, 0.0, False, {"error": err, "paths": effective_paths}
             )
         missing = []
         for p in effective_paths:
@@ -1376,13 +1224,9 @@ def json_path_present_metric(
             if not ok:
                 missing.append(p)
         passed = len(missing) == 0
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=1.0 if passed else 0.0,
-            passed=passed,
-            details={"missing": missing, "paths": effective_paths},
+        score = 1.0 if passed else 0.0
+        return _make_result(
+            spec, item, call, score, passed, {"missing": missing, "paths": effective_paths}
         )
 
     return Metric(spec, handler)
@@ -1408,13 +1252,9 @@ def regex_capture_count_metric(
         count = len(patt.findall(text)) if patt.pattern else 0
         required = item.metadata.get("min_count", min_count)
         passed = count >= int(required or 0)
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=float(count),
-            passed=passed,
-            details={"pattern": patt.pattern, "count": count, "min_count": required},
+        return _make_result(
+            spec, item, call, float(count), passed,
+            {"pattern": patt.pattern, "count": count, "min_count": required},
         )
 
     return Metric(spec, handler)
@@ -1438,33 +1278,16 @@ def csv_valid_metric(metric_id: str = "csv_valid", dialect: str = "excel") -> Me
             reader = csv.reader(io.StringIO(text), dialect=dialect)
             rows = list(reader)
             if not rows:
-                return MetricResult(
-                    metric_id=spec.id,
-                    item_id=item.id,
-                    call_id=call.id,
-                    score=0.0,
-                    passed=False,
-                    details={"rows": 0},
-                )
+                return _make_result(spec, item, call, 0.0, False, {"rows": 0})
             widths = {len(r) for r in rows}
             passed = len(widths) <= 1
-            return MetricResult(
-                metric_id=spec.id,
-                item_id=item.id,
-                call_id=call.id,
-                score=1.0 if passed else 0.0,
-                passed=passed,
-                details={"rows": len(rows), "widths": sorted(widths)},
+            score = 1.0 if passed else 0.0
+            return _make_result(
+                spec, item, call, score, passed,
+                {"rows": len(rows), "widths": sorted(widths)},
             )
         except Exception as exc:
-            return MetricResult(
-                metric_id=spec.id,
-                item_id=item.id,
-                call_id=call.id,
-                score=0.0,
-                passed=False,
-                details={"error": str(exc)},
-            )
+            return _make_result(spec, item, call, 0.0, False, {"error": str(exc)})
 
     return Metric(spec, handler)
 
@@ -1484,23 +1307,9 @@ def xml_valid_metric(metric_id: str = "xml_valid") -> Metric:
         text = _as_text(call.output)
         try:
             ET.fromstring(text)
-            return MetricResult(
-                metric_id=spec.id,
-                item_id=item.id,
-                call_id=call.id,
-                score=1.0,
-                passed=True,
-                details={},
-            )
+            return _make_result(spec, item, call, 1.0, True, {})
         except Exception as exc:
-            return MetricResult(
-                metric_id=spec.id,
-                item_id=item.id,
-                call_id=call.id,
-                score=0.0,
-                passed=False,
-                details={"error": str(exc)},
-            )
+            return _make_result(spec, item, call, 0.0, False, {"error": str(exc)})
 
     return Metric(spec, handler)
 
@@ -1517,14 +1326,8 @@ def output_nonempty_metric(metric_id: str = "output_nonempty") -> Metric:
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         text = _as_text(call.output).strip()
         passed = len(text) > 0
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=1.0 if passed else 0.0,
-            passed=passed,
-            details={"length": len(text)},
-        )
+        score = 1.0 if passed else 0.0
+        return _make_result(spec, item, call, score, passed, {"length": len(text)})
 
     return Metric(spec, handler)
 
@@ -1548,13 +1351,10 @@ def output_length_range_metric(
         min_v = item.metadata.get("min_chars", min_chars)
         max_v = item.metadata.get("max_chars", max_chars)
         passed = length >= int(min_v or 0) and (max_v is None or length <= int(max_v))
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=1.0 if passed else 0.0,
-            passed=passed,
-            details={"length": length, "min_chars": min_v, "max_chars": max_v},
+        score = 1.0 if passed else 0.0
+        return _make_result(
+            spec, item, call, score, passed,
+            {"length": length, "min_chars": min_v, "max_chars": max_v},
         )
 
     return Metric(spec, handler)
@@ -1574,13 +1374,8 @@ def llm_call_count_metric(
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         rk = str(item.metadata.get("request_kind") or request_kind).lower()
         count = sum(1 for ev in (call.trace or []) if rk in ev.kind.lower())
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=float(count),
-            passed=None,
-            details={"request_kind": rk, "count": count},
+        return _make_result(
+            spec, item, call, float(count), None, {"request_kind": rk, "count": count}
         )
 
     return Metric(spec, handler)
@@ -1605,18 +1400,9 @@ def llm_error_rate_metric(
         req = sum(1 for ev in (call.trace or []) if rk in ev.kind.lower())
         err = sum(1 for ev in (call.trace or []) if ek in ev.kind.lower())
         rate = (err / req) if req else None
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=rate,
-            passed=None,
-            details={
-                "requests": req,
-                "errors": err,
-                "request_kind": rk,
-                "error_kind": ek,
-            },
+        return _make_result(
+            spec, item, call, rate, None,
+            {"requests": req, "errors": err, "request_kind": rk, "error_kind": ek},
         )
 
     return Metric(spec, handler)
@@ -1642,19 +1428,9 @@ def tool_success_ratio_metric(
         errors = sum(1 for ev in (call.trace or []) if ek in ev.kind.lower())
         total = successes + errors
         ratio = (successes / total) if total else None
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=ratio,
-            passed=None,
-            details={
-                "successes": successes,
-                "errors": errors,
-                "total": total,
-                "success_kind": sk,
-                "error_kind": ek,
-            },
+        return _make_result(
+            spec, item, call, ratio, None,
+            {"successes": successes, "errors": errors, "total": total, "success_kind": sk, "error_kind": ek},
         )
 
     return Metric(spec, handler)
@@ -1674,13 +1450,8 @@ def tool_error_count_metric(
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         ek = str(item.metadata.get("error_kind") or error_kind).lower()
         count = sum(1 for ev in (call.trace or []) if ek in ev.kind.lower())
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=float(count),
-            passed=None,
-            details={"error_kind": ek, "count": count},
+        return _make_result(
+            spec, item, call, float(count), None, {"error_kind": ek, "count": count}
         )
 
     return Metric(spec, handler)
@@ -1705,13 +1476,9 @@ def url_count_metric(
         count = len(compiled_local.findall(text))
         min_v = int(item.metadata.get("min_count") or min_count)
         passed = count >= min_v
-        return MetricResult(
-            metric_id=spec.id,
-            item_id=item.id,
-            call_id=call.id,
-            score=float(count),
-            passed=passed,
-            details={"count": count, "min_count": min_v, "pattern": str(patt)},
+        return _make_result(
+            spec, item, call, float(count), passed,
+            {"count": count, "min_count": min_v, "pattern": str(patt)},
         )
 
     return Metric(spec, handler)

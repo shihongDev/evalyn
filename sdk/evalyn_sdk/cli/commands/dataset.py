@@ -29,6 +29,7 @@ from typing import Optional
 from ...datasets import build_dataset_from_storage, save_dataset_with_meta
 from ...decorators import get_default_tracer
 from ..utils.hints import print_hint
+from ..utils.validation import extract_project_id
 
 
 def cmd_build_dataset(args: argparse.Namespace) -> None:
@@ -46,10 +47,9 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
         calls = tracer.storage.list_calls(limit=500)
         projects = set()
         for call in calls:
-            if isinstance(call.metadata, dict):
-                proj = call.metadata.get("project_id") or call.metadata.get("project")
-                if proj:
-                    projects.add(proj)
+            proj = extract_project_id(call.metadata)
+            if proj:
+                projects.add(proj)
 
         if len(projects) > 1:
             print(

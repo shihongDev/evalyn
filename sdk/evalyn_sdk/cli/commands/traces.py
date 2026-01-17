@@ -27,6 +27,7 @@ from typing import Any
 
 from ...decorators import get_default_tracer
 from ..utils.hints import print_hint
+from ..utils.validation import extract_project_id
 
 
 def cmd_list_calls(args: argparse.Namespace) -> None:
@@ -41,8 +42,7 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
     if args.project and calls:
         filtered = []
         for c in calls:
-            meta = c.metadata if isinstance(c.metadata, dict) else {}
-            pid = meta.get("project_id") or meta.get("project_name")
+            pid = extract_project_id(c.metadata)
             if pid == args.project:
                 filtered.append(c)
         calls = filtered
@@ -123,14 +123,9 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
             code = (
                 call.metadata.get("code", {}) if isinstance(call.metadata, dict) else {}
             )
-            project = ""
+            project = extract_project_id(call.metadata) or ""
             version = ""
             if isinstance(call.metadata, dict):
-                project = (
-                    call.metadata.get("project_id")
-                    or call.metadata.get("project_name")
-                    or ""
-                )
                 version = call.metadata.get("version", "")
             is_sim = (
                 call.metadata.get("is_simulation", False)
@@ -207,12 +202,8 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
         project = ""
         version = ""
         is_sim = False
+        project = extract_project_id(call.metadata) or ""
         if isinstance(call.metadata, dict):
-            project = (
-                call.metadata.get("project_id")
-                or call.metadata.get("project_name")
-                or ""
-            )
             version = call.metadata.get("version", "")
             is_sim = call.metadata.get("is_simulation", False)
         file_path = code.get("file_path") if isinstance(code, dict) else None
