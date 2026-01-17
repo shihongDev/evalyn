@@ -2739,7 +2739,7 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
     annotations: List[SpanAnnotation] = list(existing_annotations.values())
 
     def save_annotations() -> None:
-        with open(output_path, "w", encoding="utf-8", encoding="utf-8") as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             for ann in annotations:
                 f.write(json.dumps(ann.as_dict(), ensure_ascii=False) + "\n")
 
@@ -3118,7 +3118,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
         """
         try:
             # Append mode - each annotation is written immediately
-            with open(output_path, "a", encoding="utf-8", encoding="utf-8") as f:
+            with open(output_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(ann.as_dict(), ensure_ascii=False) + "\n")
                 f.flush()
                 os.fsync(f.fileno())
@@ -4169,7 +4169,7 @@ def cmd_simulate(args: argparse.Namespace) -> None:
             mode_dir.mkdir(parents=True, exist_ok=True)
 
             queries_file = mode_dir / "queries.jsonl"
-            with open(queries_file, "w", encoding="utf-8", encoding="utf-8") as f:
+            with open(queries_file, "w", encoding="utf-8") as f:
                 for gq in generated:
                     f.write(
                         json.dumps(
@@ -4262,7 +4262,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
     }
 
     # Validate JSON format line by line
-    with open(dataset_file, "r", encoding="utf-8", encoding="utf-8") as f:
+    with open(dataset_file, "r", encoding="utf-8") as f:
         for line_num, line in enumerate(f, start=1):
             line = line.strip()
             if not line:
@@ -4790,7 +4790,7 @@ def cmd_export(args: argparse.Namespace) -> None:
                 )
 
         if output_path:
-            with open(output_path, "w", newline="", encoding="utf-8", encoding="utf-8") as f:
+            with open(output_path, "w", newline="", encoding="utf-8") as f:
                 if rows:
                     writer = csv.DictWriter(f, fieldnames=rows[0].keys())
                     writer.writeheader()
@@ -5211,7 +5211,7 @@ def cmd_one_click(args: argparse.Namespace) -> None:
     resumed = False
     if state_path.exists() and getattr(args, "resume", False):
         try:
-            with open(state_path, "r", encoding="utf-8", encoding="utf-8") as f:
+            with open(state_path, "r", encoding="utf-8") as f:
                 state = json.load(f)
             print("  Resuming from previous run...")
             print(f"  Completed steps: {', '.join(state.get('steps', {}).keys())}\n")
