@@ -30,12 +30,12 @@ from __future__ import annotations
 
 import argparse
 import shutil
-import sys
 from datetime import datetime
 from pathlib import Path
 
 from ...storage import SQLiteStorage
 from ..utils.config import load_config, get_config_default
+from ..utils.errors import fatal_error
 
 
 def cmd_init(args: argparse.Namespace) -> None:
@@ -43,11 +43,7 @@ def cmd_init(args: argparse.Namespace) -> None:
     output_path = Path(args.output)
 
     if output_path.exists() and not args.force:
-        print(
-            f"Error: {output_path} already exists. Use --force to overwrite.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+        fatal_error(f"{output_path} already exists", "Use --force to overwrite")
 
     # Find the example file - check multiple locations
     example_paths = [

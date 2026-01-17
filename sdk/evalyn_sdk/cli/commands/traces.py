@@ -22,10 +22,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 from typing import Any
 
 from ...decorators import get_default_tracer
+from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
 from ..utils.validation import extract_project_id
 
@@ -247,15 +247,13 @@ def cmd_show_call(args: argparse.Namespace) -> None:
     output_format = getattr(args, "format", "table")
 
     if not tracer.storage:
-        print("No storage configured.", file=sys.stderr)
-        sys.exit(1)
+        fatal_error("No storage configured")
 
     # Handle --last flag or --id
     if getattr(args, "last", False):
         calls = tracer.storage.list_calls(limit=1)
         if not calls:
-            print("No calls found.", file=sys.stderr)
-            sys.exit(1)
+            fatal_error("No calls found")
         call_id = calls[0].id
     elif args.id:
         # Resolve short ID to full ID (supports prefixes like '6cf21eb3')
@@ -265,19 +263,18 @@ def cmd_show_call(args: argparse.Namespace) -> None:
             if resolved:
                 call_id = resolved
             else:
-                print(f"No call found matching '{input_id}'", file=sys.stderr)
-                print("Hint: Use more characters for a unique match", file=sys.stderr)
-                sys.exit(1)
+                fatal_error(
+                    f"No call found matching '{input_id}'",
+                    "Use more characters for a unique match",
+                )
         else:
             call_id = input_id
     else:
-        print("Error: Must specify --id or --last", file=sys.stderr)
-        sys.exit(1)
+        fatal_error("Must specify --id or --last")
 
     call = tracer.storage.get_call(call_id)
     if not call:
-        print(f"No call found with id={call_id}", file=sys.stderr)
-        sys.exit(1)
+        fatal_error(f"No call found with id={call_id}")
 
     # JSON output mode
     if output_format == "json":
@@ -706,15 +703,13 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
     """Show hierarchical span tree for a traced call (Phoenix-style visualization)."""
     tracer = get_default_tracer()
     if not tracer.storage:
-        print("No storage configured.", file=sys.stderr)
-        sys.exit(1)
+        fatal_error("No storage configured")
 
     # Handle --last flag or --id
     if getattr(args, "last", False):
         calls = tracer.storage.list_calls(limit=1)
         if not calls:
-            print("No calls found.", file=sys.stderr)
-            sys.exit(1)
+            fatal_error("No calls found")
         call_id = calls[0].id
     elif args.id:
         # Resolve short ID to full ID (supports prefixes like '6cf21eb3')
@@ -724,19 +719,18 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
             if resolved:
                 call_id = resolved
             else:
-                print(f"No call found matching '{input_id}'", file=sys.stderr)
-                print("Hint: Use more characters for a unique match", file=sys.stderr)
-                sys.exit(1)
+                fatal_error(
+                    f"No call found matching '{input_id}'",
+                    "Use more characters for a unique match",
+                )
         else:
             call_id = input_id
     else:
-        print("Error: Must specify --id or --last", file=sys.stderr)
-        sys.exit(1)
+        fatal_error("Must specify --id or --last")
 
     call = tracer.storage.get_call(call_id)
     if not call:
-        print(f"No call found with id={call_id}", file=sys.stderr)
-        sys.exit(1)
+        fatal_error(f"No call found with id={call_id}")
 
     def _format_duration(ms: float) -> str:
         if ms is None:
@@ -914,8 +908,7 @@ def cmd_show_projects(args: argparse.Namespace) -> None:
     """Show summary of projects and their traces."""
     tracer = get_default_tracer()
     if not tracer.storage:
-        print("No storage configured.", file=sys.stderr)
-        sys.exit(1)
+        fatal_error("No storage configured")
     calls = tracer.storage.list_calls(limit=args.limit)
     summary = {}
     for call in calls:

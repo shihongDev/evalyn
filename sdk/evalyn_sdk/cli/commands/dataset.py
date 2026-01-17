@@ -28,14 +28,13 @@ from typing import Optional
 
 from ...datasets import build_dataset_from_storage, save_dataset_with_meta
 from ...decorators import get_default_tracer
+from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
 from ..utils.validation import extract_project_id
 
 
 def cmd_build_dataset(args: argparse.Namespace) -> None:
     """Build dataset from stored traces."""
-    import sys
-
     tracer = get_default_tracer()
     if not tracer.storage:
         print("No storage configured.")
@@ -52,21 +51,13 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
                 projects.add(proj)
 
         if len(projects) > 1:
-            print(
-                "Warning: No --project specified. Found multiple projects:",
-                file=sys.stderr,
-            )
+            print("Warning: No --project specified. Found multiple projects:")
             for p in sorted(projects):
-                print(f"  - {p}", file=sys.stderr)
-            print(
-                "\nUse --project <name> to filter, or --all to include all.",
-                file=sys.stderr,
+                print(f"  - {p}")
+            fatal_error(
+                "Multiple projects found",
+                "Use --project <name> to filter, or --all to include all. Run 'evalyn show-projects' to see project details",
             )
-            print(
-                "Hint: Run 'evalyn show-projects' to see project details.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
         elif len(projects) == 1:
             # Auto-select the only project
             args.project = list(projects)[0]

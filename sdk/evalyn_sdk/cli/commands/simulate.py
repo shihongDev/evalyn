@@ -31,13 +31,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from datetime import datetime
 from pathlib import Path
 
 from ...datasets import load_dataset
 from ...decorators import eval as eval_decorator
 from ...simulation import AgentSimulator, SimulationConfig, UserSimulator
+from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
 from ..utils.loaders import _load_callable
 from ..utils.ui import Spinner
@@ -55,14 +55,12 @@ def cmd_simulate(args: argparse.Namespace) -> None:
         dataset_path = dataset_file.parent
 
     if not dataset_file.exists():
-        print(f"Error: Dataset not found at {dataset_file}", file=sys.stderr)
-        sys.exit(1)
+        fatal_error(f"Dataset not found at {dataset_file}")
 
     # Load seed dataset
     seed_items = load_dataset(dataset_file)
     if not seed_items:
-        print("Error: No items found in seed dataset", file=sys.stderr)
-        sys.exit(1)
+        fatal_error("No items found in seed dataset")
 
     print(f"Loaded {len(seed_items)} seed items from {dataset_file}")
 

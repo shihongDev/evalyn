@@ -26,9 +26,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 
 from ...decorators import get_default_tracer
+from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
 
 
@@ -36,8 +36,7 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
     """List stored eval runs."""
     tracer = get_default_tracer()
     if not tracer.storage:
-        print("No storage configured.", file=sys.stderr)
-        sys.exit(1)
+        fatal_error("No storage configured")
     runs = tracer.storage.list_eval_runs(limit=args.limit)
     output_format = getattr(args, "format", "table")
 
@@ -97,15 +96,13 @@ def cmd_show_run(args: argparse.Namespace) -> None:
     output_format = getattr(args, "format", "table")
 
     if not tracer.storage:
-        print("No storage configured.", file=sys.stderr)
-        sys.exit(1)
+        fatal_error("No storage configured")
 
     # Handle --last flag to show most recent run
     if getattr(args, "last", False):
         runs = tracer.storage.list_eval_runs(limit=1)
         if not runs:
-            print("No eval runs found.", file=sys.stderr)
-            sys.exit(1)
+            fatal_error("No eval runs found")
         run = runs[0]
     elif args.id:
         # Resolve short ID to full ID (supports prefixes like '6cf21eb3')
@@ -115,19 +112,18 @@ def cmd_show_run(args: argparse.Namespace) -> None:
             if resolved:
                 run_id = resolved
             else:
-                print(f"No eval run found matching '{input_id}'", file=sys.stderr)
-                print("Hint: Use more characters for a unique match", file=sys.stderr)
-                sys.exit(1)
+                fatal_error(
+                    f"No eval run found matching '{input_id}'",
+                    "Use more characters for a unique match",
+                )
         else:
             run_id = input_id
         run = tracer.storage.get_eval_run(run_id)
     else:
-        print("Error: --id or --last required", file=sys.stderr)
-        sys.exit(1)
+        fatal_error("--id or --last required")
 
     if not run:
-        print(f"No eval run found with id={args.id}", file=sys.stderr)
-        sys.exit(1)
+        fatal_error(f"No eval run found with id={args.id}")
 
     # JSON output mode
     if output_format == "json":

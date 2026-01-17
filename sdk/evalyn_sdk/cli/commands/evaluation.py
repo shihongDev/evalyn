@@ -32,7 +32,6 @@ import argparse
 import json
 import os
 import re
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -50,6 +49,7 @@ from ...metrics.suggester import (
 )
 from ...models import MetricRegistry, MetricSpec
 from ..utils.config import load_config, get_config_default, resolve_dataset_path
+from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
 from ..utils.loaders import _load_callable
 from ..utils.validation import check_llm_api_keys
@@ -103,8 +103,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     dataset_path = resolve_dataset_path(dataset_arg, use_latest, config)
 
     if not dataset_path:
-        print("Error: No dataset specified. Use --dataset <path> or --latest")
-        sys.exit(1)
+        fatal_error("No dataset specified", "Use --dataset <path> or --latest")
 
     # Resolve dataset and metrics paths
     try:
@@ -112,8 +111,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
             str(dataset_path), args.metrics, metrics_all=metrics_all
         )
     except (FileNotFoundError, ValueError) as e:
-        print(f"Error: {e}")
-        sys.exit(1)
+        fatal_error(str(e))
 
     # Load dataset
     dataset = load_dataset(str(dataset_file))
@@ -152,8 +150,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
             print(f"  ... and {len(unique_dups) - 5} more")
 
     if not all_metrics_data:
-        print("Error: No valid metrics loaded from files")
-        sys.exit(1)
+        fatal_error("No valid metrics loaded from files")
 
     if output_format != "json" and len(metrics_paths) > 1:
         print(
@@ -233,8 +230,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
                 print(f"  - {mid}: {reason}")
 
     if not metrics:
-        print("Error: No valid metrics loaded from file")
-        sys.exit(1)
+        fatal_error("No valid metrics loaded from file")
 
     if output_format != "json":
         metrics_summary = f"Loaded {len(metrics)} metrics ({objective_count} objective, {subjective_count} subjective"
@@ -253,8 +249,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     # Get tracer with storage
     tracer = get_default_tracer()
     if not tracer.storage:
-        print("Error: No storage configured")
-        sys.exit(1)
+        fatal_error("No storage configured")
 
     # Create progress bar
     total_evals = len(dataset_list) * len(metrics)
@@ -450,23 +445,10 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
 
     # Validate: need either --project or --target
     if not args.project and not args.target:
-        print("Error: Either --project or --target is required.", file=sys.stderr)
-        print("\nUsage:", file=sys.stderr)
-        print(
-            "  evalyn suggest-metrics --project <name>    # Suggest based on project traces",
-            file=sys.stderr,
+        fatal_error(
+            "Either --project or --target is required",
+            "Use --project <name>, --target <path>, or --dataset <path>",
         )
-        print(
-            "  evalyn suggest-metrics --target <path>     # Suggest based on function code",
-            file=sys.stderr,
-        )
-        print(
-            "  evalyn suggest-metrics --dataset <path>    # Infer project from dataset meta.json",
-            file=sys.stderr,
-        )
-        print("\nTo see available projects:", file=sys.stderr)
-        print("  evalyn show-projects", file=sys.stderr)
-        sys.exit(1)
 
     # Resolve dataset path using --dataset or --latest
     config = load_config()
@@ -485,26 +467,16 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
     if dataset_path_obj:
         if dataset_path_obj.is_file():
             if not dataset_path_obj.exists():
-                print(
-                    f"Error: Dataset file not found: {dataset_path_obj}",
-                    file=sys.stderr,
+                fatal_error(
+                    f"Dataset file not found: {dataset_path_obj}",
+                    "Run 'evalyn build-dataset' first",
                 )
-                print(
-                    "Please create the dataset first using 'evalyn build-dataset' or ensure the path is correct.",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
         else:
             if not dataset_path_obj.exists():
-                print(
-                    f"Error: Dataset directory not found: {dataset_path_obj}",
-                    file=sys.stderr,
+                fatal_error(
+                    f"Dataset directory not found: {dataset_path_obj}",
+                    "Run 'evalyn build-dataset' first",
                 )
-                print(
-                    "Please create the dataset first using 'evalyn build-dataset' or ensure the path is correct.",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
             has_dataset = (dataset_path_obj / "dataset.jsonl").exists() or (
                 dataset_path_obj / "dataset.json"
             ).exists()
@@ -530,11 +502,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
     if args.project:
         # Project-based: load traces from storage
         if not tracer.storage:
-            print(
-                "Error: No storage configured. Cannot load project traces.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+            fatal_error("No storage configured", "Cannot load project traces")
 
         # Load all calls for this project
         all_calls = tracer.storage.list_calls(limit=500)
@@ -552,14 +520,11 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
                 project_traces.append(call)
 
         if not project_traces:
-            print(
-                f"Error: No traces found for project '{args.project}'", file=sys.stderr
+            version_hint = f" (version: {args.version})" if args.version else ""
+            fatal_error(
+                f"No traces found for project '{args.project}'{version_hint}",
+                "Run 'evalyn show-projects' to see available projects",
             )
-            if args.version:
-                print(f"  (filtered by version: {args.version})", file=sys.stderr)
-            print("\nAvailable projects:", file=sys.stderr)
-            print("  evalyn show-projects", file=sys.stderr)
-            sys.exit(1)
 
         traces = project_traces[: args.num_traces]
         if output_format != "json":

@@ -640,6 +640,23 @@ After your analysis, provide your verdict as a JSON object:
             )
 
 
+@dataclass
+class CalibrationConfig:
+    """Configuration for CalibrationEngine.
+
+    Groups all calibration parameters into a single config object.
+    """
+
+    judge_name: str
+    current_threshold: float = 0.5
+    current_rubric: List[str] = field(default_factory=list)
+    current_preamble: str = ""  # Base prompt before rubric
+    optimize_prompts: bool = True
+    optimizer_model: str = "gemini-2.5-flash-lite"
+    optimizer_type: str = "llm"  # "llm" or "gepa"
+    gepa_config: Optional[GEPAConfig] = None
+
+
 class CalibrationEngine:
     """
     Enhanced calibration engine that:
@@ -653,7 +670,7 @@ class CalibrationEngine:
 
     def __init__(
         self,
-        judge_name: str,
+        judge_name: Optional[str] = None,
         current_threshold: float = 0.5,
         current_rubric: Optional[List[str]] = None,
         current_preamble: str = "",  # Base prompt before rubric
@@ -661,15 +678,30 @@ class CalibrationEngine:
         optimizer_model: str = "gemini-2.5-flash-lite",
         optimizer_type: str = "llm",  # "llm" or "gepa"
         gepa_config: Optional[GEPAConfig] = None,
+        *,
+        config: Optional[CalibrationConfig] = None,
     ):
-        self.judge_name = judge_name
-        self.current_threshold = current_threshold
-        self.current_rubric = current_rubric or []
-        self.current_preamble = current_preamble
-        self.optimize_prompts = optimize_prompts
-        self.optimizer_model = optimizer_model
-        self.optimizer_type = optimizer_type
-        self.gepa_config = gepa_config
+        # Support both config object and individual params (backwards compat)
+        if config is not None:
+            self.judge_name = config.judge_name
+            self.current_threshold = config.current_threshold
+            self.current_rubric = config.current_rubric
+            self.current_preamble = config.current_preamble
+            self.optimize_prompts = config.optimize_prompts
+            self.optimizer_model = config.optimizer_model
+            self.optimizer_type = config.optimizer_type
+            self.gepa_config = config.gepa_config
+        else:
+            if judge_name is None:
+                raise ValueError("judge_name is required")
+            self.judge_name = judge_name
+            self.current_threshold = current_threshold
+            self.current_rubric = current_rubric or []
+            self.current_preamble = current_preamble
+            self.optimize_prompts = optimize_prompts
+            self.optimizer_model = optimizer_model
+            self.optimizer_type = optimizer_type
+            self.gepa_config = gepa_config
 
     def compute_alignment(
         self,

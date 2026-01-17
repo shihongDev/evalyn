@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import os
-import sys
 from typing import Optional, Tuple
+
+from .errors import fatal_error
 
 
 def check_llm_api_keys(quiet: bool = False) -> Tuple[Optional[str], Optional[str]]:
@@ -40,12 +41,10 @@ def require_llm_api_key(quiet: bool = False) -> str:
     gemini_key, openai_key = check_llm_api_keys(quiet=True)
 
     if not gemini_key and not openai_key:
-        print("Error: No API key found for LLM operations.", file=sys.stderr)
-        print(
-            "   Set GEMINI_API_KEY or OPENAI_API_KEY environment variable.",
-            file=sys.stderr,
+        fatal_error(
+            "No API key found for LLM operations",
+            "Set GEMINI_API_KEY or OPENAI_API_KEY environment variable",
         )
-        sys.exit(1)
 
     return gemini_key or openai_key
 

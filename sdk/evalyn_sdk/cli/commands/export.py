@@ -25,11 +25,11 @@ import argparse
 import csv
 import io
 import json
-import sys
 from datetime import datetime
 from pathlib import Path
 
 from ..utils.config import load_config, resolve_dataset_path
+from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
 
 
@@ -40,20 +40,17 @@ def cmd_export_for_annotation(args: argparse.Namespace) -> None:
 
     tracer = get_default_tracer()
     if not tracer.storage:
-        print("No storage configured.", file=sys.stderr)
-        sys.exit(1)
+        fatal_error("No storage configured")
 
     # Load dataset
     config = load_config()
     dataset_path = resolve_dataset_path(args.dataset, False, config)
     if not dataset_path:
-        print("Error: --dataset required", file=sys.stderr)
-        sys.exit(1)
+        fatal_error("--dataset required")
 
     dataset_file = dataset_path / "dataset.jsonl"
     if not dataset_file.exists():
-        print(f"Error: Dataset not found at {dataset_file}", file=sys.stderr)
-        sys.exit(1)
+        fatal_error(f"Dataset not found at {dataset_file}")
 
     from ...datasets import load_dataset
 
@@ -164,8 +161,7 @@ def cmd_export(args: argparse.Namespace) -> None:
                     run_data = json.load(f)
 
     if not run_data:
-        print("Error: No eval run found. Specify --run <id> or --dataset <path>")
-        sys.exit(1)
+        fatal_error("No eval run found", "Specify --run <id> or --dataset <path>")
 
     output_path = Path(args.output) if args.output else None
     format_type = args.format
@@ -320,8 +316,7 @@ def cmd_export(args: argparse.Namespace) -> None:
             print(html)
 
     else:
-        print(f"Error: Unknown format '{format_type}'")
-        sys.exit(1)
+        fatal_error(f"Unknown format '{format_type}'")
 
 
 def register_commands(subparsers) -> None:

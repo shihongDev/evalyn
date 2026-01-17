@@ -27,11 +27,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.dataset_resolver import get_dataset
+from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
 
 
@@ -162,12 +162,10 @@ def cmd_validate(args: argparse.Namespace) -> None:
     dataset_path = resolve_dataset_path(args.dataset, args.latest, config)
 
     if not dataset_path:
-        print("Error: No dataset specified. Use --dataset <path> or --latest")
-        sys.exit(1)
+        fatal_error("No dataset specified", "Use --dataset <path> or --latest")
 
     if not dataset_path.exists():
-        print(f"Error: Dataset path not found: {dataset_path}")
-        sys.exit(1)
+        fatal_error(f"Dataset path not found: {dataset_path}")
 
     # Find dataset file
     if dataset_path.is_dir():
@@ -180,8 +178,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
         dataset_dir = dataset_path.parent
 
     if not dataset_file.exists():
-        print(f"Error: Dataset file not found: {dataset_file}")
-        sys.exit(1)
+        fatal_error(f"Dataset file not found: {dataset_file}")
 
     print(f"\nValidating: {dataset_file}\n")
     print("-" * 60)
@@ -319,10 +316,9 @@ def cmd_validate(args: argparse.Namespace) -> None:
             print(f"  - {e}")
         if len(errors) > 20:
             print(f"  ... and {len(errors) - 20} more errors")
-        sys.exit(1)
+        fatal_error(f"Dataset has {len(errors)} error(s)")
     else:
         print("\nDataset is valid!")
-        sys.exit(0)
 
 
 def cmd_analyze(args: argparse.Namespace) -> None:
@@ -352,8 +348,7 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         storage = SQLiteStorage()
         run = storage.get_eval_run(run_id)
         if not run:
-            print(f"Error: No eval run found with ID '{run_id}'")
-            sys.exit(1)
+            fatal_error(f"No eval run found with ID '{run_id}'")
     elif dataset_path:
         # Load latest run from dataset's eval_runs directory
         runs_dir = dataset_path / "eval_runs"
@@ -370,11 +365,9 @@ def cmd_analyze(args: argparse.Namespace) -> None:
                 if output_format != "json":
                     print(f"Analyzing latest run: {run_files[0].name}")
         if not run:
-            print("Error: No eval runs found. Run 'evalyn run-eval' first.")
-            sys.exit(1)
+            fatal_error("No eval runs found", "Run 'evalyn run-eval' first")
     else:
-        print("Error: Specify --run <run_id> or --dataset <path>")
-        sys.exit(1)
+        fatal_error("Specify --run <run_id> or --dataset <path>")
 
     # Load annotations if available (for alignment stats)
     # Build lookup: (item_id, metric_id) -> human_label (bool)
@@ -683,20 +676,10 @@ def cmd_compare(args: argparse.Namespace) -> None:
     has_runs = args.run1 and args.run2
 
     if not use_latest and not has_runs:
-        print(
-            "Error: Either provide --run1 and --run2, or use --latest",
-            file=sys.stderr,
+        fatal_error(
+            "Either provide --run1 and --run2, or use --latest",
+            "evalyn compare --run1 <id> --run2 <id>",
         )
-        print("\nUsage:", file=sys.stderr)
-        print(
-            "  evalyn compare --run1 <id> --run2 <id>    # Compare specific runs",
-            file=sys.stderr,
-        )
-        print(
-            "  evalyn compare --latest --dataset <path>  # Compare two most recent runs",
-            file=sys.stderr,
-        )
-        sys.exit(1)
 
     # If --latest with --dataset, compare two most recent runs
     if use_latest:
@@ -705,13 +688,11 @@ def cmd_compare(args: argparse.Namespace) -> None:
             getattr(args, "dataset", None), True, config
         )
         if not dataset_path:
-            print("Error: No dataset found. Use --dataset <path>", file=sys.stderr)
-            sys.exit(1)
+            fatal_error("No dataset found", "Use --dataset <path>")
 
         runs_dir = dataset_path / "eval_runs"
         if not runs_dir.exists():
-            print(f"Error: No eval_runs directory in {dataset_path}", file=sys.stderr)
-            sys.exit(1)
+            fatal_error(f"No eval_runs directory in {dataset_path}")
 
         # Find the two most recent runs
         run_files = sorted(runs_dir.glob("*/results.json"), reverse=True)
@@ -719,11 +700,7 @@ def cmd_compare(args: argparse.Namespace) -> None:
             run_files = sorted(runs_dir.glob("*.json"), reverse=True)
 
         if len(run_files) < 2:
-            print(
-                f"Error: Need at least 2 runs to compare. Found: {len(run_files)}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+            fatal_error(f"Need at least 2 runs to compare. Found: {len(run_files)}")
 
         with open(run_files[0], encoding="utf-8") as f:
             run2 = EvalRun.from_dict(json.load(f))
@@ -746,8 +723,7 @@ def cmd_compare(args: argparse.Namespace) -> None:
                         run1 = EvalRun(**data)
 
         if not run1:
-            print(f"Error: Could not load run1: {args.run1}", file=sys.stderr)
-            sys.exit(1)
+            fatal_error(f"Could not load run1: {args.run1}")
 
         # Load run 2
         run2 = None
@@ -761,8 +737,7 @@ def cmd_compare(args: argparse.Namespace) -> None:
                         run2 = EvalRun(**data)
 
         if not run2:
-            print(f"Error: Could not load run2: {args.run2}", file=sys.stderr)
-            sys.exit(1)
+            fatal_error(f"Could not load run2: {args.run2}")
 
     print(f"\n{'=' * 70}")
     print("  EVALUATION COMPARISON")
@@ -893,33 +868,19 @@ def cmd_trend(args: argparse.Namespace) -> None:
         if dataset_path:
             project_name = dataset_path.name
         else:
-            print(
-                "Error: No dataset found. Use --project or --dataset with --latest",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+            fatal_error("No dataset found", "Use --project or --dataset with --latest")
 
     if not project_name:
-        print(
-            "Error: --project is required (or use --latest with --dataset)",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+        fatal_error("--project is required", "Or use --latest with --dataset")
 
     # Get runs for the project
     runs = storage.list_eval_runs_by_project(project_name, limit=args.limit)
 
     if not runs:
-        print(f"No eval runs found for project: {project_name}")
-        print("\nAvailable projects:")
-        # List unique dataset names from recent runs
-        all_runs = storage.list_eval_runs(limit=100)
-        projects = sorted(set(r.dataset_name for r in all_runs))
-        for p in projects[:20]:
-            print(f"  - {p}")
-        if len(projects) > 20:
-            print(f"  ... and {len(projects) - 20} more")
-        sys.exit(1)
+        fatal_error(
+            f"No eval runs found for project: {project_name}",
+            "Run 'evalyn show-projects' to see available projects",
+        )
 
     # Analyze trends
     trend = analyze_trends(runs)

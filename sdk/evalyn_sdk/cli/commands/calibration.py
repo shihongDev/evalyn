@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 from typing import List, Optional
 
@@ -44,6 +43,7 @@ from ...datasets import load_dataset
 from ...decorators import get_default_tracer
 from ...models import DatasetItem
 from ..utils.config import load_config, resolve_dataset_path
+from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
 from ..utils.ui import Spinner
 
@@ -66,24 +66,20 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     """
     tracer = get_default_tracer()
     if not tracer.storage:
-        print("No storage configured.", file=sys.stderr)
-        sys.exit(1)
+        fatal_error("No storage configured")
 
     run = tracer.storage.get_eval_run(args.run_id) if args.run_id else None
     if run is None:
         runs = tracer.storage.list_eval_runs(limit=1)
         run = runs[0] if runs else None
     if run is None:
-        print("No eval runs available.", file=sys.stderr)
-        sys.exit(1)
+        fatal_error("No eval runs available")
 
     metric_results = [r for r in run.metric_results if r.metric_id == args.metric_id]
     if not metric_results:
-        print(
-            f"No metric results found for metric_id={args.metric_id} in run {run.id}",
-            file=sys.stderr,
+        fatal_error(
+            f"No metric results found for metric_id={args.metric_id} in run {run.id}"
         )
-        sys.exit(1)
 
     # Load annotations
     anns = import_annotations(args.annotations)
@@ -128,11 +124,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     gepa_config = None
     if args.optimizer == "gepa":
         if not GEPA_AVAILABLE:
-            print(
-                "Error: GEPA is not installed. Install with: pip install gepa",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+            fatal_error("GEPA is not installed", "Install with: pip install gepa")
         gepa_config = GEPAConfig(
             task_lm=args.gepa_task_lm,
             reflection_lm=args.gepa_reflection_lm,
@@ -395,8 +387,7 @@ def cmd_list_calibrations(args: argparse.Namespace) -> None:
     )
 
     if not dataset_path:
-        print("Error: No dataset specified. Use --dataset or --latest", file=sys.stderr)
-        sys.exit(1)
+        fatal_error("No dataset specified", "Use --dataset or --latest")
 
     calibrations_dir = dataset_path / "calibrations"
     if not calibrations_dir.exists():

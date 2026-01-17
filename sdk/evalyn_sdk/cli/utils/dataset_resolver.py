@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .config import load_config, get_config_default
+from .errors import fatal_error
 
 
 @dataclass
@@ -102,8 +103,7 @@ class DatasetResolver:
 
         if not path.exists():
             if require:
-                print(f"Error: Dataset path does not exist: {path}", file=sys.stderr)
-                sys.exit(1)
+                fatal_error(f"Dataset path does not exist: {path}")
             return None
 
         return self._load_info(path)
@@ -140,8 +140,7 @@ class DatasetResolver:
                 dataset_file = path / "dataset.json"
 
         if not dataset_file.exists():
-            print(f"Error: No dataset.jsonl found in {path}", file=sys.stderr)
-            sys.exit(1)
+            fatal_error(f"No dataset.jsonl found in {path}")
 
         # Count items efficiently
         with open(dataset_file, encoding="utf-8") as f:
@@ -211,11 +210,7 @@ class DatasetResolver:
             )
             if total > len(datasets):
                 print(f"  ... and {total - len(datasets)} more", file=sys.stderr)
-        print(
-            "\nUse: --dataset <path> or --latest",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+        fatal_error("No dataset specified", "Use --dataset <path> or --latest")
 
 
 # Convenience function for simple cases

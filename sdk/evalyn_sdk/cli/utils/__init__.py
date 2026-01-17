@@ -30,6 +30,14 @@ from .dataset_resolver import DatasetResolver, DatasetInfo, get_dataset
 from .formatters import OutputFormatter, get_formatter
 from .pipeline import PipelineStep, PipelineOrchestrator, PipelineState, StepResult
 from .pipeline_steps import create_pipeline_steps
+from .errors import fatal_error, warning
+from .input_helpers import (
+    truncate_text,
+    get_bool_input,
+    get_int_input,
+    get_str_input,
+    get_confidence,
+)
 
 __all__ = [
     # UI
@@ -69,4 +77,13 @@ __all__ = [
     "PipelineState",
     "StepResult",
     "create_pipeline_steps",
+    # Errors
+    "fatal_error",
+    "warning",
+    # Input helpers
+    "truncate_text",
+    "get_bool_input",
+    "get_int_input",
+    "get_str_input",
+    "get_confidence",
 ]

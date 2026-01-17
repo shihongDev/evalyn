@@ -31,12 +31,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ...annotation import import_annotations
+from ..utils.errors import fatal_error
 from ...annotation import (
     SpanAnnotation,
     ANNOTATION_SCHEMAS,
@@ -83,8 +83,7 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
         data_file = dataset_path
 
     if not data_file.exists():
-        print(f"Error: File not found: {data_file}")
-        sys.exit(1)
+        fatal_error(f"File not found: {data_file}")
 
     # Load data
     items = []
@@ -208,8 +207,7 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
     resolved_path = resolve_dataset_path(dataset_arg, use_latest, config)
 
     if not resolved_path:
-        print("Error: No dataset specified. Use --dataset <path> or --latest")
-        sys.exit(1)
+        fatal_error("No dataset specified", "Use --dataset <path> or --latest")
 
     dataset_path = Path(resolved_path)
     if dataset_path.is_dir():
@@ -222,8 +220,7 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
         data_file = dataset_path
 
     if not data_file.exists():
-        print(f"Error: Dataset file not found: {data_file}")
-        sys.exit(1)
+        fatal_error(f"Dataset file not found: {data_file}")
 
     # Load dataset items to get call_ids
     dataset_items = load_dataset(data_file)
@@ -234,8 +231,7 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
     # Get storage to fetch full calls
     tracer = get_default_tracer()
     if not tracer.storage:
-        print("Error: No storage configured. Cannot retrieve call traces.")
-        sys.exit(1)
+        fatal_error("No storage configured", "Cannot retrieve call traces")
 
     # Get span_type filter
     span_type_filter = getattr(args, "span_type", "all")
@@ -511,8 +507,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
     resolved_path = resolve_dataset_path(dataset_arg, use_latest, config)
 
     if not resolved_path:
-        print("Error: No dataset specified. Use --dataset <path> or --latest")
-        sys.exit(1)
+        fatal_error("No dataset specified", "Use --dataset <path> or --latest")
 
     # Resolve dataset path
     dataset_path = Path(resolved_path)
@@ -526,8 +521,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
         data_file = dataset_path
 
     if not data_file.exists():
-        print(f"Error: Dataset file not found: {data_file}")
-        sys.exit(1)
+        fatal_error(f"Dataset file not found: {data_file}")
 
     # Load dataset items
     dataset_items = load_dataset(data_file)
