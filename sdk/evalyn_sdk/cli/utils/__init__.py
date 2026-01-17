@@ -26,8 +26,14 @@ from .dataset_utils import (
     _dataset_has_reference,
     ProgressBar,
 )
-from .dataset_resolver import DatasetResolver, DatasetInfo, get_dataset
-from .formatters import OutputFormatter, get_formatter
+from .dataset_resolver import DatasetInfo, get_dataset, list_datasets
+from .formatters import (
+    is_json_format,
+    print_if_table,
+    print_error_if_table,
+    output_json,
+    print_table,
+)
 from .pipeline import PipelineStep, PipelineOrchestrator, PipelineState, StepResult
 from .pipeline_steps import create_pipeline_steps
 from .errors import fatal_error, warning
@@ -65,12 +71,15 @@ __all__ = [
     "_dataset_has_reference",
     "ProgressBar",
     # Dataset resolver
-    "DatasetResolver",
     "DatasetInfo",
     "get_dataset",
+    "list_datasets",
     # Formatters
-    "OutputFormatter",
-    "get_formatter",
+    "is_json_format",
+    "print_if_table",
+    "print_error_if_table",
+    "output_json",
+    "print_table",
     # Pipeline
     "PipelineStep",
     "PipelineOrchestrator",

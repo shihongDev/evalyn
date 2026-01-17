@@ -6,7 +6,6 @@ import sqlite3
 from pathlib import Path
 from typing import Iterable, List, Optional
 
-from .base import StorageBackend
 from ..models import Annotation, EvalRun, FunctionCall
 
 # Default paths for prod/test separation
@@ -23,7 +22,7 @@ def _dumps(data: object) -> str:
     return json.dumps(data, default=lambda o: repr(o))
 
 
-class SQLiteStorage(StorageBackend):
+class SQLiteStorage:
     """Lightweight SQLite backend for local development."""
 
     def __init__(self, path: str | Path | None = None):

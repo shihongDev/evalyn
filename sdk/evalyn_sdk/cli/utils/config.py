@@ -42,7 +42,11 @@ def _expand_env_vars(value: Any) -> Any:
 
 
 def load_config() -> Dict[str, Any]:
-    """Load configuration from evalyn.yaml or .evalynrc if present."""
+    """Load configuration from evalyn.yaml or .evalynrc if present.
+
+    Raises:
+        ValueError: If config file exists but cannot be parsed
+    """
     for config_path in DEFAULT_CONFIG_PATHS:
         path = Path(config_path)
         if path.exists():
@@ -51,20 +55,16 @@ def load_config() -> Dict[str, Any]:
 
                 with open(path, encoding="utf-8") as f:
                     config = yaml.safe_load(f) or {}
-                    # Expand environment variables
                     config = _expand_env_vars(config)
                     return config
             except ImportError:
-                # Try JSON format if yaml not available
-                try:
-                    with open(path, encoding="utf-8") as f:
-                        config = json.load(f)
-                        config = _expand_env_vars(config)
-                        return config
-                except Exception:
-                    pass
-            except Exception:
-                pass
+                # YAML not available, try JSON
+                with open(path, encoding="utf-8") as f:
+                    config = json.load(f)
+                    config = _expand_env_vars(config)
+                    return config
+            except Exception as e:
+                raise ValueError(f"Failed to parse config file {path}: {e}") from e
     return {}
 
 
