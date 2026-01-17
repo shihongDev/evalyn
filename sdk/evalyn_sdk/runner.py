@@ -180,46 +180,40 @@ class EvalRunner:
         self, item: DatasetItem, use_synthetic: bool, failures: List[str]
     ) -> Optional[FunctionCall]:
         """Prepare FunctionCall for an item. Returns None if cannot be resolved."""
-        call = None
+        storage = self.tracer.storage
 
-        # First, try to load call from metadata (for pre-built datasets)
-        if (
-            isinstance(item.metadata, dict)
-            and "call_id" in item.metadata
-            and self.tracer.storage
-        ):
-            call_id = item.metadata["call_id"]
-            call = self.tracer.storage.get_call(call_id)
+        # Try to load call from metadata (for pre-built datasets)
+        if isinstance(item.metadata, dict) and "call_id" in item.metadata and storage:
+            call = storage.get_call(item.metadata["call_id"])
+            if call:
+                return call
 
-        # Second, check cache by input hash
-        if call is None and self.cache_enabled:
+        # Check cache by input hash
+        if self.cache_enabled and storage:
             cache_key = hash_inputs(item.inputs)
-            if cache_key in self._cache and self.tracer.storage:
-                cached_id = self._cache[cache_key]
-                cached_matches = [
-                    c
-                    for c in self.tracer.storage.list_calls(limit=1_000)
-                    if c.id == cached_id
-                ]
-                call = cached_matches[0] if cached_matches else None
+            cached_id = self._cache.get(cache_key)
+            if cached_id:
+                call = storage.get_call(cached_id)
+                if call:
+                    return call
 
-        # Third, create synthetic call from item data if enabled
-        if call is None and use_synthetic and _get_item_output(item) is not None:
-            call = _synthetic_call_from_item(item)
+        # Create synthetic call from item data if enabled
+        if use_synthetic and _get_item_output(item) is not None:
+            return _synthetic_call_from_item(item)
 
-        # Fourth, try to re-run the function (only if not using synthetic)
-        if call is None and not use_synthetic:
+        # Try to re-run the function (only if not using synthetic)
+        if not use_synthetic:
             try:
                 self.target_fn(**item.inputs)
             except Exception:
                 failures.append(item.id)
 
             call = self.tracer.last_call
-            cache_key = hash_inputs(item.inputs) if self.cache_enabled else None
-            if cache_key and call:
-                self._cache[cache_key] = call.id
+            if call and self.cache_enabled:
+                self._cache[hash_inputs(item.inputs)] = call.id
+            return call
 
-        return call
+        return None
 
     def run_dataset(
         self, dataset: Iterable[DatasetItem], use_synthetic: bool = True

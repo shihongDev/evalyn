@@ -23,6 +23,56 @@ from .config import get_config_default
 from .loaders import _load_callable
 
 
+def _build_metrics_from_specs(
+    metrics_data: List[Dict],
+    gemini_key: Optional[str],
+    calibrated_prompts: Optional[Dict[str, str]] = None,
+) -> Tuple[List, int]:
+    """Build metric instances from spec data.
+
+    Args:
+        metrics_data: List of metric spec dictionaries
+        gemini_key: API key for Gemini LLM judges
+        calibrated_prompts: Optional dict mapping metric_id to optimized prompt
+
+    Returns:
+        Tuple of (metrics list, calibrated count)
+    """
+    from ...models import MetricSpec
+    from ...metrics.factory import build_objective_metric, build_subjective_metric
+
+    metrics = []
+    calibrated_count = 0
+    calibrated_prompts = calibrated_prompts or {}
+
+    for spec_data in metrics_data:
+        spec = MetricSpec(
+            id=spec_data["id"],
+            name=spec_data.get("name", spec_data["id"]),
+            type=spec_data["type"],
+            description=spec_data.get("description", ""),
+            config=spec_data.get("config", {}),
+        )
+
+        # Apply calibrated prompt if available
+        if spec.type == "subjective" and spec.id in calibrated_prompts:
+            spec.config = dict(spec.config or {})
+            spec.config["prompt"] = calibrated_prompts[spec.id]
+            calibrated_count += 1
+
+        try:
+            if spec.type == "objective":
+                m = build_objective_metric(spec.id, spec.config)
+            else:
+                m = build_subjective_metric(spec.id, spec.config, api_key=gemini_key)
+            if m:
+                metrics.append(m)
+        except Exception:
+            pass
+
+    return metrics, calibrated_count
+
+
 class BuildDatasetStep(PipelineStep):
     """Step 1: Build dataset from traces."""
 
@@ -300,7 +350,7 @@ class InitialEvalStep(PipelineStep):
             metrics_data = json.load(f)
 
         gemini_key = get_config_default(self.config, "api_keys", "gemini")
-        metrics = self._build_metrics(metrics_data, gemini_key)
+        metrics, _ = _build_metrics_from_specs(metrics_data, gemini_key)
 
         # Run evaluation
         items = list(load_dataset(dataset_path))
@@ -336,35 +386,6 @@ class InitialEvalStep(PipelineStep):
             ),
             {"eval_run_path": run_path},
         )
-
-    def _build_metrics(
-        self, metrics_data: List[Dict], gemini_key: Optional[str]
-    ) -> List:
-        """Build metric instances from spec data."""
-        from ...models import MetricSpec
-        from ...metrics.factory import build_objective_metric, build_subjective_metric
-
-        metrics = []
-        for spec_data in metrics_data:
-            spec = MetricSpec(
-                id=spec_data["id"],
-                name=spec_data.get("name", spec_data["id"]),
-                type=spec_data["type"],
-                description=spec_data.get("description", ""),
-                config=spec_data.get("config", {}),
-            )
-            try:
-                if spec.type == "objective":
-                    m = build_objective_metric(spec.id, spec.config)
-                else:
-                    m = build_subjective_metric(
-                        spec.id, spec.config, api_key=gemini_key
-                    )
-                if m:
-                    metrics.append(m)
-            except Exception:
-                pass
-        return metrics
 
     def dry_run_message(self, output_dir: Path) -> str:
         eval_dir = output_dir / self.name
@@ -562,12 +583,22 @@ class CalibratedEvalStep(PipelineStep):
             return StepResult(status="failed", error="Missing metrics or dataset"), {}
 
         # Load metrics with calibrated prompts
+        from ...annotation import load_optimized_prompt
+
         with open(metrics_path, encoding="utf-8") as f:
             metrics_data = json.load(f)
 
+        # Build calibrated prompts dict
+        calibrated_prompts = {}
+        for spec_data in metrics_data:
+            if spec_data.get("type") == "subjective":
+                prompt = load_optimized_prompt(str(dataset_dir), spec_data["id"])
+                if prompt:
+                    calibrated_prompts[spec_data["id"]] = prompt
+
         gemini_key = get_config_default(self.config, "api_keys", "gemini")
-        metrics, calibrated_count = self._build_calibrated_metrics(
-            metrics_data, str(dataset_dir), gemini_key
+        metrics, calibrated_count = _build_metrics_from_specs(
+            metrics_data, gemini_key, calibrated_prompts
         )
 
         # Run evaluation
@@ -603,48 +634,6 @@ class CalibratedEvalStep(PipelineStep):
             ),
             {},
         )
-
-    def _build_calibrated_metrics(
-        self, metrics_data: List[Dict], dataset_dir: str, gemini_key: Optional[str]
-    ) -> Tuple[List, int]:
-        """Build metrics with calibrated prompts where available."""
-        from ...annotation import load_optimized_prompt
-        from ...models import MetricSpec
-        from ...metrics.factory import build_objective_metric, build_subjective_metric
-
-        metrics = []
-        calibrated_count = 0
-
-        for spec_data in metrics_data:
-            spec = MetricSpec(
-                id=spec_data["id"],
-                name=spec_data.get("name", spec_data["id"]),
-                type=spec_data["type"],
-                description=spec_data.get("description", ""),
-                config=spec_data.get("config", {}),
-            )
-
-            # Load calibrated prompt for subjective metrics
-            if spec.type == "subjective":
-                optimized_prompt = load_optimized_prompt(dataset_dir, spec.id)
-                if optimized_prompt:
-                    spec.config = dict(spec.config or {})
-                    spec.config["prompt"] = optimized_prompt
-                    calibrated_count += 1
-
-            try:
-                if spec.type == "objective":
-                    m = build_objective_metric(spec.id, spec.config)
-                else:
-                    m = build_subjective_metric(
-                        spec.id, spec.config, api_key=gemini_key
-                    )
-                if m:
-                    metrics.append(m)
-            except Exception:
-                pass
-
-        return metrics, calibrated_count
 
     def dry_run_message(self, output_dir: Path) -> str:
         return "  -> Would re-run evaluation with calibrated prompts\n"

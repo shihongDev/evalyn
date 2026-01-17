@@ -95,6 +95,17 @@ class AlignmentMetrics:
 
         return (p_o - p_e) / (1 - p_e)
 
+    def record(self, predicted: bool, actual: bool) -> None:
+        """Record a single prediction vs actual comparison."""
+        if predicted and actual:
+            self.true_positive += 1
+        elif not predicted and not actual:
+            self.true_negative += 1
+        elif predicted and not actual:
+            self.false_positive += 1
+        else:
+            self.false_negative += 1
+
     def as_dict(self) -> Dict[str, Any]:
         return {
             "confusion_matrix": {

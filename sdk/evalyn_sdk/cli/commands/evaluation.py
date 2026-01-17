@@ -637,6 +637,16 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         }
         print(json.dumps(result, indent=2))
 
+    def _finalize_output(specs: List[MetricSpec]) -> None:
+        """Apply limit, print, save, and output JSON if needed."""
+        nonlocal max_metrics
+        final_specs = specs[:max_metrics] if max_metrics else specs
+        for spec in final_specs:
+            _print_spec(spec)
+        saved_path = _save_metrics(final_specs)
+        if output_format == "json":
+            _output_json(final_specs, saved_path)
+
     def _save_metrics(specs: List[MetricSpec]) -> Optional[Path]:
         if not dataset_path_obj:
             return None
@@ -792,13 +802,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             print(
                 f"Skipped reference-based metrics (no expected values): {', '.join(skipped_ref_metrics)}"
             )
-        if max_metrics:
-            specs = specs[:max_metrics]
-        for spec in specs:
-            _print_spec(spec)
-        saved_path = _save_metrics(specs)
-        if output_format == "json":
-            _output_json(specs, saved_path)
+        _finalize_output(specs)
         return
 
     if selected_mode == "llm-registry":
@@ -807,20 +811,13 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         selector = TemplateSelector(
             caller, filtered_templates, has_reference=has_reference
         )
-        selected = selector.select(
+        specs = selector.select(
             target_fn,
             traces=traces,
             code_meta=_extract_code_meta(tracer, target_fn),
             desired_count=max_metrics,
         )
-        specs = selected
-        if max_metrics:
-            specs = specs[:max_metrics]
-        for spec in specs:
-            _print_spec(spec)
-        saved_path = _save_metrics(specs)
-        if output_format == "json":
-            _output_json(specs, saved_path)
+        _finalize_output(specs)
         return
 
     if selected_mode == "llm-brainstorm":
@@ -829,21 +826,16 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         specs = suggester.suggest(
             target_fn, traces, desired_count=max_metrics, scope=scope_filter
         )
-        if max_metrics:
-            specs = specs[:max_metrics]
         if not specs:
             if output_format == "json":
                 print(json.dumps({"metrics": [], "count": 0, "saved_to": None}))
             else:
                 print("No metrics were returned by the LLM (brainstorm mode).")
-        else:
-            for spec in specs:
-                _print_spec(spec)
-            saved_path = _save_metrics(specs)
-            if output_format == "json":
-                _output_json(specs, saved_path)
+            return
+        _finalize_output(specs)
         return
 
+    # Default: basic heuristic mode
     suggester = HeuristicSuggester(has_reference=has_reference)
     specs = suggester.suggest(target_fn, traces)
 
@@ -855,13 +847,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             s for s in specs if template_scope.get(s.id, "overall") == scope_filter
         ]
 
-    if max_metrics:
-        specs = specs[:max_metrics]
-    for spec in specs:
-        _print_spec(spec)
-    saved_path = _save_metrics(specs)
-    if output_format == "json":
-        _output_json(specs, saved_path)
+    _finalize_output(specs)
 
 
 def cmd_select_metrics(args: argparse.Namespace) -> None:

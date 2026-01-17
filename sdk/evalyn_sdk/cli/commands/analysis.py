@@ -435,19 +435,11 @@ def cmd_analyze(args: argparse.Namespace) -> None:
             stats["scores"].append(score)
 
         # Track alignment if we have human labels
-        human_label = human_labels.get((item_id, metric_id))
-        if human_label is None:
-            human_label = human_labels.get((item_id, "__overall__"))
+        human_label = human_labels.get(
+            (item_id, metric_id), human_labels.get((item_id, "__overall__"))
+        )
         if human_label is not None:
-            align = alignment_stats[metric_id]
-            if passed and human_label:
-                align.true_positive += 1
-            elif not passed and not human_label:
-                align.true_negative += 1
-            elif passed and not human_label:
-                align.false_positive += 1
-            else:  # not passed and human_label
-                align.false_negative += 1
+            alignment_stats[metric_id].record(predicted=passed, actual=human_label)
 
     sorted_metrics = sorted(
         metrics_stats.items(),
@@ -498,12 +490,11 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     total_passed = sum(s["passed"] for s in metrics_stats.values())
     overall_rate = 100 * total_passed / max(1, total_evals)
 
-    if overall_rate >= 90:
-        health_status = "GOOD"
-    elif overall_rate >= 70:
-        health_status = "MODERATE"
-    else:
-        health_status = "NEEDS_ATTENTION"
+    health_status = (
+        "GOOD" if overall_rate >= 90
+        else "MODERATE" if overall_rate >= 70
+        else "NEEDS_ATTENTION"
+    )
     insights.append(
         f"Overall health is {health_status} ({overall_rate:.0f}% pass rate)"
     )

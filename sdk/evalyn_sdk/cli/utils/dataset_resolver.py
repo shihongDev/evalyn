@@ -129,33 +129,31 @@ class DatasetResolver:
 
     def _load_info(self, path: Path) -> DatasetInfo:
         """Load DatasetInfo from a resolved path."""
-        # Find dataset file
+        # Normalize path: if file, use parent directory
         if path.is_file():
             dataset_file = path
             path = path.parent
         else:
+            # Try dataset.jsonl first, then dataset.json
             dataset_file = path / "dataset.jsonl"
             if not dataset_file.exists():
                 dataset_file = path / "dataset.json"
 
         if not dataset_file.exists():
-            print(
-                f"Error: No dataset.jsonl found in {path}",
-                file=sys.stderr,
-            )
+            print(f"Error: No dataset.jsonl found in {path}", file=sys.stderr)
             sys.exit(1)
 
-        # Count items
-        item_count = 0
+        # Count items efficiently
         with open(dataset_file, encoding="utf-8") as f:
             item_count = sum(1 for _ in f)
 
-        # Load meta
-        meta: Dict[str, Any] = {}
+        # Load meta if available
         meta_file = path / "meta.json"
-        if meta_file.exists():
-            with open(meta_file, encoding="utf-8") as f:
-                meta = json.load(f)
+        meta = (
+            json.loads(meta_file.read_text(encoding="utf-8"))
+            if meta_file.exists()
+            else {}
+        )
 
         return DatasetInfo(
             path=path,
