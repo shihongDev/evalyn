@@ -55,11 +55,15 @@ class InstrumentorRegistry:
 
     def list_available(self) -> List[str]:
         """List instrumentors whose SDKs are available."""
-        return [name for name, inst in self._instrumentors.items() if inst.is_available()]
+        return [
+            name for name, inst in self._instrumentors.items() if inst.is_available()
+        ]
 
     def list_instrumented(self) -> List[str]:
         """List currently instrumented SDKs."""
-        return [name for name, inst in self._instrumentors.items() if inst.is_instrumented()]
+        return [
+            name for name, inst in self._instrumentors.items() if inst.is_instrumented()
+        ]
 
     def is_instrumented(self, name: str) -> bool:
         """Check if a specific SDK is instrumented."""
@@ -125,7 +129,10 @@ class InstrumentorRegistry:
         Called automatically by the tracer. Respects EVALYN_AUTO_INSTRUMENT env var.
         """
         if self._auto_instrumented:
-            return {name: inst.is_instrumented() for name, inst in self._instrumentors.items()}
+            return {
+                name: inst.is_instrumented()
+                for name, inst in self._instrumentors.items()
+            }
 
         self._auto_instrumented = True
 

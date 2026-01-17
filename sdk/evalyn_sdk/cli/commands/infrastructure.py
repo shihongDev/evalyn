@@ -976,7 +976,9 @@ NEXT STEPS
             projects = set()
             for call in calls:
                 if isinstance(call.metadata, dict):
-                    proj = call.metadata.get("project_id") or call.metadata.get("project")
+                    proj = call.metadata.get("project_id") or call.metadata.get(
+                        "project"
+                    )
                     if proj:
                         projects.add(proj)
             if projects:

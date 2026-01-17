@@ -89,7 +89,9 @@ class GeminiInstrumentor(Instrumentor):
 
                     # Extract token usage
                     usage = getattr(response, "usage_metadata", None)
-                    input_tokens = getattr(usage, "prompt_token_count", 0) if usage else 0
+                    input_tokens = (
+                        getattr(usage, "prompt_token_count", 0) if usage else 0
+                    )
                     output_tokens = (
                         getattr(usage, "candidates_token_count", 0) if usage else 0
                     )
@@ -112,7 +114,9 @@ class GeminiInstrumentor(Instrumentor):
                                     if web:
                                         sources.append(
                                             {
-                                                "title": getattr(web, "title", "")[:100],
+                                                "title": getattr(web, "title", "")[
+                                                    :100
+                                                ],
                                                 "uri": getattr(web, "uri", "")[:200],
                                             }
                                         )
@@ -160,7 +164,9 @@ class GeminiInstrumentor(Instrumentor):
 
                     # Extract token usage
                     usage = getattr(response, "usage_metadata", None)
-                    input_tokens = getattr(usage, "prompt_token_count", 0) if usage else 0
+                    input_tokens = (
+                        getattr(usage, "prompt_token_count", 0) if usage else 0
+                    )
                     output_tokens = (
                         getattr(usage, "candidates_token_count", 0) if usage else 0
                     )
@@ -206,7 +212,9 @@ class GeminiInstrumentor(Instrumentor):
                 import google.generativeai as genai
 
                 if hasattr(genai, "GenerativeModel"):
-                    genai.GenerativeModel.generate_content = self._original_legacy_generate
+                    genai.GenerativeModel.generate_content = (
+                        self._original_legacy_generate
+                    )
         except ImportError:
             pass
 

@@ -185,6 +185,7 @@ __all__ = [
     "list_instrumented",
     "get_hooks",
     "create_agent_hooks",
+    "EvalynAgentHooks",
     # Instrumentors
     "OpenAIInstrumentor",
     "AnthropicInstrumentor",

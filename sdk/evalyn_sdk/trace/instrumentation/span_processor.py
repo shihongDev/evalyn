@@ -82,7 +82,6 @@ def create_evalyn_tracer_provider() -> Any:
     """
     try:
         from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import SimpleSpanProcessor
     except ImportError:
         raise ImportError(
             "opentelemetry-sdk is required for OTEL-native instrumentation. "
@@ -116,7 +115,9 @@ def get_or_create_tracer_provider() -> Any:
     # Check if it's already a TracerProvider (not NoOpTracerProvider)
     if isinstance(current, TracerProvider):
         # Add our processor if not already present
-        for processor in getattr(current, "_active_span_processor", {}).get("_span_processors", []):
+        for processor in getattr(current, "_active_span_processor", {}).get(
+            "_span_processors", []
+        ):
             if isinstance(processor, EvalynSpanProcessor):
                 return current
 

@@ -65,7 +65,9 @@ class OpenAIInstrumentor(Instrumentor):
                     # Extract token usage
                     usage = getattr(response, "usage", None)
                     input_tokens = getattr(usage, "prompt_tokens", 0) if usage else 0
-                    output_tokens = getattr(usage, "completion_tokens", 0) if usage else 0
+                    output_tokens = (
+                        getattr(usage, "completion_tokens", 0) if usage else 0
+                    )
 
                     log_llm_call(
                         provider="openai",
@@ -113,7 +115,9 @@ class OpenAIInstrumentor(Instrumentor):
 
                     usage = getattr(response, "usage", None)
                     input_tokens = getattr(usage, "prompt_tokens", 0) if usage else 0
-                    output_tokens = getattr(usage, "completion_tokens", 0) if usage else 0
+                    output_tokens = (
+                        getattr(usage, "completion_tokens", 0) if usage else 0
+                    )
 
                     log_llm_call(
                         provider="openai",

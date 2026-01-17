@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
@@ -77,8 +77,6 @@ class EvalynAgentHooks:
         """Called when agent finishes execution."""
         if self._span_stack:
             state = self._span_stack.pop()
-            duration_ms = (time.time() - state.start_time) * 1000
-
             state.span.finish(status="ok", output=str(output)[:500])
             span_context._add_span_to_collector(state.span)
 
@@ -143,7 +141,9 @@ class EvalynAgentHooks:
 
         if state:
             duration_ms = (time.time() - state.start_time) * 1000
-            state.span.start_time = state.span.start_time - timedelta(milliseconds=duration_ms)
+            state.span.start_time = state.span.start_time - timedelta(
+                milliseconds=duration_ms
+            )
             state.span.finish(status="ok", output=str(output)[:500])
             span_context._add_span_to_collector(state.span)
 
@@ -194,10 +194,16 @@ class EvalynAgentHooks:
             # Extract token usage if available
             usage = getattr(response, "usage", None)
             if usage:
-                state.span.attributes["input_tokens"] = getattr(usage, "input_tokens", 0)
-                state.span.attributes["output_tokens"] = getattr(usage, "output_tokens", 0)
+                state.span.attributes["input_tokens"] = getattr(
+                    usage, "input_tokens", 0
+                )
+                state.span.attributes["output_tokens"] = getattr(
+                    usage, "output_tokens", 0
+                )
 
-            state.span.start_time = state.span.start_time - timedelta(milliseconds=duration_ms)
+            state.span.start_time = state.span.start_time - timedelta(
+                milliseconds=duration_ms
+            )
             state.span.finish(status="ok")
             span_context._add_span_to_collector(state.span)
 

@@ -9,6 +9,7 @@ observability tools that support OpenInference.
 
 from __future__ import annotations
 
+
 # Span kinds (mapped to Evalyn span_type)
 class SpanKind:
     LLM = "LLM"

@@ -25,7 +25,6 @@ from __future__ import annotations
 import contextvars
 import functools
 import inspect
-import os
 import time
 import uuid
 from contextlib import contextmanager
@@ -33,12 +32,6 @@ from typing import Any, Callable, Dict, List, Optional
 
 # Import from the new instrumentation module
 from .instrumentation.registry import get_registry
-from .instrumentation.providers._shared import (
-    calculate_cost,
-    log_llm_call as _log_llm_call,
-    log_tool_call as _log_tool_call,
-    COST_PER_1M_TOKENS,
-)
 
 
 def _get_tracer():
@@ -133,7 +126,10 @@ class _PatchedStateProxy:
 
     def copy(self) -> Dict[str, bool]:
         registry = get_registry()
-        return {name: registry.is_instrumented(name) for name in registry.list_instrumentors()}
+        return {
+            name: registry.is_instrumented(name)
+            for name in registry.list_instrumentors()
+        }
 
 
 _patched = _PatchedStateProxy()

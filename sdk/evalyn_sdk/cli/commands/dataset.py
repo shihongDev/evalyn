@@ -52,11 +52,20 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
                     projects.add(proj)
 
         if len(projects) > 1:
-            print("Warning: No --project specified. Found multiple projects:", file=sys.stderr)
+            print(
+                "Warning: No --project specified. Found multiple projects:",
+                file=sys.stderr,
+            )
             for p in sorted(projects):
                 print(f"  - {p}", file=sys.stderr)
-            print("\nUse --project <name> to filter, or --all to include all.", file=sys.stderr)
-            print("Hint: Run 'evalyn show-projects' to see project details.", file=sys.stderr)
+            print(
+                "\nUse --project <name> to filter, or --all to include all.",
+                file=sys.stderr,
+            )
+            print(
+                "Hint: Run 'evalyn show-projects' to see project details.",
+                file=sys.stderr,
+            )
             sys.exit(1)
         elif len(projects) == 1:
             # Auto-select the only project

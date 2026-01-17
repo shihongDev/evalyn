@@ -183,7 +183,9 @@ class LangGraphInstrumentor(Instrumentor):
             if hasattr(inst, "nodes") and isinstance(inst.nodes, dict):
                 wrapped_nodes = {}
                 for node_name, node_func in inst.nodes.items():
-                    wrapped_nodes[node_name] = self._wrap_node_function(node_name, node_func)
+                    wrapped_nodes[node_name] = self._wrap_node_function(
+                        node_name, node_func
+                    )
                 inst.nodes = wrapped_nodes
 
         CompiledGraph.__init__ = patched_init

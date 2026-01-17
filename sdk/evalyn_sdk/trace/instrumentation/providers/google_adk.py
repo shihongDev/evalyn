@@ -61,7 +61,9 @@ class GoogleADKInstrumentor(Instrumentor):
 
             # Try to use openinference instrumentation if available
             try:
-                from openinference.instrumentation.google_adk import GoogleADKInstrumentor as OIInstrumentor
+                from openinference.instrumentation.google_adk import (
+                    GoogleADKInstrumentor as OIInstrumentor,
+                )
 
                 self._otel_instrumentor = OIInstrumentor()
                 self._otel_instrumentor.instrument()

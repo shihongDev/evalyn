@@ -10,8 +10,8 @@ from .trace.auto_instrument import (
     trace as trace_decorator,
     patch_all,
     is_patched,
-    calculate_cost,
 )
+from .trace.instrumentation.providers._shared import calculate_cost
 from .runner import EvalRunner
 from .models import Metric, MetricRegistry
 from .metrics.objective import (

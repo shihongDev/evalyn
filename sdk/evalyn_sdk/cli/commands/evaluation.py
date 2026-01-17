@@ -444,6 +444,20 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
     output_format = getattr(args, "format", "table")
     tracer = get_default_tracer()
 
+    # If --dataset provided but not --project/--target, try to infer project from meta.json
+    if not args.project and not args.target and args.dataset:
+        dataset_path = Path(args.dataset)
+        if dataset_path.is_file():
+            dataset_path = dataset_path.parent
+        meta_file = dataset_path / "meta.json"
+        if meta_file.exists():
+            try:
+                meta = json.loads(meta_file.read_text(encoding="utf-8"))
+                if meta.get("project"):
+                    args.project = meta["project"]
+            except Exception:
+                pass
+
     # Validate: need either --project or --target
     if not args.project and not args.target:
         print("Error: Either --project or --target is required.", file=sys.stderr)
@@ -454,6 +468,10 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         )
         print(
             "  evalyn suggest-metrics --target <path>     # Suggest based on function code",
+            file=sys.stderr,
+        )
+        print(
+            "  evalyn suggest-metrics --dataset <path>    # Infer project from dataset meta.json",
             file=sys.stderr,
         )
         print("\nTo see available projects:", file=sys.stderr)
@@ -649,6 +667,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             safe_name = re.sub(r"[^a-zA-Z0-9._-]+", "-", args.metrics_name).strip("-")
             metrics_file = metrics_dir / f"metrics-{safe_name}.json"
         else:
+            safe_name = "default"
             metrics_file = metrics_dir / "metrics.json"
 
         # Validate objective metrics - filter out custom ones
