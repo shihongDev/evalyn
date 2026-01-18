@@ -318,6 +318,129 @@ OBJECTIVE_REGISTRY = [
         "scope": "overall",
         "requires_reference": True,
     },
+    # === NEW METRICS: Code-specific ===
+    {
+        "id": "syntax_valid",
+        "type": "objective",
+        "description": "Checks if code output has valid Python syntax.",
+        "config": {"language": "python"},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "code_complexity",
+        "type": "objective",
+        "description": "Estimates code complexity (line count, nesting depth).",
+        "config": {"max_lines": None, "max_depth": None},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    # === NEW METRICS: Readability ===
+    {
+        "id": "flesch_kincaid",
+        "type": "objective",
+        "description": "Flesch-Kincaid readability grade level.",
+        "config": {"max_grade": None},
+        "category": "style",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "sentence_count",
+        "type": "objective",
+        "description": "Counts sentences in output.",
+        "config": {"min_count": None, "max_count": None},
+        "category": "style",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "avg_sentence_length",
+        "type": "objective",
+        "description": "Average sentence length in words.",
+        "config": {"max_avg": None},
+        "category": "style",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    # === NEW METRICS: Diversity ===
+    {
+        "id": "distinct_1",
+        "type": "objective",
+        "description": "Distinct-1: ratio of unique unigrams to total unigrams.",
+        "config": {"min_ratio": None},
+        "category": "diversity",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "distinct_2",
+        "type": "objective",
+        "description": "Distinct-2: ratio of unique bigrams to total bigrams.",
+        "config": {"min_ratio": None},
+        "category": "diversity",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "vocabulary_richness",
+        "type": "objective",
+        "description": "Type-token ratio (unique words / total words).",
+        "config": {"min_ratio": None},
+        "category": "diversity",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    # === NEW METRICS: Compression/Ratio ===
+    {
+        "id": "compression_ratio",
+        "type": "objective",
+        "description": "Ratio of output length to input length.",
+        "config": {"min_ratio": None, "max_ratio": None},
+        "category": "efficiency",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    # === NEW METRICS: Citation/Grounding ===
+    {
+        "id": "citation_count",
+        "type": "objective",
+        "description": "Counts citation-like patterns (e.g., [1], (Author, Year)).",
+        "config": {"min_count": 0},
+        "category": "grounding",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "markdown_link_count",
+        "type": "objective",
+        "description": "Counts markdown-style links [text](url).",
+        "config": {"min_count": 0},
+        "category": "grounding",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    # === NEW METRICS: Semantic Similarity (embedding-based) ===
+    {
+        "id": "levenshtein_similarity",
+        "type": "objective",
+        "description": "Levenshtein edit distance similarity (needs human_label.reference).",
+        "config": {},
+        "category": "correctness",
+        "scope": "overall",
+        "requires_reference": True,
+    },
+    {
+        "id": "cosine_word_overlap",
+        "type": "objective",
+        "description": "Cosine similarity of word frequency vectors (needs human_label.reference).",
+        "config": {},
+        "category": "correctness",
+        "scope": "overall",
+        "requires_reference": True,
+    },
 ]
 
 
@@ -600,9 +723,12 @@ def register_builtin_metrics(registry) -> None:
         latency_metric(),
         cost_metric(),
         token_length_metric(),
+        compression_ratio_metric(),
         # Correctness
         bleu_metric(),
         pass_at_k_metric(),
+        levenshtein_similarity_metric(),
+        cosine_word_overlap_metric(),
         # Structure / formatting
         json_valid_metric(),
         regex_match_metric(),
@@ -612,6 +738,8 @@ def register_builtin_metrics(registry) -> None:
         json_types_match_metric(),
         json_path_present_metric(),
         regex_capture_count_metric(),
+        syntax_valid_metric(),
+        code_complexity_metric(),
         # Text overlap / similarity
         rouge_l_metric(),
         rouge_1_metric(),
@@ -626,6 +754,14 @@ def register_builtin_metrics(registry) -> None:
         # Output quality
         output_nonempty_metric(),
         output_length_range_metric(),
+        # Readability
+        flesch_kincaid_metric(),
+        sentence_count_metric(),
+        avg_sentence_length_metric(),
+        # Diversity
+        distinct_1_metric(),
+        distinct_2_metric(),
+        vocabulary_richness_metric(),
         # Trace-based robustness
         tool_call_count_metric(),
         llm_call_count_metric(),
@@ -634,6 +770,8 @@ def register_builtin_metrics(registry) -> None:
         tool_error_count_metric(),
         # Grounding proxies
         url_count_metric(),
+        citation_count_metric(),
+        markdown_link_count_metric(),
     ]
 
     for metric in builtin_metrics:
@@ -1640,6 +1778,617 @@ def url_count_metric(
             float(count),
             passed,
             {"count": count, "min_count": min_v, "pattern": str(patt)},
+        )
+
+    return Metric(spec, handler)
+
+
+# =============================================================================
+# NEW METRICS: Code-specific
+# =============================================================================
+
+
+def syntax_valid_metric(metric_id: str = "syntax_valid", language: str = "python") -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Syntax Valid",
+        type="objective",
+        description="Checks if code output has valid syntax.",
+        config={"language": language},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        lang = item.metadata.get("language", language)
+
+        # Extract code from markdown code blocks if present
+        code_match = re.search(r"```(?:\w+)?\n(.*?)```", text, re.DOTALL)
+        code = code_match.group(1) if code_match else text
+
+        if lang == "python":
+            import ast
+
+            try:
+                ast.parse(code)
+                return _make_result(spec, item, call, 1.0, True, {"language": lang})
+            except SyntaxError as e:
+                return _make_result(
+                    spec, item, call, 0.0, False, {"language": lang, "error": str(e)}
+                )
+        # For other languages, just check it's not empty
+        passed = len(code.strip()) > 0
+        return _make_result(
+            spec, item, call, 1.0 if passed else 0.0, passed, {"language": lang}
+        )
+
+    return Metric(spec, handler)
+
+
+def code_complexity_metric(
+    metric_id: str = "code_complexity",
+    max_lines: Optional[int] = None,
+    max_depth: Optional[int] = None,
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Code Complexity",
+        type="objective",
+        description="Estimates code complexity metrics.",
+        config={"max_lines": max_lines, "max_depth": max_depth},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+
+        # Extract code from markdown code blocks if present
+        code_match = re.search(r"```(?:\w+)?\n(.*?)```", text, re.DOTALL)
+        code = code_match.group(1) if code_match else text
+
+        lines = code.strip().split("\n")
+        line_count = len(lines)
+
+        # Estimate nesting depth by counting leading whitespace
+        max_indent = 0
+        for line in lines:
+            stripped = line.lstrip()
+            if stripped:
+                indent = len(line) - len(stripped)
+                max_indent = max(max_indent, indent // 4)  # Assume 4-space indent
+
+        limit_lines = item.metadata.get("max_lines", max_lines)
+        limit_depth = item.metadata.get("max_depth", max_depth)
+
+        passed = True
+        if limit_lines and line_count > limit_lines:
+            passed = False
+        if limit_depth and max_indent > limit_depth:
+            passed = False
+
+        return _make_result(
+            spec,
+            item,
+            call,
+            float(line_count),
+            passed,
+            {
+                "line_count": line_count,
+                "max_nesting_depth": max_indent,
+                "max_lines": limit_lines,
+                "max_depth": limit_depth,
+            },
+        )
+
+    return Metric(spec, handler)
+
+
+# =============================================================================
+# NEW METRICS: Readability
+# =============================================================================
+
+
+def _count_syllables(word: str) -> int:
+    """Simple syllable counter for English words."""
+    word = word.lower()
+    if len(word) <= 3:
+        return 1
+    vowels = "aeiouy"
+    count = 0
+    prev_vowel = False
+    for char in word:
+        is_vowel = char in vowels
+        if is_vowel and not prev_vowel:
+            count += 1
+        prev_vowel = is_vowel
+    # Adjust for silent e
+    if word.endswith("e") and count > 1:
+        count -= 1
+    return max(1, count)
+
+
+def _split_sentences(text: str) -> List[str]:
+    """Split text into sentences."""
+    # Simple sentence splitter
+    sentences = re.split(r"[.!?]+", text)
+    return [s.strip() for s in sentences if s.strip()]
+
+
+def flesch_kincaid_metric(
+    metric_id: str = "flesch_kincaid", max_grade: Optional[float] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Flesch-Kincaid Grade",
+        type="objective",
+        description="Flesch-Kincaid readability grade level.",
+        config={"max_grade": max_grade},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        sentences = _split_sentences(text)
+        words = _tokenize(text)
+
+        if not sentences or not words:
+            return _make_result(
+                spec, item, call, None, None, {"error": "insufficient_text"}
+            )
+
+        total_syllables = sum(_count_syllables(w) for w in words)
+        avg_sentence_len = len(words) / len(sentences)
+        avg_syllables_per_word = total_syllables / len(words)
+
+        # Flesch-Kincaid Grade Level formula
+        grade = 0.39 * avg_sentence_len + 11.8 * avg_syllables_per_word - 15.59
+        grade = max(0, grade)
+
+        limit = item.metadata.get("max_grade", max_grade)
+        passed = True if limit is None else grade <= float(limit)
+
+        return _make_result(
+            spec,
+            item,
+            call,
+            grade,
+            passed,
+            {
+                "grade_level": round(grade, 2),
+                "sentences": len(sentences),
+                "words": len(words),
+                "syllables": total_syllables,
+                "max_grade": limit,
+            },
+        )
+
+    return Metric(spec, handler)
+
+
+def sentence_count_metric(
+    metric_id: str = "sentence_count",
+    min_count: Optional[int] = None,
+    max_count: Optional[int] = None,
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Sentence Count",
+        type="objective",
+        description="Counts sentences in output.",
+        config={"min_count": min_count, "max_count": max_count},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        sentences = _split_sentences(text)
+        count = len(sentences)
+
+        min_v = item.metadata.get("min_count", min_count)
+        max_v = item.metadata.get("max_count", max_count)
+
+        passed = True
+        if min_v is not None and count < int(min_v):
+            passed = False
+        if max_v is not None and count > int(max_v):
+            passed = False
+
+        return _make_result(
+            spec,
+            item,
+            call,
+            float(count),
+            passed,
+            {"count": count, "min_count": min_v, "max_count": max_v},
+        )
+
+    return Metric(spec, handler)
+
+
+def avg_sentence_length_metric(
+    metric_id: str = "avg_sentence_length", max_avg: Optional[float] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Avg Sentence Length",
+        type="objective",
+        description="Average sentence length in words.",
+        config={"max_avg": max_avg},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        sentences = _split_sentences(text)
+        words = _tokenize(text)
+
+        if not sentences:
+            return _make_result(
+                spec, item, call, None, None, {"error": "no_sentences"}
+            )
+
+        avg_len = len(words) / len(sentences)
+        limit = item.metadata.get("max_avg", max_avg)
+        passed = True if limit is None else avg_len <= float(limit)
+
+        return _make_result(
+            spec,
+            item,
+            call,
+            avg_len,
+            passed,
+            {
+                "avg_length": round(avg_len, 2),
+                "sentences": len(sentences),
+                "words": len(words),
+                "max_avg": limit,
+            },
+        )
+
+    return Metric(spec, handler)
+
+
+# =============================================================================
+# NEW METRICS: Diversity
+# =============================================================================
+
+
+def distinct_1_metric(
+    metric_id: str = "distinct_1", min_ratio: Optional[float] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Distinct-1",
+        type="objective",
+        description="Ratio of unique unigrams to total unigrams.",
+        config={"min_ratio": min_ratio},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        tokens = _tokenize(text)
+
+        if not tokens:
+            return _make_result(spec, item, call, 0.0, None, {"error": "no_tokens"})
+
+        unique = len(set(tokens))
+        total = len(tokens)
+        ratio = unique / total
+
+        limit = item.metadata.get("min_ratio", min_ratio)
+        passed = True if limit is None else ratio >= float(limit)
+
+        return _make_result(
+            spec,
+            item,
+            call,
+            ratio,
+            passed,
+            {"unique": unique, "total": total, "ratio": round(ratio, 4), "min_ratio": limit},
+        )
+
+    return Metric(spec, handler)
+
+
+def distinct_2_metric(
+    metric_id: str = "distinct_2", min_ratio: Optional[float] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Distinct-2",
+        type="objective",
+        description="Ratio of unique bigrams to total bigrams.",
+        config={"min_ratio": min_ratio},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        tokens = _tokenize(text)
+
+        if len(tokens) < 2:
+            return _make_result(spec, item, call, 0.0, None, {"error": "insufficient_tokens"})
+
+        bigrams = [(tokens[i], tokens[i + 1]) for i in range(len(tokens) - 1)]
+        unique = len(set(bigrams))
+        total = len(bigrams)
+        ratio = unique / total
+
+        limit = item.metadata.get("min_ratio", min_ratio)
+        passed = True if limit is None else ratio >= float(limit)
+
+        return _make_result(
+            spec,
+            item,
+            call,
+            ratio,
+            passed,
+            {"unique": unique, "total": total, "ratio": round(ratio, 4), "min_ratio": limit},
+        )
+
+    return Metric(spec, handler)
+
+
+def vocabulary_richness_metric(
+    metric_id: str = "vocabulary_richness", min_ratio: Optional[float] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Vocabulary Richness",
+        type="objective",
+        description="Type-token ratio (unique words / total words).",
+        config={"min_ratio": min_ratio},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        tokens = _tokenize(text)
+
+        if not tokens:
+            return _make_result(spec, item, call, 0.0, None, {"error": "no_tokens"})
+
+        unique = len(set(tokens))
+        total = len(tokens)
+        ratio = unique / total
+
+        limit = item.metadata.get("min_ratio", min_ratio)
+        passed = True if limit is None else ratio >= float(limit)
+
+        return _make_result(
+            spec,
+            item,
+            call,
+            ratio,
+            passed,
+            {"unique_words": unique, "total_words": total, "ttr": round(ratio, 4), "min_ratio": limit},
+        )
+
+    return Metric(spec, handler)
+
+
+# =============================================================================
+# NEW METRICS: Compression/Ratio
+# =============================================================================
+
+
+def compression_ratio_metric(
+    metric_id: str = "compression_ratio",
+    min_ratio: Optional[float] = None,
+    max_ratio: Optional[float] = None,
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Compression Ratio",
+        type="objective",
+        description="Ratio of output length to input length.",
+        config={"min_ratio": min_ratio, "max_ratio": max_ratio},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        output_text = _as_text(call.output)
+        input_text = _as_text(item.input or item.inputs)
+
+        output_len = len(output_text)
+        input_len = len(input_text) if input_text else 1
+
+        ratio = output_len / input_len
+
+        min_v = item.metadata.get("min_ratio", min_ratio)
+        max_v = item.metadata.get("max_ratio", max_ratio)
+
+        passed = True
+        if min_v is not None and ratio < float(min_v):
+            passed = False
+        if max_v is not None and ratio > float(max_v):
+            passed = False
+
+        return _make_result(
+            spec,
+            item,
+            call,
+            ratio,
+            passed,
+            {
+                "output_chars": output_len,
+                "input_chars": input_len,
+                "ratio": round(ratio, 4),
+                "min_ratio": min_v,
+                "max_ratio": max_v,
+            },
+        )
+
+    return Metric(spec, handler)
+
+
+# =============================================================================
+# NEW METRICS: Citation/Grounding
+# =============================================================================
+
+
+def citation_count_metric(
+    metric_id: str = "citation_count", min_count: int = 0
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Citation Count",
+        type="objective",
+        description="Counts citation-like patterns.",
+        config={"min_count": min_count},
+    )
+    # Patterns: [1], [2,3], (Author, 2024), (Smith et al., 2023)
+    patterns = [
+        r"\[\d+(?:,\s*\d+)*\]",  # [1], [1,2,3]
+        r"\([A-Z][a-z]+(?:\s+et\s+al\.?)?,?\s*\d{4}\)",  # (Author, 2024), (Smith et al., 2023)
+    ]
+    combined = re.compile("|".join(patterns))
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        matches = combined.findall(text)
+        count = len(matches)
+
+        min_v = int(item.metadata.get("min_count", min_count))
+        passed = count >= min_v
+
+        return _make_result(
+            spec,
+            item,
+            call,
+            float(count),
+            passed,
+            {"count": count, "min_count": min_v, "citations": matches[:10]},
+        )
+
+    return Metric(spec, handler)
+
+
+def markdown_link_count_metric(
+    metric_id: str = "markdown_link_count", min_count: int = 0
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Markdown Link Count",
+        type="objective",
+        description="Counts markdown-style links [text](url).",
+        config={"min_count": min_count},
+    )
+    pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        matches = pattern.findall(text)
+        count = len(matches)
+
+        min_v = int(item.metadata.get("min_count", min_count))
+        passed = count >= min_v
+
+        return _make_result(
+            spec,
+            item,
+            call,
+            float(count),
+            passed,
+            {"count": count, "min_count": min_v, "links": matches[:10]},
+        )
+
+    return Metric(spec, handler)
+
+
+# =============================================================================
+# NEW METRICS: Semantic Similarity
+# =============================================================================
+
+
+def levenshtein_similarity_metric(metric_id: str = "levenshtein_similarity") -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Levenshtein Similarity",
+        type="objective",
+        description="Normalized Levenshtein edit distance similarity.",
+        config={},
+    )
+
+    def _levenshtein_distance(s1: str, s2: str) -> int:
+        if len(s1) < len(s2):
+            s1, s2 = s2, s1
+        if len(s2) == 0:
+            return len(s1)
+        prev_row = list(range(len(s2) + 1))
+        for i, c1 in enumerate(s1):
+            curr_row = [i + 1]
+            for j, c2 in enumerate(s2):
+                insertions = prev_row[j + 1] + 1
+                deletions = curr_row[j] + 1
+                substitutions = prev_row[j] + (c1 != c2)
+                curr_row.append(min(insertions, deletions, substitutions))
+            prev_row = curr_row
+        return prev_row[-1]
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        reference = _get_reference(item)
+        candidate = _get_output(call, item)
+
+        if not reference:
+            return _make_result(
+                spec, item, call, None, None, {"error": "No reference text"}
+            )
+
+        distance = _levenshtein_distance(candidate.lower(), reference.lower())
+        max_len = max(len(candidate), len(reference), 1)
+        similarity = 1.0 - (distance / max_len)
+
+        return _make_result(
+            spec,
+            item,
+            call,
+            similarity,
+            None,
+            {"distance": distance, "similarity": round(similarity, 4)},
+        )
+
+    return Metric(spec, handler)
+
+
+def cosine_word_overlap_metric(metric_id: str = "cosine_word_overlap") -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Cosine Word Overlap",
+        type="objective",
+        description="Cosine similarity of word frequency vectors.",
+        config={},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        reference = _get_reference(item)
+        candidate = _get_output(call, item)
+
+        if not reference:
+            return _make_result(
+                spec, item, call, None, None, {"error": "No reference text"}
+            )
+
+        cand_tokens = _tokenize(candidate)
+        ref_tokens = _tokenize(reference)
+
+        if not cand_tokens or not ref_tokens:
+            return _make_result(spec, item, call, 0.0, None, {"error": "empty_text"})
+
+        # Build word frequency vectors
+        all_words = set(cand_tokens) | set(ref_tokens)
+        cand_freq = {w: cand_tokens.count(w) for w in all_words}
+        ref_freq = {w: ref_tokens.count(w) for w in all_words}
+
+        # Compute cosine similarity
+        dot_product = sum(cand_freq[w] * ref_freq[w] for w in all_words)
+        cand_norm = math.sqrt(sum(v * v for v in cand_freq.values()))
+        ref_norm = math.sqrt(sum(v * v for v in ref_freq.values()))
+
+        if cand_norm == 0 or ref_norm == 0:
+            similarity = 0.0
+        else:
+            similarity = dot_product / (cand_norm * ref_norm)
+
+        return _make_result(
+            spec,
+            item,
+            call,
+            similarity,
+            None,
+            {"similarity": round(similarity, 4)},
         )
 
     return Metric(spec, handler)

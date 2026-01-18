@@ -3,36 +3,59 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, List, Optional
 
 from .objective import (
-    bleu_metric,
+    # Efficiency
+    latency_metric,
     cost_metric,
+    token_length_metric,
+    compression_ratio_metric,
+    # Correctness
+    bleu_metric,
+    pass_at_k_metric,
+    levenshtein_similarity_metric,
+    cosine_word_overlap_metric,
+    # Structure
+    json_valid_metric,
+    regex_match_metric,
     csv_valid_metric,
-    jaccard_similarity_metric,
-    json_path_present_metric,
+    xml_valid_metric,
     json_schema_keys_metric,
     json_types_match_metric,
-    json_valid_metric,
-    latency_metric,
-    llm_call_count_metric,
-    llm_error_rate_metric,
-    numeric_mae_metric,
-    numeric_rel_error_metric,
-    numeric_rmse_metric,
-    numeric_within_tolerance_metric,
-    output_length_range_metric,
-    output_nonempty_metric,
-    pass_at_k_metric,
+    json_path_present_metric,
     regex_capture_count_metric,
-    regex_match_metric,
+    syntax_valid_metric,
+    code_complexity_metric,
+    # Text overlap
+    rouge_l_metric,
     rouge_1_metric,
     rouge_2_metric,
-    rouge_l_metric,
-    token_length_metric,
     token_overlap_f1_metric,
+    jaccard_similarity_metric,
+    # Numeric
+    numeric_mae_metric,
+    numeric_rmse_metric,
+    numeric_rel_error_metric,
+    numeric_within_tolerance_metric,
+    # Output quality
+    output_nonempty_metric,
+    output_length_range_metric,
+    # Readability
+    flesch_kincaid_metric,
+    sentence_count_metric,
+    avg_sentence_length_metric,
+    # Diversity
+    distinct_1_metric,
+    distinct_2_metric,
+    vocabulary_richness_metric,
+    # Trace-based
     tool_call_count_metric,
-    tool_error_count_metric,
+    llm_call_count_metric,
+    llm_error_rate_metric,
     tool_success_ratio_metric,
+    tool_error_count_metric,
+    # Grounding
     url_count_metric,
-    xml_valid_metric,
+    citation_count_metric,
+    markdown_link_count_metric,
 )
 from ..models import Metric
 from .judges import LLMJudge
@@ -58,23 +81,51 @@ def build_objective_metric(
 ) -> Metric:
     cfg = config or {}
     builders: Dict[str, Callable[[Dict[str, Any]], Metric]] = {
+        # Efficiency
         "latency_ms": lambda c: latency_metric(),
         "cost": lambda c: cost_metric(),
+        "token_length": lambda c: token_length_metric(max_chars=c.get("max_chars")),
+        "compression_ratio": lambda c: compression_ratio_metric(
+            min_ratio=c.get("min_ratio"),
+            max_ratio=c.get("max_ratio"),
+        ),
+        # Correctness
         "bleu": lambda c: bleu_metric(),
         "pass_at_k": lambda c: pass_at_k_metric(
             k=int(c.get("k", 5)),
             candidate_field=str(c.get("candidate_field", "candidates")),
             success_field=str(c.get("success_field", "passed")),
         ),
+        "levenshtein_similarity": lambda c: levenshtein_similarity_metric(),
+        "cosine_word_overlap": lambda c: cosine_word_overlap_metric(),
+        # Structure
         "json_valid": lambda c: json_valid_metric(),
         "regex_match": lambda c: regex_match_metric(pattern=c.get("pattern")),
-        "token_length": lambda c: token_length_metric(max_chars=c.get("max_chars")),
-        "tool_call_count": lambda c: tool_call_count_metric(),
+        "csv_valid": lambda c: csv_valid_metric(dialect=str(c.get("dialect", "excel"))),
+        "xml_valid": lambda c: xml_valid_metric(),
+        "json_schema_keys": lambda c: json_schema_keys_metric(
+            required_keys=c.get("required_keys")
+        ),
+        "json_types_match": lambda c: json_types_match_metric(schema=c.get("schema")),
+        "json_path_present": lambda c: json_path_present_metric(paths=c.get("paths")),
+        "regex_capture_count": lambda c: regex_capture_count_metric(
+            pattern=c.get("pattern"),
+            min_count=int(c.get("min_count", 1)),
+        ),
+        "syntax_valid": lambda c: syntax_valid_metric(
+            language=str(c.get("language", "python"))
+        ),
+        "code_complexity": lambda c: code_complexity_metric(
+            max_lines=c.get("max_lines"),
+            max_depth=c.get("max_depth"),
+        ),
+        # Text overlap
         "rouge_l": lambda c: rouge_l_metric(),
         "rouge_1": lambda c: rouge_1_metric(),
         "rouge_2": lambda c: rouge_2_metric(),
         "token_overlap_f1": lambda c: token_overlap_f1_metric(),
         "jaccard_similarity": lambda c: jaccard_similarity_metric(),
+        # Numeric
         "numeric_mae": lambda c: numeric_mae_metric(output_field=c.get("output_field")),
         "numeric_rmse": lambda c: numeric_rmse_metric(
             output_field=c.get("output_field")
@@ -86,22 +137,31 @@ def build_objective_metric(
             output_field=c.get("output_field"),
             tolerance=float(c.get("tolerance", 0.0)),
         ),
-        "json_schema_keys": lambda c: json_schema_keys_metric(
-            required_keys=c.get("required_keys")
-        ),
-        "json_types_match": lambda c: json_types_match_metric(schema=c.get("schema")),
-        "json_path_present": lambda c: json_path_present_metric(paths=c.get("paths")),
-        "regex_capture_count": lambda c: regex_capture_count_metric(
-            pattern=c.get("pattern"),
-            min_count=int(c.get("min_count", 1)),
-        ),
-        "csv_valid": lambda c: csv_valid_metric(dialect=str(c.get("dialect", "excel"))),
-        "xml_valid": lambda c: xml_valid_metric(),
+        # Output quality
         "output_nonempty": lambda c: output_nonempty_metric(),
         "output_length_range": lambda c: output_length_range_metric(
             min_chars=int(c.get("min_chars", 0)),
             max_chars=c.get("max_chars"),
         ),
+        # Readability
+        "flesch_kincaid": lambda c: flesch_kincaid_metric(
+            max_grade=c.get("max_grade")
+        ),
+        "sentence_count": lambda c: sentence_count_metric(
+            min_count=c.get("min_count"),
+            max_count=c.get("max_count"),
+        ),
+        "avg_sentence_length": lambda c: avg_sentence_length_metric(
+            max_avg=c.get("max_avg")
+        ),
+        # Diversity
+        "distinct_1": lambda c: distinct_1_metric(min_ratio=c.get("min_ratio")),
+        "distinct_2": lambda c: distinct_2_metric(min_ratio=c.get("min_ratio")),
+        "vocabulary_richness": lambda c: vocabulary_richness_metric(
+            min_ratio=c.get("min_ratio")
+        ),
+        # Trace-based
+        "tool_call_count": lambda c: tool_call_count_metric(),
         "llm_call_count": lambda c: llm_call_count_metric(
             request_kind=str(c.get("request_kind", ".request"))
         ),
@@ -116,9 +176,16 @@ def build_objective_metric(
         "tool_error_count": lambda c: tool_error_count_metric(
             error_kind=str(c.get("error_kind", "tool.error"))
         ),
+        # Grounding
         "url_count": lambda c: url_count_metric(
             pattern=str(c.get("pattern", r"https?://")),
             min_count=int(c.get("min_count", 1)),
+        ),
+        "citation_count": lambda c: citation_count_metric(
+            min_count=int(c.get("min_count", 0))
+        ),
+        "markdown_link_count": lambda c: markdown_link_count_metric(
+            min_count=int(c.get("min_count", 0))
         ),
     }
 
