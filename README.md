@@ -16,7 +16,7 @@ Evalyn focuses on making GenAI App evaluation practical and easy. It provides li
 |---|---|
 | **Fully Local** | All data stays on your machine. SQLite storage, no cloud dependencies. |
 | **Easy Onboarding** | Just `import evalyn_sdk` — LLM calls auto-captured with tokens & cost. |
-| **Metric Bank** | 50+ built-in metrics (30 objective, 22 LLM judges). Community contributions welcome. |
+| **Metric Bank** | 130+ built-in metrics (73 objective, 60 LLM judges). Community contributions welcome. |
 | **Auto Calibration** | Align LLM judges with human feedback through automatic prompt optimization such as GEPA. |
 | **One Command** | Run the entire pipeline with `evalyn one-click`. |
 
@@ -64,7 +64,7 @@ uv venv --python 3.10
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install the SDK
-uv pip install -e "./sdk[llm,otel]"
+uv pip install -e "./sdk[llm]"
 
 # To run the example agent, also install agent dependencies:
 uv pip install -e "./sdk[agent]"
@@ -270,7 +270,7 @@ Decide whether your metric is:
     "type": "objective",
     "description": "What this metric measures.",
     "config": {},                        # Any configurable parameters
-    "category": "structure",             # One of: efficiency, structure, robustness, correctness, grounding
+    "category": "structure",             # One of: efficiency, structure, robustness, correctness, grounding, style, diversity
     "scope": "overall",                  # One of: overall, llm_call, tool_call, trace
     "requires_reference": False,         # True if needs human_label.reference
     "author": "Your Name <email>",       # Optional: credit for your contribution
@@ -284,7 +284,7 @@ Decide whether your metric is:
     "id": "your_metric_name",
     "type": "subjective",
     "description": "What this metric evaluates.",
-    "category": "correctness",           # One of: safety, correctness, style, instruction, grounding, completeness, agent, ethics
+    "category": "correctness",           # One of: safety, correctness, style, instruction, grounding, completeness, agent, ethics, domain, ux, conversation, creativity, explanation, persona, summarization, argumentation, accessibility
     "scope": "overall",
     "prompt": "You are a judge for X. Evaluate whether...",
     "config": {
@@ -317,7 +317,7 @@ Then register it in the `METRIC_HANDLERS` dict.
 
 ### Step 4: Add Tests
 
-Add tests in `sdk/tests/test_metrics.py` to verify your metric works correctly:
+Add tests in `tests/test_metrics.py` to verify your metric works correctly:
 
 ```python
 def test_your_metric_name():
@@ -331,7 +331,7 @@ def test_your_metric_name():
 1. Fork the repository
 2. Create a branch: `git checkout -b add-metric-your_metric_name`
 3. Make your changes
-4. Run tests: `uv run pytest sdk/tests/`
+4. Run tests: `uv run pytest tests/`
 5. Submit a PR with:
    - Description of what the metric measures
    - Example use cases

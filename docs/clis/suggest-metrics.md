@@ -35,7 +35,7 @@ evalyn suggest-metrics --target <file.py:func> [OPTIONS]
 | Mode | Description | Output | LLM Required |
 |------|-------------|--------|--------------|
 | `basic` | Fast heuristic based on function signature | Objective + Subjective | No |
-| `llm-registry` | LLM picks from 50+ built-in templates | Objective + Subjective | Yes |
+| `llm-registry` | LLM picks from 130+ built-in templates | Objective + Subjective | Yes |
 | `llm-brainstorm` | LLM generates custom metrics with rubrics | **Subjective only** | Yes |
 | `bundle` | Pre-configured metric set | Objective + Subjective | No |
 | `auto` | Uses function's `@eval` hints or defaults to `llm-registry` | Varies | Maybe |
