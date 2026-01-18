@@ -905,6 +905,31 @@ def _extract_number(value: Any, output_field: Optional[str] = None) -> Optional[
     return _coerce_number(value)
 
 
+def _extract_code_from_markdown(text: str) -> str:
+    """Extract code from markdown fenced code blocks, or return text as-is."""
+    code_match = re.search(r"```(?:\w+)?\n(.*?)```", text, re.DOTALL)
+    return code_match.group(1) if code_match else text
+
+
+def _check_min_max_bounds(
+    count: int,
+    item: DatasetItem,
+    min_key: str,
+    max_key: str,
+    default_min: Optional[int],
+    default_max: Optional[int],
+) -> Tuple[bool, Optional[int], Optional[int]]:
+    """Check if count is within min/max bounds from item metadata or defaults."""
+    min_v = item.metadata.get(min_key, default_min)
+    max_v = item.metadata.get(max_key, default_max)
+    passed = True
+    if min_v is not None and count < int(min_v):
+        passed = False
+    if max_v is not None and count > int(max_v):
+        passed = False
+    return passed, min_v, max_v
+
+
 def latency_metric(metric_id: str = "latency_ms") -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -2106,7 +2131,9 @@ def url_count_metric(
 # =============================================================================
 
 
-def syntax_valid_metric(metric_id: str = "syntax_valid", language: str = "python") -> Metric:
+def syntax_valid_metric(
+    metric_id: str = "syntax_valid", language: str = "python"
+) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="Syntax Valid",
@@ -2118,10 +2145,7 @@ def syntax_valid_metric(metric_id: str = "syntax_valid", language: str = "python
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         text = _as_text(call.output)
         lang = item.metadata.get("language", language)
-
-        # Extract code from markdown code blocks if present
-        code_match = re.search(r"```(?:\w+)?\n(.*?)```", text, re.DOTALL)
-        code = code_match.group(1) if code_match else text
+        code = _extract_code_from_markdown(text)
 
         if lang == "python":
             import ast
@@ -2157,10 +2181,7 @@ def code_complexity_metric(
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         text = _as_text(call.output)
-
-        # Extract code from markdown code blocks if present
-        code_match = re.search(r"```(?:\w+)?\n(.*?)```", text, re.DOTALL)
-        code = code_match.group(1) if code_match else text
+        code = _extract_code_from_markdown(text)
 
         lines = code.strip().split("\n")
         line_count = len(lines)
@@ -2298,14 +2319,9 @@ def sentence_count_metric(
         sentences = _split_sentences(text)
         count = len(sentences)
 
-        min_v = item.metadata.get("min_count", min_count)
-        max_v = item.metadata.get("max_count", max_count)
-
-        passed = True
-        if min_v is not None and count < int(min_v):
-            passed = False
-        if max_v is not None and count > int(max_v):
-            passed = False
+        passed, min_v, max_v = _check_min_max_bounds(
+            count, item, "min_count", "max_count", min_count, max_count
+        )
 
         return _make_result(
             spec,
@@ -2336,9 +2352,7 @@ def avg_sentence_length_metric(
         words = _tokenize(text)
 
         if not sentences:
-            return _make_result(
-                spec, item, call, None, None, {"error": "no_sentences"}
-            )
+            return _make_result(spec, item, call, None, None, {"error": "no_sentences"})
 
         avg_len = len(words) / len(sentences)
         limit = item.metadata.get("max_avg", max_avg)
@@ -2397,7 +2411,12 @@ def distinct_1_metric(
             call,
             ratio,
             passed,
-            {"unique": unique, "total": total, "ratio": round(ratio, 4), "min_ratio": limit},
+            {
+                "unique": unique,
+                "total": total,
+                "ratio": round(ratio, 4),
+                "min_ratio": limit,
+            },
         )
 
     return Metric(spec, handler)
@@ -2419,7 +2438,9 @@ def distinct_2_metric(
         tokens = _tokenize(text)
 
         if len(tokens) < 2:
-            return _make_result(spec, item, call, 0.0, None, {"error": "insufficient_tokens"})
+            return _make_result(
+                spec, item, call, 0.0, None, {"error": "insufficient_tokens"}
+            )
 
         bigrams = [(tokens[i], tokens[i + 1]) for i in range(len(tokens) - 1)]
         unique = len(set(bigrams))
@@ -2435,7 +2456,12 @@ def distinct_2_metric(
             call,
             ratio,
             passed,
-            {"unique": unique, "total": total, "ratio": round(ratio, 4), "min_ratio": limit},
+            {
+                "unique": unique,
+                "total": total,
+                "ratio": round(ratio, 4),
+                "min_ratio": limit,
+            },
         )
 
     return Metric(spec, handler)
@@ -2472,7 +2498,12 @@ def vocabulary_richness_metric(
             call,
             ratio,
             passed,
-            {"unique_words": unique, "total_words": total, "ttr": round(ratio, 4), "min_ratio": limit},
+            {
+                "unique_words": unique,
+                "total_words": total,
+                "ttr": round(ratio, 4),
+                "min_ratio": limit,
+            },
         )
 
     return Metric(spec, handler)
@@ -2812,9 +2843,7 @@ def html_valid_metric(metric_id: str = "html_valid") -> Metric:
             parser = TagValidator()
             parser.feed(text)
             passed = parser.valid and len(parser.tags) == 0
-            return _make_result(
-                spec, item, call, 1.0 if passed else 0.0, passed, {}
-            )
+            return _make_result(spec, item, call, 1.0 if passed else 0.0, passed, {})
         except Exception as exc:
             return _make_result(spec, item, call, 0.0, False, {"error": str(exc)})
 
@@ -2833,7 +2862,16 @@ def sql_valid_metric(metric_id: str = "sql_valid") -> Metric:
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         text = _as_text(call.output).strip().upper()
         # Basic SQL keyword check
-        sql_keywords = ["SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER", "WITH"]
+        sql_keywords = [
+            "SELECT",
+            "INSERT",
+            "UPDATE",
+            "DELETE",
+            "CREATE",
+            "DROP",
+            "ALTER",
+            "WITH",
+        ]
         has_keyword = any(text.startswith(kw) for kw in sql_keywords)
         # Check for basic structure
         has_structure = (
@@ -2848,7 +2886,12 @@ def sql_valid_metric(metric_id: str = "sql_valid") -> Metric:
         )
         passed = has_keyword and has_structure
         return _make_result(
-            spec, item, call, 1.0 if passed else 0.0, passed, {"has_sql_structure": passed}
+            spec,
+            item,
+            call,
+            1.0 if passed else 0.0,
+            passed,
+            {"has_sql_structure": passed},
         )
 
     return Metric(spec, handler)
@@ -2875,16 +2918,10 @@ def bullet_count_metric(
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         text = _as_text(call.output)
         count = len(re.findall(r"^[\s]*[-*+]\s+", text, re.MULTILINE))
-        min_v = item.metadata.get("min_count", min_count)
-        max_v = item.metadata.get("max_count", max_count)
-        passed = True
-        if min_v is not None and count < int(min_v):
-            passed = False
-        if max_v is not None and count > int(max_v):
-            passed = False
-        return _make_result(
-            spec, item, call, float(count), passed, {"count": count}
+        passed, _, _ = _check_min_max_bounds(
+            count, item, "min_count", "max_count", min_count, max_count
         )
+        return _make_result(spec, item, call, float(count), passed, {"count": count})
 
     return Metric(spec, handler)
 
@@ -2905,16 +2942,10 @@ def heading_count_metric(
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         text = _as_text(call.output)
         count = len(re.findall(r"^#{1,6}\s+", text, re.MULTILINE))
-        min_v = item.metadata.get("min_count", min_count)
-        max_v = item.metadata.get("max_count", max_count)
-        passed = True
-        if min_v is not None and count < int(min_v):
-            passed = False
-        if max_v is not None and count > int(max_v):
-            passed = False
-        return _make_result(
-            spec, item, call, float(count), passed, {"count": count}
+        passed, _, _ = _check_min_max_bounds(
+            count, item, "min_count", "max_count", min_count, max_count
         )
+        return _make_result(spec, item, call, float(count), passed, {"count": count})
 
     return Metric(spec, handler)
 
@@ -2935,16 +2966,10 @@ def code_block_count_metric(
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         text = _as_text(call.output)
         count = len(re.findall(r"```", text)) // 2
-        min_v = item.metadata.get("min_count", min_count)
-        max_v = item.metadata.get("max_count", max_count)
-        passed = True
-        if min_v is not None and count < int(min_v):
-            passed = False
-        if max_v is not None and count > int(max_v):
-            passed = False
-        return _make_result(
-            spec, item, call, float(count), passed, {"count": count}
+        passed, _, _ = _check_min_max_bounds(
+            count, item, "min_count", "max_count", min_count, max_count
         )
+        return _make_result(spec, item, call, float(count), passed, {"count": count})
 
     return Metric(spec, handler)
 
@@ -2966,9 +2991,7 @@ def table_count_metric(
         count = len(re.findall(r"^\|[-:| ]+\|$", text, re.MULTILINE))
         min_v = item.metadata.get("min_count", min_count)
         passed = True if min_v is None else count >= int(min_v)
-        return _make_result(
-            spec, item, call, float(count), passed, {"count": count}
-        )
+        return _make_result(spec, item, call, float(count), passed, {"count": count})
 
     return Metric(spec, handler)
 
@@ -2990,16 +3013,10 @@ def paragraph_count_metric(
         text = _as_text(call.output)
         paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
         count = len(paragraphs)
-        min_v = item.metadata.get("min_count", min_count)
-        max_v = item.metadata.get("max_count", max_count)
-        passed = True
-        if min_v is not None and count < int(min_v):
-            passed = False
-        if max_v is not None and count > int(max_v):
-            passed = False
-        return _make_result(
-            spec, item, call, float(count), passed, {"count": count}
+        passed, _, _ = _check_min_max_bounds(
+            count, item, "min_count", "max_count", min_count, max_count
         )
+        return _make_result(spec, item, call, float(count), passed, {"count": count})
 
     return Metric(spec, handler)
 
@@ -3021,16 +3038,10 @@ def word_count_metric(
         text = _as_text(call.output)
         words = _tokenize(text)
         count = len(words)
-        min_v = item.metadata.get("min_count", min_count)
-        max_v = item.metadata.get("max_count", max_count)
-        passed = True
-        if min_v is not None and count < int(min_v):
-            passed = False
-        if max_v is not None and count > int(max_v):
-            passed = False
-        return _make_result(
-            spec, item, call, float(count), passed, {"count": count}
+        passed, _, _ = _check_min_max_bounds(
+            count, item, "min_count", "max_count", min_count, max_count
         )
+        return _make_result(spec, item, call, float(count), passed, {"count": count})
 
     return Metric(spec, handler)
 
@@ -3090,7 +3101,7 @@ def duplicate_line_ratio_metric(
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         text = _as_text(call.output)
-        lines = [l.strip() for l in text.split("\n") if l.strip()]
+        lines = [line.strip() for line in text.split("\n") if line.strip()]
 
         if not lines:
             return _make_result(spec, item, call, 0.0, True, {"ratio": 0.0})
@@ -3125,10 +3136,22 @@ def hedging_count_metric(
         config={"max_count": max_count},
     )
     hedging_words = [
-        r"\bmaybe\b", r"\bperhaps\b", r"\bmight\b", r"\bcould\b", r"\bpossibly\b",
-        r"\bprobably\b", r"\bi think\b", r"\bi believe\b", r"\bit seems\b",
-        r"\bappears to\b", r"\bseems like\b", r"\bnot sure\b", r"\bunsure\b",
-        r"\buncertain\b", r"\blikely\b", r"\bunlikely\b",
+        r"\bmaybe\b",
+        r"\bperhaps\b",
+        r"\bmight\b",
+        r"\bcould\b",
+        r"\bpossibly\b",
+        r"\bprobably\b",
+        r"\bi think\b",
+        r"\bi believe\b",
+        r"\bit seems\b",
+        r"\bappears to\b",
+        r"\bseems like\b",
+        r"\bnot sure\b",
+        r"\bunsure\b",
+        r"\buncertain\b",
+        r"\blikely\b",
+        r"\bunlikely\b",
     ]
     pattern = re.compile("|".join(hedging_words), re.IGNORECASE)
 
@@ -3137,9 +3160,7 @@ def hedging_count_metric(
         count = len(pattern.findall(text))
         max_v = item.metadata.get("max_count", max_count)
         passed = True if max_v is None else count <= int(max_v)
-        return _make_result(
-            spec, item, call, float(count), passed, {"count": count}
-        )
+        return _make_result(spec, item, call, float(count), passed, {"count": count})
 
     return Metric(spec, handler)
 
@@ -3160,16 +3181,10 @@ def question_count_metric(
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         text = _as_text(call.output)
         count = text.count("?")
-        min_v = item.metadata.get("min_count", min_count)
-        max_v = item.metadata.get("max_count", max_count)
-        passed = True
-        if min_v is not None and count < int(min_v):
-            passed = False
-        if max_v is not None and count > int(max_v):
-            passed = False
-        return _make_result(
-            spec, item, call, float(count), passed, {"count": count}
+        passed, _, _ = _check_min_max_bounds(
+            count, item, "min_count", "max_count", min_count, max_count
         )
+        return _make_result(spec, item, call, float(count), passed, {"count": count})
 
     return Metric(spec, handler)
 
@@ -3183,18 +3198,23 @@ def confidence_markers_metric(metric_id: str = "confidence_markers") -> Metric:
         config={},
     )
     confidence_words = [
-        r"\bcertainly\b", r"\bdefinitely\b", r"\bclearly\b", r"\bobviously\b",
-        r"\bwithout doubt\b", r"\bundoubtedly\b", r"\babsolutely\b",
-        r"\bno question\b", r"\bfor sure\b", r"\bguaranteed\b",
+        r"\bcertainly\b",
+        r"\bdefinitely\b",
+        r"\bclearly\b",
+        r"\bobviously\b",
+        r"\bwithout doubt\b",
+        r"\bundoubtedly\b",
+        r"\babsolutely\b",
+        r"\bno question\b",
+        r"\bfor sure\b",
+        r"\bguaranteed\b",
     ]
     pattern = re.compile("|".join(confidence_words), re.IGNORECASE)
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         text = _as_text(call.output)
         count = len(pattern.findall(text))
-        return _make_result(
-            spec, item, call, float(count), None, {"count": count}
-        )
+        return _make_result(spec, item, call, float(count), None, {"count": count})
 
     return Metric(spec, handler)
 
@@ -3217,23 +3237,31 @@ def comment_ratio_metric(
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         text = _as_text(call.output)
-        # Extract code from markdown if present
-        code_match = re.search(r"```(?:\w+)?\n(.*?)```", text, re.DOTALL)
-        code = code_match.group(1) if code_match else text
+        code = _extract_code_from_markdown(text)
 
-        lines = [l.strip() for l in code.split("\n") if l.strip()]
+        lines = [line.strip() for line in code.split("\n") if line.strip()]
         if not lines:
             return _make_result(spec, item, call, 0.0, None, {"ratio": 0.0})
 
-        comment_lines = sum(1 for l in lines if l.startswith("#") or l.startswith("//"))
+        comment_lines = sum(
+            1 for line in lines if line.startswith("#") or line.startswith("//")
+        )
         ratio = comment_lines / len(lines)
 
         min_r = item.metadata.get("min_ratio", min_ratio)
         passed = True if min_r is None else ratio >= float(min_r)
 
         return _make_result(
-            spec, item, call, ratio, passed,
-            {"comment_lines": comment_lines, "total_lines": len(lines), "ratio": round(ratio, 4)},
+            spec,
+            item,
+            call,
+            ratio,
+            passed,
+            {
+                "comment_lines": comment_lines,
+                "total_lines": len(lines),
+                "ratio": round(ratio, 4),
+            },
         )
 
     return Metric(spec, handler)
@@ -3262,18 +3290,11 @@ def function_count_metric(
             r"\bconst\s+\w+\s*=\s*\([^)]*\)\s*=>",
         ]
         count = sum(len(re.findall(p, text)) for p in patterns)
-
-        min_v = item.metadata.get("min_count", min_count)
-        max_v = item.metadata.get("max_count", max_count)
-        passed = True
-        if min_v is not None and count < int(min_v):
-            passed = False
-        if max_v is not None and count > int(max_v):
-            passed = False
-
-        return _make_result(
-            spec, item, call, float(count), passed, {"count": count}
+        passed, _, _ = _check_min_max_bounds(
+            count, item, "min_count", "max_count", min_count, max_count
         )
+
+        return _make_result(spec, item, call, float(count), passed, {"count": count})
 
     return Metric(spec, handler)
 
@@ -3302,9 +3323,7 @@ def import_count_metric(
         max_v = item.metadata.get("max_count", max_count)
         passed = True if max_v is None else count <= int(max_v)
 
-        return _make_result(
-            spec, item, call, float(count), passed, {"count": count}
-        )
+        return _make_result(spec, item, call, float(count), passed, {"count": count})
 
     return Metric(spec, handler)
 
@@ -3336,9 +3355,7 @@ def ascii_ratio_metric(
         min_r = item.metadata.get("min_ratio", min_ratio)
         passed = True if min_r is None else ratio >= float(min_r)
 
-        return _make_result(
-            spec, item, call, ratio, passed, {"ratio": round(ratio, 4)}
-        )
+        return _make_result(spec, item, call, ratio, passed, {"ratio": round(ratio, 4)})
 
     return Metric(spec, handler)
 
@@ -3366,9 +3383,7 @@ def uppercase_ratio_metric(
         max_r = item.metadata.get("max_ratio", max_ratio)
         passed = True if max_r is None else ratio <= float(max_r)
 
-        return _make_result(
-            spec, item, call, ratio, passed, {"ratio": round(ratio, 4)}
-        )
+        return _make_result(spec, item, call, ratio, passed, {"ratio": round(ratio, 4)})
 
     return Metric(spec, handler)
 
@@ -3390,9 +3405,7 @@ def numeric_density_metric(metric_id: str = "numeric_density") -> Metric:
         digit_count = sum(1 for c in text if c.isdigit())
         ratio = digit_count / len(text)
 
-        return _make_result(
-            spec, item, call, ratio, None, {"ratio": round(ratio, 4)}
-        )
+        return _make_result(spec, item, call, ratio, None, {"ratio": round(ratio, 4)})
 
     return Metric(spec, handler)
 
@@ -3419,9 +3432,7 @@ def whitespace_ratio_metric(
         max_r = item.metadata.get("max_ratio", max_ratio)
         passed = True if max_r is None else ratio <= float(max_r)
 
-        return _make_result(
-            spec, item, call, ratio, passed, {"ratio": round(ratio, 4)}
-        )
+        return _make_result(spec, item, call, ratio, passed, {"ratio": round(ratio, 4)})
 
     return Metric(spec, handler)
 
@@ -3492,7 +3503,11 @@ def contains_all_metric(
         missing = [s for s in required if s.lower() not in text]
         passed = len(missing) == 0
         return _make_result(
-            spec, item, call, 1.0 if passed else 0.0, passed,
+            spec,
+            item,
+            call,
+            1.0 if passed else 0.0,
+            passed,
             {"required": required, "missing": missing},
         )
 
@@ -3516,7 +3531,11 @@ def contains_none_metric(
         found = [s for s in blocked if s.lower() in text]
         passed = len(found) == 0
         return _make_result(
-            spec, item, call, 1.0 if passed else 0.0, passed,
+            spec,
+            item,
+            call,
+            1.0 if passed else 0.0,
+            passed,
             {"forbidden": blocked, "found": found},
         )
 
@@ -3544,16 +3563,10 @@ def numbered_list_count_metric(
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         text = _as_text(call.output)
         count = len(re.findall(r"^\s*\d+[.)]\s+", text, re.MULTILINE))
-        min_v = item.metadata.get("min_count", min_count)
-        max_v = item.metadata.get("max_count", max_count)
-        passed = True
-        if min_v is not None and count < int(min_v):
-            passed = False
-        if max_v is not None and count > int(max_v):
-            passed = False
-        return _make_result(
-            spec, item, call, float(count), passed, {"count": count}
+        passed, _, _ = _check_min_max_bounds(
+            count, item, "min_count", "max_count", min_count, max_count
         )
+        return _make_result(spec, item, call, float(count), passed, {"count": count})
 
     return Metric(spec, handler)
 
@@ -3577,16 +3590,16 @@ def list_item_count_metric(
         numbered = len(re.findall(r"^\s*\d+[.)]\s+", text, re.MULTILINE))
         count = bullets + numbered
 
-        min_v = item.metadata.get("min_count", min_count)
-        max_v = item.metadata.get("max_count", max_count)
-        passed = True
-        if min_v is not None and count < int(min_v):
-            passed = False
-        if max_v is not None and count > int(max_v):
-            passed = False
+        passed, _, _ = _check_min_max_bounds(
+            count, item, "min_count", "max_count", min_count, max_count
+        )
 
         return _make_result(
-            spec, item, call, float(count), passed,
+            spec,
+            item,
+            call,
+            float(count),
+            passed,
             {"bullets": bullets, "numbered": numbered, "total": count},
         )
 
@@ -3611,16 +3624,16 @@ def emoji_count_metric(
     # Simplified emoji pattern
     emoji_pattern = re.compile(
         "["
-        "\U0001F600-\U0001F64F"  # emoticons
-        "\U0001F300-\U0001F5FF"  # symbols & pictographs
-        "\U0001F680-\U0001F6FF"  # transport & map
-        "\U0001F700-\U0001F77F"  # alchemical
-        "\U0001F780-\U0001F7FF"  # geometric
-        "\U0001F800-\U0001F8FF"  # supplemental arrows
-        "\U0001F900-\U0001F9FF"  # supplemental symbols
-        "\U0001FA00-\U0001FA6F"  # chess
-        "\U0001FA70-\U0001FAFF"  # symbols
-        "\U00002702-\U000027B0"  # dingbats
+        "\U0001f600-\U0001f64f"  # emoticons
+        "\U0001f300-\U0001f5ff"  # symbols & pictographs
+        "\U0001f680-\U0001f6ff"  # transport & map
+        "\U0001f700-\U0001f77f"  # alchemical
+        "\U0001f780-\U0001f7ff"  # geometric
+        "\U0001f800-\U0001f8ff"  # supplemental arrows
+        "\U0001f900-\U0001f9ff"  # supplemental symbols
+        "\U0001fa00-\U0001fa6f"  # chess
+        "\U0001fa70-\U0001faff"  # symbols
+        "\U00002702-\U000027b0"  # dingbats
         "]+",
         flags=re.UNICODE,
     )
@@ -3633,9 +3646,7 @@ def emoji_count_metric(
         max_v = item.metadata.get("max_count", max_count)
         passed = True if max_v is None else count <= int(max_v)
 
-        return _make_result(
-            spec, item, call, float(count), passed, {"count": count}
-        )
+        return _make_result(spec, item, call, float(count), passed, {"count": count})
 
     return Metric(spec, handler)
 
@@ -3663,14 +3674,14 @@ def link_density_metric(
         urls = re.findall(url_pattern, text)
         md_links = re.findall(md_link_pattern, text)
 
-        link_chars = sum(len(u) for u in urls) + sum(len(t) + len(u) for t, u in md_links)
+        link_chars = sum(len(u) for u in urls) + sum(
+            len(t) + len(u) for t, u in md_links
+        )
         ratio = link_chars / len(text)
 
         max_r = item.metadata.get("max_ratio", max_ratio)
         passed = True if max_r is None else ratio <= float(max_r)
 
-        return _make_result(
-            spec, item, call, ratio, passed, {"ratio": round(ratio, 4)}
-        )
+        return _make_result(spec, item, call, ratio, passed, {"ratio": round(ratio, 4)})
 
     return Metric(spec, handler)

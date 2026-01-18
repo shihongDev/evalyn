@@ -106,6 +106,27 @@ def _tpl_by_id(templates: List[dict]) -> Dict[str, dict]:
     return {t["id"]: t for t in templates}
 
 
+def _safe_float(value: Any, default: float) -> float:
+    """Convert value to float with fallback to default."""
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _normalize_rubric(rubric: Any) -> List[str]:
+    """Normalize rubric to a list of strings."""
+    if not rubric:
+        return []
+    if isinstance(rubric, str):
+        return [rubric]
+    if isinstance(rubric, list):
+        return rubric
+    return []
+
+
 _OBJECTIVE_TPL = _tpl_by_id(OBJECTIVE_REGISTRY)
 _SUBJECTIVE_TPL = _tpl_by_id(SUBJECTIVE_REGISTRY)
 
@@ -183,9 +204,7 @@ def build_objective_metric(
             max_chars=c.get("max_chars"),
         ),
         # Readability
-        "flesch_kincaid": lambda c: flesch_kincaid_metric(
-            max_grade=c.get("max_grade")
-        ),
+        "flesch_kincaid": lambda c: flesch_kincaid_metric(max_grade=c.get("max_grade")),
         "sentence_count": lambda c: sentence_count_metric(
             min_count=c.get("min_count"),
             max_count=c.get("max_count"),
@@ -353,12 +372,8 @@ def build_subjective_metric(
         tpl_description = ""
         tpl_prompt = ""
 
-    # Parse threshold
-    threshold = cfg.get("threshold", 0.7)
-    try:
-        threshold_f = float(threshold)
-    except Exception:
-        threshold_f = 0.7
+    # Parse threshold with fallback to default
+    threshold_f = _safe_float(cfg.get("threshold"), default=0.7)
 
     # Build prompt from config or template
     custom_prompt = cfg.get("prompt")
@@ -367,15 +382,10 @@ def build_subjective_metric(
     elif tpl_prompt:
         prompt = str(tpl_prompt).strip()
     else:
-        # Generate default prompt for custom metrics
         prompt = f"You are an expert evaluator for '{metric_id}'. Evaluate the agent's output."
 
-    # Add rubric if provided
-    rubric = cfg.get("rubric") or []
-    if isinstance(rubric, str):
-        rubric = [rubric]
-    if not isinstance(rubric, list):
-        rubric = []
+    # Normalize rubric to list
+    rubric = _normalize_rubric(cfg.get("rubric"))
 
     if rubric:
         rubric_lines = "\n".join(
