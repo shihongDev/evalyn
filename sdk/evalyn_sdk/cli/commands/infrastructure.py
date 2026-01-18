@@ -18,7 +18,7 @@ The one-click pipeline:
 Pipeline state:
 - Progress is saved to pipeline_state.json for resume capability
 - Use --resume to continue from where you left off
-- Each step outputs to numbered folders (1_dataset, 2_metrics, etc.)
+- Each step outputs to folders (dataset/, metrics/, etc.)
 
 Typical workflow:
 1. Initialize config: 'evalyn init'
@@ -92,13 +92,13 @@ def cmd_one_click(args: argparse.Namespace) -> None:
     """Run the complete evaluation pipeline from dataset building to calibrated evaluation.
 
     Pipeline steps:
-    [1/7] Build Dataset: Collect traces by project, save to 1_dataset/
-    [2/7] Suggest Metrics: Select metrics based on mode, save to 2_metrics/
-    [3/7] Run Initial Eval: Execute metrics, save to 3_initial_eval/
-    [4/7] Human Annotation: Interactive session, save to 4_annotations/ (optional)
-    [5/7] Calibrate Judges: Optimize prompts, save to 5_calibrations/ (optional)
-    [6/7] Calibrated Eval: Re-run with improved prompts, save to 6_calibrated_eval/
-    [7/7] Simulate: Generate synthetic data, save to 7_simulations/ (optional)
+    [1/7] Build Dataset: Collect traces by project, save to dataset/
+    [2/7] Suggest Metrics: Select metrics based on mode, save to metrics/
+    [3/7] Run Initial Eval: Execute metrics, save to initial_eval/
+    [4/7] Human Annotation: Interactive session, save to annotations/ (optional)
+    [5/7] Calibrate Judges: Optimize prompts, save to calibrations/ (optional)
+    [6/7] Calibrated Eval: Re-run with improved prompts, save to calibrated_eval/
+    [7/7] Simulate: Generate synthetic data, save to simulations/ (optional)
 
     State is persisted to pipeline_state.json for resume capability.
     """

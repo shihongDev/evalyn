@@ -103,7 +103,7 @@ class PipelineState:
 class PipelineStep(ABC):
     """Base class for pipeline steps."""
 
-    name: str  # Step folder name (e.g. "1_dataset")
+    name: str  # Step folder name (e.g. "dataset")
     display_name: str  # Human-readable name
     step_number: int  # 1-7
 
@@ -201,14 +201,14 @@ class PipelineOrchestrator:
             return
 
         # Restore dataset_path
-        if "1_dataset" in self.state.steps:
-            output = self.state.steps["1_dataset"].get("output")
+        if "dataset" in self.state.steps:
+            output = self.state.steps["dataset"].get("output")
             if output:
                 self.context["dataset_path"] = Path(output)
 
         # Restore metrics_path
-        if "2_metrics" in self.state.steps:
-            output = self.state.steps["2_metrics"].get("output")
+        if "metrics" in self.state.steps:
+            output = self.state.steps["metrics"].get("output")
             if output:
                 self.context["metrics_path"] = Path(output)
 
@@ -308,12 +308,12 @@ class PipelineOrchestrator:
         print("\nNext steps:")
         steps_info = self.state.steps
 
-        if "6_calibrated_eval" in steps_info:
-            if steps_info["6_calibrated_eval"].get("status") == "success":
-                output = steps_info["6_calibrated_eval"].get("output", "")
+        if "calibrated_eval" in steps_info:
+            if steps_info["calibrated_eval"].get("status") == "success":
+                output = steps_info["calibrated_eval"].get("output", "")
                 print(f"  1. Review results: cat {output}")
-        elif "3_initial_eval" in steps_info:
-            output = steps_info["3_initial_eval"].get("output", "")
+        elif "initial_eval" in steps_info:
+            output = steps_info["initial_eval"].get("output", "")
             print(f"  1. Review results: cat {output}")
 
         summary_path = self.output_dir / "pipeline_summary.json"

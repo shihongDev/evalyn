@@ -76,7 +76,7 @@ def _build_metrics_from_specs(
 class BuildDatasetStep(PipelineStep):
     """Step 1: Build dataset from traces."""
 
-    name = "1_dataset"
+    name = "dataset"
     display_name = "Building Dataset"
     step_number = 1
 
@@ -151,7 +151,7 @@ class BuildDatasetStep(PipelineStep):
 class SuggestMetricsStep(PipelineStep):
     """Step 2: Suggest metrics based on mode."""
 
-    name = "2_metrics"
+    name = "metrics"
     display_name = "Suggesting Metrics"
     step_number = 2
 
@@ -325,7 +325,7 @@ class SuggestMetricsStep(PipelineStep):
 class InitialEvalStep(PipelineStep):
     """Step 3: Run initial evaluation."""
 
-    name = "3_initial_eval"
+    name = "initial_eval"
     display_name = "Running Initial Evaluation"
     step_number = 3
 
@@ -398,7 +398,7 @@ class InitialEvalStep(PipelineStep):
 class AnnotationStep(PipelineStep):
     """Step 4: Human annotation (optional)."""
 
-    name = "4_annotation"
+    name = "annotation"
     display_name = "Human Annotation"
     step_number = 4
 
@@ -412,10 +412,10 @@ class AnnotationStep(PipelineStep):
     ) -> Tuple[StepResult, Dict[str, Any]]:
         from ..commands.annotation import cmd_annotate
 
-        ann_dir = output_dir / "4_annotations"
+        ann_dir = output_dir / "annotations"
         ann_dir.mkdir(exist_ok=True)
         ann_path = ann_dir / "annotations.jsonl"
-        dataset_dir = context.get("dataset_dir", output_dir / "1_dataset")
+        dataset_dir = context.get("dataset_dir", output_dir / "dataset")
 
         limit = getattr(self.args, "annotation_limit", 20)
         per_metric = getattr(self.args, "per_metric", False)
@@ -470,7 +470,7 @@ class AnnotationStep(PipelineStep):
 class CalibrationStep(PipelineStep):
     """Step 5: Calibrate LLM judges (optional)."""
 
-    name = "5_calibration"
+    name = "calibration"
     display_name = "Calibrating LLM Judges"
     step_number = 5
 
@@ -484,16 +484,16 @@ class CalibrationStep(PipelineStep):
     ) -> Tuple[StepResult, Dict[str, Any]]:
         from ..commands.calibration import cmd_calibrate
 
-        ann_path = output_dir / "4_annotations" / "annotations.jsonl"
+        ann_path = output_dir / "annotations" / "annotations.jsonl"
         if not ann_path.exists():
             print("  SKIPPED (requires annotations)\n")
             return StepResult(
                 status="skipped", details={"reason": "no annotations"}
             ), {}
 
-        cal_dir = output_dir / "5_calibrations"
+        cal_dir = output_dir / "calibrations"
         cal_dir.mkdir(exist_ok=True)
-        dataset_dir = context.get("dataset_dir", output_dir / "1_dataset")
+        dataset_dir = context.get("dataset_dir", output_dir / "dataset")
         metric_specs = context.get("metric_specs", [])
 
         # Get subjective metrics
@@ -551,7 +551,7 @@ class CalibrationStep(PipelineStep):
 class CalibratedEvalStep(PipelineStep):
     """Step 6: Re-evaluate with calibrated prompts."""
 
-    name = "6_calibrated_eval"
+    name = "calibrated_eval"
     display_name = "Re-evaluating with Calibrated Prompts"
     step_number = 6
 
@@ -564,7 +564,7 @@ class CalibratedEvalStep(PipelineStep):
         from ...datasets import load_dataset
         from ...runner import EvalRunner
 
-        cal_dir = output_dir / "5_calibrations"
+        cal_dir = output_dir / "calibrations"
         if not cal_dir.exists():
             print("  SKIPPED (no calibrations)\n")
             return StepResult(
@@ -576,7 +576,7 @@ class CalibratedEvalStep(PipelineStep):
 
         metrics_path = context.get("metrics_path")
         dataset_path = context.get("dataset_path")
-        dataset_dir = context.get("dataset_dir", output_dir / "1_dataset")
+        dataset_dir = context.get("dataset_dir", output_dir / "dataset")
         target_fn = context.get("target_fn")
 
         if not metrics_path or not dataset_path:
@@ -642,7 +642,7 @@ class CalibratedEvalStep(PipelineStep):
 class SimulationStep(PipelineStep):
     """Step 7: Generate simulations (optional)."""
 
-    name = "7_simulation"
+    name = "simulation"
     display_name = "Generating Simulations"
     step_number = 7
 
@@ -658,9 +658,9 @@ class SimulationStep(PipelineStep):
     ) -> Tuple[StepResult, Dict[str, Any]]:
         from ..commands.simulate import cmd_simulate
 
-        sim_dir = output_dir / "7_simulations"
+        sim_dir = output_dir / "simulations"
         sim_dir.mkdir(exist_ok=True)
-        dataset_dir = context.get("dataset_dir", output_dir / "1_dataset")
+        dataset_dir = context.get("dataset_dir", output_dir / "dataset")
 
         sim_args = argparse.Namespace(
             dataset=str(dataset_dir),
