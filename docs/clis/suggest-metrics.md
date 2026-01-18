@@ -61,11 +61,34 @@ Each metric includes a custom rubric used by the LLM judge at eval time.
 
 ## Bundles
 
+17 curated bundles for common GenAI use cases:
+
 | Bundle | Description |
 |--------|-------------|
-| `summarization` | ROUGE, BLEU, length, coherence |
-| `orchestrator` | Tool usage, latency, error handling |
-| `research-agent` | Accuracy, citations, completeness |
+| **Conversational AI** | |
+| `chatbot` | Safety, helpfulness, multi-turn memory |
+| `customer-support` | Empathy, patience, escalation handling |
+| **Content Generation** | |
+| `content-writer` | Style, engagement, readability |
+| `summarization` | Compression, reference overlap, grounding |
+| `creative-writer` | Originality, engagement, vocabulary diversity |
+| **Knowledge & Research** | |
+| `rag-qa` | Grounding, citations, factual accuracy |
+| `research-agent` | Citations, grounding, tool use |
+| `tutor` | Pedagogical clarity, examples, patience |
+| **Code & Technical** | |
+| `code-assistant` | Syntax validity, complexity, technical accuracy |
+| `data-extraction` | JSON validity, schema compliance |
+| **Agents & Orchestration** | |
+| `orchestrator` | Tool success, planning, error handling |
+| `multi-step-agent` | Planning, context retention, memory |
+| **High-Stakes Domains** | |
+| `medical-advisor` | Medical accuracy, safety, ethics |
+| `legal-assistant` | Legal compliance, citations, accuracy |
+| `financial-advisor` | Financial prudence, safety, ethics |
+| **Safety & Translation** | |
+| `moderator` | Toxicity, bias, PII, manipulation |
+| `translator` | BLEU, Levenshtein, cultural sensitivity |
 
 ## Examples
 

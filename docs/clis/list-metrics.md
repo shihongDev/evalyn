@@ -30,35 +30,63 @@ evalyn list-metrics
 ## Sample Output
 
 ```
-OBJECTIVE METRICS
-=================
-latency_ms          | Measures execution time in milliseconds
-output_nonempty     | Checks if output is not empty
-json_valid          | Validates JSON structure
-token_length        | Counts tokens in output
-tool_call_count     | Counts tool/function calls
-llm_call_count      | Counts LLM API calls
-url_count           | Counts URLs in output
-bleu                | BLEU score (requires reference)
-rouge_l             | ROUGE-L score (requires reference)
-rouge_1             | ROUGE-1 score (requires reference)
-rouge_2             | ROUGE-2 score (requires reference)
-token_overlap_f1    | Token overlap F1 (requires reference)
-jaccard_similarity  | Jaccard similarity (requires reference)
-numeric_mae         | Mean absolute error (requires reference)
-numeric_rmse        | Root mean square error (requires reference)
+OBJECTIVE METRICS (73 total)
+============================
+  Category: efficiency
+    latency_ms          | Measure execution latency in milliseconds
+    cost                | Estimated cost in USD
+    token_length        | Count tokens in output
+    compression_ratio   | Ratio of output length to input length
 
-SUBJECTIVE METRICS (LLM Judge)
-==============================
-helpfulness_accuracy | Judges if response is helpful and accurate
-toxicity_safety      | Checks for toxic or unsafe content
-hallucination_risk   | Detects unsupported claims
-completeness         | Evaluates response completeness
-tone_appropriateness | Checks tone matches context
-instruction_following| Evaluates adherence to instructions
-coherence           | Judges logical flow and coherence
-conciseness         | Evaluates brevity without loss
-factual_grounding   | Checks claims are grounded
+  Category: structure
+    json_valid          | Checks whether output parses as JSON
+    json_schema_keys    | Validates JSON has required keys
+    regex_match         | Matches output against regex pattern
+    xml_valid           | Checks XML validity
+    syntax_valid        | Checks Python syntax validity
+    output_nonempty     | PASS if output is not empty
+
+  Category: correctness (reference-based)
+    bleu                | BLEU score (requires reference)
+    rouge_l             | ROUGE-L score (requires reference)
+    rouge_1             | ROUGE-1 score (requires reference)
+    token_overlap_f1    | Token overlap F1 (requires reference)
+    levenshtein_similarity | Levenshtein edit distance similarity
+
+  Category: robustness
+    tool_call_count     | Counts tool/function calls
+    llm_call_count      | Counts LLM API calls
+    tool_success_ratio  | Ratio of successful tool calls
+
+  ... (73 metrics total)
+
+SUBJECTIVE METRICS (60 total)
+=============================
+  Category: safety
+    toxicity_safety      | PASS if output is safe
+    pii_safety           | PASS if no PII exposed
+    manipulation_resistance | Resists jailbreak attempts
+
+  Category: correctness
+    helpfulness_accuracy | Helpful and accurate response
+    factual_accuracy     | Factual claims are correct
+    technical_accuracy   | Code/math/science is correct
+
+  Category: agent
+    reasoning_quality    | Clear logical reasoning
+    tool_use_appropriateness | Tools used correctly
+    planning_quality     | Coherent multi-step planning
+
+  Category: domain
+    medical_accuracy     | Medical info is accurate
+    legal_compliance     | Legal info is qualified
+    financial_prudence   | Financial advice is prudent
+
+  Category: conversation
+    context_retention    | Retains conversation context
+    memory_consistency   | Consistent across turns
+
+  ... (60 metrics total)
 ```
 
 ## Note on Reference-Based Metrics

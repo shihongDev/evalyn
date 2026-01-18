@@ -143,44 +143,43 @@ Output:   data/my-agent-v1-20250115_143022-oneclick
 ----------------------------------------------------------------------
 
 [1/7] Building Dataset
-  ✓ Found 156 items
-  ✓ Saved to: data/my-agent-v1-20250115_143022-oneclick/1_dataset/dataset.jsonl
+  Found 156 items
+  Saved to: data/my-agent-v1-20250115_143022-oneclick/dataset/dataset.jsonl
 
 [2/7] Suggesting Metrics
-  ✓ Selected 5 metrics (2 objective, 3 subjective)
+  Selected 5 metrics (2 objective, 3 subjective)
     - latency_ms (objective)
     - output_nonempty (objective)
     - helpfulness_accuracy (subjective)
     - hallucination_risk (subjective)
     - completeness (subjective)
-  ✓ Saved to: data/.../2_metrics/metrics.json
+  Saved to: data/.../metrics/metrics.json
 
 [3/7] Running Initial Evaluation
-  ✓ Evaluated 156 items
+  Evaluated 156 items
   RESULTS:
     latency_ms: avg=1234.5ms
     helpfulness_accuracy: pass_rate=0.92
     hallucination_risk: pass_rate=0.88
-  ✓ Saved to: data/.../3_initial_eval/run_20250115_abc123.json
+  Saved to: data/.../initial_eval/run_20250115_abc123.json
 
 [4/7] Human Annotation
   ... (interactive session) ...
-  ✓ Annotated 20 items
+  Completed 20 annotations
 
-[5/7] Calibrating Judges
-  ✓ Calibrated helpfulness_accuracy
+[5/7] Calibrating LLM Judges
+  [helpfulness_accuracy]
     Accuracy: 90.0%, F1: 0.89
-  ✓ Saved to: data/.../5_calibration/
+  Successfully calibrated: helpfulness_accuracy
 
 [6/7] Re-evaluating with Calibrated Prompts
-  ✓ Used 1 calibrated prompts
-  ✓ Evaluated 156 items
+  Used 1 calibrated prompts
+  Evaluated 156 items
   RESULTS:
-    helpfulness_accuracy: pass_rate=0.94 (was 0.92)
-  ✓ Saved to: data/.../6_calibrated_eval/run_20250115_def456.json
+    helpfulness_accuracy: pass_rate=0.94
 
 [7/7] Generating Simulations
-  ⏭️  SKIPPED (use --enable-simulation to enable)
+  SKIPPED (use --enable-simulation to enable)
 
 ======================================================================
                          PIPELINE COMPLETE
@@ -189,36 +188,37 @@ Output:   data/my-agent-v1-20250115_143022-oneclick
 Output directory: data/my-agent-v1-20250115_143022-oneclick
 
 Summary:
-  ✓ 1_dataset: success
-  ✓ 2_metrics: success
-  ✓ 3_initial_eval: success
-  ✓ 4_annotation: success
-  ✓ 5_calibration: success
-  ✓ 6_calibrated_eval: success
-  ⏭️ 7_simulation: skipped
+  [OK] dataset: success
+  [OK] metrics: success
+  [OK] initial_eval: success
+  [OK] annotation: success
+  [OK] calibration: success
+  [OK] calibrated_eval: success
+  [SKIP] simulation: skipped
 ```
 
 ## Output Structure
 
 ```
 data/my-agent-v1-20250115_143022-oneclick/
-  pipeline_summary.json        # Full pipeline state
-  1_dataset/
+  pipeline_state.json          # Pipeline state (for resume)
+  pipeline_summary.json        # Final summary
+  dataset/
     dataset.jsonl
     meta.json
-  2_metrics/
+  metrics/
     metrics.json
-  3_initial_eval/
+  initial_eval/
     run_20250115_abc123.json
-  4_annotation/
+  annotations/
     annotations.jsonl
-  5_calibration/
+  calibrations/
     helpfulness_accuracy/
       calibration.json
       prompts/
-  6_calibrated_eval/
+  calibrated_eval/
     run_20250115_def456.json
-  7_simulations/               # (if enabled)
+  simulations/                 # (if enabled)
     sim-similar-20250115/
     sim-outlier-20250115/
 ```

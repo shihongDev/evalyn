@@ -10,9 +10,12 @@ Internal technical reference for Evalyn SDK architecture, design decisions, and 
 4. [Metrics System](#metrics-system)
 5. [Calibration Pipeline](#calibration-pipeline)
 6. [Data Models](#data-models)
-7. [Analysis & Visualization](#analysis--visualization)
-8. [Environment Variables](#environment-variables)
-9. [CLI Conveniences](#cli-conveniences)
+7. [Execution Strategies](#execution-strategies)
+8. [Pipeline Orchestration](#pipeline-orchestration)
+9. [Analysis & Visualization](#analysis--visualization)
+10. [File Structure](#file-structure)
+11. [Environment Variables](#environment-variables)
+12. [CLI Conveniences](#cli-conveniences)
 
 ---
 
@@ -187,13 +190,14 @@ All complex fields stored as JSON blobs for flexibility. No migrations needed.
 ### Default Location
 
 ```
-./evalyn.sqlite  # Project root
+data/prod/traces.sqlite   # Production traces
+data/test/traces.sqlite   # Test traces (when EVALYN_ENV=test)
 ```
 
 Override with:
 ```python
 from evalyn_sdk import configure
-configure(storage_path="/custom/path/evalyn.sqlite")
+configure(storage_path="/custom/path/traces.sqlite")
 ```
 
 ---
@@ -218,7 +222,8 @@ configure(storage_path="/custom/path/evalyn.sqlite")
 │   - latency_ms          │     │   - helpfulness         │
 │   - token_count         │     │   - toxicity            │
 │   - json_valid          │     │   - hallucination       │
-│   - bleu, rouge         │     │   - coherence           │
+│   - bleu, rouge, etc.   │     │   - coherence, etc.     │
+│   (73 metrics total)    │     │   (60 metrics total)    │
 └─────────────────────────┘     └─────────────────────────┘
 ```
 
@@ -234,9 +239,29 @@ configure(storage_path="/custom/path/evalyn.sqlite")
 | Mode | Description | Output |
 |------|-------------|--------|
 | `basic` | Heuristic based on function signature | Objective + Subjective |
-| `llm-registry` | LLM selects from 50+ templates | Objective + Subjective |
+| `llm-registry` | LLM selects from 130+ templates | Objective + Subjective |
 | `llm-brainstorm` | LLM generates custom metrics | **Subjective only** |
-| `bundle` | Pre-configured sets | Objective + Subjective |
+| `bundle` | Pre-configured sets (17 bundles) | Objective + Subjective |
+
+### Metric Bundles
+
+17 curated bundles for common GenAI use cases:
+
+| Category | Bundles |
+|----------|---------|
+| **Conversational AI** | `chatbot`, `customer-support` |
+| **Content Generation** | `content-writer`, `summarization`, `creative-writer` |
+| **Knowledge & Research** | `rag-qa`, `research-agent`, `tutor` |
+| **Code & Technical** | `code-assistant`, `data-extraction` |
+| **Agents & Orchestration** | `orchestrator`, `multi-step-agent` |
+| **High-Stakes Domains** | `medical-advisor`, `legal-assistant`, `financial-advisor` |
+| **Safety & Translation** | `moderator`, `translator` |
+
+Bundle design principles:
+1. Start with safety metrics for user-facing applications
+2. Include efficiency metrics (latency) for production monitoring
+3. Add domain-specific quality metrics based on use case
+4. Keep bundles focused (8-12 metrics) to balance coverage and evaluation cost
 
 ### Why Brainstorm is Subjective-Only
 
@@ -388,6 +413,117 @@ class MetricLabel:
 
 ---
 
+## Execution Strategies
+
+### Overview
+
+The evaluation runner uses a Strategy pattern to support different execution modes. Strategies are pluggable and handle how metric evaluation is parallelized and checkpointed.
+
+### Available Strategies
+
+| Strategy | Description | Use Case |
+|----------|-------------|----------|
+| `SequentialStrategy` | Simple for-loop with per-item checkpointing | Debugging, small datasets |
+| `ParallelStrategy` | ThreadPoolExecutor with batch checkpointing | Production, large datasets |
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      EvalRunner                              │
+│  - Prepares (item, call) tuples                             │
+│  - Delegates execution to strategy                          │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  ExecutionStrategy (ABC)                     │
+│  - execute(prepared, metrics, progress_cb, run_id, done)    │
+│  - Handles checkpointing via checkpoint_fn                  │
+└─────────────────────────────────────────────────────────────┘
+              │                               │
+              ▼                               ▼
+┌─────────────────────────┐   ┌─────────────────────────────┐
+│   SequentialStrategy    │   │      ParallelStrategy       │
+│   - For-loop            │   │   - ThreadPoolExecutor      │
+│   - Per-item checkpoint │   │   - Batch checkpoint        │
+└─────────────────────────┘   └─────────────────────────────┘
+```
+
+### Checkpointing
+
+Both strategies support automatic checkpointing for resume capability:
+
+- **Sequential**: Checkpoints after every N items (configurable)
+- **Parallel**: Checkpoints after each batch completes
+
+Checkpoint data includes: completed item IDs, partial results, run metadata.
+
+---
+
+## Pipeline Orchestration
+
+### Overview
+
+The `one-click` command uses a pipeline orchestrator to coordinate multi-step evaluation workflows. The pipeline supports resume, state persistence, and step-level error handling.
+
+### Pipeline Steps
+
+| Step | Description |
+|------|-------------|
+| `create-dataset` | Initialize dataset from traces or existing data |
+| `suggest-metrics` | Generate metrics using selected mode (basic, llm, bundle) |
+| `review-metrics` | Interactive metric review and editing |
+| `run-eval` | Execute evaluation with selected metrics |
+| `analyze` | Generate analysis and visualizations |
+| `annotate` | Human annotation interface (optional) |
+| `calibrate` | Prompt optimization from annotations (optional) |
+
+### State Management
+
+Pipeline state is persisted to `{output_dir}/pipeline_state.json`:
+
+```python
+@dataclass
+class PipelineState:
+    started_at: str
+    config: Dict[str, Any]      # Original CLI args
+    steps: Dict[str, Dict]      # Per-step status and outputs
+    output_dir: str
+    updated_at: Optional[str]
+    completed_at: Optional[str]
+```
+
+### Resume Capability
+
+```bash
+# Initial run (interrupted)
+evalyn one-click --dataset data/myapp
+
+# Resume from last successful step
+evalyn one-click --dataset data/myapp --resume
+```
+
+The orchestrator:
+1. Loads existing state from `pipeline_state.json`
+2. Skips completed steps
+3. Resumes from the first incomplete/failed step
+
+### Step Results
+
+Each step returns a `StepResult`:
+
+```python
+@dataclass
+class StepResult:
+    status: str      # "success", "skipped", "failed", "interrupted"
+    output: Optional[str]
+    details: Dict[str, Any]
+    error: Optional[str]
+```
+
+---
+
 ## Analysis & Visualization
 
 ### Overview
@@ -486,8 +622,8 @@ evalyn/
 │       ├── decorators.py        # @eval, @trace
 │       ├── models.py            # Dataclasses
 │       ├── datasets.py          # Dataset I/O
-│       ├── runner.py            # EvalRunner
-│       ├── cli_impl.py          # CLI command implementations
+│       ├── runner.py            # EvalRunner (uses ExecutionStrategy)
+│       ├── execution.py         # Execution strategies (Sequential/Parallel)
 │       ├── analysis/            # Analysis & visualization module
 │       │   ├── core.py          # RunAnalysis, MetricStats classes
 │       │   ├── reports.py       # Text/ASCII reports
@@ -513,8 +649,8 @@ evalyn/
 │       │   ├── base.py          # StorageBackend interface
 │       │   └── sqlite.py        # SQLiteStorage
 │       ├── metrics/
-│       │   ├── objective.py     # 30 objective metric templates + handlers
-│       │   ├── subjective.py    # 22 subjective metric definitions
+│       │   ├── objective.py     # 73 objective metric templates + handlers
+│       │   ├── subjective.py    # 60 subjective metric definitions
 │       │   ├── judges.py        # LLM judge implementations
 │       │   ├── factory.py       # Metric builders
 │       │   └── suggester.py     # Metric suggestion logic
@@ -528,7 +664,29 @@ evalyn/
 │       ├── cli/
 │       │   ├── main.py          # CLI entry point
 │       │   ├── commands/        # CLI command modules
+│       │   │   ├── analysis.py
+│       │   │   ├── annotation.py
+│       │   │   ├── calibration.py
+│       │   │   ├── dataset.py
+│       │   │   ├── evaluation.py
+│       │   │   ├── export.py
+│       │   │   ├── infrastructure.py  # one-click command
+│       │   │   ├── runs.py
+│       │   │   ├── simulate.py
+│       │   │   └── traces.py
 │       │   └── utils/           # CLI utilities
+│       │       ├── config.py         # Config file handling
+│       │       ├── dataset_resolver.py # Dataset path resolution
+│       │       ├── dataset_utils.py  # Dataset loading helpers
+│       │       ├── errors.py         # CLI error handling
+│       │       ├── formatters.py     # Output formatters
+│       │       ├── hints.py          # Post-command hints
+│       │       ├── input_helpers.py  # User input helpers
+│       │       ├── loaders.py        # File loaders
+│       │       ├── pipeline.py       # Pipeline orchestration
+│       │       ├── pipeline_steps.py # Pipeline step implementations
+│       │       ├── ui.py             # UI helpers
+│       │       └── validation.py     # Input validation
 │       └── utils/
 │           └── api_client.py    # API client utilities
 ├── docs/
@@ -597,4 +755,4 @@ export EVALYN_NO_HINTS=1
 
 ---
 
-*Last updated: 2026-01-16*
+*Last updated: 2026-01-18*
