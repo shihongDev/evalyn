@@ -21,7 +21,7 @@ DEFAULT_CONFIG_PATHS = [".evalynrc", "evalyn.yaml", "evalyn.yml", ".evalyn.yaml"
 # 1. Start with safety metrics for all user-facing applications
 # 2. Include efficiency metrics (latency) for production monitoring
 # 3. Add domain-specific quality metrics based on use case
-# 4. Keep bundles focused (6-10 metrics) to avoid evaluation fatigue
+# 4. Keep bundles focused (8-12 metrics) to balance coverage and evaluation cost
 #
 # =============================================================================
 
@@ -37,6 +37,9 @@ BUNDLES: Dict[str, List[str]] = {
         "helpfulness_accuracy",
         "tone_alignment",
         "coherence_clarity",
+        # Multi-turn conversation
+        "context_retention",
+        "memory_consistency",
         # Efficiency
         "latency_ms",
         "output_nonempty",
@@ -50,6 +53,10 @@ BUNDLES: Dict[str, List[str]] = {
         "tone_alignment",
         "completeness",
         "relevance",
+        # UX - critical for support
+        "empathy",
+        "patience",
+        "escalation_appropriateness",
         # Efficiency
         "latency_ms",
     ],
@@ -63,11 +70,13 @@ BUNDLES: Dict[str, List[str]] = {
         "tone_alignment",
         "instruction_following",
         "completeness",
+        "engagement",
+        # Readability
+        "flesch_kincaid",
         # Safety
         "toxicity_safety",
         # Structure
         "output_nonempty",
-        "output_length_range",
     ],
     "summarization": [
         # Reference-based (needs human_label.reference)
@@ -78,17 +87,24 @@ BUNDLES: Dict[str, List[str]] = {
         "coherence_clarity",
         "conciseness",
         "completeness",
+        # Compression
+        "compression_ratio",
         # Safety
         "hallucination_risk",
         # Efficiency
         "latency_ms",
     ],
     "creative-writer": [
+        # Creativity - key for this use case
+        "originality",
+        "engagement",
         # Quality
         "coherence_clarity",
         "completeness",
         "tone_alignment",
         "instruction_following",
+        # Diversity
+        "vocabulary_richness",
         # Safety
         "toxicity_safety",
         "cultural_sensitivity",
@@ -103,6 +119,7 @@ BUNDLES: Dict[str, List[str]] = {
         "hallucination_risk",
         "source_attribution",
         "url_count",
+        "citation_count",
         # Quality
         "factual_accuracy",
         "relevance",
@@ -115,6 +132,7 @@ BUNDLES: Dict[str, List[str]] = {
         "hallucination_risk",
         "source_attribution",
         "url_count",
+        "citation_count",
         # Quality
         "factual_accuracy",
         "helpfulness_accuracy",
@@ -125,12 +143,17 @@ BUNDLES: Dict[str, List[str]] = {
         "latency_ms",
     ],
     "tutor": [
+        # Explanation quality - key for education
+        "pedagogical_clarity",
+        "example_appropriateness",
         # Quality
         "helpfulness_accuracy",
         "factual_accuracy",
         "coherence_clarity",
         "reasoning_quality",
         "completeness",
+        # UX
+        "patience",
         # Safety
         "toxicity_safety",
         # Efficiency
@@ -140,13 +163,16 @@ BUNDLES: Dict[str, List[str]] = {
     # CODE & TECHNICAL
     # -------------------------------------------------------------------------
     "code-assistant": [
-        # Correctness
+        # Code correctness
         "technical_accuracy",
-        "instruction_following",
+        "syntax_valid",
         # Quality
+        "instruction_following",
         "reasoning_quality",
         "helpfulness_accuracy",
         "completeness",
+        # Code quality
+        "code_complexity",
         # Structure (for JSON/structured output)
         "json_valid",
         # Efficiency
@@ -157,6 +183,7 @@ BUNDLES: Dict[str, List[str]] = {
         "json_valid",
         "json_schema_keys",
         "json_path_present",
+        "json_types_match",
         # Quality
         "instruction_following",
         "completeness",
@@ -189,6 +216,9 @@ BUNDLES: Dict[str, List[str]] = {
         "tool_use_appropriateness",
         "error_recovery",
         "context_utilization",
+        # Multi-turn consistency
+        "context_retention",
+        "memory_consistency",
         # Quality
         "completeness",
         "hallucination_risk",
@@ -199,6 +229,8 @@ BUNDLES: Dict[str, List[str]] = {
     # HIGH-STAKES DOMAINS
     # -------------------------------------------------------------------------
     "medical-advisor": [
+        # Domain-specific accuracy - critical
+        "medical_accuracy",
         # Safety (critical)
         "toxicity_safety",
         "pii_safety",
@@ -212,11 +244,14 @@ BUNDLES: Dict[str, List[str]] = {
         "coherence_clarity",
     ],
     "legal-assistant": [
+        # Domain-specific accuracy - critical
+        "legal_compliance",
         # Accuracy (critical)
         "factual_accuracy",
         "technical_accuracy",
         "hallucination_risk",
         "source_attribution",
+        "citation_count",
         # Quality
         "completeness",
         "relevance",
@@ -226,6 +261,8 @@ BUNDLES: Dict[str, List[str]] = {
         "latency_ms",
     ],
     "financial-advisor": [
+        # Domain-specific accuracy - critical
+        "financial_prudence",
         # Safety (critical)
         "pii_safety",
         "ethical_reasoning",
@@ -262,6 +299,7 @@ BUNDLES: Dict[str, List[str]] = {
         "bleu",
         "rouge_l",
         "token_overlap_f1",
+        "levenshtein_similarity",
         # Quality
         "completeness",
         "cultural_sensitivity",
@@ -274,23 +312,23 @@ BUNDLES: Dict[str, List[str]] = {
 
 # Bundle descriptions for CLI help
 BUNDLE_DESCRIPTIONS: Dict[str, str] = {
-    "chatbot": "General conversational AI - safety, helpfulness, tone",
-    "customer-support": "Support ticket handling - safety, helpfulness, completeness",
-    "content-writer": "Marketing copy, blog posts - style, clarity, instructions",
-    "summarization": "Text summarization - reference overlap, conciseness, grounding",
-    "creative-writer": "Storytelling, brainstorming - coherence, tone, creativity",
-    "rag-qa": "RAG/Question answering - grounding, accuracy, citations",
-    "research-agent": "Research tasks - citations, grounding, tool use",
-    "tutor": "Educational explanations - clarity, accuracy, reasoning",
-    "code-assistant": "Code generation/review - correctness, reasoning, structure",
-    "data-extraction": "Structured output from text - JSON validity, schema compliance",
+    "chatbot": "Conversational AI - safety, helpfulness, multi-turn memory",
+    "customer-support": "Support tickets - empathy, patience, escalation handling",
+    "content-writer": "Marketing/blogs - style, engagement, readability",
+    "summarization": "Text summarization - compression, reference overlap, grounding",
+    "creative-writer": "Storytelling - originality, engagement, vocabulary diversity",
+    "rag-qa": "RAG/QA - grounding, citations, factual accuracy",
+    "research-agent": "Research - citations, grounding, tool use",
+    "tutor": "Education - pedagogical clarity, examples, patience",
+    "code-assistant": "Coding - syntax validity, complexity, technical accuracy",
+    "data-extraction": "Structured output - JSON validity, schema compliance",
     "orchestrator": "Tool orchestration - tool success, planning, error handling",
-    "multi-step-agent": "Complex multi-step tasks - planning, reasoning, context",
-    "medical-advisor": "Healthcare (high-stakes) - safety, accuracy, ethics",
-    "legal-assistant": "Legal research (high-stakes) - accuracy, citations, completeness",
-    "financial-advisor": "Financial advice (high-stakes) - safety, accuracy, ethics",
+    "multi-step-agent": "Multi-step tasks - planning, context retention, memory",
+    "medical-advisor": "Healthcare - medical accuracy, safety, ethics",
+    "legal-assistant": "Legal - legal compliance, citations, accuracy",
+    "financial-advisor": "Finance - financial prudence, safety, ethics",
     "moderator": "Content moderation - toxicity, bias, PII, manipulation",
-    "translator": "Language translation - BLEU, completeness, cultural sensitivity",
+    "translator": "Translation - BLEU, Levenshtein, cultural sensitivity",
 }
 
 __all__ = ["DEFAULT_CONFIG_PATHS", "BUNDLES", "BUNDLE_DESCRIPTIONS"]
