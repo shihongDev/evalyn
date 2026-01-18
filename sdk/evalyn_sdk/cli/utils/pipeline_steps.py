@@ -273,9 +273,36 @@ class SuggestMetricsStep(PipelineStep):
             suggester = LLMSuggester(model=model, llm_mode=llm_mode)
             return suggester.suggest(target_fn, calls)
         else:  # bundle
-            from ...metrics.bundles import get_bundle_metrics
+            return self._get_bundle_metrics(bundle) if bundle else []
 
-            return get_bundle_metrics(bundle) if bundle else []
+    def _get_bundle_metrics(self, bundle_name: str) -> List:
+        """Get metrics for a bundle by name."""
+        from ...models import MetricSpec
+        from ...metrics.objective import OBJECTIVE_REGISTRY
+        from ...metrics.subjective import SUBJECTIVE_REGISTRY
+        from ..constants import BUNDLES
+
+        bundle = bundle_name.lower()
+        ids = BUNDLES.get(bundle, [])
+        if not ids:
+            return []
+
+        all_templates = OBJECTIVE_REGISTRY + SUBJECTIVE_REGISTRY
+        tpl_map = {t["id"]: t for t in all_templates}
+        specs = []
+        for mid in ids:
+            tpl = tpl_map.get(mid)
+            if tpl:
+                specs.append(
+                    MetricSpec(
+                        id=tpl["id"],
+                        name=tpl["id"],
+                        type=tpl["type"],
+                        description=tpl.get("description", ""),
+                        config=tpl.get("config", {}),
+                    )
+                )
+        return specs
 
     def _suggest_all_modes(
         self,
@@ -316,9 +343,7 @@ class SuggestMetricsStep(PipelineStep):
         # 3. Bundle mode
         if bundle:
             print(f"    -> Adding bundle: {bundle}...")
-            from ...metrics.bundles import get_bundle_metrics
-
-            for spec in get_bundle_metrics(bundle):
+            for spec in self._get_bundle_metrics(bundle):
                 if spec.id not in seen_ids:
                     all_metrics.append(spec)
                     seen_ids.add(spec.id)
