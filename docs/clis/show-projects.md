@@ -10,7 +10,10 @@ evalyn show-projects
 
 ## Options
 
-None.
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--db` | prod | Database to use: prod or test |
+| `--limit N` | 1000 | Maximum number of calls to scan |
 
 ## Output
 

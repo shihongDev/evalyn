@@ -89,6 +89,27 @@ Run folder: data/my-dataset/eval_runs/20250115-143022_abc12345
   report.html  - analysis report
 ```
 
+## Checkpoint and Resume
+
+If an evaluation is interrupted (Ctrl+C), progress is automatically saved to `.eval_checkpoint.json` in the dataset directory.
+
+Re-run the same command to resume from where it left off:
+
+```bash
+# Interrupted during evaluation
+evalyn run-eval --dataset data/my-dataset
+# ^C
+# Evaluation interrupted.
+# Progress saved to: data/my-dataset/.eval_checkpoint.json
+# Resume with: evalyn run-eval --dataset data/my-dataset
+
+# Resume from checkpoint
+evalyn run-eval --dataset data/my-dataset
+# Resuming from checkpoint...
+```
+
+The checkpoint is automatically removed when evaluation completes successfully.
+
 ## Output Files
 
 Each eval run creates a dedicated folder in `<dataset>/eval_runs/<timestamp>_<run_id>/`:

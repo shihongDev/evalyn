@@ -11,11 +11,12 @@ evalyn show-call --last
 
 ## Options
 
-| Option | Description |
-|--------|-------------|
-| `--id ID` | The call ID to display |
-| `--last` | Show the most recent call |
-| `--format` | Output format: table (default) or json |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--id ID` | - | The call ID to display |
+| `--last` | false | Show the most recent call |
+| `--db` | prod | Database to use: prod or test |
+| `--format` | table | Output format: table or json |
 
 One of `--id` or `--last` is required.
 
