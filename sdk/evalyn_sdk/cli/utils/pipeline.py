@@ -200,17 +200,61 @@ class PipelineOrchestrator:
         if not self.state:
             return
 
-        # Restore dataset_path
+        # Restore dataset_path and dataset_dir
         if "dataset" in self.state.steps:
             output = self.state.steps["dataset"].get("output")
             if output:
                 self.context["dataset_path"] = Path(output)
+                self.context["dataset_dir"] = Path(output).parent
 
-        # Restore metrics_path
+        # Restore metrics_path and reload metric_specs
         if "metrics" in self.state.steps:
             output = self.state.steps["metrics"].get("output")
             if output:
-                self.context["metrics_path"] = Path(output)
+                metrics_path = Path(output)
+                self.context["metrics_path"] = metrics_path
+                # Reload metric_specs from saved file
+                if metrics_path.exists():
+                    self._reload_metric_specs(metrics_path)
+
+        # Restore target_fn from args if available
+        if self.args.target:
+            from .loaders import _load_callable
+            try:
+                self.context["target_fn"] = _load_callable(self.args.target)
+            except Exception:
+                pass  # Will be None, steps handle this
+
+        # Restore annotation_path
+        if "annotation" in self.state.steps:
+            output = self.state.steps["annotation"].get("output")
+            if output:
+                self.context["annotation_path"] = Path(output)
+
+        # Restore calibrated_metrics list
+        if "calibration" in self.state.steps:
+            calibrated = self.state.steps["calibration"].get("calibrated_metrics", [])
+            self.context["calibrated_metrics"] = calibrated
+
+    def _reload_metric_specs(self, metrics_path: Path) -> None:
+        """Reload metric specs from saved JSON file."""
+        try:
+            from ...models import MetricSpec
+            with open(metrics_path, encoding="utf-8") as f:
+                metrics_data = json.load(f)
+            specs = []
+            for data in metrics_data:
+                spec = MetricSpec(
+                    id=data["id"],
+                    name=data.get("name", data["id"]),
+                    type=data["type"],
+                    description=data.get("description", ""),
+                    config=data.get("config", {}),
+                )
+                specs.append(spec)
+            self.context["metric_specs"] = specs
+        except Exception:
+            pass  # Non-fatal, steps will handle missing specs
 
     def _print_header(self) -> None:
         """Print pipeline header."""

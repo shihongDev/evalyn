@@ -188,6 +188,12 @@ def _resolve_version(args: argparse.Namespace) -> None:
         args.version = list(versions)[0]
         print(f"Auto-selected version: {args.version}")
     else:
+        # In auto-yes mode, select most recent (last in sorted list)
+        if getattr(args, "auto_yes", False):
+            args.version = sorted(versions)[-1]
+            print(f"Auto-selected version (--auto-yes): {args.version}")
+            return
+
         print(f"\nAvailable versions for project '{args.project}':")
         version_list = sorted(versions)
         for i, v in enumerate(version_list, 1):

@@ -127,6 +127,13 @@ class BuildDatasetStep(PipelineStep):
         }
 
         dataset_path = save_dataset_with_meta(items, dataset_dir, meta)
+
+        # Validate output exists
+        if not dataset_path.exists():
+            return StepResult(
+                status="failed", error="Dataset file was not created"
+            ), {}
+
         print(f"  Found {len(items)} items")
         print(f"  Saved to: {dataset_path}\n")
 
@@ -203,6 +210,12 @@ class SuggestMetricsStep(PipelineStep):
             )
         with open(metrics_path, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)
+
+        # Validate output exists
+        if not metrics_path.exists():
+            return StepResult(
+                status="failed", error="Metrics file was not created"
+            ), {}
 
         obj_count = sum(1 for spec in metric_specs if spec.type == "objective")
         subj_count = sum(1 for spec in metric_specs if spec.type == "subjective")
@@ -369,6 +382,12 @@ class InitialEvalStep(PipelineStep):
         with open(run_path, "w", encoding="utf-8") as f:
             json.dump(eval_run.as_dict(), f, indent=2)
 
+        # Validate output exists
+        if not run_path.exists():
+            return StepResult(
+                status="failed", error="Eval run file was not created"
+            ), {}
+
         print(f"  Evaluated {len(items)} items")
         print("  RESULTS:")
         for metric_id, summary in eval_run.summary.items():
@@ -510,6 +529,9 @@ class CalibrationStep(PipelineStep):
         optimizer = getattr(self.args, "optimizer", "llm")
         model = getattr(self.args, "model", "gemini-2.5-flash-lite")
 
+        calibrated_metrics = []
+        failed_metrics = []
+
         for spec in subj_metrics:
             print(f"  [{spec.id}]")
             cal_args = argparse.Namespace(
@@ -531,16 +553,42 @@ class CalibrationStep(PipelineStep):
             )
             try:
                 cmd_calibrate(cal_args)
+                calibrated_metrics.append(spec.id)
                 print()
             except Exception as e:
+                failed_metrics.append({"id": spec.id, "error": str(e)})
                 print(f"    Calibration failed: {e}\n")
+
+        # Report summary
+        if calibrated_metrics:
+            print(f"  Successfully calibrated: {', '.join(calibrated_metrics)}")
+        if failed_metrics:
+            print(f"  Failed to calibrate: {', '.join(m['id'] for m in failed_metrics)}")
+
+        # Determine status based on results
+        if not calibrated_metrics and failed_metrics:
+            return (
+                StepResult(
+                    status="failed",
+                    error=f"All {len(failed_metrics)} calibrations failed",
+                    details={
+                        "calibrated_metrics": [],
+                        "failed_metrics": failed_metrics,
+                    },
+                ),
+                {"calibrated_metrics": []},
+            )
 
         return (
             StepResult(
                 status="success",
-                details={"metrics_calibrated": len(subj_metrics)},
+                details={
+                    "metrics_calibrated": len(calibrated_metrics),
+                    "calibrated_metrics": calibrated_metrics,
+                    "failed_metrics": failed_metrics,
+                },
             ),
-            {},
+            {"calibrated_metrics": calibrated_metrics},
         )
 
     def dry_run_message(self, output_dir: Path) -> str:
@@ -617,6 +665,12 @@ class CalibratedEvalStep(PipelineStep):
         run_path = eval_dir / f"run_{timestamp}_{eval_run.id[:8]}.json"
         with open(run_path, "w", encoding="utf-8") as f:
             json.dump(eval_run.as_dict(), f, indent=2)
+
+        # Validate output exists
+        if not run_path.exists():
+            return StepResult(
+                status="failed", error="Calibrated eval run file was not created"
+            ), {}
 
         print(f"  Used {calibrated_count} calibrated prompts")
         print(f"  Evaluated {len(items)} items")
