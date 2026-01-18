@@ -662,7 +662,11 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         metric_mode_hint or "llm-registry" if args.mode == "auto" else args.mode
     )
     bundle_name = args.bundle or metric_bundle_hint
+    # For bundle mode, don't limit metrics by default (bundles are pre-curated)
+    # For other modes, use the limit to avoid excessive LLM calls
     max_metrics = args.num_metrics
+    if selected_mode == "bundle" and max_metrics == 5:  # 5 is the default
+        max_metrics = None  # No limit for bundles
 
     # Get scope filter (None means "all")
     scope_filter = getattr(args, "scope", "all")
