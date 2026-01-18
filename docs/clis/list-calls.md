@@ -12,6 +12,7 @@ evalyn list-calls [OPTIONS]
 
 | Option | Default | Description |
 |--------|---------|-------------|
+| `--db` | prod | Database to use: prod or test |
 | `--limit N` | 20 | Maximum number of calls to display |
 | `--offset N` | 0 | Skip first N results (pagination) |
 | `--project NAME` | - | Filter by project name |

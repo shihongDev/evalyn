@@ -11,11 +11,12 @@ evalyn show-trace --last
 
 ## Options
 
-| Option | Description |
-|--------|-------------|
-| `--id ID` | The call ID to display spans for |
-| `--last` | Show the most recent call |
-| `--max-depth N` | Maximum depth of span tree to display (default: unlimited) |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--id ID` | - | The call ID to display spans for |
+| `--last` | false | Show the most recent call |
+| `--db` | prod | Database to use: prod or test |
+| `--max-depth N` | unlimited | Maximum depth of span tree to display |
 
 One of `--id` or `--last` is required.
 
