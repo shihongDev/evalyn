@@ -191,9 +191,9 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
         # If there are disagreements, suggest calibration
         total_disagree = sum(s["disagree"] for s in agreement_stats.values())
         if total_disagree > 0:
+            annotations_path = Path(dataset_path) / "annotations.jsonl"
             print_hint(
-                "To calibrate LLM judges based on disagreements, run: evalyn calibrate --metric-id <metric> --dataset "
-                + str(dataset_path),
+                f"To calibrate LLM judges, run: evalyn calibrate --metric-id <metric> --annotations {annotations_path} --dataset {dataset_path}",
                 quiet=getattr(args, "quiet", False),
             )
 
@@ -899,7 +899,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
     print("=" * 70)
 
     print_hint(
-        f"To calibrate LLM judges, run: evalyn calibrate --metric-id <metric> --dataset {dataset_dir}",
+        f"To calibrate LLM judges, run: evalyn calibrate --metric-id <metric> --annotations {output_path} --dataset {dataset_dir}",
         quiet=getattr(args, "quiet", False),
     )
 

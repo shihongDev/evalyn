@@ -25,9 +25,25 @@ import os
 from typing import Any
 
 from ...decorators import get_default_tracer
+from ...storage import SQLiteStorage
 from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
 from ..utils.validation import extract_project_id
+
+# Database paths
+DB_PATHS = {
+    "prod": "data/prod/traces.sqlite",
+    "test": "data/test/traces.sqlite",
+}
+
+
+def _get_storage(args: argparse.Namespace) -> SQLiteStorage:
+    """Get storage based on --db flag."""
+    db = getattr(args, "db", None)
+    if db and db in DB_PATHS:
+        return SQLiteStorage(DB_PATHS[db])
+    tracer = get_default_tracer()
+    return tracer.storage
 
 
 # ---------------------------------------------------------------------------
@@ -78,6 +94,7 @@ def _normalize_span_time(raw: Any) -> float | None:
             pass
         try:
             import datetime as _dt
+
             return _dt.datetime.fromisoformat(raw).timestamp()
         except Exception:
             return None
@@ -122,10 +139,10 @@ def _format_dur(ms: float | None) -> str:
 
 def cmd_list_calls(args: argparse.Namespace) -> None:
     """List captured function calls."""
-    tracer = get_default_tracer()
+    storage = _get_storage(args)
     # Fetch more calls for filtering (we'll slice later for pagination)
     fetch_limit = args.limit + getattr(args, "offset", 0) + 100
-    all_calls = tracer.storage.list_calls(limit=fetch_limit) if tracer.storage else []
+    all_calls = storage.list_calls(limit=fetch_limit) if storage else []
     calls = list(all_calls)
 
     # Filter by project
@@ -333,23 +350,23 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
 
 def cmd_show_call(args: argparse.Namespace) -> None:
     """Show detailed information about a specific call."""
-    tracer = get_default_tracer()
+    storage = _get_storage(args)
     output_format = getattr(args, "format", "table")
 
-    if not tracer.storage:
+    if not storage:
         fatal_error("No storage configured")
 
     # Handle --last flag or --id
     if getattr(args, "last", False):
-        calls = tracer.storage.list_calls(limit=1)
+        calls = storage.list_calls(limit=1)
         if not calls:
             fatal_error("No calls found")
         call_id = calls[0].id
     elif args.id:
         # Resolve short ID to full ID (supports prefixes like '6cf21eb3')
         input_id = args.id
-        if hasattr(tracer.storage, "resolve_call_id"):
-            resolved = tracer.storage.resolve_call_id(input_id)
+        if hasattr(storage, "resolve_call_id"):
+            resolved = storage.resolve_call_id(input_id)
             if resolved:
                 call_id = resolved
             else:
@@ -362,7 +379,7 @@ def cmd_show_call(args: argparse.Namespace) -> None:
     else:
         fatal_error("Must specify --id or --last")
 
-    call = tracer.storage.get_call(call_id)
+    call = storage.get_call(call_id)
     if not call:
         fatal_error(f"No call found with id={call_id}")
 
@@ -728,21 +745,21 @@ def cmd_show_call(args: argparse.Namespace) -> None:
 
 def cmd_show_trace(args: argparse.Namespace) -> None:
     """Show hierarchical span tree for a traced call (Phoenix-style visualization)."""
-    tracer = get_default_tracer()
-    if not tracer.storage:
+    storage = _get_storage(args)
+    if not storage:
         fatal_error("No storage configured")
 
     # Handle --last flag or --id
     if getattr(args, "last", False):
-        calls = tracer.storage.list_calls(limit=1)
+        calls = storage.list_calls(limit=1)
         if not calls:
             fatal_error("No calls found")
         call_id = calls[0].id
     elif args.id:
         # Resolve short ID to full ID (supports prefixes like '6cf21eb3')
         input_id = args.id
-        if hasattr(tracer.storage, "resolve_call_id"):
-            resolved = tracer.storage.resolve_call_id(input_id)
+        if hasattr(storage, "resolve_call_id"):
+            resolved = storage.resolve_call_id(input_id)
             if resolved:
                 call_id = resolved
             else:
@@ -755,7 +772,7 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
     else:
         fatal_error("Must specify --id or --last")
 
-    call = tracer.storage.get_call(call_id)
+    call = storage.get_call(call_id)
     if not call:
         fatal_error(f"No call found with id={call_id}")
 
@@ -933,10 +950,10 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
 
 def cmd_show_projects(args: argparse.Namespace) -> None:
     """Show summary of projects and their traces."""
-    tracer = get_default_tracer()
-    if not tracer.storage:
+    storage = _get_storage(args)
+    if not storage:
         fatal_error("No storage configured")
-    calls = tracer.storage.list_calls(limit=args.limit)
+    calls = storage.list_calls(limit=args.limit)
     summary = {}
     for call in calls:
         meta = call.metadata if isinstance(call.metadata, dict) else {}
@@ -990,10 +1007,20 @@ def cmd_show_projects(args: argparse.Namespace) -> None:
         )
 
 
+def _add_db_arg(parser) -> None:
+    """Add --db argument to parser."""
+    parser.add_argument(
+        "--db",
+        choices=["prod", "test"],
+        help="Database to use: prod (default) or test",
+    )
+
+
 def register_commands(subparsers) -> None:
     """Register trace-related commands."""
     # list-calls
     p = subparsers.add_parser("list-calls", help="List captured function calls")
+    _add_db_arg(p)
     p.add_argument("--limit", type=int, default=20, help="Number of calls to list")
     p.add_argument(
         "--offset", type=int, default=0, help="Skip first N results (pagination)"
@@ -1019,6 +1046,7 @@ def register_commands(subparsers) -> None:
 
     # show-call
     p = subparsers.add_parser("show-call", help="Show details of a specific call")
+    _add_db_arg(p)
     p.add_argument("--id", help="Call ID to show")
     p.add_argument("--last", action="store_true", help="Show the most recent call")
     p.add_argument(
@@ -1028,6 +1056,7 @@ def register_commands(subparsers) -> None:
 
     # show-trace
     p = subparsers.add_parser("show-trace", help="Show hierarchical span tree")
+    _add_db_arg(p)
     p.add_argument("--id", help="Call ID to show")
     p.add_argument("--last", action="store_true", help="Show the most recent call")
     p.add_argument(
@@ -1039,6 +1068,7 @@ def register_commands(subparsers) -> None:
 
     # show-projects
     p = subparsers.add_parser("show-projects", help="Show project summary")
+    _add_db_arg(p)
     p.add_argument("--limit", type=int, default=1000, help="Max calls to scan")
     p.set_defaults(func=cmd_show_projects)
 

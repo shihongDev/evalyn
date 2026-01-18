@@ -137,7 +137,7 @@ def cmd_status(args: argparse.Namespace) -> None:
             print("No calibrations yet")
     else:
         print("No calibrations yet")
-        print(f"  -> Run: evalyn calibrate --metric-id <metric> --dataset {ds.path}")
+        print(f"  -> Run: evalyn calibrate --metric-id <metric> --annotations {ds.path / 'annotations.jsonl'} --dataset {ds.path}")
 
     # Suggested next step
     print(f"\n{'=' * 60}")
@@ -149,7 +149,7 @@ def cmd_status(args: argparse.Namespace) -> None:
     elif not annotations_file.exists():
         print(f"  evalyn annotate --dataset {ds.path}")
     elif not calibrations_dir.exists():
-        print(f"  evalyn calibrate --metric-id <metric> --dataset {ds.path}")
+        print(f"  evalyn calibrate --metric-id <metric> --annotations {ds.path / 'annotations.jsonl'} --dataset {ds.path}")
     else:
         print("  All steps complete! Consider:")
         print("  - Re-run eval with optimized prompts")
@@ -636,13 +636,25 @@ def cmd_analyze(args: argparse.Namespace) -> None:
 
     # Show hint for next step
     dataset_flag = f"--dataset {dataset_path}" if dataset_path else "--latest"
-    if problem_metrics:
+
+    # Filter problem metrics to only subjective ones (calibration only works for LLM judges)
+    from ...metrics.subjective import SUBJECTIVE_REGISTRY
+
+    subjective_ids = {m["id"] for m in SUBJECTIVE_REGISTRY}
+    subjective_problem_metrics = [
+        (m, s) for m, s in problem_metrics if m in subjective_ids
+    ]
+
+    if subjective_problem_metrics:
+        # Subjective metrics can be calibrated - suggest annotation workflow
+        worst_metric = subjective_problem_metrics[0][0]
         print_hint(
-            f"To improve '{problem_metrics[0][0]}', run: evalyn calibrate {dataset_flag} --metric {problem_metrics[0][0]}",
+            f"To calibrate '{worst_metric}', first annotate: evalyn annotate {dataset_flag}",
             quiet=getattr(args, "quiet", False),
             format=output_format,
         )
-    elif multi_fail_items:
+    elif problem_metrics or multi_fail_items:
+        # Objective metrics or items failing multiple metrics - suggest annotation
         print_hint(
             f"To annotate failing items, run: evalyn annotate {dataset_flag}",
             quiet=getattr(args, "quiet", False),

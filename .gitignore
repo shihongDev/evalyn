@@ -14,6 +14,7 @@ dist-ssr
 *.local
 
 # Data - ignore contents but keep structure
+data/
 data/prod/
 data/test/
 data/test-output/
@@ -61,4 +62,7 @@ evalyn.yaml
 
 # Pytest
 pytest.ini
+
+# Scripts   
+scripts/
 

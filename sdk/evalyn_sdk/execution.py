@@ -84,25 +84,36 @@ class SequentialStrategy(ExecutionStrategy):
         current_eval = 0
         items_since_checkpoint = 0
 
-        for item, call in prepared:
-            for metric in metrics:
-                current_eval += 1
-                if progress_callback:
-                    progress_callback(
-                        current_eval,
-                        total_evals,
-                        metric.spec.id,
-                        metric.spec.type,
-                    )
-                results.append(self._evaluate(metric, call, item))
+        try:
+            for item, call in prepared:
+                for metric in metrics:
+                    current_eval += 1
+                    if progress_callback:
+                        progress_callback(
+                            current_eval,
+                            total_evals,
+                            metric.spec.id,
+                            metric.spec.type,
+                        )
+                    results.append(self._evaluate(metric, call, item))
 
-            # Mark item as completed and checkpoint
-            completed_items.add(item.id)
-            items_since_checkpoint += 1
+                # Mark item as completed and checkpoint
+                completed_items.add(item.id)
+                items_since_checkpoint += 1
 
-            if self._checkpoint and items_since_checkpoint >= self._checkpoint_interval:
+                if (
+                    self._checkpoint
+                    and items_since_checkpoint >= self._checkpoint_interval
+                ):
+                    self._checkpoint(results, completed_items, run_id)
+                    items_since_checkpoint = 0
+
+        except KeyboardInterrupt:
+            # Save checkpoint on interrupt
+            if self._checkpoint and results:
+                logger.info("Interrupted - saving checkpoint...")
                 self._checkpoint(results, completed_items, run_id)
-                items_since_checkpoint = 0
+            raise
 
         # Final checkpoint
         if self._checkpoint and items_since_checkpoint > 0:
@@ -149,50 +160,60 @@ class ParallelStrategy(ExecutionStrategy):
 
         # Execute in parallel
         results_by_item: Dict[str, List[MetricResult]] = defaultdict(list)
+        interrupted = False
 
-        with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
-            futures = {
-                executor.submit(eval_task, m, c, i): (i.id, m.spec.id, m.spec.type)
-                for m, c, i in tasks
-            }
+        try:
+            with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+                futures = {
+                    executor.submit(eval_task, m, c, i): (i.id, m.spec.id, m.spec.type)
+                    for m, c, i in tasks
+                }
 
-            for future in as_completed(futures):
-                item_id_hint, metric_id, metric_type = futures[future]
+                for future in as_completed(futures):
+                    item_id_hint, metric_id, metric_type = futures[future]
 
-                try:
-                    item_id, result = future.result()
-                    results_by_item[item_id].append(result)
-                except Exception as e:
-                    logger.warning(f"Evaluation task failed: {e}")
-                    result = MetricResult(
-                        metric_id=metric_id,
-                        call_id=f"error-{item_id_hint}",
-                        score=None,
-                        passed=False,
-                        details={"error": str(e), "error_type": type(e).__name__},
-                    )
-                    results_by_item[item_id_hint].append(result)
-
-                # Update progress (thread-safe)
-                if progress_callback:
-                    with progress_lock:
-                        current = next(eval_counter)
-                        progress_callback(
-                            current,
-                            total_evals,
-                            result.metric_id,
-                            metric_type,
+                    try:
+                        item_id, result = future.result()
+                        results_by_item[item_id].append(result)
+                    except Exception as e:
+                        logger.warning(f"Evaluation task failed: {e}")
+                        result = MetricResult(
+                            metric_id=metric_id,
+                            call_id=f"error-{item_id_hint}",
+                            score=None,
+                            passed=False,
+                            details={"error": str(e), "error_type": type(e).__name__},
                         )
+                        results_by_item[item_id_hint].append(result)
+
+                    # Update progress (thread-safe)
+                    if progress_callback:
+                        with progress_lock:
+                            current = next(eval_counter)
+                            progress_callback(
+                                current,
+                                total_evals,
+                                result.metric_id,
+                                metric_type,
+                            )
+
+        except KeyboardInterrupt:
+            interrupted = True
+            logger.info("Interrupted - saving checkpoint with completed results...")
 
         # Collect results in order and mark completed
         results: List[MetricResult] = []
         for item, call in prepared:
-            results.extend(results_by_item[item.id])
-            completed_items.add(item.id)
+            if item.id in results_by_item:
+                results.extend(results_by_item[item.id])
+                completed_items.add(item.id)
 
-        # Checkpoint after parallel batch
-        if self._checkpoint:
+        # Checkpoint (always save on interrupt or after completion)
+        if self._checkpoint and results:
             self._checkpoint(results, completed_items, run_id)
+
+        if interrupted:
+            raise KeyboardInterrupt
 
         return results
 

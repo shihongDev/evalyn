@@ -96,7 +96,9 @@ def _save_suggested_metrics(
         safe_name = re.sub(r"[^a-zA-Z0-9._-]+", "-", metrics_name).strip("-")
     else:
         safe_name = "default"
-    metrics_file = metrics_dir / (f"metrics-{safe_name}.json" if metrics_name else "metrics.json")
+    metrics_file = metrics_dir / (
+        f"metrics-{safe_name}.json" if metrics_name else "metrics.json"
+    )
 
     # Handle --append: merge with existing metrics
     existing_metrics: List[dict] = []
@@ -111,19 +113,31 @@ def _save_suggested_metrics(
                 return metrics_file
             specs = new_specs
             if output_format != "json":
-                print(f"Appending {len(new_specs)} new metric(s) to {len(existing_metrics)} existing.")
+                print(
+                    f"Appending {len(new_specs)} new metric(s) to {len(existing_metrics)} existing."
+                )
         except Exception as e:
             if output_format != "json":
                 print(f"Warning: Could not read existing metrics for append: {e}")
 
     # Validate objective metrics - filter out custom ones
     valid_objective_ids = {t["id"] for t in OBJECTIVE_REGISTRY}
-    invalid_objectives = [s for s in specs if s.type == "objective" and s.id not in valid_objective_ids]
+    invalid_objectives = [
+        s for s in specs if s.type == "objective" and s.id not in valid_objective_ids
+    ]
     if invalid_objectives and output_format != "json":
-        print(f"Removed {len(invalid_objectives)} unsupported custom objective metric(s):")
+        print(
+            f"Removed {len(invalid_objectives)} unsupported custom objective metric(s):"
+        )
         for s in invalid_objectives:
-            print(f"  - {s.id}: Use 'evalyn list-metrics --type objective' to see valid IDs")
-    specs = [s for s in specs if not (s.type == "objective" and s.id not in valid_objective_ids)]
+            print(
+                f"  - {s.id}: Use 'evalyn list-metrics --type objective' to see valid IDs"
+            )
+    specs = [
+        s
+        for s in specs
+        if not (s.type == "objective" and s.id not in valid_objective_ids)
+    ]
 
     if not specs:
         if output_format != "json":
@@ -131,15 +145,27 @@ def _save_suggested_metrics(
         return None
 
     payload = existing_metrics + [
-        {"id": spec.id, "type": spec.type, "description": spec.description, "config": spec.config, "why": getattr(spec, "why", "")}
+        {
+            "id": spec.id,
+            "type": spec.type,
+            "description": spec.description,
+            "config": spec.config,
+            "why": getattr(spec, "why", ""),
+        }
         for spec in specs
     ]
-    metrics_file.write_text(json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8")
+    metrics_file.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8"
+    )
 
     # Update meta.json
     meta_path = dataset_dir / "meta.json"
     try:
-        meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+        meta = (
+            json.loads(meta_path.read_text(encoding="utf-8"))
+            if meta_path.exists()
+            else {}
+        )
     except Exception:
         meta = {}
     existing_sets = meta.get("metric_sets")
@@ -155,11 +181,16 @@ def _save_suggested_metrics(
     metric_sets.append(entry)
     meta["metric_sets"] = metric_sets
     meta["active_metric_set"] = safe_name
-    meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=True), encoding="utf-8")
+    meta_path.write_text(
+        json.dumps(meta, indent=2, ensure_ascii=True), encoding="utf-8"
+    )
 
     if output_format != "json":
         print(f"Saved metrics to {metrics_file}")
-        print_hint(f"To run evaluation, run: evalyn run-eval --dataset {dataset_dir}", quiet=quiet)
+        print_hint(
+            f"To run evaluation, run: evalyn run-eval --dataset {dataset_dir}",
+            quiet=quiet,
+        )
     return metrics_file
 
 
@@ -385,7 +416,17 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         checkpoint_interval=5,
         max_workers=getattr(args, "workers", 1),
     )
-    run = runner.run_dataset(dataset_list, use_synthetic=True)
+
+    try:
+        run = runner.run_dataset(dataset_list, use_synthetic=True)
+    except KeyboardInterrupt:
+        if progress:
+            progress.finish()
+        if output_format != "json":
+            print("\n\nEvaluation interrupted.")
+            print(f"Progress saved to: {checkpoint_path}")
+            print(f"Resume with: evalyn run-eval --dataset {dataset_dir}")
+        return
 
     if progress:
         progress.finish()
