@@ -36,6 +36,7 @@ HUMAN FEEDBACK:
 CALIBRATION:
   calibrate        Calibrate LLM judges using annotations
   list-calibrations List calibration records
+  cluster-misalignments Cluster judge vs human disagreements
 
 SIMULATION:
   simulate         Generate synthetic test data
@@ -60,6 +61,7 @@ from .commands import (
     analysis,
     annotation,
     calibration,
+    clustering,
     dataset,
     evaluation,
     export,
@@ -186,6 +188,7 @@ For more info on a command: evalyn <command> --help
     analysis.register_commands(subparsers)
     annotation.register_commands(subparsers)
     calibration.register_commands(subparsers)
+    clustering.register_commands(subparsers)
     evaluation.register_commands(subparsers)
     infrastructure.register_commands(subparsers)
 

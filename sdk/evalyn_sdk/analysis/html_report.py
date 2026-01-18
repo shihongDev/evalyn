@@ -1263,6 +1263,147 @@ def _get_javascript(
     </script>"""
 
 
+def _render_cluster_scatter(clustering_result: Any, metric_id: str) -> str:
+    """Render an embedded cluster scatter plot section for the HTML report.
+
+    This function generates a Plotly scatter plot showing misalignment clusters.
+    Each point represents a disagreement case (LLM judge vs human).
+
+    Args:
+        clustering_result: ClusteringResult with 2D coordinates
+        metric_id: Name of the metric being analyzed
+
+    Returns:
+        HTML string with the cluster scatter plot section, or empty string if
+        visualization is not possible.
+    """
+    if clustering_result is None:
+        return ""
+
+    # Check if we have visualization data
+    if not getattr(clustering_result, "coordinates_2d", None):
+        return ""
+
+    try:
+        import plotly.graph_objects as go
+        from plotly.io import to_html
+    except ImportError:
+        return ""
+
+    coords_2d = clustering_result.coordinates_2d
+    case_labels = clustering_result.case_labels or []
+    case_types = clustering_result.case_types or []
+    case_reasons = clustering_result.case_reasons or []
+
+    if not coords_2d:
+        return ""
+
+    x_coords = [c[0] for c in coords_2d]
+    y_coords = [c[1] for c in coords_2d]
+
+    # Assign colors by label and type
+    unique_labels = sorted(set(case_labels))
+    fp_colors = ["#ef4444", "#f87171", "#fca5a5", "#fecaca", "#fee2e2"]
+    fn_colors = ["#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe", "#dbeafe"]
+
+    color_map: Dict[str, str] = {}
+    fp_idx, fn_idx = 0, 0
+    for label in unique_labels:
+        for i, l in enumerate(case_labels):
+            if l == label:
+                if case_types[i] == "false_positive":
+                    color_map[label] = fp_colors[fp_idx % len(fp_colors)]
+                    fp_idx += 1
+                else:
+                    color_map[label] = fn_colors[fn_idx % len(fn_colors)]
+                    fn_idx += 1
+                break
+
+    colors = [color_map.get(l, "#888888") for l in case_labels]
+
+    # Build hover text
+    hover_texts = []
+    for i in range(len(x_coords)):
+        label = case_labels[i] if case_labels else "Unknown"
+        case_type = case_types[i] if case_types else "unknown"
+        reason = case_reasons[i] if case_reasons else ""
+        reason_short = reason[:120] + "..." if len(reason) > 120 else reason
+        type_label = "FP (too lenient)" if case_type == "false_positive" else "FN (too strict)"
+        hover_texts.append(f"<b>{label}</b><br>Type: {type_label}<br>{reason_short}")
+
+    fig = go.Figure()
+
+    # Add FP trace
+    fp_mask = [t == "false_positive" for t in case_types]
+    if any(fp_mask):
+        fig.add_trace(
+            go.Scatter(
+                x=[x for x, m in zip(x_coords, fp_mask) if m],
+                y=[y for y, m in zip(y_coords, fp_mask) if m],
+                mode="markers",
+                marker=dict(
+                    size=10,
+                    color=[c for c, m in zip(colors, fp_mask) if m],
+                    symbol="circle",
+                    line=dict(width=1, color="#0a1210"),
+                ),
+                text=[t for t, m in zip(hover_texts, fp_mask) if m],
+                hoverinfo="text",
+                name="False Positive",
+            )
+        )
+
+    # Add FN trace
+    fn_mask = [t == "false_negative" for t in case_types]
+    if any(fn_mask):
+        fig.add_trace(
+            go.Scatter(
+                x=[x for x, m in zip(x_coords, fn_mask) if m],
+                y=[y for y, m in zip(y_coords, fn_mask) if m],
+                mode="markers",
+                marker=dict(
+                    size=10,
+                    color=[c for c, m in zip(colors, fn_mask) if m],
+                    symbol="diamond",
+                    line=dict(width=1, color="#0a1210"),
+                ),
+                text=[t for t, m in zip(hover_texts, fn_mask) if m],
+                hoverinfo="text",
+                name="False Negative",
+            )
+        )
+
+    fig.update_layout(
+        title=dict(text=f"Misalignment Clusters: {metric_id}", font=dict(size=14, color="#e5e7eb")),
+        paper_bgcolor="#0f1a16",
+        plot_bgcolor="#152420",
+        font=dict(color="#e5e7eb", size=11),
+        xaxis=dict(showgrid=True, gridcolor="#1f2d28", zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=True, gridcolor="#1f2d28", zeroline=False, showticklabels=False),
+        legend=dict(bgcolor="#0f1a16", bordercolor="#1f2d28", borderwidth=1),
+        height=350,
+        margin=dict(l=20, r=20, t=40, b=20),
+    )
+
+    plot_html = to_html(fig, full_html=False, include_plotlyjs=False, config={"displayModeBar": False})
+
+    fp_count = sum(1 for t in case_types if t == "false_positive")
+    fn_count = sum(1 for t in case_types if t == "false_negative")
+
+    return f"""
+        <div class="section">
+            <div class="section-header">Misalignment Clusters</div>
+            <div class="chart-box">
+                <div style="display: flex; gap: 24px; margin-bottom: 12px;">
+                    <span style="color: #ef4444;">False Positives: {fp_count}</span>
+                    <span style="color: #3b82f6;">False Negatives: {fn_count}</span>
+                </div>
+                {plot_html}
+            </div>
+        </div>
+    """
+
+
 def generate_report(
     analysis: RunAnalysis, output_path: Path, format: str = "html"
 ) -> Path:

@@ -38,6 +38,11 @@ agent = [
 anthropic-agents = [
   "anthropic>=0.40.0",
 ]
+clustering = [
+  "sentence-transformers>=2.2.0",
+  "umap-learn>=0.5.0",
+  "plotly>=5.0.0",
+]
 
 [project.scripts]
 evalyn = "evalyn_sdk.cli:main"

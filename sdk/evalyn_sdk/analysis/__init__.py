@@ -52,6 +52,14 @@ from .html_report import (
     generate_report,
 )
 
+from .clustering import (
+    ReasonCluster,
+    ClusteringResult,
+    ReasonClusterer,
+    generate_cluster_html,
+    generate_cluster_text,
+)
+
 __all__ = [
     # Core classes
     "MetricStats",
@@ -74,4 +82,10 @@ __all__ = [
     # HTML reports
     "generate_html_report",
     "generate_report",
+    # Clustering
+    "ReasonCluster",
+    "ClusteringResult",
+    "ReasonClusterer",
+    "generate_cluster_html",
+    "generate_cluster_text",
 ]
