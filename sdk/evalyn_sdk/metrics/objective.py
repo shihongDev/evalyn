@@ -441,6 +441,285 @@ OBJECTIVE_REGISTRY = [
         "scope": "overall",
         "requires_reference": True,
     },
+    # === MORE METRICS: Format Validation ===
+    {
+        "id": "yaml_valid",
+        "type": "objective",
+        "description": "Checks whether output parses as YAML.",
+        "config": {},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "markdown_structure",
+        "type": "objective",
+        "description": "Validates markdown structure (headings, lists, code blocks).",
+        "config": {"require_heading": False},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "html_valid",
+        "type": "objective",
+        "description": "Checks whether output contains valid HTML tags.",
+        "config": {},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "sql_valid",
+        "type": "objective",
+        "description": "Basic SQL syntax validation.",
+        "config": {},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    # === MORE METRICS: Structure Detection ===
+    {
+        "id": "bullet_count",
+        "type": "objective",
+        "description": "Counts bullet points in output.",
+        "config": {"min_count": None, "max_count": None},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "heading_count",
+        "type": "objective",
+        "description": "Counts markdown headings (# style).",
+        "config": {"min_count": None, "max_count": None},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "code_block_count",
+        "type": "objective",
+        "description": "Counts fenced code blocks (```).",
+        "config": {"min_count": None, "max_count": None},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "table_count",
+        "type": "objective",
+        "description": "Counts markdown tables.",
+        "config": {"min_count": None},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "paragraph_count",
+        "type": "objective",
+        "description": "Counts paragraphs (text blocks separated by blank lines).",
+        "config": {"min_count": None, "max_count": None},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "word_count",
+        "type": "objective",
+        "description": "Counts words in output.",
+        "config": {"min_count": None, "max_count": None},
+        "category": "style",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    # === MORE METRICS: Repetition ===
+    {
+        "id": "repetition_ratio",
+        "type": "objective",
+        "description": "Detects repeated n-grams (low = less repetitive).",
+        "config": {"n": 3, "max_ratio": None},
+        "category": "diversity",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "duplicate_line_ratio",
+        "type": "objective",
+        "description": "Ratio of duplicate lines to total lines.",
+        "config": {"max_ratio": None},
+        "category": "diversity",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    # === MORE METRICS: Uncertainty/Confidence ===
+    {
+        "id": "hedging_count",
+        "type": "objective",
+        "description": "Counts hedging phrases (maybe, perhaps, might, etc.).",
+        "config": {"max_count": None},
+        "category": "style",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "question_count",
+        "type": "objective",
+        "description": "Counts questions in output.",
+        "config": {"min_count": None, "max_count": None},
+        "category": "style",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "confidence_markers",
+        "type": "objective",
+        "description": "Counts confidence markers (certainly, definitely, clearly).",
+        "config": {},
+        "category": "style",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    # === MORE METRICS: Code Quality ===
+    {
+        "id": "comment_ratio",
+        "type": "objective",
+        "description": "Ratio of comment lines to code lines.",
+        "config": {"min_ratio": None},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "function_count",
+        "type": "objective",
+        "description": "Counts function/method definitions in code.",
+        "config": {"min_count": None, "max_count": None},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "import_count",
+        "type": "objective",
+        "description": "Counts import statements in code.",
+        "config": {"max_count": None},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    # === MORE METRICS: Character/Format ===
+    {
+        "id": "ascii_ratio",
+        "type": "objective",
+        "description": "Ratio of ASCII characters to total characters.",
+        "config": {"min_ratio": None},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "uppercase_ratio",
+        "type": "objective",
+        "description": "Ratio of uppercase letters to total letters.",
+        "config": {"max_ratio": None},
+        "category": "style",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "numeric_density",
+        "type": "objective",
+        "description": "Ratio of numeric characters to total characters.",
+        "config": {},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "whitespace_ratio",
+        "type": "objective",
+        "description": "Ratio of whitespace to total characters.",
+        "config": {"max_ratio": None},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    # === MORE METRICS: Exact Match Variants ===
+    {
+        "id": "prefix_match",
+        "type": "objective",
+        "description": "Checks if output starts with expected prefix.",
+        "config": {"prefix": None},
+        "category": "correctness",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "suffix_match",
+        "type": "objective",
+        "description": "Checks if output ends with expected suffix.",
+        "config": {"suffix": None},
+        "category": "correctness",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "contains_all",
+        "type": "objective",
+        "description": "Checks if output contains all required substrings.",
+        "config": {"substrings": []},
+        "category": "correctness",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "contains_none",
+        "type": "objective",
+        "description": "Checks if output contains none of the forbidden substrings.",
+        "config": {"forbidden": []},
+        "category": "correctness",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    # === MORE METRICS: List/Enumeration ===
+    {
+        "id": "numbered_list_count",
+        "type": "objective",
+        "description": "Counts numbered list items (1., 2., etc.).",
+        "config": {"min_count": None, "max_count": None},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "list_item_count",
+        "type": "objective",
+        "description": "Counts total list items (bullets + numbers).",
+        "config": {"min_count": None, "max_count": None},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    # === MORE METRICS: Response Quality ===
+    {
+        "id": "emoji_count",
+        "type": "objective",
+        "description": "Counts emoji characters in output.",
+        "config": {"max_count": None},
+        "category": "style",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "link_density",
+        "type": "objective",
+        "description": "Ratio of link text to total text.",
+        "config": {"max_ratio": None},
+        "category": "structure",
+        "scope": "overall",
+        "requires_reference": False,
+    },
 ]
 
 
@@ -772,6 +1051,45 @@ def register_builtin_metrics(registry) -> None:
         url_count_metric(),
         citation_count_metric(),
         markdown_link_count_metric(),
+        # Format validation
+        yaml_valid_metric(),
+        markdown_structure_metric(),
+        html_valid_metric(),
+        sql_valid_metric(),
+        # Structure detection
+        bullet_count_metric(),
+        heading_count_metric(),
+        code_block_count_metric(),
+        table_count_metric(),
+        paragraph_count_metric(),
+        word_count_metric(),
+        # Repetition
+        repetition_ratio_metric(),
+        duplicate_line_ratio_metric(),
+        # Uncertainty/Confidence
+        hedging_count_metric(),
+        question_count_metric(),
+        confidence_markers_metric(),
+        # Code quality
+        comment_ratio_metric(),
+        function_count_metric(),
+        import_count_metric(),
+        # Character/Format
+        ascii_ratio_metric(),
+        uppercase_ratio_metric(),
+        numeric_density_metric(),
+        whitespace_ratio_metric(),
+        # Match variants
+        prefix_match_metric(),
+        suffix_match_metric(),
+        contains_all_metric(),
+        contains_none_metric(),
+        # List/Enumeration
+        numbered_list_count_metric(),
+        list_item_count_metric(),
+        # Response quality
+        emoji_count_metric(),
+        link_density_metric(),
     ]
 
     for metric in builtin_metrics:
@@ -2389,6 +2707,970 @@ def cosine_word_overlap_metric(metric_id: str = "cosine_word_overlap") -> Metric
             similarity,
             None,
             {"similarity": round(similarity, 4)},
+        )
+
+    return Metric(spec, handler)
+
+
+# =============================================================================
+# MORE METRICS: Format Validation
+# =============================================================================
+
+
+def yaml_valid_metric(metric_id: str = "yaml_valid") -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="YAML Valid",
+        type="objective",
+        description="Checks whether output parses as YAML.",
+        config={},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        import yaml
+
+        text = _as_text(call.output)
+        try:
+            yaml.safe_load(text)
+            return _make_result(spec, item, call, 1.0, True, {})
+        except Exception as exc:
+            return _make_result(spec, item, call, 0.0, False, {"error": str(exc)})
+
+    return Metric(spec, handler)
+
+
+def markdown_structure_metric(
+    metric_id: str = "markdown_structure", require_heading: bool = False
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Markdown Structure",
+        type="objective",
+        description="Validates markdown structure.",
+        config={"require_heading": require_heading},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        headings = len(re.findall(r"^#{1,6}\s+", text, re.MULTILINE))
+        bullets = len(re.findall(r"^[\s]*[-*+]\s+", text, re.MULTILINE))
+        code_blocks = len(re.findall(r"```", text)) // 2
+        links = len(re.findall(r"\[([^\]]+)\]\(([^)]+)\)", text))
+
+        req_heading = item.metadata.get("require_heading", require_heading)
+        passed = True
+        if req_heading and headings == 0:
+            passed = False
+
+        return _make_result(
+            spec,
+            item,
+            call,
+            float(headings + bullets + code_blocks + links),
+            passed,
+            {
+                "headings": headings,
+                "bullets": bullets,
+                "code_blocks": code_blocks,
+                "links": links,
+            },
+        )
+
+    return Metric(spec, handler)
+
+
+def html_valid_metric(metric_id: str = "html_valid") -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="HTML Valid",
+        type="objective",
+        description="Checks whether output contains valid HTML structure.",
+        config={},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        from html.parser import HTMLParser
+
+        text = _as_text(call.output)
+
+        class TagValidator(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.tags = []
+                self.valid = True
+
+            def handle_starttag(self, tag, attrs):
+                self.tags.append(tag)
+
+            def handle_endtag(self, tag):
+                if self.tags and self.tags[-1] == tag:
+                    self.tags.pop()
+                elif tag not in ["br", "hr", "img", "input", "meta", "link"]:
+                    self.valid = False
+
+        try:
+            parser = TagValidator()
+            parser.feed(text)
+            passed = parser.valid and len(parser.tags) == 0
+            return _make_result(
+                spec, item, call, 1.0 if passed else 0.0, passed, {}
+            )
+        except Exception as exc:
+            return _make_result(spec, item, call, 0.0, False, {"error": str(exc)})
+
+    return Metric(spec, handler)
+
+
+def sql_valid_metric(metric_id: str = "sql_valid") -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="SQL Valid",
+        type="objective",
+        description="Basic SQL syntax validation.",
+        config={},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output).strip().upper()
+        # Basic SQL keyword check
+        sql_keywords = ["SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER", "WITH"]
+        has_keyword = any(text.startswith(kw) for kw in sql_keywords)
+        # Check for basic structure
+        has_structure = (
+            ("SELECT" in text and "FROM" in text)
+            or ("INSERT" in text and "INTO" in text)
+            or ("UPDATE" in text and "SET" in text)
+            or ("DELETE" in text and "FROM" in text)
+            or ("CREATE" in text)
+            or ("DROP" in text)
+            or ("ALTER" in text)
+            or ("WITH" in text and "SELECT" in text)
+        )
+        passed = has_keyword and has_structure
+        return _make_result(
+            spec, item, call, 1.0 if passed else 0.0, passed, {"has_sql_structure": passed}
+        )
+
+    return Metric(spec, handler)
+
+
+# =============================================================================
+# MORE METRICS: Structure Detection
+# =============================================================================
+
+
+def bullet_count_metric(
+    metric_id: str = "bullet_count",
+    min_count: Optional[int] = None,
+    max_count: Optional[int] = None,
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Bullet Count",
+        type="objective",
+        description="Counts bullet points.",
+        config={"min_count": min_count, "max_count": max_count},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        count = len(re.findall(r"^[\s]*[-*+]\s+", text, re.MULTILINE))
+        min_v = item.metadata.get("min_count", min_count)
+        max_v = item.metadata.get("max_count", max_count)
+        passed = True
+        if min_v is not None and count < int(min_v):
+            passed = False
+        if max_v is not None and count > int(max_v):
+            passed = False
+        return _make_result(
+            spec, item, call, float(count), passed, {"count": count}
+        )
+
+    return Metric(spec, handler)
+
+
+def heading_count_metric(
+    metric_id: str = "heading_count",
+    min_count: Optional[int] = None,
+    max_count: Optional[int] = None,
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Heading Count",
+        type="objective",
+        description="Counts markdown headings.",
+        config={"min_count": min_count, "max_count": max_count},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        count = len(re.findall(r"^#{1,6}\s+", text, re.MULTILINE))
+        min_v = item.metadata.get("min_count", min_count)
+        max_v = item.metadata.get("max_count", max_count)
+        passed = True
+        if min_v is not None and count < int(min_v):
+            passed = False
+        if max_v is not None and count > int(max_v):
+            passed = False
+        return _make_result(
+            spec, item, call, float(count), passed, {"count": count}
+        )
+
+    return Metric(spec, handler)
+
+
+def code_block_count_metric(
+    metric_id: str = "code_block_count",
+    min_count: Optional[int] = None,
+    max_count: Optional[int] = None,
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Code Block Count",
+        type="objective",
+        description="Counts fenced code blocks.",
+        config={"min_count": min_count, "max_count": max_count},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        count = len(re.findall(r"```", text)) // 2
+        min_v = item.metadata.get("min_count", min_count)
+        max_v = item.metadata.get("max_count", max_count)
+        passed = True
+        if min_v is not None and count < int(min_v):
+            passed = False
+        if max_v is not None and count > int(max_v):
+            passed = False
+        return _make_result(
+            spec, item, call, float(count), passed, {"count": count}
+        )
+
+    return Metric(spec, handler)
+
+
+def table_count_metric(
+    metric_id: str = "table_count", min_count: Optional[int] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Table Count",
+        type="objective",
+        description="Counts markdown tables.",
+        config={"min_count": min_count},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        # Count table separator lines (|---|---|)
+        count = len(re.findall(r"^\|[-:| ]+\|$", text, re.MULTILINE))
+        min_v = item.metadata.get("min_count", min_count)
+        passed = True if min_v is None else count >= int(min_v)
+        return _make_result(
+            spec, item, call, float(count), passed, {"count": count}
+        )
+
+    return Metric(spec, handler)
+
+
+def paragraph_count_metric(
+    metric_id: str = "paragraph_count",
+    min_count: Optional[int] = None,
+    max_count: Optional[int] = None,
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Paragraph Count",
+        type="objective",
+        description="Counts paragraphs.",
+        config={"min_count": min_count, "max_count": max_count},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+        count = len(paragraphs)
+        min_v = item.metadata.get("min_count", min_count)
+        max_v = item.metadata.get("max_count", max_count)
+        passed = True
+        if min_v is not None and count < int(min_v):
+            passed = False
+        if max_v is not None and count > int(max_v):
+            passed = False
+        return _make_result(
+            spec, item, call, float(count), passed, {"count": count}
+        )
+
+    return Metric(spec, handler)
+
+
+def word_count_metric(
+    metric_id: str = "word_count",
+    min_count: Optional[int] = None,
+    max_count: Optional[int] = None,
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Word Count",
+        type="objective",
+        description="Counts words in output.",
+        config={"min_count": min_count, "max_count": max_count},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        words = _tokenize(text)
+        count = len(words)
+        min_v = item.metadata.get("min_count", min_count)
+        max_v = item.metadata.get("max_count", max_count)
+        passed = True
+        if min_v is not None and count < int(min_v):
+            passed = False
+        if max_v is not None and count > int(max_v):
+            passed = False
+        return _make_result(
+            spec, item, call, float(count), passed, {"count": count}
+        )
+
+    return Metric(spec, handler)
+
+
+# =============================================================================
+# MORE METRICS: Repetition
+# =============================================================================
+
+
+def repetition_ratio_metric(
+    metric_id: str = "repetition_ratio", n: int = 3, max_ratio: Optional[float] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Repetition Ratio",
+        type="objective",
+        description="Ratio of repeated n-grams.",
+        config={"n": n, "max_ratio": max_ratio},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        tokens = _tokenize(text)
+        n_val = item.metadata.get("n", n)
+
+        if len(tokens) < n_val:
+            return _make_result(spec, item, call, 0.0, True, {"ratio": 0.0})
+
+        ngrams = [tuple(tokens[i : i + n_val]) for i in range(len(tokens) - n_val + 1)]
+        if not ngrams:
+            return _make_result(spec, item, call, 0.0, True, {"ratio": 0.0})
+
+        unique = len(set(ngrams))
+        total = len(ngrams)
+        ratio = 1.0 - (unique / total)  # Higher = more repetitive
+
+        max_r = item.metadata.get("max_ratio", max_ratio)
+        passed = True if max_r is None else ratio <= float(max_r)
+
+        return _make_result(
+            spec, item, call, ratio, passed, {"ratio": round(ratio, 4), "n": n_val}
+        )
+
+    return Metric(spec, handler)
+
+
+def duplicate_line_ratio_metric(
+    metric_id: str = "duplicate_line_ratio", max_ratio: Optional[float] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Duplicate Line Ratio",
+        type="objective",
+        description="Ratio of duplicate lines.",
+        config={"max_ratio": max_ratio},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        lines = [l.strip() for l in text.split("\n") if l.strip()]
+
+        if not lines:
+            return _make_result(spec, item, call, 0.0, True, {"ratio": 0.0})
+
+        unique = len(set(lines))
+        total = len(lines)
+        ratio = 1.0 - (unique / total)
+
+        max_r = item.metadata.get("max_ratio", max_ratio)
+        passed = True if max_r is None else ratio <= float(max_r)
+
+        return _make_result(
+            spec, item, call, ratio, passed, {"ratio": round(ratio, 4), "lines": total}
+        )
+
+    return Metric(spec, handler)
+
+
+# =============================================================================
+# MORE METRICS: Uncertainty/Confidence
+# =============================================================================
+
+
+def hedging_count_metric(
+    metric_id: str = "hedging_count", max_count: Optional[int] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Hedging Count",
+        type="objective",
+        description="Counts hedging phrases.",
+        config={"max_count": max_count},
+    )
+    hedging_words = [
+        r"\bmaybe\b", r"\bperhaps\b", r"\bmight\b", r"\bcould\b", r"\bpossibly\b",
+        r"\bprobably\b", r"\bi think\b", r"\bi believe\b", r"\bit seems\b",
+        r"\bappears to\b", r"\bseems like\b", r"\bnot sure\b", r"\bunsure\b",
+        r"\buncertain\b", r"\blikely\b", r"\bunlikely\b",
+    ]
+    pattern = re.compile("|".join(hedging_words), re.IGNORECASE)
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        count = len(pattern.findall(text))
+        max_v = item.metadata.get("max_count", max_count)
+        passed = True if max_v is None else count <= int(max_v)
+        return _make_result(
+            spec, item, call, float(count), passed, {"count": count}
+        )
+
+    return Metric(spec, handler)
+
+
+def question_count_metric(
+    metric_id: str = "question_count",
+    min_count: Optional[int] = None,
+    max_count: Optional[int] = None,
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Question Count",
+        type="objective",
+        description="Counts questions in output.",
+        config={"min_count": min_count, "max_count": max_count},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        count = text.count("?")
+        min_v = item.metadata.get("min_count", min_count)
+        max_v = item.metadata.get("max_count", max_count)
+        passed = True
+        if min_v is not None and count < int(min_v):
+            passed = False
+        if max_v is not None and count > int(max_v):
+            passed = False
+        return _make_result(
+            spec, item, call, float(count), passed, {"count": count}
+        )
+
+    return Metric(spec, handler)
+
+
+def confidence_markers_metric(metric_id: str = "confidence_markers") -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Confidence Markers",
+        type="objective",
+        description="Counts confidence markers.",
+        config={},
+    )
+    confidence_words = [
+        r"\bcertainly\b", r"\bdefinitely\b", r"\bclearly\b", r"\bobviously\b",
+        r"\bwithout doubt\b", r"\bundoubtedly\b", r"\babsolutely\b",
+        r"\bno question\b", r"\bfor sure\b", r"\bguaranteed\b",
+    ]
+    pattern = re.compile("|".join(confidence_words), re.IGNORECASE)
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        count = len(pattern.findall(text))
+        return _make_result(
+            spec, item, call, float(count), None, {"count": count}
+        )
+
+    return Metric(spec, handler)
+
+
+# =============================================================================
+# MORE METRICS: Code Quality
+# =============================================================================
+
+
+def comment_ratio_metric(
+    metric_id: str = "comment_ratio", min_ratio: Optional[float] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Comment Ratio",
+        type="objective",
+        description="Ratio of comment lines to code lines.",
+        config={"min_ratio": min_ratio},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        # Extract code from markdown if present
+        code_match = re.search(r"```(?:\w+)?\n(.*?)```", text, re.DOTALL)
+        code = code_match.group(1) if code_match else text
+
+        lines = [l.strip() for l in code.split("\n") if l.strip()]
+        if not lines:
+            return _make_result(spec, item, call, 0.0, None, {"ratio": 0.0})
+
+        comment_lines = sum(1 for l in lines if l.startswith("#") or l.startswith("//"))
+        ratio = comment_lines / len(lines)
+
+        min_r = item.metadata.get("min_ratio", min_ratio)
+        passed = True if min_r is None else ratio >= float(min_r)
+
+        return _make_result(
+            spec, item, call, ratio, passed,
+            {"comment_lines": comment_lines, "total_lines": len(lines), "ratio": round(ratio, 4)},
+        )
+
+    return Metric(spec, handler)
+
+
+def function_count_metric(
+    metric_id: str = "function_count",
+    min_count: Optional[int] = None,
+    max_count: Optional[int] = None,
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Function Count",
+        type="objective",
+        description="Counts function definitions.",
+        config={"min_count": min_count, "max_count": max_count},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        # Python: def/async def, JS: function, Arrow functions
+        patterns = [
+            r"\bdef\s+\w+\s*\(",
+            r"\basync\s+def\s+\w+\s*\(",
+            r"\bfunction\s+\w*\s*\(",
+            r"\bconst\s+\w+\s*=\s*\([^)]*\)\s*=>",
+        ]
+        count = sum(len(re.findall(p, text)) for p in patterns)
+
+        min_v = item.metadata.get("min_count", min_count)
+        max_v = item.metadata.get("max_count", max_count)
+        passed = True
+        if min_v is not None and count < int(min_v):
+            passed = False
+        if max_v is not None and count > int(max_v):
+            passed = False
+
+        return _make_result(
+            spec, item, call, float(count), passed, {"count": count}
+        )
+
+    return Metric(spec, handler)
+
+
+def import_count_metric(
+    metric_id: str = "import_count", max_count: Optional[int] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Import Count",
+        type="objective",
+        description="Counts import statements.",
+        config={"max_count": max_count},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        # Python imports, JS imports/require
+        patterns = [
+            r"^import\s+",
+            r"^from\s+\S+\s+import\s+",
+            r"\brequire\s*\(",
+        ]
+        count = sum(len(re.findall(p, text, re.MULTILINE)) for p in patterns)
+
+        max_v = item.metadata.get("max_count", max_count)
+        passed = True if max_v is None else count <= int(max_v)
+
+        return _make_result(
+            spec, item, call, float(count), passed, {"count": count}
+        )
+
+    return Metric(spec, handler)
+
+
+# =============================================================================
+# MORE METRICS: Character/Format
+# =============================================================================
+
+
+def ascii_ratio_metric(
+    metric_id: str = "ascii_ratio", min_ratio: Optional[float] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="ASCII Ratio",
+        type="objective",
+        description="Ratio of ASCII characters.",
+        config={"min_ratio": min_ratio},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        if not text:
+            return _make_result(spec, item, call, 1.0, True, {"ratio": 1.0})
+
+        ascii_count = sum(1 for c in text if ord(c) < 128)
+        ratio = ascii_count / len(text)
+
+        min_r = item.metadata.get("min_ratio", min_ratio)
+        passed = True if min_r is None else ratio >= float(min_r)
+
+        return _make_result(
+            spec, item, call, ratio, passed, {"ratio": round(ratio, 4)}
+        )
+
+    return Metric(spec, handler)
+
+
+def uppercase_ratio_metric(
+    metric_id: str = "uppercase_ratio", max_ratio: Optional[float] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Uppercase Ratio",
+        type="objective",
+        description="Ratio of uppercase letters.",
+        config={"max_ratio": max_ratio},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        letters = [c for c in text if c.isalpha()]
+        if not letters:
+            return _make_result(spec, item, call, 0.0, True, {"ratio": 0.0})
+
+        upper_count = sum(1 for c in letters if c.isupper())
+        ratio = upper_count / len(letters)
+
+        max_r = item.metadata.get("max_ratio", max_ratio)
+        passed = True if max_r is None else ratio <= float(max_r)
+
+        return _make_result(
+            spec, item, call, ratio, passed, {"ratio": round(ratio, 4)}
+        )
+
+    return Metric(spec, handler)
+
+
+def numeric_density_metric(metric_id: str = "numeric_density") -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Numeric Density",
+        type="objective",
+        description="Ratio of numeric characters.",
+        config={},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        if not text:
+            return _make_result(spec, item, call, 0.0, None, {"ratio": 0.0})
+
+        digit_count = sum(1 for c in text if c.isdigit())
+        ratio = digit_count / len(text)
+
+        return _make_result(
+            spec, item, call, ratio, None, {"ratio": round(ratio, 4)}
+        )
+
+    return Metric(spec, handler)
+
+
+def whitespace_ratio_metric(
+    metric_id: str = "whitespace_ratio", max_ratio: Optional[float] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Whitespace Ratio",
+        type="objective",
+        description="Ratio of whitespace characters.",
+        config={"max_ratio": max_ratio},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        if not text:
+            return _make_result(spec, item, call, 0.0, True, {"ratio": 0.0})
+
+        ws_count = sum(1 for c in text if c.isspace())
+        ratio = ws_count / len(text)
+
+        max_r = item.metadata.get("max_ratio", max_ratio)
+        passed = True if max_r is None else ratio <= float(max_r)
+
+        return _make_result(
+            spec, item, call, ratio, passed, {"ratio": round(ratio, 4)}
+        )
+
+    return Metric(spec, handler)
+
+
+# =============================================================================
+# MORE METRICS: Match Variants
+# =============================================================================
+
+
+def prefix_match_metric(
+    metric_id: str = "prefix_match", prefix: Optional[str] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Prefix Match",
+        type="objective",
+        description="Checks if output starts with expected prefix.",
+        config={"prefix": prefix},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        expected = prefix or item.metadata.get("prefix", "")
+        passed = text.startswith(expected) if expected else True
+        return _make_result(
+            spec, item, call, 1.0 if passed else 0.0, passed, {"prefix": expected}
+        )
+
+    return Metric(spec, handler)
+
+
+def suffix_match_metric(
+    metric_id: str = "suffix_match", suffix: Optional[str] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Suffix Match",
+        type="objective",
+        description="Checks if output ends with expected suffix.",
+        config={"suffix": suffix},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        expected = suffix or item.metadata.get("suffix", "")
+        passed = text.endswith(expected) if expected else True
+        return _make_result(
+            spec, item, call, 1.0 if passed else 0.0, passed, {"suffix": expected}
+        )
+
+    return Metric(spec, handler)
+
+
+def contains_all_metric(
+    metric_id: str = "contains_all", substrings: Optional[List[str]] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Contains All",
+        type="objective",
+        description="Checks if output contains all required substrings.",
+        config={"substrings": substrings or []},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output).lower()
+        required = substrings or item.metadata.get("substrings", [])
+        missing = [s for s in required if s.lower() not in text]
+        passed = len(missing) == 0
+        return _make_result(
+            spec, item, call, 1.0 if passed else 0.0, passed,
+            {"required": required, "missing": missing},
+        )
+
+    return Metric(spec, handler)
+
+
+def contains_none_metric(
+    metric_id: str = "contains_none", forbidden: Optional[List[str]] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Contains None",
+        type="objective",
+        description="Checks if output contains none of the forbidden substrings.",
+        config={"forbidden": forbidden or []},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output).lower()
+        blocked = forbidden or item.metadata.get("forbidden", [])
+        found = [s for s in blocked if s.lower() in text]
+        passed = len(found) == 0
+        return _make_result(
+            spec, item, call, 1.0 if passed else 0.0, passed,
+            {"forbidden": blocked, "found": found},
+        )
+
+    return Metric(spec, handler)
+
+
+# =============================================================================
+# MORE METRICS: List/Enumeration
+# =============================================================================
+
+
+def numbered_list_count_metric(
+    metric_id: str = "numbered_list_count",
+    min_count: Optional[int] = None,
+    max_count: Optional[int] = None,
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Numbered List Count",
+        type="objective",
+        description="Counts numbered list items.",
+        config={"min_count": min_count, "max_count": max_count},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        count = len(re.findall(r"^\s*\d+[.)]\s+", text, re.MULTILINE))
+        min_v = item.metadata.get("min_count", min_count)
+        max_v = item.metadata.get("max_count", max_count)
+        passed = True
+        if min_v is not None and count < int(min_v):
+            passed = False
+        if max_v is not None and count > int(max_v):
+            passed = False
+        return _make_result(
+            spec, item, call, float(count), passed, {"count": count}
+        )
+
+    return Metric(spec, handler)
+
+
+def list_item_count_metric(
+    metric_id: str = "list_item_count",
+    min_count: Optional[int] = None,
+    max_count: Optional[int] = None,
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="List Item Count",
+        type="objective",
+        description="Counts total list items (bullets + numbers).",
+        config={"min_count": min_count, "max_count": max_count},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        bullets = len(re.findall(r"^[\s]*[-*+]\s+", text, re.MULTILINE))
+        numbered = len(re.findall(r"^\s*\d+[.)]\s+", text, re.MULTILINE))
+        count = bullets + numbered
+
+        min_v = item.metadata.get("min_count", min_count)
+        max_v = item.metadata.get("max_count", max_count)
+        passed = True
+        if min_v is not None and count < int(min_v):
+            passed = False
+        if max_v is not None and count > int(max_v):
+            passed = False
+
+        return _make_result(
+            spec, item, call, float(count), passed,
+            {"bullets": bullets, "numbered": numbered, "total": count},
+        )
+
+    return Metric(spec, handler)
+
+
+# =============================================================================
+# MORE METRICS: Response Quality
+# =============================================================================
+
+
+def emoji_count_metric(
+    metric_id: str = "emoji_count", max_count: Optional[int] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Emoji Count",
+        type="objective",
+        description="Counts emoji characters.",
+        config={"max_count": max_count},
+    )
+    # Simplified emoji pattern
+    emoji_pattern = re.compile(
+        "["
+        "\U0001F600-\U0001F64F"  # emoticons
+        "\U0001F300-\U0001F5FF"  # symbols & pictographs
+        "\U0001F680-\U0001F6FF"  # transport & map
+        "\U0001F700-\U0001F77F"  # alchemical
+        "\U0001F780-\U0001F7FF"  # geometric
+        "\U0001F800-\U0001F8FF"  # supplemental arrows
+        "\U0001F900-\U0001F9FF"  # supplemental symbols
+        "\U0001FA00-\U0001FA6F"  # chess
+        "\U0001FA70-\U0001FAFF"  # symbols
+        "\U00002702-\U000027B0"  # dingbats
+        "]+",
+        flags=re.UNICODE,
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        matches = emoji_pattern.findall(text)
+        count = sum(len(m) for m in matches)
+
+        max_v = item.metadata.get("max_count", max_count)
+        passed = True if max_v is None else count <= int(max_v)
+
+        return _make_result(
+            spec, item, call, float(count), passed, {"count": count}
+        )
+
+    return Metric(spec, handler)
+
+
+def link_density_metric(
+    metric_id: str = "link_density", max_ratio: Optional[float] = None
+) -> Metric:
+    spec = MetricSpec(
+        id=metric_id,
+        name="Link Density",
+        type="objective",
+        description="Ratio of link text to total text.",
+        config={"max_ratio": max_ratio},
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        text = _as_text(call.output)
+        if not text:
+            return _make_result(spec, item, call, 0.0, True, {"ratio": 0.0})
+
+        # Find all URLs and markdown links
+        url_pattern = r"https?://\S+"
+        md_link_pattern = r"\[([^\]]+)\]\(([^)]+)\)"
+
+        urls = re.findall(url_pattern, text)
+        md_links = re.findall(md_link_pattern, text)
+
+        link_chars = sum(len(u) for u in urls) + sum(len(t) + len(u) for t, u in md_links)
+        ratio = link_chars / len(text)
+
+        max_r = item.metadata.get("max_ratio", max_ratio)
+        passed = True if max_r is None else ratio <= float(max_r)
+
+        return _make_result(
+            spec, item, call, ratio, passed, {"ratio": round(ratio, 4)}
         )
 
     return Metric(spec, handler)

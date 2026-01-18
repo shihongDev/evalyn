@@ -56,6 +56,45 @@ from .objective import (
     url_count_metric,
     citation_count_metric,
     markdown_link_count_metric,
+    # Format validation
+    yaml_valid_metric,
+    markdown_structure_metric,
+    html_valid_metric,
+    sql_valid_metric,
+    # Structure detection
+    bullet_count_metric,
+    heading_count_metric,
+    code_block_count_metric,
+    table_count_metric,
+    paragraph_count_metric,
+    word_count_metric,
+    # Repetition
+    repetition_ratio_metric,
+    duplicate_line_ratio_metric,
+    # Uncertainty/Confidence
+    hedging_count_metric,
+    question_count_metric,
+    confidence_markers_metric,
+    # Code quality
+    comment_ratio_metric,
+    function_count_metric,
+    import_count_metric,
+    # Character/Format
+    ascii_ratio_metric,
+    uppercase_ratio_metric,
+    numeric_density_metric,
+    whitespace_ratio_metric,
+    # Match variants
+    prefix_match_metric,
+    suffix_match_metric,
+    contains_all_metric,
+    contains_none_metric,
+    # List/Enumeration
+    numbered_list_count_metric,
+    list_item_count_metric,
+    # Response quality
+    emoji_count_metric,
+    link_density_metric,
 )
 from ..models import Metric
 from .judges import LLMJudge
@@ -187,6 +226,83 @@ def build_objective_metric(
         "markdown_link_count": lambda c: markdown_link_count_metric(
             min_count=int(c.get("min_count", 0))
         ),
+        # Format validation
+        "yaml_valid": lambda c: yaml_valid_metric(),
+        "markdown_structure": lambda c: markdown_structure_metric(
+            require_heading=c.get("require_heading", False)
+        ),
+        "html_valid": lambda c: html_valid_metric(),
+        "sql_valid": lambda c: sql_valid_metric(),
+        # Structure detection
+        "bullet_count": lambda c: bullet_count_metric(
+            min_count=c.get("min_count"),
+            max_count=c.get("max_count"),
+        ),
+        "heading_count": lambda c: heading_count_metric(
+            min_count=c.get("min_count"),
+            max_count=c.get("max_count"),
+        ),
+        "code_block_count": lambda c: code_block_count_metric(
+            min_count=c.get("min_count"),
+            max_count=c.get("max_count"),
+        ),
+        "table_count": lambda c: table_count_metric(min_count=c.get("min_count")),
+        "paragraph_count": lambda c: paragraph_count_metric(
+            min_count=c.get("min_count"),
+            max_count=c.get("max_count"),
+        ),
+        "word_count": lambda c: word_count_metric(
+            min_count=c.get("min_count"),
+            max_count=c.get("max_count"),
+        ),
+        # Repetition
+        "repetition_ratio": lambda c: repetition_ratio_metric(
+            n=int(c.get("n", 3)),
+            max_ratio=c.get("max_ratio"),
+        ),
+        "duplicate_line_ratio": lambda c: duplicate_line_ratio_metric(
+            max_ratio=c.get("max_ratio")
+        ),
+        # Uncertainty/Confidence
+        "hedging_count": lambda c: hedging_count_metric(max_count=c.get("max_count")),
+        "question_count": lambda c: question_count_metric(
+            min_count=c.get("min_count"),
+            max_count=c.get("max_count"),
+        ),
+        "confidence_markers": lambda c: confidence_markers_metric(),
+        # Code quality
+        "comment_ratio": lambda c: comment_ratio_metric(min_ratio=c.get("min_ratio")),
+        "function_count": lambda c: function_count_metric(
+            min_count=c.get("min_count"),
+            max_count=c.get("max_count"),
+        ),
+        "import_count": lambda c: import_count_metric(max_count=c.get("max_count")),
+        # Character/Format
+        "ascii_ratio": lambda c: ascii_ratio_metric(min_ratio=c.get("min_ratio")),
+        "uppercase_ratio": lambda c: uppercase_ratio_metric(
+            max_ratio=c.get("max_ratio")
+        ),
+        "numeric_density": lambda c: numeric_density_metric(),
+        "whitespace_ratio": lambda c: whitespace_ratio_metric(
+            max_ratio=c.get("max_ratio")
+        ),
+        # Match variants
+        "prefix_match": lambda c: prefix_match_metric(prefix=c.get("prefix")),
+        "suffix_match": lambda c: suffix_match_metric(suffix=c.get("suffix")),
+        "contains_all": lambda c: contains_all_metric(substrings=c.get("substrings")),
+        "contains_none": lambda c: contains_none_metric(forbidden=c.get("forbidden")),
+        # List/Enumeration
+        "numbered_list_count": lambda c: numbered_list_count_metric(
+            min_count=c.get("min_count"),
+            max_count=c.get("max_count"),
+        ),
+        "list_item_count": lambda c: list_item_count_metric(
+            min_count=c.get("min_count"),
+            max_count=c.get("max_count"),
+        ),
+        # Response quality
+        "emoji_count": lambda c: emoji_count_metric(max_count=c.get("max_count")),
+        "link_density": lambda c: link_density_metric(max_ratio=c.get("max_ratio")),
     }
 
     if metric_id not in builders:
