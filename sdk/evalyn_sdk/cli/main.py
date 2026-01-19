@@ -36,6 +36,7 @@ HUMAN FEEDBACK:
 CALIBRATION:
   calibrate        Calibrate LLM judges using annotations
   list-calibrations List calibration records
+  cluster-failures Cluster failed items by failure reason
   cluster-misalignments Cluster judge vs human disagreements
 
 SIMULATION:

@@ -58,6 +58,12 @@ from .clustering import (
     ReasonClusterer,
     generate_cluster_html,
     generate_cluster_text,
+    # Failure clustering
+    FailureCase,
+    FailureCluster,
+    FailureClusteringResult,
+    generate_failure_cluster_html,
+    generate_failure_cluster_text,
 )
 
 __all__ = [
@@ -88,4 +94,10 @@ __all__ = [
     "ReasonClusterer",
     "generate_cluster_html",
     "generate_cluster_text",
+    # Failure clustering
+    "FailureCase",
+    "FailureCluster",
+    "FailureClusteringResult",
+    "generate_failure_cluster_html",
+    "generate_failure_cluster_text",
 ]
