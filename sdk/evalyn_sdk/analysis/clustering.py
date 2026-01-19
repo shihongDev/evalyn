@@ -1208,7 +1208,7 @@ def _generate_fallback_html(result: ClusteringResult, metric_id: str) -> str:
 </head>
 <body>
     <h1>Misalignment Clusters: {metric_id}</h1>
-    <p class="note">Interactive visualization requires plotly. Install with: uv pip install plotly</p>
+    <p class="note">Interactive scatter plot requires: pip install evalyn-sdk[clustering]</p>
     {_render_cluster_tables(result)}
 </body>
 </html>"""
@@ -1499,7 +1499,7 @@ def _generate_failure_fallback_html(result: FailureClusteringResult, metric_id: 
 </head>
 <body>
     <h1>Failure Clusters: {metric_id}</h1>
-    <p class="note">Interactive visualization requires plotly. Install with: uv pip install plotly</p>
+    <p class="note">Interactive scatter plot requires: pip install evalyn-sdk[clustering]</p>
     {_render_failure_cluster_table(result)}
 </body>
 </html>"""
