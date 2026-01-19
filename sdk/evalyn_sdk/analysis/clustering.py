@@ -958,30 +958,38 @@ def generate_cluster_html(
     Returns:
         HTML string with embedded Plotly scatter plot
     """
-    if not result.coordinates_2d:
-        return _generate_fallback_html(result, metric_id)
-
+    # Check if dependencies are available
+    deps_available = True
     try:
         import plotly.graph_objects as go
         from plotly.io import to_html
     except ImportError:
-        return _generate_fallback_html(result, metric_id)
+        deps_available = False
+
+    if not result.coordinates_2d:
+        if not deps_available:
+            reason = "deps_missing"
+        elif result.total_cases < 3:
+            reason = "too_few_cases"
+        else:
+            reason = "deps_missing"
+        return _generate_fallback_html(result, metric_id, reason)
+
+    if not deps_available:
+        return _generate_fallback_html(result, metric_id, "deps_missing")
 
     # Build scatter plot data
     x_coords = [c[0] for c in result.coordinates_2d]
     y_coords = [c[1] for c in result.coordinates_2d]
 
-    # Color by cluster, shape by type
-    # Assign colors to unique labels
     unique_labels = sorted(set(result.case_labels or []))
     color_map = {}
-    fp_colors = ["#ef4444", "#f87171", "#fca5a5", "#fecaca", "#fee2e2"]  # Red tones
-    fn_colors = ["#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe", "#dbeafe"]  # Blue tones
+    fp_colors = ["#D4A27F", "#C4836A", "#B87333", "#A0522D", "#CD853F"]  # Warm tans
+    fn_colors = ["#6B8E8E", "#7A9E7A", "#8FBC8F", "#5F9EA0", "#708090"]  # Cool sages
 
     fp_idx = 0
     fn_idx = 0
     for label in unique_labels:
-        # Find a case with this label to determine type
         for i, l in enumerate(result.case_labels or []):
             if l == label and result.case_types:
                 if result.case_types[i] == "false_positive":
@@ -992,11 +1000,7 @@ def generate_cluster_html(
                     fn_idx += 1
                 break
 
-    colors = [color_map.get(l, "#888888") for l in (result.case_labels or [])]
-    symbols = [
-        "circle" if t == "false_positive" else "diamond"
-        for t in (result.case_types or [])
-    ]
+    colors = [color_map.get(l, "#A0A0A0") for l in (result.case_labels or [])]
 
     # Build hover text
     hover_texts = []
@@ -1004,16 +1008,14 @@ def generate_cluster_html(
         label = result.case_labels[i] if result.case_labels else "Unknown"
         case_type = result.case_types[i] if result.case_types else "unknown"
         reason = result.case_reasons[i] if result.case_reasons else ""
-        # Truncate reason for hover
         reason_short = reason[:150] + "..." if len(reason) > 150 else reason
-        type_label = "FP (too lenient)" if case_type == "false_positive" else "FN (too strict)"
+        type_label = "False Positive" if case_type == "false_positive" else "False Negative"
         hover_texts.append(
-            f"<b>{label}</b><br>"
-            f"Type: {type_label}<br>"
-            f"Reason: {reason_short}"
+            f"<b>{label}</b><br><br>"
+            f"<span style='color:#888'>{type_label}</span><br><br>"
+            f"{reason_short}"
         )
 
-    # Create figure
     fig = go.Figure()
 
     # Add FP trace (circles)
@@ -1025,14 +1027,15 @@ def generate_cluster_html(
                 y=[y for y, m in zip(y_coords, fp_mask) if m],
                 mode="markers",
                 marker=dict(
-                    size=12,
+                    size=14,
                     color=[c for c, m in zip(colors, fp_mask) if m],
                     symbol="circle",
-                    line=dict(width=1, color="#0a1210"),
+                    line=dict(width=2, color="#FFFBF7"),
+                    opacity=0.9,
                 ),
                 text=[t for t, m in zip(hover_texts, fp_mask) if m],
                 hoverinfo="text",
-                name="False Positive (too lenient)",
+                name="False Positive",
             )
         )
 
@@ -1045,59 +1048,66 @@ def generate_cluster_html(
                 y=[y for y, m in zip(y_coords, fn_mask) if m],
                 mode="markers",
                 marker=dict(
-                    size=12,
+                    size=14,
                     color=[c for c, m in zip(colors, fn_mask) if m],
                     symbol="diamond",
-                    line=dict(width=1, color="#0a1210"),
+                    line=dict(width=2, color="#FFFBF7"),
+                    opacity=0.9,
                 ),
                 text=[t for t, m in zip(hover_texts, fn_mask) if m],
                 hoverinfo="text",
-                name="False Negative (too strict)",
+                name="False Negative",
             )
         )
 
-    # Layout with dark theme
+    # Layout configuration
     fig.update_layout(
-        title=dict(
-            text=f"Misalignment Clusters: {metric_id}",
-            font=dict(size=16, color="#e5e7eb"),
-        ),
-        paper_bgcolor="#0a1210",
-        plot_bgcolor="#0f1a16",
-        font=dict(color="#e5e7eb"),
+        title=None,
+        paper_bgcolor="#FFFBF7",
+        plot_bgcolor="#FBF7F3",
+        font=dict(family="Söhne, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif", color="#1A1A1A"),
         xaxis=dict(
             showgrid=True,
-            gridcolor="#1f2d28",
+            gridcolor="rgba(212, 162, 127, 0.15)",
             zeroline=False,
             showticklabels=False,
             title="",
         ),
         yaxis=dict(
             showgrid=True,
-            gridcolor="#1f2d28",
+            gridcolor="rgba(212, 162, 127, 0.15)",
             zeroline=False,
             showticklabels=False,
             title="",
         ),
         legend=dict(
-            bgcolor="#0f1a16",
-            bordercolor="#1f2d28",
+            bgcolor="rgba(255, 251, 247, 0.9)",
+            bordercolor="rgba(212, 162, 127, 0.3)",
             borderwidth=1,
-            font=dict(color="#e5e7eb"),
+            font=dict(
+                family="Söhne, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif",
+                color="#1A1A1A",
+                size=12,
+            ),
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="left",
+            x=0,
         ),
         hovermode="closest",
-        margin=dict(l=20, r=20, t=50, b=20),
+        margin=dict(l=24, r=24, t=48, b=24),
+        hoverlabel=dict(
+            bgcolor="#FFFBF7",
+            bordercolor="#D4A27F",
+            font=dict(family="Söhne, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif", color="#1A1A1A"),
+        ),
     )
 
-    # Generate HTML
     plot_html = to_html(
-        fig,
-        full_html=False,
-        include_plotlyjs="cdn",
-        config={"displayModeBar": False},
+        fig, full_html=False, include_plotlyjs="cdn", config={"displayModeBar": False}
     )
 
-    # Build summary stats
     fp_count = len(result.false_positive_clusters)
     fn_count = len(result.false_negative_clusters)
     fp_cases = sum(c.count for c in result.false_positive_clusters)
@@ -1108,66 +1118,138 @@ def generate_cluster_html(
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Misalignment Clusters - {metric_id}</title>
+    <title>Misalignment Clusters: {metric_id}</title>
+    <!-- Söhne font requires license - using system fallback stack -->
     <style>
+        * {{ box-sizing: border-box; }}
         body {{
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #0a1210;
-            color: #e5e7eb;
+            font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: #FFFBF7;
+            color: #1A1A1A;
             margin: 0;
-            padding: 24px;
+            padding: 48px 24px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
         }}
-        .container {{ max-width: 1200px; margin: 0 auto; }}
-        .header {{ margin-bottom: 24px; }}
-        .header h1 {{ margin: 0; font-size: 24px; color: #39ff14; }}
+        .container {{
+            max-width: 960px;
+            margin: 0 auto;
+        }}
+        .header {{
+            margin-bottom: 40px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid rgba(212, 162, 127, 0.3);
+        }}
+        .header h1 {{
+            margin: 0 0 8px 0;
+            font-size: 28px;
+            font-weight: 700;
+            color: #1A1A1A;
+            letter-spacing: -0.02em;
+        }}
+        .header .subtitle {{
+            font-size: 15px;
+            color: #666;
+        }}
         .stats {{
             display: flex;
-            gap: 32px;
-            margin: 16px 0;
-            padding: 16px;
-            background: #0f1a16;
-            border: 1px solid #1f2d28;
+            gap: 48px;
+            margin: 32px 0;
         }}
-        .stat {{ text-align: center; }}
-        .stat-value {{ font-size: 28px; font-weight: 700; }}
-        .stat-value.fp {{ color: #ef4444; }}
-        .stat-value.fn {{ color: #3b82f6; }}
-        .stat-label {{ font-size: 12px; color: #6b7280; text-transform: uppercase; }}
-        .plot-container {{ margin: 24px 0; }}
+        .stat {{
+            display: flex;
+            flex-direction: column;
+        }}
+        .stat-value {{
+            font-size: 36px;
+            font-weight: 700;
+            line-height: 1;
+        }}
+        .stat-value.total {{ color: #1A1A1A; }}
+        .stat-value.fp {{ color: #D4A27F; }}
+        .stat-value.fn {{ color: #6B8E8E; }}
+        .stat-label {{
+            font-size: 13px;
+            color: #666;
+            margin-top: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }}
+        .plot-container {{
+            margin: 40px 0;
+            background: #FBF7F3;
+            border-radius: 12px;
+            padding: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03);
+        }}
+        .section-title {{
+            font-size: 18px;
+            font-weight: 600;
+            margin: 40px 0 20px 0;
+        }}
+        .section-title.fp {{ color: #C4836A; }}
+        .section-title.fn {{ color: #5F9EA0; }}
         .cluster-table {{
             width: 100%;
             border-collapse: collapse;
-            margin-top: 24px;
-        }}
-        .cluster-table th, .cluster-table td {{
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #1f2d28;
         }}
         .cluster-table th {{
-            background: #0f1a16;
+            text-align: left;
+            padding: 12px 16px;
             font-size: 11px;
+            font-weight: 600;
+            color: #888;
             text-transform: uppercase;
-            color: #6b7280;
+            letter-spacing: 0.08em;
+            border-bottom: 1px solid rgba(212, 162, 127, 0.2);
+        }}
+        .cluster-table td {{
+            padding: 16px;
+            border-bottom: 1px solid rgba(212, 162, 127, 0.12);
+            vertical-align: top;
+        }}
+        .cluster-table tr:last-child td {{
+            border-bottom: none;
+        }}
+        .cluster-table tr:hover td {{
+            background: rgba(212, 162, 127, 0.05);
         }}
         .cluster-badge {{
             display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
         }}
-        .cluster-badge.fp {{ background: rgba(239, 68, 68, 0.2); color: #ef4444; }}
-        .cluster-badge.fn {{ background: rgba(59, 130, 246, 0.2); color: #3b82f6; }}
+        .cluster-badge.fp {{
+            background: rgba(212, 162, 127, 0.15);
+            color: #8B6914;
+        }}
+        .cluster-badge.fn {{
+            background: rgba(107, 142, 142, 0.15);
+            color: #3D6B6B;
+        }}
+        .cluster-count {{
+            font-weight: 600;
+        }}
+        .cluster-count.fp {{ color: #D4A27F; }}
+        .cluster-count.fn {{ color: #6B8E8E; }}
+        .cluster-example {{
+            font-size: 14px;
+            color: #555;
+            line-height: 1.6;
+        }}
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Misalignment Clusters: {metric_id}</h1>
+            <h1>Misalignment Clusters</h1>
+            <div class="subtitle">{metric_id}</div>
         </div>
         <div class="stats">
             <div class="stat">
-                <div class="stat-value">{result.total_cases}</div>
+                <div class="stat-value total">{result.total_cases}</div>
                 <div class="stat-label">Total Cases</div>
             </div>
             <div class="stat">
@@ -1188,34 +1270,151 @@ def generate_cluster_html(
 </html>"""
 
 
-def _generate_fallback_html(result: ClusteringResult, metric_id: str) -> str:
-    """Generate simple HTML without interactive plot."""
+def _generate_fallback_html(
+    result: ClusteringResult, metric_id: str, reason: str = "deps_missing"
+) -> str:
+    """Generate simple HTML without interactive plot.
+
+    Args:
+        result: ClusteringResult with clusters
+        metric_id: Name of the metric
+        reason: Why scatter plot is unavailable - "deps_missing" or "too_few_cases"
+    """
+    if reason == "too_few_cases":
+        note_html = f'Scatter plot requires at least 3 data points. Only {result.total_cases} case(s) found.'
+    else:
+        note_html = 'Interactive scatter plot requires: <code>pip install evalyn-sdk[clustering]</code>'
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Misalignment Clusters - {metric_id}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Misalignment Clusters: {metric_id}</title>
+    <!-- Söhne font requires license - using system fallback stack -->
     <style>
+        * {{ box-sizing: border-box; }}
         body {{
-            font-family: 'Inter', sans-serif;
-            background: #0a1210;
-            color: #e5e7eb;
-            padding: 24px;
+            font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: #FFFBF7;
+            color: #1A1A1A;
+            margin: 0;
+            padding: 48px 24px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
         }}
-        h1 {{ color: #39ff14; }}
-        .note {{ color: #6b7280; margin: 16px 0; }}
+        .container {{
+            max-width: 960px;
+            margin: 0 auto;
+        }}
+        .header {{
+            margin-bottom: 40px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid rgba(212, 162, 127, 0.3);
+        }}
+        .header h1 {{
+            margin: 0 0 8px 0;
+            font-size: 28px;
+            font-weight: 700;
+            color: #1A1A1A;
+            letter-spacing: -0.02em;
+        }}
+        .header .subtitle {{
+            font-size: 15px;
+            color: #666;
+        }}
+        .note {{
+            padding: 16px 20px;
+            background: rgba(212, 162, 127, 0.1);
+            border-left: 3px solid #D4A27F;
+            border-radius: 0 8px 8px 0;
+            color: #666;
+            font-size: 14px;
+            margin: 24px 0;
+        }}
+        .note code {{
+            background: rgba(212, 162, 127, 0.15);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Söhne Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+            font-size: 13px;
+        }}
+        .section-title {{
+            font-size: 18px;
+            font-weight: 600;
+            margin: 40px 0 20px 0;
+        }}
+        .section-title.fp {{ color: #C4836A; }}
+        .section-title.fn {{ color: #5F9EA0; }}
+        .cluster-table {{
+            width: 100%;
+            border-collapse: collapse;
+        }}
+        .cluster-table th {{
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            border-bottom: 1px solid rgba(212, 162, 127, 0.2);
+        }}
+        .cluster-table td {{
+            padding: 16px;
+            border-bottom: 1px solid rgba(212, 162, 127, 0.12);
+            vertical-align: top;
+        }}
+        .cluster-table tr:last-child td {{
+            border-bottom: none;
+        }}
+        .cluster-table tr:hover td {{
+            background: rgba(212, 162, 127, 0.05);
+        }}
+        .cluster-badge {{
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+        }}
+        .cluster-badge.fp {{
+            background: rgba(212, 162, 127, 0.15);
+            color: #8B6914;
+        }}
+        .cluster-badge.fn {{
+            background: rgba(107, 142, 142, 0.15);
+            color: #3D6B6B;
+        }}
+        .cluster-count {{
+            font-weight: 600;
+        }}
+        .cluster-count.fp {{ color: #D4A27F; }}
+        .cluster-count.fn {{ color: #6B8E8E; }}
+        .cluster-example {{
+            font-size: 14px;
+            color: #555;
+            line-height: 1.6;
+        }}
     </style>
 </head>
 <body>
-    <h1>Misalignment Clusters: {metric_id}</h1>
-    <p class="note">Interactive scatter plot requires: pip install evalyn-sdk[clustering]</p>
-    {_render_cluster_tables(result)}
+    <div class="container">
+        <div class="header">
+            <h1>Misalignment Clusters</h1>
+            <div class="subtitle">{metric_id}</div>
+        </div>
+        <div class="note">
+            {note_html}
+        </div>
+        {_render_cluster_tables(result)}
+    </div>
 </body>
 </html>"""
 
 
 def _render_single_cluster_table(
-    clusters: List[ReasonCluster], title: str, color: str, badge_class: str
+    clusters: List[ReasonCluster], title: str, title_class: str, badge_class: str
 ) -> str:
     """Render a single cluster table section."""
     if not clusters:
@@ -1224,17 +1423,17 @@ def _render_single_cluster_table(
     rows = []
     for c in clusters:
         example = c.representative_example.judge_reason or c.representative_example.human_notes
-        example_short = example[:100] + "..." if len(example) > 100 else example
+        example_short = example[:120] + "..." if len(example) > 120 else example
         rows.append(f"""
             <tr>
                 <td><span class="cluster-badge {badge_class}">{c.label}</span></td>
-                <td>{c.count}</td>
-                <td style="color: #9ca3af;">{example_short}</td>
+                <td class="cluster-count {badge_class}">{c.count}</td>
+                <td class="cluster-example">{example_short}</td>
             </tr>
         """)
 
     return f"""
-        <h2 style="color: {color}; margin-top: 32px;">{title}</h2>
+        <h2 class="section-title {title_class}">{title}</h2>
         <table class="cluster-table">
             <thead><tr><th>Cluster</th><th>Count</th><th>Example</th></tr></thead>
             <tbody>{"".join(rows)}</tbody>
@@ -1247,13 +1446,13 @@ def _render_cluster_tables(result: ClusteringResult) -> str:
     fp_table = _render_single_cluster_table(
         result.false_positive_clusters,
         "False Positives (Judge too lenient)",
-        "#ef4444",
+        "fp",
         "fp",
     )
     fn_table = _render_single_cluster_table(
         result.false_negative_clusters,
         "False Negatives (Judge too strict)",
-        "#3b82f6",
+        "fn",
         "fn",
     )
     return fp_table + fn_table
@@ -1336,26 +1535,46 @@ def generate_failure_cluster_html(
     Returns:
         HTML string with embedded Plotly scatter plot
     """
-    if not result.coordinates_2d:
-        return _generate_failure_fallback_html(result, metric_id)
-
+    # Check if dependencies are available
+    deps_available = True
     try:
         import plotly.graph_objects as go
         from plotly.io import to_html
     except ImportError:
-        return _generate_failure_fallback_html(result, metric_id)
+        deps_available = False
+
+    if not result.coordinates_2d:
+        # Determine reason for missing coordinates
+        if not deps_available:
+            reason = "deps_missing"
+        elif result.total_cases < 3:
+            reason = "too_few_cases"
+        else:
+            reason = "deps_missing"  # Likely deps weren't available during clustering
+        return _generate_failure_fallback_html(result, metric_id, reason)
+
+    if not deps_available:
+        return _generate_failure_fallback_html(result, metric_id, "deps_missing")
 
     x_coords = [c[0] for c in result.coordinates_2d]
     y_coords = [c[1] for c in result.coordinates_2d]
 
-    # Assign colors to clusters
     unique_labels = sorted(set(result.case_labels or []))
     colors_palette = [
-        "#ef4444", "#f97316", "#eab308", "#22c55e", "#14b8a6",
-        "#3b82f6", "#8b5cf6", "#ec4899", "#6b7280", "#78716c",
+        "#D4A27F",  # Tan
+        "#C4836A",  # Terracotta
+        "#8B7355",  # Warm brown
+        "#6B8E8E",  # Muted teal
+        "#9B8AA6",  # Dusty purple
+        "#A68B6B",  # Camel
+        "#7A9E7A",  # Sage
+        "#B8A090",  # Taupe
     ]
-    color_map = {label: colors_palette[i % len(colors_palette)] for i, label in enumerate(unique_labels)}
-    colors = [color_map.get(l, "#888888") for l in (result.case_labels or [])]
+    color_map = {
+        label: colors_palette[i % len(colors_palette)]
+        for i, label in enumerate(unique_labels)
+    }
+    colors = [color_map.get(l, "#A0A0A0") for l in (result.case_labels or [])]
 
     # Build hover text
     hover_texts = []
@@ -1363,7 +1582,7 @@ def generate_failure_cluster_html(
         label = result.case_labels[i] if result.case_labels else "Unknown"
         reason = result.case_reasons[i] if result.case_reasons else ""
         reason_short = reason[:150] + "..." if len(reason) > 150 else reason
-        hover_texts.append(f"<b>{label}</b><br>Reason: {reason_short}")
+        hover_texts.append(f"<b>{label}</b><br><br>{reason_short}")
 
     fig = go.Figure()
     fig.add_trace(
@@ -1372,10 +1591,11 @@ def generate_failure_cluster_html(
             y=y_coords,
             mode="markers",
             marker=dict(
-                size=12,
+                size=14,
                 color=colors,
                 symbol="circle",
-                line=dict(width=1, color="#0a1210"),
+                line=dict(width=2, color="#FFFBF7"),
+                opacity=0.9,
             ),
             text=hover_texts,
             hoverinfo="text",
@@ -1383,19 +1603,39 @@ def generate_failure_cluster_html(
         )
     )
 
+    # Layout configuration
     fig.update_layout(
-        title=dict(text=f"Failure Clusters: {metric_id}", font=dict(size=16, color="#e5e7eb")),
-        paper_bgcolor="#0a1210",
-        plot_bgcolor="#0f1a16",
-        font=dict(color="#e5e7eb"),
-        xaxis=dict(showgrid=True, gridcolor="#1f2d28", zeroline=False, showticklabels=False),
-        yaxis=dict(showgrid=True, gridcolor="#1f2d28", zeroline=False, showticklabels=False),
-        legend=dict(bgcolor="#0f1a16", bordercolor="#1f2d28", borderwidth=1),
+        title=None,
+        paper_bgcolor="#FFFBF7",
+        plot_bgcolor="#FBF7F3",
+        font=dict(family="Söhne, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif", color="#1A1A1A"),
+        xaxis=dict(
+            showgrid=True,
+            gridcolor="rgba(212, 162, 127, 0.15)",
+            zeroline=False,
+            showticklabels=False,
+            title="",
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor="rgba(212, 162, 127, 0.15)",
+            zeroline=False,
+            showticklabels=False,
+            title="",
+        ),
+        showlegend=False,
         hovermode="closest",
-        margin=dict(l=20, r=20, t=50, b=20),
+        margin=dict(l=24, r=24, t=24, b=24),
+        hoverlabel=dict(
+            bgcolor="#FFFBF7",
+            bordercolor="#D4A27F",
+            font=dict(family="Söhne, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif", color="#1A1A1A"),
+        ),
     )
 
-    plot_html = to_html(fig, full_html=False, include_plotlyjs="cdn", config={"displayModeBar": False})
+    plot_html = to_html(
+        fig, full_html=False, include_plotlyjs="cdn", config={"displayModeBar": False}
+    )
 
     cluster_count = len(result.clusters)
     total_cases = result.total_cases
@@ -1405,60 +1645,124 @@ def generate_failure_cluster_html(
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Failure Clusters - {metric_id}</title>
+    <title>Failure Clusters: {metric_id}</title>
+    <!-- Söhne font requires license - using system fallback stack -->
     <style>
+        * {{ box-sizing: border-box; }}
         body {{
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #0a1210;
-            color: #e5e7eb;
+            font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: #FFFBF7;
+            color: #1A1A1A;
             margin: 0;
-            padding: 24px;
+            padding: 48px 24px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
         }}
-        .container {{ max-width: 1200px; margin: 0 auto; }}
-        .header {{ margin-bottom: 24px; }}
-        .header h1 {{ margin: 0; font-size: 24px; color: #ef4444; }}
+        .container {{
+            max-width: 960px;
+            margin: 0 auto;
+        }}
+        .header {{
+            margin-bottom: 40px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid rgba(212, 162, 127, 0.3);
+        }}
+        .header h1 {{
+            margin: 0 0 8px 0;
+            font-size: 28px;
+            font-weight: 700;
+            color: #1A1A1A;
+            letter-spacing: -0.02em;
+        }}
+        .header .subtitle {{
+            font-size: 15px;
+            color: #666;
+        }}
         .stats {{
             display: flex;
-            gap: 32px;
-            margin: 16px 0;
-            padding: 16px;
-            background: #0f1a16;
-            border: 1px solid #1f2d28;
+            gap: 48px;
+            margin: 32px 0;
         }}
-        .stat {{ text-align: center; }}
-        .stat-value {{ font-size: 28px; font-weight: 700; color: #ef4444; }}
-        .stat-label {{ font-size: 12px; color: #6b7280; text-transform: uppercase; }}
-        .plot-container {{ margin: 24px 0; }}
+        .stat {{
+            display: flex;
+            flex-direction: column;
+        }}
+        .stat-value {{
+            font-size: 36px;
+            font-weight: 700;
+            color: #D4A27F;
+            line-height: 1;
+        }}
+        .stat-label {{
+            font-size: 13px;
+            color: #666;
+            margin-top: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }}
+        .plot-container {{
+            margin: 40px 0;
+            background: #FBF7F3;
+            border-radius: 12px;
+            padding: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03);
+        }}
+        .section-title {{
+            font-size: 18px;
+            font-weight: 600;
+            color: #1A1A1A;
+            margin: 40px 0 20px 0;
+        }}
         .cluster-table {{
             width: 100%;
             border-collapse: collapse;
-            margin-top: 24px;
-        }}
-        .cluster-table th, .cluster-table td {{
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #1f2d28;
         }}
         .cluster-table th {{
-            background: #0f1a16;
+            text-align: left;
+            padding: 12px 16px;
             font-size: 11px;
+            font-weight: 600;
+            color: #888;
             text-transform: uppercase;
-            color: #6b7280;
+            letter-spacing: 0.08em;
+            border-bottom: 1px solid rgba(212, 162, 127, 0.2);
+        }}
+        .cluster-table td {{
+            padding: 16px;
+            border-bottom: 1px solid rgba(212, 162, 127, 0.12);
+            vertical-align: top;
+        }}
+        .cluster-table tr:last-child td {{
+            border-bottom: none;
+        }}
+        .cluster-table tr:hover td {{
+            background: rgba(212, 162, 127, 0.05);
         }}
         .cluster-badge {{
             display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            background: rgba(212, 162, 127, 0.15);
+            color: #8B6914;
+        }}
+        .cluster-count {{
+            font-weight: 600;
+            color: #D4A27F;
+        }}
+        .cluster-example {{
+            font-size: 14px;
+            color: #555;
+            line-height: 1.6;
         }}
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Failure Clusters: {metric_id}</h1>
+            <h1>Failure Clusters</h1>
+            <div class="subtitle">{metric_id}</div>
         </div>
         <div class="stats">
             <div class="stat">
@@ -1479,28 +1783,135 @@ def generate_failure_cluster_html(
 </html>"""
 
 
-def _generate_failure_fallback_html(result: FailureClusteringResult, metric_id: str) -> str:
-    """Generate simple HTML for failures without interactive plot."""
+def _generate_failure_fallback_html(
+    result: FailureClusteringResult, metric_id: str, reason: str = "deps_missing"
+) -> str:
+    """Generate simple HTML for failures without interactive plot.
+
+    Args:
+        result: FailureClusteringResult with clusters
+        metric_id: Name of the metric
+        reason: Why scatter plot is unavailable - "deps_missing" or "too_few_cases"
+    """
+    if reason == "too_few_cases":
+        note_html = f'<div class="note">Scatter plot requires at least 3 data points. Only {result.total_cases} failure(s) found.</div>'
+    else:
+        note_html = '<div class="note">Interactive scatter plot requires: <code>pip install evalyn-sdk[clustering]</code></div>'
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Failure Clusters - {metric_id}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Failure Clusters: {metric_id}</title>
+    <!-- Söhne font requires license - using system fallback stack -->
     <style>
+        * {{ box-sizing: border-box; }}
         body {{
-            font-family: 'Inter', sans-serif;
-            background: #0a1210;
-            color: #e5e7eb;
-            padding: 24px;
+            font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: #FFFBF7;
+            color: #1A1A1A;
+            margin: 0;
+            padding: 48px 24px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
         }}
-        h1 {{ color: #ef4444; }}
-        .note {{ color: #6b7280; margin: 16px 0; }}
+        .container {{
+            max-width: 960px;
+            margin: 0 auto;
+        }}
+        .header {{
+            margin-bottom: 40px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid rgba(212, 162, 127, 0.3);
+        }}
+        .header h1 {{
+            margin: 0 0 8px 0;
+            font-size: 28px;
+            font-weight: 700;
+            color: #1A1A1A;
+            letter-spacing: -0.02em;
+        }}
+        .header .subtitle {{
+            font-size: 15px;
+            color: #666;
+        }}
+        .note {{
+            padding: 16px 20px;
+            background: rgba(212, 162, 127, 0.1);
+            border-left: 3px solid #D4A27F;
+            border-radius: 0 8px 8px 0;
+            color: #666;
+            font-size: 14px;
+            margin: 24px 0;
+        }}
+        .note code {{
+            background: rgba(212, 162, 127, 0.15);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Söhne Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+            font-size: 13px;
+        }}
+        .section-title {{
+            font-size: 18px;
+            font-weight: 600;
+            color: #1A1A1A;
+            margin: 40px 0 20px 0;
+        }}
+        .cluster-table {{
+            width: 100%;
+            border-collapse: collapse;
+        }}
+        .cluster-table th {{
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            border-bottom: 1px solid rgba(212, 162, 127, 0.2);
+        }}
+        .cluster-table td {{
+            padding: 16px;
+            border-bottom: 1px solid rgba(212, 162, 127, 0.12);
+            vertical-align: top;
+        }}
+        .cluster-table tr:last-child td {{
+            border-bottom: none;
+        }}
+        .cluster-table tr:hover td {{
+            background: rgba(212, 162, 127, 0.05);
+        }}
+        .cluster-badge {{
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            background: rgba(212, 162, 127, 0.15);
+            color: #8B6914;
+        }}
+        .cluster-count {{
+            font-weight: 600;
+            color: #D4A27F;
+        }}
+        .cluster-example {{
+            font-size: 14px;
+            color: #555;
+            line-height: 1.6;
+        }}
     </style>
 </head>
 <body>
-    <h1>Failure Clusters: {metric_id}</h1>
-    <p class="note">Interactive scatter plot requires: pip install evalyn-sdk[clustering]</p>
-    {_render_failure_cluster_table(result)}
+    <div class="container">
+        <div class="header">
+            <h1>Failure Clusters</h1>
+            <div class="subtitle">{metric_id}</div>
+        </div>
+        {note_html}
+        {_render_failure_cluster_table(result)}
+    </div>
 </body>
 </html>"""
 
@@ -1508,22 +1919,22 @@ def _generate_failure_fallback_html(result: FailureClusteringResult, metric_id: 
 def _render_failure_cluster_table(result: FailureClusteringResult) -> str:
     """Render HTML table for failure clusters."""
     if not result.clusters:
-        return "<p>No failure clusters found.</p>"
+        return '<p style="color: #666;">No failure clusters found.</p>'
 
     rows = []
     for c in result.clusters:
         example = c.representative_example.reason
-        example_short = example[:100] + "..." if len(example) > 100 else example
+        example_short = example[:120] + "..." if len(example) > 120 else example
         rows.append(f"""
             <tr>
                 <td><span class="cluster-badge">{c.label}</span></td>
-                <td>{c.count}</td>
-                <td style="color: #9ca3af;">{example_short}</td>
+                <td class="cluster-count">{c.count}</td>
+                <td class="cluster-example">{example_short}</td>
             </tr>
         """)
 
     return f"""
-        <h2 style="color: #ef4444; margin-top: 32px;">Failure Patterns</h2>
+        <h2 class="section-title">Failure Patterns</h2>
         <table class="cluster-table">
             <thead><tr><th>Cluster</th><th>Count</th><th>Example</th></tr></thead>
             <tbody>{"".join(rows)}</tbody>

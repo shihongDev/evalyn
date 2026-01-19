@@ -248,7 +248,13 @@ def cmd_cluster_failures(args: argparse.Namespace) -> None:
 
         # Warn if scatter plot won't render due to missing deps
         if compute_embeddings and not result.coordinates_2d and result.total_cases >= 3:
-            print(f"  Note: Scatter plot requires: pip install evalyn-sdk[clustering]")
+            # Check if deps are actually missing
+            try:
+                import sentence_transformers  # noqa: F401
+                import umap  # noqa: F401
+                import plotly  # noqa: F401
+            except ImportError:
+                print(f"  Note: Scatter plot requires: pip install evalyn-sdk[clustering]")
 
         # Determine output path
         if args.output and len(metric_ids) == 1:

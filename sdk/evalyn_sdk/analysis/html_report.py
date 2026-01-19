@@ -283,8 +283,7 @@ def _generate_html_content(
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Eval Dashboard - {analysis.dataset_name}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Söhne font requires license - using system fallback stack -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     {_get_css_styles()}
 </head>
@@ -342,7 +341,7 @@ def _get_css_styles() -> str:
         }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+            font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             line-height: 1.5;
@@ -393,7 +392,7 @@ def _get_css_styles() -> str:
 
         .header-meta .value {
             color: var(--text-secondary);
-            font-family: monospace;
+            font-family: 'Söhne Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
         }
 
         /* KPI Bar - horizontal, no cards */
@@ -616,7 +615,7 @@ def _get_css_styles() -> str:
         }
 
         .failed-item-id {
-            font-family: 'SF Mono', Monaco, monospace;
+            font-family: 'Söhne Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
             font-size: 12px;
             color: var(--text-muted);
         }
@@ -639,7 +638,7 @@ def _get_css_styles() -> str:
             padding: 12px;
             background: var(--bg-tertiary);
             border-radius: 4px;
-            font-family: 'SF Mono', Monaco, monospace;
+            font-family: 'Söhne Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
             font-size: 12px;
             max-height: 150px;
             overflow-y: auto;
@@ -653,7 +652,7 @@ def _get_css_styles() -> str:
             letter-spacing: 0.05em;
             color: var(--text-muted);
             margin-bottom: 8px;
-            font-family: 'Inter', sans-serif;
+            font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
         }
 
         .io-block.input {
@@ -734,7 +733,7 @@ def _get_css_styles() -> str:
         .metric-detail-score {
             font-size: 12px;
             color: var(--text-muted);
-            font-family: 'SF Mono', Monaco, monospace;
+            font-family: 'Söhne Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
         }
 
         .metric-detail-reason {
@@ -772,7 +771,7 @@ def _get_css_styles() -> str:
 
         .footer-value {
             color: var(--text-secondary);
-            font-family: monospace;
+            font-family: 'Söhne Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
         }
 
         /* Responsive */
@@ -1112,7 +1111,7 @@ def _get_javascript(
         }};
 
         // Chart.js defaults for dark theme
-        Chart.defaults.font.family = "'Inter', 'SF Pro Display', -apple-system, system-ui, sans-serif";
+        Chart.defaults.font.family = "'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif";
         Chart.defaults.color = colors.textMuted;
         Chart.defaults.borderColor = colors.border;
 
