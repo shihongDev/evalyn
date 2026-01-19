@@ -543,14 +543,33 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         print("   Check that GEMINI_API_KEY or OPENAI_API_KEY is set and valid.")
         print("   Re-run with a valid API key to get accurate LLM judge scores.")
 
-    if run.summary.get("failed_items"):
-        print(f"Failed items: {run.summary['failed_items']}")
+    failed_items = run.summary.get("failed_items", [])
+    failed_count = len(failed_items) if isinstance(failed_items, list) else failed_items
+    if failed_count:
+        print(f"Failed items: {failed_count}")
 
     # Show hint for next step
+    quiet = getattr(args, "quiet", False)
+    output_format = getattr(args, "format", "table")
+
+    if failed_count >= 3:
+        # Get a metric_id that has failures for the hint
+        failed_metric = None
+        for metric_id, stats in run.summary.get("metrics", {}).items():
+            if stats.get("failed", 0) > 0:
+                failed_metric = metric_id
+                break
+        if failed_metric:
+            print_hint(
+                f"To cluster failures by pattern: evalyn cluster-failures --metric-id {failed_metric}",
+                quiet=quiet,
+                format=output_format,
+            )
+
     print_hint(
         f"To analyze results, run: evalyn analyze --run {run.id}",
-        quiet=getattr(args, "quiet", False),
-        format=getattr(args, "format", "table"),
+        quiet=quiet,
+        format=output_format,
     )
 
 
