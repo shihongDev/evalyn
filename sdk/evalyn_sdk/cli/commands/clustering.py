@@ -41,23 +41,16 @@ from ...annotation import import_annotations
 from ...annotation.calibration import CalibrationEngine
 from ...datasets import load_dataset
 from ...decorators import get_default_tracer
-from ...models import DatasetItem
+from ...models import DatasetItem, EvalRun, MetricResult
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
 
 
-def cmd_cluster_misalignments(args: argparse.Namespace) -> None:
-    """Cluster LLM judge vs human disagreements by semantic similarity.
-
-    Clustering process:
-    1. Load metric results from an eval run (LLM judge verdicts)
-    2. Load human annotations (ground truth labels)
-    3. Identify disagreement cases (false positives/negatives)
-    4. Cluster by semantic similarity using LLM
-    5. Optionally compute embeddings for visualization
-    6. Output as HTML scatter plot, ASCII table, or JSON
-    """
+def _get_eval_run_and_metrics(
+    args: argparse.Namespace,
+) -> tuple[EvalRun, list[MetricResult]]:
+    """Load eval run and filter metric results by metric_id."""
     tracer = get_default_tracer()
     if not tracer.storage:
         fatal_error("No storage configured")
@@ -75,12 +68,13 @@ def cmd_cluster_misalignments(args: argparse.Namespace) -> None:
             f"No metric results found for metric_id={args.metric_id} in run {run.id}"
         )
 
-    # Load annotations
-    anns = import_annotations(args.annotations)
-    if not anns:
-        fatal_error(f"No annotations found in {args.annotations}")
+    return run, metric_results
 
-    # Load dataset items for context
+
+def _load_dataset_context(
+    args: argparse.Namespace,
+) -> tuple[Optional[list[DatasetItem]], Optional[Path]]:
+    """Load dataset items and determine dataset directory."""
     config = load_config()
     dataset_items: Optional[list[DatasetItem]] = None
     dataset_dir: Optional[Path] = None
@@ -99,13 +93,56 @@ def cmd_cluster_misalignments(args: argparse.Namespace) -> None:
             if dataset_dir.is_file():
                 dataset_dir = dataset_dir.parent
 
-    # Create calibration engine to analyze disagreements
-    engine = CalibrationEngine(
-        judge_name=args.metric_id,
-        optimize_prompts=False,  # We only need disagreement analysis
-    )
+    return dataset_items, dataset_dir
 
-    # Get disagreements
+
+def _write_output(
+    output_format: str,
+    output_path: Optional[str],
+    default_path: Path,
+    result_dict: dict,
+    html_content: str,
+    text_content: str,
+) -> None:
+    """Write clustering output in the specified format."""
+    if output_format == "json":
+        if output_path:
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(result_dict, f, indent=2)
+            print(f"Clustering result saved to: {output_path}")
+        else:
+            print(json.dumps(result_dict, indent=2))
+
+    elif output_format == "html":
+        target_path = Path(output_path) if output_path else default_path
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(target_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+        print(f"HTML report saved to: {target_path}")
+
+    else:  # table format
+        if output_path:
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(text_content)
+            print(f"Text report saved to: {output_path}")
+        else:
+            print(text_content)
+
+
+def cmd_cluster_misalignments(args: argparse.Namespace) -> None:
+    """Cluster LLM judge vs human disagreements by semantic similarity."""
+    _, metric_results = _get_eval_run_and_metrics(args)
+
+    # Load annotations
+    anns = import_annotations(args.annotations)
+    if not anns:
+        fatal_error(f"No annotations found in {args.annotations}")
+
+    # Load dataset items for context
+    dataset_items, dataset_dir = _load_dataset_context(args)
+
+    # Analyze disagreements
+    engine = CalibrationEngine(judge_name=args.metric_id, optimize_prompts=False)
     disagreements = engine.analyze_disagreements(metric_results, anns, dataset_items)
 
     if disagreements.total_disagreements == 0:
@@ -113,71 +150,37 @@ def cmd_cluster_misalignments(args: argparse.Namespace) -> None:
         print("LLM judge and human annotations are fully aligned!")
         return
 
-    # Set up cache directory
-    cache_dir = None
-    if dataset_dir:
-        cache_dir = dataset_dir / "calibrations" / args.metric_id
-
-    # Create clusterer
-    clusterer = ReasonClusterer(
-        model=args.model,
-        cache_dir=cache_dir,
-    )
-
     # Run clustering
+    cache_dir = dataset_dir / "calibrations" / args.metric_id if dataset_dir else None
+    clusterer = ReasonClusterer(model=args.model, cache_dir=cache_dir)
     compute_embeddings = args.format == "html"
     result = clusterer.cluster_reasons(disagreements, compute_embeddings=compute_embeddings)
 
-    # Output based on format
-    output_format = args.format
-    output_path = args.output
-
-    if output_format == "json":
-        output_data = result.as_dict()
-        if output_path:
-            with open(output_path, "w", encoding="utf-8") as f:
-                json.dump(output_data, f, indent=2)
-            print(f"Clustering result saved to: {output_path}")
-        else:
-            print(json.dumps(output_data, indent=2))
-
-    elif output_format == "html":
-        html_content = generate_cluster_html(result, args.metric_id)
-        if output_path:
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(html_content)
-            print(f"HTML report saved to: {output_path}")
-        else:
-            # Default output path
-            default_path = Path(f"clusters_{args.metric_id}.html")
-            if dataset_dir:
-                default_path = dataset_dir / "calibrations" / args.metric_id / "clusters.html"
-                default_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(default_path, "w", encoding="utf-8") as f:
-                f.write(html_content)
-            print(f"HTML report saved to: {default_path}")
-
-    else:  # table format
-        text_output = generate_cluster_text(result, args.metric_id)
-        if output_path:
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(text_output)
-            print(f"Text report saved to: {output_path}")
-        else:
-            print(text_output)
+    # Output
+    default_html_path = (
+        dataset_dir / "calibrations" / args.metric_id / "clusters.html"
+        if dataset_dir
+        else Path(f"clusters_{args.metric_id}.html")
+    )
+    _write_output(
+        args.format,
+        args.output,
+        default_html_path,
+        result.as_dict(),
+        generate_cluster_html(result, args.metric_id),
+        generate_cluster_text(result, args.metric_id),
+    )
 
     # Show summary
-    fp_count = len(result.false_positive_clusters)
-    fn_count = len(result.false_negative_clusters)
-    fp_cases = sum(c.count for c in result.false_positive_clusters)
-    fn_cases = sum(c.count for c in result.false_negative_clusters)
-
-    if output_format != "table":
+    if args.format != "table":
+        fp_count = len(result.false_positive_clusters)
+        fn_count = len(result.false_negative_clusters)
+        fp_cases = sum(c.count for c in result.false_positive_clusters)
+        fn_cases = sum(c.count for c in result.false_negative_clusters)
         print(f"\nClustering complete:")
         print(f"  False Positives: {fp_count} clusters ({fp_cases} cases)")
         print(f"  False Negatives: {fn_count} clusters ({fn_cases} cases)")
 
-    # Show hint
     if dataset_dir:
         print_hint(
             f"To calibrate this metric, run: evalyn calibrate --metric-id {args.metric_id} --annotations {args.annotations} --dataset {dataset_dir}",
@@ -186,38 +189,10 @@ def cmd_cluster_misalignments(args: argparse.Namespace) -> None:
 
 
 def cmd_cluster_failures(args: argparse.Namespace) -> None:
-    """Cluster failed items from eval runs by semantic similarity of judge reasons.
+    """Cluster failed items from eval runs by semantic similarity of judge reasons."""
+    _, metric_results = _get_eval_run_and_metrics(args)
 
-    This command clusters failures from LLM evaluation runs without requiring
-    human annotations. It groups failed items by the judge's reasoning to
-    identify common failure patterns.
-
-    Clustering process:
-    1. Load metric results from an eval run
-    2. Filter to failed items (passed=False)
-    3. Cluster by semantic similarity of judge reasons
-    4. Output as HTML scatter plot, ASCII table, or JSON
-    """
-    tracer = get_default_tracer()
-    if not tracer.storage:
-        fatal_error("No storage configured")
-
-    # Get eval run
-    run = tracer.storage.get_eval_run(args.run_id) if args.run_id else None
-    if run is None:
-        runs = tracer.storage.list_eval_runs(limit=1)
-        run = runs[0] if runs else None
-    if run is None:
-        fatal_error("No eval runs available")
-
-    # Filter metric results
-    metric_results = [r for r in run.metric_results if r.metric_id == args.metric_id]
-    if not metric_results:
-        fatal_error(
-            f"No metric results found for metric_id={args.metric_id} in run {run.id}"
-        )
-
-    # Count failures
+    # Check for failures
     failed_results = [r for r in metric_results if r.passed is False]
     if not failed_results:
         print(f"\nNo failures found for metric '{args.metric_id}'")
@@ -225,92 +200,41 @@ def cmd_cluster_failures(args: argparse.Namespace) -> None:
         return
 
     # Load dataset items for context
-    config = load_config()
-    dataset_items: Optional[list[DatasetItem]] = None
-    dataset_dir: Optional[Path] = None
+    dataset_items, dataset_dir = _load_dataset_context(args)
 
-    dataset_arg = getattr(args, "dataset", None)
-    use_latest = getattr(args, "latest", False)
-    resolved_dataset = resolve_dataset_path(dataset_arg, use_latest, config)
-
-    if resolved_dataset:
-        dataset_dir = Path(resolved_dataset)
-        dataset_file = (
-            dataset_dir / "dataset.jsonl" if dataset_dir.is_dir() else dataset_dir
-        )
-        if dataset_file.exists():
-            dataset_items = load_dataset(dataset_file)
-            if dataset_dir.is_file():
-                dataset_dir = dataset_dir.parent
-
-    # Set up cache directory
-    cache_dir = None
-    if dataset_dir:
-        cache_dir = dataset_dir / "analysis" / args.metric_id
-
-    # Create clusterer
-    clusterer = ReasonClusterer(
-        model=args.model,
-        cache_dir=cache_dir,
-    )
-
-    # Run failure clustering
+    # Run clustering
+    cache_dir = dataset_dir / "analysis" / args.metric_id if dataset_dir else None
+    clusterer = ReasonClusterer(model=args.model, cache_dir=cache_dir)
     compute_embeddings = args.format == "html"
     result = clusterer.cluster_failures(
         metric_results, dataset_items, compute_embeddings=compute_embeddings
     )
 
-    # Output based on format
-    output_format = args.format
-    output_path = args.output
-
-    if output_format == "json":
-        output_data = result.as_dict()
-        if output_path:
-            with open(output_path, "w", encoding="utf-8") as f:
-                json.dump(output_data, f, indent=2)
-            print(f"Clustering result saved to: {output_path}")
-        else:
-            print(json.dumps(output_data, indent=2))
-
-    elif output_format == "html":
-        html_content = generate_failure_cluster_html(result, args.metric_id)
-        if output_path:
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(html_content)
-            print(f"HTML report saved to: {output_path}")
-        else:
-            # Default output path
-            default_path = Path(f"failures_{args.metric_id}.html")
-            if dataset_dir:
-                default_path = dataset_dir / "analysis" / args.metric_id / "failures.html"
-                default_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(default_path, "w", encoding="utf-8") as f:
-                f.write(html_content)
-            print(f"HTML report saved to: {default_path}")
-
-    else:  # table format
-        text_output = generate_failure_cluster_text(result, args.metric_id)
-        if output_path:
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(text_output)
-            print(f"Text report saved to: {output_path}")
-        else:
-            print(text_output)
+    # Output
+    default_html_path = (
+        dataset_dir / "analysis" / args.metric_id / "failures.html"
+        if dataset_dir
+        else Path(f"failures_{args.metric_id}.html")
+    )
+    _write_output(
+        args.format,
+        args.output,
+        default_html_path,
+        result.as_dict(),
+        generate_failure_cluster_html(result, args.metric_id),
+        generate_failure_cluster_text(result, args.metric_id),
+    )
 
     # Show summary
-    cluster_count = len(result.clusters)
-    total_failures = result.total_cases
-    total_items = len(metric_results)
-
-    if output_format != "table":
+    if args.format != "table":
+        total_failures = result.total_cases
+        total_items = len(metric_results)
         print(f"\nClustering complete:")
         print(f"  {total_failures}/{total_items} items failed ({100*total_failures/total_items:.1f}%)")
-        print(f"  {cluster_count} failure patterns identified")
+        print(f"  {len(result.clusters)} failure patterns identified")
 
-    # Show hint
     print_hint(
-        f"To see full eval results: evalyn show-run --last",
+        "To see full eval results: evalyn show-run --last",
         quiet=getattr(args, "quiet", False),
     )
 

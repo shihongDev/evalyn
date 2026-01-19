@@ -197,8 +197,8 @@ class ReasonClusterer:
         )
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
-    def _load_from_cache(self, cache_key: str) -> Optional[ClusteringResult]:
-        """Load clustering result from cache if available."""
+    def _load_from_cache(self, cache_key: str) -> Optional[Dict[str, Any]]:
+        """Load cached JSON data if available."""
         if not self.cache_dir:
             return None
 
@@ -208,13 +208,12 @@ class ReasonClusterer:
 
         try:
             with open(cache_file, encoding="utf-8") as f:
-                data = json.load(f)
-            return self._deserialize_result(data)
+                return json.load(f)
         except Exception:
             return None
 
-    def _save_to_cache(self, cache_key: str, result: ClusteringResult) -> None:
-        """Save clustering result to cache."""
+    def _save_to_cache(self, cache_key: str, data: Dict[str, Any]) -> None:
+        """Save data to cache."""
         if not self.cache_dir:
             return
 
@@ -223,7 +222,7 @@ class ReasonClusterer:
 
         try:
             with open(cache_file, "w", encoding="utf-8") as f:
-                json.dump(result.as_dict(), f, indent=2)
+                json.dump(data, f, indent=2)
         except Exception:
             pass  # Cache failures are not critical
 
@@ -301,9 +300,9 @@ class ReasonClusterer:
 
         # Check cache
         cache_key = self._compute_cache_key(disagreements)
-        cached = self._load_from_cache(cache_key)
-        if cached:
-            return cached
+        cached_data = self._load_from_cache(cache_key)
+        if cached_data:
+            return self._deserialize_result(cached_data)
 
         # Cluster false positives and false negatives separately
         fp_clusters = self._cluster_cases(
@@ -325,7 +324,7 @@ class ReasonClusterer:
             self._add_visualization_data(result, all_cases, fp_clusters, fn_clusters)
 
         # Cache result
-        self._save_to_cache(cache_key, result)
+        self._save_to_cache(cache_key, result.as_dict())
 
         return result
 
@@ -399,7 +398,7 @@ class ReasonClusterer:
             clusters = [
                 FailureCluster(
                     cluster_id=f"failure_{i}",
-                    label=self._generate_failure_label(case),
+                    label=self._truncate_reason(case.reason),
                     count=1,
                     reasons=[case.reason],
                     representative_example=case,
@@ -414,9 +413,9 @@ class ReasonClusterer:
 
         # Check cache
         cache_key = self._compute_failure_cache_key(cases)
-        cached = self._load_failure_from_cache(cache_key)
-        if cached:
-            return cached
+        cached_data = self._load_from_cache(cache_key)
+        if cached_data:
+            return self._deserialize_failure_result(cached_data)
 
         # Cluster the failure cases
         clusters = self._cluster_failure_cases(cases)
@@ -432,7 +431,7 @@ class ReasonClusterer:
             self._add_failure_visualization_data(result, cases, clusters)
 
         # Cache result
-        self._save_failure_to_cache(cache_key, result)
+        self._save_to_cache(cache_key, result.as_dict())
 
         return result
 
@@ -443,36 +442,6 @@ class ReasonClusterer:
             sort_keys=True,
         )
         return "fail_" + hashlib.sha256(content.encode()).hexdigest()[:16]
-
-    def _load_failure_from_cache(self, cache_key: str) -> Optional[FailureClusteringResult]:
-        """Load failure clustering result from cache."""
-        if not self.cache_dir:
-            return None
-
-        cache_file = self.cache_dir / f"clustering_{cache_key}.json"
-        if not cache_file.exists():
-            return None
-
-        try:
-            with open(cache_file, encoding="utf-8") as f:
-                data = json.load(f)
-            return self._deserialize_failure_result(data)
-        except Exception:
-            return None
-
-    def _save_failure_to_cache(self, cache_key: str, result: FailureClusteringResult) -> None:
-        """Save failure clustering result to cache."""
-        if not self.cache_dir:
-            return
-
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        cache_file = self.cache_dir / f"clustering_{cache_key}.json"
-
-        try:
-            with open(cache_file, "w", encoding="utf-8") as f:
-                json.dump(result.as_dict(), f, indent=2)
-        except Exception:
-            pass
 
     def _deserialize_failure_result(self, data: Dict[str, Any]) -> FailureClusteringResult:
         """Deserialize failure clustering result from dict."""
@@ -507,14 +476,13 @@ class ReasonClusterer:
             case_ids=data.get("case_ids"),
         )
 
-    def _generate_failure_label(self, case: FailureCase) -> str:
-        """Generate a short label for a single failure case."""
-        reason = case.reason
-        if not reason or reason == "No reason provided":
-            return "Unknown failure"
-        if len(reason) <= 50:
+    def _truncate_reason(self, reason: str, max_len: int = 50) -> str:
+        """Truncate a reason string at word boundary."""
+        if not reason:
+            return "Unknown"
+        if len(reason) <= max_len:
             return reason
-        truncated = reason[:50].rsplit(" ", 1)[0]
+        truncated = reason[:max_len].rsplit(" ", 1)[0]
         return truncated + "..."
 
     def _cluster_failure_cases(self, cases: List[FailureCase]) -> List[FailureCluster]:
@@ -733,7 +701,7 @@ Example format:
             return [
                 ReasonCluster(
                     cluster_id=f"{disagreement_type}_{i}",
-                    label=self._generate_single_label(case),
+                    label=self._truncate_reason(case.judge_reason or case.human_notes),
                     count=1,
                     reasons=[case.judge_reason or case.human_notes],
                     representative_example=case,
@@ -763,15 +731,6 @@ Example format:
                 )
             ]
 
-    def _generate_single_label(self, case: DisagreementCase) -> str:
-        """Generate a short label for a single case, truncated at word boundary."""
-        reason = case.judge_reason or case.human_notes
-        if not reason:
-            return "Unknown reason"
-        if len(reason) <= 50:
-            return reason
-        truncated = reason[:50].rsplit(" ", 1)[0]
-        return truncated + "..."
 
     def _build_clustering_prompt(
         self,
