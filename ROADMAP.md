@@ -6,37 +6,135 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ## Roadmap (Planned Features)
 
-### High Priority
+### Tracing & Instrumentation
 
-- [ ] **Web Dashboard** - Browser-based UI for viewing traces, datasets, and evaluation results
+- [ ] **Multi-modal Tracing** - Capture images, audio, video in traces
+  - [ ] Image input/output capture with thumbnails
+  - [ ] Audio transcription logging
+  - [ ] Video frame sampling
+  - [ ] Base64/URL reference storage options
+- [ ] **Streaming Support** - Capture streaming LLM responses
+  - [ ] Token-by-token capture with timing
+  - [ ] First-token latency (TTFT) metric
+  - [ ] Streaming interruption detection
+- [ ] **More LLM Provider Instrumentors**
+  - [ ] Cohere
+  - [ ] Mistral
+  - [ ] AWS Bedrock
+  - [ ] Azure OpenAI
+  - [ ] Groq
+  - [ ] Together AI
+  - [ ] Replicate
+- [ ] **Framework Instrumentors**
+  - [ ] CrewAI
+  - [ ] AutoGen
+  - [ ] DSPy
+  - [ ] Haystack
+  - [ ] LlamaIndex
+  - [ ] Semantic Kernel
+- [ ] **Memory/RAG Tracing** - Capture retrieval context and memory operations
+- [ ] **Async/Parallel Call Tracking** - Better support for concurrent LLM calls
+
+### Evaluation Enhancements
+
+- [ ] **Span-Level Evaluation** - Evaluate individual spans within a trace
+  - [ ] Per-LLM-call quality metrics
+  - [ ] Tool call success/failure analysis
+  - [ ] Node-level evaluation for graph agents
+  - [ ] Span-specific rubrics
+- [ ] **Multi-Turn Evaluation** - Specialized evaluation for conversations
+  - [ ] Turn-by-turn quality assessment
+  - [ ] Conversation flow metrics
+  - [ ] Context carryover evaluation
+  - [ ] Memory consistency across turns
+  - [ ] Topic drift detection
+  - [ ] Response latency patterns
+- [ ] **Pairwise Comparison** - A vs B evaluation mode
+  - [ ] Side-by-side LLM judge comparison
+  - [ ] Elo rating system for models
+  - [ ] Win/loss/tie statistics
+- [ ] **Reference-Free Evaluation** - Metrics that don't need ground truth
+  - [ ] Self-consistency checking
+  - [ ] Uncertainty quantification
+  - [ ] Confidence calibration
+
+### Calibration & Optimization
+
+- [ ] **More Optimizers**
+  - [ ] DSPy MIPROv2 - Multi-stage instruction optimization
+  - [ ] TextGrad - Gradient-based prompt optimization
+  - [ ] APE (Automatic Prompt Engineer) - Search-based optimization
+  - [ ] OPRO - LLM-as-optimizer approach
+  - [ ] EvoPrompt - Evolutionary prompt optimization
+  - [ ] PromptBreeder - Self-referential prompt evolution
+- [ ] **Rubric Optimization** - Auto-generate and refine evaluation rubrics
+- [ ] **Few-Shot Example Selection** - Optimize which examples to include in prompts
+- [ ] **Judge Ensemble** - Combine multiple judges for robust evaluation
+- [ ] **Active Learning** - Smart sample selection for annotation
+
+### Multi-Modal Evaluation
+
+- [ ] **Image Evaluation Metrics**
+  - [ ] Image-text alignment (CLIP score)
+  - [ ] Visual quality assessment
+  - [ ] OCR accuracy for generated images
+  - [ ] Style consistency
+- [ ] **Audio Evaluation Metrics**
+  - [ ] Speech clarity
+  - [ ] Transcription accuracy (WER)
+  - [ ] Prosody and tone
+- [ ] **Video Evaluation Metrics**
+  - [ ] Frame consistency
+  - [ ] Temporal coherence
+  - [ ] Action recognition accuracy
+
+### Agent-Specific Evaluation
+
+- [ ] **Tool Use Evaluation**
+  - [ ] Tool selection appropriateness
+  - [ ] Parameter correctness
+  - [ ] Error recovery patterns
+  - [ ] Tool chain efficiency
+- [ ] **Planning Evaluation**
+  - [ ] Plan completeness
+  - [ ] Step ordering correctness
+  - [ ] Resource efficiency
+  - [ ] Replanning quality
+- [ ] **Reasoning Evaluation**
+  - [ ] Chain-of-thought faithfulness
+  - [ ] Logical consistency
+  - [ ] Evidence usage
+  - [ ] Conclusion validity
+
+### Infrastructure & Platform
+
+- [ ] **Web Dashboard** - Browser-based UI for viewing traces, datasets, and results
 - [ ] **CI/CD Integration** - GitHub Actions workflow for automated evaluation on PR
 - [ ] **Regression Detection** - Automatic alerts when metrics drop below threshold
 - [ ] **Multi-model Comparison** - Compare same prompts across different LLM providers
-- [ ] **Cost Tracking Dashboard** - Visualize LLM API costs over time by project/version
-
-### Medium Priority
-
-- [ ] **Custom Objective Metrics** - Plugin system for user-defined objective metrics
-- [ ] **Metric Weights** - Configurable importance weights for composite scoring
-- [ ] **Slack/Discord Notifications** - Alert on evaluation completion or failures
-- [ ] **Dataset Versioning** - Track dataset changes over time with diff view
-- [ ] **A/B Test Framework** - Statistical significance testing for model comparisons
-- [ ] **Prompt Versioning** - Track and compare prompt changes with evaluations
-
-### Low Priority
-
+- [ ] **Cost Tracking Dashboard** - Visualize LLM API costs over time
+- [ ] **API Server Mode** - REST API for programmatic access
 - [ ] **Team Collaboration** - Multi-user annotation with conflict resolution
 - [ ] **Cloud Storage Backend** - Optional S3/GCS storage for large datasets
-- [ ] **Evaluation Scheduling** - Cron-based automatic re-evaluation
+
+### Data & Dataset
+
+- [ ] **Dataset Versioning** - Track dataset changes over time with diff view
+- [ ] **Synthetic Data Generation**
+  - [ ] Adversarial example generation
+  - [ ] Edge case mining
+  - [ ] Demographic variation
+  - [ ] Domain-specific generators
+- [ ] **Data Augmentation** - Automatically expand datasets
+- [ ] **Golden Set Management** - Curate and maintain evaluation benchmarks
+
+### Reporting & Analytics
+
 - [ ] **Custom Report Templates** - User-defined HTML report layouts
-- [ ] **API Server Mode** - REST API for programmatic access
-
-### SDK Enhancements
-
-- [ ] **More LLM Provider Instrumentors** - Cohere, Mistral, AWS Bedrock
-- [ ] **Framework Instrumentors** - CrewAI, AutoGen, DSPy
-- [ ] **Streaming Support** - Capture streaming LLM responses
-- [ ] **Multi-turn Conversation Metrics** - Specialized metrics for chat history
+- [ ] **Slack/Discord Notifications** - Alert on evaluation completion or failures
+- [ ] **Metric Correlation Analysis** - Understand relationships between metrics
+- [ ] **Failure Root Cause Analysis** - Automated diagnosis of failures
+- [ ] **Trend Anomaly Detection** - Alert on unusual metric patterns
 
 ---
 
@@ -213,29 +311,5 @@ This document tracks planned features and completed work. Future roadmap items a
 - [x] **Prod/test separation** - Separate databases for environments
 - [x] **JSONL datasets** - Human-readable, git-friendly format
 - [x] **Checkpoint system** - Resume interrupted evaluations
-
----
-
-## Version History
-
-| Version | Date | Highlights |
-|---------|------|------------|
-| v0.1.0 | 2025-12 | Initial release with core tracing and evaluation |
-| v0.2.0 | 2026-01 | Added 130+ metrics, 17 bundles, calibration, simulation |
-| v0.3.0 | 2026-01 | Added clustering, checkpoint/resume, --db flag |
-
----
-
-## Contributing
-
-We welcome contributions! See [README.md](README.md#contribution) for how to add new metrics.
-
-**Priority areas for contribution:**
-1. New domain-specific metrics (healthcare, finance, legal)
-2. Additional LLM provider instrumentors
-3. Framework integrations (CrewAI, AutoGen, DSPy)
-4. Documentation improvements
-
----
 
 *Last updated: 2026-01-18*
