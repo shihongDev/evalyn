@@ -108,10 +108,10 @@ def _render_failed_items(analysis: RunAnalysis, item_details: dict) -> str:
 def generate_html_report(
     analysis: RunAnalysis, verbose: bool = False, item_details: Optional[dict] = None
 ) -> str:
-    """Generate a high-density dark-themed evaluation dashboard.
+    """Generate a warm-themed evaluation dashboard.
 
     Uses Chart.js for interactive charts. No external images - everything is embedded.
-    Styled with dark observability aesthetic (dark green background, neon accents).
+    Styled with warm cream backgrounds and terracotta accents.
 
     Args:
         analysis: The run analysis data
@@ -136,15 +136,15 @@ def generate_html_report(
     passed_counts = json.dumps([m.passed for m in metrics_by_pass_rate])
     failed_counts = json.dumps([m.failed for m in metrics_by_pass_rate])
 
-    # Color coding for pass rates (dark theme)
+    # Color coding for pass rates (warm theme)
     def get_pass_rate_color(m):
         if m.pass_rate is None:
-            return "#6b7280"  # Muted gray for metrics without pass/fail
+            return "#A89F97"  # Muted for metrics without pass/fail
         if m.pass_rate >= 0.8:
-            return "#39ff14"  # Neon green for good
+            return "#6B8E8E"  # Sage green for good
         if m.pass_rate >= 0.5:
-            return "#ff9f1c"  # Amber for warning
-        return "#ef4444"  # Red for bad
+            return "#D4A27F"  # Terracotta for warning
+        return "#C97B63"  # Coral for bad
 
     pass_rate_colors = json.dumps(
         [get_pass_rate_color(m) for m in metrics_by_pass_rate]
@@ -283,7 +283,9 @@ def _generate_html_content(
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Eval Dashboard - {analysis.dataset_name}</title>
-    <!-- Söhne font requires license - using system fallback stack -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     {_get_css_styles()}
 </head>
@@ -307,31 +309,31 @@ def _get_css_styles() -> str:
     """Return the CSS styles for the HTML report."""
     return """<style>
         :root {
-            /* Backgrounds - deep dark green */
-            --bg-primary: #0a1210;
-            --bg-secondary: #0f1a16;
-            --bg-tertiary: #152420;
-            --bg-hover: #1a2d28;
+            /* Backgrounds - warm cream tones */
+            --bg-primary: #FFFBF7;
+            --bg-secondary: #FBF7F3;
+            --bg-tertiary: #F5EDE6;
+            --bg-hover: #F0E8E0;
 
-            /* Accents */
-            --accent-primary: #39ff14;
-            --accent-secondary: #ff9f1c;
-            --accent-muted: #6b7280;
-            --accent-purple: #8b5cf6;
+            /* Accents - terracotta and warm tones */
+            --accent-primary: #D4A27F;
+            --accent-secondary: #C4836A;
+            --accent-muted: #A89F97;
+            --accent-purple: #9B8AA6;
 
             /* Status */
-            --status-pass: #39ff14;
-            --status-fail: #ef4444;
-            --status-warn: #ff9f1c;
+            --status-pass: #6B8E8E;
+            --status-fail: #C97B63;
+            --status-warn: #D4A27F;
 
             /* Text */
-            --text-primary: #e5e7eb;
-            --text-secondary: #9ca3af;
-            --text-muted: #6b7280;
+            --text-primary: #1A1A1A;
+            --text-secondary: #555555;
+            --text-muted: #888888;
 
             /* Borders */
-            --border-subtle: #1f2d28;
-            --border-strong: #2d403a;
+            --border-subtle: rgba(212, 162, 127, 0.2);
+            --border-strong: rgba(212, 162, 127, 0.4);
         }
 
         * {
@@ -341,12 +343,13 @@ def _get_css_styles() -> str:
         }
 
         body {
-            font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
-            line-height: 1.5;
+            line-height: 1.6;
             font-size: 14px;
             min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
         }
 
         .dashboard {
@@ -392,7 +395,7 @@ def _get_css_styles() -> str:
 
         .header-meta .value {
             color: var(--text-secondary);
-            font-family: 'Söhne Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
         }
 
         /* KPI Bar - horizontal, no cards */
@@ -615,7 +618,7 @@ def _get_css_styles() -> str:
         }
 
         .failed-item-id {
-            font-family: 'Söhne Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
             font-size: 12px;
             color: var(--text-muted);
         }
@@ -638,7 +641,7 @@ def _get_css_styles() -> str:
             padding: 12px;
             background: var(--bg-tertiary);
             border-radius: 4px;
-            font-family: 'Söhne Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
             font-size: 12px;
             max-height: 150px;
             overflow-y: auto;
@@ -652,7 +655,7 @@ def _get_css_styles() -> str:
             letter-spacing: 0.05em;
             color: var(--text-muted);
             margin-bottom: 8px;
-            font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
         }
 
         .io-block.input {
@@ -733,7 +736,7 @@ def _get_css_styles() -> str:
         .metric-detail-score {
             font-size: 12px;
             color: var(--text-muted);
-            font-family: 'Söhne Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
         }
 
         .metric-detail-reason {
@@ -771,7 +774,7 @@ def _get_css_styles() -> str:
 
         .footer-value {
             color: var(--text-secondary);
-            font-family: 'Söhne Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
         }
 
         /* Responsive */
@@ -1093,25 +1096,25 @@ def _get_javascript(
         """
 
     return f"""<script>
-        // Dark theme colors - observability style
+        // Warm theme colors - Anthropic style
         const colors = {{
-            accent: '#39ff14',
-            accentDim: 'rgba(57, 255, 20, 0.3)',
-            secondary: '#ff9f1c',
-            error: '#ef4444',
-            errorDim: 'rgba(239, 68, 68, 0.3)',
-            warning: '#ff9f1c',
-            success: '#39ff14',
-            muted: '#6b7280',
-            border: '#1f2d28',
-            gridLine: 'rgba(31, 45, 40, 0.5)',
-            bg: '#0a1210',
-            text: '#e5e7eb',
-            textMuted: '#9ca3af'
+            accent: '#D4A27F',
+            accentDim: 'rgba(212, 162, 127, 0.3)',
+            secondary: '#C4836A',
+            error: '#C97B63',
+            errorDim: 'rgba(201, 123, 99, 0.3)',
+            warning: '#D4A27F',
+            success: '#6B8E8E',
+            muted: '#A89F97',
+            border: 'rgba(212, 162, 127, 0.2)',
+            gridLine: 'rgba(212, 162, 127, 0.15)',
+            bg: '#FFFBF7',
+            text: '#1A1A1A',
+            textMuted: '#888888'
         }};
 
-        // Chart.js defaults for dark theme
-        Chart.defaults.font.family = "'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif";
+        // Chart.js defaults for warm theme
+        Chart.defaults.font.family = "'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
         Chart.defaults.color = colors.textMuted;
         Chart.defaults.borderColor = colors.border;
 

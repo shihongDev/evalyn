@@ -273,7 +273,7 @@ def cmd_export(args: argparse.Namespace) -> None:
 <head>
     <title>Evalyn Report - {run_data.get("id", "unknown")[:12]}</title>
     <style>
-        body {{ font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; background: #f5f5f5; }}
+        body {{ font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; background: #f5f5f5; }}
         h1 {{ color: #333; border-bottom: 2px solid #4CAF50; padding-bottom: 10px; }}
         h2 {{ color: #666; margin-top: 30px; }}
         .meta {{ background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}

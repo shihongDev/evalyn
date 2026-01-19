@@ -1065,7 +1065,7 @@ def generate_cluster_html(
         title=None,
         paper_bgcolor="#FFFBF7",
         plot_bgcolor="#FBF7F3",
-        font=dict(family="Söhne, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif", color="#1A1A1A"),
+        font=dict(family="DM Sans, -apple-system, BlinkMacSystemFont, system-ui, sans-serif", color="#1A1A1A"),
         xaxis=dict(
             showgrid=True,
             gridcolor="rgba(212, 162, 127, 0.15)",
@@ -1085,7 +1085,7 @@ def generate_cluster_html(
             bordercolor="rgba(212, 162, 127, 0.3)",
             borderwidth=1,
             font=dict(
-                family="Söhne, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif",
+                family="DM Sans, -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
                 color="#1A1A1A",
                 size=12,
             ),
@@ -1100,7 +1100,7 @@ def generate_cluster_html(
         hoverlabel=dict(
             bgcolor="#FFFBF7",
             bordercolor="#D4A27F",
-            font=dict(family="Söhne, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif", color="#1A1A1A"),
+            font=dict(family="DM Sans, -apple-system, BlinkMacSystemFont, system-ui, sans-serif", color="#1A1A1A"),
         ),
     )
 
@@ -1119,11 +1119,13 @@ def generate_cluster_html(
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Misalignment Clusters: {metric_id}</title>
-    <!-- Söhne font requires license - using system fallback stack -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         * {{ box-sizing: border-box; }}
         body {{
-            font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
             background: #FFFBF7;
             color: #1A1A1A;
             margin: 0;
@@ -1291,11 +1293,13 @@ def _generate_fallback_html(
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Misalignment Clusters: {metric_id}</title>
-    <!-- Söhne font requires license - using system fallback stack -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         * {{ box-sizing: border-box; }}
         body {{
-            font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
             background: #FFFBF7;
             color: #1A1A1A;
             margin: 0;
@@ -1336,7 +1340,7 @@ def _generate_fallback_html(
             background: rgba(212, 162, 127, 0.15);
             padding: 2px 6px;
             border-radius: 4px;
-            font-family: 'Söhne Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
             font-size: 13px;
         }}
         .section-title {{
@@ -1608,7 +1612,7 @@ def generate_failure_cluster_html(
         title=None,
         paper_bgcolor="#FFFBF7",
         plot_bgcolor="#FBF7F3",
-        font=dict(family="Söhne, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif", color="#1A1A1A"),
+        font=dict(family="DM Sans, -apple-system, BlinkMacSystemFont, system-ui, sans-serif", color="#1A1A1A"),
         xaxis=dict(
             showgrid=True,
             gridcolor="rgba(212, 162, 127, 0.15)",
@@ -1629,7 +1633,7 @@ def generate_failure_cluster_html(
         hoverlabel=dict(
             bgcolor="#FFFBF7",
             bordercolor="#D4A27F",
-            font=dict(family="Söhne, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif", color="#1A1A1A"),
+            font=dict(family="DM Sans, -apple-system, BlinkMacSystemFont, system-ui, sans-serif", color="#1A1A1A"),
         ),
     )
 
@@ -1646,11 +1650,13 @@ def generate_failure_cluster_html(
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Failure Clusters: {metric_id}</title>
-    <!-- Söhne font requires license - using system fallback stack -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         * {{ box-sizing: border-box; }}
         body {{
-            font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
             background: #FFFBF7;
             color: #1A1A1A;
             margin: 0;
@@ -1804,11 +1810,13 @@ def _generate_failure_fallback_html(
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Failure Clusters: {metric_id}</title>
-    <!-- Söhne font requires license - using system fallback stack -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         * {{ box-sizing: border-box; }}
         body {{
-            font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
             background: #FFFBF7;
             color: #1A1A1A;
             margin: 0;
@@ -1849,7 +1857,7 @@ def _generate_failure_fallback_html(
             background: rgba(212, 162, 127, 0.15);
             padding: 2px 6px;
             border-radius: 4px;
-            font-family: 'Söhne Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
             font-size: 13px;
         }}
         .section-title {{
