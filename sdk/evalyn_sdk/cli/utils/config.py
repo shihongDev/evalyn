@@ -88,10 +88,24 @@ def find_latest_dataset(data_dir: str = "data") -> Optional[Path]:
         return None
 
     # Find directories containing dataset.jsonl
+    # Search in multiple locations:
+    # 1. data/<name>/dataset.jsonl (legacy)
+    # 2. data/prod/datasets/<name>/dataset.jsonl
+    # 3. data/test/datasets/<name>/dataset.jsonl
     dataset_dirs = []
+
+    # Legacy: direct subdirectories of data/
     for d in data_path.iterdir():
         if d.is_dir() and (d / "dataset.jsonl").exists():
             dataset_dirs.append(d)
+
+    # New structure: data/prod/datasets/ and data/test/datasets/
+    for env in ["prod", "test"]:
+        datasets_path = data_path / env / "datasets"
+        if datasets_path.exists():
+            for d in datasets_path.iterdir():
+                if d.is_dir() and (d / "dataset.jsonl").exists():
+                    dataset_dirs.append(d)
 
     if not dataset_dirs:
         return None
