@@ -16,7 +16,8 @@ Typical workflows:
 
 Failure clustering (after eval):
   evalyn run-eval --dataset data/...
-  evalyn cluster-failures --metric-id <id>
+  evalyn cluster-failures                    # All metrics with failures
+  evalyn cluster-failures --metric-id <id>   # Single metric
 
 Misalignment clustering (after annotation):
   evalyn annotate --dataset <path> --per-metric
@@ -47,10 +48,8 @@ from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
 
 
-def _get_eval_run_and_metrics(
-    args: argparse.Namespace,
-) -> tuple[EvalRun, list[MetricResult]]:
-    """Load eval run and filter metric results by metric_id."""
+def _get_eval_run(args: argparse.Namespace) -> EvalRun:
+    """Load eval run."""
     tracer = get_default_tracer()
     if not tracer.storage:
         fatal_error("No storage configured")
@@ -61,6 +60,15 @@ def _get_eval_run_and_metrics(
         run = runs[0] if runs else None
     if run is None:
         fatal_error("No eval runs available")
+
+    return run
+
+
+def _get_eval_run_and_metrics(
+    args: argparse.Namespace,
+) -> tuple[EvalRun, list[MetricResult]]:
+    """Load eval run and filter metric results by metric_id."""
+    run = _get_eval_run(args)
 
     metric_results = [r for r in run.metric_results if r.metric_id == args.metric_id]
     if not metric_results:
@@ -190,52 +198,85 @@ def cmd_cluster_misalignments(args: argparse.Namespace) -> None:
 
 def cmd_cluster_failures(args: argparse.Namespace) -> None:
     """Cluster failed items from eval runs by semantic similarity of judge reasons."""
-    _, metric_results = _get_eval_run_and_metrics(args)
-
-    # Check for failures
-    failed_results = [r for r in metric_results if r.passed is False]
-    if not failed_results:
-        print(f"\nNo failures found for metric '{args.metric_id}'")
-        print(f"All {len(metric_results)} items passed!")
-        return
+    run = _get_eval_run(args)
 
     # Load dataset items for context
     dataset_items, dataset_dir = _load_dataset_context(args)
 
-    # Run clustering
-    cache_dir = dataset_dir / "analysis" / args.metric_id if dataset_dir else None
-    clusterer = ReasonClusterer(model=args.model, cache_dir=cache_dir)
+    # Determine which metrics to cluster
+    metric_id = getattr(args, "metric_id", None)
+
+    if metric_id:
+        # Single metric mode
+        metric_ids = [metric_id]
+    else:
+        # All metrics mode: find metrics with failures
+        metrics_with_failures = set()
+        for r in run.metric_results:
+            if r.passed is False:
+                metrics_with_failures.add(r.metric_id)
+        metric_ids = sorted(metrics_with_failures)
+
+        if not metric_ids:
+            print("\nNo failures found in any metric!")
+            print(f"All items passed across {len(set(r.metric_id for r in run.metric_results))} metrics.")
+            return
+
+        print(f"\nClustering failures for {len(metric_ids)} metrics with failures...")
+
+    clusterer = ReasonClusterer(model=args.model, cache_dir=None)
     compute_embeddings = args.format == "html"
-    result = clusterer.cluster_failures(
-        metric_results, dataset_items, compute_embeddings=compute_embeddings
-    )
+    quiet = getattr(args, "quiet", False)
 
-    # Output
-    default_html_path = (
-        dataset_dir / "analysis" / args.metric_id / "failures.html"
-        if dataset_dir
-        else Path(f"failures_{args.metric_id}.html")
-    )
-    _write_output(
-        args.format,
-        args.output,
-        default_html_path,
-        result.as_dict(),
-        generate_failure_cluster_html(result, args.metric_id),
-        generate_failure_cluster_text(result, args.metric_id),
-    )
+    for mid in metric_ids:
+        metric_results = [r for r in run.metric_results if r.metric_id == mid]
+        failed_results = [r for r in metric_results if r.passed is False]
 
-    # Show summary
-    if args.format != "table":
-        total_failures = result.total_cases
-        total_items = len(metric_results)
-        print(f"\nClustering complete:")
-        print(f"  {total_failures}/{total_items} items failed ({100*total_failures/total_items:.1f}%)")
-        print(f"  {len(result.clusters)} failure patterns identified")
+        if not failed_results:
+            if metric_id:  # Only print if single metric was explicitly requested
+                print(f"\nNo failures found for metric '{mid}'")
+                print(f"All {len(metric_results)} items passed!")
+            continue
+
+        # Set cache dir per metric
+        if dataset_dir:
+            clusterer.cache_dir = dataset_dir / "analysis" / mid
+
+        result = clusterer.cluster_failures(
+            metric_results, dataset_items, compute_embeddings=compute_embeddings
+        )
+
+        # Determine output path
+        if args.output and len(metric_ids) == 1:
+            output_path = args.output
+        else:
+            output_path = None  # Use default
+
+        default_html_path = (
+            dataset_dir / "analysis" / mid / "failures.html"
+            if dataset_dir
+            else Path(f"failures_{mid}.html")
+        )
+
+        _write_output(
+            args.format,
+            output_path,
+            default_html_path,
+            result.as_dict(),
+            generate_failure_cluster_html(result, mid),
+            generate_failure_cluster_text(result, mid),
+        )
+
+        # Show summary
+        if args.format != "table":
+            total_failures = result.total_cases
+            total_items = len(metric_results)
+            pct = 100 * total_failures / total_items if total_items else 0
+            print(f"  {mid}: {total_failures}/{total_items} failed ({pct:.1f}%), {len(result.clusters)} patterns")
 
     print_hint(
         "To see full eval results: evalyn show-run --last",
-        quiet=getattr(args, "quiet", False),
+        quiet=quiet,
     )
 
 
@@ -248,8 +289,7 @@ def register_commands(subparsers) -> None:
     )
     failures_parser.add_argument(
         "--metric-id",
-        required=True,
-        help="Metric ID to analyze",
+        help="Metric ID to analyze (default: all metrics with failures)",
     )
     failures_parser.add_argument(
         "--run-id",
