@@ -56,7 +56,6 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **Reference-Free Evaluation** - Metrics that don't need ground truth
   - [ ] Self-consistency checking
   - [ ] Uncertainty quantification
-  - [ ] Confidence calibration
 
 ### Calibration & Optimization
 
@@ -228,6 +227,18 @@ This document tracks planned features and completed work. Future roadmap items a
 
 - [x] **evalyn run-eval** - Run evaluation on dataset
 - [x] **Parallel execution** - Multi-threaded metric evaluation (--workers)
+- [x] **Batch API mode** - 50% cost savings for large-scale evaluation (--batch)
+  - [x] Gemini batch provider
+  - [x] OpenAI batch provider
+  - [x] Anthropic batch provider
+- [x] **Confidence estimation** - Confidence scores for LLM judgments (--confidence)
+  - [x] Logprobs-based confidence (OpenAI/Ollama)
+  - [x] Self-consistency confidence (multi-sample agreement)
+  - [x] Perplexity and entropy methods
+- [x] **Multi-provider support** - Choose judge provider (--provider)
+  - [x] Gemini (default)
+  - [x] OpenAI
+  - [x] Ollama (local)
 - [x] **Checkpoint & resume** - Save progress on interrupt, resume later
 - [x] **HTML reports** - Interactive visualization with Chart.js
 - [x] **evalyn list-runs** - List past evaluation runs
@@ -312,4 +323,4 @@ This document tracks planned features and completed work. Future roadmap items a
 - [x] **JSONL datasets** - Human-readable, git-friendly format
 - [x] **Checkpoint system** - Resume interrupted evaluations
 
-*Last updated: 2026-01-18*
+*Last updated: 2026-01-19*
