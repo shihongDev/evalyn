@@ -54,8 +54,8 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Elo rating system for models
   - [ ] Win/loss/tie statistics
 - [ ] **Reference-Free Evaluation** - Metrics that don't need ground truth
-  - [ ] Self-consistency checking
-  - [ ] Uncertainty quantification
+  - [x] Self-consistency checking (via --confidence consistency)
+  - [x] Uncertainty quantification (via confidence module)
 
 ### Calibration & Optimization
 
@@ -308,7 +308,7 @@ This document tracks planned features and completed work. Future roadmap items a
 - [x] **Gemini** - Full support with auto-instrumentation
 - [x] **OpenAI** - Full support with auto-instrumentation
 - [x] **Anthropic** - Full support with auto-instrumentation
-- [x] **Ollama** - Local model support (--llm-mode local)
+- [x] **Ollama** - Local model support (--provider ollama)
 
 ### Framework Support
 
