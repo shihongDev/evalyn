@@ -299,8 +299,23 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     subjective_count = 0
     calibrated_count = 0
 
-    # Get API key from config for LLM judges
-    gemini_api_key = get_config_default(config, "api_keys", "gemini")
+    # Get provider and confidence settings
+    provider = getattr(args, "provider", "gemini")
+    confidence_method = getattr(args, "confidence", "none")
+    confidence_samples = getattr(args, "confidence_samples", 3)
+
+    # Validate logprobs only works with openai/ollama
+    if confidence_method == "logprobs" and provider == "gemini":
+        fatal_error(
+            "logprobs confidence requires --provider openai or --provider ollama",
+            "Gemini does not expose logprobs. Use --confidence consistency instead.",
+        )
+
+    # Get API key based on provider
+    if provider == "openai":
+        api_key = get_config_default(config, "api_keys", "openai") or os.environ.get("OPENAI_API_KEY")
+    else:
+        api_key = get_config_default(config, "api_keys", "gemini")
 
     # Check if we should use calibrated prompts
     use_calibrated = getattr(args, "use_calibrated", False)
@@ -341,7 +356,10 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
                     spec.id,
                     spec.config,
                     description=spec.description,
-                    api_key=gemini_api_key,
+                    api_key=api_key,
+                    provider=provider,
+                    confidence_method=confidence_method,
+                    confidence_samples=confidence_samples,
                 )
                 subjective_count += 1
             if metric:
@@ -371,6 +389,14 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
             metrics_summary += f", {calibrated_count} calibrated"
         metrics_summary += ")"
         print(metrics_summary)
+        if subjective_count > 0:
+            judge_info = f"Judge: {provider}"
+            if confidence_method != "none":
+                if confidence_method == "consistency":
+                    judge_info += f", confidence=consistency({confidence_samples} samples)"
+                else:
+                    judge_info += f", confidence={confidence_method}"
+            print(judge_info)
         print(f"Dataset: {len(dataset_list)} items")
 
         # Check for API key if subjective metrics are present
@@ -400,36 +426,135 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     # Checkpoint path for long-running evaluations
     checkpoint_path = dataset_dir / ".eval_checkpoint.json"
 
-    # Check for existing checkpoint
-    if checkpoint_path.exists():
+    # Check if batch mode is requested
+    use_batch = getattr(args, "batch", False)
+
+    if use_batch and subjective_count > 0:
+        # Batch mode: use batch API for subjective metrics
+        from ...batch import BatchEvaluator, BatchEvalProgress
+
+        batch_provider = getattr(args, "batch_provider", "gemini")
+
         if output_format != "json":
-            print("  Resuming from checkpoint...")
+            print(f"\nUsing batch API ({batch_provider}) for {subjective_count} subjective metrics")
+            print("This may take several minutes. Progress will be shown below.\n")
 
-    runner = EvalRunner(
-        target_fn=lambda: None,  # Dummy function, won't be called
-        metrics=metrics,
-        dataset_name=args.dataset_name or dataset_file.stem,
-        tracer=tracer,
-        instrument=False,
-        progress_callback=progress_callback if output_format != "json" else None,
-        checkpoint_path=checkpoint_path,
-        checkpoint_interval=5,
-        max_workers=getattr(args, "workers", 1),
-    )
+        # Separate objective and subjective metrics
+        objective_metrics = [m for m in metrics if m.spec.type == "objective"]
+        subjective_metrics = [m for m in metrics if m.spec.type == "subjective"]
 
-    try:
-        run = runner.run_dataset(dataset_list, use_synthetic=True)
-    except KeyboardInterrupt:
+        # Run objective metrics first (fast, deterministic)
+        objective_results = []
+        if objective_metrics:
+            if output_format != "json":
+                print(f"Running {len(objective_metrics)} objective metrics...")
+
+            runner = EvalRunner(
+                target_fn=lambda: None,
+                metrics=objective_metrics,
+                dataset_name=args.dataset_name or dataset_file.stem,
+                tracer=tracer,
+                instrument=False,
+                progress_callback=progress_callback if output_format != "json" else None,
+                max_workers=getattr(args, "workers", 1),
+            )
+            obj_run = runner.run_dataset(dataset_list, use_synthetic=True)
+            objective_results = obj_run.metric_results
+
+        # Run subjective metrics via batch API
+        subjective_results = []
+        if subjective_metrics:
+            if output_format != "json":
+                print(f"\nSubmitting {len(subjective_metrics)} subjective metrics to batch API...")
+
+            # Prepare items with calls
+            prepared = []
+            for item in dataset_list:
+                call = tracer.storage.get_call(item.call_id) if item.call_id else None
+                if call:
+                    prepared.append((item, call))
+
+            # Progress callback for batch
+            def batch_progress(p: BatchEvalProgress):
+                if output_format != "json":
+                    if p.phase == "waiting":
+                        pct = 100 * p.completed_requests / max(1, p.total_requests)
+                        print(f"\r  Batch progress: {p.completed_requests}/{p.total_requests} ({pct:.0f}%) - {p.elapsed_seconds:.0f}s elapsed", end="", flush=True)
+                    elif p.phase == "complete":
+                        print(f"\n  Batch complete: {p.completed_requests} results in {p.elapsed_seconds:.1f}s")
+
+            batch_evaluator = BatchEvaluator(
+                provider=batch_provider,
+                poll_interval=10.0,
+            )
+
+            try:
+                subjective_results = batch_evaluator.evaluate(
+                    prepared=prepared,
+                    metrics=subjective_metrics,
+                    progress_callback=batch_progress,
+                    checkpoint_path=checkpoint_path,
+                )
+            except KeyboardInterrupt:
+                if output_format != "json":
+                    print("\n\nBatch evaluation interrupted.")
+                    if checkpoint_path.exists():
+                        print(f"Batch job checkpoint saved to: {checkpoint_path}")
+                return
+            except Exception as e:
+                if output_format != "json":
+                    print(f"\n\nBatch evaluation failed: {e}")
+                return
+
+        # Combine results
+        all_results = objective_results + subjective_results
+
+        # Create EvalRun manually
+        from ...models import EvalRun
+
+        run = EvalRun(
+            id=f"batch-{int(time.time())}",
+            dataset_name=args.dataset_name or dataset_file.stem,
+            metric_results=all_results,
+            summary={},
+            created_at=datetime.now(),
+        )
+
         if progress:
             progress.finish()
-        if output_format != "json":
-            print("\n\nEvaluation interrupted.")
-            print(f"Progress saved to: {checkpoint_path}")
-            print(f"Resume with: evalyn run-eval --dataset {dataset_dir}")
-        return
 
-    if progress:
-        progress.finish()
+    else:
+        # Standard mode: parallel execution
+        # Check for existing checkpoint
+        if checkpoint_path.exists():
+            if output_format != "json":
+                print("  Resuming from checkpoint...")
+
+        runner = EvalRunner(
+            target_fn=lambda: None,  # Dummy function, won't be called
+            metrics=metrics,
+            dataset_name=args.dataset_name or dataset_file.stem,
+            tracer=tracer,
+            instrument=False,
+            progress_callback=progress_callback if output_format != "json" else None,
+            checkpoint_path=checkpoint_path,
+            checkpoint_interval=5,
+            max_workers=getattr(args, "workers", 1),
+        )
+
+        try:
+            run = runner.run_dataset(dataset_list, use_synthetic=True)
+        except KeyboardInterrupt:
+            if progress:
+                progress.finish()
+            if output_format != "json":
+                print("\n\nEvaluation interrupted.")
+                print(f"Progress saved to: {checkpoint_path}")
+                print(f"Resume with: evalyn run-eval --dataset {dataset_dir}")
+            return
+
+        if progress:
+            progress.finish()
 
     # Save eval run in dedicated folder
     run_folder = save_eval_run_json(run, dataset_dir)
@@ -1026,6 +1151,35 @@ def register_commands(subparsers) -> None:
         type=int,
         default=4,
         help="Parallel workers for LLM evaluation (default: 4, max: 16)",
+    )
+    run_parser.add_argument(
+        "--batch",
+        action="store_true",
+        help="Use batch API for 50%% cost savings (async, may take minutes to hours)",
+    )
+    run_parser.add_argument(
+        "--batch-provider",
+        choices=["gemini", "openai", "anthropic"],
+        default="gemini",
+        help="Batch API provider (default: gemini)",
+    )
+    run_parser.add_argument(
+        "--provider",
+        choices=["gemini", "openai", "ollama"],
+        default="gemini",
+        help="LLM provider for judges: gemini (default), openai, ollama",
+    )
+    run_parser.add_argument(
+        "--confidence",
+        choices=["none", "consistency", "logprobs"],
+        default="none",
+        help="Confidence method: none (default), consistency (N samples), logprobs (openai/ollama only)",
+    )
+    run_parser.add_argument(
+        "--confidence-samples",
+        type=int,
+        default=3,
+        help="Number of samples for consistency method (default: 3)",
     )
     run_parser.set_defaults(func=cmd_run_eval)
 

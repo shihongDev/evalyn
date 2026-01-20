@@ -108,19 +108,21 @@ def _safe_trace_excerpt(
 
 class LLMJudge:
     """
-    LLM-based judge for subjective evaluation. Default: Gemini API.
+    LLM-based judge for subjective evaluation.
+
+    Supports multiple providers: gemini (default), openai, ollama.
 
     Usage:
-        # From built-in template
+        # From built-in template (default: Gemini)
         judge = LLMJudge.from_template("toxicity_safety")
         metric = judge.as_metric("safety_check")
 
-        # Custom prompt
-        judge = LLMJudge(prompt="You evaluate code quality...")
-        metric = judge.as_metric("code_quality", threshold=0.7)
+        # With OpenAI
+        judge = LLMJudge.from_template("toxicity_safety", provider="openai")
 
-        # One-liner
-        metric = LLMJudge.from_template("helpfulness").as_metric("help_score")
+        # Custom prompt
+        judge = LLMJudge(prompt="You evaluate code quality...", provider="openai")
+        metric = judge.as_metric("code_quality", threshold=0.7)
     """
 
     TEMPLATES = JUDGE_TEMPLATES
@@ -129,49 +131,78 @@ class LLMJudge:
         self,
         prompt: str,
         name: str = "llm-judge",
-        model: str = "gemini-2.5-flash-lite",
+        model: Optional[str] = None,
         temperature: float = 0.0,
         api_key: Optional[str] = None,
+        provider: str = "gemini",
         rubric: Optional[List[str]] = None,
     ):
         self.prompt = prompt
         self.name = name
-        self.model = model
+        self.provider = provider
         self.temperature = temperature
         self._api_key = api_key
         self.rubric = rubric or []
-        self._client: Optional[GeminiClient] = None
+        self._client = None
+
+        # Default model depends on provider
+        if model is None:
+            default_models = {
+                "gemini": "gemini-2.5-flash-lite",
+                "openai": "gpt-4o-mini",
+                "ollama": "llama3.2",
+            }
+            self.model = default_models.get(provider, "gemini-2.5-flash-lite")
+        else:
+            self.model = model
 
     @property
-    def client(self) -> GeminiClient:
-        """Lazy-initialized Gemini API client."""
+    def client(self):
+        """Lazy-initialized API client based on provider."""
         if self._client is None:
-            self._client = GeminiClient(
-                model=self.model,
-                temperature=self.temperature,
-                api_key=self._api_key,
-            )
+            if self.provider == "openai":
+                from ..utils.api_client import OpenAIClient
+                self._client = OpenAIClient(
+                    model=self.model,
+                    temperature=self.temperature,
+                    api_key=self._api_key,
+                )
+            elif self.provider == "ollama":
+                from ..utils.api_client import OllamaClient
+                self._client = OllamaClient(
+                    model=self.model,
+                    temperature=self.temperature,
+                )
+            else:  # gemini (default)
+                self._client = GeminiClient(
+                    model=self.model,
+                    temperature=self.temperature,
+                    api_key=self._api_key,
+                )
         return self._client
 
     @classmethod
     def from_template(
         cls,
         template: str,
-        model: str = "gemini-2.5-flash-lite",
+        model: Optional[str] = None,
         api_key: Optional[str] = None,
+        provider: str = "gemini",
     ) -> "LLMJudge":
         """Create judge from built-in template.
 
         Args:
             template: Template name (e.g., "toxicity_safety", "helpfulness_accuracy")
-            model: LLM model to use (default: gemini-2.5-flash-lite)
-            api_key: Optional API key (default: from GEMINI_API_KEY env var)
+            model: LLM model to use (default depends on provider)
+            api_key: Optional API key (default: from env var based on provider)
+            provider: LLM provider - "gemini", "openai", or "ollama"
 
         Returns:
             Configured LLMJudge instance
 
         Example:
             judge = LLMJudge.from_template("toxicity_safety")
+            judge = LLMJudge.from_template("toxicity_safety", provider="openai")
         """
         if template not in cls.TEMPLATES:
             available = ", ".join(cls.TEMPLATES.keys())
@@ -187,6 +218,7 @@ class LLMJudge:
             name=template,
             model=model,
             api_key=api_key,
+            provider=provider,
             rubric=rubric,
         )
 

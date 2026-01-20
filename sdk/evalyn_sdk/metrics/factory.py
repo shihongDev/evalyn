@@ -131,6 +131,131 @@ _OBJECTIVE_TPL = _tpl_by_id(OBJECTIVE_REGISTRY)
 _SUBJECTIVE_TPL = _tpl_by_id(SUBJECTIVE_REGISTRY)
 
 
+def _wrap_with_consistency_confidence(
+    base_metric: Metric,
+    judge: "LLMJudge",
+    n_samples: int,
+    threshold: float,
+) -> Metric:
+    """Wrap a subjective metric with self-consistency confidence calculation.
+
+    Runs the judge N times (with temp > 0) and calculates confidence as agreement ratio.
+    Higher agreement = higher confidence in the judgment.
+
+    NOTE: This temporarily sets temperature to 0.7 to get diverse samples.
+    With temp=0, all samples would be identical.
+    """
+    from ..confidence import SelfConsistencyConfidence
+    from ..models import DatasetItem, FunctionCall, MetricResult
+    from .judges import LLMJudge as JudgeClass
+
+    confidence_estimator = SelfConsistencyConfidence(n_samples=n_samples)
+
+    # Create a sampling judge with temp > 0 for diversity
+    sampling_judge = JudgeClass(
+        name=judge.name,
+        prompt=judge.prompt,
+        model=judge.model,
+        temperature=0.7,  # Need diversity for self-consistency
+        api_key=judge._api_key,
+        rubric=judge.rubric,
+    )
+
+    def handler_with_confidence(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        # Run judge multiple times with temp > 0
+        results = [sampling_judge.score(call, item) for _ in range(n_samples)]
+
+        # Extract pass/fail verdicts for consistency check
+        def extract_verdict(r):
+            return r.get("passed")
+
+        confidence_result = confidence_estimator.estimate(
+            samples=results,
+            answer_extractor=extract_verdict,
+        )
+
+        # Use majority vote result
+        verdicts = [r.get("passed") for r in results]
+        pass_count = sum(1 for v in verdicts if v is True)
+        fail_count = sum(1 for v in verdicts if v is False)
+
+        if pass_count > fail_count:
+            passed = True
+            score = 1.0
+        elif fail_count > pass_count:
+            passed = False
+            score = 0.0
+        else:
+            # Tie: use first result
+            passed = results[0].get("passed")
+            score = results[0].get("score", 0.5)
+
+        # Collect reasons from all samples
+        reasons = [r.get("reason") for r in results if r.get("reason")]
+        majority_reason = reasons[0] if reasons else None
+
+        return MetricResult(
+            metric_id=base_metric.spec.id,
+            item_id=item.id,
+            call_id=call.id,
+            score=score,
+            passed=passed,
+            details={
+                "judge": judge.name,
+                "reason": majority_reason,
+                "confidence": round(confidence_result.score, 4),
+                "confidence_method": "consistency",
+                "n_samples": n_samples,
+                "pass_count": pass_count,
+                "fail_count": fail_count,
+            },
+            raw_judge={"samples": results, "confidence": confidence_result.details},
+        )
+
+    return Metric(base_metric.spec, handler_with_confidence)
+
+
+def _wrap_with_logprobs_confidence(
+    base_metric: Metric,
+    judge: "LLMJudge",
+    threshold: float,
+) -> Metric:
+    """Wrap a subjective metric with logprobs-based confidence.
+
+    Uses token log probabilities to calculate confidence.
+    Only works with providers that support logprobs (openai, ollama).
+    """
+    from ..models import DatasetItem, FunctionCall, MetricResult
+
+    def handler_with_confidence(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        # score_with_confidence returns result dict with confidence included
+        result = judge.score_with_confidence(call, item)
+
+        passed = result.get("passed")
+        score = result.get("score")
+        if score is None and passed is not None:
+            score = 1.0 if passed else 0.0
+
+        confidence = result.get("confidence", 0.5)
+
+        return MetricResult(
+            metric_id=base_metric.spec.id,
+            item_id=item.id,
+            call_id=call.id,
+            score=score,
+            passed=passed,
+            details={
+                "judge": judge.name,
+                "reason": result.get("reason"),
+                "confidence": round(confidence, 4),
+                "confidence_method": "logprobs",
+            },
+            raw_judge=result,
+        )
+
+    return Metric(base_metric.spec, handler_with_confidence)
+
+
 def list_template_ids() -> List[str]:
     """Return all known template ids (objective + subjective)."""
     return sorted(list(_OBJECTIVE_TPL.keys()) + list(_SUBJECTIVE_TPL.keys()))
@@ -336,6 +461,9 @@ def build_subjective_metric(
     judge: Optional[LLMJudge] = None,
     description: Optional[str] = None,
     api_key: Optional[str] = None,
+    provider: str = "gemini",
+    confidence_method: str = "none",
+    confidence_samples: int = 3,
 ) -> Metric:
     """
     Build a subjective metric from template ID OR custom config.
@@ -353,10 +481,19 @@ def build_subjective_metric(
     - prompt: Custom prompt (overrides template prompt)
     - rubric: List of criteria for PASS/FAIL evaluation
     - threshold: Score threshold for pass (default: 0.7)
-    - model: Judge model name (default: gemini-2.5-flash-lite)
+    - model: Judge model name (depends on provider)
     - temperature: Judge temperature (default: 0.0)
     - description: Metric description (for custom metrics)
     - api_key: API key for LLM judge (optional, falls back to env var)
+
+    Provider options:
+    - provider: "gemini" (default), "openai", or "ollama"
+
+    Confidence options:
+    - confidence_method: "none", "consistency", or "logprobs"
+      - consistency: Run judge N times with temp>0, measure agreement
+      - logprobs: Use token probabilities (openai/ollama only)
+    - confidence_samples: Number of samples for consistency method (default: 3)
     """
     tpl = _SUBJECTIVE_TPL.get(metric_id)
     cfg = config or {}
@@ -401,7 +538,13 @@ def build_subjective_metric(
 
     # Create judge if not provided
     if judge is None:
-        model = cfg.get("model", "gemini-2.5-flash-lite")
+        # Default model depends on provider
+        default_models = {
+            "gemini": "gemini-2.5-flash-lite",
+            "openai": "gpt-4o-mini",
+            "ollama": "llama3.2",
+        }
+        model = cfg.get("model", default_models.get(provider, "gemini-2.5-flash-lite"))
         temperature = float(cfg.get("temperature", 0.0))
         judge = LLMJudge(
             name=metric_id,
@@ -409,6 +552,7 @@ def build_subjective_metric(
             model=model,
             temperature=temperature,
             api_key=api_key,
+            provider=provider,
             rubric=rubric if rubric else None,
         )
 
@@ -420,8 +564,16 @@ def build_subjective_metric(
         or "LLM judge subjective score"
     )
 
-    return judge.as_metric(
+    base_metric = judge.as_metric(
         metric_id=metric_id,
         threshold=threshold_f,
         description=str(final_description),
     )
+
+    if confidence_method == "consistency":
+        return _wrap_with_consistency_confidence(
+            base_metric, judge, confidence_samples, threshold_f
+        )
+    elif confidence_method == "logprobs":
+        return _wrap_with_logprobs_confidence(base_metric, judge, threshold_f)
+    return base_metric
