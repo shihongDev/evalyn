@@ -216,6 +216,30 @@ class OpenAIClient:
 
         return text, confidence
 
+    def generate_with_logprobs(
+        self, prompt: str, temperature: Optional[float] = None
+    ) -> tuple[str, list[float]]:
+        """Call OpenAI API and return (text, raw_logprobs).
+
+        Returns the raw token logprobs for use with confidence estimators
+        like DeepConf that need custom aggregation strategies.
+        """
+        response_data = self._call_api(prompt, temperature, with_logprobs=True)
+
+        text = ""
+        logprobs_values = []
+
+        choices = response_data.get("choices", [])
+        if choices:
+            choice = choices[0]
+            text = choice.get("message", {}).get("content", "")
+
+            content_logprobs = choice.get("logprobs", {}).get("content", [])
+            if content_logprobs:
+                logprobs_values = [lp.get("logprob", 0.0) for lp in content_logprobs]
+
+        return text, logprobs_values
+
 
 class OllamaClient:
     """HTTP client for Ollama API with logprobs support.
@@ -285,6 +309,20 @@ class OllamaClient:
             confidence = min(0.9, max(0.3, tokens_per_ns * 1e7))
 
         return text, confidence
+
+    def generate_with_logprobs(
+        self, prompt: str, temperature: Optional[float] = None
+    ) -> tuple[str, list[float]]:
+        """Call Ollama API and return (text, raw_logprobs).
+
+        Note: Ollama doesn't expose token-level logprobs like OpenAI.
+        This returns an empty list for logprobs. Use generate_with_confidence()
+        for Ollama's heuristic-based confidence instead.
+        """
+        response_data = self._call_api(prompt, temperature, extra_options={"num_predict": 512})
+        text = response_data.get("response", "")
+        # Ollama doesn't expose token-level logprobs
+        return text, []
 
 
 __all__ = ["GeminiClient", "OpenAIClient", "OllamaClient", "call_gemini_api"]

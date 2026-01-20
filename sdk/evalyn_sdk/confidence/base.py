@@ -67,7 +67,7 @@ def get_confidence_estimator(method: str, **kwargs) -> ConfidenceEstimator:
     """Factory function to get a confidence estimator by name.
 
     Args:
-        method: Method name - "logprobs", "consistency", "entropy", "verbalized"
+        method: Method name - "logprobs", "deepconf", "consistency", "entropy", etc.
         **kwargs: Method-specific configuration
 
     Returns:
@@ -76,12 +76,16 @@ def get_confidence_estimator(method: str, **kwargs) -> ConfidenceEstimator:
     Raises:
         ValueError: If method is unknown
     """
-    from .logprobs import LogprobsConfidence, PerplexityConfidence
+    from .logprobs import LogprobsConfidence, PerplexityConfidence, DeepConfConfidence
     from .consistency import SelfConsistencyConfidence
     from .verbalized import VerbalizedConfidence
 
     methods = {
         "logprobs": LogprobsConfidence,
+        "deepconf": DeepConfConfidence,
+        "deepconf_bottom10": lambda **kw: DeepConfConfidence(strategy="bottom10", **kw),
+        "deepconf_tail": lambda **kw: DeepConfConfidence(strategy="tail", **kw),
+        "deepconf_average": lambda **kw: DeepConfConfidence(strategy="average", **kw),
         "perplexity": PerplexityConfidence,
         "consistency": SelfConsistencyConfidence,
         "self_consistency": SelfConsistencyConfidence,

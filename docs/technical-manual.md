@@ -323,6 +323,7 @@ Higher agreement across samples = higher confidence.
 
 The confidence module (`evalyn_sdk/confidence/`) provides:
 - `LogprobsConfidence`: Token probability-based (OpenAI/Ollama only)
+- `DeepConfConfidence`: Meta AI's DeepConf with bottom-10%/tail strategies (OpenAI only)
 - `SelfConsistencyConfidence`: Multi-sample agreement
 - `MajorityVoteConfidence`: Weighted voting
 - `PerplexityConfidence`: Perplexity-based

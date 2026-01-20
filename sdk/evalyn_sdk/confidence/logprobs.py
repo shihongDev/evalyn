@@ -241,4 +241,103 @@ class EntropyConfidence(ConfidenceEstimator):
         )
 
 
-__all__ = ["LogprobsConfidence", "PerplexityConfidence", "EntropyConfidence"]
+class DeepConfConfidence(ConfidenceEstimator):
+    """Meta AI's DeepConf confidence estimation.
+
+    DeepConf uses logprobs with specialized aggregation strategies that
+    better distinguish correct from incorrect reasoning traces.
+
+    Key insight: Bottom-10% and tail confidence better detect errors than
+    simple average confidence.
+
+    Args:
+        strategy: Aggregation strategy:
+            - "average": Mean confidence over all tokens
+            - "bottom10": Mean of lowest 10% confidences (default, best for error detection)
+            - "tail": Confidence over final N tokens
+        tail_tokens: Number of final tokens for tail strategy (default: 256)
+
+    References:
+        - "Deep Think with Confidence" (arXiv:2508.15260)
+        - https://jiaweizzhao.github.io/deepconf/
+
+    Usage:
+        estimator = DeepConfConfidence(strategy="bottom10")
+        result = estimator.estimate(logprobs=[-0.1, -0.3, -0.2, -1.5, -0.4])
+    """
+
+    def __init__(self, strategy: str = "bottom10", tail_tokens: int = 256):
+        if strategy not in ("average", "bottom10", "tail"):
+            raise ValueError(f"Invalid strategy: {strategy}. Use 'average', 'bottom10', or 'tail'")
+        self.strategy = strategy
+        self.tail_tokens = tail_tokens
+
+    @property
+    def name(self) -> str:
+        return f"deepconf_{self.strategy}"
+
+    def estimate(self, logprobs: List[float], **kwargs) -> ConfidenceResult:
+        """Estimate confidence using DeepConf strategy.
+
+        Args:
+            logprobs: List of log probabilities for each token
+
+        Returns:
+            ConfidenceResult with confidence score
+        """
+        if not logprobs:
+            return ConfidenceResult(score=0.5, method=self.name, details={"reason": "no_logprobs"})
+
+        valid_logprobs = [lp for lp in logprobs if lp is not None]
+        if not valid_logprobs:
+            return ConfidenceResult(score=0.5, method=self.name, details={"reason": "all_none"})
+
+        # Convert logprobs to token-level confidence scores
+        token_confidences = [math.exp(lp) for lp in valid_logprobs]
+
+        # Apply strategy
+        if self.strategy == "bottom10":
+            # Bottom-10% Group Confidence: mean of lowest 10% confidences
+            # Better at detecting incorrect reasoning traces
+            sorted_conf = sorted(token_confidences)
+            bottom_count = max(1, len(sorted_conf) // 10)
+            selected = sorted_conf[:bottom_count]
+            confidence = sum(selected) / len(selected)
+            details = {
+                "bottom_count": bottom_count,
+                "bottom_confidences": selected[:5],  # First 5 for debugging
+            }
+
+        elif self.strategy == "tail":
+            # Tail Confidence: confidence over final N tokens
+            # Useful for reasoning tasks where conclusion quality matters
+            tail = token_confidences[-self.tail_tokens:]
+            confidence = sum(tail) / len(tail)
+            details = {
+                "tail_tokens_used": len(tail),
+                "tail_tokens_requested": self.tail_tokens,
+            }
+
+        else:  # average
+            # Average Trace Confidence: mean confidence over all tokens
+            confidence = sum(token_confidences) / len(token_confidences)
+            details = {}
+
+        # Clamp to [0, 1]
+        confidence = max(0.0, min(1.0, confidence))
+
+        return ConfidenceResult(
+            score=confidence,
+            method=self.name,
+            details={
+                "strategy": self.strategy,
+                "num_tokens": len(valid_logprobs),
+                "avg_confidence": sum(token_confidences) / len(token_confidences),
+                "min_confidence": min(token_confidences),
+                "max_confidence": max(token_confidences),
+                **details,
+            },
+        )
+
+
+__all__ = ["LogprobsConfidence", "PerplexityConfidence", "EntropyConfidence", "DeepConfConfidence"]

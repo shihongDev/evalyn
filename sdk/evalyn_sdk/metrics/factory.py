@@ -256,6 +256,52 @@ def _wrap_with_logprobs_confidence(
     return Metric(base_metric.spec, handler_with_confidence)
 
 
+def _wrap_with_deepconf_confidence(
+    base_metric: Metric,
+    judge: "LLMJudge",
+    threshold: float,
+    strategy: str = "bottom10",
+) -> Metric:
+    """Wrap a subjective metric with DeepConf confidence.
+
+    DeepConf uses specialized aggregation strategies (bottom-10%, tail)
+    that better distinguish correct from incorrect reasoning traces.
+    Only works with providers that support logprobs (openai, limited ollama).
+
+    References:
+        - "Deep Think with Confidence" (arXiv:2508.15260)
+        - https://jiaweizzhao.github.io/deepconf/
+    """
+    from ..models import DatasetItem, FunctionCall, MetricResult
+
+    def handler_with_confidence(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        result = judge.score_with_deepconf(call, item, strategy=strategy)
+
+        passed = result.get("passed")
+        score = result.get("score")
+        if score is None and passed is not None:
+            score = 1.0 if passed else 0.0
+
+        confidence = result.get("confidence", 0.5)
+
+        return MetricResult(
+            metric_id=base_metric.spec.id,
+            item_id=item.id,
+            call_id=call.id,
+            score=score,
+            passed=passed,
+            details={
+                "judge": judge.name,
+                "reason": result.get("reason"),
+                "confidence": round(confidence, 4),
+                "confidence_method": f"deepconf_{strategy}",
+            },
+            raw_judge=result,
+        )
+
+    return Metric(base_metric.spec, handler_with_confidence)
+
+
 def list_template_ids() -> List[str]:
     """Return all known template ids (objective + subjective)."""
     return sorted(list(_OBJECTIVE_TPL.keys()) + list(_SUBJECTIVE_TPL.keys()))
@@ -490,9 +536,10 @@ def build_subjective_metric(
     - provider: "gemini" (default), "openai", or "ollama"
 
     Confidence options:
-    - confidence_method: "none", "consistency", or "logprobs"
+    - confidence_method: "none", "consistency", "logprobs", or "deepconf"
       - consistency: Run judge N times with temp>0, measure agreement
       - logprobs: Use token probabilities (openai/ollama only)
+      - deepconf: Meta AI's DeepConf with bottom-10% aggregation (openai only)
     - confidence_samples: Number of samples for consistency method (default: 3)
     """
     tpl = _SUBJECTIVE_TPL.get(metric_id)
@@ -576,4 +623,6 @@ def build_subjective_metric(
         )
     elif confidence_method == "logprobs":
         return _wrap_with_logprobs_confidence(base_metric, judge, threshold_f)
+    elif confidence_method == "deepconf":
+        return _wrap_with_deepconf_confidence(base_metric, judge, threshold_f)
     return base_metric

@@ -349,6 +349,67 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
             },
         }
 
+    def score_with_deepconf(
+        self, call: FunctionCall, item: DatasetItem, strategy: str = "bottom10"
+    ) -> Dict[str, Any]:
+        """Evaluate with DeepConf confidence (openai only, ollama limited).
+
+        DeepConf uses specialized aggregation strategies that better distinguish
+        correct from incorrect reasoning traces.
+
+        Args:
+            call: Function call to evaluate
+            item: Dataset item with input/expected
+            strategy: DeepConf strategy - "bottom10" (default), "tail", "average"
+
+        Returns {score, passed, reason, confidence, raw}.
+        """
+        if self.provider == "gemini":
+            raise RuntimeError(
+                "DeepConf requires provider='openai' (or 'ollama' with limited support). "
+                "Gemini does not expose logprobs."
+            )
+
+        full_prompt = self._build_evaluation_prompt(call, item)
+
+        try:
+            raw_text, logprobs = self.client.generate_with_logprobs(full_prompt)
+        except Exception as e:
+            return {
+                "score": None,
+                "passed": None,
+                "reason": f"API call failed: {e}",
+                "confidence": 0.0,
+                "raw": {"error": str(e)},
+            }
+
+        # Calculate confidence using DeepConf
+        if logprobs:
+            from ..confidence import DeepConfConfidence
+            estimator = DeepConfConfidence(strategy=strategy)
+            conf_result = estimator.estimate(logprobs=logprobs)
+            confidence = conf_result.score
+            conf_details = conf_result.details
+        else:
+            # Fallback for Ollama which doesn't return logprobs
+            confidence = 0.5
+            conf_details = {"reason": "no_logprobs_available"}
+
+        score, passed, reason, parsed = self._parse_response(raw_text)
+        return {
+            "score": score,
+            "passed": passed,
+            "reason": reason,
+            "confidence": confidence,
+            "raw": {
+                "response": parsed,
+                "text": raw_text,
+                "model": self.model,
+                "deepconf_strategy": strategy,
+                "deepconf_details": conf_details,
+            },
+        }
+
     def as_metric(
         self,
         metric_id: Optional[str] = None,

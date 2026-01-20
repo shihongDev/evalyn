@@ -304,10 +304,10 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     confidence_method = getattr(args, "confidence", "none")
     confidence_samples = getattr(args, "confidence_samples", 3)
 
-    # Validate logprobs only works with openai/ollama
-    if confidence_method == "logprobs" and provider == "gemini":
+    # Validate logprobs/deepconf only works with openai/ollama
+    if confidence_method in ("logprobs", "deepconf") and provider == "gemini":
         fatal_error(
-            "logprobs confidence requires --provider openai or --provider ollama",
+            f"{confidence_method} confidence requires --provider openai or --provider ollama",
             "Gemini does not expose logprobs. Use --confidence consistency instead.",
         )
 
@@ -1171,9 +1171,9 @@ def register_commands(subparsers) -> None:
     )
     run_parser.add_argument(
         "--confidence",
-        choices=["none", "consistency", "logprobs"],
+        choices=["none", "consistency", "logprobs", "deepconf"],
         default="none",
-        help="Confidence method: none (default), consistency (N samples), logprobs (openai/ollama only)",
+        help="Confidence method: none (default), consistency (N samples), logprobs/deepconf (openai/ollama only)",
     )
     run_parser.add_argument(
         "--confidence-samples",

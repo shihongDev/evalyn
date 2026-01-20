@@ -24,7 +24,7 @@ evalyn run-eval --latest [OPTIONS]
 | `--batch` | false | Use batch API for 50% cost savings |
 | `--batch-provider` | gemini | Batch provider: `gemini`, `openai`, `anthropic` |
 | `--provider` | gemini | LLM provider for judges: `gemini`, `openai`, `ollama` |
-| `--confidence` | none | Confidence method: `none`, `consistency`, `logprobs` |
+| `--confidence` | none | Confidence method: `none`, `consistency`, `logprobs`, `deepconf` |
 | `--confidence-samples` | 3 | Number of samples for consistency method |
 
 ## Metrics Resolution
@@ -108,11 +108,14 @@ The `--confidence` flag adds confidence scores to judge evaluations:
 |--------|-------------|--------------|
 | `none` (default) | No confidence estimation | - |
 | `consistency` | Run judge N times with temp=0.7, measure agreement | Any provider |
-| `logprobs` | Use token log probabilities | OpenAI or Ollama only |
+| `logprobs` | Use mean of token log probabilities | OpenAI or Ollama only |
+| `deepconf` | Meta AI's DeepConf with bottom-10% aggregation | OpenAI only (best) |
 
 **Consistency method**: Higher agreement across samples = higher confidence. Costs N API calls per item.
 
-**Logprobs method**: Uses token-level probabilities from the LLM. More accurate, single API call, but requires provider that exposes logprobs. Gemini does not support this.
+**Logprobs method**: Uses mean token-level probabilities from the LLM. Single API call.
+
+**DeepConf method**: Uses bottom-10% of token confidences instead of mean. Better at detecting incorrect reasoning. Based on Meta AI's "Deep Think with Confidence" (arXiv:2508.15260). OpenAI only - Ollama doesn't expose token-level logprobs.
 
 Confidence scores (0.0-1.0) appear in the `details.confidence` field of each metric result.
 

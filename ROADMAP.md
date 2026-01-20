@@ -233,6 +233,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Anthropic batch provider
 - [x] **Confidence estimation** - Confidence scores for LLM judgments (--confidence)
   - [x] Logprobs-based confidence (OpenAI/Ollama)
+  - [x] DeepConf confidence (Meta AI's bottom-10% strategy)
   - [x] Self-consistency confidence (multi-sample agreement)
   - [x] Perplexity and entropy methods
 - [x] **Multi-provider support** - Choose judge provider (--provider)
