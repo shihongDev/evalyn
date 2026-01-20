@@ -13,6 +13,7 @@ evalyn build-dataset [OPTIONS]
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--project NAME` | - | Filter by project name (recommended) |
+| `--all` | false | Include all projects (use with caution) |
 | `--version V` | - | Filter by version |
 | `--limit N` | 500 | Maximum number of items |
 | `--output PATH` | auto | Custom output path |

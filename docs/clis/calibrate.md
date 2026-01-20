@@ -14,11 +14,19 @@ evalyn calibrate --metric-id <id> --annotations <file> [OPTIONS]
 |--------|---------|-------------|
 | `--metric-id ID` | Required | Metric to calibrate |
 | `--annotations FILE` | Required | Annotations file (JSONL) |
+| `--run-id ID` | latest | Eval run ID to calibrate |
+| `--threshold N` | - | Current threshold for pass/fail |
 | `--dataset PATH` | - | Dataset path (for prompt optimization) |
-| `--optimizer TYPE` | llm | Optimizer: `llm` or `gepa` |
+| `--latest` | false | Use the most recently modified dataset |
 | `--no-optimize` | false | Skip prompt optimization, only compute metrics |
-| `--output FILE` | - | Save calibration record to file |
+| `--optimizer TYPE` | llm | Optimizer: `llm` or `gepa` |
+| `--model MODEL` | - | LLM model for prompt optimization (llm mode) |
+| `--gepa-task-lm MODEL` | - | Task model for GEPA (model being optimized) |
+| `--gepa-reflection-lm MODEL` | - | Reflection model for GEPA (strong model for reflection) |
+| `--gepa-max-calls N` | - | Max metric calls budget for GEPA optimization |
 | `--show-examples` | false | Show disagreement examples |
+| `--output FILE` | - | Save calibration record to file |
+| `--format FMT` | table | Output format: `table` or `json` |
 
 ## Alignment Metrics
 
@@ -36,7 +44,15 @@ evalyn calibrate --metric-id <id> --annotations <file> [OPTIONS]
 | Optimizer | Description |
 |-----------|-------------|
 | `llm` | LLM analyzes disagreements and suggests rubric improvements |
-| `gepa` | Genetic algorithm evolves prompts (requires `deap` package) |
+| `gepa` | Evolutionary prompt optimization using reflection |
+
+### GEPA Optimizer
+
+GEPA (Generative Evolution of Prompts Algorithm) evolves prompts using LLM-based reflection. Configure with:
+
+- `--gepa-task-lm`: The model being optimized (e.g., `gemini-2.5-flash-lite`)
+- `--gepa-reflection-lm`: A strong model for reflection (e.g., `gemini-2.5-flash`)
+- `--gepa-max-calls`: Budget for metric evaluations during optimization
 
 ## Examples
 
@@ -62,7 +78,12 @@ evalyn calibrate --metric-id helpfulness_accuracy --annotations data/my-dataset/
 
 ### Use GEPA optimizer
 ```bash
-evalyn calibrate --metric-id helpfulness_accuracy --annotations data/my-dataset/annotations.jsonl --optimizer gepa
+evalyn calibrate --metric-id helpfulness_accuracy --annotations data/my-dataset/annotations.jsonl --dataset data/my-dataset --optimizer gepa
+```
+
+### GEPA with custom models and budget
+```bash
+evalyn calibrate --metric-id helpfulness_accuracy --annotations data/my-dataset/annotations.jsonl --dataset data/my-dataset --optimizer gepa --gepa-task-lm gemini-2.5-flash-lite --gepa-reflection-lm gemini-2.5-flash --gepa-max-calls 100
 ```
 
 ## Sample Output

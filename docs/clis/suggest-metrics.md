@@ -23,12 +23,13 @@ evalyn suggest-metrics --target <file.py:func> [OPTIONS]
 | `--llm-mode MODE` | api | LLM caller: `api` or `local` (ollama) |
 | `--model NAME` | gemini-2.5-flash-lite | Model name |
 | `--num-traces N` | 5 | Sample traces to analyze |
-| `--num-metrics N` | - | Max metrics to return |
+| `-n`, `--num-metrics N` | 5 | Max metrics to return |
 | `--bundle NAME` | - | Bundle name (when mode=bundle) |
 | `--dataset PATH` | - | Save metrics to dataset folder |
 | `--latest` | false | Use the most recently modified dataset |
 | `--metrics-name NAME` | - | Custom metrics filename |
 | `--format` | table | Output format: table or json |
+| `--append` | false | Append to existing metrics.json instead of overwriting |
 
 ## Selection Modes
 

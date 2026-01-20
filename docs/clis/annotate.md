@@ -13,11 +13,15 @@ evalyn annotate --latest [OPTIONS]
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--dataset PATH` | - | Dataset directory |
+| `--dataset PATH` | - | Dataset directory or file |
 | `--latest` | false | Use most recent dataset |
-| `--per-metric` | false | Annotate each metric separately |
-| `--limit N` | - | Max items to annotate |
+| `--run-id ID` | latest | Eval run ID to show LLM judge results |
+| `--output PATH` | auto | Output path for annotations (defaults to `<dataset>/annotations.jsonl`) |
+| `--annotator NAME` | human | Annotator name/id |
 | `--restart` | false | Start from beginning (ignore previous progress) |
+| `--per-metric` | false | Annotate each metric separately (agree/disagree with LLM) |
+| `--spans` | false | Annotate individual spans (LLM calls, tool calls, etc.) |
+| `--span-type TYPE` | all | Filter span types: `all`, `llm_call`, `tool_call`, `reasoning`, `retrieval` |
 
 ## Annotation Modes
 
