@@ -185,7 +185,7 @@ evalyn run-eval --dataset data/myapp-v1-20250115-120000/simulations/sim-similar-
 | `evalyn show-call --last` | View most recent trace |
 | `evalyn build-dataset --project X` | Create dataset from traces |
 | `evalyn suggest-metrics --project X --dataset D` | Get metric recommendations |
-| `evalyn run-eval --dataset D` | Run evaluation + generate HTML report |
+| `evalyn run-eval --dataset D` | Run evaluation + generate HTML report (use `--provider` for OpenAI/Ollama) |
 | `evalyn show-run --last` | View most recent eval run |
 | `evalyn trend --project X` | View metric trends across eval runs |
 | `evalyn annotate --dataset D` | Human annotation (interactive) |
@@ -196,7 +196,8 @@ evalyn run-eval --dataset data/myapp-v1-20250115-120000/simulations/sim-similar-
 
 | Variable | Description |
 |----------|-------------|
-| `GEMINI_API_KEY` | Gemini API key for LLM judges |
+| `GEMINI_API_KEY` | Gemini API key for LLM judges (default provider) |
+| `OPENAI_API_KEY` | OpenAI API key for judges when using `--provider openai` |
 | `EVALYN_NO_HINTS` | Set to `1` to suppress hint messages |
 | `EVALYN_AUTO_INSTRUMENT` | Set to `off` to disable auto-patching |
 

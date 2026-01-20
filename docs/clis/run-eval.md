@@ -21,6 +21,11 @@ evalyn run-eval --latest [OPTIONS]
 | `--dataset-name NAME` | - | Custom name for the run |
 | `--format FMT` | table | Output format: `table` or `json` |
 | `--workers`, `-w` | 4 | Parallel workers for LLM evaluation (max: 16) |
+| `--batch` | false | Use batch API for 50% cost savings |
+| `--batch-provider` | gemini | Batch provider: `gemini`, `openai`, `anthropic` |
+| `--provider` | gemini | LLM provider for judges: `gemini`, `openai`, `ollama` |
+| `--confidence` | none | Confidence method: `none`, `consistency`, `logprobs` |
+| `--confidence-samples` | 3 | Number of samples for consistency method |
 
 ## Metrics Resolution
 
@@ -65,10 +70,57 @@ evalyn run-eval --dataset data/my-dataset --use-calibrated
 evalyn run-eval --latest --format json
 ```
 
+### Use OpenAI as judge provider
+```bash
+evalyn run-eval --dataset data/my-dataset --provider openai
+```
+
+### Use local Ollama models
+```bash
+evalyn run-eval --dataset data/my-dataset --provider ollama
+```
+
+### Add confidence estimation (self-consistency)
+```bash
+evalyn run-eval --dataset data/my-dataset --confidence consistency --confidence-samples 5
+```
+
+### Add confidence estimation (logprobs - OpenAI/Ollama only)
+```bash
+evalyn run-eval --dataset data/my-dataset --provider openai --confidence logprobs
+```
+
+## LLM Providers
+
+The `--provider` flag selects which LLM API to use for subjective (judge) metrics:
+
+| Provider | API Key | Models |
+|----------|---------|--------|
+| `gemini` (default) | `GEMINI_API_KEY` | gemini-2.5-flash-lite |
+| `openai` | `OPENAI_API_KEY` | gpt-4o-mini |
+| `ollama` | None (local) | llama3.2 |
+
+## Confidence Estimation
+
+The `--confidence` flag adds confidence scores to judge evaluations:
+
+| Method | Description | Requirements |
+|--------|-------------|--------------|
+| `none` (default) | No confidence estimation | - |
+| `consistency` | Run judge N times with temp=0.7, measure agreement | Any provider |
+| `logprobs` | Use token log probabilities | OpenAI or Ollama only |
+
+**Consistency method**: Higher agreement across samples = higher confidence. Costs N API calls per item.
+
+**Logprobs method**: Uses token-level probabilities from the LLM. More accurate, single API call, but requires provider that exposes logprobs. Gemini does not support this.
+
+Confidence scores (0.0-1.0) appear in the `details.confidence` field of each metric result.
+
 ## Sample Output
 
 ```
 Loaded 5 metrics (2 objective, 3 subjective)
+Judge: gemini
 Dataset: 100 items
 
 Running evaluation...

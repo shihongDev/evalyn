@@ -288,6 +288,46 @@ These require `expected` field in dataset:
 
 Auto-excluded if dataset has no expected values.
 
+### Multi-Provider Support
+
+LLM judges can use different providers via the `--provider` flag:
+
+| Provider | Client Class | Default Model | Logprobs Support |
+|----------|--------------|---------------|------------------|
+| `gemini` | `GeminiClient` | gemini-2.5-flash-lite | No |
+| `openai` | `OpenAIClient` | gpt-4o-mini | Yes |
+| `ollama` | `OllamaClient` | llama3.2 | Limited |
+
+Provider selection happens at judge creation time. The `LLMJudge` class uses lazy initialization for the API client.
+
+### Confidence Estimation
+
+Evalyn supports multiple methods for estimating judge confidence:
+
+| Method | Implementation | Accuracy | Cost |
+|--------|----------------|----------|------|
+| `consistency` | Run judge N times with temp=0.7, measure agreement | Medium | N API calls |
+| `logprobs` | Use token log probabilities | High | 1 API call |
+
+**Logprobs Confidence Calculation**:
+```
+confidence = exp(mean(token_logprobs))
+```
+Higher logprobs = more confident the model is about each token.
+
+**Self-Consistency Confidence Calculation**:
+```
+confidence = max(pass_count, fail_count) / total_samples
+```
+Higher agreement across samples = higher confidence.
+
+The confidence module (`evalyn_sdk/confidence/`) provides:
+- `LogprobsConfidence`: Token probability-based (OpenAI/Ollama only)
+- `SelfConsistencyConfidence`: Multi-sample agreement
+- `MajorityVoteConfidence`: Weighted voting
+- `PerplexityConfidence`: Perplexity-based
+- `EntropyConfidence`: Entropy from top-k logprobs
+
 ---
 
 ## Calibration Pipeline
@@ -661,6 +701,11 @@ evalyn/
 │       ├── simulation/
 │       │   ├── simulator.py     # Synthetic data generation
 │       │   └── simulation.py    # Simulation models
+│       ├── confidence/
+│       │   ├── base.py          # ConfidenceEstimator ABC
+│       │   ├── logprobs.py      # Logprobs, perplexity, entropy
+│       │   ├── consistency.py   # Self-consistency, majority vote
+│       │   └── verbalized.py    # Extract self-reported confidence
 │       ├── cli/
 │       │   ├── main.py          # CLI entry point
 │       │   ├── commands/        # CLI command modules
@@ -688,7 +733,7 @@ evalyn/
 │       │       ├── ui.py             # UI helpers
 │       │       └── validation.py     # Input validation
 │       └── utils/
-│           └── api_client.py    # API client utilities
+│           └── api_client.py    # API clients (Gemini, OpenAI, Ollama)
 ├── docs/
 │   ├── technical-manual.md      # This file
 │   └── clis/                    # CLI command documentation
@@ -755,4 +800,4 @@ export EVALYN_NO_HINTS=1
 
 ---
 
-*Last updated: 2026-01-18*
+*Last updated: 2026-01-19*
