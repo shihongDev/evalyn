@@ -51,6 +51,8 @@ Complete documentation for all Evalyn CLI commands.
 | [import-annotations](import-annotations.md) | Import annotations from file |
 | [calibrate](calibrate.md) | Calibrate LLM judges |
 | [list-calibrations](list-calibrations.md) | List calibration records |
+| [cluster-failures](cluster-failures.md) | Cluster and analyze failure cases |
+| [cluster-misalignments](cluster-misalignments.md) | Cluster human/LLM disagreements |
 
 ### Simulation
 | Command | Description |

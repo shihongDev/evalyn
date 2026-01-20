@@ -22,6 +22,7 @@ evalyn annotate --latest [OPTIONS]
 | `--per-metric` | false | Annotate each metric separately (agree/disagree with LLM) |
 | `--spans` | false | Annotate individual spans (LLM calls, tool calls, etc.) |
 | `--span-type TYPE` | all | Filter span types: `all`, `llm_call`, `tool_call`, `reasoning`, `retrieval` |
+| `--limit N` | - | Limit number of items to annotate |
 
 ## Annotation Modes
 

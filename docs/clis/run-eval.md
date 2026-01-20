@@ -115,7 +115,7 @@ The `--confidence` flag adds confidence scores to judge evaluations:
 
 **Logprobs method**: Uses mean token-level probabilities from the LLM. Single API call.
 
-**DeepConf method**: Uses bottom-10% of token confidences instead of mean. Better at detecting incorrect reasoning. Based on Meta AI's "Deep Think with Confidence" (arXiv:2508.15260). OpenAI only - Ollama doesn't expose token-level logprobs.
+**DeepConf method**: Uses bottom-10% of token confidences instead of mean. Better at detecting incorrect reasoning. Based on Meta AI's "Deep Think with Confidence" (arXiv:2508.15260). OpenAI only: Ollama does not expose token-level logprobs.
 
 Confidence scores (0.0-1.0) appear in the `details.confidence` field of each metric result.
 
