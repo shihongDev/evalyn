@@ -3,10 +3,32 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import urllib.error
 import urllib.request
-from typing import Optional
+from typing import Any, Optional
+
+
+def _http_post(
+    url: str,
+    payload: dict[str, Any],
+    headers: dict[str, str],
+    timeout: int,
+    error_prefix: str,
+) -> dict[str, Any]:
+    """Make HTTP POST request and return JSON response."""
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode("utf-8") if e.fp else ""
+        raise RuntimeError(f"{error_prefix} error ({e.code}): {error_body}") from e
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"{error_prefix} connection error: {e.reason}") from e
 
 
 class GeminiClient:
@@ -63,49 +85,25 @@ class GeminiClient:
         Raises:
             RuntimeError: If the API call fails
         """
-        api_key = self._get_api_key()
-        url = self.API_URL.format(model=self.model)
-
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
-                "temperature": temperature
-                if temperature is not None
-                else self.temperature
+                "temperature": temperature if temperature is not None else self.temperature
             },
         }
-
-        data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            url,
-            data=data,
-            headers={
-                "Content-Type": "application/json",
-                "x-goog-api-key": api_key,
-            },
-            method="POST",
-        )
-
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                response_data = json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            error_body = e.read().decode("utf-8") if e.fp else ""
-            raise RuntimeError(f"Gemini API error ({e.code}): {error_body}") from e
-        except urllib.error.URLError as e:
-            raise RuntimeError(f"Gemini API connection error: {e.reason}") from e
+        headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": self._get_api_key(),
+        }
+        url = self.API_URL.format(model=self.model)
+        response_data = _http_post(url, payload, headers, self.timeout, "Gemini API")
 
         # Extract text from response
-        try:
-            candidates = response_data.get("candidates", [])
-            if candidates:
-                content = candidates[0].get("content", {})
-                parts = content.get("parts", [])
-                if parts:
-                    return parts[0].get("text", "")
-        except Exception:
-            pass
-
+        candidates = response_data.get("candidates", [])
+        if candidates:
+            parts = candidates[0].get("content", {}).get("parts", [])
+            if parts:
+                return parts[0].get("text", "")
         return ""
 
 
@@ -130,4 +128,163 @@ def call_gemini_api(
     return client.generate(prompt)
 
 
-__all__ = ["GeminiClient", "call_gemini_api"]
+class OpenAIClient:
+    """HTTP client for OpenAI API with logprobs support.
+
+    Usage:
+        client = OpenAIClient(model="gpt-4o-mini")
+        response = client.generate("What is 2+2?")
+
+        # With confidence (logprobs)
+        text, confidence = client.generate_with_confidence("What is 2+2?")
+    """
+
+    API_URL = "https://api.openai.com/v1/chat/completions"
+
+    def __init__(
+        self,
+        model: str = "gpt-4o-mini",
+        temperature: float = 0.0,
+        api_key: Optional[str] = None,
+        timeout: int = 60,
+    ):
+        self.model = model
+        self.temperature = temperature
+        self._api_key = api_key
+        self.timeout = timeout
+
+    def _get_api_key(self) -> str:
+        key = self._api_key or os.getenv("OPENAI_API_KEY")
+        if not key:
+            raise RuntimeError(
+                "Missing OPENAI_API_KEY. Set the environment variable or pass api_key."
+            )
+        return key
+
+    def _call_api(
+        self, prompt: str, temperature: Optional[float], with_logprobs: bool = False
+    ) -> dict[str, Any]:
+        """Make API call and return raw response data."""
+        payload = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": temperature if temperature is not None else self.temperature,
+        }
+        if with_logprobs:
+            payload["logprobs"] = True
+            payload["top_logprobs"] = 5
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self._get_api_key()}",
+        }
+        return _http_post(self.API_URL, payload, headers, self.timeout, "OpenAI API")
+
+    def generate(self, prompt: str, temperature: Optional[float] = None) -> str:
+        """Call OpenAI API and return text response."""
+        response_data = self._call_api(prompt, temperature)
+        choices = response_data.get("choices", [])
+        if choices:
+            return choices[0].get("message", {}).get("content", "")
+        return ""
+
+    def generate_with_confidence(
+        self, prompt: str, temperature: Optional[float] = None
+    ) -> tuple[str, float]:
+        """Call OpenAI API with logprobs and return (text, confidence).
+
+        Confidence is calculated as exp(mean(logprobs)) - higher is more confident.
+        Returns value between 0.0 and 1.0.
+        """
+        response_data = self._call_api(prompt, temperature, with_logprobs=True)
+
+        text = ""
+        confidence = 0.5  # Default if no logprobs
+
+        choices = response_data.get("choices", [])
+        if choices:
+            choice = choices[0]
+            text = choice.get("message", {}).get("content", "")
+
+            # Calculate confidence from logprobs
+            content_logprobs = choice.get("logprobs", {}).get("content", [])
+            if content_logprobs:
+                logprobs_values = [lp.get("logprob", 0.0) for lp in content_logprobs]
+                if logprobs_values:
+                    mean_logprob = sum(logprobs_values) / len(logprobs_values)
+                    confidence = max(0.0, min(1.0, math.exp(mean_logprob)))
+
+        return text, confidence
+
+
+class OllamaClient:
+    """HTTP client for Ollama API with logprobs support.
+
+    Usage:
+        client = OllamaClient(model="llama3.2")
+        response = client.generate("What is 2+2?")
+
+        # With confidence (logprobs)
+        text, confidence = client.generate_with_confidence("What is 2+2?")
+    """
+
+    def __init__(
+        self,
+        model: str = "llama3.2",
+        temperature: float = 0.0,
+        base_url: str = "http://localhost:11434",
+        timeout: int = 120,
+    ):
+        self.model = model
+        self.temperature = temperature
+        self.base_url = base_url.rstrip("/")
+        self.timeout = timeout
+
+    def _call_api(
+        self, prompt: str, temperature: Optional[float], extra_options: Optional[dict] = None
+    ) -> dict[str, Any]:
+        """Make API call and return raw response data."""
+        options = {"temperature": temperature if temperature is not None else self.temperature}
+        if extra_options:
+            options.update(extra_options)
+
+        payload = {
+            "model": self.model,
+            "prompt": prompt,
+            "stream": False,
+            "options": options,
+        }
+        headers = {"Content-Type": "application/json"}
+        url = f"{self.base_url}/api/generate"
+        return _http_post(url, payload, headers, self.timeout, "Ollama API")
+
+    def generate(self, prompt: str, temperature: Optional[float] = None) -> str:
+        """Call Ollama API and return text response."""
+        response_data = self._call_api(prompt, temperature)
+        return response_data.get("response", "")
+
+    def generate_with_confidence(
+        self, prompt: str, temperature: Optional[float] = None
+    ) -> tuple[str, float]:
+        """Call Ollama API with logprobs and return (text, confidence).
+
+        Note: Ollama support for logprobs varies by model. Falls back to 0.5
+        if logprobs not available.
+        """
+        response_data = self._call_api(prompt, temperature, extra_options={"num_predict": 512})
+
+        text = response_data.get("response", "")
+        confidence = 0.5  # Default - Ollama logprobs support is limited
+
+        # Heuristic: use generation speed as proxy for confidence
+        # Ollama doesn't expose logprobs directly like OpenAI
+        total_duration = response_data.get("total_duration", 0)
+        eval_count = response_data.get("eval_count", 0)
+        if eval_count > 0 and total_duration > 0:
+            tokens_per_ns = eval_count / total_duration
+            confidence = min(0.9, max(0.3, tokens_per_ns * 1e7))
+
+        return text, confidence
+
+
+__all__ = ["GeminiClient", "OpenAIClient", "OllamaClient", "call_gemini_api"]

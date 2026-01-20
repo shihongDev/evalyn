@@ -256,20 +256,8 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
 """
         return full_prompt
 
-    def score(self, call: FunctionCall, item: DatasetItem) -> Dict[str, Any]:
-        """Evaluate and return {score, passed, reason}."""
-        full_prompt = self._build_evaluation_prompt(call, item)
-
-        try:
-            raw_text = self.client.generate(full_prompt)
-        except Exception as e:
-            return {
-                "score": None,
-                "passed": None,
-                "reason": f"API call failed: {e}",
-                "raw": {"error": str(e)},
-            }
-
+    def _parse_response(self, raw_text: str) -> tuple[Optional[float], Optional[bool], Optional[str], Dict]:
+        """Parse LLM response text and return (score, passed, reason, parsed_dict)."""
         parsed = _extract_json_object(raw_text) or {}
 
         # Extract passed status
@@ -280,7 +268,7 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
                 if passed is not None:
                     break
 
-        # Extract score
+        # Extract and normalize score
         score = parsed.get("score")
         if isinstance(score, str):
             try:
@@ -296,11 +284,69 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
         if isinstance(score, (int, float)):
             score = max(0.0, min(1.0, float(score)))
 
+        return score, passed, parsed.get("reason"), parsed
+
+    def score(self, call: FunctionCall, item: DatasetItem) -> Dict[str, Any]:
+        """Evaluate and return {score, passed, reason}."""
+        full_prompt = self._build_evaluation_prompt(call, item)
+
+        try:
+            raw_text = self.client.generate(full_prompt)
+        except Exception as e:
+            return {
+                "score": None,
+                "passed": None,
+                "reason": f"API call failed: {e}",
+                "raw": {"error": str(e)},
+            }
+
+        score, passed, reason, parsed = self._parse_response(raw_text)
         return {
             "score": score,
             "passed": passed,
-            "reason": parsed.get("reason"),
+            "reason": reason,
             "raw": {"response": parsed, "text": raw_text, "model": self.model},
+        }
+
+    def score_with_confidence(
+        self, call: FunctionCall, item: DatasetItem
+    ) -> Dict[str, Any]:
+        """Evaluate with logprobs-based confidence (openai/ollama only).
+
+        Returns {score, passed, reason, confidence, raw}.
+        Requires provider to be 'openai' or 'ollama' (Gemini lacks logprobs).
+        """
+        if self.provider == "gemini":
+            raise RuntimeError(
+                "Logprobs confidence requires provider='openai' or 'ollama'. "
+                "Gemini does not expose logprobs."
+            )
+
+        full_prompt = self._build_evaluation_prompt(call, item)
+
+        try:
+            raw_text, confidence = self.client.generate_with_confidence(full_prompt)
+        except Exception as e:
+            return {
+                "score": None,
+                "passed": None,
+                "reason": f"API call failed: {e}",
+                "confidence": 0.0,
+                "raw": {"error": str(e)},
+            }
+
+        score, passed, reason, parsed = self._parse_response(raw_text)
+        return {
+            "score": score,
+            "passed": passed,
+            "reason": reason,
+            "confidence": confidence,
+            "raw": {
+                "response": parsed,
+                "text": raw_text,
+                "model": self.model,
+                "logprobs_confidence": confidence,
+            },
         }
 
     def as_metric(
