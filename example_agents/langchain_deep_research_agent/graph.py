@@ -1,6 +1,6 @@
 import os
 
-from example_agent.tools_and_schemas import SearchQueryList, Reflection
+from .tools_and_schemas import SearchQueryList, Reflection
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage
 from langgraph.types import Send
@@ -9,14 +9,14 @@ from langgraph.graph import START, END
 from langchain_core.runnables import RunnableConfig
 from google.genai import Client
 
-from example_agent.state import (
+from .state import (
     OverallState,
     QueryGenerationState,
     ReflectionState,
     WebSearchState,
 )
-from example_agent.configuration import Configuration
-from example_agent.prompts import (
+from .configuration import Configuration
+from .prompts import (
     get_current_date,
     query_writer_instructions,
     web_searcher_instructions,
@@ -24,7 +24,7 @@ from example_agent.prompts import (
     answer_instructions,
 )
 from langchain_google_genai import ChatGoogleGenerativeAI
-from example_agent.utils import (
+from .utils import (
     get_citations,
     get_research_topic,
     insert_citation_markers,

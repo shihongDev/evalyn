@@ -1,11 +1,10 @@
 import argparse
 import os
-import sys
-from pathlib import Path
+
 from langchain_core.messages import HumanMessage
 
 from evalyn_sdk import eval, get_default_tracer, configure_otel
-from example_agent.graph import graph
+from .graph import graph
 
 
 # Optional: enable OpenTelemetry spans if OTEL_CONSOLE=true is set.
