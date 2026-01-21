@@ -50,11 +50,6 @@ evalyn list-calls --limit 10
 evalyn list-calls --project my-agent --limit 50
 ```
 
-### Filter by version
-```bash
-evalyn list-calls --project my-agent --version v2
-```
-
 ### Show only production traces
 ```bash
 evalyn list-calls --production

@@ -17,11 +17,15 @@ evalyn suggest-metrics --target <file.py:func> [OPTIONS]
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--project NAME` | - | Project name (use `evalyn show-projects` to see available) |
+| `--version V` | - | Filter by version (optional, used with `--project`) |
 | `--target SPEC` | - | Target function (`file.py:func` or `module:func`) |
 | `--mode MODE` | auto | Selection mode (see below) |
 | `--scope SCOPE` | all | Filter by scope: `overall`, `llm_call`, `tool_call`, `trace`, or `all` |
 | `--llm-mode MODE` | api | LLM caller: `api` or `local` (ollama) |
 | `--model NAME` | gemini-2.5-flash-lite | Model name |
+| `--api-base URL` | - | Custom API base URL for `--llm-mode api` |
+| `--api-key KEY` | - | API key override for `--llm-mode api` |
+| `--llm-caller CALLABLE` | - | Optional callable path that accepts a prompt and returns metric dicts |
 | `--num-traces N` | 5 | Sample traces to analyze |
 | `-n`, `--num-metrics N` | 5 | Max metrics to return |
 | `--bundle NAME` | - | Bundle name (when mode=bundle) |

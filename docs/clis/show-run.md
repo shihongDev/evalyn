@@ -10,16 +10,24 @@ evalyn show-run --id <run_id>
 
 ## Options
 
-| Option | Required | Description |
-|--------|----------|-------------|
-| `--id ID` | Yes | The run ID to display |
-| `--format` | No | Output format: table (default) or json |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--id ID` | - | The run ID to display |
+| `--last` | false | Show the most recent eval run |
+| `--format FMT` | table | Output format: `table` or `json` |
+
+One of `--id` or `--last` is required.
 
 ## Examples
 
 ### View run details
 ```bash
 evalyn show-run --id abc123
+```
+
+### View most recent run
+```bash
+evalyn show-run --last
 ```
 
 ### JSON output for scripting

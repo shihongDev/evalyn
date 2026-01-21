@@ -13,7 +13,7 @@ evalyn list-runs [OPTIONS]
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--limit N` | 20 | Maximum runs to display |
-| `--dataset PATH` | - | Filter by dataset |
+| `--format FMT` | table | Output format: `table` or `json` |
 
 ## Examples
 
