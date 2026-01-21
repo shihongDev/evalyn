@@ -55,15 +55,16 @@ docs/spaghetti-analysis.md
 # Test
 tests/
 test_all_cli.sh
+pytest.ini
 
 # SQLite
 evalyn.sqlite
 evalyn.yaml
 
-# Pytest
-pytest.ini
-
 # Scripts   
 scripts/
 local_scripts/
+
+# files (anthropic agent sdk example will create files in this directory)
+output/
 

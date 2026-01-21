@@ -8,7 +8,7 @@ from pathlib import Path
 def setup_session() -> tuple[Path, Path]:
     """Setup session directory and transcript file.
 
-    Creates a session folder in logs/ with timestamp, containing both
+    Creates a session folder in output/logs/ with timestamp, containing both
     transcript and detailed tool call logs.
 
     Returns:
@@ -16,7 +16,7 @@ def setup_session() -> tuple[Path, Path]:
     """
     # Create session directory
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    session_dir = Path("logs") / f"session_{timestamp}"
+    session_dir = Path("output/logs") / f"session_{timestamp}"
     session_dir.mkdir(parents=True, exist_ok=True)
 
     # Transcript file in session directory

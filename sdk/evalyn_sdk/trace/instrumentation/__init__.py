@@ -46,18 +46,25 @@ except ImportError:
     _has_google_adk = False
 
 try:
-    from .providers.anthropic_agents import (
-        AnthropicAgentsInstrumentor,
+    from .providers.claude_agent_sdk import (
+        AnthropicAgentsInstrumentor,  # Backwards compat alias
+        ClaudeAgentSDKInstrumentor,
         EvalynAgentHooks,
+        MessageStreamAdapter,
+        SubagentContext,
         create_agent_hooks,
+        create_stream_adapter,
     )
 
-    _has_anthropic_agents = True
+    _has_claude_agent_sdk = True
 except ImportError:
-    _has_anthropic_agents = False
+    _has_claude_agent_sdk = False
 
     def create_agent_hooks(*args, **kwargs):  # type: ignore
-        raise ImportError("anthropic agent SDK not installed")
+        raise ImportError("claude_agent_sdk not installed")
+
+    def create_stream_adapter(*args, **kwargs):  # type: ignore
+        raise ImportError("claude_agent_sdk not installed")
 
 
 def _setup_registry() -> None:
@@ -76,8 +83,8 @@ def _setup_registry() -> None:
         registry.register(GoogleADKInstrumentor())
 
     # Optional hook-based instrumentors
-    if _has_anthropic_agents:
-        registry.register(AnthropicAgentsInstrumentor())
+    if _has_claude_agent_sdk:
+        registry.register(ClaudeAgentSDKInstrumentor())
 
 
 # Initialize registry on import
@@ -184,8 +191,13 @@ __all__ = [
     "list_available",
     "list_instrumented",
     "get_hooks",
+    # Claude Agent SDK hooks
     "create_agent_hooks",
+    "create_stream_adapter",
     "EvalynAgentHooks",
+    "MessageStreamAdapter",
+    "SubagentContext",
+    "ClaudeAgentSDKInstrumentor",
     # Instrumentors
     "OpenAIInstrumentor",
     "AnthropicInstrumentor",

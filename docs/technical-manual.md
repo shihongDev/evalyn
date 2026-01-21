@@ -36,7 +36,7 @@ import evalyn_sdk
 |-----|---------------------|---------------|
 | OpenAI | Monkey-patch | tokens, cost, duration, request/response |
 | Anthropic Client | Monkey-patch | tokens, cost, duration, request/response |
-| Anthropic Agent SDK | Hook-based | agent turns, tool calls, handoffs |
+| Claude Agent SDK | Hook-based | tool calls, subagent hierarchy, token usage, thinking blocks |
 | Google Gemini | Monkey-patch | tokens, cost, duration, request/response |
 | Google ADK | OTEL-native | agent spans via SpanProcessor |
 | LangChain | Callback handler | LLM calls, tool calls |
@@ -50,7 +50,7 @@ The instrumentation registry supports three strategies:
 |------|-------------|------|
 | `MONKEY_PATCH` | Wrap SDK methods directly | OpenAI, Anthropic, Gemini |
 | `OTEL_NATIVE` | Use SDK's built-in OTEL with custom SpanProcessor | Google ADK |
-| `HOOK_BASED` | Use SDK's hook/callback system | Anthropic Agent SDK |
+| `HOOK_BASED` | Use SDK's hook/callback system | Claude Agent SDK |
 
 ### How Instrumentation Works
 
@@ -92,6 +92,89 @@ class EvalynCallbackHandler(BaseCallbackHandler):
 ```
 
 This captures LLM and tool calls but NOT chain/agent structure (would need `on_chain_start/end`).
+
+### Claude Agent SDK Integration
+
+The Claude Agent SDK (claude_agent_sdk) uses a hook-based instrumentation approach. Unlike monkey-patching, hooks must be explicitly passed to the agent.
+
+**Key Components:**
+
+| Component | Purpose |
+|-----------|---------|
+| `EvalynAgentHooks` | Hook adapter that captures tool calls as spans |
+| `MessageStreamAdapter` | Wraps message stream to capture subagent context and metrics |
+| `create_agent_hooks()` | Factory function to create hooks |
+| `create_stream_adapter()` | Factory function to create stream adapter |
+
+**What Gets Captured:**
+
+| Data | Source |
+|------|--------|
+| Tool calls (name, input, output, duration) | PreToolUse/PostToolUse hooks |
+| Subagent spawns (Task tool) | Hook + stream processing |
+| Parent-child hierarchy | parent_tool_use_id tracking |
+| Extended thinking blocks | ThinkingBlock in stream |
+| Token usage with cache metrics | ResultMessage |
+| Total cost and duration | ResultMessage |
+
+**Integration Pattern:**
+
+```python
+from evalyn_sdk import eval
+from evalyn_sdk.trace.instrumentation import create_agent_hooks, create_stream_adapter
+from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions, HookMatcher
+
+# Create evalyn hooks
+evalyn_hooks = create_agent_hooks()
+
+# Configure hooks with HookMatcher (matcher=None matches all tools)
+hooks = {
+    'PreToolUse': [
+        HookMatcher(matcher=None, hooks=[evalyn_hooks.pre_tool_use_hook])
+    ],
+    'PostToolUse': [
+        HookMatcher(matcher=None, hooks=[evalyn_hooks.post_tool_use_hook])
+    ]
+}
+
+options = ClaudeAgentOptions(hooks=hooks, ...)
+
+@eval(project="my-agent")
+async def chat():
+    async with ClaudeSDKClient(options=options) as client:
+        await client.query(prompt=user_input)
+
+        # Wrap stream for additional instrumentation
+        adapter = create_stream_adapter(evalyn_hooks)
+        async for msg in adapter.wrap_stream(client.receive_response()):
+            # Process messages - instrumentation happens automatically
+            ...
+```
+
+**Composing with Existing Hooks:**
+
+If you have existing hooks (e.g., for logging), evalyn hooks can compose with them:
+
+```python
+hooks = {
+    'PreToolUse': [
+        HookMatcher(
+            matcher=None,
+            hooks=[evalyn_hooks.pre_tool_use_hook, my_logger.pre_tool_use_hook]
+        )
+    ],
+    'PostToolUse': [
+        HookMatcher(
+            matcher=None,
+            hooks=[evalyn_hooks.post_tool_use_hook, my_logger.post_tool_use_hook]
+        )
+    ]
+}
+```
+
+**Backwards Compatibility:**
+
+The old name `AnthropicAgentsInstrumentor` is aliased to `ClaudeAgentSDKInstrumentor` for backwards compatibility.
 
 ### Disabling Auto-Instrumentation
 
@@ -681,7 +764,7 @@ evalyn/
 │       │       └── providers/   # Per-SDK instrumentors
 │       │           ├── openai.py
 │       │           ├── anthropic.py
-│       │           ├── anthropic_agents.py
+│       │           ├── claude_agent_sdk.py
 │       │           ├── gemini.py
 │       │           ├── google_adk.py
 │       │           ├── langchain.py
@@ -801,4 +884,4 @@ export EVALYN_NO_HINTS=1
 
 ---
 
-*Last updated: 2026-01-19*
+*Last updated: 2026-01-20*

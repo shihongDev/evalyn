@@ -6,9 +6,17 @@ from pathlib import Path
 from dotenv import load_dotenv
 from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions, AgentDefinition, HookMatcher
 
-from research_agent.utils.subagent_tracker import SubagentTracker
-from research_agent.utils.transcript import setup_session, TranscriptWriter
-from research_agent.utils.message_handler import process_assistant_message
+from evalyn_sdk import eval
+from evalyn_sdk.trace.instrumentation import create_agent_hooks, create_stream_adapter
+
+import sys
+from pathlib import Path
+# Add the agent directory to path for local imports
+sys.path.insert(0, str(Path(__file__).parent))
+
+from utils.subagent_tracker import SubagentTracker
+from utils.transcript import setup_session, TranscriptWriter
+from utils.message_handler import process_assistant_message
 
 # Load environment variables
 load_dotenv()
@@ -24,6 +32,7 @@ def load_prompt(filename: str) -> str:
         return f.read().strip()
 
 
+@eval(project="anthropic-research-agent")
 async def chat():
     """Start interactive chat with the research agent."""
 
@@ -49,13 +58,16 @@ async def chat():
     # Initialize subagent tracker with transcript writer and session directory
     tracker = SubagentTracker(transcript_writer=transcript, session_dir=session_dir)
 
+    # Create evalyn hooks for tracing
+    evalyn_hooks = create_agent_hooks()
+
     # Define specialized subagents
     agents = {
         "researcher": AgentDefinition(
             description=(
                 "Use this agent when you need to gather research information on any topic. "
                 "The researcher uses web search to find relevant information, articles, and sources "
-                "from across the internet. Writes research findings to files/research_notes/ "
+                "from across the internet. Writes research findings to output/files/research_notes/ "
                 "for later use by report writers. Ideal for complex research tasks "
                 "that require deep searching and cross-referencing."
             ),
@@ -66,10 +78,10 @@ async def chat():
         "data-analyst": AgentDefinition(
             description=(
                 "Use this agent AFTER researchers have completed their work to generate quantitative "
-                "analysis and visualizations. The data-analyst reads research notes from files/research_notes/, "
+                "analysis and visualizations. The data-analyst reads research notes from output/files/research_notes/, "
                 "extracts numerical data (percentages, rankings, trends, comparisons), and generates "
-                "charts using Python/matplotlib via Bash. Saves charts to files/charts/ and writes "
-                "a data summary to files/data/. Use this before the report-writer to add visual insights."
+                "charts using Python/matplotlib via Bash. Saves charts to output/files/charts/ and writes "
+                "a data summary to output/files/data/. Use this before the report-writer to add visual insights."
             ),
             tools=["Glob", "Read", "Bash", "Write"],
             prompt=data_analyst_prompt,
@@ -78,9 +90,9 @@ async def chat():
         "report-writer": AgentDefinition(
             description=(
                 "Use this agent when you need to create a formal research report document. "
-                "The report-writer reads research findings from files/research_notes/, data analysis "
-                "from files/data/, and charts from files/charts/, then synthesizes them into clear, "
-                "concise, professionally formatted PDF reports in files/reports/ using reportlab. "
+                "The report-writer reads research findings from output/files/research_notes/, data analysis "
+                "from output/files/data/, and charts from output/files/charts/, then synthesizes them into clear, "
+                "concise, professionally formatted PDF reports in output/files/reports/ using reportlab. "
                 "Ideal for creating structured documents with proper citations, data, and embedded visuals. "
                 "Does NOT conduct web searches - only reads existing research notes and creates PDF reports."
             ),
@@ -90,18 +102,18 @@ async def chat():
         )
     }
 
-    # Set up hooks for tracking
+    # Set up hooks for tracking (evalyn + tracker)
     hooks = {
         'PreToolUse': [
             HookMatcher(
                 matcher=None,  # Match all tools
-                hooks=[tracker.pre_tool_use_hook]
+                hooks=[evalyn_hooks.pre_tool_use_hook, tracker.pre_tool_use_hook]
             )
         ],
         'PostToolUse': [
             HookMatcher(
                 matcher=None,  # Match all tools
-                hooks=[tracker.post_tool_use_hook]
+                hooks=[evalyn_hooks.post_tool_use_hook, tracker.post_tool_use_hook]
             )
         ]
     }
@@ -143,8 +155,9 @@ async def chat():
 
                 transcript.write("\nAgent: ", end="")
 
-                # Stream and process response
-                async for msg in client.receive_response():
+                # Stream and process response (wrapped for evalyn instrumentation)
+                adapter = create_stream_adapter(evalyn_hooks)
+                async for msg in adapter.wrap_stream(client.receive_response()):
                     if type(msg).__name__ == 'AssistantMessage':
                         process_assistant_message(msg, tracker, transcript)
 
