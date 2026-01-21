@@ -240,6 +240,10 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Gemini (default)
   - [x] OpenAI
   - [x] Ollama (local)
+- [x] **Token usage tracking** - Track LLM API token consumption per eval run
+  - [x] Per-metric input/output token counts
+  - [x] Aggregated usage summary in EvalRun
+  - [x] Display in run-eval output and show-run command
 - [x] **Checkpoint & resume** - Save progress on interrupt, resume later
 - [x] **HTML reports** - Interactive visualization with Chart.js
 - [x] **evalyn list-runs** - List past evaluation runs
@@ -324,4 +328,4 @@ This document tracks planned features and completed work. Future roadmap items a
 - [x] **JSONL datasets** - Human-readable, git-friendly format
 - [x] **Checkpoint system** - Resume interrupted evaluations
 
-*Last updated: 2026-01-19*
+*Last updated: 2026-01-20*
