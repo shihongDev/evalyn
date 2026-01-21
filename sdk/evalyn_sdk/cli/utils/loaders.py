@@ -48,7 +48,7 @@ def _load_callable(target: str) -> Callable[..., Any]:
         raise ValueError(
             f"Target must be 'path/to/file.py:function' or 'module:function'\n"
             f"Got: {target}\n"
-            f"Example: evalyn suggest-metrics --target example_agent/agent.py:run_agent"
+            f"Example: evalyn suggest-metrics --target example_agents/langchain_deep_research_agent/agent.py:run_agent"
         )
 
     left, func_name = target.split(":", 1)
@@ -111,7 +111,7 @@ def _load_callable(target: str) -> Callable[..., Any]:
         raise ImportError(
             f"Module '{left}' not found.\n"
             f"If using a file path, make sure it ends with .py\n"
-            f"Example: evalyn suggest-metrics --target example_agent/agent.py:run_agent"
+            f"Example: evalyn suggest-metrics --target example_agents/langchain_deep_research_agent/agent.py:run_agent"
         ) from e
     return _get_attr_with_suggestions(module, func_name, left)
 

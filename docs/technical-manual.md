@@ -742,7 +742,7 @@ evalyn/
 │       ├── one-click.md
 │       ├── run-eval.md
 │       └── ...                  # Other CLI docs
-└── example_agent/               # Reference implementation
+└── example_agents/              # SDK integration examples
 ```
 
 ---

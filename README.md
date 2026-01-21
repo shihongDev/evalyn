@@ -85,7 +85,7 @@ def my_agent(query: str) -> str:
 ### 2. Run Your Agent
 ```bash
 export GEMINI_API_KEY="your_api_key"
-python example_agent/agent.py "What is the capital of France?"  # Traces auto-captured to SQLite
+python example_agents/langchain_deep_research_agent/agent.py "What is the capital of France?"  # Traces auto-captured to SQLite
 ```
 
 ### 3. Choose Your Workflow
@@ -249,7 +249,7 @@ evalyn run-eval --dataset data/myapp-v1-20250115-120000/simulations/sim-similar-
 
 ## Example
 
-See [`example_agent/`](example_agent/) for a LangGraph integration.
+See [`example_agents/`](example_agents/) for SDK integrations (LangChain, Anthropic).
 
 ## Contribution
 

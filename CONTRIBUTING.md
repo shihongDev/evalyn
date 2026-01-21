@@ -94,7 +94,7 @@ evalyn/
 │   │   ├── runner.py               # Evaluation runner
 │   │   └── models.py               # Data models
 │   └── pyproject.toml
-├── example_agent/                  # Reference LangGraph implementation
+├── example_agents/                 # SDK integration examples
 └── docs/
     └── clis/                       # CLI command documentation
 ```
