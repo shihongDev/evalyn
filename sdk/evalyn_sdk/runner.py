@@ -278,6 +278,7 @@ class EvalRunner:
         metric_results.extend(new_results)
 
         summary = self._summarize(metric_results, failures)
+        usage_summary = self._compute_usage_summary(metric_results)
         run = EvalRun(
             id=run_id,  # Use consistent run_id from checkpoint
             dataset_name=self.dataset_name,
@@ -285,6 +286,7 @@ class EvalRunner:
             metric_results=metric_results,
             metrics=[m.spec for m in self.metrics],
             summary=summary,
+            usage_summary=usage_summary,
         )
 
         if self.tracer.storage:
@@ -313,6 +315,30 @@ class EvalRunner:
                 else None,
             }
         return summary
+
+    @staticmethod
+    def _compute_usage_summary(results: List[MetricResult]) -> dict:
+        """Compute token usage summary from metric results."""
+        total_input_tokens = 0
+        total_output_tokens = 0
+        models_used = set()
+
+        for r in results:
+            if r.input_tokens:
+                total_input_tokens += r.input_tokens
+            if r.output_tokens:
+                total_output_tokens += r.output_tokens
+            if r.model:
+                models_used.add(r.model)
+
+        total_tokens = total_input_tokens + total_output_tokens
+
+        return {
+            "total_input_tokens": total_input_tokens,
+            "total_output_tokens": total_output_tokens,
+            "total_tokens": total_tokens,
+            "models_used": sorted(models_used),
+        }
 
 
 def save_eval_run_json(

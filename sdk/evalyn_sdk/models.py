@@ -283,6 +283,10 @@ class MetricResult:
     passed: Optional[bool]
     details: Dict[str, Any] = field(default_factory=dict)
     raw_judge: Optional[Dict[str, Any]] = None
+    # Token usage for subjective metrics (LLM judge)
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    model: Optional[str] = None
 
     def as_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -297,6 +301,9 @@ class MetricResult:
             passed=data.get("passed"),
             details=data.get("details", {}),
             raw_judge=data.get("raw_judge"),
+            input_tokens=data.get("input_tokens"),
+            output_tokens=data.get("output_tokens"),
+            model=data.get("model"),
         )
 
 
@@ -429,6 +436,8 @@ class EvalRun:
     metrics: List[MetricSpec] = field(default_factory=list)
     judge_configs: List[JudgeConfig] = field(default_factory=list)
     summary: Dict[str, Any] = field(default_factory=dict)
+    # Token usage summary for LLM judge evaluations
+    usage_summary: Dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> Dict[str, Any]:
         return {
@@ -439,6 +448,7 @@ class EvalRun:
             "metrics": [asdict(m) for m in self.metrics],
             "judge_configs": [asdict(j) for j in self.judge_configs],
             "summary": self.summary,
+            "usage_summary": self.usage_summary,
         }
 
     @classmethod
@@ -453,6 +463,7 @@ class EvalRun:
             metrics=[MetricSpec(**m) for m in data.get("metrics", [])],
             judge_configs=[JudgeConfig(**j) for j in data.get("judge_configs", [])],
             summary=data.get("summary", {}),
+            usage_summary=data.get("usage_summary", {}),
         )
 
 

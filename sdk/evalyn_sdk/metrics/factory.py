@@ -194,6 +194,11 @@ def _wrap_with_consistency_confidence(
         reasons = [r.get("reason") for r in results if r.get("reason")]
         majority_reason = reasons[0] if reasons else None
 
+        # Aggregate token usage from all samples
+        total_input_tokens = sum(r.get("input_tokens", 0) or 0 for r in results)
+        total_output_tokens = sum(r.get("output_tokens", 0) or 0 for r in results)
+        model = results[0].get("model") if results else None
+
         return MetricResult(
             metric_id=base_metric.spec.id,
             item_id=item.id,
@@ -210,6 +215,9 @@ def _wrap_with_consistency_confidence(
                 "fail_count": fail_count,
             },
             raw_judge={"samples": results, "confidence": confidence_result.details},
+            input_tokens=total_input_tokens,
+            output_tokens=total_output_tokens,
+            model=model,
         )
 
     return Metric(base_metric.spec, handler_with_confidence)

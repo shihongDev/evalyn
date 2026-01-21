@@ -185,7 +185,7 @@ def cmd_cluster_misalignments(args: argparse.Namespace) -> None:
         fn_count = len(result.false_negative_clusters)
         fp_cases = sum(c.count for c in result.false_positive_clusters)
         fn_cases = sum(c.count for c in result.false_negative_clusters)
-        print(f"\nClustering complete:")
+        print("\nClustering complete:")
         print(f"  False Positives: {fp_count} clusters ({fp_cases} cases)")
         print(f"  False Negatives: {fn_count} clusters ({fn_cases} cases)")
 
@@ -254,7 +254,7 @@ def cmd_cluster_failures(args: argparse.Namespace) -> None:
                 import umap  # noqa: F401
                 import plotly  # noqa: F401
             except ImportError:
-                print(f"  Note: Scatter plot requires: pip install evalyn-sdk[clustering]")
+                print("  Note: Scatter plot requires: pip install evalyn-sdk[clustering]")
 
         # Determine output path
         if args.output and len(metric_ids) == 1:

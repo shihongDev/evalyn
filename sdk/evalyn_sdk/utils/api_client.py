@@ -7,7 +7,18 @@ import math
 import os
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from typing import Any, Optional
+
+
+@dataclass
+class GenerateResult:
+    """Result from LLM generation with token usage info."""
+
+    text: str
+    input_tokens: int = 0
+    output_tokens: int = 0
+    model: str = ""
 
 
 def _http_post(
@@ -85,6 +96,21 @@ class GeminiClient:
         Raises:
             RuntimeError: If the API call fails
         """
+        result = self.generate_with_usage(prompt, temperature)
+        return result.text
+
+    def generate_with_usage(
+        self, prompt: str, temperature: Optional[float] = None
+    ) -> GenerateResult:
+        """Call Gemini API and return text with token usage.
+
+        Args:
+            prompt: The prompt to send to the model
+            temperature: Optional temperature override for this request
+
+        Returns:
+            GenerateResult with text and token counts
+        """
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
@@ -99,12 +125,24 @@ class GeminiClient:
         response_data = _http_post(url, payload, headers, self.timeout, "Gemini API")
 
         # Extract text from response
+        text = ""
         candidates = response_data.get("candidates", [])
         if candidates:
             parts = candidates[0].get("content", {}).get("parts", [])
             if parts:
-                return parts[0].get("text", "")
-        return ""
+                text = parts[0].get("text", "")
+
+        # Extract token usage from usageMetadata
+        usage = response_data.get("usageMetadata", {})
+        input_tokens = usage.get("promptTokenCount", 0)
+        output_tokens = usage.get("candidatesTokenCount", 0)
+
+        return GenerateResult(
+            text=text,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            model=self.model,
+        )
 
 
 def call_gemini_api(
@@ -182,11 +220,31 @@ class OpenAIClient:
 
     def generate(self, prompt: str, temperature: Optional[float] = None) -> str:
         """Call OpenAI API and return text response."""
+        result = self.generate_with_usage(prompt, temperature)
+        return result.text
+
+    def generate_with_usage(
+        self, prompt: str, temperature: Optional[float] = None
+    ) -> GenerateResult:
+        """Call OpenAI API and return text with token usage."""
         response_data = self._call_api(prompt, temperature)
+
+        text = ""
         choices = response_data.get("choices", [])
         if choices:
-            return choices[0].get("message", {}).get("content", "")
-        return ""
+            text = choices[0].get("message", {}).get("content", "")
+
+        # Extract token usage
+        usage = response_data.get("usage", {})
+        input_tokens = usage.get("prompt_tokens", 0)
+        output_tokens = usage.get("completion_tokens", 0)
+
+        return GenerateResult(
+            text=text,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            model=self.model,
+        )
 
     def generate_with_confidence(
         self, prompt: str, temperature: Optional[float] = None
@@ -284,8 +342,27 @@ class OllamaClient:
 
     def generate(self, prompt: str, temperature: Optional[float] = None) -> str:
         """Call Ollama API and return text response."""
+        result = self.generate_with_usage(prompt, temperature)
+        return result.text
+
+    def generate_with_usage(
+        self, prompt: str, temperature: Optional[float] = None
+    ) -> GenerateResult:
+        """Call Ollama API and return text with token usage."""
         response_data = self._call_api(prompt, temperature)
-        return response_data.get("response", "")
+
+        text = response_data.get("response", "")
+
+        # Extract token usage from Ollama response
+        input_tokens = response_data.get("prompt_eval_count", 0)
+        output_tokens = response_data.get("eval_count", 0)
+
+        return GenerateResult(
+            text=text,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            model=self.model,
+        )
 
     def generate_with_confidence(
         self, prompt: str, temperature: Optional[float] = None
@@ -325,4 +402,4 @@ class OllamaClient:
         return text, []
 
 
-__all__ = ["GeminiClient", "OpenAIClient", "OllamaClient", "call_gemini_api"]
+__all__ = ["GenerateResult", "GeminiClient", "OpenAIClient", "OllamaClient", "call_gemini_api"]

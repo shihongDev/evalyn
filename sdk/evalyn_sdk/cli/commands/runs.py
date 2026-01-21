@@ -135,6 +135,7 @@ def cmd_show_run(args: argparse.Namespace) -> None:
                 m.as_dict() if hasattr(m, "as_dict") else m for m in run.metrics
             ],
             "summary": run.summary,
+            "usage_summary": run.usage_summary,
             "metric_results": [
                 {
                     "metric_id": res.metric_id,
@@ -143,6 +144,9 @@ def cmd_show_run(args: argparse.Namespace) -> None:
                     "score": res.score,
                     "passed": res.passed,
                     "details": res.details,
+                    "input_tokens": res.input_tokens,
+                    "output_tokens": res.output_tokens,
+                    "model": res.model,
                 }
                 for res in run.metric_results
             ],
@@ -161,6 +165,18 @@ def cmd_show_run(args: argparse.Namespace) -> None:
         )
     if run.summary.get("failed_items"):
         print(f"Failed items: {run.summary['failed_items']}")
+
+    # Show token usage summary if available
+    usage = run.usage_summary
+    if usage and usage.get("total_tokens", 0) > 0:
+        input_tok = usage.get("total_input_tokens", 0)
+        output_tok = usage.get("total_output_tokens", 0)
+        total_tok = usage.get("total_tokens", 0)
+        models = usage.get("models_used", [])
+        print(f"\nToken usage: {input_tok:,} input + {output_tok:,} output = {total_tok:,} total")
+        if models:
+            print(f"Models: {', '.join(models)}")
+
     print("\nMetric results:")
     for res in run.metric_results:
         print(

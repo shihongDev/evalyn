@@ -668,6 +668,17 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         print("   Check that GEMINI_API_KEY or OPENAI_API_KEY is set and valid.")
         print("   Re-run with a valid API key to get accurate LLM judge scores.")
 
+    # Show token usage summary if available
+    usage = run.usage_summary
+    if usage and usage.get("total_tokens", 0) > 0:
+        input_tok = usage.get("total_input_tokens", 0)
+        output_tok = usage.get("total_output_tokens", 0)
+        total_tok = usage.get("total_tokens", 0)
+        models = usage.get("models_used", [])
+        print(f"\nToken usage: {input_tok:,} input + {output_tok:,} output = {total_tok:,} total")
+        if models:
+            print(f"Models: {', '.join(models)}")
+
     failed_items = run.summary.get("failed_items", [])
     failed_count = len(failed_items) if isinstance(failed_items, list) else failed_items
     if failed_count:

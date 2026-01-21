@@ -287,17 +287,23 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
         return score, passed, parsed.get("reason"), parsed
 
     def score(self, call: FunctionCall, item: DatasetItem) -> Dict[str, Any]:
-        """Evaluate and return {score, passed, reason}."""
+        """Evaluate and return {score, passed, reason, input_tokens, output_tokens, model}."""
         full_prompt = self._build_evaluation_prompt(call, item)
 
         try:
-            raw_text = self.client.generate(full_prompt)
+            result = self.client.generate_with_usage(full_prompt)
+            raw_text = result.text
+            input_tokens = result.input_tokens
+            output_tokens = result.output_tokens
         except Exception as e:
             return {
                 "score": None,
                 "passed": None,
                 "reason": f"API call failed: {e}",
                 "raw": {"error": str(e)},
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "model": self.model,
             }
 
         score, passed, reason, parsed = self._parse_response(raw_text)
@@ -306,6 +312,9 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
             "passed": passed,
             "reason": reason,
             "raw": {"response": parsed, "text": raw_text, "model": self.model},
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "model": self.model,
         }
 
     def score_with_confidence(
@@ -479,6 +488,9 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
                 passed=passed,
                 details={"judge": judge.name, "reason": judge_raw.get("reason")},
                 raw_judge=judge_raw,
+                input_tokens=judge_raw.get("input_tokens"),
+                output_tokens=judge_raw.get("output_tokens"),
+                model=judge_raw.get("model"),
             )
 
         return Metric(spec, handler)
