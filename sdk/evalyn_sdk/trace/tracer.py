@@ -168,6 +168,10 @@ class EvalTracer:
             global_spans = span_context.get_global_spans(call.id)
             if global_spans:
                 collected_spans = collected_spans + global_spans
+            # Also collect orphan spans (from hooks like claude_agent_sdk without session)
+            orphan_spans = span_context.get_orphan_spans()
+            if orphan_spans:
+                collected_spans = collected_spans + orphan_spans
             call.spans = collected_spans + [root]
 
         # Clean up span context

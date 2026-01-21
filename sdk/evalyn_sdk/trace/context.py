@@ -42,6 +42,10 @@ _global_lock = threading.Lock()
 _global_collectors: Dict[str, List["Span"]] = {}
 _global_call_id: Optional[str] = None
 
+# Default orphan collector for spans created without a session/call context
+# This allows hooks to capture spans even when @eval decorator isn't used
+_orphan_spans: List["Span"] = []
+
 
 def _generate_span_id() -> str:
     """Generate a unique span ID."""
@@ -87,8 +91,27 @@ def get_global_spans(call_id: str) -> List["Span"]:
         return _global_collectors.pop(call_id, [])
 
 
+def get_orphan_spans() -> List["Span"]:
+    """Pop and return all orphan spans (spans created without session context).
+
+    This is useful for hooks like claude_agent_sdk that create spans
+    without being wrapped in @eval decorator.
+    """
+    global _orphan_spans
+    with _global_lock:
+        spans = _orphan_spans
+        _orphan_spans = []
+        return spans
+
+
+def has_orphan_spans() -> bool:
+    """Check if there are any orphan spans waiting to be collected."""
+    with _global_lock:
+        return len(_orphan_spans) > 0
+
+
 def _add_span_to_collector(span: "Span") -> None:
-    """Add span to collector. Falls back to global collector for threads."""
+    """Add span to collector. Falls back to global/orphan collector."""
     collector = _span_collector.get()
 
     # Use context-local collector if initialized
@@ -100,6 +123,10 @@ def _add_span_to_collector(span: "Span") -> None:
     with _global_lock:
         if _global_call_id and _global_call_id in _global_collectors:
             _global_collectors[_global_call_id].append(span)
+            return
+
+        # Final fallback: orphan collector for hooks without session context
+        _orphan_spans.append(span)
 
 
 @contextmanager
