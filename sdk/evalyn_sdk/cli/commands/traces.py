@@ -405,9 +405,23 @@ def cmd_show_call(args: argparse.Namespace) -> None:
     def _count_events(kinds: list[str]) -> int:
         return sum(1 for ev in call.trace if any(k in ev.kind.lower() for k in kinds))
 
+    def _count_llm_calls() -> int:
+        # Count from trace events (legacy providers)
+        event_count = _count_events(["completion", "request", "llm", "gemini", "openai", "anthropic"])
+        # Count from spans (modern providers like Claude Agent SDK)
+        span_count = sum(1 for s in (call.spans or []) if s.span_type == "llm_call")
+        return max(event_count, span_count)
+
+    def _count_tool_calls() -> int:
+        # Count from trace events (legacy)
+        event_count = _count_events(["tool"])
+        # Count from spans (modern)
+        span_count = sum(1 for s in (call.spans or []) if s.span_type == "tool_call")
+        return max(event_count, span_count)
+
     turn_label, turns = _detect_turns(call.inputs)
-    llm_calls = _count_events(["gemini.request", "openai.request", "llm.request"])
-    tool_events = _count_events(["tool"])
+    llm_calls = _count_llm_calls()
+    tool_events = _count_tool_calls()
 
     print("\n================ Call Details ================")
     print(f"id       : {call.id}")
@@ -660,6 +674,45 @@ def cmd_show_call(args: argparse.Namespace) -> None:
                 f"{idx} | {elapsed_ms:7.1f} | {delta_ms:7.1f} | {ev.kind} | {summary}"
             )
             prev_ts = ev.timestamp
+
+    # Show span timeline if trace events are minimal but spans exist
+    if len(call.trace) <= 1 and call.spans and len(call.spans) > 1:
+        print("\nSpan Timeline (chronological):")
+        print("-" * 100)
+
+        # Sort spans by start_time
+        sorted_spans = sorted(
+            [s for s in call.spans if s.start_time],
+            key=lambda s: s.start_time
+        )
+
+        # Show first 50 spans
+        for idx, span in enumerate(sorted_spans[:50], start=1):
+            elapsed_ms = 0.0
+            if span.start_time and call.started_at:
+                elapsed_ms = (span.start_time - call.started_at).total_seconds() * 1000
+
+            dur_str = f"{span.duration_ms:.0f}ms" if span.duration_ms else "0ms"
+
+            # Get key attributes
+            attrs = span.attributes or {}
+            summary_parts = []
+            if span.span_type == "llm_call":
+                model = attrs.get("model", "")
+                if model:
+                    summary_parts.append(f"model={model}")
+            elif span.span_type == "tool_call":
+                tool = attrs.get("tool_name", span.name)
+                summary_parts.append(f"tool={tool}")
+            elif span.span_type == "user_message":
+                content = attrs.get("content", "")[:50]
+                summary_parts.append(f"input={content}")
+
+            summary = " ".join(summary_parts)
+            print(f"{idx:3} | +{elapsed_ms:8.0f}ms | {span.span_type:12} | {span.name:20} | {dur_str:8} | {summary[:60]}")
+
+        if len(sorted_spans) > 50:
+            print(f"  ... and {len(sorted_spans) - 50} more spans")
 
     # Show hierarchical spans from call.spans
     if call.spans:

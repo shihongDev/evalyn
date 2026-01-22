@@ -15,7 +15,8 @@ Complete documentation for all Evalyn CLI commands.
 |---------|-------------|
 | [list-calls](list-calls.md) | List captured function traces |
 | [show-call](show-call.md) | View trace details with span tree |
-| [show-trace](show-trace.md) | View span tree only |
+| [show-trace](show-trace.md) | View span tree (--verbose for details) |
+| [show-span](show-span.md) | View details of a single span |
 | [show-projects](show-projects.md) | View project summaries |
 
 ### Datasets

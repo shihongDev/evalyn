@@ -102,20 +102,32 @@ The Claude Agent SDK (claude_agent_sdk) uses a hook-based instrumentation approa
 | Component | Purpose |
 |-----------|---------|
 | `EvalynAgentHooks` | Hook adapter that captures tool calls as spans |
-| `MessageStreamAdapter` | Wraps message stream to capture subagent context and metrics |
+| `MessageStreamAdapter` | Wraps message stream to capture LLM turns, subagent context, and metrics |
 | `create_agent_hooks()` | Factory function to create hooks |
 | `create_stream_adapter()` | Factory function to create stream adapter |
 
 **What Gets Captured:**
 
-| Data | Source |
-|------|--------|
-| Tool calls (name, input, output, duration) | PreToolUse/PostToolUse hooks |
-| Subagent spawns (Task tool) | Hook + stream processing |
-| Parent-child hierarchy | parent_tool_use_id tracking |
-| Extended thinking blocks | ThinkingBlock in stream |
-| Token usage with cache metrics | ResultMessage |
-| Total cost and duration | ResultMessage |
+| Data | Source | Limit |
+|------|--------|-------|
+| User input (query text) | Patched query() method | 4000 chars |
+| Tool calls (name, input, output, duration) | PreToolUse/PostToolUse hooks | 4000 chars |
+| LLM turns (model, output) | MessageStreamAdapter | Full |
+| Subagent spawns (Task tool) | Hook + stream processing | - |
+| Parent-child hierarchy | parent_tool_use_id tracking | - |
+| Extended thinking blocks (with signature) | ThinkingBlock in stream | - |
+| Session ID | All hooks/messages | - |
+| Token usage with cache metrics | ResultMessage | - |
+| Total cost and duration | ResultMessage | - |
+| is_error, result, structured_output | ResultMessage | - |
+
+**Span Types Created:**
+
+| Span Type | Description |
+|-----------|-------------|
+| `user_message` | User input from query() call |
+| `llm_call` | Each LLM turn (llm_turn_1, llm_turn_2, etc.) |
+| `tool_call` | Tool executions (WebSearch, Task, Read, Write, etc.) |
 
 **Integration Pattern:**
 
