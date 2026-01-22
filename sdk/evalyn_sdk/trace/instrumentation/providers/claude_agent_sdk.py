@@ -195,6 +195,28 @@ class EvalynAgentHooks:
         else:
             self._thinking_blocks.append(thinking_text)
 
+    def capture_user_input(self, message: str) -> None:
+        """
+        Capture user input message as a span.
+
+        Called when send_message() is invoked on the client.
+        """
+        parent_id = span_context.get_current_span_id()
+
+        # Create span for user input
+        span = Span.new(
+            name="user_input",
+            span_type="user_message",
+            parent_id=parent_id,
+        )
+        span.attributes["content"] = message
+        span.attributes["content_length"] = len(message)
+        if len(message) > 500:
+            span.attributes["content_preview"] = message[:500]
+            span.attributes["content_truncated"] = True
+        span.finish(status="ok")
+        span_context._add_span_to_collector(span)
+
     def log_llm_turn(
         self,
         turn: int,
@@ -218,7 +240,8 @@ class EvalynAgentHooks:
             "provider": "anthropic",
         }
         if output_text:
-            attrs["output_preview"] = output_text[:500]
+            attrs["output_preview"] = output_text[:2000]
+            attrs["output"] = output_text  # Full output
         if tool_calls:
             attrs["tool_calls"] = tool_calls
         if parent_tool_use_id:
@@ -263,7 +286,7 @@ class EvalynAgentHooks:
         # Track input size and truncation
         input_str = str(tool_input)
         input_size = len(input_str)
-        input_truncated = input_size > 1000
+        input_truncated = input_size > 4000
 
         # Check if this is a Task tool (subagent spawn)
         extra_attrs = {}
@@ -291,7 +314,7 @@ class EvalynAgentHooks:
             parent_id=parent_id,
             tool_name=tool_name,
             tool_use_id=tool_use_id,
-            input=str(tool_input)[:1000],
+            input=str(tool_input)[:4000],
             **extra_attrs,
         )
 
@@ -332,7 +355,7 @@ class EvalynAgentHooks:
             # Track output size and truncation
             output_full = str(tool_response) if tool_response else ""
             output_size = len(output_full)
-            output_truncated = output_size > 500
+            output_truncated = output_size > 4000
             state.span.attributes["output_size"] = output_size
             state.span.attributes["output_truncated"] = output_truncated
 
@@ -343,7 +366,7 @@ class EvalynAgentHooks:
             if tool_error:
                 state.span.finish(status="error", error=str(tool_error)[:500])
             else:
-                output_str = output_full[:500]
+                output_str = output_full[:4000]
                 state.span.finish(status="ok", output=output_str)
 
             span_context._add_span_to_collector(state.span)
@@ -533,9 +556,13 @@ class ClaudeAgentSDKInstrumentor(Instrumentor):
 
     Uses hook-based approach: creates EvalynAgentHooks that users
     must explicitly pass to their ClaudeAgentOptions.
+
+    Also patches ClaudeSDKClient.send_message() to capture user input.
     """
 
     _hooks: Optional[EvalynAgentHooks] = None
+    _original_send_message: Optional[Any] = None
+    _patched: bool = False
 
     @property
     def name(self) -> str:
@@ -555,11 +582,56 @@ class ClaudeAgentSDKInstrumentor(Instrumentor):
         if not self.is_available():
             return False
         self._hooks = EvalynAgentHooks()
+        self._patch_send_message()
         return True
 
     def uninstrument(self) -> bool:
+        self._unpatch_send_message()
         self._hooks = None
         return True
+
+    def _patch_send_message(self) -> None:
+        """Patch ClaudeSDKClient.query to capture user input."""
+        if self._patched:
+            return
+
+        try:
+            from claude_agent_sdk import ClaudeSDKClient
+        except ImportError:
+            return
+
+        # The method is 'query', not 'send_message'
+        if not hasattr(ClaudeSDKClient, "query"):
+            return
+
+        self._original_send_message = ClaudeSDKClient.query
+        hooks = self._hooks
+
+        async def patched_query(self_client: Any, prompt: str, **kwargs: Any) -> Any:
+            # Capture user input if hooks are available
+            if hooks is not None:
+                hooks.capture_user_input(prompt)
+            # Call original method
+            return await ClaudeAgentSDKInstrumentor._original_send_message(
+                self_client, prompt, **kwargs
+            )
+
+        ClaudeSDKClient.query = patched_query
+        self._patched = True
+
+    def _unpatch_send_message(self) -> None:
+        """Restore original query method."""
+        if not self._patched or self._original_send_message is None:
+            return
+
+        try:
+            from claude_agent_sdk import ClaudeSDKClient
+
+            ClaudeSDKClient.query = self._original_send_message
+            self._patched = False
+            self._original_send_message = None
+        except ImportError:
+            pass
 
     def get_hooks(self) -> Optional[EvalynAgentHooks]:
         """Get the hooks adapter to pass to ClaudeAgentOptions."""

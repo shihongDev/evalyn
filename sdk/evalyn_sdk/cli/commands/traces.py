@@ -862,15 +862,27 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
     # Render tree with optional depth limit
     max_depth = getattr(args, "max_depth", None)
     verbose = getattr(args, "verbose", False)
+    full_output = getattr(args, "full", False)
     truncated_count = [0]  # Use list to allow mutation in nested function
+
+    # Truncation limits - higher defaults, unlimited with --full
+    INPUT_LIMIT = None if full_output else 800
+    OUTPUT_LIMIT = None if full_output else 1000
+    THINKING_LIMIT = None if full_output else 500
+
+    def _truncate_with_indicator(text: str, limit: Optional[int]) -> str:
+        """Truncate text and add indicator if cut."""
+        if limit is None or len(text) <= limit:
+            return text
+        return text[:limit] + " [...truncated]"
 
     def _format_verbose_attr(key: str, value, max_len: int = 200) -> str:
         """Format an attribute value for verbose output."""
         if value is None:
             return ""
         text = str(value)
-        if len(text) > max_len:
-            text = text[:max_len] + "..."
+        if max_len and len(text) > max_len:
+            text = text[:max_len] + " [...truncated]"
         return f"{key}: {text}"
 
     def _render_verbose_details(span, prefix: str) -> None:
@@ -878,29 +890,36 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
         attrs = span.attributes or {}
         detail_prefix = prefix + "    "
 
-        if span.span_type == "llm_call":
+        if span.span_type == "user_message":
+            # Show user input
+            content = attrs.get("content", "")
+            if content:
+                content_text = _truncate_with_indicator(str(content), INPUT_LIMIT)
+                print(f"{detail_prefix}content: {content_text}")
+
+        elif span.span_type == "llm_call":
             # Show model, output
             model = attrs.get("model", "")
             if model:
                 print(f"{detail_prefix}model: {model}")
             output = attrs.get("output") or attrs.get("output_preview", "")
             if output:
-                output_text = str(output)[:500]
+                output_text = _truncate_with_indicator(str(output), OUTPUT_LIMIT)
                 print(f"{detail_prefix}output: {output_text}")
             thinking = attrs.get("thinking")
             if thinking:
-                thinking_text = str(thinking)[:300]
-                print(f"{detail_prefix}thinking: {thinking_text}...")
+                thinking_text = _truncate_with_indicator(str(thinking), THINKING_LIMIT)
+                print(f"{detail_prefix}thinking: {thinking_text}")
 
         elif span.span_type == "tool_call":
             # Show input and output
             tool_input = attrs.get("input", "")
             if tool_input:
-                input_text = str(tool_input)[:400]
+                input_text = _truncate_with_indicator(str(tool_input), INPUT_LIMIT)
                 print(f"{detail_prefix}input: {input_text}")
             tool_output = attrs.get("output", "")
             if tool_output:
-                output_text = str(tool_output)[:400]
+                output_text = _truncate_with_indicator(str(tool_output), OUTPUT_LIMIT)
                 print(f"{detail_prefix}output: {output_text}")
             # Show subagent info if present
             subagent = attrs.get("executing_subagent")
@@ -1224,6 +1243,11 @@ def register_commands(subparsers) -> None:
         "--verbose",
         action="store_true",
         help="Show detailed input/output for each span",
+    )
+    p.add_argument(
+        "--full",
+        action="store_true",
+        help="Show full content without truncation (use with --verbose)",
     )
     p.set_defaults(func=cmd_show_trace)
 
