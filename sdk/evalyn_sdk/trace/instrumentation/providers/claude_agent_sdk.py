@@ -229,7 +229,6 @@ class EvalynAgentHooks:
             name=f"llm_turn_{turn}",
             span_type="llm_call",
             parent_id=parent_id,
-            model=model,
             **attrs,
         )
         span.finish(status="ok", output=output_text[:200] if output_text else None)

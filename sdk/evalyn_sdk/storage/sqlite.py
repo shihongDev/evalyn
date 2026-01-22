@@ -13,9 +13,25 @@ DEFAULT_PROD_DB = "data/prod/traces.sqlite"
 DEFAULT_TEST_DB = "data/test/traces.sqlite"
 
 
+def _find_project_root() -> Path:
+    """Find project root by looking for .git (preferred) or pyproject.toml."""
+    cwd = Path.cwd()
+    # First pass: look for .git (most reliable indicator of repo root)
+    for parent in [cwd, *cwd.parents]:
+        if (parent / ".git").exists():
+            return parent
+    # Fallback: look for pyproject.toml if no .git found
+    for parent in [cwd, *cwd.parents]:
+        if (parent / "pyproject.toml").exists():
+            return parent
+    return cwd  # fallback to cwd if no project markers found
+
+
 def _get_default_db_path() -> str:
     """Get default DB path, respecting EVALYN_DB env var."""
-    return os.getenv("EVALYN_DB", DEFAULT_PROD_DB)
+    if env_path := os.getenv("EVALYN_DB"):
+        return env_path
+    return str(_find_project_root() / DEFAULT_PROD_DB)
 
 
 def _dumps(data: object) -> str:

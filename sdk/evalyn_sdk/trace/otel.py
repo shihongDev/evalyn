@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Optional
 
 from opentelemetry import trace
@@ -10,6 +11,27 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExport
 
 # Default path for prod/test separation
 DEFAULT_PROD_DB = "data/prod/traces.sqlite"
+
+
+def _find_project_root() -> Path:
+    """Find project root by looking for .git (preferred) or pyproject.toml."""
+    cwd = Path.cwd()
+    # First pass: look for .git (most reliable indicator of repo root)
+    for parent in [cwd, *cwd.parents]:
+        if (parent / ".git").exists():
+            return parent
+    # Fallback: look for pyproject.toml if no .git found
+    for parent in [cwd, *cwd.parents]:
+        if (parent / "pyproject.toml").exists():
+            return parent
+    return cwd  # fallback to cwd if no project markers found
+
+
+def _get_default_db_path() -> str:
+    """Get default DB path, respecting EVALYN_DB env var."""
+    if env_path := os.getenv("EVALYN_DB"):
+        return env_path
+    return str(_find_project_root() / DEFAULT_PROD_DB)
 
 # OTLP exporter import path differs by version; try modern path first.
 try:
@@ -31,9 +53,8 @@ class SQLiteSpanExporter:
 
     def __init__(self, path: str | None = None):
         import sqlite3
-        from pathlib import Path
 
-        self.path = path or os.getenv("EVALYN_DB", DEFAULT_PROD_DB)
+        self.path = path or _get_default_db_path()
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(self.path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
