@@ -861,7 +861,51 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
 
     # Render tree with optional depth limit
     max_depth = getattr(args, "max_depth", None)
+    verbose = getattr(args, "verbose", False)
     truncated_count = [0]  # Use list to allow mutation in nested function
+
+    def _format_verbose_attr(key: str, value, max_len: int = 200) -> str:
+        """Format an attribute value for verbose output."""
+        if value is None:
+            return ""
+        text = str(value)
+        if len(text) > max_len:
+            text = text[:max_len] + "..."
+        return f"{key}: {text}"
+
+    def _render_verbose_details(span, prefix: str) -> None:
+        """Render verbose details for a span."""
+        attrs = span.attributes or {}
+        detail_prefix = prefix + "    "
+
+        if span.span_type == "llm_call":
+            # Show model, output
+            model = attrs.get("model", "")
+            if model:
+                print(f"{detail_prefix}model: {model}")
+            output = attrs.get("output") or attrs.get("output_preview", "")
+            if output:
+                output_text = str(output)[:500]
+                print(f"{detail_prefix}output: {output_text}")
+            thinking = attrs.get("thinking")
+            if thinking:
+                thinking_text = str(thinking)[:300]
+                print(f"{detail_prefix}thinking: {thinking_text}...")
+
+        elif span.span_type == "tool_call":
+            # Show input and output
+            tool_input = attrs.get("input", "")
+            if tool_input:
+                input_text = str(tool_input)[:400]
+                print(f"{detail_prefix}input: {input_text}")
+            tool_output = attrs.get("output", "")
+            if tool_output:
+                output_text = str(tool_output)[:400]
+                print(f"{detail_prefix}output: {output_text}")
+            # Show subagent info if present
+            subagent = attrs.get("executing_subagent")
+            if subagent:
+                print(f"{detail_prefix}subagent: {subagent}")
 
     def render_node(node, prefix="", is_last=True, depth=0):
         # Check depth limit
@@ -893,6 +937,11 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
             label = f"{span.name} ({duration})"
 
         print(f"{prefix}{connector}{label}")
+
+        # Show verbose details if requested
+        if verbose:
+            detail_prefix = prefix + ("    " if is_last else "│   ")
+            _render_verbose_details(span, detail_prefix)
 
         # Show grounding info for LLM calls with search/sources
         if span.span_type == "llm_call":
@@ -946,6 +995,112 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
             f"To build a dataset, run: evalyn build-dataset --project {project}",
             quiet=getattr(args, "quiet", False),
         )
+
+
+def cmd_show_span(args: argparse.Namespace) -> None:
+    """Show detailed information about a specific span."""
+    storage = _get_storage(args)
+    output_format = getattr(args, "format", "table")
+
+    if not storage:
+        fatal_error("No storage configured")
+
+    # Need call ID and span name/index
+    if not args.call_id:
+        fatal_error("Must specify --call-id")
+
+    # Resolve short ID
+    call_id = args.call_id
+    if hasattr(storage, "resolve_call_id"):
+        resolved = storage.resolve_call_id(call_id)
+        if resolved:
+            call_id = resolved
+
+    call = storage.get_call(call_id)
+    if not call:
+        fatal_error(f"No call found with id={call_id}")
+
+    spans = call.spans or []
+    if not spans:
+        fatal_error("No spans found in this call")
+
+    # Find span by name or index
+    target_span = None
+    if args.span:
+        # Try as index first
+        try:
+            idx = int(args.span)
+            if 0 <= idx < len(spans):
+                target_span = spans[idx]
+        except ValueError:
+            pass
+
+        # Try as name match
+        if not target_span:
+            for s in spans:
+                if args.span.lower() in s.name.lower():
+                    target_span = s
+                    break
+
+    if not target_span:
+        # List available spans
+        print("Available spans:")
+        for i, s in enumerate(spans[:50]):
+            print(f"  [{i}] {s.span_type}: {s.name}")
+        if len(spans) > 50:
+            print(f"  ... and {len(spans) - 50} more")
+        fatal_error(
+            f"Span '{args.span}' not found. Use index or name substring."
+        )
+
+    # JSON output
+    if output_format == "json":
+        span_dict = {
+            "id": target_span.id,
+            "name": target_span.name,
+            "span_type": target_span.span_type,
+            "parent_id": target_span.parent_id,
+            "start_time": str(target_span.start_time),
+            "end_time": str(target_span.end_time),
+            "duration_ms": target_span.duration_ms,
+            "status": target_span.status,
+            "attributes": target_span.attributes,
+        }
+        print(json.dumps(span_dict, indent=2, default=str))
+        return
+
+    # Table output
+    print(f"\n{'=' * 60}")
+    print(f"Span: {target_span.name}")
+    print(f"{'=' * 60}")
+    print(f"ID        : {target_span.id}")
+    print(f"Type      : {target_span.span_type}")
+    print(f"Status    : {target_span.status}")
+    print(f"Parent    : {target_span.parent_id or '(root)'}")
+    print(f"Started   : {target_span.start_time}")
+    print(f"Ended     : {target_span.end_time}")
+    print(f"Duration  : {target_span.duration_ms:.2f}ms" if target_span.duration_ms else "Duration  : n/a")
+
+    attrs = target_span.attributes or {}
+    if attrs:
+        print(f"\nAttributes:")
+        for key, value in attrs.items():
+            value_str = str(value)
+            if len(value_str) > 1000:
+                value_str = value_str[:1000] + "..."
+            # Multi-line values get special formatting
+            if "\n" in value_str or len(value_str) > 100:
+                print(f"  {key}:")
+                for line in value_str.split("\n")[:20]:
+                    print(f"    {line[:200]}")
+                if len(value_str.split("\n")) > 20:
+                    print(f"    ... ({len(value_str.split(chr(10))) - 20} more lines)")
+            else:
+                print(f"  {key}: {value_str}")
+    else:
+        print("\nAttributes: (none)")
+
+    print(f"{'=' * 60}\n")
 
 
 def cmd_show_projects(args: argparse.Namespace) -> None:
@@ -1064,7 +1219,23 @@ def register_commands(subparsers) -> None:
         type=int,
         help="Maximum depth of span tree to display (default: unlimited)",
     )
+    p.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Show detailed input/output for each span",
+    )
     p.set_defaults(func=cmd_show_trace)
+
+    # show-span
+    p = subparsers.add_parser("show-span", help="Show details of a specific span")
+    _add_db_arg(p)
+    p.add_argument("--call-id", required=True, help="Call ID containing the span")
+    p.add_argument("--span", required=True, help="Span name or index to show")
+    p.add_argument(
+        "--format", choices=["table", "json"], default="table", help="Output format"
+    )
+    p.set_defaults(func=cmd_show_span)
 
     # show-projects
     p = subparsers.add_parser("show-projects", help="Show project summary")
@@ -1077,6 +1248,7 @@ __all__ = [
     "cmd_list_calls",
     "cmd_show_call",
     "cmd_show_trace",
+    "cmd_show_span",
     "cmd_show_projects",
     "register_commands",
 ]
