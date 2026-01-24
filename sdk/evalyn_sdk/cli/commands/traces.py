@@ -22,7 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from typing import Any
+from typing import Any, Optional
 
 from ...decorators import get_default_tracer
 from ...storage import SQLiteStorage
@@ -407,7 +407,9 @@ def cmd_show_call(args: argparse.Namespace) -> None:
 
     def _count_llm_calls() -> int:
         # Count from trace events (legacy providers)
-        event_count = _count_events(["completion", "request", "llm", "gemini", "openai", "anthropic"])
+        event_count = _count_events(
+            ["completion", "request", "llm", "gemini", "openai", "anthropic"]
+        )
         # Count from spans (modern providers like Claude Agent SDK)
         span_count = sum(1 for s in (call.spans or []) if s.span_type == "llm_call")
         return max(event_count, span_count)
@@ -682,8 +684,7 @@ def cmd_show_call(args: argparse.Namespace) -> None:
 
         # Sort spans by start_time
         sorted_spans = sorted(
-            [s for s in call.spans if s.start_time],
-            key=lambda s: s.start_time
+            [s for s in call.spans if s.start_time], key=lambda s: s.start_time
         )
 
         # Show first 50 spans
@@ -709,7 +710,9 @@ def cmd_show_call(args: argparse.Namespace) -> None:
                 summary_parts.append(f"input={content}")
 
             summary = " ".join(summary_parts)
-            print(f"{idx:3} | +{elapsed_ms:8.0f}ms | {span.span_type:12} | {span.name:20} | {dur_str:8} | {summary[:60]}")
+            print(
+                f"{idx:3} | +{elapsed_ms:8.0f}ms | {span.span_type:12} | {span.name:20} | {dur_str:8} | {summary[:60]}"
+            )
 
         if len(sorted_spans) > 50:
             print(f"  ... and {len(sorted_spans) - 50} more spans")
@@ -1121,9 +1124,7 @@ def cmd_show_span(args: argparse.Namespace) -> None:
             print(f"  [{i}] {s.span_type}: {s.name}")
         if len(spans) > 50:
             print(f"  ... and {len(spans) - 50} more")
-        fatal_error(
-            f"Span '{args.span}' not found. Use index or name substring."
-        )
+        fatal_error(f"Span '{args.span}' not found. Use index or name substring.")
 
     # JSON output
     if output_format == "json":
@@ -1151,11 +1152,15 @@ def cmd_show_span(args: argparse.Namespace) -> None:
     print(f"Parent    : {target_span.parent_id or '(root)'}")
     print(f"Started   : {target_span.start_time}")
     print(f"Ended     : {target_span.end_time}")
-    print(f"Duration  : {target_span.duration_ms:.2f}ms" if target_span.duration_ms else "Duration  : n/a")
+    print(
+        f"Duration  : {target_span.duration_ms:.2f}ms"
+        if target_span.duration_ms
+        else "Duration  : n/a"
+    )
 
     attrs = target_span.attributes or {}
     if attrs:
-        print(f"\nAttributes:")
+        print("\nAttributes:")
         for key, value in attrs.items():
             value_str = str(value)
             if len(value_str) > 1000:

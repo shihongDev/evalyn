@@ -97,7 +97,41 @@ This captures LLM and tool calls but NOT chain/agent structure (would need `on_c
 
 The Claude Agent SDK (claude_agent_sdk) uses a hook-based instrumentation approach. Unlike monkey-patching, hooks must be explicitly passed to the agent.
 
-**Key Components:**
+#### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    @eval Decorator                          │
+│  Creates root span, collects all child spans at end         │
+└─────────────────────────────────────────────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+┌───────────────┐   ┌─────────────────┐   ┌─────────────────┐
+│ query() Patch │   │ Hook Handlers   │   │ Stream Adapter  │
+│               │   │                 │   │                 │
+│ Captures user │   │ PreToolUse:     │   │ Captures:       │
+│ input message │   │  - tool name    │   │  - LLM turns    │
+│               │   │  - tool input   │   │  - model name   │
+│               │   │  - session_id   │   │  - output text  │
+│               │   │                 │   │  - thinking     │
+│               │   │ PostToolUse:    │   │  - subagent ctx │
+│               │   │  - tool output  │   │  - final metrics│
+│               │   │  - duration     │   │                 │
+└───────────────┘   └─────────────────┘   └─────────────────┘
+        │                     │                     │
+        └─────────────────────┼─────────────────────┘
+                              ▼
+                    ┌─────────────────┐
+                    │ Span Collector  │
+                    │                 │
+                    │ Gathers spans   │
+                    │ from all layers │
+                    │ into call.spans │
+                    └─────────────────┘
+```
+
+#### Key Components
 
 | Component | Purpose |
 |-----------|---------|
@@ -106,7 +140,51 @@ The Claude Agent SDK (claude_agent_sdk) uses a hook-based instrumentation approa
 | `create_agent_hooks()` | Factory function to create hooks |
 | `create_stream_adapter()` | Factory function to create stream adapter |
 
-**What Gets Captured:**
+#### Three-Layer Instrumentation
+
+**Layer 1: query() Patching**
+
+The instrumentor patches `ClaudeSDKClient.query()` to capture user input:
+
+```python
+# Automatic - happens when instrumentation is enabled
+async def patched_query(self_client, prompt, **kwargs):
+    hooks.capture_user_input(prompt)  # Creates user_message span
+    return await original(self_client, prompt, **kwargs)
+```
+
+**Layer 2: Hook Handlers**
+
+PreToolUse/PostToolUse hooks capture every tool execution:
+
+```python
+# PreToolUse - called before tool runs
+async def pre_tool_use_hook(self, hook_input, tool_use_id, context):
+    span = Span.new(name=tool_name, span_type="tool_call", ...)
+    self._tool_spans[tool_use_id] = SpanState(span, time.time())
+
+# PostToolUse - called after tool completes
+async def post_tool_use_hook(self, hook_input, tool_use_id, context):
+    state = self._tool_spans.pop(tool_use_id)
+    state.span.attributes["output"] = str(tool_response)[:4000]
+    state.span.finish(status="ok")
+```
+
+**Layer 3: Stream Adapter**
+
+Wraps the message stream to capture LLM turns and final metrics:
+
+```python
+async def wrap_stream(self, stream):
+    async for msg in stream:
+        if type(msg).__name__ == "AssistantMessage":
+            self._hooks.log_llm_turn(turn=self._turn_count, model=model, ...)
+        elif type(msg).__name__ == "ResultMessage":
+            self._hooks.finalize_run(msg)  # Capture tokens, cost, duration
+        yield msg
+```
+
+#### What Gets Captured
 
 | Data | Source | Limit |
 |------|--------|-------|
@@ -121,15 +199,41 @@ The Claude Agent SDK (claude_agent_sdk) uses a hook-based instrumentation approa
 | Total cost and duration | ResultMessage | - |
 | is_error, result, structured_output | ResultMessage | - |
 
-**Span Types Created:**
+#### Span Types Created
 
-| Span Type | Description |
-|-----------|-------------|
-| `user_message` | User input from query() call |
-| `llm_call` | Each LLM turn (llm_turn_1, llm_turn_2, etc.) |
-| `tool_call` | Tool executions (WebSearch, Task, Read, Write, etc.) |
+| Span Type | Name Pattern | Key Attributes |
+|-----------|--------------|----------------|
+| `user_message` | user_input | content, content_length |
+| `tool_call` | WebSearch, Task, Read, Write, Bash, etc. | input, output, session_id, executing_subagent |
+| `llm_call` | llm_turn_1, llm_turn_2, ... | model, output, provider |
+| `session` | (function name) | call_id, is_error, total tokens |
 
-**Integration Pattern:**
+#### Span Collection Flow
+
+```
+1. @eval decorator calls start_call()
+   └── Creates root span, initializes span collector
+
+2. User code runs:
+   └── client.query(prompt)
+       └── Patched query() creates user_message span
+
+   └── async for msg in adapter.wrap_stream(...):
+       └── PreToolUse hook -> creates tool_call span (not finished)
+       └── PostToolUse hook -> finishes tool_call span, adds to collector
+       └── AssistantMessage -> creates llm_call span
+       └── ResultMessage -> captures final metrics
+
+3. @eval decorator calls finish_call()
+   └── Collects all spans from:
+       - Context-local collector (normal spans)
+       - Global collector (thread/async spans)
+       - Orphan collector (hooks without @eval)
+   └── Attaches spans to FunctionCall
+   └── Stores to SQLite
+```
+
+#### Integration Pattern
 
 ```python
 from evalyn_sdk import eval
@@ -163,7 +267,7 @@ async def chat():
             ...
 ```
 
-**Composing with Existing Hooks:**
+#### Composing with Existing Hooks
 
 If you have existing hooks (e.g., for logging), evalyn hooks can compose with them:
 
@@ -184,7 +288,23 @@ hooks = {
 }
 ```
 
-**Backwards Compatibility:**
+#### Viewing Captured Data
+
+```bash
+# See counts and span timeline
+evalyn show-call --last
+
+# See hierarchical tree with details
+evalyn show-trace --last --verbose
+
+# Full output without truncation
+evalyn show-trace --last --verbose --full
+
+# Inspect single span fully
+evalyn show-span --call-id xxx --span "WebSearch"
+```
+
+#### Backwards Compatibility
 
 The old name `AnthropicAgentsInstrumentor` is aliased to `ClaudeAgentSDKInstrumentor` for backwards compatibility.
 

@@ -26,29 +26,34 @@ Evalyn focuses on making GenAI App evaluation practical and easy. It provides li
 ┌──────────────────────────────────────────────────────────────────┐
 │  1. COLLECT                                                      │
 │                                                                  │
-│     @eval decorator  →  TRACE (SQLite)  →  DATASET (JSONL)       │
-│                                                                  │
+│     @eval  ->  TRACE (SQLite)  ->  DATASET (JSONL)               │
+│               show-trace -v        build-dataset                 │
+│               show-span                                          │
 └──────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
+                              |
+                              v
 ┌──────────────────────────────────────────────────────────────────┐
-│  2. EVALUATE & CALIBRATE (iterate until aligned)                 │
+│  2. EVALUATE                                                     │
 │                                                                  │
-│          ┌────────────────────────────────────┐                  │
-│          │                                    │                  │
-│          ▼                                    │                  │
-│     EVALUATE  ───→  ANNOTATE  ───→  CALIBRATE │                  │
-│    (LLM Judge)      (Human)       (Optimize)  │                  │
-│          │                                    │                  │
-│          └─────── RE-EVALUATE ◄───────────────┘                  │
-│                                                                  │
+│     suggest-metrics  ->  run-eval  ->  ANALYZE                   │
+│                                        trend / compare / analyze │
 └──────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
+                              |
+                              v
 ┌──────────────────────────────────────────────────────────────────┐
-│  3. EXPAND                                                       │
+│  3. CALIBRATE                                                    │
 │                                                                  │
-│     SIMULATE  →  Generate synthetic queries  →  Back to Step 2   │
+│     annotate  ->  calibrate  ->  run-eval --use-calibrated       │
+│      (Human)      (Auto-iterates until aligned)                  │
+│                                                                  │
+│     cluster-failures / cluster-misalignments for insights        │
+└──────────────────────────────────────────────────────────────────┘
+                              |
+                              v
+┌──────────────────────────────────────────────────────────────────┐
+│  4. EXPAND                                                       │
+│                                                                  │
+│     simulate  ->  synthetic queries  ->  Back to Step 2          │
 │                                                                  │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -102,8 +107,6 @@ evalyn one-click --project gemini-deep-research-agent    # Dataset -> Metrics ->
 
 
 
-
-
 ## Sample Workflow
 
 > For users who want manual control over each step. For automated pipeline, use `evalyn one-click` instead.
@@ -153,7 +156,7 @@ Dataset: 10 items
 Eval run abc12345-...
 Run folder: data/myapp-v1-20250115-120000/eval_runs/20250115-120500_abc12345
   results.json - evaluation data
-  report.html  - analysis report   ← Open in browser
+  report.html  - analysis report   <- Open in browser
 
 Results:
 Metric                 Type    Pass Rate
@@ -183,6 +186,8 @@ evalyn run-eval --dataset data/myapp-v1-20250115-120000/simulations/sim-similar-
 | `evalyn list-calls` | View captured traces |
 | `evalyn show-call --id abc123` | View trace details (supports short IDs) |
 | `evalyn show-call --last` | View most recent trace |
+| `evalyn show-trace --last -v` | View span tree with details |
+| `evalyn show-span --call-id X --span Y` | Inspect single span |
 | `evalyn build-dataset --project X` | Create dataset from traces |
 | `evalyn suggest-metrics --project X --dataset D` | Get metric recommendations |
 | `evalyn run-eval --dataset D` | Run evaluation + generate HTML report (use `--provider` for OpenAI/Ollama) |
@@ -214,7 +219,8 @@ evalyn run-eval --dataset data/myapp-v1-20250115-120000/simulations/sim-similar-
 | **Tracing** | |
 | [list-calls](docs/clis/list-calls.md) | List captured traces |
 | [show-call](docs/clis/show-call.md) | View trace details |
-| [show-trace](docs/clis/show-trace.md) | View span tree only |
+| [show-trace](docs/clis/show-trace.md) | View span tree (with -v for details) |
+| [show-span](docs/clis/show-span.md) | View single span details |
 | [show-projects](docs/clis/show-projects.md) | View project summaries |
 | **Dataset** | |
 | [build-dataset](docs/clis/build-dataset.md) | Create dataset from traces |
@@ -238,6 +244,8 @@ evalyn run-eval --dataset data/myapp-v1-20250115-120000/simulations/sim-similar-
 | [import-annotations](docs/clis/import-annotations.md) | Import annotations from file |
 | [calibrate](docs/clis/calibrate.md) | Calibrate LLM judges |
 | [list-calibrations](docs/clis/list-calibrations.md) | List calibration records |
+| [cluster-failures](docs/clis/cluster-failures.md) | Cluster and analyze failures |
+| [cluster-misalignments](docs/clis/cluster-misalignments.md) | Cluster human/LLM disagreements |
 | **Simulation** | |
 | [simulate](docs/clis/simulate.md) | Generate synthetic test data |
 
