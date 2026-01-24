@@ -68,3 +68,6 @@ local_scripts/
 # files (anthropic agent sdk example will create files in this directory)
 output/
 
+
+# Serena
+.serena/

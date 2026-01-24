@@ -39,11 +39,23 @@ from .providers.langgraph import LangGraphInstrumentor
 
 # Optional providers
 try:
-    from .providers.google_adk import GoogleADKInstrumentor
+    from .providers.google_adk import (
+        GoogleADKInstrumentor,
+        EvalynADKCallbacks,
+        ADKStreamAdapter,
+        create_adk_callbacks,
+        create_stream_adapter as create_adk_stream_adapter,
+    )
 
     _has_google_adk = True
 except ImportError:
     _has_google_adk = False
+
+    def create_adk_callbacks(*args, **kwargs):  # type: ignore
+        raise ImportError("google-adk not installed")
+
+    def create_adk_stream_adapter(*args, **kwargs):  # type: ignore
+        raise ImportError("google-adk not installed")
 
 try:
     from .providers.claude_agent_sdk import (
@@ -198,6 +210,13 @@ __all__ = [
     "MessageStreamAdapter",
     "SubagentContext",
     "ClaudeAgentSDKInstrumentor",
+    "AnthropicAgentsInstrumentor",  # Backwards compat alias
+    # Google ADK hooks
+    "create_adk_callbacks",
+    "create_adk_stream_adapter",
+    "EvalynADKCallbacks",
+    "ADKStreamAdapter",
+    "GoogleADKInstrumentor",
     # Instrumentors
     "OpenAIInstrumentor",
     "AnthropicInstrumentor",
