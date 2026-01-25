@@ -640,6 +640,10 @@ After your analysis, provide your verdict as a JSON object:
             )
 
 
+# Forward declaration for type hints
+OPROConfig = None  # Will be imported from .opro when needed
+
+
 @dataclass
 class CalibrationConfig:
     """Configuration for CalibrationEngine.
@@ -653,8 +657,10 @@ class CalibrationConfig:
     current_preamble: str = ""  # Base prompt before rubric
     optimize_prompts: bool = True
     optimizer_model: str = "gemini-2.5-flash-lite"
-    optimizer_type: str = "llm"  # "llm" or "gepa"
+    optimizer_type: str = "llm"  # "llm", "gepa", "opro", or "ape"
     gepa_config: Optional[GEPAConfig] = None
+    opro_config: Optional[Any] = None  # OPROConfig (import avoided for circular deps)
+    ape_config: Optional[Any] = None  # APEConfig (import avoided for circular deps)
 
 
 class CalibrationEngine:
@@ -662,9 +668,11 @@ class CalibrationEngine:
     Enhanced calibration engine that:
     1. Computes alignment metrics (precision, recall, F1, kappa)
     2. Analyzes disagreement patterns
-    3. Uses LLM or GEPA to optimize judge prompts
+    3. Uses LLM, GEPA, OPRO, or APE to optimize judge prompts
 
     For GEPA: Only the preamble is optimized; rubric stays fixed.
+    For OPRO: Only the preamble is optimized; rubric stays fixed.
+    For APE: Only the preamble is optimized; rubric stays fixed.
     For LLM: Both preamble and rubric can be suggested for improvement.
     """
 
@@ -676,8 +684,10 @@ class CalibrationEngine:
         current_preamble: str = "",  # Base prompt before rubric
         optimize_prompts: bool = True,
         optimizer_model: str = "gemini-2.5-flash-lite",
-        optimizer_type: str = "llm",  # "llm" or "gepa"
+        optimizer_type: str = "llm",  # "llm", "gepa", "opro", or "ape"
         gepa_config: Optional[GEPAConfig] = None,
+        opro_config: Optional[Any] = None,  # OPROConfig
+        ape_config: Optional[Any] = None,  # APEConfig
         *,
         config: Optional[CalibrationConfig] = None,
     ):
@@ -691,6 +701,8 @@ class CalibrationEngine:
             self.optimizer_model = config.optimizer_model
             self.optimizer_type = config.optimizer_type
             self.gepa_config = config.gepa_config
+            self.opro_config = config.opro_config
+            self.ape_config = config.ape_config
         else:
             if judge_name is None:
                 raise ValueError("judge_name is required")
@@ -702,6 +714,8 @@ class CalibrationEngine:
             self.optimizer_model = optimizer_model
             self.optimizer_type = optimizer_type
             self.gepa_config = gepa_config
+            self.opro_config = opro_config
+            self.ape_config = ape_config
 
     def compute_alignment(
         self,
@@ -1001,6 +1015,33 @@ class CalibrationEngine:
                         dataset_items=dataset_items,
                         current_preamble=self.current_preamble,
                     )
+                elif self.optimizer_type == "opro":
+                    # Use OPRO optimization (preamble only, rubric stays fixed)
+                    from .opro import OPROOptimizer
+
+                    opro_optimizer = OPROOptimizer(config=self.opro_config)
+                    prompt_optimization = opro_optimizer.optimize(
+                        metric_id=self.judge_name,
+                        current_rubric=self.current_rubric,
+                        metric_results=metric_results,
+                        annotations=annotations,
+                        dataset_items=dataset_items,
+                        current_preamble=self.current_preamble,
+                    )
+                elif self.optimizer_type == "ape":
+                    # Use APE optimization (preamble only, rubric stays fixed)
+                    from .ape import APEOptimizer
+
+                    ape_optimizer = APEOptimizer(config=self.ape_config)
+                    prompt_optimization = ape_optimizer.optimize(
+                        metric_id=self.judge_name,
+                        current_rubric=self.current_rubric,
+                        metric_results=metric_results,
+                        annotations=annotations,
+                        disagreements=disagreements,
+                        dataset_items=dataset_items,
+                        current_preamble=self.current_preamble,
+                    )
                 else:
                     # Use LLM-based optimization (default)
                     optimizer = PromptOptimizer(model=self.optimizer_model)
@@ -1061,12 +1102,18 @@ class CalibrationEngine:
 
         if prompt_optimization:
             adjustments["prompt_optimization"] = prompt_optimization.as_dict()
-            # Include GEPA config if used
+            # Include optimizer-specific config
             if self.optimizer_type == "gepa" and self.gepa_config:
                 adjustments["gepa_config"] = {
                     "task_lm": self.gepa_config.task_lm,
                     "reflection_lm": self.gepa_config.reflection_lm,
                     "max_metric_calls": self.gepa_config.max_metric_calls,
+                }
+            elif self.optimizer_type == "ape" and self.ape_config:
+                adjustments["ape_config"] = {
+                    "num_candidates": self.ape_config.num_candidates,
+                    "eval_rounds": self.ape_config.eval_rounds,
+                    "eval_samples_per_round": self.ape_config.eval_samples_per_round,
                 }
 
         if validation_result:

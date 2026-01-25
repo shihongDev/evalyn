@@ -130,9 +130,7 @@ class BuildDatasetStep(PipelineStep):
 
         # Validate output exists
         if not dataset_path.exists():
-            return StepResult(
-                status="failed", error="Dataset file was not created"
-            ), {}
+            return StepResult(status="failed", error="Dataset file was not created"), {}
 
         print(f"  Found {len(items)} items")
         print(f"  Saved to: {dataset_path}\n")
@@ -213,9 +211,7 @@ class SuggestMetricsStep(PipelineStep):
 
         # Validate output exists
         if not metrics_path.exists():
-            return StepResult(
-                status="failed", error="Metrics file was not created"
-            ), {}
+            return StepResult(status="failed", error="Metrics file was not created"), {}
 
         obj_count = sum(1 for spec in metric_specs if spec.type == "objective")
         subj_count = sum(1 for spec in metric_specs if spec.type == "subjective")
@@ -569,9 +565,19 @@ class CalibrationStep(PipelineStep):
                 no_optimize=False,
                 optimizer=optimizer,
                 model=model,
+                # GEPA settings
                 gepa_task_lm="gemini/gemini-2.5-flash",
                 gepa_reflection_lm="gemini/gemini-2.5-flash",
                 gepa_max_calls=150,
+                # OPRO settings
+                opro_optimizer_model="gemini-2.5-flash",
+                opro_scorer_model="gemini-2.5-flash-lite",
+                opro_iterations=10,
+                opro_candidates=4,
+                # APE settings
+                ape_candidates=10,
+                ape_rounds=5,
+                ape_samples=5,
                 show_examples=False,
                 output=None,
                 format="table",
@@ -588,7 +594,9 @@ class CalibrationStep(PipelineStep):
         if calibrated_metrics:
             print(f"  Successfully calibrated: {', '.join(calibrated_metrics)}")
         if failed_metrics:
-            print(f"  Failed to calibrate: {', '.join(m['id'] for m in failed_metrics)}")
+            print(
+                f"  Failed to calibrate: {', '.join(m['id'] for m in failed_metrics)}"
+            )
 
         # Determine status based on results
         if not calibrated_metrics and failed_metrics:

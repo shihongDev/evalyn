@@ -60,6 +60,8 @@ from .annotation import (
     GEPAConfig,
     GEPAOptimizer,
     GEPA_AVAILABLE,
+    APEConfig,
+    APEOptimizer,
     save_calibration,
     load_optimized_prompt,
     SpanAnnotation,
@@ -137,6 +139,8 @@ __all__ = [
     "GEPAConfig",
     "GEPAOptimizer",
     "GEPA_AVAILABLE",
+    "APEConfig",
+    "APEOptimizer",
     "save_calibration",
     "load_optimized_prompt",
     # Datasets

@@ -49,9 +49,28 @@ annotation:
 # Calibration options (evalyn calibrate)
 calibration:
   skip: false                       # Skip calibration step in one-click
-  optimizer: "llm"                  # llm | gepa
+  optimizer: "llm"                  # llm | gepa | opro | ape
   threshold: 0.5                    # Pass/fail threshold
   calibrate_all: false              # Calibrate all subjective metrics
+
+  # GEPA optimizer settings (evolutionary algorithm)
+  gepa:
+    task_lm: "gemini/gemini-2.5-flash"      # Model being optimized
+    reflection_lm: "gemini/gemini-2.5-flash" # Model for reflection
+    max_calls: 150                           # Max API calls budget
+
+  # OPRO optimizer settings (trajectory-based)
+  opro:
+    optimizer_model: "gemini-2.5-flash"      # Model for generating candidates
+    scorer_model: "gemini-2.5-flash-lite"    # Model for scoring candidates
+    iterations: 10                           # Max optimization iterations
+    candidates: 4                            # Candidates per iteration
+
+  # APE optimizer settings (search-based with UCB)
+  ape:
+    candidates: 10                           # Number of candidate prompts
+    rounds: 5                                # UCB evaluation rounds
+    samples: 5                               # Samples per candidate per round
 
 # Simulation options (evalyn simulate)
 simulation:

@@ -11,6 +11,8 @@ Commands:
 Optimization methods:
 - llm (default): Uses LLM to analyze disagreement patterns and suggest prompt improvements
 - gepa: Uses GEPA evolutionary algorithm for systematic prompt optimization
+- opro: Uses OPRO (Optimization by PROmpting) trajectory-based optimization
+- ape: Uses APE (Automatic Prompt Engineer) search-based optimization with UCB selection
 
 Calibration outputs:
 - Alignment metrics: Accuracy, precision, recall, F1, Cohen's Kappa
@@ -37,15 +39,84 @@ from ...annotation import (
     CalibrationEngine,
     GEPAConfig,
     GEPA_AVAILABLE,
+    OPROConfig,
+    APEConfig,
     save_calibration,
 )
 from ...datasets import load_dataset
 from ...decorators import get_default_tracer
 from ...models import DatasetItem
-from ..utils.config import load_config, resolve_dataset_path
+from ..utils.config import load_config, resolve_dataset_path, get_config_default
 from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
 from ..utils.ui import Spinner
+
+
+def _apply_calibration_config_defaults(args: argparse.Namespace, config: dict) -> None:
+    """Apply config file defaults to calibration args."""
+    # Basic calibration settings
+    if args.optimizer == "llm":  # Only override if still at default
+        args.optimizer = get_config_default(
+            config, "calibration", "optimizer", default="llm"
+        )
+    if args.threshold == 0.5:
+        args.threshold = get_config_default(
+            config, "calibration", "threshold", default=0.5
+        )
+
+    # GEPA settings
+    if args.gepa_task_lm == "gemini/gemini-2.5-flash":
+        args.gepa_task_lm = get_config_default(
+            config, "calibration", "gepa", "task_lm", default="gemini/gemini-2.5-flash"
+        )
+    if args.gepa_reflection_lm == "gemini/gemini-2.5-flash":
+        args.gepa_reflection_lm = get_config_default(
+            config,
+            "calibration",
+            "gepa",
+            "reflection_lm",
+            default="gemini/gemini-2.5-flash",
+        )
+    if args.gepa_max_calls == 150:
+        args.gepa_max_calls = get_config_default(
+            config, "calibration", "gepa", "max_calls", default=150
+        )
+
+    # OPRO settings
+    if args.opro_optimizer_model == "gemini-2.5-flash":
+        args.opro_optimizer_model = get_config_default(
+            config, "calibration", "opro", "optimizer_model", default="gemini-2.5-flash"
+        )
+    if args.opro_scorer_model == "gemini-2.5-flash-lite":
+        args.opro_scorer_model = get_config_default(
+            config,
+            "calibration",
+            "opro",
+            "scorer_model",
+            default="gemini-2.5-flash-lite",
+        )
+    if args.opro_iterations == 10:
+        args.opro_iterations = get_config_default(
+            config, "calibration", "opro", "iterations", default=10
+        )
+    if args.opro_candidates == 4:
+        args.opro_candidates = get_config_default(
+            config, "calibration", "opro", "candidates", default=4
+        )
+
+    # APE settings
+    if args.ape_candidates == 10:
+        args.ape_candidates = get_config_default(
+            config, "calibration", "ape", "candidates", default=10
+        )
+    if args.ape_rounds == 5:
+        args.ape_rounds = get_config_default(
+            config, "calibration", "ape", "rounds", default=5
+        )
+    if args.ape_samples == 5:
+        args.ape_samples = get_config_default(
+            config, "calibration", "ape", "samples", default=5
+        )
 
 
 def cmd_calibrate(args: argparse.Namespace) -> None:
@@ -100,8 +171,11 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
                 current_preamble = preamble_val
             break
 
-    # Load dataset items for context (if dataset path provided)
+    # Load config and apply defaults
     config = load_config()
+    _apply_calibration_config_defaults(args, config)
+
+    # Load dataset items for context (if dataset path provided)
     dataset_items: Optional[List[DatasetItem]] = None
     dataset_dir: Optional[Path] = None
 
@@ -131,6 +205,25 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
             max_metric_calls=args.gepa_max_calls,
         )
 
+    # Build OPRO config if using OPRO optimizer
+    opro_config = None
+    if args.optimizer == "opro":
+        opro_config = OPROConfig(
+            optimizer_model=args.opro_optimizer_model,
+            scorer_model=args.opro_scorer_model,
+            max_iterations=args.opro_iterations,
+            candidates_per_step=args.opro_candidates,
+        )
+
+    # Build APE config if using APE optimizer
+    ape_config = None
+    if args.optimizer == "ape":
+        ape_config = APEConfig(
+            num_candidates=args.ape_candidates,
+            eval_rounds=args.ape_rounds,
+            eval_samples_per_round=args.ape_samples,
+        )
+
     # Run enhanced calibration
     engine = CalibrationEngine(
         judge_name=args.metric_id,
@@ -141,11 +234,23 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
         optimizer_model=args.model,
         optimizer_type=args.optimizer,
         gepa_config=gepa_config,
+        opro_config=opro_config,
+        ape_config=ape_config,
     )
 
-    # Use spinner for long-running operations (especially GEPA)
+    # Use spinner for long-running operations (GEPA, OPRO, or APE)
     if args.optimizer == "gepa" and not args.no_optimize:
         spinner_msg = f"Running GEPA optimization (max {args.gepa_max_calls} calls)"
+        with Spinner(spinner_msg):
+            record = engine.calibrate(metric_results, anns, dataset_items)
+    elif args.optimizer == "opro" and not args.no_optimize:
+        spinner_msg = (
+            f"Running OPRO optimization (max {args.opro_iterations} iterations)"
+        )
+        with Spinner(spinner_msg):
+            record = engine.calibrate(metric_results, anns, dataset_items)
+    elif args.optimizer == "ape" and not args.no_optimize:
+        spinner_msg = f"Running APE optimization ({args.ape_candidates} candidates, {args.ape_rounds} UCB rounds)"
         with Spinner(spinner_msg):
             record = engine.calibrate(metric_results, anns, dataset_items)
     else:
@@ -512,9 +617,9 @@ def register_commands(subparsers) -> None:
     )
     calibrate_parser.add_argument(
         "--optimizer",
-        choices=["llm", "gepa"],
+        choices=["llm", "gepa", "opro", "ape"],
         default="llm",
-        help="Optimization method: 'llm' (default) or 'gepa' (evolutionary)",
+        help="Optimization method: 'llm' (default), 'gepa' (evolutionary), 'opro' (trajectory-based), or 'ape' (search-based)",
     )
     calibrate_parser.add_argument(
         "--model",
@@ -536,6 +641,48 @@ def register_commands(subparsers) -> None:
         type=int,
         default=150,
         help="Max metric calls budget for GEPA optimization",
+    )
+    # OPRO-specific arguments
+    calibrate_parser.add_argument(
+        "--opro-iterations",
+        type=int,
+        default=10,
+        help="Max iterations for OPRO optimization",
+    )
+    calibrate_parser.add_argument(
+        "--opro-candidates",
+        type=int,
+        default=4,
+        help="Number of candidate prompts per OPRO iteration",
+    )
+    calibrate_parser.add_argument(
+        "--opro-optimizer-model",
+        default="gemini-2.5-flash",
+        help="Model for generating OPRO candidates",
+    )
+    calibrate_parser.add_argument(
+        "--opro-scorer-model",
+        default="gemini-2.5-flash-lite",
+        help="Model for scoring OPRO candidates",
+    )
+    # APE-specific arguments
+    calibrate_parser.add_argument(
+        "--ape-candidates",
+        type=int,
+        default=10,
+        help="Number of candidate prompts for APE (default: 10)",
+    )
+    calibrate_parser.add_argument(
+        "--ape-rounds",
+        type=int,
+        default=5,
+        help="UCB evaluation rounds for APE (default: 5)",
+    )
+    calibrate_parser.add_argument(
+        "--ape-samples",
+        type=int,
+        default=5,
+        help="Samples per candidate per UCB round (default: 5)",
     )
     calibrate_parser.add_argument(
         "--show-examples", action="store_true", help="Show example disagreement cases"

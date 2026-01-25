@@ -221,7 +221,9 @@ def _create_output_dir(args: argparse.Namespace) -> Path:
     else:
         version_str = f"-{args.version}" if args.version else ""
         project_root = find_project_root()
-        output_dir = project_root / "data" / f"{args.project}{version_str}-{timestamp}-oneclick"
+        output_dir = (
+            project_root / "data" / f"{args.project}{version_str}-{timestamp}-oneclick"
+        )
     return output_dir
 
 
@@ -403,9 +405,9 @@ def register_commands(subparsers) -> None:
     )
     oneclick_parser.add_argument(
         "--optimizer",
-        choices=["llm", "gepa"],
+        choices=["llm", "gepa", "opro", "ape"],
         default="llm",
-        help="Prompt optimization method (default: llm)",
+        help="Prompt optimization method: llm (default), gepa (evolutionary), opro (trajectory), ape (search)",
     )
     oneclick_parser.add_argument(
         "--calibrate-all-metrics",

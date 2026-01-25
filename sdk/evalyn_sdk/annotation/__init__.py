@@ -43,6 +43,14 @@ from .calibration import (
     save_calibration,
     load_optimized_prompt,
 )
+from .opro import (
+    OPROConfig,
+    OPROOptimizer,
+)
+from .ape import (
+    APEConfig,
+    APEOptimizer,
+)
 
 __all__ = [
     # Annotations
@@ -77,4 +85,10 @@ __all__ = [
     "CalibrationEngine",
     "save_calibration",
     "load_optimized_prompt",
+    # OPRO
+    "OPROConfig",
+    "OPROOptimizer",
+    # APE
+    "APEConfig",
+    "APEOptimizer",
 ]
