@@ -954,12 +954,27 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
                 print(f"{detail_prefix}content: {content_text}")
 
         elif span.span_type == "llm_call":
-            # Show model, output
+            # Show model, request, response
             model = attrs.get("model", "")
             if model:
                 print(f"{detail_prefix}model: {model}")
+            # Show request (messages)
+            request = attrs.get("request")
+            if request:
+                messages = request.get("messages", "") if isinstance(request, dict) else str(request)
+                if messages:
+                    messages_text = _truncate_with_indicator(str(messages), INPUT_LIMIT)
+                    print(f"{detail_prefix}request: {messages_text}")
+            # Show response
+            response = attrs.get("response")
+            if response:
+                content = response.get("content", "") if isinstance(response, dict) else str(response)
+                if content:
+                    content_text = _truncate_with_indicator(str(content), OUTPUT_LIMIT)
+                    print(f"{detail_prefix}response: {content_text}")
+            # Legacy: show output if present (for older spans)
             output = attrs.get("output") or attrs.get("output_preview", "")
-            if output:
+            if output and not response:
                 output_text = _truncate_with_indicator(str(output), OUTPUT_LIMIT)
                 print(f"{detail_prefix}output: {output_text}")
             thinking = attrs.get("thinking")
