@@ -82,6 +82,10 @@ class RunAnalysis:
     metric_stats: Dict[str, MetricStats]
     item_stats: Dict[str, ItemStats]
     failed_items: List[str]
+    # Cost information (optional, for backward compatibility)
+    total_cost_usd: float = 0.0
+    has_unknown_pricing: bool = False
+    cost_by_metric: Dict[str, float] = field(default_factory=dict)
 
     @property
     def overall_pass_rate(self) -> float:
@@ -190,6 +194,12 @@ def analyze_run(run_data: Dict[str, Any]) -> RunAnalysis:
         item_id for item_id, stats in item_stats.items() if not stats.all_passed
     ]
 
+    # Extract cost information from usage_summary
+    usage_summary = run_data.get("usage_summary", {}) or {}
+    total_cost_usd = usage_summary.get("total_cost_usd", 0.0)
+    has_unknown_pricing = usage_summary.get("has_unknown_pricing", False)
+    cost_by_metric = usage_summary.get("cost_by_metric", {})
+
     return RunAnalysis(
         run_id=run_data.get("id", "unknown"),
         dataset_name=run_data.get("dataset_name", "unknown"),
@@ -199,4 +209,7 @@ def analyze_run(run_data: Dict[str, Any]) -> RunAnalysis:
         metric_stats=dict(metric_stats),
         item_stats=dict(item_stats),
         failed_items=failed_items,
+        total_cost_usd=total_cost_usd,
+        has_unknown_pricing=has_unknown_pricing,
+        cost_by_metric=cost_by_metric,
     )

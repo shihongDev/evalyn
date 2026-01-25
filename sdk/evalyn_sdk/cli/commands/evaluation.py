@@ -50,6 +50,7 @@ from ...metrics.suggester import (
 from ...models import MetricRegistry, MetricSpec
 from ..utils.config import load_config, get_config_default, resolve_dataset_path
 from ..utils.errors import fatal_error
+from ..utils.formatters import print_token_usage_summary
 from ..utils.hints import print_hint
 from ..utils.loaders import _load_callable
 from ..utils.validation import check_llm_api_keys
@@ -304,6 +305,19 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     confidence_method = getattr(args, "confidence", "none")
     confidence_samples = getattr(args, "confidence_samples", 3)
 
+    # Parse unit_types for span-level evaluation
+    unit_types_raw = getattr(args, "unit_types", None)
+    unit_types = None
+    if unit_types_raw:
+        unit_types = [t.strip() for t in unit_types_raw.split(",") if t.strip()]
+        valid_types = {"outcome", "single_turn", "tool_use", "multi_turn", "custom"}
+        invalid = [t for t in unit_types if t not in valid_types]
+        if invalid:
+            fatal_error(
+                f"Invalid unit type(s): {', '.join(invalid)}",
+                f"Valid types: {', '.join(sorted(valid_types))}",
+            )
+
     # Validate logprobs/deepconf only works with openai/ollama
     if confidence_method in ("logprobs", "deepconf") and provider == "gemini":
         fatal_error(
@@ -399,6 +413,10 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
             print(judge_info)
         print(f"Dataset: {len(dataset_list)} items")
 
+        # Show unit types if non-default
+        if unit_types and unit_types != ["outcome"]:
+            print(f"Unit types: {', '.join(unit_types)} (span-level evaluation)")
+
         # Check for API key if subjective metrics are present
         if subjective_count > 0:
             check_llm_api_keys(quiet=False)
@@ -457,6 +475,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
                 instrument=False,
                 progress_callback=progress_callback if output_format != "json" else None,
                 max_workers=getattr(args, "workers", 1),
+                unit_types=unit_types,
             )
             obj_run = runner.run_dataset(dataset_list, use_synthetic=True)
             objective_results = obj_run.metric_results
@@ -540,6 +559,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
             checkpoint_path=checkpoint_path,
             checkpoint_interval=5,
             max_workers=getattr(args, "workers", 1),
+            unit_types=unit_types,
         )
 
         try:
@@ -668,16 +688,8 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         print("   Check that GEMINI_API_KEY or OPENAI_API_KEY is set and valid.")
         print("   Re-run with a valid API key to get accurate LLM judge scores.")
 
-    # Show token usage summary if available
-    usage = run.usage_summary
-    if usage and usage.get("total_tokens", 0) > 0:
-        input_tok = usage.get("total_input_tokens", 0)
-        output_tok = usage.get("total_output_tokens", 0)
-        total_tok = usage.get("total_tokens", 0)
-        models = usage.get("models_used", [])
-        print(f"\nToken usage: {input_tok:,} input + {output_tok:,} output = {total_tok:,} total")
-        if models:
-            print(f"Models: {', '.join(models)}")
+    # Show token usage and cost summary if available
+    print_token_usage_summary(run.usage_summary, verbose=getattr(args, "verbose", False))
 
     failed_items = run.summary.get("failed_items", [])
     failed_count = len(failed_items) if isinstance(failed_items, list) else failed_items
@@ -1191,6 +1203,20 @@ def register_commands(subparsers) -> None:
         type=int,
         default=3,
         help="Number of samples for consistency method (default: 3)",
+    )
+    run_parser.add_argument(
+        "--unit-types",
+        help="Evaluation unit types (comma-separated): outcome, single_turn, tool_use, multi_turn, custom. Default: outcome (full trace)",
+    )
+    run_parser.add_argument(
+        "--span-types",
+        help="Filter spans by type (comma-separated): llm_call, tool_call, retrieval, agent, etc. Used with --unit-types for targeted evaluation",
+    )
+    run_parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Show detailed cost breakdown by metric",
     )
     run_parser.set_defaults(func=cmd_run_eval)
 

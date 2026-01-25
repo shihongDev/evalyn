@@ -850,6 +850,19 @@ def _render_kpi_bar(
     )
     failed_class = "pass" if len(analysis.failed_items) == 0 else "fail"
 
+    # Format cost for display
+    cost = analysis.total_cost_usd
+    if cost > 0:
+        cost_str = f"${cost:.4f}" if cost < 1 else f"${cost:.2f}"
+        if analysis.has_unknown_pricing:
+            cost_str = f"~{cost_str}"
+        cost_kpi = f"""<div class="kpi-item">
+                <div class="kpi-value neutral">{cost_str}</div>
+                <div class="kpi-label">Judge Cost</div>
+            </div>"""
+    else:
+        cost_kpi = ""
+
     metric_kpis = ""
     for ms in list(metrics_by_pass_rate)[:5]:
         if ms.has_pass_fail:
@@ -891,6 +904,7 @@ def _render_kpi_bar(
                 <div class="kpi-value pass">{all_passed_count}</div>
                 <div class="kpi-label">All Passed</div>
             </div>
+            {cost_kpi}
             {metric_kpis}
         </div>"""
 

@@ -60,10 +60,59 @@ def print_table(
         )
 
 
+def format_cost(cost: float) -> str:
+    """Format a cost value as a string with appropriate precision."""
+    if cost < 1:
+        return f"${cost:.4f}"
+    return f"${cost:.2f}"
+
+
+def print_token_usage_summary(usage: Dict[str, Any], verbose: bool = False) -> None:
+    """Print token usage and cost summary from a usage_summary dict.
+
+    Args:
+        usage: Usage summary dict with keys like total_input_tokens, total_cost_usd, etc.
+        verbose: If True, show per-metric cost breakdown.
+    """
+    if not usage or usage.get("total_tokens", 0) == 0:
+        return
+
+    input_tok = usage.get("total_input_tokens", 0)
+    output_tok = usage.get("total_output_tokens", 0)
+    total_tok = usage.get("total_tokens", 0)
+    models = usage.get("models_used", [])
+    total_cost = usage.get("total_cost_usd", 0.0)
+    has_unknown = usage.get("has_unknown_pricing", False)
+
+    # Format cost string with asterisk if unknown pricing
+    cost_str = format_cost(total_cost)
+    if has_unknown:
+        cost_str = f"~{cost_str}*"
+
+    print(f"\nToken usage: {input_tok:,} input + {output_tok:,} output = {total_tok:,} total ({cost_str})")
+
+    if models:
+        print(f"Models: {', '.join(models)}")
+
+    if has_unknown:
+        print("  * Cost is approximate - some model pricing not in registry")
+
+    # Show verbose cost breakdown if requested
+    cost_by_metric = usage.get("cost_by_metric", {})
+    if verbose and cost_by_metric and len(cost_by_metric) > 1:
+        print("\nCost breakdown by metric:")
+        sorted_metrics = sorted(cost_by_metric.items(), key=lambda x: x[1], reverse=True)
+        for metric_id, cost in sorted_metrics:
+            pct = (cost / total_cost * 100) if total_cost > 0 else 0
+            print(f"  {metric_id:<25} {format_cost(cost):>10}  ({pct:.0f}%)")
+
+
 __all__ = [
     "is_json_format",
     "print_if_table",
     "print_error_if_table",
     "output_json",
     "print_table",
+    "format_cost",
+    "print_token_usage_summary",
 ]

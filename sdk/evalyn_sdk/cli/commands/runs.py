@@ -29,6 +29,7 @@ import json
 
 from ...decorators import get_default_tracer
 from ..utils.errors import fatal_error
+from ..utils.formatters import print_token_usage_summary
 from ..utils.hints import print_hint
 
 
@@ -166,16 +167,8 @@ def cmd_show_run(args: argparse.Namespace) -> None:
     if run.summary.get("failed_items"):
         print(f"Failed items: {run.summary['failed_items']}")
 
-    # Show token usage summary if available
-    usage = run.usage_summary
-    if usage and usage.get("total_tokens", 0) > 0:
-        input_tok = usage.get("total_input_tokens", 0)
-        output_tok = usage.get("total_output_tokens", 0)
-        total_tok = usage.get("total_tokens", 0)
-        models = usage.get("models_used", [])
-        print(f"\nToken usage: {input_tok:,} input + {output_tok:,} output = {total_tok:,} total")
-        if models:
-            print(f"Models: {', '.join(models)}")
+    # Show token usage and cost summary if available
+    print_token_usage_summary(run.usage_summary, verbose=getattr(args, "verbose", False))
 
     print("\nMetric results:")
     for res in run.metric_results:
@@ -207,6 +200,12 @@ def register_commands(subparsers) -> None:
         choices=["table", "json"],
         default="table",
         help="Output format (default: table)",
+    )
+    p.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Show detailed cost breakdown by metric",
     )
     p.set_defaults(func=cmd_show_run)
 

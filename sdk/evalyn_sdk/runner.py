@@ -11,8 +11,10 @@ from uuid import uuid4
 
 from .decorators import get_default_tracer
 from .datasets import hash_inputs
+from .eval_units import EvalUnitBuilder, get_default_builders, get_builders_for_types
+from .eval_units.views import project_unit
 from .execution import ProgressCallback, create_strategy
-from .models import Metric
+from .models import EvalUnit, EvalView, Metric
 from .models import DatasetItem, EvalRun, FunctionCall, MetricResult, now_utc
 from .storage.base import StorageBackend
 from .trace.tracer import EvalTracer
@@ -80,6 +82,8 @@ class EvalRunner:
         checkpoint_path: Optional[Union[str, Path]] = None,
         checkpoint_interval: int = 5,
         max_workers: int = 1,
+        unit_builders: Optional[List[EvalUnitBuilder]] = None,
+        unit_types: Optional[List[str]] = None,
     ):
         self.tracer = tracer or get_default_tracer()
         if storage:
@@ -98,6 +102,15 @@ class EvalRunner:
         self.checkpoint_path = Path(checkpoint_path) if checkpoint_path else None
         self.checkpoint_interval = checkpoint_interval
         self.max_workers = max(1, min(max_workers, 16))  # Clamp 1-16
+
+        # Unit-based evaluation configuration
+        # Priority: explicit builders > unit_types > default (OutcomeBuilder)
+        if unit_builders is not None:
+            self.unit_builders = unit_builders
+        elif unit_types is not None:
+            self.unit_builders = get_builders_for_types(unit_types)
+        else:
+            self.unit_builders = get_default_builders()
 
     def _load_checkpoint(self) -> Dict:
         """Load checkpoint if it exists. Returns dict with 'results' and 'completed_items'."""
@@ -161,6 +174,13 @@ class EvalRunner:
             except Exception:
                 pass
 
+    def _discover_units(self, call: FunctionCall) -> List[EvalUnit]:
+        """Discover all evaluatable units from a call using configured builders."""
+        units = []
+        for builder in self.unit_builders:
+            units.extend(builder.discover(call))
+        return units
+
     def _evaluate_metric(
         self, metric: Metric, call: FunctionCall, item: DatasetItem
     ) -> MetricResult:
@@ -170,10 +190,35 @@ class EvalRunner:
         except Exception as e:
             return MetricResult(
                 metric_id=metric.spec.id,
+                item_id=item.id,
                 call_id=call.id,
                 score=None,
                 passed=False,
                 details={"error": str(e), "error_type": type(e).__name__},
+            )
+
+    def _evaluate_metric_unit(
+        self, metric: Metric, unit: EvalUnit, view: EvalView, item: DatasetItem
+    ) -> MetricResult:
+        """Evaluate a metric against a unit view. Thread-safe."""
+        try:
+            result = metric.evaluate_unit(view, item)
+            # Enrich result with unit info
+            result.unit_id = unit.id
+            result.unit_type = unit.unit_type
+            result.span_ids = unit.span_ids
+            return result
+        except Exception as e:
+            return MetricResult(
+                metric_id=metric.spec.id,
+                item_id=item.id,
+                call_id=unit.call_id,
+                score=None,
+                passed=False,
+                details={"error": str(e), "error_type": type(e).__name__},
+                unit_id=unit.id,
+                unit_type=unit.unit_type,
+                span_ids=unit.span_ids,
             )
 
     def _prepare_item_call(
@@ -215,6 +260,54 @@ class EvalRunner:
 
         return None
 
+    def _is_outcome_only(self) -> bool:
+        """Check if using only OutcomeBuilder (default backward-compatible mode)."""
+        from .eval_units import OutcomeBuilder
+
+        return (
+            len(self.unit_builders) == 1
+            and isinstance(self.unit_builders[0], OutcomeBuilder)
+        )
+
+    def _run_unit_evaluation(
+        self,
+        prepared: List[Tuple[DatasetItem, FunctionCall]],
+        run_id: str,
+        completed_items: set,
+    ) -> List[MetricResult]:
+        """Run unit-based evaluation (for non-default unit types)."""
+        results: List[MetricResult] = []
+
+        # Collect all unit types we're evaluating
+        unit_types_active = {b.unit_type for b in self.unit_builders}
+
+        for item, call in prepared:
+            # Discover units from this call
+            units = self._discover_units(call)
+
+            for unit in units:
+                # Project unit to view
+                view = project_unit(unit, call)
+
+                # Find metrics that support this unit type
+                for metric in self.metrics:
+                    if metric.supports_unit_type(unit.unit_type):
+                        result = self._evaluate_metric_unit(metric, unit, view, item)
+                        results.append(result)
+
+            completed_items.add(item.id)
+
+            # Progress callback
+            if self._progress_callback:
+                self._progress_callback(
+                    len(completed_items),
+                    len(prepared),
+                    "unit_eval",
+                    "unit",
+                )
+
+        return results
+
     def run_dataset(
         self, dataset: Iterable[DatasetItem], use_synthetic: bool = True
     ) -> EvalRun:
@@ -227,6 +320,8 @@ class EvalRunner:
                           This allows evaluation on datasets without original traces.
 
         Supports checkpointing and parallel execution (max_workers > 1).
+        When unit_types/unit_builders are configured (non-default), runs
+        unit-based evaluation discovering spans from trace structure.
         """
         # Load checkpoint if exists
         checkpoint = self._load_checkpoint()
@@ -259,22 +354,32 @@ class EvalRunner:
                     )
             prepared.append((item, call))
 
-        # Create execution strategy and run
-        checkpoint_fn = self._save_checkpoint if self.checkpoint_path else None
-        strategy = create_strategy(
-            max_workers=self.max_workers,
-            evaluate_fn=self._evaluate_metric,
-            checkpoint_fn=checkpoint_fn,
-            checkpoint_interval=self.checkpoint_interval,
-        )
+        # Choose evaluation mode based on unit_builders configuration
+        if self._is_outcome_only():
+            # Default mode: use existing strategy-based execution (backward compat)
+            checkpoint_fn = self._save_checkpoint if self.checkpoint_path else None
+            strategy = create_strategy(
+                max_workers=self.max_workers,
+                evaluate_fn=self._evaluate_metric,
+                checkpoint_fn=checkpoint_fn,
+                checkpoint_interval=self.checkpoint_interval,
+            )
 
-        new_results = strategy.execute(
-            prepared=prepared,
-            metrics=self.metrics,
-            progress_callback=self._progress_callback,
-            run_id=run_id,
-            completed_items=completed_items,
-        )
+            new_results = strategy.execute(
+                prepared=prepared,
+                metrics=self.metrics,
+                progress_callback=self._progress_callback,
+                run_id=run_id,
+                completed_items=completed_items,
+            )
+        else:
+            # Unit-based mode: discover units and evaluate per-unit
+            new_results = self._run_unit_evaluation(
+                prepared=prepared,
+                run_id=run_id,
+                completed_items=completed_items,
+            )
+
         metric_results.extend(new_results)
 
         summary = self._summarize(metric_results, failures)
@@ -318,26 +423,57 @@ class EvalRunner:
 
     @staticmethod
     def _compute_usage_summary(results: List[MetricResult]) -> dict:
-        """Compute token usage summary from metric results."""
+        """Compute token usage and cost summary from metric results."""
+        from .trace.instrumentation.providers._shared import (
+            calculate_cost,
+            is_model_pricing_known,
+        )
+
         total_input_tokens = 0
         total_output_tokens = 0
         models_used = set()
+        has_unknown_pricing = False
+
+        # Track costs by model and metric
+        cost_by_model: Dict[str, float] = defaultdict(float)
+        cost_by_metric: Dict[str, float] = defaultdict(float)
+        tokens_by_metric: Dict[str, Dict[str, int]] = defaultdict(
+            lambda: {"input": 0, "output": 0}
+        )
 
         for r in results:
-            if r.input_tokens:
-                total_input_tokens += r.input_tokens
-            if r.output_tokens:
-                total_output_tokens += r.output_tokens
+            input_tok = r.input_tokens or 0
+            output_tok = r.output_tokens or 0
+            total_input_tokens += input_tok
+            total_output_tokens += output_tok
+
             if r.model:
                 models_used.add(r.model)
+                if not is_model_pricing_known(r.model):
+                    has_unknown_pricing = True
+
+                # Calculate cost for this result
+                cost = calculate_cost(r.model, input_tok, output_tok)
+                cost_by_model[r.model] += cost
+                cost_by_metric[r.metric_id] += cost
+
+            # Track tokens by metric
+            tokens_by_metric[r.metric_id]["input"] += input_tok
+            tokens_by_metric[r.metric_id]["output"] += output_tok
 
         total_tokens = total_input_tokens + total_output_tokens
+        total_cost_usd = sum(cost_by_model.values())
 
         return {
             "total_input_tokens": total_input_tokens,
             "total_output_tokens": total_output_tokens,
             "total_tokens": total_tokens,
             "models_used": sorted(models_used),
+            "total_cost_usd": total_cost_usd,
+            "cost_by_model": dict(cost_by_model),
+            "cost_by_metric": dict(cost_by_metric),
+            "tokens_by_metric": dict(tokens_by_metric),
+            "has_unknown_pricing": has_unknown_pricing,
         }
 
 

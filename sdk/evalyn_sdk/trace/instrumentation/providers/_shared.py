@@ -13,9 +13,13 @@ from ....models import Span
 from ... import context as span_context
 
 
-# Cost per 1M tokens (as of Jan 2025, approximate)
+# Cost per 1M tokens (as of Jan 2025)
 # Format: {"input": X, "output": Y, "cache_write": Z, "cache_read": W}
 # cache_write is typically 1.25x input, cache_read is typically 0.1x input
+# Sources:
+#   - Anthropic: https://platform.claude.com/docs/en/about-claude/pricing
+#   - Google: https://ai.google.dev/gemini-api/docs/pricing
+#   - OpenAI: https://openai.com/api/pricing
 COST_PER_1M_TOKENS = {
     # OpenAI
     "gpt-4o": {"input": 2.50, "output": 10.00},
@@ -23,6 +27,32 @@ COST_PER_1M_TOKENS = {
     "gpt-4-turbo": {"input": 10.00, "output": 30.00},
     "gpt-4": {"input": 30.00, "output": 60.00},
     "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
+    # Anthropic Claude 4.5 models
+    "claude-opus-4-5": {
+        "input": 5.00,
+        "output": 25.00,
+        "cache_write": 6.25,
+        "cache_read": 0.50,
+    },
+    "claude-sonnet-4-5": {
+        "input": 3.00,
+        "output": 15.00,
+        "cache_write": 3.75,
+        "cache_read": 0.30,
+    },
+    "claude-haiku-4-5": {
+        "input": 1.00,
+        "output": 5.00,
+        "cache_write": 1.25,
+        "cache_read": 0.10,
+    },
+    # Anthropic Claude 4.1 models
+    "claude-opus-4-1": {
+        "input": 15.00,
+        "output": 75.00,
+        "cache_write": 18.75,
+        "cache_read": 1.50,
+    },
     # Anthropic Claude 4 models
     "claude-sonnet-4": {
         "input": 3.00,
@@ -68,12 +98,21 @@ COST_PER_1M_TOKENS = {
         "cache_write": 0.3125,
         "cache_read": 0.025,
     },
-    # Google
+    # Google Gemini 2.5 models
+    "gemini-2.5-flash": {"input": 0.30, "output": 2.50},
+    "gemini-2.5-flash-lite": {"input": 0.10, "output": 0.40},
+    # Google Gemini 2.0 models
+    "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
+    # Google Gemini 1.5 models
     "gemini-1.5-pro": {"input": 1.25, "output": 5.00},
     "gemini-1.5-flash": {"input": 0.075, "output": 0.30},
-    "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
-    "gemini-2.5-flash-lite": {"input": 0.075, "output": 0.30},
 }
+
+
+def is_model_pricing_known(model: str) -> bool:
+    """Check if a model's pricing is in our registry."""
+    model_lower = model.lower()
+    return any(model_key in model_lower for model_key in COST_PER_1M_TOKENS)
 
 
 def calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
@@ -86,7 +125,7 @@ def calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
             output_cost = (output_tokens / 1_000_000) * costs["output"]
             return input_cost + output_cost
 
-    # Default estimate if model not found
+    # Default estimate if model not found: $1/1M tokens
     return (input_tokens + output_tokens) / 1_000_000 * 1.0
 
 
