@@ -38,7 +38,7 @@ import evalyn_sdk
 | Anthropic Client | Monkey-patch | tokens, cost, duration, request/response |
 | Claude Agent SDK | Hook-based | tool calls, subagent hierarchy, token usage, thinking blocks |
 | Google Gemini | Monkey-patch | tokens, cost, duration, request/response |
-| Google ADK | OTEL-native | agent spans via SpanProcessor |
+| Google ADK | Hybrid (OTEL + Callbacks) | agent/LLM/tool spans, token usage, request/response |
 | LangChain | Callback handler | LLM calls, tool calls |
 | LangGraph | Monkey-patch | graph/node execution spans |
 
@@ -49,7 +49,7 @@ The instrumentation registry supports three strategies:
 | Type | Description | SDKs |
 |------|-------------|------|
 | `MONKEY_PATCH` | Wrap SDK methods directly | OpenAI, Anthropic, Gemini |
-| `OTEL_NATIVE` | Use SDK's built-in OTEL with custom SpanProcessor | Google ADK |
+| `OTEL_NATIVE` | Use SDK's built-in OTEL with custom SpanProcessor + callback injection | Google ADK |
 | `HOOK_BASED` | Use SDK's hook/callback system | Claude Agent SDK |
 
 ### How Instrumentation Works
@@ -308,6 +308,134 @@ evalyn show-span --call-id xxx --span "WebSearch"
 
 The old name `AnthropicAgentsInstrumentor` is aliased to `ClaudeAgentSDKInstrumentor` for backwards compatibility.
 
+### Google ADK Integration
+
+Google ADK (Agent Development Kit) uses a hybrid instrumentation approach combining OTEL spans with automatic callback injection for rich content capture.
+
+#### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    @eval Decorator                          │
+│  Creates root span, collects all child spans at end         │
+└─────────────────────────────────────────────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+┌───────────────┐   ┌─────────────────┐   ┌─────────────────┐
+│ Runner Patch  │   │ Callback Inject │   │ OTEL Spans      │
+│               │   │                 │   │                 │
+│ Captures user │   │ before/after:   │   │ Optional base   │
+│ input from    │   │  - model_cb     │   │ span structure  │
+│ run_async()   │   │  - tool_cb      │   │ via openinfer-  │
+│               │   │  - agent_cb     │   │ ence library    │
+└───────────────┘   └─────────────────┘   └─────────────────┘
+        │                     │                     │
+        └─────────────────────┼─────────────────────┘
+                              ▼
+                    ┌─────────────────┐
+                    │ Span Collector  │
+                    │                 │
+                    │ Gathers spans   │
+                    │ from all layers │
+                    │ into call.spans │
+                    └─────────────────┘
+```
+
+#### Automatic Callback Injection
+
+The instrumentor automatically injects Evalyn callbacks into all `LlmAgent` and `BaseAgent` instances by patching the `canonical_*_callbacks` properties:
+
+| Property | Class | Evalyn Callback |
+|----------|-------|-----------------|
+| `canonical_before_model_callbacks` | LlmAgent | `before_model_callback` |
+| `canonical_after_model_callbacks` | LlmAgent | `after_model_callback` |
+| `canonical_before_tool_callbacks` | LlmAgent | `before_tool_callback` |
+| `canonical_after_tool_callbacks` | LlmAgent | `after_tool_callback` |
+| `canonical_before_agent_callbacks` | BaseAgent | `before_agent_callback` |
+| `canonical_after_agent_callbacks` | BaseAgent | `after_agent_callback` |
+
+**Key behavior:**
+- Evalyn callbacks are prepended to user callbacks (run first)
+- Evalyn callbacks return `None` to not interfere with user callbacks
+- Works automatically for all agent instances - no manual wiring needed
+
+#### What Gets Captured
+
+| Data | Source | Limit |
+|------|--------|-------|
+| User input | Runner patch (run_async) | Full |
+| Agent execution (name, duration) | before/after_agent_callback | - |
+| LLM calls (model, tokens, request/response) | before/after_model_callback | 3000 chars prompt, 4000 chars response |
+| Tool calls (name, args, result) | before/after_tool_callback | 4000 chars |
+| Token usage with cache metrics | LlmResponse.usage_metadata | - |
+| Sub-agent hierarchy | AgentTool detection | - |
+
+#### Span Types Created
+
+| Span Type | Name Pattern | Key Attributes |
+|-----------|--------------|----------------|
+| `user_message` | user_input | content, session_id |
+| `agent` | agent:{name} | agent_name, invocation_id, parent_agent |
+| `llm_call` | llm:{model} | model, provider, prompt_tokens, completion_tokens |
+| `tool_call` | {tool_name} | input, output, is_agent_tool, sub_agent_name |
+
+#### Usage
+
+No manual setup required - just use `@eval`:
+
+```python
+from evalyn_sdk import eval
+from google.adk.runners import InMemoryRunner
+from my_agent import root_agent
+
+@eval(project="my-adk-agent")
+async def run_agent(query: str):
+    runner = InMemoryRunner(agent=root_agent, app_name="test")
+    async for event in runner.run_async(
+        user_id="user",
+        session_id="session",
+        new_message=query,
+    ):
+        pass  # All spans captured automatically
+```
+
+#### Manual Callback Integration (Optional)
+
+If you need direct access to callbacks (e.g., for custom processing):
+
+```python
+from evalyn_sdk.trace.instrumentation.providers.google_adk import (
+    create_adk_callbacks,
+    create_stream_adapter,
+)
+
+callbacks = create_adk_callbacks()
+
+# Use callbacks directly if needed
+agent = LlmAgent(
+    name="my_agent",
+    before_model_callback=callbacks.before_model_callback,
+    after_model_callback=callbacks.after_model_callback,
+    # ... other callbacks
+)
+```
+
+#### Environment Setup
+
+For direct Gemini API (recommended for testing):
+```bash
+export GOOGLE_API_KEY=your_gemini_api_key
+# Do NOT set GOOGLE_GENAI_USE_VERTEXAI
+```
+
+For Vertex AI:
+```bash
+export GOOGLE_GENAI_USE_VERTEXAI=1
+export GOOGLE_CLOUD_PROJECT=your_project
+export GOOGLE_CLOUD_LOCATION=your_location
+```
+
 ### Disabling Auto-Instrumentation
 
 ```bash
@@ -543,6 +671,192 @@ The confidence module (`evalyn_sdk/confidence/`) provides:
 - `MajorityVoteConfidence`: Weighted voting
 - `PerplexityConfidence`: Perplexity-based
 - `EntropyConfidence`: Entropy from top-k logprobs
+
+---
+
+## Evaluation Units (Span-Level Evaluation)
+
+### Overview
+
+By default, Evalyn evaluates each dataset item as a single "outcome" unit representing the full trace. The EvalUnit system enables fine-grained span-level evaluation, allowing metrics to be applied to individual LLM calls, tool invocations, or conversation turns within a trace.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      EvalRunner                              │
+│  1. Load items from dataset                                  │
+│  2. For each item, get FunctionCall                          │
+│  3. Discover units using EvalUnitBuilders                    │
+│  4. Project units to EvalViews                               │
+│  5. Apply metrics to views                                   │
+└─────────────────────────────────────────────────────────────┘
+                              │
+              ┌───────────────┴───────────────┐
+              ▼                               ▼
+┌─────────────────────────┐     ┌─────────────────────────┐
+│    EvalUnitBuilders     │     │       EvalViews         │
+│    (Unit Discovery)     │     │    (Projection)         │
+│                         │     │                         │
+│   - OutcomeBuilder      │     │   Normalizes units      │
+│   - SingleTurnBuilder   │     │   into input/output     │
+│   - ToolUseBuilder      │     │   pairs for metrics     │
+│   - MultiTurnBuilder    │     │                         │
+│   - CustomBuilder       │     │                         │
+└─────────────────────────┘     └─────────────────────────┘
+```
+
+### Unit Types
+
+| Type | Description | Created From |
+|------|-------------|--------------|
+| `outcome` | Full trace (default) | Entire FunctionCall |
+| `single_turn` | Individual LLM call | Each `llm_call` span |
+| `tool_use` | Tool invocation | Each `tool_call` span |
+| `multi_turn` | Conversation group | Consecutive `llm_call` spans sharing parent |
+| `custom` | User-defined | Spans with `eval_boundary` attribute |
+
+### Data Flow
+
+```
+FunctionCall (with spans)
+        │
+        ▼
+┌─────────────────────────┐
+│   EvalUnitBuilder       │
+│   .discover(call)       │
+│                         │
+│   Returns: List[EvalUnit]
+│   - id, unit_type       │
+│   - call_id, span_ids   │
+│   - context             │
+└─────────────────────────┘
+        │
+        ▼
+┌─────────────────────────┐
+│   project_unit()        │
+│                         │
+│   Returns: EvalView     │
+│   - unit_id, unit_type  │
+│   - input, output       │
+│   - context             │
+└─────────────────────────┘
+        │
+        ▼
+┌─────────────────────────┐
+│   Metric.evaluate_unit()│
+│                         │
+│   Returns: MetricResult │
+│   + unit_id, unit_type  │
+│   + span_ids            │
+└─────────────────────────┘
+```
+
+### EvalUnit Dataclass
+
+```python
+@dataclass
+class EvalUnit:
+    id: str              # Unique unit identifier
+    unit_type: str       # outcome, single_turn, tool_use, etc.
+    call_id: str         # Parent FunctionCall ID
+    span_ids: List[str]  # Spans comprising this unit
+    context: Dict        # Type-specific metadata
+```
+
+### EvalView Dataclass
+
+```python
+@dataclass
+class EvalView:
+    unit_id: str         # From EvalUnit
+    unit_type: str       # From EvalUnit
+    input: Any           # Projected input (varies by type)
+    output: Any          # Projected output (varies by type)
+    context: Dict        # Merged context
+```
+
+### Builder Implementations
+
+**OutcomeBuilder** (default):
+- Creates exactly 1 unit per FunctionCall
+- `input` = call.inputs, `output` = call.output
+- Backward-compatible with existing evaluations
+
+**SingleTurnBuilder**:
+- Creates 1 unit per `llm_call` span
+- `input` = span.attributes["input"] or ["messages"]
+- `output` = span.attributes["output"] or ["response"]
+
+**ToolUseBuilder**:
+- Creates 1 unit per `tool_call` span
+- `input` = {tool_name, arguments}
+- `output` = tool result from associated `tool_result` span
+
+**MultiTurnBuilder**:
+- Groups consecutive `llm_call` spans sharing a parent
+- `input` = list of all turn inputs
+- `output` = final turn output
+- `context.turns` = full conversation history
+
+**CustomBuilder**:
+- Finds spans with `eval_boundary=True` attribute
+- Uses `eval_input`/`eval_output` attributes if present
+
+### Metric Unit Type Support
+
+Metrics declare supported unit types via `MetricSpec.unit_types`:
+
+```python
+MetricSpec(
+    id="helpfulness",
+    name="Helpfulness",
+    type="subjective",
+    unit_types=["outcome", "single_turn"],  # Supports both
+    ...
+)
+```
+
+Default is `["outcome"]` for backward compatibility.
+
+### Runner Mode Switching
+
+The EvalRunner automatically switches between modes:
+
+1. **Outcome Mode** (default): When only `OutcomeBuilder` is active
+   - Uses parallel execution strategy
+   - Cardinality: N items x M metrics = N*M results
+
+2. **Unit Mode**: When non-default builders are active
+   - Discovers units per call
+   - Filters metrics by supported unit types
+   - Cardinality: N items x U units x M compatible metrics
+
+### CLI Usage
+
+```bash
+# Evaluate each LLM call individually
+evalyn run-eval --dataset data/my-dataset --unit-types single_turn
+
+# Evaluate both full outcome and individual LLM calls
+evalyn run-eval --dataset data/my-dataset --unit-types "outcome,single_turn"
+
+# Evaluate tool usage
+evalyn run-eval --dataset data/my-dataset --unit-types tool_use
+```
+
+### MetricResult Extensions
+
+Unit-based evaluation adds optional fields to MetricResult:
+
+```python
+@dataclass
+class MetricResult:
+    # ... existing fields ...
+    unit_id: Optional[str] = None      # EvalUnit.id
+    unit_type: Optional[str] = None    # EvalUnit.unit_type
+    span_ids: Optional[List[str]] = None  # Spans evaluated
+```
 
 ---
 
@@ -1016,4 +1330,4 @@ export EVALYN_NO_HINTS=1
 
 ---
 
-*Last updated: 2026-01-20*
+*Last updated: 2026-01-24*

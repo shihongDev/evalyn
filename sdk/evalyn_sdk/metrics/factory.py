@@ -122,9 +122,7 @@ def _normalize_rubric(rubric: Any) -> List[str]:
         return []
     if isinstance(rubric, str):
         return [rubric]
-    if isinstance(rubric, list):
-        return rubric
-    return []
+    return rubric if isinstance(rubric, list) else []
 
 
 _OBJECTIVE_TPL = _tpl_by_id(OBJECTIVE_REGISTRY)
@@ -313,6 +311,18 @@ def _wrap_with_deepconf_confidence(
 def list_template_ids() -> List[str]:
     """Return all known template ids (objective + subjective)."""
     return sorted(list(_OBJECTIVE_TPL.keys()) + list(_SUBJECTIVE_TPL.keys()))
+
+
+def _apply_unit_types(metric: Metric, config: Optional[Dict[str, Any]]) -> Metric:
+    """Apply unit_types from config to metric's spec if present."""
+    if config and "unit_types" in config:
+        unit_types = config["unit_types"]
+        if isinstance(unit_types, str):
+            # Handle comma-separated string
+            unit_types = [t.strip() for t in unit_types.split(",") if t.strip()]
+        if isinstance(unit_types, list) and unit_types:
+            metric.spec.unit_types = unit_types
+    return metric
 
 
 def build_objective_metric(
@@ -505,7 +515,8 @@ def build_objective_metric(
 
     if metric_id not in builders:
         raise KeyError(f"Unknown objective metric id: {metric_id}")
-    return builders[metric_id](cfg)
+    metric = builders[metric_id](cfg)
+    return _apply_unit_types(metric, cfg)
 
 
 def build_subjective_metric(
@@ -625,12 +636,13 @@ def build_subjective_metric(
         description=str(final_description),
     )
 
-    if confidence_method == "consistency":
-        return _wrap_with_consistency_confidence(
-            base_metric, judge, confidence_samples, threshold_f
-        )
-    elif confidence_method == "logprobs":
-        return _wrap_with_logprobs_confidence(base_metric, judge, threshold_f)
-    elif confidence_method == "deepconf":
-        return _wrap_with_deepconf_confidence(base_metric, judge, threshold_f)
-    return base_metric
+    # Apply confidence wrapper based on method
+    confidence_wrappers = {
+        "consistency": lambda: _wrap_with_consistency_confidence(base_metric, judge, confidence_samples, threshold_f),
+        "logprobs": lambda: _wrap_with_logprobs_confidence(base_metric, judge, threshold_f),
+        "deepconf": lambda: _wrap_with_deepconf_confidence(base_metric, judge, threshold_f),
+    }
+    wrapper = confidence_wrappers.get(confidence_method)
+    metric = wrapper() if wrapper else base_metric
+
+    return _apply_unit_types(metric, cfg)

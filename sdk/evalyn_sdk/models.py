@@ -39,9 +39,23 @@ SpanType = Literal[
     "scorer",  # Metric evaluation
     "agent",  # Agent execution (Google ADK, Anthropic Agents, etc.)
     "custom",  # User-defined span
+    # Semantic span kinds for fine-grained evaluation
+    "input_message",  # User/system message input
+    "output_message",  # Assistant message output
+    "tool_use",  # Tool invocation request
+    "tool_result",  # Tool execution result
 ]
 
 SpanStatus = Literal["ok", "error", "running"]
+
+# Evaluation unit types for span-level evaluation
+EvalUnitType = Literal[
+    "outcome",  # Full trace outcome (default, backward-compatible)
+    "single_turn",  # Single LLM call: input -> output
+    "tool_use",  # Tool invocation: request -> result
+    "multi_turn",  # Consecutive exchanges in a conversation
+    "custom",  # User-defined evaluation boundary
+]
 
 
 @dataclass
@@ -261,6 +275,58 @@ class FunctionCall:
         return {"roots": roots, "by_id": by_id}
 
 
+@dataclass
+class EvalUnit:
+    """
+    An evaluatable unit discovered from trace structure.
+
+    Units can represent different evaluation granularities:
+    - outcome: Full trace (backward-compatible default)
+    - single_turn: Single LLM call with input/output
+    - tool_use: Tool invocation with request/result
+    - multi_turn: Sequence of exchanges
+    - custom: User-defined boundary
+    """
+
+    id: str
+    unit_type: str  # EvalUnitType
+    call_id: str  # Parent FunctionCall ID
+    span_ids: List[str]  # Spans comprising this unit
+    context: Dict[str, Any] = field(default_factory=dict)
+
+    def as_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "EvalUnit":
+        return cls(
+            id=data["id"],
+            unit_type=data["unit_type"],
+            call_id=data["call_id"],
+            span_ids=data.get("span_ids", []),
+            context=data.get("context", {}),
+        )
+
+
+@dataclass
+class EvalView:
+    """
+    Projected view of an EvalUnit for metric evaluation.
+
+    Provides a normalized interface regardless of unit type,
+    allowing metrics to evaluate different granularities uniformly.
+    """
+
+    unit_id: str
+    unit_type: str
+    input: Any  # Projected input (varies by unit type)
+    output: Any  # Projected output (varies by unit type)
+    context: Dict[str, Any] = field(default_factory=dict)
+
+    def as_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
 MetricType = Literal["objective", "subjective"]
 
 
@@ -272,6 +338,8 @@ class MetricSpec:
     description: str = ""
     config: Dict[str, Any] = field(default_factory=dict)
     why: str = ""
+    # Unit types this metric can evaluate (default: ["outcome"] for backward compat)
+    unit_types: List[str] = field(default_factory=lambda: ["outcome"])
 
 
 @dataclass
@@ -287,6 +355,10 @@ class MetricResult:
     input_tokens: Optional[int] = None
     output_tokens: Optional[int] = None
     model: Optional[str] = None
+    # Unit-level evaluation fields (optional, for span-level evals)
+    unit_id: Optional[str] = None
+    unit_type: Optional[str] = None  # EvalUnitType
+    span_ids: Optional[List[str]] = None
 
     def as_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -304,6 +376,9 @@ class MetricResult:
             input_tokens=data.get("input_tokens"),
             output_tokens=data.get("output_tokens"),
             model=data.get("model"),
+            unit_id=data.get("unit_id"),
+            unit_type=data.get("unit_type"),
+            span_ids=data.get("span_ids"),
         )
 
 
@@ -314,12 +389,36 @@ class Metric:
         self,
         spec: MetricSpec,
         handler: Callable[["FunctionCall", "DatasetItem"], MetricResult],
+        unit_handler: Optional[Callable[["EvalView", "DatasetItem"], MetricResult]] = None,
     ):
         self.spec = spec
         self.handler = handler
+        self.unit_handler = unit_handler
 
     def evaluate(self, call: "FunctionCall", item: "DatasetItem") -> MetricResult:
         return self.handler(call, item)
+
+    def evaluate_unit(self, view: "EvalView", item: "DatasetItem") -> MetricResult:
+        """Evaluate a unit view. Falls back to handler with synthetic call if no unit_handler."""
+        if self.unit_handler:
+            return self.unit_handler(view, item)
+        # Fallback: create synthetic call from view for backward compat
+        synthetic_call = FunctionCall(
+            id=view.unit_id,
+            function_name="unit_eval",
+            inputs={"input": view.input},
+            output=view.output,
+            error=None,
+            started_at=now_utc(),
+            ended_at=now_utc(),
+            duration_ms=0,
+            session_id=None,
+        )
+        return self.handler(synthetic_call, item)
+
+    def supports_unit_type(self, unit_type: str) -> bool:
+        """Check if this metric supports a given unit type."""
+        return unit_type in self.spec.unit_types
 
 
 class MetricRegistry:
@@ -615,11 +714,11 @@ class Annotation:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Annotation":
         metric_labels_raw = data.get("metric_labels", {})
-        metric_labels = {}
-        for k, v in metric_labels_raw.items():
-            if isinstance(v, dict):
-                metric_labels[k] = MetricLabel.from_dict(v)
-
+        metric_labels = {
+            k: MetricLabel.from_dict(v)
+            for k, v in metric_labels_raw.items()
+            if isinstance(v, dict)
+        }
         return cls(
             id=data["id"],
             target_id=data["target_id"],

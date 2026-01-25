@@ -54,9 +54,7 @@ def _synthetic_call_from_item(item: DatasetItem) -> FunctionCall:
 
 def _get_item_output(item: DatasetItem):
     """Get output from item, handling both old and new formats."""
-    if item.output is not None:
-        return item.output
-    return item.expected
+    return item.output if item.output is not None else item.expected
 
 
 class EvalRunner:
@@ -264,10 +262,7 @@ class EvalRunner:
         """Check if using only OutcomeBuilder (default backward-compatible mode)."""
         from .eval_units import OutcomeBuilder
 
-        return (
-            len(self.unit_builders) == 1
-            and isinstance(self.unit_builders[0], OutcomeBuilder)
-        )
+        return len(self.unit_builders) == 1 and isinstance(self.unit_builders[0], OutcomeBuilder)
 
     def _run_unit_evaluation(
         self,

@@ -532,11 +532,11 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         from ...models import EvalRun
 
         run = EvalRun(
-            id=f"batch-{int(time.time())}",
+            id=f"batch-{int(datetime.now(timezone.utc).timestamp())}",
             dataset_name=args.dataset_name or dataset_file.stem,
             metric_results=all_results,
             summary={},
-            created_at=datetime.now(),
+            created_at=datetime.now(timezone.utc),
         )
 
         if progress:
@@ -698,7 +698,6 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
 
     # Show hint for next step
     quiet = getattr(args, "quiet", False)
-    output_format = getattr(args, "format", "table")
 
     if failed_count >= 3:
         # Get a metric_id that has failures for the hint
@@ -877,8 +876,8 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         max_metrics = None  # No limit for bundles
 
     # Get scope filter (None means "all")
-    scope_filter = getattr(args, "scope", "all")
-    scope_filter = None if scope_filter == "all" else scope_filter
+    scope_raw = getattr(args, "scope", "all")
+    scope_filter = None if scope_raw == "all" else scope_raw
 
     def _filter_by_scope(templates: list) -> list:
         """Filter templates by scope."""

@@ -260,6 +260,7 @@ evalyn run-eval --dataset data/myapp-v1-20250115-120000/simulations/sim-similar-
 See [`example_agents/`](example_agents/) for SDK integrations:
 - **LangChain**: Auto-instrumentation via callback handler
 - **Claude Agent SDK**: Hook-based integration (see [technical manual](docs/technical-manual.md#claude-agent-sdk-integration))
+- **Google ADK**: Automatic callback injection (see [technical manual](docs/technical-manual.md#google-adk-integration))
 
 ## Contribution
 

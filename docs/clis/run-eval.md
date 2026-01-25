@@ -26,6 +26,33 @@ evalyn run-eval --latest [OPTIONS]
 | `--provider` | gemini | LLM provider for judges: `gemini`, `openai`, `ollama` |
 | `--confidence` | none | Confidence method: `none`, `consistency`, `logprobs`, `deepconf` |
 | `--confidence-samples` | 3 | Number of samples for consistency method |
+| `--unit-types` | outcome | Evaluation unit types (comma-separated) |
+| `--span-types` | - | Filter spans by type (comma-separated) |
+
+## Evaluation Unit Types
+
+By default, evalyn evaluates each dataset item as a single "outcome" unit (the full trace). With `--unit-types`, you can enable span-level evaluation:
+
+| Unit Type | Description |
+|-----------|-------------|
+| `outcome` (default) | Full trace - evaluates entire function call output |
+| `single_turn` | Per-LLM-call - creates one evaluation unit per `llm_call` span |
+| `tool_use` | Per-tool-call - creates one evaluation unit per `tool_call` span |
+| `multi_turn` | Conversation groups - groups consecutive LLM calls sharing a parent |
+| `custom` | User-defined - spans marked with `eval_boundary` attribute |
+
+### Examples
+
+```bash
+# Evaluate each LLM call individually
+evalyn run-eval --dataset data/my-dataset --unit-types single_turn
+
+# Evaluate both full outcome and individual LLM calls
+evalyn run-eval --dataset data/my-dataset --unit-types "outcome,single_turn"
+
+# Evaluate tool usage
+evalyn run-eval --dataset data/my-dataset --unit-types tool_use
+```
 
 ## Metrics Resolution
 
