@@ -1069,10 +1069,15 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
             quiet=getattr(args, "quiet", False),
         )
 
-    # Show hint to build dataset
+    # Show hint for next steps
     meta = call.metadata if isinstance(call.metadata, dict) else {}
     project = meta.get("project_id") or meta.get("project_name")
-    if project and verbose:
+    if verbose and not full_output:
+        print_hint(
+            f"Use --full for no truncation, or: evalyn show-span --call-id {call.id[:8]} --span <name>",
+            quiet=getattr(args, "quiet", False),
+        )
+    elif project and verbose:
         print_hint(
             f"To build a dataset, run: evalyn build-dataset --project {project}",
             quiet=getattr(args, "quiet", False),
@@ -1184,7 +1189,18 @@ def cmd_show_span(args: argparse.Namespace) -> None:
     else:
         print("\nAttributes: (none)")
 
-    print(f"{'=' * 60}\n")
+    print(f"{'=' * 60}")
+
+    # Show hint
+    meta = call.metadata if isinstance(call.metadata, dict) else {}
+    project = meta.get("project_id") or meta.get("project_name")
+    if project:
+        print_hint(
+            f"To build a dataset, run: evalyn build-dataset --project {project}",
+            quiet=getattr(args, "quiet", False),
+            format=output_format,
+        )
+    print()
 
 
 def cmd_show_projects(args: argparse.Namespace) -> None:
