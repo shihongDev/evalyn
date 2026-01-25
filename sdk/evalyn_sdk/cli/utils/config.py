@@ -10,9 +10,43 @@ from typing import Any, Dict, Optional
 
 from ..constants import DEFAULT_CONFIG_PATHS
 
+# Cache for project root to avoid repeated filesystem lookups
+_project_root_cache: Optional[Path] = None
+
+
+def find_project_root() -> Path:
+    """Find the project root directory.
+
+    Searches upward from cwd for project markers:
+    1. evalyn.yaml, .evalynrc (evalyn config files)
+    2. pyproject.toml
+    3. .git directory
+
+    Returns:
+        Path to project root, or cwd if no markers found
+    """
+    global _project_root_cache
+    if _project_root_cache is not None:
+        return _project_root_cache
+
+    cwd = Path.cwd()
+    markers = DEFAULT_CONFIG_PATHS + ["pyproject.toml", ".git"]
+
+    current = cwd
+    while current != current.parent:
+        for marker in markers:
+            if (current / marker).exists():
+                _project_root_cache = current
+                return current
+        current = current.parent
+
+    # No markers found, use cwd
+    _project_root_cache = cwd
+    return cwd
+
 
 def get_data_dir(subdir: str = "prod/datasets") -> Path:
-    """Get the project's data directory (relative to cwd).
+    """Get the project's data directory (relative to project root).
 
     Args:
         subdir: Subdirectory within data/ (default: "prod/datasets")
@@ -20,7 +54,8 @@ def get_data_dir(subdir: str = "prod/datasets") -> Path:
     Returns:
         Path to data subdirectory
     """
-    data_dir = Path("data") / subdir
+    project_root = find_project_root()
+    data_dir = project_root / "data" / subdir
     data_dir.mkdir(parents=True, exist_ok=True)
     return data_dir
 
@@ -138,6 +173,7 @@ def resolve_dataset_path(
 
 __all__ = [
     "_expand_env_vars",
+    "find_project_root",
     "get_data_dir",
     "load_config",
     "get_config_default",

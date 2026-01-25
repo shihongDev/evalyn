@@ -34,7 +34,7 @@ from datetime import datetime
 from pathlib import Path
 
 from ...storage import SQLiteStorage
-from ..utils.config import load_config, get_config_default
+from ..utils.config import load_config, get_config_default, find_project_root
 from ..utils.errors import fatal_error
 
 
@@ -214,13 +214,14 @@ def _resolve_version(args: argparse.Namespace) -> None:
 
 
 def _create_output_dir(args: argparse.Namespace) -> Path:
-    """Create and return output directory."""
+    """Create and return output directory (always under project root/data/)."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     if args.output_dir:
         output_dir = Path(args.output_dir)
     else:
         version_str = f"-{args.version}" if args.version else ""
-        output_dir = Path("data") / f"{args.project}{version_str}-{timestamp}-oneclick"
+        project_root = find_project_root()
+        output_dir = project_root / "data" / f"{args.project}{version_str}-{timestamp}-oneclick"
     return output_dir
 
 
