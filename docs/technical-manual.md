@@ -4,18 +4,105 @@ Internal technical reference for Evalyn SDK architecture, design decisions, and 
 
 ## Table of Contents
 
-1. [Auto-Instrumentation](#auto-instrumentation)
-2. [Tracing Architecture](#tracing-architecture)
-3. [Storage Schema](#storage-schema)
-4. [Metrics System](#metrics-system)
-5. [Calibration Pipeline](#calibration-pipeline)
-6. [Data Models](#data-models)
-7. [Execution Strategies](#execution-strategies)
-8. [Pipeline Orchestration](#pipeline-orchestration)
-9. [Analysis & Visualization](#analysis--visualization)
-10. [File Structure](#file-structure)
-11. [Environment Variables](#environment-variables)
-12. [CLI Conveniences](#cli-conveniences)
+1. [Terminology](#terminology)
+2. [Auto-Instrumentation](#auto-instrumentation)
+3. [Tracing Architecture](#tracing-architecture)
+4. [Storage Schema](#storage-schema)
+5. [Metrics System](#metrics-system)
+6. [Calibration Pipeline](#calibration-pipeline)
+7. [Data Models](#data-models)
+8. [Execution Strategies](#execution-strategies)
+9. [Pipeline Orchestration](#pipeline-orchestration)
+10. [Analysis & Visualization](#analysis--visualization)
+11. [File Structure](#file-structure)
+12. [Environment Variables](#environment-variables)
+13. [CLI Conveniences](#cli-conveniences)
+
+---
+
+## Terminology
+
+This section defines key terms and their relationships. Understanding this hierarchy is essential for working with Evalyn.
+
+### Hierarchy Diagram
+
+```
+Session (optional grouping)
+ │
+ └── FunctionCall (aka "Call" or "Trace")     <-- Root: @eval decorated function
+      │
+      ├── Span: agent                          <-- Hierarchical tree of operations
+      │    ├── Span: llm_call
+      │    │    ├── Span: input_message
+      │    │    └── Span: output_message
+      │    └── Span: tool_call
+      │         ├── Span: tool_use
+      │         └── Span: tool_result
+      │
+      └── Span: llm_call
+           └── ...
+```
+
+### Core Terms
+
+| Term | Definition | Data Model |
+|------|------------|------------|
+| **Session** | Optional grouping of related function calls (e.g., same user session) | `session_id` field |
+| **FunctionCall** | Root-level capture of an `@eval`-decorated function execution. Contains all spans. Synonymous with "Call" or "Trace" in CLI output. | `FunctionCall` dataclass |
+| **Span** | A timed operation within a FunctionCall. Forms a tree via `parent_id`. Each span has a `span_type`. | `Span` dataclass |
+| **Trace** | Informal term for FunctionCall. "Show trace" means "show the span tree of a call". | - |
+
+### Span Types
+
+| SpanType | Description | Created By |
+|----------|-------------|------------|
+| `session` | Root session span | Manual |
+| `agent` | Agent execution (ADK, Claude Agent SDK) | Instrumentation |
+| `llm_call` | LLM API call (OpenAI, Gemini, Anthropic, etc.) | Instrumentation |
+| `tool_call` | Tool/function invocation | Instrumentation |
+| `retrieval` | RAG retrieval operation | Instrumentation |
+| `graph` | LangGraph execution | Instrumentation |
+| `node` | LangGraph node | Instrumentation |
+| `scorer` | Metric evaluation span | EvalRunner |
+| `custom` | User-defined span | Manual |
+
+**Semantic span kinds** (for fine-grained evaluation):
+
+| SpanType | Description |
+|----------|-------------|
+| `input_message` | User/system message input to LLM |
+| `output_message` | Assistant message output from LLM |
+| `tool_use` | Tool invocation request (what the LLM asked for) |
+| `tool_result` | Tool execution result (what the tool returned) |
+
+### Evaluation Terms
+
+| Term | Definition | Data Model |
+|------|------------|------------|
+| **EvalUnit** | An evaluatable unit discovered from trace structure. Can be the full outcome, a single LLM turn, a tool use, etc. | `EvalUnit` dataclass |
+| **EvalUnitType** | Category of eval unit: `outcome`, `single_turn`, `tool_use`, `multi_turn`, `custom` | `EvalUnitType` literal |
+| **EvalView** | Normalized projection of an EvalUnit with `input` and `output` fields. Decouples metrics from trace structure. | `EvalView` dataclass |
+| **Metric** | Evaluation function that scores a call/unit. Can be objective (code) or subjective (LLM judge). | `Metric` class |
+| **MetricResult** | Output of metric evaluation: score, passed, details, and optional unit info. | `MetricResult` dataclass |
+
+### Relationship Summary
+
+```
+FunctionCall 1:N Span           # A call contains many spans
+Span 1:N Span                   # Spans form parent-child tree (via parent_id)
+FunctionCall 1:N EvalUnit       # Builders discover units from call's spans
+EvalUnit 1:1 EvalView           # Each unit projects to one view
+Metric 1:N MetricResult         # One metric produces results for each item/unit
+```
+
+### CLI Command Mapping
+
+| CLI Command | What It Shows |
+|-------------|---------------|
+| `list-calls` | List of FunctionCalls (shows id, function, duration) |
+| `show-call --id X` | Single FunctionCall details |
+| `show-trace --call-id X` | Span tree of a FunctionCall |
+| `show-span --call-id X --span Y` | Single Span details |
 
 ---
 
