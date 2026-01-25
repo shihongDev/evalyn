@@ -267,6 +267,12 @@ def log_llm_call(
     if sources:
         span.attributes["sources"] = sources
 
+    # Add request/response to span for visibility
+    if request:
+        span.attributes["request"] = request
+    if response:
+        span.attributes["response"] = response
+
     # Set duration retroactively (span was created after the call)
     span.start_time = span.start_time - timedelta(milliseconds=duration_ms)
     span.finish(status="error" if error else "ok")
