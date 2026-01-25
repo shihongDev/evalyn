@@ -791,10 +791,10 @@ def cmd_show_call(args: argparse.Namespace) -> None:
 
     print("=============================================\n")
 
-    # Show hint to view span tree
+    # Show hint to view span tree with details
     if call.spans:
         print_hint(
-            f"To see span tree, run: evalyn show-trace --id {call.id[:8]}",
+            f"To see span tree with details, run: evalyn show-trace --id {call.id[:8]} --verbose",
             quiet=getattr(args, "quiet", False),
         )
 
@@ -1062,10 +1062,17 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
         )
     print(summary_line)
 
+    # Show hint for --verbose if not already used
+    if not verbose and (llm_count > 0 or tool_count > 0):
+        print_hint(
+            "Use --verbose to see input/output details for each span",
+            quiet=getattr(args, "quiet", False),
+        )
+
     # Show hint to build dataset
     meta = call.metadata if isinstance(call.metadata, dict) else {}
     project = meta.get("project_id") or meta.get("project_name")
-    if project:
+    if project and verbose:
         print_hint(
             f"To build a dataset, run: evalyn build-dataset --project {project}",
             quiet=getattr(args, "quiet", False),
