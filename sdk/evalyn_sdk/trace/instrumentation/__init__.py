@@ -36,6 +36,7 @@ from .providers.anthropic import AnthropicInstrumentor
 from .providers.gemini import GeminiInstrumentor
 from .providers.langchain import LangChainInstrumentor
 from .providers.langgraph import LangGraphInstrumentor
+from .providers.xai import XAIInstrumentor
 
 # Optional providers
 try:
@@ -89,6 +90,7 @@ def _setup_registry() -> None:
     registry.register(GeminiInstrumentor())
     registry.register(LangChainInstrumentor())
     registry.register(LangGraphInstrumentor())
+    registry.register(XAIInstrumentor())
 
     # Optional OTEL-native instrumentors
     if _has_google_adk:
@@ -223,4 +225,5 @@ __all__ = [
     "GeminiInstrumentor",
     "LangChainInstrumentor",
     "LangGraphInstrumentor",
+    "XAIInstrumentor",
 ]

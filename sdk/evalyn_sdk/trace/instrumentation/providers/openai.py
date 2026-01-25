@@ -15,6 +15,25 @@ from ..base import Instrumentor, InstrumentorType
 from ._shared import log_llm_call
 
 
+def _detect_provider(completions_instance) -> str:
+    """
+    Detect provider from client base_url.
+
+    xAI uses the OpenAI-compatible API with base_url="https://api.x.ai/v1".
+    """
+    try:
+        # Navigate from Completions -> Chat -> Client
+        client = getattr(completions_instance, "_client", None)
+        if client is None:
+            return "openai"
+        base_url = str(getattr(client, "base_url", ""))
+        if "x.ai" in base_url:
+            return "xai"
+    except Exception:
+        pass
+    return "openai"
+
+
 class OpenAIInstrumentor(Instrumentor):
     """Instrumentor for OpenAI SDK."""
 
@@ -57,6 +76,7 @@ class OpenAIInstrumentor(Instrumentor):
                 start = time.time()
                 model = kwargs.get("model", "unknown")
                 messages = kwargs.get("messages", [])
+                provider = _detect_provider(inst)
 
                 try:
                     response = self._original_create(inst, *args, **kwargs)
@@ -70,7 +90,7 @@ class OpenAIInstrumentor(Instrumentor):
                     )
 
                     log_llm_call(
-                        provider="openai",
+                        provider=provider,
                         model=model,
                         input_tokens=input_tokens,
                         output_tokens=output_tokens,
@@ -90,7 +110,7 @@ class OpenAIInstrumentor(Instrumentor):
                 except Exception as e:
                     duration_ms = (time.time() - start) * 1000
                     log_llm_call(
-                        provider="openai",
+                        provider=provider,
                         model=model,
                         duration_ms=duration_ms,
                         success=False,
@@ -108,6 +128,7 @@ class OpenAIInstrumentor(Instrumentor):
             async def patched_acreate(inst, *args, **kwargs):
                 start = time.time()
                 model = kwargs.get("model", "unknown")
+                provider = _detect_provider(inst)
 
                 try:
                     response = await self._original_acreate(inst, *args, **kwargs)
@@ -120,7 +141,7 @@ class OpenAIInstrumentor(Instrumentor):
                     )
 
                     log_llm_call(
-                        provider="openai",
+                        provider=provider,
                         model=model,
                         input_tokens=input_tokens,
                         output_tokens=output_tokens,
@@ -132,7 +153,7 @@ class OpenAIInstrumentor(Instrumentor):
                 except Exception as e:
                     duration_ms = (time.time() - start) * 1000
                     log_llm_call(
-                        provider="openai",
+                        provider=provider,
                         model=model,
                         duration_ms=duration_ms,
                         success=False,

@@ -106,6 +106,15 @@ COST_PER_1M_TOKENS = {
     # Google Gemini 1.5 models
     "gemini-1.5-pro": {"input": 1.25, "output": 5.00},
     "gemini-1.5-flash": {"input": 0.075, "output": 0.30},
+    # xAI Grok models (more specific names must come first for substring matching)
+    # Source: https://docs.x.ai/docs/models
+    "grok-4-fast-reasoning": {"input": 0.20, "output": 0.50},
+    "grok-4-1-fast": {"input": 0.20, "output": 0.50},
+    "grok-4": {"input": 3.00, "output": 15.00},
+    "grok-3-mini": {"input": 0.30, "output": 0.50},
+    "grok-3": {"input": 3.00, "output": 15.00},
+    "grok-2-vision": {"input": 2.00, "output": 10.00},
+    "grok-2": {"input": 2.00, "output": 10.00},
 }
 
 
