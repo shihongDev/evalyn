@@ -3,19 +3,34 @@ import os
 
 from langchain_core.messages import HumanMessage
 
+# =============================================================================
+# EVALYN INSTRUMENTATION - The following imports and code blocks are added by
+# Evalyn SDK for tracing and evaluation. Remove these to use the agent without
+# Evalyn instrumentation.
+# =============================================================================
 from evalyn_sdk import eval, get_default_tracer, configure_otel
+# =============================================================================
+
 from .graph import graph
 
 
-# Optional: enable OpenTelemetry spans if OTEL_CONSOLE=true is set.
+# =============================================================================
+# EVALYN: Optional OpenTelemetry export for distributed tracing visualization
+# =============================================================================
 if os.getenv("OTEL_CONSOLE", "").lower() in {"1", "true", "yes"}:
     tracer = get_default_tracer()
     tracer.attach_otel_tracer(
         configure_otel(service_name="example-agent", exporter="console")
     )
+# =============================================================================
 
 
+# =============================================================================
+# EVALYN: @eval decorator wraps the function to trace inputs/outputs and
+# automatically instrument all LLM calls within. Remove to disable tracing.
+# =============================================================================
 @eval(project="gemini-deep-research-agent", version="v1", name="research_agent")
+# =============================================================================
 def run_agent(
     question: str,
     initial_queries: int = 3,

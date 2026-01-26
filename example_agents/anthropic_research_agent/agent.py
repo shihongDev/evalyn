@@ -6,8 +6,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions, AgentDefinition, HookMatcher
 
+# =============================================================================
+# EVALYN INSTRUMENTATION - The following imports are added by Evalyn SDK for
+# tracing and evaluation. Remove these to use the agent without instrumentation.
+# =============================================================================
 from evalyn_sdk import eval
 from evalyn_sdk.trace.instrumentation import create_agent_hooks, create_stream_adapter
+# =============================================================================
 
 import sys
 from pathlib import Path
@@ -32,7 +37,12 @@ def load_prompt(filename: str) -> str:
         return f.read().strip()
 
 
+# =============================================================================
+# EVALYN: @eval decorator wraps the function to trace inputs/outputs and
+# automatically instrument all LLM calls within. Remove to disable tracing.
+# =============================================================================
 @eval(project="anthropic-research-agent")
+# =============================================================================
 async def chat():
     """Start interactive chat with the research agent."""
 
@@ -58,8 +68,12 @@ async def chat():
     # Initialize subagent tracker with transcript writer and session directory
     tracker = SubagentTracker(transcript_writer=transcript, session_dir=session_dir)
 
-    # Create evalyn hooks for tracing
+    # =========================================================================
+    # EVALYN: Create hooks for tracing tool calls and LLM responses.
+    # These hooks capture tool inputs/outputs for evaluation datasets.
+    # =========================================================================
     evalyn_hooks = create_agent_hooks()
+    # =========================================================================
 
     # Define specialized subagents
     agents = {
@@ -102,7 +116,10 @@ async def chat():
         )
     }
 
-    # Set up hooks for tracking (evalyn + tracker)
+    # =========================================================================
+    # EVALYN: Register hooks with Claude Agent SDK. The evalyn hooks capture
+    # tool calls for tracing. To remove Evalyn, delete evalyn_hooks from lists.
+    # =========================================================================
     hooks = {
         'PreToolUse': [
             HookMatcher(
@@ -117,6 +134,7 @@ async def chat():
             )
         ]
     }
+    # =========================================================================
 
     options = ClaudeAgentOptions(
         permission_mode="bypassPermissions",
@@ -155,9 +173,14 @@ async def chat():
 
                 transcript.write("\nAgent: ", end="")
 
-                # Stream and process response (wrapped for evalyn instrumentation)
+                # =========================================================
+                # EVALYN: Wrap the response stream to capture LLM outputs.
+                # To remove Evalyn, replace with:
+                #   async for msg in client.receive_response():
+                # =========================================================
                 adapter = create_stream_adapter(evalyn_hooks)
                 async for msg in adapter.wrap_stream(client.receive_response()):
+                # =========================================================
                     if type(msg).__name__ == 'AssistantMessage':
                         process_assistant_message(msg, tracker, transcript)
 
