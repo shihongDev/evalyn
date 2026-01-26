@@ -16,18 +16,22 @@ The rubric (evaluation criteria) is kept FIXED as defined by humans.
 
 from __future__ import annotations
 
-import json
-import random
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
+from ..defaults import DEFAULT_EVAL_MODEL, DEFAULT_GENERATOR_MODEL
 from ..models import Annotation, DatasetItem, MetricResult
-from ..utils.api_client import GeminiClient, GenerateResult
+from ..utils.api_client import GeminiClient
 from .calibration import (
     AlignmentMetrics,
     PromptOptimizationResult,
     TokenAccumulator,
     build_full_prompt,
+)
+from .optimizer_utils import (
+    build_dataset_from_annotations,
+    parse_candidates_response,
+    parse_judge_response,
 )
 
 
@@ -53,8 +57,8 @@ class TrajectoryEntry:
 class OPROConfig:
     """Configuration for OPRO optimizer."""
 
-    optimizer_model: str = "gemini-2.5-flash"  # LLM for generating candidates
-    scorer_model: str = "gemini-2.5-flash-lite"  # LLM for evaluating (judge)
+    optimizer_model: str = DEFAULT_GENERATOR_MODEL  # LLM for generating candidates
+    scorer_model: str = DEFAULT_EVAL_MODEL  # LLM for evaluating (judge)
     max_iterations: int = 10  # Max optimization iterations
     candidates_per_step: int = 4  # Number of new prompts per iteration
     trajectory_length: int = 20  # Max past solutions to keep in meta-prompt
@@ -121,53 +125,6 @@ class OPROOptimizer:
             )
         return self._scorer_client
 
-    def _build_dataset_from_annotations(
-        self,
-        metric_results: List[MetricResult],
-        annotations: List[Annotation],
-        dataset_items: Optional[List[DatasetItem]] = None,
-    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-        """
-        Convert calibration data to train/val sets.
-        Each example contains: input, output, expected (human label).
-        """
-        ann_by_call: Dict[str, Annotation] = {ann.target_id: ann for ann in annotations}
-        items_by_call: Dict[str, DatasetItem] = {}
-        if dataset_items:
-            for item in dataset_items:
-                call_id = item.metadata.get("call_id", item.id)
-                items_by_call[call_id] = item
-
-        examples = []
-        for res in metric_results:
-            ann = ann_by_call.get(res.call_id)
-            if not ann:
-                continue
-
-            item = items_by_call.get(res.call_id)
-            input_text = ""
-            output_text = ""
-            if item:
-                input_text = json.dumps(item.input, default=str) if item.input else ""
-                output_text = str(item.output) if item.output else ""
-
-            examples.append(
-                {
-                    "input": input_text,
-                    "output": output_text,
-                    "expected": "PASS" if ann.label else "FAIL",
-                    "call_id": res.call_id,
-                }
-            )
-
-        # Shuffle and split into train/val
-        random.shuffle(examples)
-        split_idx = int(len(examples) * self.config.train_split)
-        trainset = examples[:split_idx]
-        valset = examples[split_idx:]
-
-        return trainset, valset
-
     def _evaluate_prompt(
         self,
         preamble: str,
@@ -207,7 +164,7 @@ Provide your verdict:"""
                 if accumulator:
                     accumulator.add(result)
                 # Parse the response to extract passed verdict
-                judge_pass = self._parse_judge_response(result.text)
+                judge_pass = parse_judge_response(result.text)
                 human_pass = ex.get("expected") == "PASS"
                 metrics.record(judge_pass, human_pass)
             except Exception:
@@ -215,30 +172,6 @@ Provide your verdict:"""
                 pass
 
         return metrics.f1, metrics.accuracy
-
-    def _parse_judge_response(self, response: str) -> bool:
-        """Parse judge response to extract pass/fail verdict."""
-        text = response.strip().lower()
-
-        # Try to find JSON
-        try:
-            start = response.find("{")
-            end = response.rfind("}") + 1
-            if start >= 0 and end > start:
-                json_str = response[start:end]
-                data = json.loads(json_str)
-                return bool(data.get("passed", False))
-        except (json.JSONDecodeError, ValueError):
-            pass
-
-        # Fallback: look for keywords
-        if "true" in text or '"passed": true' in text:
-            return True
-        if "false" in text or '"passed": false' in text:
-            return False
-
-        # Default to fail if unclear
-        return False
 
     def _build_meta_prompt(
         self,
@@ -355,39 +288,9 @@ Do not include any other text, just the JSON array."""
             result = self.optimizer_client.generate_with_usage(meta_prompt)
             if accumulator:
                 accumulator.add(result)
-            return self._parse_candidates_response(result.text)
+            return parse_candidates_response(result.text)
         except Exception:
             return []
-
-    def _parse_candidates_response(self, response: str) -> List[str]:
-        """Parse the optimizer's response to extract candidate preambles."""
-        text = response.strip()
-
-        # Remove markdown code blocks if present
-        if text.startswith("```"):
-            lines = text.split("\n")
-            text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
-            text = text.strip()
-
-        # Find JSON array
-        try:
-            start = text.find("[")
-            if start >= 0:
-                depth = 0
-                for i in range(start, len(text)):
-                    if text[i] == "[":
-                        depth += 1
-                    elif text[i] == "]":
-                        depth -= 1
-                        if depth == 0:
-                            json_str = text[start : i + 1]
-                            candidates = json.loads(json_str)
-                            # Ensure all items are strings
-                            return [str(c) for c in candidates if c]
-        except (json.JSONDecodeError, ValueError):
-            pass
-
-        return []
 
     def optimize(
         self,
@@ -426,8 +329,8 @@ Do not include any other text, just the JSON array."""
             PromptOptimizationResult with optimized preamble
         """
         # Build datasets
-        trainset, valset = self._build_dataset_from_annotations(
-            metric_results, annotations, dataset_items
+        trainset, valset = build_dataset_from_annotations(
+            metric_results, annotations, dataset_items, self.config.train_split
         )
 
         if len(trainset) < 3 or len(valset) < 2:

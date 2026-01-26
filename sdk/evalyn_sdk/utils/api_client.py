@@ -10,6 +10,8 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from ..defaults import DEFAULT_EVAL_MODEL
+
 
 @dataclass
 class GenerateResult:
@@ -46,7 +48,7 @@ class GeminiClient:
     """HTTP client for Gemini API.
 
     Usage:
-        client = GeminiClient(model="gemini-2.5-flash-lite")
+        client = GeminiClient()
         response = client.generate("What is 2+2?")
     """
 
@@ -54,7 +56,7 @@ class GeminiClient:
 
     def __init__(
         self,
-        model: str = "gemini-2.5-flash-lite",
+        model: str = DEFAULT_EVAL_MODEL,
         temperature: float = 0.0,
         api_key: Optional[str] = None,
         timeout: int = 60,
@@ -62,7 +64,7 @@ class GeminiClient:
         """Initialize Gemini API client.
 
         Args:
-            model: Gemini model name (default: gemini-2.5-flash-lite)
+            model: Gemini model name (default: DEFAULT_EVAL_MODEL)
             temperature: Generation temperature (default: 0.0)
             api_key: Optional API key (default: from GEMINI_API_KEY env var)
             timeout: Request timeout in seconds (default: 60)

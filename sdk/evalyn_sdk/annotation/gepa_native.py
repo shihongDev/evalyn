@@ -16,11 +16,11 @@ The rubric (evaluation criteria) is kept FIXED as defined by humans.
 
 from __future__ import annotations
 
-import json
 import random
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+from ..defaults import DEFAULT_GENERATOR_MODEL
 from ..models import Annotation, DatasetItem, MetricResult
 from ..utils.api_client import GeminiClient
 from .calibration import (
@@ -28,6 +28,10 @@ from .calibration import (
     PromptOptimizationResult,
     TokenAccumulator,
     build_full_prompt,
+)
+from .optimizer_utils import (
+    build_dataset_from_annotations,
+    parse_judge_response,
 )
 
 
@@ -48,8 +52,8 @@ class ParetoCandidate:
 class GEPANativeConfig:
     """Configuration for native GEPA optimizer."""
 
-    task_model: str = "gemini-2.5-flash"  # Model for evaluation (judge)
-    reflection_model: str = "gemini-2.5-flash"  # Model for generating mutations
+    task_model: str = DEFAULT_GENERATOR_MODEL  # Model for evaluation (judge)
+    reflection_model: str = DEFAULT_GENERATOR_MODEL  # Model for generating mutations
     max_metric_calls: int = 150  # Budget for optimization
     num_initial_candidates: int = 5  # Initial population size
     mini_batch_size: int = 5  # Samples per feedback cycle
@@ -160,71 +164,6 @@ class GEPANativeOptimizer:
             )
         return self._reflection_client
 
-    def _build_dataset_from_annotations(
-        self,
-        metric_results: List[MetricResult],
-        annotations: List[Annotation],
-        dataset_items: Optional[List[DatasetItem]] = None,
-    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-        """Convert calibration data to train/val sets."""
-        ann_by_call: Dict[str, Annotation] = {ann.target_id: ann for ann in annotations}
-        items_by_call: Dict[str, DatasetItem] = {}
-        if dataset_items:
-            for item in dataset_items:
-                call_id = item.metadata.get("call_id", item.id)
-                items_by_call[call_id] = item
-
-        examples = []
-        for res in metric_results:
-            ann = ann_by_call.get(res.call_id)
-            if not ann:
-                continue
-
-            item = items_by_call.get(res.call_id)
-            input_text = ""
-            output_text = ""
-            if item:
-                input_text = json.dumps(item.input, default=str) if item.input else ""
-                output_text = str(item.output) if item.output else ""
-
-            examples.append(
-                {
-                    "id": res.call_id,
-                    "input": input_text,
-                    "output": output_text,
-                    "expected": "PASS" if ann.label else "FAIL",
-                    "call_id": res.call_id,
-                }
-            )
-
-        random.shuffle(examples)
-        split_idx = int(len(examples) * self.config.train_split)
-        trainset = examples[:split_idx]
-        valset = examples[split_idx:]
-
-        return trainset, valset
-
-    def _parse_judge_response(self, response: str) -> bool:
-        """Parse judge response to extract pass/fail verdict."""
-        text = response.strip().lower()
-
-        try:
-            start = response.find("{")
-            end = response.rfind("}") + 1
-            if start >= 0 and end > start:
-                json_str = response[start:end]
-                data = json.loads(json_str)
-                return bool(data.get("passed", False))
-        except (json.JSONDecodeError, ValueError):
-            pass
-
-        if "true" in text or '"passed": true' in text:
-            return True
-        if "false" in text or '"passed": false' in text:
-            return False
-
-        return False
-
     def _evaluate_candidate_on_examples(
         self,
         candidate: ParetoCandidate,
@@ -258,7 +197,7 @@ Provide your verdict:"""
                 if accumulator:
                     accumulator.add(result)
 
-                judge_pass = self._parse_judge_response(result.text)
+                judge_pass = parse_judge_response(result.text)
                 human_pass = ex.get("expected") == "PASS"
                 metrics.record(judge_pass, human_pass)
 
@@ -528,8 +467,8 @@ Example {i}:
             accumulator = TokenAccumulator()
 
         # Build datasets
-        trainset, valset = self._build_dataset_from_annotations(
-            metric_results, annotations, dataset_items
+        trainset, valset = build_dataset_from_annotations(
+            metric_results, annotations, dataset_items, self.config.train_split
         )
 
         if len(trainset) < 3 or len(valset) < 2:

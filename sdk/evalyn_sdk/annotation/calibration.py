@@ -6,6 +6,7 @@ from statistics import mean
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
+from ..defaults import DEFAULT_DSPY_MODEL, DEFAULT_EVAL_MODEL
 from ..models import Annotation, CalibrationRecord, MetricResult, DatasetItem, now_utc
 from ..utils.api_client import GeminiClient, GenerateResult
 
@@ -336,7 +337,7 @@ class BasicOptimizer:
 
     def __init__(
         self,
-        model: str = "gemini-2.5-flash-lite",
+        model: str = DEFAULT_EVAL_MODEL,
         api_key: Optional[str] = None,
     ):
         self.model = model
@@ -568,8 +569,8 @@ Return ONLY the JSON object, no other text."""
 class GEPAConfig:
     """Configuration for GEPA optimization."""
 
-    task_lm: str = "gemini/gemini-2.5-flash"  # Model being optimized
-    reflection_lm: str = "gemini/gemini-2.5-flash"  # Model for reflection
+    task_lm: str = DEFAULT_DSPY_MODEL  # Model being optimized
+    reflection_lm: str = DEFAULT_DSPY_MODEL  # Model for reflection
     max_metric_calls: int = 150  # Budget for optimization
     train_split: float = 0.7  # Train/val split ratio
 
@@ -800,7 +801,7 @@ class CalibrationEngine:
         current_rubric: Optional[List[str]] = None,
         current_preamble: str = "",  # Base prompt before rubric
         optimize_prompts: bool = True,
-        optimizer_model: str = "gemini-2.5-flash-lite",
+        optimizer_model: str = DEFAULT_EVAL_MODEL,
         optimizer_type: str = "basic",  # "basic", "gepa", "gepa-native", "opro", or "ape"
         gepa_config: Optional[GEPAConfig] = None,
         gepa_native_config: Optional[Any] = None,  # GEPANativeConfig
