@@ -8,11 +8,33 @@ from __future__ import annotations
 
 import functools
 import importlib.util
+import logging
 import time
 from typing import Any, Optional
 
 from ..base import Instrumentor, InstrumentorType
 from ._shared import log_llm_call
+
+logger = logging.getLogger(__name__)
+
+
+def _extract_usage(response: Any) -> dict:
+    """Extract token usage from Anthropic response."""
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        logger.debug("Anthropic response missing usage data (may be streaming)")
+        return {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cache_creation_tokens": 0,
+            "cache_read_tokens": 0,
+        }
+    return {
+        "input_tokens": getattr(usage, "input_tokens", 0),
+        "output_tokens": getattr(usage, "output_tokens", 0),
+        "cache_creation_tokens": getattr(usage, "cache_creation_input_tokens", 0),
+        "cache_read_tokens": getattr(usage, "cache_read_input_tokens", 0),
+    }
 
 
 class AnthropicInstrumentor(Instrumentor):
@@ -58,20 +80,15 @@ class AnthropicInstrumentor(Instrumentor):
                 try:
                     response = self._original_create(inst, *args, **kwargs)
                     duration_ms = (time.time() - start) * 1000
-
-                    # Extract token usage from Anthropic response
-                    usage = getattr(response, "usage", None)
-                    input_tokens = getattr(usage, "input_tokens", 0) if usage else 0
-                    output_tokens = getattr(usage, "output_tokens", 0) if usage else 0
+                    usage = _extract_usage(response)
 
                     log_llm_call(
                         provider="anthropic",
                         model=model,
-                        input_tokens=input_tokens,
-                        output_tokens=output_tokens,
                         duration_ms=duration_ms,
                         success=True,
                         request={"messages": str(messages)[:500]},
+                        **usage,
                     )
 
                     return response
@@ -96,22 +113,20 @@ class AnthropicInstrumentor(Instrumentor):
             async def patched_acreate(inst, *args, **kwargs):
                 start = time.time()
                 model = kwargs.get("model", "unknown")
+                messages = kwargs.get("messages", [])
 
                 try:
                     response = await self._original_acreate(inst, *args, **kwargs)
                     duration_ms = (time.time() - start) * 1000
-
-                    usage = getattr(response, "usage", None)
-                    input_tokens = getattr(usage, "input_tokens", 0) if usage else 0
-                    output_tokens = getattr(usage, "output_tokens", 0) if usage else 0
+                    usage = _extract_usage(response)
 
                     log_llm_call(
                         provider="anthropic",
                         model=model,
-                        input_tokens=input_tokens,
-                        output_tokens=output_tokens,
                         duration_ms=duration_ms,
                         success=True,
+                        request={"messages": str(messages)[:500]},
+                        **usage,
                     )
 
                     return response

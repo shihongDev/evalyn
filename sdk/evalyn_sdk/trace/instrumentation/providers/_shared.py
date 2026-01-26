@@ -20,7 +20,11 @@ from ... import context as span_context
 #   - Anthropic: https://platform.claude.com/docs/en/about-claude/pricing
 #   - Google: https://ai.google.dev/gemini-api/docs/pricing
 #   - OpenAI: https://openai.com/api/pricing
-COST_PER_1M_TOKENS = {
+#
+# IMPORTANT: This dict is sorted by key length (longest first) at module load time
+# to ensure substring matching finds the most specific model first.
+# e.g., "gpt-4o-mini" must match before "gpt-4o"
+_COST_PER_1M_TOKENS_UNSORTED = {
     # OpenAI
     "gpt-4o": {"input": 2.50, "output": 10.00},
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
@@ -106,7 +110,7 @@ COST_PER_1M_TOKENS = {
     # Google Gemini 1.5 models
     "gemini-1.5-pro": {"input": 1.25, "output": 5.00},
     "gemini-1.5-flash": {"input": 0.075, "output": 0.30},
-    # xAI Grok models (more specific names must come first for substring matching)
+    # xAI Grok models
     # Source: https://docs.x.ai/docs/models
     "grok-4-1-fast-reasoning": {"input": 0.20, "output": 0.50},
     "grok-4-1-fast-non-reasoning": {"input": 0.20, "output": 0.50},
@@ -116,6 +120,12 @@ COST_PER_1M_TOKENS = {
     "grok-4-0709": {"input": 3.00, "output": 15.00},
     "grok-4": {"input": 3.00, "output": 15.00},  # grok-4-latest maps here
 }
+
+# Sort by key length descending so longer (more specific) model names match first
+# This prevents "gpt-4o" from matching "gpt-4o-mini" before the more specific key
+COST_PER_1M_TOKENS = dict(
+    sorted(_COST_PER_1M_TOKENS_UNSORTED.items(), key=lambda x: len(x[0]), reverse=True)
+)
 
 
 def is_model_pricing_known(model: str) -> bool:
