@@ -547,7 +547,7 @@ class CalibrationStep(PipelineStep):
 
         print(f"  -> Calibrating {len(subj_metrics)} subjective metrics...\n")
 
-        optimizer = getattr(self.args, "optimizer", "llm")
+        optimizer = getattr(self.args, "optimizer", "basic")
         model = getattr(self.args, "model", "gemini-2.5-flash-lite")
 
         calibrated_metrics = []
@@ -625,7 +625,7 @@ class CalibrationStep(PipelineStep):
         )
 
     def dry_run_message(self, output_dir: Path) -> str:
-        optimizer = getattr(self.args, "optimizer", "llm")
+        optimizer = getattr(self.args, "optimizer", "basic")
         return f"  -> Would calibrate subjective metrics\n  -> Optimizer: {optimizer}\n"
 
 

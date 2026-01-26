@@ -7,7 +7,35 @@ from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
 from ..models import Annotation, CalibrationRecord, MetricResult, DatasetItem, now_utc
-from ..utils.api_client import GeminiClient
+from ..utils.api_client import GeminiClient, GenerateResult
+
+
+def build_full_prompt(preamble: str, rubric: List[str]) -> str:
+    """
+    Combine preamble with rubric to create a complete judge prompt.
+
+    This is the standard prompt structure used by all optimizers.
+    The preamble is the part that gets optimized; the rubric stays fixed.
+
+    Args:
+        preamble: The system prompt/instructions (optimized by APE/OPRO/etc)
+        rubric: Fixed evaluation criteria defined by humans
+
+    Returns:
+        Complete prompt ready for use by LLM judge
+    """
+    rubric_text = ""
+    if rubric:
+        rubric_lines = "\n".join([f"- {r}" for r in rubric])
+        rubric_text = f"\n\nEvaluate using this rubric (PASS only if all criteria met):\n{rubric_lines}"
+
+    output_format = """
+
+After your analysis, provide your verdict as a JSON object:
+{"passed": true/false, "reason": "brief explanation", "score": 0.0-1.0}"""
+
+    return preamble + rubric_text + output_format
+
 
 # GEPA import (optional dependency)
 try:
@@ -16,6 +44,68 @@ try:
     GEPA_AVAILABLE = True
 except ImportError:
     GEPA_AVAILABLE = False
+
+
+@dataclass
+class TokenAccumulator:
+    """Accumulates token usage across multiple LLM calls for cost tracking."""
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    models: set = field(default_factory=set)
+
+    def add(self, result: GenerateResult) -> None:
+        """Add tokens from a GenerateResult."""
+        self.input_tokens += result.input_tokens
+        self.output_tokens += result.output_tokens
+        if result.model:
+            self.models.add(result.model)
+
+    def add_usage(
+        self, input_tokens: int, output_tokens: int, model: Optional[str] = None
+    ) -> None:
+        """Add tokens directly from counts (e.g., from LLMJudge.score() result)."""
+        self.input_tokens += input_tokens
+        self.output_tokens += output_tokens
+        if model:
+            self.models.add(model)
+
+    def as_usage_summary(self) -> dict:
+        """Convert to usage_summary dict compatible with print_token_usage_summary."""
+        from ..trace.instrumentation.providers._shared import (
+            calculate_cost,
+            is_model_pricing_known,
+        )
+
+        total_tokens = self.input_tokens + self.output_tokens
+        has_unknown_pricing = any(
+            not is_model_pricing_known(m) for m in self.models
+        )
+
+        # Calculate total cost across all models
+        # Since we don't track per-model token counts, we estimate by averaging
+        total_cost = 0.0
+        if self.models:
+            for model in self.models:
+                # Proportionally distribute tokens across models
+                cost = calculate_cost(
+                    model,
+                    self.input_tokens // len(self.models),
+                    self.output_tokens // len(self.models),
+                )
+                total_cost += cost
+        else:
+            # Fallback: use default rate
+            total_cost = total_tokens / 1_000_000 * 1.0
+
+        return {
+            "total_input_tokens": self.input_tokens,
+            "total_output_tokens": self.output_tokens,
+            "total_tokens": total_tokens,
+            "models_used": sorted(self.models),
+            "total_cost_usd": total_cost,
+            "has_unknown_pricing": has_unknown_pricing,
+        }
 
 
 @dataclass
@@ -233,9 +323,15 @@ class ValidationResult:
         }
 
 
-class PromptOptimizer:
+class BasicOptimizer:
     """
-    Uses LLM to analyze disagreement patterns and suggest rubric improvements.
+    Single-shot LLM-based preamble optimizer (simplest approach).
+
+    Uses one LLM call to analyze disagreement patterns and suggest improvements.
+    No iteration, no search - just pattern analysis and a single suggested preamble.
+
+    IMPORTANT: Only the preamble (system prompt/instructions) is optimized.
+    The rubric (evaluation criteria) is kept FIXED as defined by humans.
     """
 
     def __init__(
@@ -253,7 +349,7 @@ class PromptOptimizer:
         if self._client is None:
             self._client = GeminiClient(
                 model=self.model,
-                temperature=0.0,
+                temperature=0.7,  # Higher for diverse preamble generation
                 api_key=self._api_key,
                 timeout=90,
             )
@@ -265,18 +361,38 @@ class PromptOptimizer:
         current_rubric: List[str],
         disagreements: DisagreementAnalysis,
         alignment_metrics: AlignmentMetrics,
+        current_preamble: str = "",
+        accumulator: Optional[TokenAccumulator] = None,
     ) -> PromptOptimizationResult:
         """
-        Analyze disagreements and suggest rubric improvements.
+        Analyze disagreements and suggest preamble improvements.
+
+        IMPORTANT: Only the preamble is optimized. The rubric stays fixed.
+
+        Args:
+            metric_id: The metric being calibrated
+            current_rubric: Fixed rubric criteria (NOT optimized)
+            disagreements: Analysis of false positives/negatives
+            alignment_metrics: Computed alignment metrics
+            current_preamble: Current preamble text (the part to optimize)
+            accumulator: Optional TokenAccumulator to track token usage
         """
+        # Use default preamble if none provided
+        if not current_preamble:
+            current_preamble = f"You are an expert evaluator for the metric: {metric_id}. Carefully analyze the output quality and provide an honest assessment."
+
         # Build the optimization prompt
         prompt = self._build_optimization_prompt(
-            metric_id, current_rubric, disagreements, alignment_metrics
+            metric_id, current_rubric, current_preamble, disagreements, alignment_metrics
         )
 
         try:
-            response_text = self.client.generate(prompt)
-            return self._parse_optimization_response(response_text, current_rubric)
+            result = self.client.generate_with_usage(prompt)
+            if accumulator:
+                accumulator.add(result)
+            return self._parse_optimization_response(
+                result.text, current_rubric, current_preamble
+            )
         except Exception as e:
             # Return a fallback result on error
             return PromptOptimizationResult(
@@ -286,16 +402,18 @@ class PromptOptimizer:
                 suggested_additions=[],
                 suggested_removals=[],
                 estimated_improvement="unknown",
+                original_preamble=current_preamble,
             )
 
     def _build_optimization_prompt(
         self,
         metric_id: str,
         current_rubric: List[str],
+        current_preamble: str,
         disagreements: DisagreementAnalysis,
         alignment_metrics: AlignmentMetrics,
     ) -> str:
-        """Build prompt for rubric optimization."""
+        """Build prompt for preamble optimization (rubric stays fixed)."""
 
         # Format current rubric
         rubric_text = (
@@ -326,12 +444,15 @@ Example {i} (Judge said FAIL, Human said PASS):
   Human notes: {case.human_notes}
 """
 
-        prompt = f"""You are an expert at improving LLM evaluation rubrics. Analyze the following calibration data and suggest improvements.
+        prompt = f"""You are an expert at improving LLM evaluation prompts.
 
 ## METRIC BEING CALIBRATED
 Metric ID: {metric_id}
 
-## CURRENT RUBRIC
+## CURRENT PREAMBLE (the part you will improve)
+{current_preamble}
+
+## FIXED RUBRIC (do NOT modify - for context only)
 {rubric_text}
 
 ## ALIGNMENT STATISTICS
@@ -350,20 +471,26 @@ Judge was too STRICT - said FAIL when human said PASS:
 {fn_examples if fn_examples else "(none)"}
 
 ## YOUR TASK
-Analyze the disagreement patterns and suggest an improved rubric. Return a JSON object with:
+Analyze the disagreement patterns and write an improved PREAMBLE (not the rubric).
+The preamble is the system prompt/instructions that frame how the judge should evaluate.
+
+Return a JSON object with:
 {{
-  "improved_rubric": ["criterion 1", "criterion 2", ...],
-  "suggested_additions": ["new criterion to add", ...],
-  "suggested_removals": ["criterion to remove or relax", ...],
+  "optimized_preamble": "Your improved preamble text (100-300 words)",
   "improvement_reasoning": "Explanation of what patterns you found and why these changes help",
   "estimated_improvement": "low|medium|high"
 }}
 
-Guidelines:
-- If many false positives: make criteria more STRICT or add missing criteria
-- If many false negatives: relax overly strict criteria or add nuance
-- Be specific and actionable in your rubric criteria
-- Aim for 3-7 criteria total
+Guidelines for good preambles:
+- Clear role definition (e.g., "You are an expert evaluator...")
+- Specific instructions on how to interpret the rubric
+- Guidance on common edge cases based on the disagreement patterns
+- Emphasis on what matters most for this metric
+- If many false positives: emphasize being more STRICT in evaluation
+- If many false negatives: emphasize being more LENIENT or nuanced
+- Keep it concise but complete (100-300 words ideal)
+
+IMPORTANT: Do NOT suggest changes to the rubric. The rubric is fixed.
 
 Return ONLY the JSON object, no other text."""
 
@@ -373,6 +500,7 @@ Return ONLY the JSON object, no other text."""
         self,
         response_text: str,
         original_rubric: List[str],
+        original_preamble: str,
     ) -> PromptOptimizationResult:
         """Parse the LLM response into a structured result."""
 
@@ -399,23 +527,28 @@ Return ONLY the JSON object, no other text."""
                             json_str = text[start : i + 1]
                             parsed = json.loads(json_str)
 
+                            optimized_preamble = parsed.get(
+                                "optimized_preamble", original_preamble
+                            )
+                            full_prompt = build_full_prompt(
+                                optimized_preamble, original_rubric
+                            )
+
                             return PromptOptimizationResult(
                                 original_rubric=original_rubric,
-                                improved_rubric=parsed.get(
-                                    "improved_rubric", original_rubric
-                                ),
+                                improved_rubric=original_rubric,  # Rubric stays fixed
                                 improvement_reasoning=parsed.get(
                                     "improvement_reasoning", ""
                                 ),
-                                suggested_additions=parsed.get(
-                                    "suggested_additions", []
-                                ),
-                                suggested_removals=parsed.get("suggested_removals", []),
+                                suggested_additions=[],
+                                suggested_removals=[],
                                 estimated_improvement=parsed.get(
                                     "estimated_improvement", "unknown"
                                 ),
+                                original_preamble=original_preamble,
+                                optimized_preamble=optimized_preamble,
+                                full_prompt=full_prompt,
                             )
-                            break
         except Exception:
             pass
 
@@ -427,6 +560,7 @@ Return ONLY the JSON object, no other text."""
             suggested_additions=[],
             suggested_removals=[],
             estimated_improvement="unknown",
+            original_preamble=original_preamble,
         )
 
 
@@ -527,23 +661,6 @@ class GEPAOptimizer:
 
         return {"preamble": preamble}
 
-    def _build_full_prompt(self, preamble: str, rubric: List[str]) -> str:
-        """
-        Combine optimized preamble with fixed rubric to create the full prompt.
-        This is what the judge will use.
-        """
-        rubric_text = ""
-        if rubric:
-            rubric_lines = "\n".join([f"- {r}" for r in rubric])
-            rubric_text = f"\n\nEvaluate using this rubric (PASS only if all criteria met):\n{rubric_lines}"
-
-        output_format = """
-
-After your analysis, provide your verdict as a JSON object:
-{"passed": true/false, "reason": "brief explanation", "score": 0.0-1.0}"""
-
-        return preamble + rubric_text + output_format
-
     def optimize(
         self,
         metric_id: str,
@@ -608,7 +725,7 @@ After your analysis, provide your verdict as a JSON object:
             )
 
             # Build the full optimized prompt (ready to use)
-            full_optimized_prompt = self._build_full_prompt(
+            full_optimized_prompt = build_full_prompt(
                 optimized_preamble, current_rubric
             )
 
@@ -657,8 +774,9 @@ class CalibrationConfig:
     current_preamble: str = ""  # Base prompt before rubric
     optimize_prompts: bool = True
     optimizer_model: str = "gemini-2.5-flash-lite"
-    optimizer_type: str = "llm"  # "llm", "gepa", "opro", or "ape"
+    optimizer_type: str = "basic"  # "basic", "gepa", "gepa-native", "opro", or "ape"
     gepa_config: Optional[GEPAConfig] = None
+    gepa_native_config: Optional[Any] = None  # GEPANativeConfig
     opro_config: Optional[Any] = None  # OPROConfig (import avoided for circular deps)
     ape_config: Optional[Any] = None  # APEConfig (import avoided for circular deps)
 
@@ -668,12 +786,11 @@ class CalibrationEngine:
     Enhanced calibration engine that:
     1. Computes alignment metrics (precision, recall, F1, kappa)
     2. Analyzes disagreement patterns
-    3. Uses LLM, GEPA, OPRO, or APE to optimize judge prompts
+    3. Uses LLM, GEPA, GEPA-Native, OPRO, or APE to optimize judge prompts
 
-    For GEPA: Only the preamble is optimized; rubric stays fixed.
-    For OPRO: Only the preamble is optimized; rubric stays fixed.
-    For APE: Only the preamble is optimized; rubric stays fixed.
-    For LLM: Both preamble and rubric can be suggested for improvement.
+    IMPORTANT: All optimizers only optimize the preamble (system prompt/instructions).
+    The rubric (evaluation criteria) is kept FIXED as defined by humans.
+    This prevents "reward hacking" where the judge optimizes away from human intent.
     """
 
     def __init__(
@@ -684,8 +801,9 @@ class CalibrationEngine:
         current_preamble: str = "",  # Base prompt before rubric
         optimize_prompts: bool = True,
         optimizer_model: str = "gemini-2.5-flash-lite",
-        optimizer_type: str = "llm",  # "llm", "gepa", "opro", or "ape"
+        optimizer_type: str = "basic",  # "basic", "gepa", "gepa-native", "opro", or "ape"
         gepa_config: Optional[GEPAConfig] = None,
+        gepa_native_config: Optional[Any] = None,  # GEPANativeConfig
         opro_config: Optional[Any] = None,  # OPROConfig
         ape_config: Optional[Any] = None,  # APEConfig
         *,
@@ -701,6 +819,7 @@ class CalibrationEngine:
             self.optimizer_model = config.optimizer_model
             self.optimizer_type = config.optimizer_type
             self.gepa_config = config.gepa_config
+            self.gepa_native_config = config.gepa_native_config
             self.opro_config = config.opro_config
             self.ape_config = config.ape_config
         else:
@@ -714,6 +833,7 @@ class CalibrationEngine:
             self.optimizer_model = optimizer_model
             self.optimizer_type = optimizer_type
             self.gepa_config = gepa_config
+            self.gepa_native_config = gepa_native_config
             self.opro_config = opro_config
             self.ape_config = ape_config
 
@@ -816,6 +936,7 @@ class CalibrationEngine:
         annotations: List[Annotation],
         dataset_items: Optional[List[DatasetItem]] = None,
         val_split: float = 0.3,
+        accumulator: Optional[TokenAccumulator] = None,
     ) -> Optional[ValidationResult]:
         """
         Validate optimized prompt against validation set.
@@ -824,6 +945,16 @@ class CalibrationEngine:
         2. Re-run LLM judge with both prompts on val set
         3. Compare F1 scores
         4. Return ValidationResult with recommendation
+
+        Args:
+            original_prompt: The original prompt to compare against
+            optimized_prompt: The optimized prompt to validate
+            metric_id: The metric being calibrated
+            metric_results: Evaluation results from the judge
+            annotations: Human annotations
+            dataset_items: Optional dataset items for context
+            val_split: Fraction of data to use for validation (default: 0.3)
+            accumulator: Optional TokenAccumulator to track token usage
 
         Returns None if validation cannot be performed.
         """
@@ -909,6 +1040,14 @@ class CalibrationEngine:
                 original_result = original_judge.score(fake_call, item)
                 original_pass = bool(original_result.get("passed"))
 
+                # Track token usage
+                if accumulator:
+                    accumulator.add_usage(
+                        original_result.get("input_tokens", 0),
+                        original_result.get("output_tokens", 0),
+                        original_result.get("model"),
+                    )
+
                 if original_pass and human_pass:
                     original_metrics.true_positive += 1
                 elif not original_pass and not human_pass:
@@ -924,6 +1063,14 @@ class CalibrationEngine:
             try:
                 optimized_result = optimized_judge.score(fake_call, item)
                 optimized_pass = bool(optimized_result.get("passed"))
+
+                # Track token usage
+                if accumulator:
+                    accumulator.add_usage(
+                        optimized_result.get("input_tokens", 0),
+                        optimized_result.get("output_tokens", 0),
+                        optimized_result.get("model"),
+                    )
 
                 if optimized_pass and human_pass:
                     optimized_metrics.true_positive += 1
@@ -985,6 +1132,9 @@ class CalibrationEngine:
         """
         ann_by_call: Dict[str, Annotation] = {ann.target_id: ann for ann in annotations}
 
+        # Token accumulator for tracking LLM usage across optimization
+        accumulator = TokenAccumulator()
+
         # Step 1: Compute alignment metrics
         alignment = self.compute_alignment(metric_results, annotations)
 
@@ -1002,6 +1152,7 @@ class CalibrationEngine:
             try:
                 if self.optimizer_type == "gepa":
                     # Use GEPA evolutionary optimization (preamble only, rubric stays fixed)
+                    # Note: GEPA uses external library, token tracking not available
                     if not GEPA_AVAILABLE:
                         raise ImportError(
                             "GEPA is not installed. Install with: pip install gepa"
@@ -1015,6 +1166,22 @@ class CalibrationEngine:
                         dataset_items=dataset_items,
                         current_preamble=self.current_preamble,
                     )
+                elif self.optimizer_type == "gepa-native":
+                    # Use native GEPA with token tracking (no external library)
+                    from .gepa_native import GEPANativeOptimizer
+
+                    gepa_native_optimizer = GEPANativeOptimizer(
+                        config=self.gepa_native_config
+                    )
+                    prompt_optimization = gepa_native_optimizer.optimize(
+                        metric_id=self.judge_name,
+                        current_rubric=self.current_rubric,
+                        metric_results=metric_results,
+                        annotations=annotations,
+                        dataset_items=dataset_items,
+                        current_preamble=self.current_preamble,
+                        accumulator=accumulator,
+                    )
                 elif self.optimizer_type == "opro":
                     # Use OPRO optimization (preamble only, rubric stays fixed)
                     from .opro import OPROOptimizer
@@ -1027,6 +1194,7 @@ class CalibrationEngine:
                         annotations=annotations,
                         dataset_items=dataset_items,
                         current_preamble=self.current_preamble,
+                        accumulator=accumulator,
                     )
                 elif self.optimizer_type == "ape":
                     # Use APE optimization (preamble only, rubric stays fixed)
@@ -1041,15 +1209,19 @@ class CalibrationEngine:
                         disagreements=disagreements,
                         dataset_items=dataset_items,
                         current_preamble=self.current_preamble,
+                        accumulator=accumulator,
                     )
                 else:
-                    # Use LLM-based optimization (default)
-                    optimizer = PromptOptimizer(model=self.optimizer_model)
+                    # Use basic single-shot optimization (default)
+                    # Note: Like APE/OPRO, only preamble is optimized; rubric stays fixed
+                    optimizer = BasicOptimizer(model=self.optimizer_model)
                     prompt_optimization = optimizer.optimize(
                         metric_id=self.judge_name,
                         current_rubric=self.current_rubric,
                         disagreements=disagreements,
                         alignment_metrics=alignment,
+                        current_preamble=self.current_preamble,
+                        accumulator=accumulator,
                     )
             except Exception as e:
                 prompt_optimization = PromptOptimizationResult(
@@ -1087,6 +1259,7 @@ class CalibrationEngine:
                         metric_results=metric_results,
                         annotations=annotations,
                         dataset_items=dataset_items,
+                        accumulator=accumulator,
                     )
                 except Exception:
                     validation_result = None
@@ -1109,6 +1282,14 @@ class CalibrationEngine:
                     "reflection_lm": self.gepa_config.reflection_lm,
                     "max_metric_calls": self.gepa_config.max_metric_calls,
                 }
+            elif self.optimizer_type == "gepa-native" and self.gepa_native_config:
+                adjustments["gepa_native_config"] = {
+                    "task_model": self.gepa_native_config.task_model,
+                    "reflection_model": self.gepa_native_config.reflection_model,
+                    "max_metric_calls": self.gepa_native_config.max_metric_calls,
+                    "num_initial_candidates": self.gepa_native_config.num_initial_candidates,
+                    "mini_batch_size": self.gepa_native_config.mini_batch_size,
+                }
             elif self.optimizer_type == "ape" and self.ape_config:
                 adjustments["ape_config"] = {
                     "num_candidates": self.ape_config.num_candidates,
@@ -1125,6 +1306,7 @@ class CalibrationEngine:
             gold_items=list(ann_by_call.keys()),
             adjustments=adjustments,
             created_at=now_utc(),
+            usage_summary=accumulator.as_usage_summary(),
         )
 
     def _suggest_threshold(
@@ -1191,7 +1373,7 @@ def save_calibration(
 
     # Generate timestamp for file names
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    optimizer_type = record.adjustments.get("optimizer_type", "llm")
+    optimizer_type = record.adjustments.get("optimizer_type", "basic")
 
     saved_paths: Dict[str, str] = {}
 

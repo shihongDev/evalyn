@@ -9,7 +9,7 @@ Commands:
 - list-calibrations: List calibration records for a dataset
 
 Optimization methods:
-- llm (default): Uses LLM to analyze disagreement patterns and suggest prompt improvements
+- basic (default): Single-shot LLM analysis of disagreement patterns
 - gepa: Uses GEPA evolutionary algorithm for systematic prompt optimization
 - opro: Uses OPRO (Optimization by PROmpting) trajectory-based optimization
 - ape: Uses APE (Automatic Prompt Engineer) search-based optimization with UCB selection
@@ -39,6 +39,7 @@ from ...annotation import (
     CalibrationEngine,
     GEPAConfig,
     GEPA_AVAILABLE,
+    GEPANativeConfig,
     OPROConfig,
     APEConfig,
     save_calibration,
@@ -48,6 +49,7 @@ from ...decorators import get_default_tracer
 from ...models import DatasetItem
 from ..utils.config import load_config, resolve_dataset_path, get_config_default
 from ..utils.errors import fatal_error
+from ..utils.formatters import print_token_usage_summary
 from ..utils.hints import print_hint
 from ..utils.ui import Spinner
 
@@ -55,9 +57,9 @@ from ..utils.ui import Spinner
 def _apply_calibration_config_defaults(args: argparse.Namespace, config: dict) -> None:
     """Apply config file defaults to calibration args."""
     # Basic calibration settings
-    if args.optimizer == "llm":  # Only override if still at default
+    if args.optimizer == "basic":  # Only override if still at default
         args.optimizer = get_config_default(
-            config, "calibration", "optimizer", default="llm"
+            config, "calibration", "optimizer", default="basic"
         )
     if args.threshold == 0.5:
         args.threshold = get_config_default(
@@ -118,6 +120,28 @@ def _apply_calibration_config_defaults(args: argparse.Namespace, config: dict) -
             config, "calibration", "ape", "samples", default=5
         )
 
+    # GEPA-Native settings
+    if args.gepa_native_task_model == "gemini-2.5-flash":
+        args.gepa_native_task_model = get_config_default(
+            config, "calibration", "gepa_native", "task_model", default="gemini-2.5-flash"
+        )
+    if args.gepa_native_reflection_model == "gemini-2.5-flash":
+        args.gepa_native_reflection_model = get_config_default(
+            config, "calibration", "gepa_native", "reflection_model", default="gemini-2.5-flash"
+        )
+    if args.gepa_native_max_calls == 150:
+        args.gepa_native_max_calls = get_config_default(
+            config, "calibration", "gepa_native", "max_calls", default=150
+        )
+    if args.gepa_native_initial_candidates == 5:
+        args.gepa_native_initial_candidates = get_config_default(
+            config, "calibration", "gepa_native", "initial_candidates", default=5
+        )
+    if args.gepa_native_batch_size == 5:
+        args.gepa_native_batch_size = get_config_default(
+            config, "calibration", "gepa_native", "batch_size", default=5
+        )
+
 
 def cmd_calibrate(args: argparse.Namespace) -> None:
     """Calibrate a subjective metric using human annotations.
@@ -132,7 +156,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     7. Save calibration record and optimized prompt
 
     Optimization methods:
-    - llm: Analyzes patterns and suggests rubric improvements
+    - basic: Single-shot LLM analysis (fast, simple)
     - gepa: Evolutionary algorithm for systematic optimization (slower but thorough)
     """
     tracer = get_default_tracer()
@@ -224,6 +248,17 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
             eval_samples_per_round=args.ape_samples,
         )
 
+    # Build GEPA-Native config if using native implementation
+    gepa_native_config = None
+    if args.optimizer == "gepa-native":
+        gepa_native_config = GEPANativeConfig(
+            task_model=args.gepa_native_task_model,
+            reflection_model=args.gepa_native_reflection_model,
+            max_metric_calls=args.gepa_native_max_calls,
+            num_initial_candidates=args.gepa_native_initial_candidates,
+            mini_batch_size=args.gepa_native_batch_size,
+        )
+
     # Run enhanced calibration
     engine = CalibrationEngine(
         judge_name=args.metric_id,
@@ -234,13 +269,18 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
         optimizer_model=args.model,
         optimizer_type=args.optimizer,
         gepa_config=gepa_config,
+        gepa_native_config=gepa_native_config,
         opro_config=opro_config,
         ape_config=ape_config,
     )
 
-    # Use spinner for long-running operations (GEPA, OPRO, or APE)
+    # Use spinner for long-running operations (GEPA, OPRO, APE, or GEPA-Native)
     if args.optimizer == "gepa" and not args.no_optimize:
         spinner_msg = f"Running GEPA optimization (max {args.gepa_max_calls} calls)"
+        with Spinner(spinner_msg):
+            record = engine.calibrate(metric_results, anns, dataset_items)
+    elif args.optimizer == "gepa-native" and not args.no_optimize:
+        spinner_msg = f"Running GEPA-Native optimization (max {args.gepa_native_max_calls} calls)"
         with Spinner(spinner_msg):
             record = engine.calibrate(metric_results, anns, dataset_items)
     elif args.optimizer == "opro" and not args.no_optimize:
@@ -332,7 +372,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     print(f"Suggested: {record.adjustments.get('suggested_threshold', 0.5):.3f}")
 
     # Prompt optimization results
-    optimizer_type = record.adjustments.get("optimizer_type", "llm")
+    optimizer_type = record.adjustments.get("optimizer_type", "basic")
     optimization = record.adjustments.get("prompt_optimization", {})
     if optimization:
         print("\n--- PROMPT OPTIMIZATION ---")
@@ -473,6 +513,9 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(record.as_dict(), f, indent=2, default=str)
         print(f"\nCalibration record also saved to: {output_path}")
+
+    # Display token usage summary
+    print_token_usage_summary(record.usage_summary, verbose=getattr(args, "verbose", False))
 
     print(f"\n{'=' * 60}")
 
@@ -617,9 +660,9 @@ def register_commands(subparsers) -> None:
     )
     calibrate_parser.add_argument(
         "--optimizer",
-        choices=["llm", "gepa", "opro", "ape"],
-        default="llm",
-        help="Optimization method: 'llm' (default), 'gepa' (evolutionary), 'opro' (trajectory-based), or 'ape' (search-based)",
+        choices=["basic", "gepa", "gepa-native", "opro", "ape"],
+        default="basic",
+        help="Optimization method: 'basic' (single-shot, default), 'gepa' (evolutionary), 'gepa-native' (evolutionary with token tracking), 'opro' (trajectory-based), or 'ape' (search-based)",
     )
     calibrate_parser.add_argument(
         "--model",
@@ -684,11 +727,43 @@ def register_commands(subparsers) -> None:
         default=5,
         help="Samples per candidate per UCB round (default: 5)",
     )
+    # GEPA-Native specific arguments
+    calibrate_parser.add_argument(
+        "--gepa-native-task-model",
+        default="gemini-2.5-flash",
+        help="Task model for GEPA-Native evaluation (default: gemini-2.5-flash)",
+    )
+    calibrate_parser.add_argument(
+        "--gepa-native-reflection-model",
+        default="gemini-2.5-flash",
+        help="Reflection model for GEPA-Native mutations (default: gemini-2.5-flash)",
+    )
+    calibrate_parser.add_argument(
+        "--gepa-native-max-calls",
+        type=int,
+        default=150,
+        help="Max metric calls budget for GEPA-Native (default: 150)",
+    )
+    calibrate_parser.add_argument(
+        "--gepa-native-initial-candidates",
+        type=int,
+        default=5,
+        help="Number of initial candidates for GEPA-Native (default: 5)",
+    )
+    calibrate_parser.add_argument(
+        "--gepa-native-batch-size",
+        type=int,
+        default=5,
+        help="Mini-batch size for GEPA-Native feedback (default: 5)",
+    )
     calibrate_parser.add_argument(
         "--show-examples", action="store_true", help="Show example disagreement cases"
     )
     calibrate_parser.add_argument(
         "--output", help="Path to save calibration record JSON"
+    )
+    calibrate_parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Show detailed cost breakdown"
     )
     calibrate_parser.add_argument(
         "--format",

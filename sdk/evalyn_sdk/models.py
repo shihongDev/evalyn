@@ -739,6 +739,8 @@ class CalibrationRecord:
     gold_items: List[str]
     adjustments: Dict[str, Any]
     created_at: datetime = field(default_factory=now_utc)
+    # Token usage summary for calibration (LLM optimizer calls)
+    usage_summary: Dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> Dict[str, Any]:
         return {
@@ -747,4 +749,5 @@ class CalibrationRecord:
             "gold_items": self.gold_items,
             "adjustments": self.adjustments,
             "created_at": _iso(self.created_at),
+            "usage_summary": self.usage_summary,
         }

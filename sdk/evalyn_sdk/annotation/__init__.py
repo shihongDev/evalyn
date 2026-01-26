@@ -5,7 +5,7 @@ Provides tools for:
 - Importing/exporting annotations
 - Span-level annotation schemas
 - LLM judge calibration
-- Prompt optimization (LLM and GEPA)
+- Prompt optimization (Basic, APE, OPRO, GEPA)
 """
 
 from .annotations import (
@@ -34,7 +34,7 @@ from .calibration import (
     DisagreementAnalysis,
     PromptOptimizationResult,
     ValidationResult,
-    PromptOptimizer,
+    BasicOptimizer,
     GEPAConfig,
     GEPAOptimizer,
     GEPA_AVAILABLE,
@@ -42,6 +42,8 @@ from .calibration import (
     CalibrationEngine,
     save_calibration,
     load_optimized_prompt,
+    TokenAccumulator,
+    build_full_prompt,
 )
 from .opro import (
     OPROConfig,
@@ -50,6 +52,10 @@ from .opro import (
 from .ape import (
     APEConfig,
     APEOptimizer,
+)
+from .gepa_native import (
+    GEPANativeConfig,
+    GEPANativeOptimizer,
 )
 
 __all__ = [
@@ -77,7 +83,7 @@ __all__ = [
     "DisagreementAnalysis",
     "PromptOptimizationResult",
     "ValidationResult",
-    "PromptOptimizer",
+    "BasicOptimizer",
     "GEPAConfig",
     "GEPAOptimizer",
     "GEPA_AVAILABLE",
@@ -85,10 +91,15 @@ __all__ = [
     "CalibrationEngine",
     "save_calibration",
     "load_optimized_prompt",
+    "TokenAccumulator",
+    "build_full_prompt",
     # OPRO
     "OPROConfig",
     "OPROOptimizer",
     # APE
     "APEConfig",
     "APEOptimizer",
+    # GEPA Native
+    "GEPANativeConfig",
+    "GEPANativeOptimizer",
 ]

@@ -24,11 +24,13 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..models import Annotation, DatasetItem, MetricResult
-from ..utils.api_client import GeminiClient
+from ..utils.api_client import GeminiClient, GenerateResult
 from .calibration import (
     AlignmentMetrics,
     DisagreementAnalysis,
     PromptOptimizationResult,
+    TokenAccumulator,
+    build_full_prompt,
 )
 
 
@@ -177,31 +179,21 @@ class APEOptimizer:
 
         return trainset, valset
 
-    def _build_full_prompt(self, preamble: str, rubric: List[str]) -> str:
-        """
-        Combine optimized preamble with fixed rubric to create the full prompt.
-        This is what the judge will use.
-        """
-        rubric_text = ""
-        if rubric:
-            rubric_lines = "\n".join([f"- {r}" for r in rubric])
-            rubric_text = f"\n\nEvaluate using this rubric (PASS only if all criteria met):\n{rubric_lines}"
-
-        output_format = """
-
-After your analysis, provide your verdict as a JSON object:
-{"passed": true/false, "reason": "brief explanation", "score": 0.0-1.0}"""
-
-        return preamble + rubric_text + output_format
-
     def _propose_candidates(
         self,
         current_preamble: str,
         rubric: List[str],
         disagreements: DisagreementAnalysis,
+        accumulator: Optional[TokenAccumulator] = None,
     ) -> List[str]:
         """
         Generate candidate prompts based on current prompt and disagreement patterns.
+
+        Args:
+            current_preamble: Current preamble to improve
+            rubric: Fixed rubric criteria
+            disagreements: Analysis of false positives/negatives
+            accumulator: Optional TokenAccumulator to track token usage
         """
         # Format rubric for context
         rubric_text = (
@@ -244,8 +236,10 @@ Example {i}:
         )
 
         try:
-            response = self.generator_client.generate(prompt)
-            return self._parse_candidates_response(response)
+            result = self.generator_client.generate_with_usage(prompt)
+            if accumulator:
+                accumulator.add(result)
+            return self._parse_candidates_response(result.text)
         except Exception:
             return []
 
@@ -284,12 +278,21 @@ Example {i}:
         preamble: str,
         rubric: List[str],
         examples: List[Dict[str, Any]],
+        accumulator: Optional[TokenAccumulator] = None,
     ) -> float:
         """
         Score a candidate prompt by running it as a judge on examples.
-        Returns F1 score.
+
+        Args:
+            preamble: The preamble to evaluate
+            rubric: Fixed rubric criteria
+            examples: Examples to evaluate on
+            accumulator: Optional TokenAccumulator to track token usage
+
+        Returns:
+            F1 score
         """
-        full_prompt = self._build_full_prompt(preamble, rubric)
+        full_prompt = build_full_prompt(preamble, rubric)
         metrics = AlignmentMetrics()
 
         for ex in examples:
@@ -305,8 +308,10 @@ Example {i}:
 Provide your verdict:"""
 
             try:
-                response = self.scorer_client.generate(eval_prompt)
-                judge_pass = self._parse_judge_response(response)
+                result = self.scorer_client.generate_with_usage(eval_prompt)
+                if accumulator:
+                    accumulator.add(result)
+                judge_pass = self._parse_judge_response(result.text)
                 human_pass = ex.get("expected") == "PASS"
                 metrics.record(judge_pass, human_pass)
             except Exception:
@@ -344,12 +349,19 @@ Provide your verdict:"""
         candidates: List[str],
         rubric: List[str],
         val_examples: List[Dict[str, Any]],
+        accumulator: Optional[TokenAccumulator] = None,
     ) -> Tuple[str, float]:
         """
         Select the best candidate using UCB (Upper Confidence Bound) algorithm.
 
         UCB balances exploration (trying less-evaluated candidates) with
         exploitation (focusing on high-scoring candidates).
+
+        Args:
+            candidates: Candidate preambles to evaluate
+            rubric: Fixed rubric criteria
+            val_examples: Validation examples
+            accumulator: Optional TokenAccumulator to track token usage
 
         Returns:
             Tuple of (best_preamble, mean_score)
@@ -392,7 +404,9 @@ Provide your verdict:"""
             sample = random.sample(val_examples, sample_size)
 
             # Evaluate selected candidate
-            score = self._score_candidate(candidates[selected_idx], rubric, sample)
+            score = self._score_candidate(
+                candidates[selected_idx], rubric, sample, accumulator
+            )
             scores[selected_idx].append(score)
 
         # Return candidate with highest mean score
@@ -410,6 +424,7 @@ Provide your verdict:"""
         disagreements: DisagreementAnalysis,
         dataset_items: Optional[List[DatasetItem]] = None,
         current_preamble: str = "",
+        accumulator: Optional[TokenAccumulator] = None,
     ) -> PromptOptimizationResult:
         """
         Run APE optimization.
@@ -427,6 +442,7 @@ Provide your verdict:"""
             disagreements: Analysis of false positives/negatives
             dataset_items: Optional dataset items for context
             current_preamble: Current preamble text (the part to optimize)
+            accumulator: Optional TokenAccumulator to track token usage
 
         Returns:
             PromptOptimizationResult with optimized preamble
@@ -455,7 +471,7 @@ Provide your verdict:"""
 
         # Step 1: PROPOSE - Generate candidates based on disagreements
         candidates = self._propose_candidates(
-            seed_preamble, current_rubric, disagreements
+            seed_preamble, current_rubric, disagreements, accumulator
         )
 
         if not candidates:
@@ -473,10 +489,14 @@ Provide your verdict:"""
         candidates.insert(0, seed_preamble)
 
         # Step 2 & 3: SCORE + SELECT using UCB
-        best_preamble, best_score = self._ucb_select(candidates, current_rubric, valset)
+        best_preamble, best_score = self._ucb_select(
+            candidates, current_rubric, valset, accumulator
+        )
 
         # Evaluate seed on same examples for comparison
-        seed_score = self._score_candidate(seed_preamble, current_rubric, valset)
+        seed_score = self._score_candidate(
+            seed_preamble, current_rubric, valset, accumulator
+        )
 
         # Determine improvement
         improvement_delta = best_score - seed_score
@@ -490,7 +510,7 @@ Provide your verdict:"""
             estimated_improvement = "none"
 
         # Build full optimized prompt
-        full_optimized_prompt = self._build_full_prompt(best_preamble, current_rubric)
+        full_optimized_prompt = build_full_prompt(best_preamble, current_rubric)
 
         # Build reasoning
         reasoning = (

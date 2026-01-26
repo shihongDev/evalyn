@@ -22,8 +22,13 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..models import Annotation, DatasetItem, MetricResult
-from ..utils.api_client import GeminiClient
-from .calibration import AlignmentMetrics, PromptOptimizationResult
+from ..utils.api_client import GeminiClient, GenerateResult
+from .calibration import (
+    AlignmentMetrics,
+    PromptOptimizationResult,
+    TokenAccumulator,
+    build_full_prompt,
+)
 
 
 @dataclass
@@ -163,36 +168,26 @@ class OPROOptimizer:
 
         return trainset, valset
 
-    def _build_full_prompt(self, preamble: str, rubric: List[str]) -> str:
-        """
-        Combine optimized preamble with fixed rubric to create the full prompt.
-        This is what the judge will use.
-        """
-        rubric_text = ""
-        if rubric:
-            rubric_lines = "\n".join([f"- {r}" for r in rubric])
-            rubric_text = f"\n\nEvaluate using this rubric (PASS only if all criteria met):\n{rubric_lines}"
-
-        output_format = """
-
-After your analysis, provide your verdict as a JSON object:
-{"passed": true/false, "reason": "brief explanation", "score": 0.0-1.0}"""
-
-        return preamble + rubric_text + output_format
-
     def _evaluate_prompt(
         self,
         preamble: str,
         rubric: List[str],
         examples: List[Dict[str, Any]],
+        accumulator: Optional[TokenAccumulator] = None,
     ) -> Tuple[float, float]:
         """
         Evaluate a prompt by running it as a judge on examples.
 
+        Args:
+            preamble: The preamble to evaluate
+            rubric: Fixed rubric criteria
+            examples: Examples to evaluate on
+            accumulator: Optional TokenAccumulator to track token usage
+
         Returns:
             Tuple of (f1_score, accuracy)
         """
-        full_prompt = self._build_full_prompt(preamble, rubric)
+        full_prompt = build_full_prompt(preamble, rubric)
         metrics = AlignmentMetrics()
 
         for ex in examples:
@@ -208,9 +203,11 @@ After your analysis, provide your verdict as a JSON object:
 Provide your verdict:"""
 
             try:
-                response = self.scorer_client.generate(eval_prompt)
+                result = self.scorer_client.generate_with_usage(eval_prompt)
+                if accumulator:
+                    accumulator.add(result)
                 # Parse the response to extract passed verdict
-                judge_pass = self._parse_judge_response(response)
+                judge_pass = self._parse_judge_response(result.text)
                 human_pass = ex.get("expected") == "PASS"
                 metrics.record(judge_pass, human_pass)
             except Exception:
@@ -335,8 +332,17 @@ Do not include any other text, just the JSON array."""
         rubric: List[str],
         trajectory: List[TrajectoryEntry],
         train_examples: List[Dict[str, Any]],
+        accumulator: Optional[TokenAccumulator] = None,
     ) -> List[str]:
-        """Generate new candidate preambles using the optimizer LLM."""
+        """Generate new candidate preambles using the optimizer LLM.
+
+        Args:
+            metric_id: The metric being optimized
+            rubric: Fixed rubric criteria
+            trajectory: Past solutions with scores
+            train_examples: Training examples
+            accumulator: Optional TokenAccumulator to track token usage
+        """
         meta_prompt = self._build_meta_prompt(
             metric_id,
             rubric,
@@ -346,8 +352,10 @@ Do not include any other text, just the JSON array."""
         )
 
         try:
-            response = self.optimizer_client.generate(meta_prompt)
-            return self._parse_candidates_response(response)
+            result = self.optimizer_client.generate_with_usage(meta_prompt)
+            if accumulator:
+                accumulator.add(result)
+            return self._parse_candidates_response(result.text)
         except Exception:
             return []
 
@@ -389,6 +397,7 @@ Do not include any other text, just the JSON array."""
         annotations: List[Annotation],
         dataset_items: Optional[List[DatasetItem]] = None,
         current_preamble: str = "",
+        accumulator: Optional[TokenAccumulator] = None,
     ) -> PromptOptimizationResult:
         """
         Run OPRO optimization loop.
@@ -411,6 +420,7 @@ Do not include any other text, just the JSON array."""
             annotations: Human annotations
             dataset_items: Optional dataset items for context
             current_preamble: Current preamble text (the part to optimize)
+            accumulator: Optional TokenAccumulator to track token usage
 
         Returns:
             PromptOptimizationResult with optimized preamble
@@ -438,7 +448,9 @@ Do not include any other text, just the JSON array."""
             seed_preamble = f"You are an expert evaluator for the metric: {metric_id}. Carefully analyze the output quality and provide an honest assessment."
 
         # Evaluate seed prompt
-        seed_f1, seed_acc = self._evaluate_prompt(seed_preamble, current_rubric, trainset)
+        seed_f1, seed_acc = self._evaluate_prompt(
+            seed_preamble, current_rubric, trainset, accumulator
+        )
 
         # Initialize trajectory
         trajectory: List[TrajectoryEntry] = [
@@ -457,7 +469,7 @@ Do not include any other text, just the JSON array."""
         for iteration in range(1, self.config.max_iterations + 1):
             # Generate candidates
             candidates = self._generate_candidates(
-                metric_id, current_rubric, trajectory, trainset
+                metric_id, current_rubric, trajectory, trainset, accumulator
             )
 
             if not candidates:
@@ -470,7 +482,9 @@ Do not include any other text, just the JSON array."""
             # Evaluate candidates
             iteration_best: Optional[TrajectoryEntry] = None
             for candidate in candidates:
-                f1, acc = self._evaluate_prompt(candidate, current_rubric, trainset)
+                f1, acc = self._evaluate_prompt(
+                    candidate, current_rubric, trainset, accumulator
+                )
                 entry = TrajectoryEntry(
                     preamble=candidate,
                     f1_score=f1,
@@ -495,10 +509,10 @@ Do not include any other text, just the JSON array."""
 
         # Validate best prompt on validation set
         val_f1, val_acc = self._evaluate_prompt(
-            best_entry.preamble, current_rubric, valset
+            best_entry.preamble, current_rubric, valset, accumulator
         )
         seed_val_f1, seed_val_acc = self._evaluate_prompt(
-            seed_preamble, current_rubric, valset
+            seed_preamble, current_rubric, valset, accumulator
         )
 
         # Determine improvement
@@ -513,7 +527,7 @@ Do not include any other text, just the JSON array."""
             estimated_improvement = "none"
 
         # Build full optimized prompt
-        full_optimized_prompt = self._build_full_prompt(best_entry.preamble, current_rubric)
+        full_optimized_prompt = build_full_prompt(best_entry.preamble, current_rubric)
 
         # Build reasoning
         reasoning = (

@@ -132,7 +132,7 @@ def _apply_config_defaults(args: argparse.Namespace, config: dict) -> None:
         ("skip_annotation", "annotation", "skip", False),
         ("per_metric", "annotation", "per_metric", False),
         ("skip_calibration", "calibration", "skip", False),
-        ("optimizer", "calibration", "optimizer", "llm"),
+        ("optimizer", "calibration", "optimizer", "basic"),
         ("enable_simulation", "simulation", "enable", False),
         ("simulation_modes", "simulation", "modes", "similar"),
         ("auto_yes", "pipeline", "auto_yes", False),
@@ -405,9 +405,9 @@ def register_commands(subparsers) -> None:
     )
     oneclick_parser.add_argument(
         "--optimizer",
-        choices=["llm", "gepa", "opro", "ape"],
-        default="llm",
-        help="Prompt optimization method: llm (default), gepa (evolutionary), opro (trajectory), ape (search)",
+        choices=["basic", "gepa", "opro", "ape"],
+        default="basic",
+        help="Prompt optimization method: basic (single-shot, default), gepa (evolutionary), opro (trajectory), ape (search)",
     )
     oneclick_parser.add_argument(
         "--calibrate-all-metrics",

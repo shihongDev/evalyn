@@ -54,7 +54,7 @@ from . import annotation
 from .annotation import (
     CalibrationEngine,
     AlignmentMetrics,
-    PromptOptimizer,
+    BasicOptimizer,
     PromptOptimizationResult,
     ValidationResult,
     GEPAConfig,
@@ -133,7 +133,7 @@ __all__ = [
     # Calibration
     "CalibrationEngine",
     "AlignmentMetrics",
-    "PromptOptimizer",
+    "BasicOptimizer",
     "PromptOptimizationResult",
     "ValidationResult",
     "GEPAConfig",
