@@ -184,6 +184,26 @@ class APEConfig:
     timeout: int = 120
 ```
 
+## Cost & Performance
+
+| Config | Tokens | Cost | LLM Calls |
+|--------|--------|------|-----------|
+| 5 cand, 3 rounds | ~800k | ~$0.18 | ~50-80 |
+| 10 cand, 5 rounds | ~1.5M | ~$0.35 | ~100-150 |
+
+Formula: `calls = 1 (generator) + rounds x samples_per_round (scorer)`
+
+**Note**: APE uses more tokens than OPRO for the same cost because it generates full candidate prompts upfront, but may find better solutions due to its diverse candidate pool.
+
+## Important Notes
+
+**Suggestions only**: Like all optimizers, APE does NOT automatically apply changes. It:
+1. Generates a pool of diverse candidate prompts
+2. Evaluates them using UCB selection
+3. Returns the best-performing prompt in `prompts/*.txt` files
+
+You must manually review and apply the suggested changes.
+
 ## When to Use
 
 **Best for:**

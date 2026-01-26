@@ -87,6 +87,25 @@ The LLM optimizer is the default and simplest approach. It sends all disagreemen
 |-----------|---------|-------------|
 | `--model` | gemini-2.5-flash-lite | LLM model for optimization |
 
+## Cost & Performance
+
+| Metric | Value |
+|--------|-------|
+| API Calls | 1 |
+| Tokens | ~2-5k |
+| Cost | ~$0.002 (with Gemini Flash) |
+
+The LLM optimizer is the cheapest option since it makes a single API call regardless of dataset size.
+
+## Important Notes
+
+**Suggestions only**: The optimizer does NOT automatically apply changes to your rubric. It:
+1. Analyzes disagreement patterns
+2. Suggests improvements (saved to `prompts/*.txt` files)
+3. Returns reasoning for why changes would help
+
+You must manually review and apply the suggested changes to your metric configuration.
+
 ## When to Use
 
 **Best for:**

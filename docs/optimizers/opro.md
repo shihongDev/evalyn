@@ -158,6 +158,26 @@ class OPROConfig:
     timeout: int = 120
 ```
 
+## Cost & Performance
+
+| Config | Tokens | Cost | LLM Calls |
+|--------|--------|------|-----------|
+| 5 iter, 3 cand | ~550k | ~$0.30 | ~50-100 |
+| 10 iter, 4 cand | ~1M | ~$0.55 | ~100-200 |
+
+Formula: `calls = iterations x candidates x (1 optimizer + samples scorer)`
+
+**Important**: OPRO re-evaluates each candidate on the training set, so token usage scales with `iterations x candidates x train_samples`.
+
+## Important Notes
+
+**Suggestions only**: Like all optimizers, OPRO does NOT automatically apply changes. It:
+1. Generates candidate prompts
+2. Evaluates them on a train/val split
+3. Returns the best-performing prompt in `prompts/*.txt` files
+
+You must manually review and apply the suggested changes.
+
 ## When to Use
 
 **Best for:**

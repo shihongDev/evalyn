@@ -8,7 +8,14 @@ GEPA treats prompt optimization as an evolutionary process. It maintains a popul
 
 **Paper**: GEPA: Generative Evolution of Prompts Algorithm
 
-**Dependency**: Requires the `gepa` package (`pip install gepa`)
+## Two Implementations
+
+| Implementation | CLI Flag | Dependencies | Token Tracking |
+|----------------|----------|--------------|----------------|
+| External GEPA | `--optimizer gepa` | Requires `pip install gepa` | No |
+| Native GEPA | `--optimizer gepa-native` | None (built-in) | Yes |
+
+**Recommendation**: Use `gepa-native` for most use cases - it provides full token tracking and cost reporting without external dependencies.
 
 ## Algorithm
 
@@ -105,6 +112,32 @@ GEPA treats prompt optimization as an evolutionary process. It maintains a popul
 
 ## Configuration
 
+### GEPA-Native (Recommended)
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--gepa-native-task-model` | gemini-2.5-flash | Model for evaluation (judge) |
+| `--gepa-native-reflection-model` | gemini-2.5-flash | Model for generating mutations |
+| `--gepa-native-max-calls` | 150 | Budget for metric evaluations |
+| `--gepa-native-initial-candidates` | 5 | Number of initial candidate prompts |
+| `--gepa-native-batch-size` | 5 | Mini-batch size for feedback |
+
+**Config Class**: `GEPANativeConfig`
+```python
+@dataclass
+class GEPANativeConfig:
+    task_model: str = "gemini-2.5-flash"
+    reflection_model: str = "gemini-2.5-flash"
+    max_metric_calls: int = 150
+    num_initial_candidates: int = 5
+    mini_batch_size: int = 5
+    pareto_set_size: int = 10
+    exploit_prob: float = 0.9
+    train_split: float = 0.7
+```
+
+### External GEPA (Legacy)
+
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `--gepa-task-lm` | gemini-2.5-flash | Model being optimized (judge model) |
@@ -120,6 +153,27 @@ class GEPAConfig:
     max_metric_calls: int = 150
     train_split: float = 0.7
 ```
+
+## Cost & Performance
+
+| Config | Estimated Tokens | Estimated Cost | LLM Calls |
+|--------|------------------|----------------|-----------|
+| 150 calls | ~1-2M | ~$0.50-1.00 | ~150+ |
+
+Formula: `calls = max_metric_calls + reflection_calls`
+
+**Token Tracking**:
+- `gepa-native`: Full token tracking with cost breakdown displayed after calibration
+- `gepa` (external): No token tracking (external library is a black box)
+
+## Important Notes
+
+**Suggestions only**: Like all optimizers, GEPA does NOT automatically apply changes. It:
+1. Evolves a population of candidate prompts
+2. Uses reflection to improve failing prompts
+3. Returns the best-performing prompt in `prompts/*.txt` files
+
+You must manually review and apply the suggested changes.
 
 ## When to Use
 
@@ -137,13 +191,23 @@ class GEPAConfig:
 ## Example
 
 ```bash
-# Basic GEPA optimization
-evalyn calibrate --optimizer gepa \
+# GEPA-Native optimization (recommended - includes token tracking)
+evalyn calibrate --optimizer gepa-native \
   --metric-id helpfulness \
   --annotations annotations.jsonl \
   --dataset data/my-dataset
 
-# Custom models and budget
+# Custom models and budget (gepa-native)
+evalyn calibrate --optimizer gepa-native \
+  --metric-id helpfulness \
+  --annotations annotations.jsonl \
+  --dataset data/my-dataset \
+  --gepa-native-task-model gemini-2.5-flash-lite \
+  --gepa-native-reflection-model gemini-2.5-flash \
+  --gepa-native-max-calls 100 \
+  --gepa-native-initial-candidates 3
+
+# External GEPA (requires: pip install gepa)
 evalyn calibrate --optimizer gepa \
   --metric-id helpfulness \
   --annotations annotations.jsonl \
