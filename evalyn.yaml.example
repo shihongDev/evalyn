@@ -49,15 +49,23 @@ annotation:
 # Calibration options (evalyn calibrate)
 calibration:
   skip: false                       # Skip calibration step in one-click
-  optimizer: "llm"                  # llm | gepa | opro | ape
+  optimizer: "basic"                # basic | gepa | gepa-native | opro | ape
   threshold: 0.5                    # Pass/fail threshold
   calibrate_all: false              # Calibrate all subjective metrics
 
-  # GEPA optimizer settings (evolutionary algorithm)
+  # GEPA optimizer settings (external library - requires: pip install gepa)
   gepa:
     task_lm: "gemini/gemini-2.5-flash"      # Model being optimized
     reflection_lm: "gemini/gemini-2.5-flash" # Model for reflection
     max_calls: 150                           # Max API calls budget
+
+  # GEPA-Native optimizer settings (built-in, with token tracking)
+  gepa_native:
+    task_model: "gemini-2.5-flash"          # Model for evaluation
+    reflection_model: "gemini-2.5-flash"    # Model for generating mutations
+    max_calls: 150                           # Max API calls budget
+    initial_candidates: 5                    # Initial candidate prompts
+    batch_size: 5                            # Mini-batch size for feedback
 
   # OPRO optimizer settings (trajectory-based)
   opro:
