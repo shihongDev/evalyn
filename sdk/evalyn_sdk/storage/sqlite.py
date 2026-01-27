@@ -189,6 +189,26 @@ class SQLiteStorage:
             calls.append(self._row_to_call(row))
         return calls
 
+    def delete_calls(self, call_ids: List[str]) -> int:
+        """Delete calls by IDs. Returns number deleted.
+
+        Also deletes associated otel_spans entries.
+        """
+        if not call_ids:
+            return 0
+        cur = self.conn.cursor()
+        placeholders = ",".join("?" * len(call_ids))
+        # Delete related spans first
+        cur.execute(
+            f"DELETE FROM otel_spans WHERE call_id IN ({placeholders})", call_ids
+        )
+        # Delete calls
+        cur.execute(
+            f"DELETE FROM function_calls WHERE id IN ({placeholders})", call_ids
+        )
+        self.conn.commit()
+        return cur.rowcount
+
     def store_eval_run(self, run: EvalRun) -> None:
         cur = self.conn.cursor()
         cur.execute(

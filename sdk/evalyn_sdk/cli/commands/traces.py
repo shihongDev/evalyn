@@ -1,13 +1,14 @@
-"""Trace viewing commands: list-calls, show-call, show-trace, show-projects.
+"""Trace commands: list-calls, show-call, show-trace, show-projects, delete-traces.
 
-This module provides CLI commands for inspecting traced function calls stored in the database.
-These commands are the entry point for understanding what your agent is doing.
+This module provides CLI commands for inspecting and managing traced function calls
+stored in the database.
 
 Commands:
 - list-calls: List captured function calls with filtering by project/simulation
 - show-call: Show detailed information about a specific call including inputs, outputs, metadata
 - show-trace: Show hierarchical span tree for a traced call (Phoenix-style visualization)
 - show-projects: Show summary of projects and their traces
+- delete-traces: Delete the latest N traces from storage
 
 Typical workflow:
 1. Run your agent with @eval decorator to capture traces
@@ -15,6 +16,7 @@ Typical workflow:
 3. Use 'evalyn list-calls --project <name>' to see calls for a project
 4. Use 'evalyn show-call --id <id>' to inspect a specific call
 5. Use 'evalyn show-trace --id <id>' to visualize the span tree
+6. Use 'evalyn delete-traces -n 5 --db test' to clean up test traces
 """
 
 from __future__ import annotations
@@ -961,14 +963,22 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
             # Show request (messages)
             request = attrs.get("request")
             if request:
-                messages = request.get("messages", "") if isinstance(request, dict) else str(request)
+                messages = (
+                    request.get("messages", "")
+                    if isinstance(request, dict)
+                    else str(request)
+                )
                 if messages:
                     messages_text = _truncate_with_indicator(str(messages), INPUT_LIMIT)
                     print(f"{detail_prefix}request: {messages_text}")
             # Show response
             response = attrs.get("response")
             if response:
-                content = response.get("content", "") if isinstance(response, dict) else str(response)
+                content = (
+                    response.get("content", "")
+                    if isinstance(response, dict)
+                    else str(response)
+                )
                 if content:
                     content_text = _truncate_with_indicator(str(content), OUTPUT_LIMIT)
                     print(f"{detail_prefix}response: {content_text}")
@@ -1277,6 +1287,85 @@ def cmd_show_projects(args: argparse.Namespace) -> None:
         )
 
 
+# ---------------------------------------------------------------------------
+# Delete traces
+# ---------------------------------------------------------------------------
+
+
+def cmd_delete_traces(args: argparse.Namespace) -> None:
+    """Delete traces from storage by ID or latest N."""
+    db = getattr(args, "db", "test")
+    n = getattr(args, "n", None)
+    ids = getattr(args, "id", None) or []
+    yes = getattr(args, "yes", False)
+
+    if db not in DB_PATHS:
+        fatal_error(f"Unknown database: {db}")
+
+    storage = SQLiteStorage(DB_PATHS[db])
+
+    # Determine which calls to delete
+    if ids:
+        # Delete by specific IDs
+        calls = []
+        for short_id in ids:
+            # Resolve short ID to full ID
+            if hasattr(storage, "resolve_call_id"):
+                full_id = storage.resolve_call_id(short_id)
+                if full_id:
+                    call = storage.get_call(full_id)
+                    if call:
+                        calls.append(call)
+                    else:
+                        print(f"Warning: Call {short_id} not found")
+                else:
+                    print(f"Warning: Could not resolve ID {short_id}")
+            else:
+                call = storage.get_call(short_id)
+                if call:
+                    calls.append(call)
+                else:
+                    print(f"Warning: Call {short_id} not found")
+    else:
+        # Delete latest N (default: 1)
+        limit = n if n is not None else 1
+        calls = storage.list_calls(limit=limit)
+
+    if not calls:
+        print(f"No traces found in {db} database.")
+        return
+
+    # Show what will be deleted
+    print(f"\nTraces to delete from {db} database:\n")
+    print("ID | Function | Started")
+    print("-" * 60)
+    for call in calls:
+        started = (
+            call.started_at.strftime("%Y-%m-%d %H:%M:%S") if call.started_at else "N/A"
+        )
+        print(f"{call.id[:8]} | {call.function_name or 'N/A'} | {started}")
+
+    print(f"\nTotal: {len(calls)} trace(s)")
+
+    # Extra warning for prod
+    if db == "prod":
+        print("\n*** WARNING: You are about to delete from PRODUCTION database! ***")
+
+    # Confirm unless --yes
+    if not yes:
+        confirm = (
+            input(f"\nDelete {len(calls)} trace(s) from {db}? [y/N]: ").strip().lower()
+        )
+        if confirm not in ("y", "yes"):
+            print("Aborted.")
+            return
+
+    # Delete
+    call_ids = [call.id for call in calls]
+    deleted = storage.delete_calls(call_ids)
+    print(f"\nDeleted {deleted} trace(s) from {db} database.")
+
+
 def _add_db_arg(parser) -> None:
     """Add --db argument to parser."""
     parser.add_argument(
@@ -1363,6 +1452,21 @@ def register_commands(subparsers) -> None:
     p.add_argument("--limit", type=int, default=1000, help="Max calls to scan")
     p.set_defaults(func=cmd_show_projects)
 
+    # delete-traces
+    p = subparsers.add_parser("delete-traces", help="Delete traces from storage")
+    p.add_argument("--id", nargs="+", help="Trace ID(s) to delete (supports short IDs)")
+    p.add_argument(
+        "-n", type=int, help="Number of latest traces to delete (default: 1 if no --id)"
+    )
+    p.add_argument(
+        "--db",
+        choices=["test", "prod"],
+        default="test",
+        help="Database to use (default: test)",
+    )
+    p.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompt")
+    p.set_defaults(func=cmd_delete_traces)
+
 
 __all__ = [
     "cmd_list_calls",
@@ -1370,5 +1474,6 @@ __all__ = [
     "cmd_show_trace",
     "cmd_show_span",
     "cmd_show_projects",
+    "cmd_delete_traces",
     "register_commands",
 ]
