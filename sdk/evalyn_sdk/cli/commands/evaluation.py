@@ -293,7 +293,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
 
     # Build metrics from specs
     from ...metrics.factory import build_objective_metric, build_subjective_metric
-    from ...annotation import load_optimized_prompt
+    from ...calibration import load_optimized_prompt
 
     metrics = []
     objective_count = 0
@@ -439,7 +439,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
             progress.update(current, total, metric, metric_type)
 
     # Run evaluation using cached traces
-    from ...runner import EvalRunner, save_eval_run_json
+    from ...evaluation.runner import EvalRunner, save_eval_run_json
 
     # Checkpoint path for long-running evaluations
     checkpoint_path = dataset_dir / ".eval_checkpoint.json"
@@ -449,7 +449,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
 
     if use_batch and subjective_count > 0:
         # Batch mode: use batch API for subjective metrics
-        from ...batch import BatchEvaluator, BatchEvalProgress
+        from ...evaluation.batch import BatchEvaluator, BatchEvalProgress
 
         batch_provider = getattr(args, "batch_provider", "gemini")
 

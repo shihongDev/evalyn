@@ -24,7 +24,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from ..models import DatasetItem, FunctionCall, Metric, MetricResult
+from ...models import DatasetItem, FunctionCall, Metric, MetricResult
 from .providers import create_batch_provider
 
 logger = logging.getLogger(__name__)

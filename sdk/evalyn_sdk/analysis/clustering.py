@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-from ..annotation.calibration import DisagreementAnalysis, DisagreementCase
+from ..calibration import DisagreementAnalysis, DisagreementCase
 from ..utils.api_client import GeminiClient
 
 if TYPE_CHECKING:

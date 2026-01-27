@@ -12,7 +12,7 @@ from .trace.auto_instrument import (
     is_patched,
 )
 from .trace.instrumentation.providers._shared import calculate_cost
-from .runner import EvalRunner
+from .evaluation.runner import EvalRunner
 from .models import Metric, MetricRegistry
 from .metrics.objective import (
     exact_match_metric,
@@ -26,7 +26,8 @@ from .metrics.objective import (
     tool_call_count_metric,
     register_builtin_metrics,
 )
-from .metrics.judges import LLMJudge, EchoJudge, JUDGE_TEMPLATES
+from .judges import LLMJudge, EchoJudge
+from .metrics.subjective import JUDGE_TEMPLATES
 from .metrics.objective import OBJECTIVE_REGISTRY
 from .metrics.subjective import SUBJECTIVE_REGISTRY
 from .metrics.factory import (
@@ -49,9 +50,24 @@ from .metrics.suggester import (
     DEFAULT_JUDGE_PROMPT,
 )
 
-# Annotation and calibration
+# Annotation
 from . import annotation
 from .annotation import (
+    SpanAnnotation,
+    AnnotationSpanType,
+    LLMCallAnnotation,
+    ToolCallAnnotation,
+    ReasoningAnnotation,
+    RetrievalAnnotation,
+    OverallAnnotation,
+    extract_spans_from_trace,
+    get_annotation_prompts,
+    ANNOTATION_SCHEMAS,
+)
+
+# Calibration
+from . import calibration
+from .calibration import (
     CalibrationEngine,
     AlignmentMetrics,
     BasicOptimizer,
@@ -64,16 +80,6 @@ from .annotation import (
     APEOptimizer,
     save_calibration,
     load_optimized_prompt,
-    SpanAnnotation,
-    AnnotationSpanType,
-    LLMCallAnnotation,
-    ToolCallAnnotation,
-    ReasoningAnnotation,
-    RetrievalAnnotation,
-    OverallAnnotation,
-    extract_spans_from_trace,
-    get_annotation_prompts,
-    ANNOTATION_SCHEMAS,
 )
 
 # Simulation
@@ -99,9 +105,12 @@ from .models import (
 )
 
 __all__ = [
+    # Modules
+    "annotation",
+    "calibration",
+    "trace",  # trace module
     # Auto-instrumentation
     "auto_instrument",
-    "trace",  # trace module
     "trace_decorator",  # @trace decorator
     "patch_all",
     "is_patched",

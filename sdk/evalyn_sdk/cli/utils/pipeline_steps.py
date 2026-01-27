@@ -367,7 +367,7 @@ class InitialEvalStep(PipelineStep):
         self, output_dir: Path, context: Dict[str, Any]
     ) -> Tuple[StepResult, Dict[str, Any]]:
         from ...datasets import load_dataset
-        from ...runner import EvalRunner
+        from ...evaluation.runner import EvalRunner
 
         eval_dir = output_dir / self.name
         eval_dir.mkdir(exist_ok=True)
@@ -643,7 +643,7 @@ class CalibratedEvalStep(PipelineStep):
         self, output_dir: Path, context: Dict[str, Any]
     ) -> Tuple[StepResult, Dict[str, Any]]:
         from ...datasets import load_dataset
-        from ...runner import EvalRunner
+        from ...evaluation.runner import EvalRunner
 
         cal_dir = output_dir / "calibrations"
         if not cal_dir.exists():
@@ -664,7 +664,7 @@ class CalibratedEvalStep(PipelineStep):
             return StepResult(status="failed", error="Missing metrics or dataset"), {}
 
         # Load metrics with calibrated prompts
-        from ...annotation import load_optimized_prompt
+        from ...calibration import load_optimized_prompt
 
         with open(metrics_path, encoding="utf-8") as f:
             metrics_data = json.load(f)

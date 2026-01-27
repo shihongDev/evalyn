@@ -39,7 +39,7 @@ from ...analysis.clustering import (
     generate_failure_cluster_text,
 )
 from ...annotation import import_annotations
-from ...annotation.calibration import CalibrationEngine
+from ...calibration import CalibrationEngine
 from ...datasets import load_dataset
 from ...decorators import get_default_tracer
 from ...models import DatasetItem, EvalRun, MetricResult

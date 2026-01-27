@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Type
 import uuid
 
-from ..models import EvalUnit, FunctionCall, Span
+from ...models import EvalUnit, FunctionCall, Span
 
 
 class EvalUnitBuilder(ABC):

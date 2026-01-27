@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from ..models import EvalUnit, EvalView, FunctionCall, Span
+from ...models import EvalUnit, EvalView, FunctionCall, Span
 
 
 def project_unit(unit: EvalUnit, call: FunctionCall) -> EvalView:

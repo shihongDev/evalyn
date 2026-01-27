@@ -333,7 +333,7 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     """
     from ...storage import SQLiteStorage
     from ...models import EvalRun, Annotation
-    from ...annotation.calibration import AlignmentMetrics
+    from ...calibration import AlignmentMetrics
 
     output_format = getattr(args, "format", "table")
     config = load_config()

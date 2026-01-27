@@ -1,11 +1,12 @@
 """
-Annotation module for human labeling and calibration.
+Annotation module for human labeling.
 
 Provides tools for:
 - Importing/exporting annotations
 - Span-level annotation schemas
-- LLM judge calibration
-- Prompt optimization (Basic, APE, OPRO, GEPA)
+
+Note: Calibration and prompt optimization have moved to evalyn_sdk.calibration.
+Re-exports are provided here for backwards compatibility.
 """
 
 from .annotations import (
@@ -28,7 +29,9 @@ from .span_annotation import (
     extract_spans_from_trace,
     get_annotation_prompts,
 )
-from .calibration import (
+
+# Re-exports from calibration module for backwards compatibility
+from ..calibration import (
     AlignmentMetrics,
     DisagreementCase,
     DisagreementAnalysis,
@@ -38,24 +41,18 @@ from .calibration import (
     GEPAConfig,
     GEPAOptimizer,
     GEPA_AVAILABLE,
+    GEPANativeConfig,
+    GEPANativeOptimizer,
+    OPROConfig,
+    OPROOptimizer,
+    APEConfig,
+    APEOptimizer,
     CalibrationConfig,
     CalibrationEngine,
     save_calibration,
     load_optimized_prompt,
     TokenAccumulator,
     build_full_prompt,
-)
-from .opro import (
-    OPROConfig,
-    OPROOptimizer,
-)
-from .ape import (
-    APEConfig,
-    APEOptimizer,
-)
-from .gepa_native import (
-    GEPANativeConfig,
-    GEPANativeOptimizer,
 )
 
 __all__ = [

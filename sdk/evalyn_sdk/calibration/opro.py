@@ -22,14 +22,14 @@ from typing import Any, Dict, List, Optional, Tuple
 from ..defaults import DEFAULT_EVAL_MODEL, DEFAULT_GENERATOR_MODEL
 from ..models import Annotation, DatasetItem, MetricResult
 from ..utils.api_client import GeminiClient
-from .calibration import (
+from .models import (
     AlignmentMetrics,
     PromptOptimizationResult,
     TokenAccumulator,
-    build_full_prompt,
 )
-from .optimizer_utils import (
+from .utils import (
     build_dataset_from_annotations,
+    build_full_prompt,
     parse_candidates_response,
     parse_judge_response,
 )
@@ -152,10 +152,10 @@ class OPROOptimizer:
             eval_prompt = f"""{full_prompt}
 
 ## Input to evaluate
-{ex.get('input', '')[:1000]}
+{ex.get("input", "")[:1000]}
 
 ## Output to evaluate
-{ex.get('output', '')[:1000]}
+{ex.get("output", "")[:1000]}
 
 Provide your verdict:"""
 
@@ -191,7 +191,9 @@ Provide your verdict:"""
         4. Instructions for generating new candidates
         """
         # Format rubric
-        rubric_text = "\n".join([f"- {r}" for r in rubric]) if rubric else "(no rubric defined)"
+        rubric_text = (
+            "\n".join([f"- {r}" for r in rubric]) if rubric else "(no rubric defined)"
+        )
 
         # Format trajectory (sorted by F1, worst first)
         sorted_trajectory = sorted(trajectory, key=lambda x: x.f1_score)

@@ -97,7 +97,7 @@ from .objective import (
     link_density_metric,
 )
 from ..models import Metric
-from .judges import LLMJudge
+from ..judges import LLMJudge
 from .objective import OBJECTIVE_REGISTRY
 from .subjective import SUBJECTIVE_REGISTRY
 
@@ -143,9 +143,9 @@ def _wrap_with_consistency_confidence(
     NOTE: This temporarily sets temperature to 0.7 to get diverse samples.
     With temp=0, all samples would be identical.
     """
-    from ..confidence import SelfConsistencyConfidence
+    from ..judges.confidence import SelfConsistencyConfidence
     from ..models import DatasetItem, FunctionCall, MetricResult
-    from .judges import LLMJudge as JudgeClass
+    from ..judges import LLMJudge as JudgeClass
 
     confidence_estimator = SelfConsistencyConfidence(n_samples=n_samples)
 

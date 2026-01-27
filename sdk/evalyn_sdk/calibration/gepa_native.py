@@ -23,14 +23,14 @@ from typing import Any, Dict, List, Optional, Tuple
 from ..defaults import DEFAULT_GENERATOR_MODEL
 from ..models import Annotation, DatasetItem, MetricResult
 from ..utils.api_client import GeminiClient
-from .calibration import (
+from .models import (
     AlignmentMetrics,
     PromptOptimizationResult,
     TokenAccumulator,
-    build_full_prompt,
 )
-from .optimizer_utils import (
+from .utils import (
     build_dataset_from_annotations,
+    build_full_prompt,
     parse_judge_response,
 )
 
@@ -185,10 +185,10 @@ class GEPANativeOptimizer:
             eval_prompt = f"""{full_prompt}
 
 ## Input to evaluate
-{ex.get('input', '')[:1000]}
+{ex.get("input", "")[:1000]}
 
 ## Output to evaluate
-{ex.get('output', '')[:1000]}
+{ex.get("output", "")[:1000]}
 
 Provide your verdict:"""
 
@@ -299,11 +299,11 @@ Provide your verdict:"""
         for i, fail in enumerate(failures[:5], 1):
             failure_text += f"""
 Example {i}:
-  Input: {fail['input'][:200]}...
-  Output: {fail['output'][:200]}...
-  Human said: {fail['expected']}
-  Judge said: {fail['judge_said']}
-  Judge reasoning: {fail['reason'][:150]}...
+  Input: {fail["input"][:200]}...
+  Output: {fail["output"][:200]}...
+  Human said: {fail["expected"]}
+  Judge said: {fail["judge_said"]}
+  Judge reasoning: {fail["reason"][:150]}...
 """
 
         prompt = REFLECTION_TEMPLATE.format(
@@ -355,7 +355,8 @@ Example {i}:
         weights: List[float] = []
         for candidate in frontier:
             count = sum(
-                1 for ex_id in example_ids
+                1
+                for ex_id in example_ids
                 if candidate.get_score(ex_id) >= best_scores[ex_id] - 0.01
             )
             weights.append(max(count, 0.1))  # Minimum weight to avoid zero

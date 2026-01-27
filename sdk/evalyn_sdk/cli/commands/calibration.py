@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from ...annotation import import_annotations
-from ...annotation import (
+from ...calibration import (
     CalibrationEngine,
     GEPAConfig,
     GEPA_AVAILABLE,

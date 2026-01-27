@@ -1,12 +1,11 @@
-"""Backwards compatibility re-export.
+"""
+Evaluation units for span-level evaluation.
 
-This package has moved to evalyn_sdk.evaluation.units.
-Please update your imports to:
-    from evalyn_sdk.evaluation.units import EvalUnitBuilder
+This package provides abstractions for discovering evaluatable units from
+trace structure and projecting them into normalized views for metric evaluation.
 """
 
-# Re-export everything from the new location for backwards compatibility
-from ..evaluation.units import (
+from .builders import (
     EvalUnitBuilder,
     OutcomeBuilder,
     SingleTurnBuilder,
@@ -16,8 +15,8 @@ from ..evaluation.units import (
     get_default_builders,
     get_builder_for_type,
     get_builders_for_types,
-    project_unit,
 )
+from .views import project_unit
 
 __all__ = [
     "EvalUnitBuilder",

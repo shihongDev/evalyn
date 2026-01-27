@@ -25,15 +25,15 @@ from typing import Any, Dict, List, Optional, Tuple
 from ..defaults import DEFAULT_EVAL_MODEL, DEFAULT_GENERATOR_MODEL
 from ..models import Annotation, DatasetItem, MetricResult
 from ..utils.api_client import GeminiClient
-from .calibration import (
+from .models import (
     AlignmentMetrics,
     DisagreementAnalysis,
     PromptOptimizationResult,
     TokenAccumulator,
-    build_full_prompt,
 )
-from .optimizer_utils import (
+from .utils import (
     build_dataset_from_annotations,
+    build_full_prompt,
     parse_candidates_response,
     parse_judge_response,
 )
@@ -136,7 +136,6 @@ class APEOptimizer:
                 timeout=self.config.timeout,
             )
         return self._scorer_client
-
 
     def _propose_candidates(
         self,

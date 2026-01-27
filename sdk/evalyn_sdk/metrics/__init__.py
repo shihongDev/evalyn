@@ -12,7 +12,8 @@ from .objective import (
     tool_call_count_metric,
     register_builtin_metrics,
 )
-from .judges import LLMJudge, EchoJudge, JUDGE_TEMPLATES
+from ..judges import LLMJudge, EchoJudge
+from .subjective import JUDGE_TEMPLATES
 from .subjective import (
     SUBJECTIVE_REGISTRY,
     CATEGORIES,
