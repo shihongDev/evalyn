@@ -44,9 +44,7 @@ def print_table(
                     col_widths[i] = max(col_widths[i], len(str(cell)))
 
     # Print header
-    header_row = " | ".join(
-        str(h).ljust(col_widths[i]) for i, h in enumerate(headers)
-    )
+    header_row = " | ".join(str(h).ljust(col_widths[i]) for i, h in enumerate(headers))
     print(header_row)
     print("-" * len(header_row))
 
@@ -89,7 +87,9 @@ def print_token_usage_summary(usage: Dict[str, Any], verbose: bool = False) -> N
     if has_unknown:
         cost_str = f"~{cost_str}*"
 
-    print(f"\nToken usage: {input_tok:,} input + {output_tok:,} output = {total_tok:,} total ({cost_str})")
+    print(
+        f"\nToken usage: {input_tok:,} input + {output_tok:,} output = {total_tok:,} total ({cost_str})"
+    )
 
     if models:
         print(f"Models: {', '.join(models)}")
@@ -101,7 +101,9 @@ def print_token_usage_summary(usage: Dict[str, Any], verbose: bool = False) -> N
     cost_by_metric = usage.get("cost_by_metric", {})
     if verbose and cost_by_metric and len(cost_by_metric) > 1:
         print("\nCost breakdown by metric:")
-        sorted_metrics = sorted(cost_by_metric.items(), key=lambda x: x[1], reverse=True)
+        sorted_metrics = sorted(
+            cost_by_metric.items(), key=lambda x: x[1], reverse=True
+        )
         for metric_id, cost in sorted_metrics:
             pct = (cost / total_cost * 100) if total_cost > 0 else 0
             print(f"  {metric_id:<25} {format_cost(cost):>10}  ({pct:.0f}%)")

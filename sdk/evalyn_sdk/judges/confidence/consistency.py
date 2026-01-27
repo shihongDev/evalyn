@@ -77,7 +77,9 @@ class SelfConsistencyConfidence(ConfidenceEstimator):
             )
 
         if not all_samples:
-            return ConfidenceResult(score=0.5, method=self.name, details={"reason": "empty_samples"})
+            return ConfidenceResult(
+                score=0.5, method=self.name, details={"reason": "empty_samples"}
+            )
 
         # Extract comparable answers
         try:
@@ -158,7 +160,9 @@ class MajorityVoteConfidence(ConfidenceEstimator):
             ConfidenceResult with weighted agreement confidence
         """
         if not votes:
-            return ConfidenceResult(score=0.5, method=self.name, details={"reason": "no_votes"})
+            return ConfidenceResult(
+                score=0.5, method=self.name, details={"reason": "no_votes"}
+            )
 
         if weights is None:
             weights = [1.0] * len(votes)

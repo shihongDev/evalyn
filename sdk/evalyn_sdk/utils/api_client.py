@@ -116,7 +116,9 @@ class GeminiClient:
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
-                "temperature": temperature if temperature is not None else self.temperature
+                "temperature": temperature
+                if temperature is not None
+                else self.temperature
             },
         }
         headers = {
@@ -325,10 +327,15 @@ class OllamaClient:
         self.timeout = timeout
 
     def _call_api(
-        self, prompt: str, temperature: Optional[float], extra_options: Optional[dict] = None
+        self,
+        prompt: str,
+        temperature: Optional[float],
+        extra_options: Optional[dict] = None,
     ) -> dict[str, Any]:
         """Make API call and return raw response data."""
-        options = {"temperature": temperature if temperature is not None else self.temperature}
+        options = {
+            "temperature": temperature if temperature is not None else self.temperature
+        }
         if extra_options:
             options.update(extra_options)
 
@@ -374,7 +381,9 @@ class OllamaClient:
         Note: Ollama support for logprobs varies by model. Falls back to 0.5
         if logprobs not available.
         """
-        response_data = self._call_api(prompt, temperature, extra_options={"num_predict": 512})
+        response_data = self._call_api(
+            prompt, temperature, extra_options={"num_predict": 512}
+        )
 
         text = response_data.get("response", "")
         confidence = 0.5  # Default - Ollama logprobs support is limited
@@ -398,10 +407,18 @@ class OllamaClient:
         This returns an empty list for logprobs. Use generate_with_confidence()
         for Ollama's heuristic-based confidence instead.
         """
-        response_data = self._call_api(prompt, temperature, extra_options={"num_predict": 512})
+        response_data = self._call_api(
+            prompt, temperature, extra_options={"num_predict": 512}
+        )
         text = response_data.get("response", "")
         # Ollama doesn't expose token-level logprobs
         return text, []
 
 
-__all__ = ["GenerateResult", "GeminiClient", "OpenAIClient", "OllamaClient", "call_gemini_api"]
+__all__ = [
+    "GenerateResult",
+    "GeminiClient",
+    "OpenAIClient",
+    "OllamaClient",
+    "call_gemini_api",
+]

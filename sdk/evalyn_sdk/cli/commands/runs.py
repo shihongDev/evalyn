@@ -168,7 +168,9 @@ def cmd_show_run(args: argparse.Namespace) -> None:
         print(f"Failed items: {run.summary['failed_items']}")
 
     # Show token usage and cost summary if available
-    print_token_usage_summary(run.usage_summary, verbose=getattr(args, "verbose", False))
+    print_token_usage_summary(
+        run.usage_summary, verbose=getattr(args, "verbose", False)
+    )
 
     print("\nMetric results:")
     for res in run.metric_results:

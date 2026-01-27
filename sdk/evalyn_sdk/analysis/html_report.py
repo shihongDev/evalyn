@@ -1344,7 +1344,9 @@ def _render_cluster_scatter(clustering_result: Any, metric_id: str) -> str:
         case_type = case_types[i] if case_types else "unknown"
         reason = case_reasons[i] if case_reasons else ""
         reason_short = reason[:120] + "..." if len(reason) > 120 else reason
-        type_label = "FP (too lenient)" if case_type == "false_positive" else "FN (too strict)"
+        type_label = (
+            "FP (too lenient)" if case_type == "false_positive" else "FN (too strict)"
+        )
         hover_texts.append(f"<b>{label}</b><br>Type: {type_label}<br>{reason_short}")
 
     fig = go.Figure()
@@ -1390,18 +1392,27 @@ def _render_cluster_scatter(clustering_result: Any, metric_id: str) -> str:
         )
 
     fig.update_layout(
-        title=dict(text=f"Misalignment Clusters: {metric_id}", font=dict(size=14, color="#e5e7eb")),
+        title=dict(
+            text=f"Misalignment Clusters: {metric_id}",
+            font=dict(size=14, color="#e5e7eb"),
+        ),
         paper_bgcolor="#0f1a16",
         plot_bgcolor="#152420",
         font=dict(color="#e5e7eb", size=11),
-        xaxis=dict(showgrid=True, gridcolor="#1f2d28", zeroline=False, showticklabels=False),
-        yaxis=dict(showgrid=True, gridcolor="#1f2d28", zeroline=False, showticklabels=False),
+        xaxis=dict(
+            showgrid=True, gridcolor="#1f2d28", zeroline=False, showticklabels=False
+        ),
+        yaxis=dict(
+            showgrid=True, gridcolor="#1f2d28", zeroline=False, showticklabels=False
+        ),
         legend=dict(bgcolor="#0f1a16", bordercolor="#1f2d28", borderwidth=1),
         height=350,
         margin=dict(l=20, r=20, t=40, b=20),
     )
 
-    plot_html = to_html(fig, full_html=False, include_plotlyjs=False, config={"displayModeBar": False})
+    plot_html = to_html(
+        fig, full_html=False, include_plotlyjs=False, config={"displayModeBar": False}
+    )
 
     fp_count = sum(1 for t in case_types if t == "false_positive")
     fn_count = sum(1 for t in case_types if t == "false_negative")

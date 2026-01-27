@@ -123,11 +123,19 @@ def _apply_calibration_config_defaults(args: argparse.Namespace, config: dict) -
     # GEPA-Native settings
     if args.gepa_native_task_model == "gemini-2.5-flash":
         args.gepa_native_task_model = get_config_default(
-            config, "calibration", "gepa_native", "task_model", default="gemini-2.5-flash"
+            config,
+            "calibration",
+            "gepa_native",
+            "task_model",
+            default="gemini-2.5-flash",
         )
     if args.gepa_native_reflection_model == "gemini-2.5-flash":
         args.gepa_native_reflection_model = get_config_default(
-            config, "calibration", "gepa_native", "reflection_model", default="gemini-2.5-flash"
+            config,
+            "calibration",
+            "gepa_native",
+            "reflection_model",
+            default="gemini-2.5-flash",
         )
     if args.gepa_native_max_calls == 150:
         args.gepa_native_max_calls = get_config_default(
@@ -280,7 +288,9 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
         with Spinner(spinner_msg):
             record = engine.calibrate(metric_results, anns, dataset_items)
     elif args.optimizer == "gepa-native" and not args.no_optimize:
-        spinner_msg = f"Running GEPA-Native optimization (max {args.gepa_native_max_calls} calls)"
+        spinner_msg = (
+            f"Running GEPA-Native optimization (max {args.gepa_native_max_calls} calls)"
+        )
         with Spinner(spinner_msg):
             record = engine.calibrate(metric_results, anns, dataset_items)
     elif args.optimizer == "opro" and not args.no_optimize:
@@ -515,7 +525,9 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
         print(f"\nCalibration record also saved to: {output_path}")
 
     # Display token usage summary
-    print_token_usage_summary(record.usage_summary, verbose=getattr(args, "verbose", False))
+    print_token_usage_summary(
+        record.usage_summary, verbose=getattr(args, "verbose", False)
+    )
 
     print(f"\n{'=' * 60}")
 

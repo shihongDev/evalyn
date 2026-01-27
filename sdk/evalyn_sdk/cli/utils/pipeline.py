@@ -220,6 +220,7 @@ class PipelineOrchestrator:
         # Restore target_fn from args if available
         if self.args.target:
             from .loaders import _load_callable
+
             try:
                 self.context["target_fn"] = _load_callable(self.args.target)
             except Exception:
@@ -240,6 +241,7 @@ class PipelineOrchestrator:
         """Reload metric specs from saved JSON file."""
         try:
             from ...models import MetricSpec
+
             with open(metrics_path, encoding="utf-8") as f:
                 metrics_data = json.load(f)
             specs = []

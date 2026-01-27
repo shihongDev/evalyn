@@ -117,9 +117,7 @@ def _load_info(path: Path) -> DatasetInfo:
     # Load meta if available
     meta_file = path / "meta.json"
     meta = (
-        json.loads(meta_file.read_text(encoding="utf-8"))
-        if meta_file.exists()
-        else {}
+        json.loads(meta_file.read_text(encoding="utf-8")) if meta_file.exists() else {}
     )
 
     return DatasetInfo(
@@ -137,17 +135,13 @@ def find_latest_dataset(data_dir: str = "data") -> Optional[Path]:
         return None
 
     dataset_dirs = [
-        d
-        for d in data_path.iterdir()
-        if d.is_dir() and (d / "dataset.jsonl").exists()
+        d for d in data_path.iterdir() if d.is_dir() and (d / "dataset.jsonl").exists()
     ]
 
     if not dataset_dirs:
         return None
 
-    dataset_dirs.sort(
-        key=lambda d: (d / "dataset.jsonl").stat().st_mtime, reverse=True
-    )
+    dataset_dirs.sort(key=lambda d: (d / "dataset.jsonl").stat().st_mtime, reverse=True)
     return dataset_dirs[0]
 
 
@@ -158,9 +152,7 @@ def list_datasets(data_dir: str = "data", limit: int = 10) -> List[Path]:
         return []
 
     datasets = [
-        d
-        for d in data_path.iterdir()
-        if d.is_dir() and (d / "dataset.jsonl").exists()
+        d for d in data_path.iterdir() if d.is_dir() and (d / "dataset.jsonl").exists()
     ]
     datasets.sort(key=lambda d: d.stat().st_mtime, reverse=True)
     return datasets[:limit]
@@ -172,13 +164,9 @@ def _print_available_and_exit(data_dir: str = "data") -> None:
     datasets = list_datasets(data_dir)
     if datasets:
         for d in datasets:
-            mtime = datetime.fromtimestamp(d.stat().st_mtime).strftime(
-                "%Y-%m-%d %H:%M"
-            )
+            mtime = datetime.fromtimestamp(d.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
             print(f"  {d.name:<40} (modified: {mtime})", file=sys.stderr)
-        total = (
-            len(list(Path(data_dir).iterdir())) if Path(data_dir).exists() else 0
-        )
+        total = len(list(Path(data_dir).iterdir())) if Path(data_dir).exists() else 0
         if total > len(datasets):
             print(f"  ... and {total - len(datasets)} more", file=sys.stderr)
     fatal_error("No dataset specified", "Use --dataset <path> or --latest")

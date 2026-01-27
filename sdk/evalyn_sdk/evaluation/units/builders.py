@@ -125,9 +125,7 @@ class ToolUseBuilder(EvalUnitBuilder):
                 )
         return units
 
-    def _find_result_span(
-        self, spans: List[Span], tool_span: Span
-    ) -> Optional[Span]:
+    def _find_result_span(self, spans: List[Span], tool_span: Span) -> Optional[Span]:
         """Find the tool_result span associated with a tool_call span."""
         for span in spans:
             if span.span_type == "tool_result" and span.parent_id == tool_span.id:

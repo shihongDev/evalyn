@@ -23,7 +23,12 @@ Usage:
 """
 
 from .base import ConfidenceEstimator, ConfidenceResult, get_confidence_estimator
-from .logprobs import LogprobsConfidence, PerplexityConfidence, EntropyConfidence, DeepConfConfidence
+from .logprobs import (
+    LogprobsConfidence,
+    PerplexityConfidence,
+    EntropyConfidence,
+    DeepConfConfidence,
+)
 from .consistency import SelfConsistencyConfidence, MajorityVoteConfidence
 from .verbalized import VerbalizedConfidence
 

@@ -59,12 +59,16 @@ class LogprobsConfidence(ConfidenceEstimator):
             ConfidenceResult with confidence score
         """
         if not logprobs:
-            return ConfidenceResult(score=0.5, method=self.name, details={"reason": "no_logprobs"})
+            return ConfidenceResult(
+                score=0.5, method=self.name, details={"reason": "no_logprobs"}
+            )
 
         # Filter out None values
         valid_logprobs = [lp for lp in logprobs if lp is not None]
         if not valid_logprobs:
-            return ConfidenceResult(score=0.5, method=self.name, details={"reason": "all_none"})
+            return ConfidenceResult(
+                score=0.5, method=self.name, details={"reason": "all_none"}
+            )
 
         # Aggregate logprobs
         if self.aggregation == "min":
@@ -131,11 +135,15 @@ class PerplexityConfidence(ConfidenceEstimator):
             ConfidenceResult with confidence score
         """
         if not logprobs:
-            return ConfidenceResult(score=0.5, method=self.name, details={"reason": "no_logprobs"})
+            return ConfidenceResult(
+                score=0.5, method=self.name, details={"reason": "no_logprobs"}
+            )
 
         valid_logprobs = [lp for lp in logprobs if lp is not None]
         if not valid_logprobs:
-            return ConfidenceResult(score=0.5, method=self.name, details={"reason": "all_none"})
+            return ConfidenceResult(
+                score=0.5, method=self.name, details={"reason": "all_none"}
+            )
 
         # Calculate perplexity
         avg_logprob = sum(valid_logprobs) / len(valid_logprobs)
@@ -196,7 +204,9 @@ class EntropyConfidence(ConfidenceEstimator):
             # Fall back to simple logprobs if top_logprobs not available
             if logprobs:
                 return LogprobsConfidence().estimate(logprobs=logprobs)
-            return ConfidenceResult(score=0.5, method=self.name, details={"reason": "no_data"})
+            return ConfidenceResult(
+                score=0.5, method=self.name, details={"reason": "no_data"}
+            )
 
         entropies = []
         for token_logprobs in top_logprobs:
@@ -215,7 +225,9 @@ class EntropyConfidence(ConfidenceEstimator):
             entropies.append(entropy)
 
         if not entropies:
-            return ConfidenceResult(score=0.5, method=self.name, details={"reason": "no_valid_tokens"})
+            return ConfidenceResult(
+                score=0.5, method=self.name, details={"reason": "no_valid_tokens"}
+            )
 
         avg_entropy = sum(entropies) / len(entropies)
 
@@ -268,7 +280,9 @@ class DeepConfConfidence(ConfidenceEstimator):
 
     def __init__(self, strategy: str = "bottom10", tail_tokens: int = 256):
         if strategy not in ("average", "bottom10", "tail"):
-            raise ValueError(f"Invalid strategy: {strategy}. Use 'average', 'bottom10', or 'tail'")
+            raise ValueError(
+                f"Invalid strategy: {strategy}. Use 'average', 'bottom10', or 'tail'"
+            )
         self.strategy = strategy
         self.tail_tokens = tail_tokens
 
@@ -286,11 +300,15 @@ class DeepConfConfidence(ConfidenceEstimator):
             ConfidenceResult with confidence score
         """
         if not logprobs:
-            return ConfidenceResult(score=0.5, method=self.name, details={"reason": "no_logprobs"})
+            return ConfidenceResult(
+                score=0.5, method=self.name, details={"reason": "no_logprobs"}
+            )
 
         valid_logprobs = [lp for lp in logprobs if lp is not None]
         if not valid_logprobs:
-            return ConfidenceResult(score=0.5, method=self.name, details={"reason": "all_none"})
+            return ConfidenceResult(
+                score=0.5, method=self.name, details={"reason": "all_none"}
+            )
 
         # Convert logprobs to token-level confidence scores
         token_confidences = [math.exp(lp) for lp in valid_logprobs]
@@ -311,7 +329,7 @@ class DeepConfConfidence(ConfidenceEstimator):
         elif self.strategy == "tail":
             # Tail Confidence: confidence over final N tokens
             # Useful for reasoning tasks where conclusion quality matters
-            tail = token_confidences[-self.tail_tokens:]
+            tail = token_confidences[-self.tail_tokens :]
             confidence = sum(tail) / len(tail)
             details = {
                 "tail_tokens_used": len(tail),
@@ -340,4 +358,9 @@ class DeepConfConfidence(ConfidenceEstimator):
         )
 
 
-__all__ = ["LogprobsConfidence", "PerplexityConfidence", "EntropyConfidence", "DeepConfConfidence"]
+__all__ = [
+    "LogprobsConfidence",
+    "PerplexityConfidence",
+    "EntropyConfidence",
+    "DeepConfConfidence",
+]

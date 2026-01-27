@@ -58,6 +58,7 @@ except ImportError:
     def create_adk_stream_adapter(*args, **kwargs):  # type: ignore
         raise ImportError("google-adk not installed")
 
+
 try:
     from .providers.claude_agent_sdk import (
         AnthropicAgentsInstrumentor,  # Backwards compat alias

@@ -162,6 +162,7 @@ class LLMJudge:
         if self._client is None:
             if self.provider == "openai":
                 from ..utils.api_client import OpenAIClient
+
                 self._client = OpenAIClient(
                     model=self.model,
                     temperature=self.temperature,
@@ -169,6 +170,7 @@ class LLMJudge:
                 )
             elif self.provider == "ollama":
                 from ..utils.api_client import OllamaClient
+
                 self._client = OllamaClient(
                     model=self.model,
                     temperature=self.temperature,
@@ -256,7 +258,9 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
 """
         return full_prompt
 
-    def _parse_response(self, raw_text: str) -> tuple[Optional[float], Optional[bool], Optional[str], Dict]:
+    def _parse_response(
+        self, raw_text: str
+    ) -> tuple[Optional[float], Optional[bool], Optional[str], Dict]:
         """Parse LLM response text and return (score, passed, reason, parsed_dict)."""
         parsed = _extract_json_object(raw_text) or {}
 
@@ -395,6 +399,7 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
         # Calculate confidence using DeepConf
         if logprobs:
             from .confidence import DeepConfConfidence
+
             estimator = DeepConfConfidence(strategy=strategy)
             conf_result = estimator.estimate(logprobs=logprobs)
             confidence = conf_result.score

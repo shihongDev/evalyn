@@ -373,9 +373,7 @@ Do not include any other text, just the JSON array."""
         no_improvement_count = 0
 
         # Optimization loop
-        pbar = tqdm(
-            range(1, self.config.max_iterations + 1), desc="OPRO", unit="iter"
-        )
+        pbar = tqdm(range(1, self.config.max_iterations + 1), desc="OPRO", unit="iter")
         for iteration in pbar:
             # Generate candidates
             candidates = self._generate_candidates(

@@ -63,8 +63,12 @@ class ClusteringResult:
 
     def as_dict(self) -> Dict[str, Any]:
         result = {
-            "false_positive_clusters": [c.as_dict() for c in self.false_positive_clusters],
-            "false_negative_clusters": [c.as_dict() for c in self.false_negative_clusters],
+            "false_positive_clusters": [
+                c.as_dict() for c in self.false_positive_clusters
+            ],
+            "false_negative_clusters": [
+                c.as_dict() for c in self.false_negative_clusters
+            ],
             "total_cases": self.total_cases,
         }
         if self.coordinates_2d:
@@ -443,7 +447,9 @@ class ReasonClusterer:
         )
         return "fail_" + hashlib.sha256(content.encode()).hexdigest()[:16]
 
-    def _deserialize_failure_result(self, data: Dict[str, Any]) -> FailureClusteringResult:
+    def _deserialize_failure_result(
+        self, data: Dict[str, Any]
+    ) -> FailureClusteringResult:
         """Deserialize failure clustering result from dict."""
         clusters = []
         for c in data.get("clusters", []):
@@ -568,18 +574,21 @@ Example format:
                 assigned = set()
 
                 for i, cluster_data in enumerate(parsed):
-                    label = cluster_data.get("label", f"Cluster {i+1}")
+                    label = cluster_data.get("label", f"Cluster {i + 1}")
                     case_indices = cluster_data.get("case_indices", [])
 
                     valid_indices = [
-                        idx for idx in case_indices
+                        idx
+                        for idx in case_indices
                         if isinstance(idx, int) and 0 <= idx < len(cases)
                     ]
 
                     if not valid_indices:
                         continue
 
-                    valid_indices = [idx for idx in valid_indices if idx not in assigned]
+                    valid_indices = [
+                        idx for idx in valid_indices if idx not in assigned
+                    ]
                     if not valid_indices:
                         continue
 
@@ -715,7 +724,9 @@ Example format:
 
         try:
             response = self.client.generate(prompt)
-            clusters = self._parse_clustering_response(response, cases, disagreement_type)
+            clusters = self._parse_clustering_response(
+                response, cases, disagreement_type
+            )
             return clusters
         except Exception:
             # Fallback: single cluster with all cases
@@ -730,7 +741,6 @@ Example format:
                     disagreement_type=disagreement_type,
                 )
             ]
-
 
     def _build_clustering_prompt(
         self,
@@ -804,12 +814,13 @@ Example format:
                 assigned = set()
 
                 for i, cluster_data in enumerate(parsed):
-                    label = cluster_data.get("label", f"Cluster {i+1}")
+                    label = cluster_data.get("label", f"Cluster {i + 1}")
                     case_indices = cluster_data.get("case_indices", [])
 
                     # Validate indices
                     valid_indices = [
-                        idx for idx in case_indices
+                        idx
+                        for idx in case_indices
                         if isinstance(idx, int) and 0 <= idx < len(cases)
                     ]
 
@@ -817,7 +828,9 @@ Example format:
                         continue
 
                     # Avoid double-assignment
-                    valid_indices = [idx for idx in valid_indices if idx not in assigned]
+                    valid_indices = [
+                        idx for idx in valid_indices if idx not in assigned
+                    ]
                     if not valid_indices:
                         continue
 
@@ -841,7 +854,9 @@ Example format:
                 unassigned = [i for i in range(len(cases)) if i not in assigned]
                 if unassigned:
                     unassigned_cases = [cases[idx] for idx in unassigned]
-                    reasons = [c.judge_reason or c.human_notes for c in unassigned_cases]
+                    reasons = [
+                        c.judge_reason or c.human_notes for c in unassigned_cases
+                    ]
                     clusters.append(
                         ReasonCluster(
                             cluster_id=f"{disagreement_type}_{len(clusters)}",
@@ -891,7 +906,11 @@ Example format:
         case_to_label: Dict[str, str] = {}
         for cluster in fp_clusters + fn_clusters:
             for i, case in enumerate(
-                [c for c in all_cases if c.disagreement_type == cluster.disagreement_type]
+                [
+                    c
+                    for c in all_cases
+                    if c.disagreement_type == cluster.disagreement_type
+                ]
             ):
                 if (case.judge_reason or case.human_notes) in cluster.reasons:
                     case_to_label[case.call_id] = cluster.label
@@ -1192,6 +1211,7 @@ def generate_cluster_html(
     try:
         import plotly.graph_objects as go
         from plotly.io import to_html
+
         deps_available = True
     except ImportError:
         deps_available = False
@@ -1237,7 +1257,9 @@ def generate_cluster_html(
         case_type = result.case_types[i] if result.case_types else "unknown"
         reason = result.case_reasons[i] if result.case_reasons else ""
         reason_short = reason[:150] + "..." if len(reason) > 150 else reason
-        type_label = "False Positive" if case_type == "false_positive" else "False Negative"
+        type_label = (
+            "False Positive" if case_type == "false_positive" else "False Negative"
+        )
         hover_texts.append(
             f"<b>{label}</b><br><br>"
             f"<span style='color:#888'>{type_label}</span><br><br>"
@@ -1298,9 +1320,9 @@ def generate_cluster_html(
     fp_cases = sum(c.count for c in result.false_positive_clusters)
     fn_cases = sum(c.count for c in result.false_negative_clusters)
 
-    styles = "\n        ".join([
-        _BASE_STYLES, _STATS_STYLES, _PLOT_STYLES, _TABLE_STYLES, _MISALIGNMENT_STYLES
-    ])
+    styles = "\n        ".join(
+        [_BASE_STYLES, _STATS_STYLES, _PLOT_STYLES, _TABLE_STYLES, _MISALIGNMENT_STYLES]
+    )
 
     body = f"""<div class="header">
             <h1>Misalignment Clusters</h1>
@@ -1333,13 +1355,13 @@ def _generate_fallback_html(
 ) -> str:
     """Generate simple HTML without interactive plot."""
     if reason == "too_few_cases":
-        note_content = f'Scatter plot requires at least 3 data points. Only {result.total_cases} case(s) found.'
+        note_content = f"Scatter plot requires at least 3 data points. Only {result.total_cases} case(s) found."
     else:
-        note_content = 'Interactive scatter plot requires: <code>pip install evalyn-sdk[clustering]</code>'
+        note_content = "Interactive scatter plot requires: <code>pip install evalyn-sdk[clustering]</code>"
 
-    styles = "\n        ".join([
-        _BASE_STYLES, _NOTE_STYLES, _TABLE_STYLES, _MISALIGNMENT_STYLES
-    ])
+    styles = "\n        ".join(
+        [_BASE_STYLES, _NOTE_STYLES, _TABLE_STYLES, _MISALIGNMENT_STYLES]
+    )
 
     body = f"""<div class="header">
             <h1>Misalignment Clusters</h1>
@@ -1362,7 +1384,10 @@ def _render_single_cluster_table(
 
     rows = []
     for c in clusters:
-        example = c.representative_example.judge_reason or c.representative_example.human_notes
+        example = (
+            c.representative_example.judge_reason
+            or c.representative_example.human_notes
+        )
         example_short = example[:120] + "..." if len(example) > 120 else example
         rows.append(f"""
             <tr>
@@ -1419,11 +1444,16 @@ def generate_cluster_text(result: ClusteringResult, metric_id: str) -> str:
         return "\n".join(lines)
 
     if result.total_cases < 3:
-        lines.append(f"Only {result.total_cases} disagreement cases - clustering skipped.")
+        lines.append(
+            f"Only {result.total_cases} disagreement cases - clustering skipped."
+        )
         lines.append("")
         for case in result.false_positive_clusters + result.false_negative_clusters:
             type_label = "FP" if case.disagreement_type == "false_positive" else "FN"
-            reason = case.representative_example.judge_reason or case.representative_example.human_notes
+            reason = (
+                case.representative_example.judge_reason
+                or case.representative_example.human_notes
+            )
             lines.append(f"  [{type_label}] {reason[:70]}...")
         return "\n".join(lines)
 
@@ -1437,7 +1467,10 @@ def generate_cluster_text(result: ClusteringResult, metric_id: str) -> str:
         lines.append(f"{'Cluster':<35} {'Count':<8} Example")
         lines.append("-" * 60)
         for c in result.false_positive_clusters:
-            example = c.representative_example.judge_reason or c.representative_example.human_notes
+            example = (
+                c.representative_example.judge_reason
+                or c.representative_example.human_notes
+            )
             example_short = example[:30] + "..." if len(example) > 30 else example
             lines.append(f"{c.label:<35} {c.count:<8} {example_short}")
         lines.append("")
@@ -1452,7 +1485,10 @@ def generate_cluster_text(result: ClusteringResult, metric_id: str) -> str:
         lines.append(f"{'Cluster':<35} {'Count':<8} Example")
         lines.append("-" * 60)
         for c in result.false_negative_clusters:
-            example = c.representative_example.judge_reason or c.representative_example.human_notes
+            example = (
+                c.representative_example.judge_reason
+                or c.representative_example.human_notes
+            )
             example_short = example[:30] + "..." if len(example) > 30 else example
             lines.append(f"{c.label:<35} {c.count:<8} {example_short}")
 
@@ -1478,6 +1514,7 @@ def generate_failure_cluster_html(
     try:
         import plotly.graph_objects as go
         from plotly.io import to_html
+
         deps_available = True
     except ImportError:
         deps_available = False
@@ -1498,8 +1535,14 @@ def generate_failure_cluster_html(
     # Build color mapping
     unique_labels = sorted(set(result.case_labels or []))
     colors_palette = [
-        "#D4A27F", "#C4836A", "#8B7355", "#6B8E8E",
-        "#9B8AA6", "#A68B6B", "#7A9E7A", "#B8A090",
+        "#D4A27F",
+        "#C4836A",
+        "#8B7355",
+        "#6B8E8E",
+        "#9B8AA6",
+        "#A68B6B",
+        "#7A9E7A",
+        "#B8A090",
     ]
     color_map = {
         label: colors_palette[i % len(colors_palette)]
@@ -1539,9 +1582,9 @@ def generate_failure_cluster_html(
         fig, full_html=False, include_plotlyjs="cdn", config={"displayModeBar": False}
     )
 
-    styles = "\n        ".join([
-        _BASE_STYLES, _STATS_STYLES, _PLOT_STYLES, _TABLE_STYLES, _FAILURE_STYLES
-    ])
+    styles = "\n        ".join(
+        [_BASE_STYLES, _STATS_STYLES, _PLOT_STYLES, _TABLE_STYLES, _FAILURE_STYLES]
+    )
 
     body = f"""<div class="header">
             <h1>Failure Clusters</h1>
@@ -1570,13 +1613,13 @@ def _generate_failure_fallback_html(
 ) -> str:
     """Generate simple HTML for failures without interactive plot."""
     if reason == "too_few_cases":
-        note_content = f'Scatter plot requires at least 3 data points. Only {result.total_cases} failure(s) found.'
+        note_content = f"Scatter plot requires at least 3 data points. Only {result.total_cases} failure(s) found."
     else:
-        note_content = 'Interactive scatter plot requires: <code>pip install evalyn-sdk[clustering]</code>'
+        note_content = "Interactive scatter plot requires: <code>pip install evalyn-sdk[clustering]</code>"
 
-    styles = "\n        ".join([
-        _BASE_STYLES, _NOTE_STYLES, _TABLE_STYLES, _FAILURE_STYLES
-    ])
+    styles = "\n        ".join(
+        [_BASE_STYLES, _NOTE_STYLES, _TABLE_STYLES, _FAILURE_STYLES]
+    )
 
     body = f"""<div class="header">
             <h1>Failure Clusters</h1>
@@ -1616,7 +1659,9 @@ def _render_failure_cluster_table(result: FailureClusteringResult) -> str:
     """
 
 
-def generate_failure_cluster_text(result: FailureClusteringResult, metric_id: str) -> str:
+def generate_failure_cluster_text(
+    result: FailureClusteringResult, metric_id: str
+) -> str:
     """Generate ASCII table output for failure clustering.
 
     Args:
@@ -1644,7 +1689,9 @@ def generate_failure_cluster_text(result: FailureClusteringResult, metric_id: st
             lines.append(f"  {reason[:70]}...")
         return "\n".join(lines)
 
-    lines.append(f"FAILURES - {len(result.clusters)} clusters, {result.total_cases} cases")
+    lines.append(
+        f"FAILURES - {len(result.clusters)} clusters, {result.total_cases} cases"
+    )
     lines.append("-" * 60)
     lines.append(f"{'Cluster':<35} {'Count':<8} Example")
     lines.append("-" * 60)

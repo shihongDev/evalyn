@@ -94,7 +94,9 @@ def get_confidence_estimator(method: str, **kwargs) -> ConfidenceEstimator:
 
     if method not in methods:
         available = ", ".join(methods.keys())
-        raise ValueError(f"Unknown confidence method '{method}'. Available: {available}")
+        raise ValueError(
+            f"Unknown confidence method '{method}'. Available: {available}"
+        )
 
     return methods[method](**kwargs)
 

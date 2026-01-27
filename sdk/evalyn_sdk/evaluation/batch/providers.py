@@ -151,7 +151,9 @@ class BatchProvider(ABC):
                 return job
 
             if timeout and (time.time() - start_time) > timeout:
-                raise TimeoutError(f"Batch job {job_id} did not complete within {timeout}s")
+                raise TimeoutError(
+                    f"Batch job {job_id} did not complete within {timeout}s"
+                )
 
             time.sleep(poll_interval)
 
@@ -188,7 +190,9 @@ class GeminiBatchProvider(BatchProvider):
         return "gemini"
 
     def _get_api_key(self) -> str:
-        key = self._api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        key = (
+            self._api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        )
         if not key:
             raise RuntimeError("Missing GEMINI_API_KEY environment variable")
         return key
@@ -209,10 +213,12 @@ class GeminiBatchProvider(BatchProvider):
         # Build batch request payload
         batch_requests = []
         for req in requests:
-            batch_requests.append({
-                "contents": [{"parts": [{"text": req["prompt"]}]}],
-                "generationConfig": {"temperature": 0.0},
-            })
+            batch_requests.append(
+                {
+                    "contents": [{"parts": [{"text": req["prompt"]}]}],
+                    "generationConfig": {"temperature": 0.0},
+                }
+            )
 
         payload = {"requests": batch_requests}
         data = json.dumps(payload).encode("utf-8")
@@ -251,7 +257,9 @@ class GeminiBatchProvider(BatchProvider):
 
         except urllib.error.HTTPError as e:
             error_body = e.read().decode("utf-8") if e.fp else ""
-            raise RuntimeError(f"Gemini batch API error ({e.code}): {error_body}") from e
+            raise RuntimeError(
+                f"Gemini batch API error ({e.code}): {error_body}"
+            ) from e
 
     def get_status(self, job_id: str) -> BatchJob:
         """Get job status. Gemini batch is synchronous so always complete."""
@@ -293,28 +301,34 @@ class GeminiBatchProvider(BatchProvider):
                         parts = content.get("parts", [])
                         if parts:
                             text = parts[0].get("text", "")
-                            results.append(BatchResult(
-                                custom_id=custom_id,
-                                success=True,
-                                response=text,
-                            ))
+                            results.append(
+                                BatchResult(
+                                    custom_id=custom_id,
+                                    success=True,
+                                    response=text,
+                                )
+                            )
                             continue
                 except Exception as e:
                     logger.warning(f"Failed to parse response for {custom_id}: {e}")
 
                 # Check for error
                 error = resp.get("error", {}).get("message", "Unknown error")
-                results.append(BatchResult(
-                    custom_id=custom_id,
-                    success=False,
-                    error=error,
-                ))
+                results.append(
+                    BatchResult(
+                        custom_id=custom_id,
+                        success=False,
+                        error=error,
+                    )
+                )
             else:
-                results.append(BatchResult(
-                    custom_id=custom_id,
-                    success=False,
-                    error="No response received",
-                ))
+                results.append(
+                    BatchResult(
+                        custom_id=custom_id,
+                        success=False,
+                        error="No response received",
+                    )
+                )
 
         return results
 
@@ -414,12 +428,12 @@ class OpenAIBatchProvider(BatchProvider):
         boundary = f"----BatchBoundary{int(time.time() * 1000)}"
 
         body_parts = [
-            f'--{boundary}\r\n'
+            f"--{boundary}\r\n"
             f'Content-Disposition: form-data; name="purpose"\r\n\r\nbatch\r\n',
-            f'--{boundary}\r\n'
+            f"--{boundary}\r\n"
             f'Content-Disposition: form-data; name="file"; filename="batch.jsonl"\r\n'
-            f'Content-Type: application/jsonl\r\n\r\n{jsonl_content}\r\n',
-            f'--{boundary}--\r\n',
+            f"Content-Type: application/jsonl\r\n\r\n{jsonl_content}\r\n",
+            f"--{boundary}--\r\n",
         ]
         body = "".join(body_parts).encode("utf-8")
 
@@ -438,7 +452,9 @@ class OpenAIBatchProvider(BatchProvider):
                 file_response = json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             error_body = e.read().decode("utf-8") if e.fp else ""
-            raise RuntimeError(f"OpenAI file upload error ({e.code}): {error_body}") from e
+            raise RuntimeError(
+                f"OpenAI file upload error ({e.code}): {error_body}"
+            ) from e
 
         file_id = file_response["id"]
 
@@ -505,7 +521,9 @@ class OpenAIBatchProvider(BatchProvider):
         job = self.get_status(job_id)
 
         if not job.is_complete():
-            raise RuntimeError(f"Batch job {job_id} is not complete (status: {job.status})")
+            raise RuntimeError(
+                f"Batch job {job_id} is not complete (status: {job.status})"
+            )
 
         output_file_id = job.metadata.get("output_file_id")
         if not output_file_id:
@@ -523,7 +541,9 @@ class OpenAIBatchProvider(BatchProvider):
                 content = resp.read().decode("utf-8")
         except urllib.error.HTTPError as e:
             error_body = e.read().decode("utf-8") if e.fp else ""
-            raise RuntimeError(f"Failed to download results ({e.code}): {error_body}") from e
+            raise RuntimeError(
+                f"Failed to download results ({e.code}): {error_body}"
+            ) from e
 
         # Parse JSONL results
         results = []
@@ -534,27 +554,33 @@ class OpenAIBatchProvider(BatchProvider):
             custom_id = data["custom_id"]
 
             if data.get("error"):
-                results.append(BatchResult(
-                    custom_id=custom_id,
-                    success=False,
-                    error=data["error"].get("message", "Unknown error"),
-                ))
+                results.append(
+                    BatchResult(
+                        custom_id=custom_id,
+                        success=False,
+                        error=data["error"].get("message", "Unknown error"),
+                    )
+                )
             else:
                 response_body = data.get("response", {}).get("body", {})
                 choices = response_body.get("choices", [])
                 if choices:
                     text = choices[0].get("message", {}).get("content", "")
-                    results.append(BatchResult(
-                        custom_id=custom_id,
-                        success=True,
-                        response=text,
-                    ))
+                    results.append(
+                        BatchResult(
+                            custom_id=custom_id,
+                            success=True,
+                            response=text,
+                        )
+                    )
                 else:
-                    results.append(BatchResult(
-                        custom_id=custom_id,
-                        success=False,
-                        error="No response content",
-                    ))
+                    results.append(
+                        BatchResult(
+                            custom_id=custom_id,
+                            success=False,
+                            error="No response content",
+                        )
+                    )
 
         return results
 
@@ -639,14 +665,16 @@ class AnthropicBatchProvider(BatchProvider):
         """Submit batch to Anthropic Message Batches API."""
         batch_requests = []
         for req in requests:
-            batch_requests.append({
-                "custom_id": req["custom_id"],
-                "params": {
-                    "model": self.model,
-                    "max_tokens": 1024,
-                    "messages": [{"role": "user", "content": req["prompt"]}],
-                },
-            })
+            batch_requests.append(
+                {
+                    "custom_id": req["custom_id"],
+                    "params": {
+                        "model": self.model,
+                        "max_tokens": 1024,
+                        "messages": [{"role": "user", "content": req["prompt"]}],
+                    },
+                }
+            )
 
         payload = {"requests": batch_requests}
         response = self._api_request(
@@ -661,8 +689,12 @@ class AnthropicBatchProvider(BatchProvider):
             id=response["id"],
             provider=self.provider_name,
             status=self._map_status(response["processing_status"]),
-            created_at=datetime.fromisoformat(response["created_at"].replace("Z", "+00:00")),
-            total_requests=counts.get("processing", 0) + counts.get("succeeded", 0) + counts.get("errored", 0),
+            created_at=datetime.fromisoformat(
+                response["created_at"].replace("Z", "+00:00")
+            ),
+            total_requests=counts.get("processing", 0)
+            + counts.get("succeeded", 0)
+            + counts.get("errored", 0),
         )
 
     def _map_status(self, anthropic_status: str) -> str:
@@ -679,13 +711,21 @@ class AnthropicBatchProvider(BatchProvider):
         response = self._api_request("GET", f"messages/batches/{job_id}")
 
         counts = response.get("request_counts", {})
-        total = counts.get("processing", 0) + counts.get("succeeded", 0) + counts.get("errored", 0) + counts.get("canceled", 0) + counts.get("expired", 0)
+        total = (
+            counts.get("processing", 0)
+            + counts.get("succeeded", 0)
+            + counts.get("errored", 0)
+            + counts.get("canceled", 0)
+            + counts.get("expired", 0)
+        )
 
         return BatchJob(
             id=job_id,
             provider=self.provider_name,
             status=self._map_status(response["processing_status"]),
-            created_at=datetime.fromisoformat(response["created_at"].replace("Z", "+00:00")),
+            created_at=datetime.fromisoformat(
+                response["created_at"].replace("Z", "+00:00")
+            ),
             total_requests=total,
             completed_requests=counts.get("succeeded", 0),
             failed_requests=counts.get("errored", 0),
@@ -697,7 +737,9 @@ class AnthropicBatchProvider(BatchProvider):
         job = self.get_status(job_id)
 
         if not job.is_complete():
-            raise RuntimeError(f"Batch job {job_id} is not complete (status: {job.status})")
+            raise RuntimeError(
+                f"Batch job {job_id} is not complete (status: {job.status})"
+            )
 
         results_url = job.metadata.get("results_url")
         if not results_url:
@@ -719,7 +761,9 @@ class AnthropicBatchProvider(BatchProvider):
                 content = resp.read().decode("utf-8")
         except urllib.error.HTTPError as e:
             error_body = e.read().decode("utf-8") if e.fp else ""
-            raise RuntimeError(f"Failed to download results ({e.code}): {error_body}") from e
+            raise RuntimeError(
+                f"Failed to download results ({e.code}): {error_body}"
+            ) from e
 
         # Parse JSONL results
         results = []
@@ -737,18 +781,22 @@ class AnthropicBatchProvider(BatchProvider):
                 for block in content_blocks:
                     if block.get("type") == "text":
                         text += block.get("text", "")
-                results.append(BatchResult(
-                    custom_id=custom_id,
-                    success=True,
-                    response=text,
-                ))
+                results.append(
+                    BatchResult(
+                        custom_id=custom_id,
+                        success=True,
+                        response=text,
+                    )
+                )
             else:
                 error = result_data.get("error", {})
-                results.append(BatchResult(
-                    custom_id=custom_id,
-                    success=False,
-                    error=error.get("message", "Unknown error"),
-                ))
+                results.append(
+                    BatchResult(
+                        custom_id=custom_id,
+                        success=False,
+                        error=error.get("message", "Unknown error"),
+                    )
+                )
 
         return results
 
@@ -800,4 +848,6 @@ def create_batch_provider(
             api_key=api_key,
         )
     else:
-        raise ValueError(f"Unknown provider: {provider}. Supported: gemini, openai, anthropic")
+        raise ValueError(
+            f"Unknown provider: {provider}. Supported: gemini, openai, anthropic"
+        )

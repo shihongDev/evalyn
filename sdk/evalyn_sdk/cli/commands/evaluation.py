@@ -327,7 +327,9 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
 
     # Get API key based on provider
     if provider == "openai":
-        api_key = get_config_default(config, "api_keys", "openai") or os.environ.get("OPENAI_API_KEY")
+        api_key = get_config_default(config, "api_keys", "openai") or os.environ.get(
+            "OPENAI_API_KEY"
+        )
     else:
         api_key = get_config_default(config, "api_keys", "gemini")
 
@@ -407,7 +409,9 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
             judge_info = f"Judge: {provider}"
             if confidence_method != "none":
                 if confidence_method == "consistency":
-                    judge_info += f", confidence=consistency({confidence_samples} samples)"
+                    judge_info += (
+                        f", confidence=consistency({confidence_samples} samples)"
+                    )
                 else:
                     judge_info += f", confidence={confidence_method}"
             print(judge_info)
@@ -454,7 +458,9 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         batch_provider = getattr(args, "batch_provider", "gemini")
 
         if output_format != "json":
-            print(f"\nUsing batch API ({batch_provider}) for {subjective_count} subjective metrics")
+            print(
+                f"\nUsing batch API ({batch_provider}) for {subjective_count} subjective metrics"
+            )
             print("This may take several minutes. Progress will be shown below.\n")
 
         # Separate objective and subjective metrics
@@ -473,7 +479,9 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
                 dataset_name=args.dataset_name or dataset_file.stem,
                 tracer=tracer,
                 instrument=False,
-                progress_callback=progress_callback if output_format != "json" else None,
+                progress_callback=progress_callback
+                if output_format != "json"
+                else None,
                 max_workers=getattr(args, "workers", 1),
                 unit_types=unit_types,
             )
@@ -484,7 +492,9 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         subjective_results = []
         if subjective_metrics:
             if output_format != "json":
-                print(f"\nSubmitting {len(subjective_metrics)} subjective metrics to batch API...")
+                print(
+                    f"\nSubmitting {len(subjective_metrics)} subjective metrics to batch API..."
+                )
 
             # Prepare items with calls
             prepared = []
@@ -498,9 +508,15 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
                 if output_format != "json":
                     if p.phase == "waiting":
                         pct = 100 * p.completed_requests / max(1, p.total_requests)
-                        print(f"\r  Batch progress: {p.completed_requests}/{p.total_requests} ({pct:.0f}%) - {p.elapsed_seconds:.0f}s elapsed", end="", flush=True)
+                        print(
+                            f"\r  Batch progress: {p.completed_requests}/{p.total_requests} ({pct:.0f}%) - {p.elapsed_seconds:.0f}s elapsed",
+                            end="",
+                            flush=True,
+                        )
                     elif p.phase == "complete":
-                        print(f"\n  Batch complete: {p.completed_requests} results in {p.elapsed_seconds:.1f}s")
+                        print(
+                            f"\n  Batch complete: {p.completed_requests} results in {p.elapsed_seconds:.1f}s"
+                        )
 
             batch_evaluator = BatchEvaluator(
                 provider=batch_provider,
@@ -689,7 +705,9 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         print("   Re-run with a valid API key to get accurate LLM judge scores.")
 
     # Show token usage and cost summary if available
-    print_token_usage_summary(run.usage_summary, verbose=getattr(args, "verbose", False))
+    print_token_usage_summary(
+        run.usage_summary, verbose=getattr(args, "verbose", False)
+    )
 
     failed_items = run.summary.get("failed_items", [])
     failed_count = len(failed_items) if isinstance(failed_items, list) else failed_items

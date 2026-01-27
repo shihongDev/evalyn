@@ -185,7 +185,9 @@ def calculate_cost_with_cache(
             return input_cost + output_cost + cache_write_cost + cache_read_cost
 
     # Default estimate if model not found
-    total_tokens = input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens
+    total_tokens = (
+        input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens
+    )
     return total_tokens / 1_000_000 * 1.0
 
 

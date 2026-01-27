@@ -18,7 +18,16 @@ from __future__ import annotations
 import importlib.util
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Dict, List, Optional, TypedDict
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncIterator,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    TypedDict,
+)
 
 from ... import context as span_context
 from ....models import Span
@@ -174,10 +183,12 @@ class EvalynADKCallbacks:
         for part in parts:
             fc = getattr(part, "function_call", None)
             if fc:
-                tool_calls.append({
-                    "name": getattr(fc, "name", "unknown"),
-                    "args": dict(getattr(fc, "args", {}) or {}),
-                })
+                tool_calls.append(
+                    {
+                        "name": getattr(fc, "name", "unknown"),
+                        "args": dict(getattr(fc, "args", {}) or {}),
+                    }
+                )
         return tool_calls
 
     def before_agent_callback(self, ctx: "CallbackContext") -> Optional["Content"]:
@@ -235,7 +246,9 @@ class EvalynADKCallbacks:
         state = self._agent_spans.pop(span_key, None)
 
         if state:
-            state.span.attributes["duration_ms"] = (time.time() - state.start_time) * 1000
+            state.span.attributes["duration_ms"] = (
+                time.time() - state.start_time
+            ) * 1000
 
             if self._output_text:
                 output = "\n".join(self._output_text)
@@ -307,7 +320,9 @@ class EvalynADKCallbacks:
         state = self._llm_spans.pop(span_key, None)
 
         if state:
-            state.span.attributes["duration_ms"] = (time.time() - state.start_time) * 1000
+            state.span.attributes["duration_ms"] = (
+                time.time() - state.start_time
+            ) * 1000
             content = getattr(llm_response, "content", None)
             response_text = self._extract_text_from_content(content)
 
@@ -325,13 +340,23 @@ class EvalynADKCallbacks:
             usage = getattr(llm_response, "usage_metadata", None)
             if usage:
                 token_usage = self._extract_usage(usage)
-                state.span.attributes["prompt_tokens"] = token_usage.get("prompt_tokens", 0)
-                state.span.attributes["completion_tokens"] = token_usage.get("completion_tokens", 0)
-                state.span.attributes["total_tokens"] = token_usage.get("total_tokens", 0)
+                state.span.attributes["prompt_tokens"] = token_usage.get(
+                    "prompt_tokens", 0
+                )
+                state.span.attributes["completion_tokens"] = token_usage.get(
+                    "completion_tokens", 0
+                )
+                state.span.attributes["total_tokens"] = token_usage.get(
+                    "total_tokens", 0
+                )
                 if token_usage.get("cached_tokens"):
-                    state.span.attributes["cached_tokens"] = token_usage["cached_tokens"]
+                    state.span.attributes["cached_tokens"] = token_usage[
+                        "cached_tokens"
+                    ]
                 if token_usage.get("thoughts_tokens"):
-                    state.span.attributes["thoughts_tokens"] = token_usage["thoughts_tokens"]
+                    state.span.attributes["thoughts_tokens"] = token_usage[
+                        "thoughts_tokens"
+                    ]
 
             model_version = getattr(llm_response, "model_version", None)
             if model_version:
@@ -340,7 +365,9 @@ class EvalynADKCallbacks:
             error_code = getattr(llm_response, "error_code", None)
             error_message = getattr(llm_response, "error_message", None)
             if error_code or error_message:
-                state.span.finish(status="error", error_code=error_code, error_message=error_message)
+                state.span.finish(
+                    status="error", error_code=error_code, error_message=error_message
+                )
             else:
                 state.span.finish(status="ok")
 
@@ -404,7 +431,9 @@ class EvalynADKCallbacks:
         state = self._tool_spans.pop(span_key, None)
 
         if state:
-            state.span.attributes["duration_ms"] = (time.time() - state.start_time) * 1000
+            state.span.attributes["duration_ms"] = (
+                time.time() - state.start_time
+            ) * 1000
 
             result_str = str(result) if result else ""
             output_size = len(result_str)
@@ -416,7 +445,9 @@ class EvalynADKCallbacks:
 
         return None
 
-    def capture_user_input(self, message: str, session_id: Optional[str] = None) -> None:
+    def capture_user_input(
+        self, message: str, session_id: Optional[str] = None
+    ) -> None:
         """Capture user input message as a span."""
         span = Span.new(
             name="user_input",
@@ -558,6 +589,7 @@ class GoogleADKInstrumentor(Instrumentor):
                 from openinference.instrumentation.google_adk import (
                     GoogleADKInstrumentor as OIInstrumentor,
                 )
+
                 self._otel_instrumentor = OIInstrumentor()
                 self._otel_instrumentor.instrument()
             except ImportError:
@@ -664,36 +696,71 @@ class GoogleADKInstrumentor(Instrumentor):
         callbacks = self._callbacks
 
         def make_patched_getter(
-            evalyn_callback: Callable[..., Any], original_getter: Callable[..., List[Any]]
+            evalyn_callback: Callable[..., Any],
+            original_getter: Callable[..., List[Any]],
         ) -> Callable[[Any], List[Any]]:
             """Create a patched property getter that prepends the Evalyn callback."""
+
             def patched(instance: Any) -> List[Any]:
                 return [evalyn_callback] + original_getter(instance)
+
             return patched
 
         # Define callback mappings: (class, property_name, evalyn_callback)
         llm_callbacks = [
-            ("before_model", "canonical_before_model_callbacks", callbacks.before_model_callback),
-            ("after_model", "canonical_after_model_callbacks", callbacks.after_model_callback),
-            ("before_tool", "canonical_before_tool_callbacks", callbacks.before_tool_callback),
-            ("after_tool", "canonical_after_tool_callbacks", callbacks.after_tool_callback),
+            (
+                "before_model",
+                "canonical_before_model_callbacks",
+                callbacks.before_model_callback,
+            ),
+            (
+                "after_model",
+                "canonical_after_model_callbacks",
+                callbacks.after_model_callback,
+            ),
+            (
+                "before_tool",
+                "canonical_before_tool_callbacks",
+                callbacks.before_tool_callback,
+            ),
+            (
+                "after_tool",
+                "canonical_after_tool_callbacks",
+                callbacks.after_tool_callback,
+            ),
         ]
         agent_callbacks = [
-            ("before_agent", "canonical_before_agent_callbacks", callbacks.before_agent_callback),
-            ("after_agent", "canonical_after_agent_callbacks", callbacks.after_agent_callback),
+            (
+                "before_agent",
+                "canonical_before_agent_callbacks",
+                callbacks.before_agent_callback,
+            ),
+            (
+                "after_agent",
+                "canonical_after_agent_callbacks",
+                callbacks.after_agent_callback,
+            ),
         ]
 
         # Store originals and patch LlmAgent properties
         for key, prop_name, evalyn_cb in llm_callbacks:
             original_getter = getattr(LlmAgent, prop_name).fget
             self._original_properties[key] = original_getter
-            setattr(LlmAgent, prop_name, property(make_patched_getter(evalyn_cb, original_getter)))
+            setattr(
+                LlmAgent,
+                prop_name,
+                property(make_patched_getter(evalyn_cb, original_getter)),
+            )
 
         # Store originals and patch BaseAgent properties
         for key, prop_name, evalyn_cb in agent_callbacks:
             original_getter = getattr(BaseAgent, prop_name).fget
             self._original_properties[key] = original_getter
-            setattr(BaseAgent, prop_name, property(make_patched_getter(evalyn_cb, original_getter)))
+            setattr(
+                BaseAgent,
+                prop_name,
+                property(make_patched_getter(evalyn_cb, original_getter)),
+            )
 
         self._callbacks_injected = True
 

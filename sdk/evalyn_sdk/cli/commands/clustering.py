@@ -162,7 +162,9 @@ def cmd_cluster_misalignments(args: argparse.Namespace) -> None:
     cache_dir = dataset_dir / "calibrations" / args.metric_id if dataset_dir else None
     clusterer = ReasonClusterer(model=args.model, cache_dir=cache_dir)
     compute_embeddings = args.format == "html"
-    result = clusterer.cluster_reasons(disagreements, compute_embeddings=compute_embeddings)
+    result = clusterer.cluster_reasons(
+        disagreements, compute_embeddings=compute_embeddings
+    )
 
     # Output
     default_html_path = (
@@ -219,7 +221,9 @@ def cmd_cluster_failures(args: argparse.Namespace) -> None:
 
         if not metric_ids:
             print("\nNo failures found in any metric!")
-            print(f"All items passed across {len(set(r.metric_id for r in run.metric_results))} metrics.")
+            print(
+                f"All items passed across {len(set(r.metric_id for r in run.metric_results))} metrics."
+            )
             return
 
         print(f"\nClustering failures for {len(metric_ids)} metrics with failures...")
@@ -254,7 +258,9 @@ def cmd_cluster_failures(args: argparse.Namespace) -> None:
                 import umap  # noqa: F401
                 import plotly  # noqa: F401
             except ImportError:
-                print("  Note: Scatter plot requires: pip install evalyn-sdk[clustering]")
+                print(
+                    "  Note: Scatter plot requires: pip install evalyn-sdk[clustering]"
+                )
 
         # Determine output path
         if args.output and len(metric_ids) == 1:
@@ -282,7 +288,9 @@ def cmd_cluster_failures(args: argparse.Namespace) -> None:
             total_failures = result.total_cases
             total_items = len(metric_results)
             pct = 100 * total_failures / total_items if total_items else 0
-            print(f"  {mid}: {total_failures}/{total_items} failed ({pct:.1f}%), {len(result.clusters)} patterns")
+            print(
+                f"  {mid}: {total_failures}/{total_items} failed ({pct:.1f}%), {len(result.clusters)} patterns"
+            )
 
     print_hint(
         "To see full eval results: evalyn show-run --last",

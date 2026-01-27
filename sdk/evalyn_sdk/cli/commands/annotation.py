@@ -37,7 +37,12 @@ from typing import Any, Dict, List, Optional
 
 from ...annotation import import_annotations
 from ..utils.errors import fatal_error
-from ..utils.input_helpers import truncate_text, get_bool_input, get_int_input, get_str_input
+from ..utils.input_helpers import (
+    truncate_text,
+    get_bool_input,
+    get_int_input,
+    get_str_input,
+)
 from ...annotation import (
     SpanAnnotation,
     ANNOTATION_SCHEMAS,
@@ -202,15 +207,21 @@ def _display_span_detail(span_type: str, detail: dict) -> None:
     """Display span-specific details based on type."""
     if span_type == "llm_call":
         print(f"  Model: {detail.get('model', 'unknown')}")
-        print(f"  Tokens: {detail.get('input_tokens', '?')} in / {detail.get('output_tokens', '?')} out")
+        print(
+            f"  Tokens: {detail.get('input_tokens', '?')} in / {detail.get('output_tokens', '?')} out"
+        )
         if detail.get("cost"):
             print(f"  Cost: ${detail.get('cost', 0):.6f}")
         if detail.get("response_excerpt"):
-            print(f"  Response: {truncate_text(detail.get('response_excerpt', ''), 200)}")
+            print(
+                f"  Response: {truncate_text(detail.get('response_excerpt', ''), 200)}"
+            )
     elif span_type == "tool_call":
         print(f"  Tool: {detail.get('tool_name', 'unknown')}")
         if detail.get("args"):
-            print(f"  Args: {truncate_text(json.dumps(detail.get('args', {}), ensure_ascii=False), 150)}")
+            print(
+                f"  Args: {truncate_text(json.dumps(detail.get('args', {}), ensure_ascii=False), 150)}"
+            )
         if detail.get("result"):
             print(f"  Result: {truncate_text(str(detail.get('result', '')), 150)}")
     elif span_type == "reasoning":
@@ -358,7 +369,9 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
 
         if span_type == "overall":
             # Show input/output for overall
-            print(f"\nINPUT: {truncate_text(json.dumps(span.get('input', {}), ensure_ascii=False), 200)}")
+            print(
+                f"\nINPUT: {truncate_text(json.dumps(span.get('input', {}), ensure_ascii=False), 200)}"
+            )
             print(f"OUTPUT: {truncate_text(str(span.get('output', '')), 300)}")
         elif span.get("detail"):
             _display_span_detail(span_type, span["detail"])

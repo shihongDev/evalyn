@@ -264,12 +264,14 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
 
         # Phase 1: Prepare batch requests
         if progress_callback:
-            progress_callback(BatchEvalProgress(
-                phase="preparing",
-                total_requests=len(prepared) * len(subjective_metrics),
-                completed_requests=0,
-                elapsed_seconds=0,
-            ))
+            progress_callback(
+                BatchEvalProgress(
+                    phase="preparing",
+                    total_requests=len(prepared) * len(subjective_metrics),
+                    completed_requests=0,
+                    elapsed_seconds=0,
+                )
+            )
 
         requests = []
         request_map: Dict[str, Tuple[Metric, DatasetItem, FunctionCall]] = {}
@@ -278,10 +280,12 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
             for metric in subjective_metrics:
                 custom_id = f"{item.id}_{metric.spec.id}"
                 prompt = self._build_prompt(metric, call, item)
-                requests.append({
-                    "custom_id": custom_id,
-                    "prompt": prompt,
-                })
+                requests.append(
+                    {
+                        "custom_id": custom_id,
+                        "prompt": prompt,
+                    }
+                )
                 request_map[custom_id] = (metric, item, call)
 
         if not requests:
@@ -291,12 +295,14 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
 
         # Phase 2: Submit batch
         if progress_callback:
-            progress_callback(BatchEvalProgress(
-                phase="submitted",
-                total_requests=len(requests),
-                completed_requests=0,
-                elapsed_seconds=time.time() - start_time,
-            ))
+            progress_callback(
+                BatchEvalProgress(
+                    phase="submitted",
+                    total_requests=len(requests),
+                    completed_requests=0,
+                    elapsed_seconds=time.time() - start_time,
+                )
+            )
 
         job = self.provider.submit(requests, description="Evalyn batch evaluation")
         logger.info(f"Batch job submitted: {job.id}")
@@ -316,13 +322,15 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
         # Phase 3: Wait for completion
         def on_progress(j):
             if progress_callback:
-                progress_callback(BatchEvalProgress(
-                    phase="waiting",
-                    total_requests=j.total_requests,
-                    completed_requests=j.completed_requests,
-                    elapsed_seconds=time.time() - start_time,
-                    job_id=j.id,
-                ))
+                progress_callback(
+                    BatchEvalProgress(
+                        phase="waiting",
+                        total_requests=j.total_requests,
+                        completed_requests=j.completed_requests,
+                        elapsed_seconds=time.time() - start_time,
+                        job_id=j.id,
+                    )
+                )
 
         final_job = self.provider.wait(
             job.id,
@@ -334,17 +342,21 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
         if not final_job.is_success():
             raise RuntimeError(f"Batch job failed with status: {final_job.status}")
 
-        logger.info(f"Batch job completed: {final_job.completed_requests}/{final_job.total_requests} succeeded")
+        logger.info(
+            f"Batch job completed: {final_job.completed_requests}/{final_job.total_requests} succeeded"
+        )
 
         # Phase 4: Parse results
         if progress_callback:
-            progress_callback(BatchEvalProgress(
-                phase="parsing",
-                total_requests=len(requests),
-                completed_requests=final_job.completed_requests,
-                elapsed_seconds=time.time() - start_time,
-                job_id=job.id,
-            ))
+            progress_callback(
+                BatchEvalProgress(
+                    phase="parsing",
+                    total_requests=len(requests),
+                    completed_requests=final_job.completed_requests,
+                    elapsed_seconds=time.time() - start_time,
+                    job_id=job.id,
+                )
+            )
 
         batch_results = self.provider.get_results(job.id)
 
@@ -376,15 +388,19 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
 
         # Final progress
         if progress_callback:
-            progress_callback(BatchEvalProgress(
-                phase="complete",
-                total_requests=len(requests),
-                completed_requests=len(results),
-                elapsed_seconds=time.time() - start_time,
-                job_id=job.id,
-            ))
+            progress_callback(
+                BatchEvalProgress(
+                    phase="complete",
+                    total_requests=len(requests),
+                    completed_requests=len(results),
+                    elapsed_seconds=time.time() - start_time,
+                    job_id=job.id,
+                )
+            )
 
-        logger.info(f"Batch evaluation complete: {len(results)} results in {time.time() - start_time:.1f}s")
+        logger.info(
+            f"Batch evaluation complete: {len(results)} results in {time.time() - start_time:.1f}s"
+        )
         return results
 
     def resume(
@@ -417,13 +433,15 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
         # Wait for completion
         def on_progress(j):
             if progress_callback:
-                progress_callback(BatchEvalProgress(
-                    phase="waiting",
-                    total_requests=j.total_requests,
-                    completed_requests=j.completed_requests,
-                    elapsed_seconds=time.time() - start_time,
-                    job_id=j.id,
-                ))
+                progress_callback(
+                    BatchEvalProgress(
+                        phase="waiting",
+                        total_requests=j.total_requests,
+                        completed_requests=j.completed_requests,
+                        elapsed_seconds=time.time() - start_time,
+                        job_id=j.id,
+                    )
+                )
 
         final_job = self.provider.wait(
             job_id,

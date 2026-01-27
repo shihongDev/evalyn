@@ -137,7 +137,9 @@ def cmd_status(args: argparse.Namespace) -> None:
             print("No calibrations yet")
     else:
         print("No calibrations yet")
-        print(f"  -> Run: evalyn calibrate --metric-id <metric> --annotations {ds.path / 'annotations.jsonl'} --dataset {ds.path}")
+        print(
+            f"  -> Run: evalyn calibrate --metric-id <metric> --annotations {ds.path / 'annotations.jsonl'} --dataset {ds.path}"
+        )
 
     # Suggested next step
     print(f"\n{'=' * 60}")
@@ -149,7 +151,9 @@ def cmd_status(args: argparse.Namespace) -> None:
     elif not annotations_file.exists():
         print(f"  evalyn annotate --dataset {ds.path}")
     elif not calibrations_dir.exists():
-        print(f"  evalyn calibrate --metric-id <metric> --annotations {ds.path / 'annotations.jsonl'} --dataset {ds.path}")
+        print(
+            f"  evalyn calibrate --metric-id <metric> --annotations {ds.path / 'annotations.jsonl'} --dataset {ds.path}"
+        )
     else:
         print("  All steps complete! Consider:")
         print("  - Re-run eval with optimized prompts")

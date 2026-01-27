@@ -638,9 +638,15 @@ def build_subjective_metric(
 
     # Apply confidence wrapper based on method
     confidence_wrappers = {
-        "consistency": lambda: _wrap_with_consistency_confidence(base_metric, judge, confidence_samples, threshold_f),
-        "logprobs": lambda: _wrap_with_logprobs_confidence(base_metric, judge, threshold_f),
-        "deepconf": lambda: _wrap_with_deepconf_confidence(base_metric, judge, threshold_f),
+        "consistency": lambda: _wrap_with_consistency_confidence(
+            base_metric, judge, confidence_samples, threshold_f
+        ),
+        "logprobs": lambda: _wrap_with_logprobs_confidence(
+            base_metric, judge, threshold_f
+        ),
+        "deepconf": lambda: _wrap_with_deepconf_confidence(
+            base_metric, judge, threshold_f
+        ),
     }
     wrapper = confidence_wrappers.get(confidence_method)
     metric = wrapper() if wrapper else base_metric

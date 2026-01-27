@@ -25,8 +25,12 @@ def _extract_usage(response: Any) -> Tuple[int, int]:
     if not usage:
         return 0, 0
 
-    input_tokens = getattr(usage, "prompt_tokens", 0) or getattr(usage, "input_tokens", 0)
-    output_tokens = getattr(usage, "completion_tokens", 0) or getattr(usage, "output_tokens", 0)
+    input_tokens = getattr(usage, "prompt_tokens", 0) or getattr(
+        usage, "input_tokens", 0
+    )
+    output_tokens = getattr(usage, "completion_tokens", 0) or getattr(
+        usage, "output_tokens", 0
+    )
     return input_tokens, output_tokens
 
 

@@ -33,6 +33,7 @@ def _get_default_db_path() -> str:
         return env_path
     return str(_find_project_root() / DEFAULT_PROD_DB)
 
+
 # OTLP exporter import path differs by version; try modern path first.
 try:
     from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (

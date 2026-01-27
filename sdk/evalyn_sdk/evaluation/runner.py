@@ -262,7 +262,9 @@ class EvalRunner:
         """Check if using only OutcomeBuilder (default backward-compatible mode)."""
         from .units import OutcomeBuilder
 
-        return len(self.unit_builders) == 1 and isinstance(self.unit_builders[0], OutcomeBuilder)
+        return len(self.unit_builders) == 1 and isinstance(
+            self.unit_builders[0], OutcomeBuilder
+        )
 
     def _run_unit_evaluation(
         self,

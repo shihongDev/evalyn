@@ -389,7 +389,9 @@ class Metric:
         self,
         spec: MetricSpec,
         handler: Callable[["FunctionCall", "DatasetItem"], MetricResult],
-        unit_handler: Optional[Callable[["EvalView", "DatasetItem"], MetricResult]] = None,
+        unit_handler: Optional[
+            Callable[["EvalView", "DatasetItem"], MetricResult]
+        ] = None,
     ):
         self.spec = spec
         self.handler = handler

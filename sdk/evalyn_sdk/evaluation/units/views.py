@@ -89,9 +89,13 @@ def _project_tool_use(unit: EvalUnit, call: FunctionCall) -> EvalView:
 
     # Extract output: prefer tool_result, fallback to tool_call
     if tool_result_span:
-        output_data = tool_result_span.attributes.get("result") or tool_result_span.attributes.get("output")
+        output_data = tool_result_span.attributes.get(
+            "result"
+        ) or tool_result_span.attributes.get("output")
     elif tool_call_span:
-        output_data = tool_call_span.attributes.get("result") or tool_call_span.attributes.get("output")
+        output_data = tool_call_span.attributes.get(
+            "result"
+        ) or tool_call_span.attributes.get("output")
     else:
         output_data = None
 
@@ -146,7 +150,9 @@ def _project_custom(unit: EvalUnit, call: FunctionCall) -> EvalView:
 
     if span:
         input_data = span.attributes.get("eval_input") or span.attributes.get("input")
-        output_data = span.attributes.get("eval_output") or span.attributes.get("output")
+        output_data = span.attributes.get("eval_output") or span.attributes.get(
+            "output"
+        )
     else:
         input_data = unit.context.get("input")
         output_data = unit.context.get("output")
