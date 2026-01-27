@@ -5,17 +5,25 @@ from __future__ import annotations
 import os
 from typing import Optional, Tuple
 
+from .config import get_config_default, load_config
 from .errors import fatal_error
 
 
 def check_llm_api_keys(quiet: bool = False) -> Tuple[Optional[str], Optional[str]]:
     """Check for LLM API keys and warn if missing.
 
+    Checks config file first, then environment variables.
+
     Returns:
         Tuple of (gemini_key, openai_key) - values may be empty strings.
     """
-    gemini_key = os.environ.get("GEMINI_API_KEY", "")
-    openai_key = os.environ.get("OPENAI_API_KEY", "")
+    config = load_config()
+    gemini_key = get_config_default(config, "api_keys", "gemini") or os.environ.get(
+        "GEMINI_API_KEY", ""
+    )
+    openai_key = get_config_default(config, "api_keys", "openai") or os.environ.get(
+        "OPENAI_API_KEY", ""
+    )
 
     if not quiet:
         if not gemini_key and not openai_key:

@@ -203,8 +203,13 @@ def _build_llm_caller(args: argparse.Namespace) -> Callable:
     if args.llm_caller:
         return _load_callable(args.llm_caller)
 
-    # Build default caller
-    api_key = args.api_key or os.environ.get("GEMINI_API_KEY", "")
+    # Build default caller - check args, then config, then env
+    config = load_config()
+    api_key = (
+        args.api_key
+        or get_config_default(config, "api_keys", "gemini")
+        or os.environ.get("GEMINI_API_KEY", "")
+    )
     model = args.model or "gemini-2.5-flash-lite"
 
     def default_caller(prompt: str) -> str:
