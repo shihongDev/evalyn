@@ -267,6 +267,7 @@ evalyn run-eval --dataset <dataset-path>/simulations/sim-similar-...
 | `evalyn show-call --last` | View most recent trace |
 | `evalyn show-trace --last -v` | View span tree with details |
 | `evalyn show-span --call-id X --span Y` | Inspect single span |
+| `evalyn delete-traces -n 5 --db test` | Delete traces from storage |
 | `evalyn build-dataset --project X` | Create dataset from traces |
 | `evalyn suggest-metrics --project X --dataset D` | Get metric recommendations |
 | `evalyn run-eval --dataset D` | Run evaluation + generate HTML report (use `--provider` for OpenAI/Ollama) |
@@ -301,6 +302,7 @@ evalyn run-eval --dataset <dataset-path>/simulations/sim-similar-...
 | [show-trace](docs/clis/show-trace.md) | View span tree (with -v for details) |
 | [show-span](docs/clis/show-span.md) | View single span details |
 | [show-projects](docs/clis/show-projects.md) | View project summaries |
+| [delete-traces](docs/clis/delete-traces.md) | Delete traces from storage |
 | **Dataset** | |
 | [build-dataset](docs/clis/build-dataset.md) | Create dataset from traces |
 | [validate](docs/clis/validate.md) | Validate dataset format |
