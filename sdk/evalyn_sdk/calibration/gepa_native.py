@@ -20,6 +20,8 @@ import random
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+from tqdm import tqdm
+
 from ..defaults import DEFAULT_GENERATOR_MODEL
 from ..models import Annotation, DatasetItem, MetricResult
 from ..utils.api_client import GeminiClient
@@ -516,54 +518,55 @@ Example {i}:
         generation = 0
 
         # Step 3: Main optimization loop
-        while budget > self.config.mini_batch_size + self.config.pareto_set_size:
-            generation += 1
+        initial_budget = budget
+        threshold = self.config.mini_batch_size + self.config.pareto_set_size
+        with tqdm(total=initial_budget - threshold, desc="GEPA", unit="call") as pbar:
+            while budget > threshold:
+                generation += 1
+                budget_before = budget
 
-            # Select candidate via Pareto weighting
-            selected = self._select_pareto_candidate(frontier, pareto_examples)
+                # Select candidate via Pareto weighting
+                selected = self._select_pareto_candidate(frontier, pareto_examples)
 
-            # Evaluate on mini-batch from remaining training data
-            remaining = [ex for ex in trainset if ex not in pareto_examples]
-            if len(remaining) < self.config.mini_batch_size:
-                remaining = trainset
+                # Evaluate on mini-batch from remaining training data
+                remaining = [ex for ex in trainset if ex not in pareto_examples]
+                if len(remaining) < self.config.mini_batch_size:
+                    remaining = trainset
 
-            mini_batch = random.sample(
-                remaining, min(self.config.mini_batch_size, len(remaining))
-            )
+                mini_batch = random.sample(
+                    remaining, min(self.config.mini_batch_size, len(remaining))
+                )
 
-            _, failures = self._evaluate_candidate_on_examples(
-                selected, current_rubric, mini_batch, accumulator
-            )
-            budget -= len(mini_batch)
+                _, failures = self._evaluate_candidate_on_examples(
+                    selected, current_rubric, mini_batch, accumulator
+                )
+                budget -= len(mini_batch)
 
-            if not failures:
-                # No failures on mini-batch - this candidate is doing well
-                continue
+                # Reflect on failures to generate mutation (if any failures)
+                mutation = None
+                if failures:
+                    mutation = self._reflect_and_mutate(
+                        selected, current_rubric, failures, generation, accumulator
+                    )
+                    budget -= 1  # Reflection call
 
-            # Reflect on failures to generate mutation
-            mutation = self._reflect_and_mutate(
-                selected, current_rubric, failures, generation, accumulator
-            )
-            budget -= 1  # Reflection call
+                # Validate mutation on Pareto set and update frontier
+                if mutation is not None:
+                    metrics, _ = self._evaluate_candidate_on_examples(
+                        mutation, current_rubric, pareto_examples, accumulator
+                    )
+                    budget -= len(pareto_examples)
 
-            if mutation is None:
-                continue
+                    frontier = self._update_pareto_frontier(
+                        frontier, mutation, pareto_examples, max_size=10
+                    )
 
-            # Validate mutation on Pareto set
-            metrics, _ = self._evaluate_candidate_on_examples(
-                mutation, current_rubric, pareto_examples, accumulator
-            )
-            budget -= len(pareto_examples)
+                    current_best = max(frontier, key=lambda c: c.total_f1)
+                    if current_best.total_f1 > best_candidate.total_f1:
+                        best_candidate = current_best
 
-            # Update frontier if mutation is non-dominated
-            frontier = self._update_pareto_frontier(
-                frontier, mutation, pareto_examples, max_size=10
-            )
-
-            # Track best
-            current_best = max(frontier, key=lambda c: c.total_f1)
-            if current_best.total_f1 > best_candidate.total_f1:
-                best_candidate = current_best
+                pbar.update(budget_before - budget)
+                pbar.set_postfix({"gen": generation, "frontier": len(frontier)})
 
         # Step 4: Final validation on full validation set
         val_metrics, _ = self._evaluate_candidate_on_examples(

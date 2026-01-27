@@ -19,6 +19,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
+from tqdm import tqdm
+
 from ..defaults import DEFAULT_EVAL_MODEL, DEFAULT_GENERATOR_MODEL
 from ..models import Annotation, DatasetItem, MetricResult
 from ..utils.api_client import GeminiClient
@@ -371,7 +373,10 @@ Do not include any other text, just the JSON array."""
         no_improvement_count = 0
 
         # Optimization loop
-        for iteration in range(1, self.config.max_iterations + 1):
+        pbar = tqdm(
+            range(1, self.config.max_iterations + 1), desc="OPRO", unit="iter"
+        )
+        for iteration in pbar:
             # Generate candidates
             candidates = self._generate_candidates(
                 metric_id, current_rubric, trajectory, trainset, accumulator
@@ -407,6 +412,9 @@ Do not include any other text, just the JSON array."""
                 no_improvement_count = 0
             else:
                 no_improvement_count += 1
+
+            # Update progress bar with best score
+            pbar.set_postfix({"best_f1": f"{best_entry.f1_score:.1%}"})
 
             # Early stopping
             if no_improvement_count >= self.config.early_stop_patience:

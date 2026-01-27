@@ -22,6 +22,8 @@ import random
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
+from tqdm import tqdm
+
 from ..defaults import DEFAULT_EVAL_MODEL, DEFAULT_GENERATOR_MODEL
 from ..models import Annotation, DatasetItem, MetricResult
 from ..utils.api_client import GeminiClient
@@ -276,7 +278,8 @@ Provide your verdict:"""
         # Track scores for each candidate
         scores: Dict[int, List[float]] = {i: [] for i in range(len(candidates))}
 
-        for round_num in range(self.config.eval_rounds):
+        pbar = tqdm(range(self.config.eval_rounds), desc="APE UCB", unit="round")
+        for round_num in pbar:
             # Calculate UCB scores for each candidate
             ucb_scores = []
             total_evaluations = sum(len(s) for s in scores.values())
@@ -312,6 +315,11 @@ Provide your verdict:"""
                 candidates[selected_idx], rubric, sample, accumulator
             )
             scores[selected_idx].append(score)
+
+            # Update progress bar with current best mean
+            mean_scores = [sum(s) / len(s) if s else 0.0 for s in scores.values()]
+            best_mean = max(mean_scores) if mean_scores else 0.0
+            pbar.set_postfix({"best": f"{best_mean:.1%}"})
 
         # Return candidate with highest mean score
         mean_scores = [(i, sum(s) / len(s) if s else 0.0) for i, s in scores.items()]
