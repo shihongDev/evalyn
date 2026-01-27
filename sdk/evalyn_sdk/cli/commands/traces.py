@@ -1102,7 +1102,7 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
             f"Use --full for no truncation, or: evalyn show-span --call-id {call.id[:8]} --span <name>",
             quiet=getattr(args, "quiet", False),
         )
-    elif project and verbose:
+    if project and verbose:
         print_hint(
             f"To build a dataset, run: evalyn build-dataset --project {project}",
             quiet=getattr(args, "quiet", False),
