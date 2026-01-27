@@ -1,6 +1,11 @@
 import os
+import sys
+from pathlib import Path
 
-from .tools_and_schemas import SearchQueryList, Reflection
+# Add the agent directory to path for local imports when running directly
+sys.path.insert(0, str(Path(__file__).parent))
+
+from tools_and_schemas import SearchQueryList, Reflection
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage
 from langgraph.types import Send
@@ -9,14 +14,14 @@ from langgraph.graph import START, END
 from langchain_core.runnables import RunnableConfig
 from google.genai import Client
 
-from .state import (
+from state import (
     OverallState,
     QueryGenerationState,
     ReflectionState,
     WebSearchState,
 )
-from .configuration import Configuration
-from .prompts import (
+from configuration import Configuration
+from prompts import (
     get_current_date,
     query_writer_instructions,
     web_searcher_instructions,
@@ -24,7 +29,7 @@ from .prompts import (
     answer_instructions,
 )
 from langchain_google_genai import ChatGoogleGenerativeAI
-from .utils import (
+from utils import (
     get_citations,
     get_research_topic,
     insert_citation_markers,

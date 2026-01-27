@@ -1,5 +1,10 @@
 import argparse
 import os
+import sys
+from pathlib import Path
+
+# Add the agent directory to path for local imports when running directly
+sys.path.insert(0, str(Path(__file__).parent))
 
 from langchain_core.messages import HumanMessage
 
@@ -11,7 +16,7 @@ from langchain_core.messages import HumanMessage
 from evalyn_sdk import eval, get_default_tracer, configure_otel
 # =============================================================================
 
-from .graph import graph
+from graph import graph
 
 
 # =============================================================================

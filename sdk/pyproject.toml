@@ -13,6 +13,7 @@ authors = [{ name = "Evalyn", email = "dev@evalyn.local" }]
 dependencies = [
   "opentelemetry-sdk>=1.27.0",
   "opentelemetry-exporter-otlp>=1.27.0",
+  "tqdm>=4.66.0",
 ]
 
 [project.optional-dependencies]

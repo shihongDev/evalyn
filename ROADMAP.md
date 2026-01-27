@@ -62,8 +62,6 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **More Optimizers**
   - [ ] DSPy MIPROv2 - Multi-stage instruction optimization
   - [ ] TextGrad - Gradient-based prompt optimization
-  - [ ] APE (Automatic Prompt Engineer) - Search-based optimization
-  - [ ] OPRO - LLM-as-optimizer approach
   - [ ] EvoPrompt - Evolutionary prompt optimization
   - [ ] PromptBreeder - Self-referential prompt evolution
 - [ ] **Rubric Optimization** - Auto-generate and refine evaluation rubrics
@@ -276,8 +274,11 @@ This document tracks planned features and completed work. Future roadmap items a
 ### Calibration (LLM Judge Optimization)
 
 - [x] **evalyn calibrate** - Optimize judge prompts
-  - [x] LLM method - Analyze disagreements, suggest improvements
-  - [x] GEPA method - Evolutionary prompt optimization
+  - [x] Basic method - Single-shot LLM analysis of disagreements
+  - [x] APE method - Search-based optimization with UCB selection
+  - [x] OPRO method - Trajectory-based optimization
+  - [x] GEPA method - Evolutionary prompt optimization (external library)
+  - [x] GEPA-Native method - Evolutionary optimization with token tracking
 - [x] **evalyn list-calibrations** - List calibration records
 - [x] **Alignment metrics** - Accuracy, precision, recall, F1, Cohen's Kappa
 - [x] **Validation split** - Test calibration on held-out samples
@@ -313,6 +314,7 @@ This document tracks planned features and completed work. Future roadmap items a
 - [x] **Gemini** - Full support with auto-instrumentation
 - [x] **OpenAI** - Full support with auto-instrumentation
 - [x] **Anthropic** - Full support with auto-instrumentation
+- [x] **xAI (Grok)** - Full support with auto-instrumentation
 - [x] **Ollama** - Local model support (--provider ollama)
 
 ### Framework Support
@@ -320,6 +322,7 @@ This document tracks planned features and completed work. Future roadmap items a
 - [x] **LangChain** - Automatic instrumentation
 - [x] **LangGraph** - Automatic instrumentation with node tracking
 - [x] **Google ADK** - Automatic instrumentation
+- [x] **Claude Agent SDK** - Automatic instrumentation
 
 ### Storage & Data
 
@@ -328,4 +331,4 @@ This document tracks planned features and completed work. Future roadmap items a
 - [x] **JSONL datasets** - Human-readable, git-friendly format
 - [x] **Checkpoint system** - Resume interrupted evaluations
 
-*Last updated: 2026-01-20*
+*Last updated: 2026-01-26*
