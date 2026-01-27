@@ -9,6 +9,7 @@ import shutil
 import subprocess
 from typing import Callable, List, Optional
 
+from .config import get_config_default, load_config
 from .ui import Spinner
 from .loaders import _load_callable
 
@@ -63,12 +64,19 @@ def _openai_caller(
     """Create an OpenAI/Gemini-based LLM caller."""
 
     def _call(prompt: str) -> List[dict]:
+        config = load_config()
+
         # Gemini shortcut using google-genai if model name starts with "gemini"
         if model.lower().startswith("gemini"):
-            key = api_key or os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+            key = (
+                api_key
+                or get_config_default(config, "api_keys", "gemini")
+                or os.getenv("GOOGLE_API_KEY")
+                or os.getenv("GEMINI_API_KEY")
+            )
             if not key:
                 raise RuntimeError(
-                    "Missing GOOGLE_API_KEY/GEMINI_API_KEY for Gemini model."
+                    "Missing Gemini API key. Set in evalyn.yaml or GEMINI_API_KEY env var."
                 )
             try:
                 from google.genai import Client  # type: ignore
@@ -105,7 +113,11 @@ def _openai_caller(
                 'openai package not installed. Install with extras: pip install -e "sdk[llm]"'
             ) from exc
 
-        key = api_key or os.getenv("OPENAI_API_KEY")
+        key = (
+            api_key
+            or get_config_default(config, "api_keys", "openai")
+            or os.getenv("OPENAI_API_KEY")
+        )
         client = (
             openai.OpenAI(api_key=key, base_url=api_base)
             if (key or api_base)

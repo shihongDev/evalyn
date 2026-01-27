@@ -75,13 +75,26 @@ class GeminiClient:
         self.timeout = timeout
 
     def _get_api_key(self) -> str:
-        """Get API key from instance or environment."""
-        key = (
-            self._api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-        )
+        """Get API key from instance, config, or environment."""
+        if self._api_key:
+            return self._api_key
+
+        # Check YAML config
+        try:
+            from ..cli.utils.config import get_config_default, load_config
+
+            config = load_config()
+            config_key = get_config_default(config, "api_keys", "gemini")
+            if config_key:
+                return config_key
+        except Exception:
+            pass  # Config loading failed, fall back to env
+
+        # Fall back to environment variables
+        key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         if not key:
             raise RuntimeError(
-                "Missing GEMINI_API_KEY. Set the environment variable or pass api_key."
+                "Missing GEMINI_API_KEY. Set in evalyn.yaml, environment variable, or pass api_key."
             )
         return key
 
@@ -196,10 +209,26 @@ class OpenAIClient:
         self.timeout = timeout
 
     def _get_api_key(self) -> str:
-        key = self._api_key or os.getenv("OPENAI_API_KEY")
+        """Get API key from instance, config, or environment."""
+        if self._api_key:
+            return self._api_key
+
+        # Check YAML config
+        try:
+            from ..cli.utils.config import get_config_default, load_config
+
+            config = load_config()
+            config_key = get_config_default(config, "api_keys", "openai")
+            if config_key:
+                return config_key
+        except Exception:
+            pass  # Config loading failed, fall back to env
+
+        # Fall back to environment variable
+        key = os.getenv("OPENAI_API_KEY")
         if not key:
             raise RuntimeError(
-                "Missing OPENAI_API_KEY. Set the environment variable or pass api_key."
+                "Missing OPENAI_API_KEY. Set in evalyn.yaml, environment variable, or pass api_key."
             )
         return key
 
