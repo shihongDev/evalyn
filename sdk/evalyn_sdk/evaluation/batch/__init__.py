@@ -6,7 +6,7 @@ Supports batch APIs from multiple providers for cost-effective large-scale evalu
 - Anthropic: 50% cost reduction, <24 hour turnaround
 
 Usage:
-    from evalyn_sdk.batch import BatchEvaluator
+    from evalyn_sdk.evaluation.batch import BatchEvaluator
 
     # Create evaluator
     evaluator = BatchEvaluator(provider="gemini")
@@ -18,7 +18,7 @@ Usage:
     )
 
 Low-level provider API:
-    from evalyn_sdk.batch import create_batch_provider
+    from evalyn_sdk.evaluation.batch import create_batch_provider
 
     provider = create_batch_provider("openai")
     job = provider.submit([{"custom_id": "1", "prompt": "..."}])

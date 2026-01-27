@@ -4,7 +4,7 @@ Provides batch processing for subjective metrics using provider batch APIs
 for 50% cost savings compared to real-time evaluation.
 
 Usage:
-    from evalyn_sdk.batch import BatchEvaluator
+    from evalyn_sdk.evaluation.batch import BatchEvaluator
 
     evaluator = BatchEvaluator(provider="gemini")
     results = evaluator.evaluate(

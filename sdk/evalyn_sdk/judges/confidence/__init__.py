@@ -10,7 +10,7 @@ This module provides multiple methods for estimating confidence:
 - VerbalizedConfidence: Extract self-reported confidence (unreliable)
 
 Usage:
-    from evalyn_sdk.confidence import LogprobsConfidence, DeepConfConfidence
+    from evalyn_sdk.judges.confidence import LogprobsConfidence, DeepConfConfidence
 
     # Standard logprobs
     estimator = LogprobsConfidence()

@@ -195,7 +195,6 @@ __all__ = [
     "get_annotation_prompts",
     "ANNOTATION_SCHEMAS",
     # Modules
-    "annotation",
     "simulation",
     # Simulation
     "UserSimulator",
