@@ -112,68 +112,149 @@ evalyn one-click --project gemini-deep-research-agent    # Dataset -> Metrics ->
 
 ### Step 1: Instrument & Collect
 ```bash
-# Add @eval decorator to the agent, then run it. (We have added for the example agents) 
-evalyn list-calls --limit 5
+# Add @eval decorator to the agent, then run it (already added for example agents)
+evalyn list-calls
 ```
 ```
-id       | function | project | status | duration_ms
----------|----------|---------|--------|------------
-fde2d07e | my_agent | myapp   | OK     | 1234.56
-47fe2576 | my_agent | myapp   | OK     | 2345.67
+id       | function       | project                     | status | duration_ms
+---------|----------------|-----------------------------|---------|-----------
+960912fa | research_agent | gemini-deep-research-agent  | OK     | 21215.61
+75489541 | research_agent | gemini-deep-research-agent  | OK     | 22097.82
+2567ea62 | chat           | anthropic-research-agent    | OK     | 1461418.96
 ```
 
-> **Tip:** IDs are displayed as 8-character prefixes. Use `evalyn show-call --id fde2d07e` with just the short ID.
+> **Tip:** Use `evalyn show-call --id 960912fa` to view trace details with short ID prefix.
 
 ### Step 2: Build Dataset
 ```bash
-evalyn build-dataset --project myapp
+evalyn build-dataset --project gemini-deep-research-agent
 ```
 ```
-Wrote 10 items to data/myapp-v1-20250115-120000/dataset.jsonl
+Wrote 137 items to data/prod/datasets/gemini-deep-research-agent-v0-20260127-054032/dataset.jsonl
+
+Hint: To suggest metrics, run: evalyn suggest-metrics --dataset <path> --mode basic
 ```
 
 ### Step 3: Select Metrics
+
+Use `--mode llm-registry` to pick from 130+ built-in metrics via LLM selection:
 ```bash
-evalyn suggest-metrics --project myapp --dataset data/myapp-v1-20250115-120000 --mode basic
+evalyn suggest-metrics --dataset <dataset-path> --mode llm-registry
 ```
 ```
-- latency_ms [objective] :: Measure execution time
-- output_nonempty [objective] :: Check output is not empty
-- helpfulness_accuracy [subjective] :: LLM judge scoring
-Saved metrics to data/myapp-v1-20250115-120000/metrics/basic-20250115.json
+- helpfulness_accuracy [subjective] :: PASS if the output answers the user question accurately
+- factual_accuracy [subjective] :: PASS if factual claims are accurate and verifiable
+- output_nonempty [objective] :: PASS if output is not empty/None
+- latency_ms [objective] :: Measure execution latency in milliseconds
+- url_count [objective] :: Counts URLs in the output (proxy for citations)
+Saved metrics to <dataset-path>/metrics/metrics.json
+```
+
+Use `--mode llm-brainstorm --append` to generate custom metrics:
+```bash
+evalyn suggest-metrics --dataset <dataset-path> --mode llm-brainstorm --append
+```
+```
+- completeness_of_explanation [subjective] :: Evaluates if the explanation covers core aspects
+- clarity_and_readability [subjective] :: Assesses how easy the explanation is to understand
+- relevance_to_question [subjective] :: Determines if output directly answers the question
+- source_credibility_and_integration [subjective] :: Evaluates quality of cited sources
+- conciseness_and_efficiency [subjective] :: Measures whether explanation avoids verbosity
+Appending 5 new metric(s) to 5 existing.
 ```
 
 ### Step 4: Run Evaluation
 ```bash
-evalyn run-eval --dataset data/myapp-v1-20250115-120000
+evalyn run-eval --dataset <dataset-path>
 ```
 ```
-Loaded 3 metrics (2 objective, 1 subjective)
-Dataset: 10 items
+Loaded 10 metrics (3 objective, 7 subjective)
+Dataset: 137 items
 
-Eval run abc12345-...
-Run folder: data/myapp-v1-20250115-120000/eval_runs/20250115-120500_abc12345
+Eval run 220e8590-2ccd-4cb5-a585-a0110285e786
+Run folder: <dataset-path>/eval_runs/20260127-055659_220e8590
   results.json - evaluation data
-  report.html  - analysis report   <- Open in browser
+  report.html  - analysis report
 
 Results:
-Metric                 Type    Pass Rate
-latency_ms             [obj]   N/A
-output_nonempty        [obj]   100.0%
-helpfulness_accuracy   [llm]   85.0%
+--------------------------------------------------------------------------------
+Metric                         Type    Count  Avg Score    Pass Rate  Errors
+--------------------------------------------------------------------------------
+output_nonempty                [obj]   137    1.0000       100.0%     -
+latency_ms                     [obj]   137    23986.3494   N/A        -
+url_count                      [obj]   137    55.1825      100.0%     -
+factual_accuracy               [llm]   137    0.8015       79.6%      1
+clarity_and_readability        [llm]   137    1.0000       97.1%      4
+helpfulness_accuracy           [llm]   137    0.9850       95.6%      4
+--------------------------------------------------------------------------------
+
+Token usage: 10,048,041 input + 70,929 output = 10,118,970 total ($1.03)
 ```
 
-### Step 5: Annotate & Calibrate (Optional)
+### Step 5: Analyze Results
 ```bash
-evalyn annotate --dataset data/myapp-v1-20250115-120000
-evalyn calibrate --metric-id helpfulness_accuracy --annotations annotations.jsonl
-evalyn run-eval --dataset data/myapp-v1-20250115-120000 --use-calibrated
+evalyn analyze --run 220e8590
+```
+```
+======================================================================
+  METRIC SUMMARY
+======================================================================
+  [FAIL] factual_accuracy               109/137 passed (80%)  avg=0.80
+  [FAIL] conciseness_and_efficiency     124/137 passed (91%)  avg=0.91
+  [PASS] output_nonempty                137/137 passed (100%) avg=1.00
+  [PASS] url_count                      137/137 passed (100%) avg=55.18
+
+======================================================================
+  INSIGHTS
+======================================================================
+  'latency_ms' has the highest failure rate. Consider reviewing the rubric.
+  2 metric(s) have 100% pass rate: output_nonempty, url_count
+  Overall health is MODERATE (85% pass rate)
+
+======================================================================
+  RECOMMENDATIONS
+======================================================================
+  1. Run 'evalyn annotate' to provide human labels for failed items
+  2. Run 'evalyn calibrate' to improve metric alignment
 ```
 
-### Step 6: Expand with Simulation (Optional)
+### Step 6: Annotate & Calibrate (Optional)
 ```bash
-evalyn simulate --dataset data/myapp-v1-20250115-120000 --modes similar,outlier
-evalyn run-eval --dataset data/myapp-v1-20250115-120000/simulations/sim-similar-...
+evalyn annotate --latest
+```
+```
+======================================================================
+INTERACTIVE ANNOTATION
+======================================================================
+Dataset: data/prod/datasets/gemini-deep-research-agent-v0-.../dataset.jsonl
+Items to annotate: 137
+Using eval run: 220e8590...
+
+Commands: [y]es/pass  [n]o/fail  [s]kip  [v]iew full  [q]uit
+======================================================================
+
+Item 1/137 [960912fa-637...]
+INPUT:  {"question": "What is antimatter?", ...}
+OUTPUT: Antimatter is a form of matter that is the counterpart to...
+
+LLM JUDGE RESULTS:
+   factual_accuracy: PASS
+   clarity_and_readability: PASS
+   helpfulness_accuracy: PASS
+
+Pass? [y/n/s/v/q]:
+```
+
+After annotation, calibrate LLM judges to align with human feedback:
+```bash
+evalyn calibrate --metric-id factual_accuracy --annotations annotations.jsonl
+evalyn run-eval --dataset <dataset-path> --use-calibrated
+```
+
+### Step 7: Expand with Simulation (Optional)
+```bash
+evalyn simulate --dataset <dataset-path> --modes similar,outlier
+evalyn run-eval --dataset <dataset-path>/simulations/sim-similar-...
 ```
 
 ## Key Commands
