@@ -518,6 +518,7 @@ Example {i}:
         generation = 0
 
         # Step 3: Main optimization loop
+        # Reserve budget for one full iteration (mini-batch eval + pareto validation)
         initial_budget = budget
         threshold = self.config.mini_batch_size + self.config.pareto_set_size
         with tqdm(total=initial_budget - threshold, desc="GEPA", unit="call") as pbar:
