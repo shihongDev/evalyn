@@ -75,7 +75,7 @@ uv pip install -e "./sdk[llm]"
 uv pip install -e "./sdk[agent]"
 ```
 
-## Quick Start (Example Agent)
+## Quick Start (Example Gemini Deep Research Agent)
 
 ### 1. Instrument Your Agent
 
@@ -87,18 +87,17 @@ def my_agent(query: str) -> str:
     return call_llm(query)  # LLM calls auto-captured
 ```
 
-### 2. Run Your Agent
+### 2. Run the Agent 
 ```bash
-export GEMINI_API_KEY="your_api_key"
-python example_agents/langchain_deep_research_agent/agent.py "What is the capital of France?"  # Traces auto-captured to SQLite
+export GEMINI_API_KEY="your_api_key"  # This is for the example agent itself
+python example_agents/langchain_deep_research_agent/agent.py "What is the current status of AI Agents?"  
+evalyn init  # Create evalyn.yaml config and edit evalyn.yaml to set your GEMINI_API_KEY. This is for llm judge setup
 ```
 
 ### 3. Choose Your Workflow
 
 **Option A: One-Click (Automated)** — Run the full pipeline in one command
 ```bash
-evalyn init                                              # Create evalyn.yaml config
-# Edit evalyn.yaml to set your GEMINI_API_KEY
 evalyn one-click --project gemini-deep-research-agent    # Dataset -> Metrics -> Eval -> Report
 ```
 
@@ -113,8 +112,7 @@ evalyn one-click --project gemini-deep-research-agent    # Dataset -> Metrics ->
 
 ### Step 1: Instrument & Collect
 ```bash
-# Add @eval decorator to your agent, then run it
-python my_agent.py
+# Add @eval decorator to the agent, then run it. (We have added for the example agents) 
 evalyn list-calls --limit 5
 ```
 ```
