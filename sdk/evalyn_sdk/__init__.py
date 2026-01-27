@@ -1,9 +1,10 @@
 __version__ = "0.0.1"
 
+# Core decorators and tracer
 from .decorators import eval, configure_tracer, get_default_tracer
 from .trace.tracer import EvalTracer, eval_session
 
-# Auto-instrumentation (patches LLM libraries on import)
+# Modules - auto-instrumentation
 from . import trace
 from .trace import auto_instrument
 from .trace.auto_instrument import (
@@ -12,9 +13,16 @@ from .trace.auto_instrument import (
     is_patched,
 )
 from .trace.instrumentation.providers._shared import calculate_cost
+
+# Evaluation
 from .evaluation.runner import EvalRunner
+
+# Models
 from .models import Metric, MetricRegistry
+
+# Objective metrics (must be imported before judges to avoid circular import)
 from .metrics.objective import (
+    OBJECTIVE_REGISTRY,
     exact_match_metric,
     latency_metric,
     cost_metric,
@@ -26,15 +34,19 @@ from .metrics.objective import (
     tool_call_count_metric,
     register_builtin_metrics,
 )
+
+# Judges (depends on metrics)
 from .judges import LLMJudge, EchoJudge
-from .metrics.subjective import JUDGE_TEMPLATES
-from .metrics.objective import OBJECTIVE_REGISTRY
-from .metrics.subjective import SUBJECTIVE_REGISTRY
+
+# Subjective metrics
+from .metrics.subjective import JUDGE_TEMPLATES, SUBJECTIVE_REGISTRY
 from .metrics.factory import (
     build_objective_metric,
     build_subjective_metric,
     list_template_ids,
 )
+
+# Datasets
 from .datasets import (
     load_dataset,
     save_dataset,
@@ -42,6 +54,8 @@ from .datasets import (
     dataset_from_calls,
     build_dataset_from_storage,
 )
+
+# Suggesters
 from .metrics.suggester import (
     MetricSuggester,
     HeuristicSuggester,
@@ -50,7 +64,7 @@ from .metrics.suggester import (
     DEFAULT_JUDGE_PROMPT,
 )
 
-# Annotation
+# Annotation module
 from . import annotation
 from .annotation import (
     SpanAnnotation,
@@ -65,7 +79,7 @@ from .annotation import (
     ANNOTATION_SCHEMAS,
 )
 
-# Calibration
+# Calibration module
 from . import calibration
 from .calibration import (
     CalibrationEngine,
@@ -82,7 +96,7 @@ from .calibration import (
     load_optimized_prompt,
 )
 
-# Simulation
+# Simulation module
 from . import simulation
 from .simulation import (
     UserSimulator,
@@ -92,7 +106,11 @@ from .simulation import (
     synthetic_dataset,
     simulate_agent,
 )
+
+# OpenTelemetry configuration
 from .trace.otel import configure_otel, configure_default_otel
+
+# Additional models
 from .models import (
     Annotation,
     CalibrationRecord,

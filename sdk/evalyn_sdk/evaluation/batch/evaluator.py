@@ -22,7 +22,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Optional
 
 from ...models import DatasetItem, FunctionCall, Metric, MetricResult
 from .providers import create_batch_provider
@@ -42,10 +42,10 @@ class BatchEvalProgress:
     eta_seconds: Optional[float] = None
 
 
-ProgressCallback = Callable[[BatchEvalProgress], None]
+type ProgressCallback = Callable[[BatchEvalProgress], None]
 
 
-def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
+def _extract_json_object(text: str) -> Optional[dict[str, Any]]:
     """Extract first JSON object from text, handling markdown code blocks."""
     text = (text or "").strip()
     if not text:
@@ -238,11 +238,11 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
 
     def evaluate(
         self,
-        prepared: List[Tuple[DatasetItem, FunctionCall]],
-        metrics: List[Metric],
+        prepared: list[tuple[DatasetItem, FunctionCall]],
+        metrics: list[Metric],
         progress_callback: Optional[ProgressCallback] = None,
         checkpoint_path: Optional[Path] = None,
-    ) -> List[MetricResult]:
+    ) -> list[MetricResult]:
         """Run batch evaluation on prepared items.
 
         Args:
@@ -274,7 +274,7 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
             )
 
         requests = []
-        request_map: Dict[str, Tuple[Metric, DatasetItem, FunctionCall]] = {}
+        request_map: dict[str, tuple[Metric, DatasetItem, FunctionCall]] = {}
 
         for item, call in prepared:
             for metric in subjective_metrics:
@@ -361,7 +361,7 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
         batch_results = self.provider.get_results(job.id)
 
         # Convert to MetricResults
-        results: List[MetricResult] = []
+        results: list[MetricResult] = []
         for br in batch_results:
             if br.custom_id not in request_map:
                 logger.warning(f"Unknown custom_id in results: {br.custom_id}")
@@ -406,9 +406,9 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
     def resume(
         self,
         checkpoint_path: Path,
-        request_map: Dict[str, Tuple[Metric, DatasetItem, FunctionCall]],
+        request_map: dict[str, tuple[Metric, DatasetItem, FunctionCall]],
         progress_callback: Optional[ProgressCallback] = None,
-    ) -> List[MetricResult]:
+    ) -> list[MetricResult]:
         """Resume evaluation from checkpoint.
 
         Args:
@@ -456,7 +456,7 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
         # Parse results
         batch_results = self.provider.get_results(job_id)
 
-        results: List[MetricResult] = []
+        results: list[MetricResult] = []
         for br in batch_results:
             if br.custom_id not in request_map:
                 continue
