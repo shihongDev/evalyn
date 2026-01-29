@@ -124,3 +124,4 @@ evalyn show-trace --id <id-from-list>
 - [show-call](show-call.md) - Full call details including span tree
 - [show-span](show-span.md) - View details of a single span
 - [list-calls](list-calls.md) - List all captured calls
+- [delete-traces](delete-traces.md) - Delete traces from storage

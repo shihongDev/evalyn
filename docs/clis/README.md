@@ -18,6 +18,7 @@ Complete documentation for all Evalyn CLI commands.
 | [show-trace](show-trace.md) | View span tree (--verbose for details) |
 | [show-span](show-span.md) | View details of a single span |
 | [show-projects](show-projects.md) | View project summaries |
+| [delete-traces](delete-traces.md) | Delete traces from storage |
 
 ### Datasets
 | Command | Description |
