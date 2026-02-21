@@ -29,6 +29,7 @@ import argparse
 import json
 from pathlib import Path
 
+from ..utils.command_common import resolve_dataset_dir_and_file
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.dataset_resolver import get_dataset
 from ..utils.errors import fatal_error
@@ -163,26 +164,9 @@ def cmd_status(args: argparse.Namespace) -> None:
 def cmd_validate(args: argparse.Namespace) -> None:
     """Validate dataset format and detect potential issues."""
     config = load_config()
-    dataset_path = resolve_dataset_path(args.dataset, args.latest, config)
-
-    if not dataset_path:
-        fatal_error("No dataset specified", "Use --dataset <path> or --latest")
-
-    if not dataset_path.exists():
-        fatal_error(f"Dataset path not found: {dataset_path}")
-
-    # Find dataset file
-    if dataset_path.is_dir():
-        dataset_file = dataset_path / "dataset.jsonl"
-        if not dataset_file.exists():
-            dataset_file = dataset_path / "dataset.json"
-        dataset_dir = dataset_path
-    else:
-        dataset_file = dataset_path
-        dataset_dir = dataset_path.parent
-
-    if not dataset_file.exists():
-        fatal_error(f"Dataset file not found: {dataset_file}")
+    dataset_dir, dataset_file = resolve_dataset_dir_and_file(
+        args.dataset, args.latest, config=config
+    )
 
     print(f"\nValidating: {dataset_file}\n")
     print("-" * 60)

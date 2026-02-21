@@ -47,6 +47,7 @@ from ...calibration import (
 from ...datasets import load_dataset
 from ...decorators import get_default_tracer
 from ...models import DatasetItem
+from ..utils.command_common import try_resolve_dataset_dir_and_file
 from ..utils.config import load_config, resolve_dataset_path, get_config_default
 from ..utils.errors import fatal_error
 from ..utils.formatters import print_token_usage_summary
@@ -217,14 +218,12 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     resolved_dataset = resolve_dataset_path(dataset_arg, use_latest, config)
 
     if resolved_dataset:
-        dataset_dir = Path(resolved_dataset)
-        dataset_file = (
-            dataset_dir / "dataset.jsonl" if dataset_dir.is_dir() else dataset_dir
+        resolved = try_resolve_dataset_dir_and_file(
+            dataset_arg, use_latest, config=config
         )
-        if dataset_file.exists():
+        if resolved:
+            dataset_dir, dataset_file = resolved
             dataset_items = load_dataset(dataset_file)
-            if dataset_dir.is_file():
-                dataset_dir = dataset_dir.parent
 
     # Build GEPA config if using GEPA optimizer
     gepa_config = None

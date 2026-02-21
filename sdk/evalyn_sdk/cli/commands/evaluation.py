@@ -218,33 +218,20 @@ def _build_llm_caller(args: argparse.Namespace) -> Callable:
     return default_caller
 
 
-def cmd_run_eval(args: argparse.Namespace) -> None:
-    """Run evaluation using pre-computed traces from dataset and metrics from JSON file(s).
-
-    This command evaluates a dataset against a set of metrics:
-    1. Load dataset items (input/output pairs from traced calls)
-    2. Load metric specs from JSON file(s)
-    3. Build metric instances (objective or subjective/LLM-judge)
-    4. Run each metric against each item
-    5. Save results to eval_runs/<timestamp>/results.json
-    6. Generate HTML analysis report
-
-    For subjective metrics, an API key (GEMINI_API_KEY or OPENAI_API_KEY) is required.
-    Use --use-calibrated to apply optimized prompts from previous calibration.
-    """
-    output_format = getattr(args, "format", "table")
+def _resolve_run_eval_inputs(
+    args: argparse.Namespace,
+    output_format: str,
+    config: dict,
+) -> tuple[Path, List[Any], Dict[str, dict], List[Path]]:
+    """Resolve dataset and load merged metric specs for run-eval."""
     metrics_all = getattr(args, "metrics_all", False)
-    config = load_config()
 
-    # Resolve dataset path using --dataset, --latest, or config
     dataset_arg = getattr(args, "dataset", None)
     use_latest = getattr(args, "latest", False)
     dataset_path = resolve_dataset_path(dataset_arg, use_latest, config)
-
     if not dataset_path:
         fatal_error("No dataset specified", "Use --dataset <path> or --latest")
 
-    # Resolve dataset and metrics paths
     try:
         dataset_file, metrics_paths = _resolve_dataset_and_metrics(
             str(dataset_path), args.metrics, metrics_all=metrics_all
@@ -252,13 +239,10 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     except (FileNotFoundError, ValueError) as e:
         fatal_error(str(e))
 
-    # Load dataset
-    dataset = load_dataset(str(dataset_file))
-    dataset_list = list(dataset)
+    dataset_list = list(load_dataset(str(dataset_file)))
 
-    # Load and merge metrics from all files (deduplicate by ID)
-    all_metrics_data: Dict[str, dict] = {}  # id -> spec_data
-    duplicate_ids: List[str] = []  # Track duplicates for warning
+    all_metrics_data: Dict[str, dict] = {}
+    duplicate_ids: List[str] = []
     for metrics_path in metrics_paths:
         try:
             file_data = json.loads(metrics_path.read_text(encoding="utf-8"))
@@ -277,7 +261,6 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
             if output_format != "json":
                 print(f"Warning: Failed to load {metrics_path}: {e}")
 
-    # Warn about duplicate metric IDs
     if duplicate_ids and output_format != "json":
         unique_dups = sorted(set(duplicate_ids))
         print(
@@ -296,41 +279,53 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
             f"Merged {len(all_metrics_data)} unique metrics from {len(metrics_paths)} files"
         )
 
-    # Build metrics from specs
+    return dataset_file, dataset_list, all_metrics_data, metrics_paths
+
+
+def _parse_unit_types(args: argparse.Namespace) -> Optional[List[str]]:
+    """Parse and validate --unit-types."""
+    unit_types_raw = getattr(args, "unit_types", None)
+    if not unit_types_raw:
+        return None
+
+    unit_types = [t.strip() for t in unit_types_raw.split(",") if t.strip()]
+    valid_types = {"outcome", "single_turn", "tool_use", "multi_turn", "custom"}
+    invalid = [t for t in unit_types if t not in valid_types]
+    if invalid:
+        fatal_error(
+            f"Invalid unit type(s): {', '.join(invalid)}",
+            f"Valid types: {', '.join(sorted(valid_types))}",
+        )
+    return unit_types
+
+
+def _build_run_eval_metrics(
+    args: argparse.Namespace,
+    output_format: str,
+    config: dict,
+    dataset_dir: Path,
+    all_metrics_data: Dict[str, dict],
+) -> tuple[List[Any], int, int, int, str, str, int, Optional[List[str]]]:
+    """Build metric instances and return counters/settings."""
     from ...metrics.factory import build_objective_metric, build_subjective_metric
     from ...calibration import load_optimized_prompt
 
-    metrics = []
+    metrics: List[Any] = []
     objective_count = 0
     subjective_count = 0
     calibrated_count = 0
 
-    # Get provider and confidence settings
     provider = getattr(args, "provider", "gemini")
     confidence_method = getattr(args, "confidence", "none")
     confidence_samples = getattr(args, "confidence_samples", 3)
+    unit_types = _parse_unit_types(args)
 
-    # Parse unit_types for span-level evaluation
-    unit_types_raw = getattr(args, "unit_types", None)
-    unit_types = None
-    if unit_types_raw:
-        unit_types = [t.strip() for t in unit_types_raw.split(",") if t.strip()]
-        valid_types = {"outcome", "single_turn", "tool_use", "multi_turn", "custom"}
-        invalid = [t for t in unit_types if t not in valid_types]
-        if invalid:
-            fatal_error(
-                f"Invalid unit type(s): {', '.join(invalid)}",
-                f"Valid types: {', '.join(sorted(valid_types))}",
-            )
-
-    # Validate logprobs/deepconf only works with openai/ollama
     if confidence_method in ("logprobs", "deepconf") and provider == "gemini":
         fatal_error(
             f"{confidence_method} confidence requires --provider openai or --provider ollama",
             "Gemini does not expose logprobs. Use --confidence consistency instead.",
         )
 
-    # Get API key based on provider
     if provider == "openai":
         api_key = get_config_default(config, "api_keys", "openai") or os.environ.get(
             "OPENAI_API_KEY"
@@ -338,11 +333,9 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     else:
         api_key = get_config_default(config, "api_keys", "gemini")
 
-    # Check if we should use calibrated prompts
     use_calibrated = getattr(args, "use_calibrated", False)
-    dataset_dir = dataset_file.parent
-
     skipped_metrics = []
+
     for spec_data in all_metrics_data.values():
         spec = MetricSpec(
             id=spec_data["id"],
@@ -352,7 +345,6 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
             config=spec_data.get("config", {}),
         )
 
-        # Load calibrated prompt for subjective metrics if --use-calibrated is set
         if use_calibrated and spec.type == "subjective":
             try:
                 optimized_prompt = load_optimized_prompt(str(dataset_dir), spec.id)
@@ -364,9 +356,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
                         print(f"  Using calibrated prompt for {spec.id}")
             except Exception as e:
                 if output_format != "json":
-                    print(
-                        f"  Warning: Could not load calibrated prompt for {spec.id}: {e}"
-                    )
+                    print(f"  Warning: Could not load calibrated prompt for {spec.id}: {e}")
 
         try:
             if spec.type == "objective":
@@ -405,7 +395,9 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         fatal_error("No valid metrics loaded from file")
 
     if output_format != "json":
-        metrics_summary = f"Loaded {len(metrics)} metrics ({objective_count} objective, {subjective_count} subjective"
+        metrics_summary = (
+            f"Loaded {len(metrics)} metrics ({objective_count} objective, {subjective_count} subjective"
+        )
         if calibrated_count > 0:
             metrics_summary += f", {calibrated_count} calibrated"
         metrics_summary += ")"
@@ -420,24 +412,34 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
                 else:
                     judge_info += f", confidence={confidence_method}"
             print(judge_info)
-        print(f"Dataset: {len(dataset_list)} items")
 
-        # Show unit types if non-default
-        if unit_types and unit_types != ["outcome"]:
-            print(f"Unit types: {', '.join(unit_types)} (span-level evaluation)")
+    return (
+        metrics,
+        objective_count,
+        subjective_count,
+        calibrated_count,
+        provider,
+        confidence_method,
+        confidence_samples,
+        unit_types,
+    )
 
-        # Check for API key if subjective metrics are present
-        if subjective_count > 0:
-            check_llm_api_keys(quiet=False)
 
-        print()
-
-    # Get tracer with storage
+def _execute_run_eval(
+    args: argparse.Namespace,
+    output_format: str,
+    dataset_file: Path,
+    dataset_dir: Path,
+    dataset_list: List[Any],
+    metrics: List[Any],
+    subjective_count: int,
+    unit_types: Optional[List[str]],
+):
+    """Execute evaluation in standard or batch mode."""
     tracer = get_default_tracer()
     if not tracer.storage:
         fatal_error("No storage configured")
 
-    # Create progress bar
     total_evals = len(dataset_list) * len(metrics)
     progress = ProgressBar(total_evals) if output_format != "json" else None
 
@@ -447,53 +449,42 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         if progress:
             progress.update(current, total, metric, metric_type)
 
-    # Run evaluation using cached traces
-    from ...evaluation.runner import EvalRunner, save_eval_run_json
+    from ...evaluation.runner import EvalRunner
 
-    # Checkpoint path for long-running evaluations
     checkpoint_path = dataset_dir / ".eval_checkpoint.json"
-
-    # Check if batch mode is requested
     use_batch = getattr(args, "batch", False)
 
     if use_batch and subjective_count > 0:
-        # Batch mode: use batch API for subjective metrics
         from ...evaluation.batch import BatchEvaluator, BatchEvalProgress
+        from ...models import EvalRun
 
         batch_provider = getattr(args, "batch_provider", "gemini")
-
         if output_format != "json":
             print(
                 f"\nUsing batch API ({batch_provider}) for {subjective_count} subjective metrics"
             )
             print("This may take several minutes. Progress will be shown below.\n")
 
-        # Separate objective and subjective metrics
         objective_metrics = [m for m in metrics if m.spec.type == "objective"]
         subjective_metrics = [m for m in metrics if m.spec.type == "subjective"]
 
-        # Run objective metrics first (fast, deterministic)
         objective_results = []
         if objective_metrics:
             if output_format != "json":
                 print(f"Running {len(objective_metrics)} objective metrics...")
-
             runner = EvalRunner(
                 target_fn=lambda: None,
                 metrics=objective_metrics,
                 dataset_name=args.dataset_name or dataset_file.stem,
                 tracer=tracer,
                 instrument=False,
-                progress_callback=progress_callback
-                if output_format != "json"
-                else None,
+                progress_callback=progress_callback if output_format != "json" else None,
                 max_workers=getattr(args, "workers", 1),
                 unit_types=unit_types,
             )
             obj_run = runner.run_dataset(dataset_list, use_synthetic=True)
             objective_results = obj_run.metric_results
 
-        # Run subjective metrics via batch API
         subjective_results = []
         if subjective_metrics:
             if output_format != "json":
@@ -501,14 +492,12 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
                     f"\nSubmitting {len(subjective_metrics)} subjective metrics to batch API..."
                 )
 
-            # Prepare items with calls
             prepared = []
             for item in dataset_list:
                 call = tracer.storage.get_call(item.call_id) if item.call_id else None
                 if call:
                     prepared.append((item, call))
 
-            # Progress callback for batch
             def batch_progress(p: BatchEvalProgress):
                 if output_format != "json":
                     if p.phase == "waiting":
@@ -523,10 +512,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
                             f"\n  Batch complete: {p.completed_requests} results in {p.elapsed_seconds:.1f}s"
                         )
 
-            batch_evaluator = BatchEvaluator(
-                provider=batch_provider,
-                poll_interval=10.0,
-            )
+            batch_evaluator = BatchEvaluator(provider=batch_provider, poll_interval=10.0)
 
             try:
                 subjective_results = batch_evaluator.evaluate(
@@ -540,86 +526,81 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
                     print("\n\nBatch evaluation interrupted.")
                     if checkpoint_path.exists():
                         print(f"Batch job checkpoint saved to: {checkpoint_path}")
-                return
+                return None
             except Exception as e:
                 if output_format != "json":
                     print(f"\n\nBatch evaluation failed: {e}")
-                return
-
-        # Combine results
-        all_results = objective_results + subjective_results
-
-        # Create EvalRun manually
-        from ...models import EvalRun
+                return None
 
         run = EvalRun(
             id=f"batch-{int(datetime.now(timezone.utc).timestamp())}",
             dataset_name=args.dataset_name or dataset_file.stem,
-            metric_results=all_results,
+            metric_results=objective_results + subjective_results,
             summary={},
             created_at=datetime.now(timezone.utc),
         )
-
         if progress:
             progress.finish()
+        return run
 
-    else:
-        # Standard mode: parallel execution
-        # Check for existing checkpoint
-        if checkpoint_path.exists():
-            if output_format != "json":
-                print("  Resuming from checkpoint...")
+    if checkpoint_path.exists() and output_format != "json":
+        print("  Resuming from checkpoint...")
 
-        runner = EvalRunner(
-            target_fn=lambda: None,  # Dummy function, won't be called
-            metrics=metrics,
-            dataset_name=args.dataset_name or dataset_file.stem,
-            tracer=tracer,
-            instrument=False,
-            progress_callback=progress_callback if output_format != "json" else None,
-            checkpoint_path=checkpoint_path,
-            checkpoint_interval=5,
-            max_workers=getattr(args, "workers", 1),
-            unit_types=unit_types,
-        )
+    runner = EvalRunner(
+        target_fn=lambda: None,
+        metrics=metrics,
+        dataset_name=args.dataset_name or dataset_file.stem,
+        tracer=tracer,
+        instrument=False,
+        progress_callback=progress_callback if output_format != "json" else None,
+        checkpoint_path=checkpoint_path,
+        checkpoint_interval=5,
+        max_workers=getattr(args, "workers", 1),
+        unit_types=unit_types,
+    )
 
-        try:
-            run = runner.run_dataset(dataset_list, use_synthetic=True)
-        except KeyboardInterrupt:
-            if progress:
-                progress.finish()
-            if output_format != "json":
-                print("\n\nEvaluation interrupted.")
-                print(f"Progress saved to: {checkpoint_path}")
-                print(f"Resume with: evalyn run-eval --dataset {dataset_dir}")
-            return
-
+    try:
+        run = runner.run_dataset(dataset_list, use_synthetic=True)
+    except KeyboardInterrupt:
         if progress:
             progress.finish()
+        if output_format != "json":
+            print("\n\nEvaluation interrupted.")
+            print(f"Progress saved to: {checkpoint_path}")
+            print(f"Resume with: evalyn run-eval --dataset {dataset_dir}")
+        return None
 
-    # Save eval run in dedicated folder
-    run_folder = save_eval_run_json(run, dataset_dir)
-    results_path = run_folder / "results.json"
+    if progress:
+        progress.finish()
+    return run
 
-    # Generate HTML analysis report
+
+def _save_eval_run_and_report(
+    run: Any,
+    output_format: str,
+    dataset_dir: Path,
+    dataset_list: List[Any],
+) -> tuple[Path, Path, Optional[Path]]:
+    """Persist run and generate HTML report."""
+    from ...evaluation.runner import save_eval_run_json
     from ...analysis import (
         analyze_run as analyze_run_data,
         generate_html_report,
         load_eval_run,
     )
 
+    run_folder = save_eval_run_json(run, dataset_dir)
+    results_path = run_folder / "results.json"
+
     try:
         run_data = load_eval_run(results_path)
         analysis = analyze_run_data(run_data)
-
-        # Build item_details from dataset
         item_details = {}
         for item in dataset_list:
             item_details[item.id] = {
                 "input": item.input or item.inputs,
                 "output": item.output or item.expected,
             }
-
         html_report = generate_html_report(analysis, item_details=item_details)
         report_path = run_folder / "report.html"
         with open(report_path, "w", encoding="utf-8") as f:
@@ -629,7 +610,19 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         if output_format != "json":
             print(f"Warning: Could not generate HTML report: {e}")
 
-    # JSON output
+    return run_folder, results_path, report_path
+
+
+def _render_run_eval_output(
+    args: argparse.Namespace,
+    output_format: str,
+    run: Any,
+    run_folder: Path,
+    results_path: Path,
+    report_path: Optional[Path],
+    metrics: List[Any],
+) -> None:
+    """Render run-eval output in JSON or table format."""
     if output_format == "json":
         result = {
             "id": run.id,
@@ -654,7 +647,6 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         print(json.dumps(result, indent=2))
         return
 
-    # Table output
     print(f"\nEval run {run.id}")
     print(f"Dataset: {run.dataset_name}")
     print(f"Run folder: {run_folder}")
@@ -663,10 +655,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         print("  report.html  - analysis report")
     print()
 
-    # Build metric type lookup
     metric_types = {m.spec.id: m.spec.type for m in metrics}
-
-    # Check for API errors in results
     api_errors_by_metric: Dict[str, int] = {}
     for result in run.metric_results:
         if result.details and isinstance(result.details, dict):
@@ -702,14 +691,12 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
 
     print("-" * 80)
 
-    # Show API error summary if any
     total_api_errors = sum(api_errors_by_metric.values())
     if total_api_errors > 0:
         print(f"\n{total_api_errors} API error(s) detected in LLM judge results.")
         print("   Check that GEMINI_API_KEY or OPENAI_API_KEY is set and valid.")
         print("   Re-run with a valid API key to get accurate LLM judge scores.")
 
-    # Show token usage and cost summary if available
     print_token_usage_summary(
         run.usage_summary, verbose=getattr(args, "verbose", False)
     )
@@ -719,11 +706,8 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     if failed_count:
         print(f"Failed items: {failed_count}")
 
-    # Show hint for next step
     quiet = getattr(args, "quiet", False)
-
     if failed_count >= 3:
-        # Get a metric_id that has failures for the hint
         failed_metric = None
         for metric_id, stats in run.summary.get("metrics", {}).items():
             if stats.get("failed", 0) > 0:
@@ -740,6 +724,80 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         f"To analyze results, run: evalyn analyze --run {run.id}",
         quiet=quiet,
         format=output_format,
+    )
+
+
+def cmd_run_eval(args: argparse.Namespace) -> None:
+    """Run evaluation using pre-computed traces from dataset and metrics from JSON file(s).
+
+    This command evaluates a dataset against a set of metrics:
+    1. Load dataset items (input/output pairs from traced calls)
+    2. Load metric specs from JSON file(s)
+    3. Build metric instances (objective or subjective/LLM-judge)
+    4. Run each metric against each item
+    5. Save results to eval_runs/<timestamp>/results.json
+    6. Generate HTML analysis report
+
+    For subjective metrics, an API key (GEMINI_API_KEY or OPENAI_API_KEY) is required.
+    Use --use-calibrated to apply optimized prompts from previous calibration.
+    """
+    output_format = getattr(args, "format", "table")
+    config = load_config()
+
+    dataset_file, dataset_list, all_metrics_data, _ = _resolve_run_eval_inputs(
+        args, output_format, config
+    )
+    dataset_dir = dataset_file.parent
+
+    (
+        metrics,
+        _objective_count,
+        subjective_count,
+        _calibrated_count,
+        _provider,
+        _confidence_method,
+        _confidence_samples,
+        unit_types,
+    ) = _build_run_eval_metrics(
+        args,
+        output_format,
+        config,
+        dataset_dir,
+        all_metrics_data,
+    )
+
+    if output_format != "json":
+        print(f"Dataset: {len(dataset_list)} items")
+        if unit_types and unit_types != ["outcome"]:
+            print(f"Unit types: {', '.join(unit_types)} (span-level evaluation)")
+        if subjective_count > 0:
+            check_llm_api_keys(quiet=False)
+        print()
+
+    run = _execute_run_eval(
+        args,
+        output_format,
+        dataset_file,
+        dataset_dir,
+        dataset_list,
+        metrics,
+        subjective_count,
+        unit_types,
+    )
+    if run is None:
+        return
+
+    run_folder, results_path, report_path = _save_eval_run_and_report(
+        run, output_format, dataset_dir, dataset_list
+    )
+    _render_run_eval_output(
+        args,
+        output_format,
+        run,
+        run_folder,
+        results_path,
+        report_path,
+        metrics,
     )
 
 

@@ -28,6 +28,11 @@ from typing import Any, Optional
 
 from ...decorators import get_default_tracer
 from ...storage import SQLiteStorage
+from ..utils.command_common import (
+    resolve_call_id,
+    resolve_call_id_or_last,
+    try_resolve_call_id,
+)
 from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
 from ..utils.validation import extract_project_id
@@ -358,28 +363,11 @@ def cmd_show_call(args: argparse.Namespace) -> None:
     if not storage:
         fatal_error("No storage configured")
 
-    # Handle --last flag or --id
-    if getattr(args, "last", False):
-        calls = storage.list_calls(limit=1)
-        if not calls:
-            fatal_error("No calls found")
-        call_id = calls[0].id
-    elif args.id:
-        # Resolve short ID to full ID (supports prefixes like '6cf21eb3')
-        input_id = args.id
-        if hasattr(storage, "resolve_call_id"):
-            resolved = storage.resolve_call_id(input_id)
-            if resolved:
-                call_id = resolved
-            else:
-                fatal_error(
-                    f"No call found matching '{input_id}'",
-                    "Use more characters for a unique match",
-                )
-        else:
-            call_id = input_id
-    else:
-        fatal_error("Must specify --id or --last")
+    call_id = resolve_call_id_or_last(
+        storage,
+        input_id=args.id,
+        use_last=getattr(args, "last", False),
+    )
 
     call = storage.get_call(call_id)
     if not call:
@@ -807,28 +795,11 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
     if not storage:
         fatal_error("No storage configured")
 
-    # Handle --last flag or --id
-    if getattr(args, "last", False):
-        calls = storage.list_calls(limit=1)
-        if not calls:
-            fatal_error("No calls found")
-        call_id = calls[0].id
-    elif args.id:
-        # Resolve short ID to full ID (supports prefixes like '6cf21eb3')
-        input_id = args.id
-        if hasattr(storage, "resolve_call_id"):
-            resolved = storage.resolve_call_id(input_id)
-            if resolved:
-                call_id = resolved
-            else:
-                fatal_error(
-                    f"No call found matching '{input_id}'",
-                    "Use more characters for a unique match",
-                )
-        else:
-            call_id = input_id
-    else:
-        fatal_error("Must specify --id or --last")
+    call_id = resolve_call_id_or_last(
+        storage,
+        input_id=args.id,
+        use_last=getattr(args, "last", False),
+    )
 
     call = storage.get_call(call_id)
     if not call:
@@ -1121,12 +1092,7 @@ def cmd_show_span(args: argparse.Namespace) -> None:
     if not args.call_id:
         fatal_error("Must specify --call-id")
 
-    # Resolve short ID
-    call_id = args.call_id
-    if hasattr(storage, "resolve_call_id"):
-        resolved = storage.resolve_call_id(call_id)
-        if resolved:
-            call_id = resolved
+    call_id = resolve_call_id(storage, args.call_id)
 
     call = storage.get_call(call_id)
     if not call:
@@ -1309,23 +1275,15 @@ def cmd_delete_traces(args: argparse.Namespace) -> None:
         # Delete by specific IDs
         calls = []
         for short_id in ids:
-            # Resolve short ID to full ID
-            if hasattr(storage, "resolve_call_id"):
-                full_id = storage.resolve_call_id(short_id)
-                if full_id:
-                    call = storage.get_call(full_id)
-                    if call:
-                        calls.append(call)
-                    else:
-                        print(f"Warning: Call {short_id} not found")
-                else:
-                    print(f"Warning: Could not resolve ID {short_id}")
+            full_id = try_resolve_call_id(storage, short_id)
+            if not full_id:
+                print(f"Warning: Could not resolve ID {short_id}")
+                continue
+            call = storage.get_call(full_id)
+            if call:
+                calls.append(call)
             else:
-                call = storage.get_call(short_id)
-                if call:
-                    calls.append(call)
-                else:
-                    print(f"Warning: Call {short_id} not found")
+                print(f"Warning: Call {short_id} not found")
     else:
         # Delete latest N (default: 1)
         limit = n if n is not None else 1

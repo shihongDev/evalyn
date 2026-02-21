@@ -52,7 +52,7 @@ from ...annotation import (
 from ...datasets import load_dataset
 from ...decorators import get_default_tracer
 from ...models import AnnotationItem, Annotation, MetricLabel, DatasetItem
-from ..utils.config import load_config, resolve_dataset_path
+from ..utils.command_common import resolve_dataset_dir_and_file
 from ..utils.hints import print_hint
 
 
@@ -236,28 +236,9 @@ def _display_span_detail(span_type: str, detail: dict) -> None:
 
 def cmd_annotate_spans(args: argparse.Namespace) -> None:
     """Interactive span-level annotation interface."""
-    config = load_config()
-
-    # Resolve dataset path
-    dataset_arg = getattr(args, "dataset", None)
-    use_latest = getattr(args, "latest", False)
-    resolved_path = resolve_dataset_path(dataset_arg, use_latest, config)
-
-    if not resolved_path:
-        fatal_error("No dataset specified", "Use --dataset <path> or --latest")
-
-    dataset_path = Path(resolved_path)
-    if dataset_path.is_dir():
-        dataset_dir = dataset_path
-        data_file = dataset_path / "dataset.jsonl"
-        if not data_file.exists():
-            data_file = dataset_path / "dataset.json"
-    else:
-        dataset_dir = dataset_path.parent
-        data_file = dataset_path
-
-    if not data_file.exists():
-        fatal_error(f"Dataset file not found: {data_file}")
+    dataset_dir, data_file = resolve_dataset_dir_and_file(
+        getattr(args, "dataset", None), getattr(args, "latest", False)
+    )
 
     # Load dataset items to get call_ids
     dataset_items = load_dataset(data_file)
@@ -458,35 +439,266 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
     print("=" * 70)
 
 
+def _annotation_truncate(text: str, max_len: int = 500) -> str:
+    """Truncate annotation UI text for terminal display."""
+    text = str(text) if text else ""
+    text = text.replace("\n", " ").strip()
+    return text if len(text) <= max_len else text[:max_len] + "..."
+
+
+def _display_annotation_item(
+    idx: int,
+    total: int,
+    item: DatasetItem,
+    eval_results_by_call: Dict[str, Dict[str, Any]],
+    *,
+    show_metric_numbers: bool = False,
+) -> List[tuple]:
+    """Display item and return subjective metric tuples (metric_id, passed, reason)."""
+    call_id = item.metadata.get("call_id", item.id)
+    print(f"\n{'---' * 23}")
+    print(f"Item {idx + 1}/{total} [{call_id[:12]}...]")
+    print("---" * 23)
+
+    input_text = (
+        json.dumps(item.input, ensure_ascii=False, indent=2) if item.input else "(no input)"
+    )
+    print("\nINPUT:")
+    if len(input_text) > 300:
+        print(f"   {_annotation_truncate(input_text, 300)}")
+    else:
+        for line in input_text.split("\n")[:5]:
+            print(f"   {line}")
+
+    output_text = str(item.output) if item.output else "(no output)"
+    print("\nOUTPUT:")
+    print(f"   {_annotation_truncate(output_text, 500)}")
+
+    eval_data = eval_results_by_call.get(call_id, {})
+    subjective_metrics: List[tuple] = []
+    if eval_data:
+        print("\nLLM JUDGE RESULTS:")
+        metric_num = 1
+        for metric_id, result in eval_data.items():
+            passed = result.get("passed")
+            if passed is None:
+                continue
+            status = "PASS" if passed else "FAIL"
+            reason = result.get("reason", "")
+            if show_metric_numbers:
+                print(f"   [{metric_num}] {metric_id}: {status}")
+            else:
+                print(f"   {metric_id}: {status}")
+            if reason:
+                print(f"       Reason: {_annotation_truncate(reason, 200)}")
+            subjective_metrics.append((metric_id, passed, reason))
+            metric_num += 1
+
+    print("---" * 23)
+    return subjective_metrics
+
+
+def _get_annotation_confidence() -> Optional[int]:
+    """Get confidence score 1-5 from user."""
+    try:
+        conf_input = input("Confidence (1-5, Enter to skip): ").strip()
+        if not conf_input:
+            return None
+        conf = int(conf_input)
+        if 1 <= conf <= 5:
+            return conf
+        print("Invalid. Use 1-5.")
+        return _get_annotation_confidence()
+    except ValueError:
+        print("Invalid. Use 1-5 or Enter to skip.")
+        return _get_annotation_confidence()
+    except (EOFError, KeyboardInterrupt):
+        return None
+
+
+def _save_single_annotation(output_path: Path, ann: Annotation) -> bool:
+    """Append a single annotation atomically with fsync."""
+    try:
+        with open(output_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(ann.as_dict(), ensure_ascii=False) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+        return True
+    except IOError as e:
+        print(f"Warning: Failed to save annotation: {e}")
+        return False
+
+
+def _save_all_annotations_atomic(output_path: Path, annotations: List[Annotation]) -> bool:
+    """Save all annotations atomically for recovery/fallback."""
+    import tempfile
+
+    try:
+        temp_fd, temp_path = tempfile.mkstemp(
+            dir=output_path.parent, prefix=".annotations_", suffix=".tmp"
+        )
+        try:
+            with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+                for ann in annotations:
+                    f.write(json.dumps(ann.as_dict(), ensure_ascii=False) + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(temp_path, output_path)
+            return True
+        except Exception:
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+            raise
+    except IOError as e:
+        print(f"Warning: Failed to save annotations: {e}")
+        return False
+
+
+def _annotate_per_metric(
+    item: DatasetItem,
+    subjective_metrics: List[tuple],
+    *,
+    annotator: str,
+    existing_count: int,
+) -> Optional[Annotation]:
+    """Per-metric annotation flow."""
+    call_id = item.metadata.get("call_id", item.id)
+    metric_labels: Dict[str, MetricLabel] = {}
+
+    if not subjective_metrics:
+        print("No subjective metrics to annotate for this item.")
+        return None
+
+    print("\nAnnotate each metric ([a]gree, [d]isagree/flip, [s]kip, [q]uit):")
+    for i, (metric_id, llm_passed, reason) in enumerate(subjective_metrics, 1):
+        status = "PASS" if llm_passed else "FAIL"
+        print(f"\n  [{i}/{len(subjective_metrics)}] {metric_id}: LLM says {status}")
+        if reason:
+            print(f"      Reason: {_annotation_truncate(reason, 150)}")
+
+        while True:
+            try:
+                choice = input("  Your verdict [a/d/s/q]: ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                return None
+
+            if choice in ("q", "quit"):
+                return None
+            if choice in ("s", "skip"):
+                break
+
+            if choice in ("a", "agree", "y", "yes"):
+                metric_labels[metric_id] = MetricLabel(
+                    metric_id=metric_id,
+                    agree_with_llm=True,
+                    human_label=llm_passed,
+                    notes="",
+                )
+                print(f"      -> Agreed: {status}")
+                break
+
+            if choice in ("d", "disagree", "n", "no", "flip"):
+                human_label = not llm_passed
+                human_status = "PASS" if human_label else "FAIL"
+                try:
+                    notes = input("      Notes (why disagree?): ").strip()
+                except (EOFError, KeyboardInterrupt):
+                    notes = ""
+                metric_labels[metric_id] = MetricLabel(
+                    metric_id=metric_id,
+                    agree_with_llm=False,
+                    human_label=human_label,
+                    notes=notes,
+                )
+                print(f"      -> Disagreed: Human says {human_status}")
+                break
+
+            print("      Invalid. Use: a(gree), d(isagree), s(kip), q(uit)")
+
+    if not metric_labels:
+        print("No metrics annotated.")
+        return None
+
+    human_passes = [ml.human_label for ml in metric_labels.values()]
+    overall_passed = all(human_passes) if human_passes else True
+    confidence = _get_annotation_confidence()
+
+    try:
+        overall_notes = input("Overall notes (optional): ").strip()
+    except (EOFError, KeyboardInterrupt):
+        overall_notes = ""
+
+    return Annotation(
+        id=f"ann-{call_id[:8]}-{existing_count}",
+        target_id=call_id,
+        label=overall_passed,
+        rationale=overall_notes if overall_notes else None,
+        annotator=annotator,
+        source="human",
+        confidence=confidence,
+        metric_labels=metric_labels,
+    )
+
+
+def _annotate_simple(
+    item: DatasetItem,
+    *,
+    annotator: str,
+    existing_count: int,
+) -> Optional[Annotation | str]:
+    """Simple overall pass/fail annotation flow."""
+    call_id = item.metadata.get("call_id", item.id)
+    while True:
+        try:
+            user_input = input("\nPass? [y/n/s/v/q]: ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            return None
+
+        if user_input in ("q", "quit"):
+            return None
+        if user_input in ("s", "skip"):
+            return "skip"
+        if user_input in ("v", "view"):
+            print("\n" + "=" * 70)
+            print("FULL OUTPUT:")
+            print("=" * 70)
+            print(str(item.output) if item.output else "(no output)")
+            print("=" * 70)
+            continue
+        if user_input in ("y", "yes", "1", "p", "pass"):
+            passed = True
+        elif user_input in ("n", "no", "0", "f", "fail"):
+            passed = False
+        else:
+            print("Invalid input. Use: y(es), n(o), s(kip), v(iew), q(uit)")
+            continue
+
+        confidence = _get_annotation_confidence()
+        try:
+            notes = input("Notes (optional): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            notes = ""
+
+        return Annotation(
+            id=f"ann-{call_id[:8]}-{existing_count}",
+            target_id=call_id,
+            label=passed,
+            rationale=notes if notes else None,
+            annotator=annotator,
+            source="human",
+            confidence=confidence,
+        )
+
+
 def cmd_annotate(args: argparse.Namespace) -> None:
     """Interactive CLI annotation interface with per-metric support."""
     # Check for span annotation mode
     if getattr(args, "spans", False):
         return cmd_annotate_spans(args)
 
-    config = load_config()
-
-    # Resolve dataset path using --dataset, --latest, or config
-    dataset_arg = getattr(args, "dataset", None)
-    use_latest = getattr(args, "latest", False)
-    resolved_path = resolve_dataset_path(dataset_arg, use_latest, config)
-
-    if not resolved_path:
-        fatal_error("No dataset specified", "Use --dataset <path> or --latest")
-
-    # Resolve dataset path
-    dataset_path = Path(resolved_path)
-    if dataset_path.is_dir():
-        dataset_dir = dataset_path
-        data_file = dataset_path / "dataset.jsonl"
-        if not data_file.exists():
-            data_file = dataset_path / "dataset.json"
-    else:
-        dataset_dir = dataset_path.parent
-        data_file = dataset_path
-
-    if not data_file.exists():
-        fatal_error(f"Dataset file not found: {data_file}")
+    dataset_dir, data_file = resolve_dataset_dir_and_file(
+        getattr(args, "dataset", None), getattr(args, "latest", False)
+    )
 
     # Load dataset items
     dataset_items = load_dataset(data_file)
@@ -569,279 +781,26 @@ def cmd_annotate(args: argparse.Namespace) -> None:
         print("\nCommands: [y]es/pass  [n]o/fail  [s]kip  [v]iew full  [q]uit")
     print("=" * 70)
 
-    def truncate_text(text: str, max_len: int = 500) -> str:
-        text = str(text) if text else ""
-        text = text.replace("\n", " ").strip()
-        return text if len(text) <= max_len else text[:max_len] + "..."
-
-    def display_item(
-        idx: int, item: DatasetItem, show_metric_numbers: bool = False
-    ) -> List[tuple]:
-        """Display item and return list of (metric_id, llm_passed, reason) for subjective metrics."""
-        call_id = item.metadata.get("call_id", item.id)
-        print(f"\n{'---' * 23}")
-        print(f"Item {idx + 1}/{total} [{call_id[:12]}...]")
-        print("---" * 23)
-
-        # Input
-        input_text = (
-            json.dumps(item.input, ensure_ascii=False, indent=2)
-            if item.input
-            else "(no input)"
-        )
-        print("\nINPUT:")
-        if len(input_text) > 300:
-            print(f"   {truncate_text(input_text, 300)}")
-        else:
-            for line in input_text.split("\n")[:5]:
-                print(f"   {line}")
-
-        # Output
-        output_text = str(item.output) if item.output else "(no output)"
-        print("\nOUTPUT:")
-        print(f"   {truncate_text(output_text, 500)}")
-
-        # LLM Judge results
-        eval_data = eval_results_by_call.get(call_id, {})
-        subjective_metrics = []
-        if eval_data:
-            print("\nLLM JUDGE RESULTS:")
-            metric_num = 1
-            for metric_id, result in eval_data.items():
-                passed = result.get("passed")
-                if passed is None:
-                    continue
-                status = "PASS" if passed else "FAIL"
-                reason = result.get("reason", "")
-                if show_metric_numbers:
-                    print(f"   [{metric_num}] {metric_id}: {status}")
-                else:
-                    print(f"   {metric_id}: {status}")
-                if reason:
-                    print(f"       Reason: {truncate_text(reason, 200)}")
-                subjective_metrics.append((metric_id, passed, reason))
-                metric_num += 1
-
-        print("---" * 23)
-        return subjective_metrics
-
-    def get_confidence() -> Optional[int]:
-        """Get confidence score 1-5 from user."""
-        try:
-            conf_input = input("Confidence (1-5, Enter to skip): ").strip()
-            if not conf_input:
-                return None
-            conf = int(conf_input)
-            if 1 <= conf <= 5:
-                return conf
-            print("Invalid. Use 1-5.")
-            return get_confidence()
-        except ValueError:
-            print("Invalid. Use 1-5 or Enter to skip.")
-            return get_confidence()
-        except (EOFError, KeyboardInterrupt):
-            return None
-
-    def save_single_annotation(ann: Annotation) -> bool:
-        """Append a single annotation atomically with fsync.
-
-        Returns True if saved successfully, False otherwise.
-        """
-        try:
-            # Append mode - each annotation is written immediately
-            with open(output_path, "a", encoding="utf-8") as f:
-                f.write(json.dumps(ann.as_dict(), ensure_ascii=False) + "\n")
-                f.flush()
-                os.fsync(f.fileno())
-            return True
-        except IOError as e:
-            print(f"Warning: Failed to save annotation: {e}")
-            return False
-
-    def save_all_annotations_atomic() -> bool:
-        """Save all annotations atomically (for final save or recovery).
-
-        Writes to temp file, then renames for atomic operation.
-        Returns True if saved successfully, False otherwise.
-        """
-        import tempfile
-
-        try:
-            # Write to temp file in same directory for atomic rename
-            temp_fd, temp_path = tempfile.mkstemp(
-                dir=output_path.parent, prefix=".annotations_", suffix=".tmp"
-            )
-            try:
-                with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-                    for ann in annotations:
-                        f.write(json.dumps(ann.as_dict(), ensure_ascii=False) + "\n")
-                    f.flush()
-                    os.fsync(f.fileno())
-                # Atomic rename
-                os.replace(temp_path, output_path)
-                return True
-            except Exception:
-                # Clean up temp file on error
-                if os.path.exists(temp_path):
-                    os.unlink(temp_path)
-                raise
-        except IOError as e:
-            print(f"Warning: Failed to save annotations: {e}")
-            return False
-
-    def annotate_per_metric(
-        item: DatasetItem, subjective_metrics: List[tuple]
-    ) -> Optional[Annotation]:
-        """Per-metric annotation flow."""
-        call_id = item.metadata.get("call_id", item.id)
-        metric_labels: Dict[str, MetricLabel] = {}
-
-        if not subjective_metrics:
-            print("No subjective metrics to annotate for this item.")
-            return None
-
-        print("\nAnnotate each metric ([a]gree, [d]isagree/flip, [s]kip, [q]uit):")
-
-        for i, (metric_id, llm_passed, reason) in enumerate(subjective_metrics, 1):
-            status = "PASS" if llm_passed else "FAIL"
-            print(f"\n  [{i}/{len(subjective_metrics)}] {metric_id}: LLM says {status}")
-            if reason:
-                print(f"      Reason: {truncate_text(reason, 150)}")
-
-            while True:
-                try:
-                    choice = input("  Your verdict [a/d/s/q]: ").strip().lower()
-                except (EOFError, KeyboardInterrupt):
-                    return None
-
-                if choice in ("q", "quit"):
-                    return None  # Signal to quit
-
-                if choice in ("s", "skip"):
-                    break  # Skip this metric
-
-                if choice in ("a", "agree", "y", "yes"):
-                    # Agree with LLM
-                    metric_labels[metric_id] = MetricLabel(
-                        metric_id=metric_id,
-                        agree_with_llm=True,
-                        human_label=llm_passed,
-                        notes="",
-                    )
-                    print(f"      -> Agreed: {status}")
-                    break
-
-                if choice in ("d", "disagree", "n", "no", "flip"):
-                    # Disagree - flip the label
-                    human_label = not llm_passed
-                    human_status = "PASS" if human_label else "FAIL"
-                    try:
-                        notes = input("      Notes (why disagree?): ").strip()
-                    except (EOFError, KeyboardInterrupt):
-                        notes = ""
-                    metric_labels[metric_id] = MetricLabel(
-                        metric_id=metric_id,
-                        agree_with_llm=False,
-                        human_label=human_label,
-                        notes=notes,
-                    )
-                    print(f"      -> Disagreed: Human says {human_status}")
-                    break
-
-                print("      Invalid. Use: a(gree), d(isagree), s(kip), q(uit)")
-
-        if not metric_labels:
-            print("No metrics annotated.")
-            return None
-
-        # Calculate overall label from metric labels
-        human_passes = [ml.human_label for ml in metric_labels.values()]
-        overall_passed = all(human_passes) if human_passes else True
-
-        # Get confidence
-        confidence = get_confidence()
-
-        # Get overall notes
-        try:
-            overall_notes = input("Overall notes (optional): ").strip()
-        except (EOFError, KeyboardInterrupt):
-            overall_notes = ""
-
-        return Annotation(
-            id=f"ann-{call_id[:8]}-{len(annotations)}",
-            target_id=call_id,
-            label=overall_passed,
-            rationale=overall_notes if overall_notes else None,
-            annotator=args.annotator or "human",
-            source="human",
-            confidence=confidence,
-            metric_labels=metric_labels,
-        )
-
-    def annotate_simple(item: DatasetItem) -> Optional[Annotation]:
-        """Simple overall pass/fail annotation flow."""
-        call_id = item.metadata.get("call_id", item.id)
-
-        while True:
-            try:
-                user_input = input("\nPass? [y/n/s/v/q]: ").strip().lower()
-            except (EOFError, KeyboardInterrupt):
-                return None
-
-            if user_input in ("q", "quit"):
-                return None  # Signal to quit
-
-            if user_input in ("s", "skip"):
-                return "skip"  # Signal to skip
-
-            if user_input in ("v", "view"):
-                # Show full output
-                print("\n" + "=" * 70)
-                print("FULL OUTPUT:")
-                print("=" * 70)
-                print(str(item.output) if item.output else "(no output)")
-                print("=" * 70)
-                continue
-
-            if user_input in ("y", "yes", "1", "p", "pass"):
-                passed = True
-            elif user_input in ("n", "no", "0", "f", "fail"):
-                passed = False
-            else:
-                print("Invalid input. Use: y(es), n(o), s(kip), v(iew), q(uit)")
-                continue
-
-            # Get confidence
-            confidence = get_confidence()
-
-            # Get optional notes
-            try:
-                notes = input("Notes (optional): ").strip()
-            except (EOFError, KeyboardInterrupt):
-                notes = ""
-
-            return Annotation(
-                id=f"ann-{call_id[:8]}-{len(annotations)}",
-                target_id=call_id,
-                label=passed,
-                rationale=notes if notes else None,
-                annotator=args.annotator or "human",
-                source="human",
-                confidence=confidence,
-            )
-
     # Main annotation loop
     idx = 0
     while idx < total:
         item = items_to_annotate[idx]
-        call_id = item.metadata.get("call_id", item.id)
 
-        subjective_metrics = display_item(
-            idx, item, show_metric_numbers=per_metric_mode
+        subjective_metrics = _display_annotation_item(
+            idx,
+            total,
+            item,
+            eval_results_by_call,
+            show_metric_numbers=per_metric_mode,
         )
 
         if per_metric_mode:
-            ann = annotate_per_metric(item, subjective_metrics)
+            ann = _annotate_per_metric(
+                item,
+                subjective_metrics,
+                annotator=args.annotator or "human",
+                existing_count=len(annotations),
+            )
             if ann is None:
                 # Check if user wants to quit
                 try:
@@ -861,7 +820,11 @@ def cmd_annotate(args: argparse.Namespace) -> None:
                 idx += 1
                 continue
         else:
-            ann = annotate_simple(item)
+            ann = _annotate_simple(
+                item,
+                annotator=args.annotator or "human",
+                existing_count=len(annotations),
+            )
             if ann is None:
                 print(
                     f"\nAll annotations already saved ({new_annotation_count} new this session)"
@@ -875,12 +838,12 @@ def cmd_annotate(args: argparse.Namespace) -> None:
 
         # Save annotation immediately (append mode with fsync)
         annotations.append(ann)
-        if save_single_annotation(ann):
+        if _save_single_annotation(output_path, ann):
             new_annotation_count += 1
         else:
             # Failed to save - try full atomic save as fallback
             print("  Attempting full save as fallback...")
-            if save_all_annotations_atomic():
+            if _save_all_annotations_atomic(output_path, annotations):
                 new_annotation_count += 1
             else:
                 print("  Could not save annotation. Please check disk space.")
