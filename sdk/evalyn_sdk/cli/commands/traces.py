@@ -139,6 +139,316 @@ def _format_dur(ms: float | None) -> str:
     return f"{ms / 1000:.1f}s"
 
 
+def _detect_call_turns(inputs: Any) -> tuple[str, int]:
+    """Infer single vs multi-turn interaction shape from call inputs."""
+    if isinstance(inputs, dict):
+        kwargs = inputs.get("kwargs", {})
+        for key in ("messages", "history", "conversation", "turns"):
+            val = kwargs.get(key)
+            if isinstance(val, list):
+                return ("multi" if len(val) > 1 else "single"), len(val)
+        for arg in inputs.get("args", []):
+            if isinstance(arg, list):
+                return ("multi" if len(arg) > 1 else "single"), len(arg)
+    return "single", 1
+
+
+def _count_call_trace_events(call, kinds: list[str]) -> int:
+    """Count trace events whose kind contains any provided substring."""
+    return sum(1 for ev in (call.trace or []) if any(k in ev.kind.lower() for k in kinds))
+
+
+def _count_call_llm_calls(call) -> int:
+    """Count LLM calls using both legacy trace events and modern spans."""
+    event_count = _count_call_trace_events(
+        call,
+        ["completion", "request", "llm", "gemini", "openai", "anthropic"],
+    )
+    span_count = sum(1 for s in (call.spans or []) if s.span_type == "llm_call")
+    return max(event_count, span_count)
+
+
+def _count_call_tool_calls(call) -> int:
+    """Count tool calls using both legacy trace events and modern spans."""
+    event_count = _count_call_trace_events(call, ["tool"])
+    span_count = sum(1 for s in (call.spans or []) if s.span_type == "tool_call")
+    return max(event_count, span_count)
+
+
+def _print_show_call_header(call) -> None:
+    """Print top-level call summary header."""
+    status = "ERROR" if call.error else "OK"
+    turn_label, turns = _detect_call_turns(call.inputs)
+    llm_calls = _count_call_llm_calls(call)
+    tool_events = _count_call_tool_calls(call)
+
+    print("\n================ Call Details ================")
+    print(f"id       : {call.id}")
+    print(f"function : {call.function_name}")
+    print(f"status   : {status}")
+    print(f"session  : {call.session_id}")
+    print(f"started  : {call.started_at}")
+    print(f"ended    : {call.ended_at}")
+    print(f"duration : {call.duration_ms:.2f} ms")
+    print(f"turns    : {turn_label} ({turns})")
+    print(f"llm_calls: {llm_calls} | tool_events: {tool_events}")
+
+
+def _print_show_call_inputs(call) -> None:
+    """Print call input args/kwargs."""
+    print("\nInputs:")
+    args_list = call.inputs.get("args", [])
+    kwargs = call.inputs.get("kwargs", {})
+    if args_list:
+        print("  args:")
+        for idx, arg in enumerate(args_list):
+            print(f"    - [{idx}] {_format_value(arg)}")
+    if kwargs:
+        print("  kwargs:")
+        for key, value in kwargs.items():
+            print(f"    - {key}: {_format_value(value)}")
+    if not args_list and not kwargs:
+        print("  <empty>")
+
+
+def _print_show_call_output(call) -> None:
+    """Print call error or output preview."""
+    if call.error:
+        print("\nError:")
+        print(call.error)
+        return
+
+    print("\nOutput:")
+    output_text = str(call.output or "")
+    print(f"  type   : {type(call.output).__name__}")
+    print(f"  length : {len(output_text)} chars")
+    print(f"  preview: {_format_value(output_text, max_len=1000)}")
+
+
+def _print_show_call_metadata(meta: dict) -> None:
+    """Print call metadata with nested dict support."""
+    print("\nMetadata:")
+    for key, value in meta.items():
+        if isinstance(value, dict):
+            print(f"  {key}:")
+            for sub_key, sub_val in value.items():
+                if sub_key == "source":
+                    src = sub_val or ""
+                    src_preview = src if len(src) <= 1200 else src[:1200] + "..."
+                    print("    source:")
+                    for line in src_preview.splitlines()[:40]:
+                        print(f"      {line}")
+                else:
+                    print(f"    - {sub_key}: {_format_value(sub_val, max_len=400)}")
+            continue
+        print(f"  - {key}: {_format_value(value, max_len=400)}")
+
+
+def _format_trace_event_inline(value: Any, max_len: int = 100) -> str:
+    """Format trace event values for inline timeline summaries."""
+    try:
+        if isinstance(value, (dict, list)):
+            text = json.dumps(value, separators=(",", ":"))
+        else:
+            text = str(value)
+    except Exception:
+        text = str(value)
+    return text if len(text) <= max_len else text[:max_len] + "..."
+
+
+def _summarize_trace_event_detail(detail: Any, max_items: int = 4) -> str:
+    """Build a compact summary string for trace event details."""
+    if not detail:
+        return ""
+    parts = []
+    if isinstance(detail, dict):
+        model = detail.get("model")
+        if model:
+            parts.append(f"model={_truncate(model, 40)}")
+        tool = detail.get("tool") or detail.get("name")
+        if tool:
+            parts.append(f"tool={_truncate(tool, 40)}")
+        if "config" in detail and len(parts) < max_items:
+            cfg = detail.get("config") or {}
+            tools = []
+            raw_tools = cfg.get("tools")
+            if isinstance(raw_tools, list):
+                for tool_entry in raw_tools:
+                    if isinstance(tool_entry, dict):
+                        tools.extend(list(tool_entry.keys()))
+                    else:
+                        tools.append(str(tool_entry))
+            if tools:
+                parts.append(f"tools={','.join(tools)}")
+            else:
+                parts.append(f"config_keys={list(cfg.keys())}")
+        for key in ("status", "status_code", "elapsed_ms", "duration_ms", "count", "length"):
+            if key in detail and len(parts) < max_items:
+                parts.append(f"{key}={_format_trace_event_inline(detail.get(key), 40)}")
+        for key in ("error", "url"):
+            if key in detail and len(parts) < max_items:
+                parts.append(f"{key}={_truncate(detail.get(key), 60)}")
+        for key in ("contents", "messages", "prompt", "prompt_excerpt"):
+            if key in detail and len(parts) < max_items:
+                parts.append(f"{key}={_truncate(detail.get(key), 80)}")
+    if not parts:
+        parts.append(_truncate(_format_trace_event_inline(detail, 120), 120))
+    return " ".join(parts[:max_items])
+
+
+def _print_show_call_events(call) -> None:
+    """Print legacy trace events summary and timeline."""
+    if not call.trace:
+        return
+
+    print("\nEvents summary:")
+    total = len(call.trace)
+    reqs = sum(1 for ev in call.trace if ev.kind.lower().endswith(".request"))
+    resps = sum(1 for ev in call.trace if ev.kind.lower().endswith(".response"))
+    tool_cnt = sum(1 for ev in call.trace if "tool" in ev.kind.lower())
+    print(f"  total={total} | requests={reqs} | responses={resps} | tool_events={tool_cnt}")
+
+    kind_counts: dict[str, int] = {}
+    for ev in call.trace:
+        kind_counts[ev.kind] = kind_counts.get(ev.kind, 0) + 1
+    for kind, count in sorted(kind_counts.items()):
+        print(f"  - {kind}: {count}")
+
+    print("\nEvents timeline:")
+    print(" | ".join(["idx", "t+ms", "delta_ms", "kind", "summary"]))
+    print("-" * 140)
+    prev_ts = None
+    for idx, ev in enumerate(call.trace, start=1):
+        elapsed_ms = (
+            (ev.timestamp - call.started_at).total_seconds() * 1000 if call.started_at else 0.0
+        )
+        delta_ms = (ev.timestamp - prev_ts).total_seconds() * 1000 if prev_ts else 0.0
+        summary = _summarize_trace_event_detail(ev.detail or {})
+        print(f"{idx} | {elapsed_ms:7.1f} | {delta_ms:7.1f} | {ev.kind} | {summary}")
+        prev_ts = ev.timestamp
+
+
+def _print_show_call_sparse_span_timeline(call) -> None:
+    """Print chronological span timeline when traces are sparse."""
+    if len(call.trace) > 1 or not call.spans or len(call.spans) <= 1:
+        return
+
+    print("\nSpan Timeline (chronological):")
+    print("-" * 100)
+
+    sorted_spans = sorted([s for s in call.spans if s.start_time], key=lambda s: s.start_time)
+    for idx, span in enumerate(sorted_spans[:50], start=1):
+        elapsed_ms = 0.0
+        if span.start_time and call.started_at:
+            elapsed_ms = (span.start_time - call.started_at).total_seconds() * 1000
+
+        dur_str = f"{span.duration_ms:.0f}ms" if span.duration_ms else "0ms"
+        attrs = span.attributes or {}
+        summary_parts = []
+        if span.span_type == "llm_call":
+            model = attrs.get("model", "")
+            if model:
+                summary_parts.append(f"model={model}")
+        elif span.span_type == "tool_call":
+            tool = attrs.get("tool_name", span.name)
+            summary_parts.append(f"tool={tool}")
+        elif span.span_type == "user_message":
+            content = attrs.get("content", "")[:50]
+            summary_parts.append(f"input={content}")
+        summary = " ".join(summary_parts)
+        print(
+            f"{idx:3} | +{elapsed_ms:8.0f}ms | {span.span_type:12} | {span.name:20} | {dur_str:8} | {summary[:60]}"
+        )
+
+    if len(sorted_spans) > 50:
+        print(f"  ... and {len(sorted_spans) - 50} more spans")
+
+
+def _build_call_span_tree(call) -> list[dict]:
+    """Build a sorted span tree from call.spans for display."""
+    by_id = {s.id: {"span": s, "children": []} for s in (call.spans or [])}
+    roots: list[dict] = []
+    for s in call.spans or []:
+        node = by_id[s.id]
+        if s.parent_id and s.parent_id in by_id:
+            by_id[s.parent_id]["children"].append(node)
+        else:
+            roots.append(node)
+
+    def _sort_children(node: dict) -> None:
+        node["children"].sort(key=lambda n: n["span"].start_time or 0)
+        for child in node["children"]:
+            _sort_children(child)
+
+    for root in roots:
+        _sort_children(root)
+    return roots
+
+
+def _call_span_tokens_info(attrs: dict) -> str:
+    """Format compact token counts for span tree labels."""
+    input_t = attrs.get("input_tokens", 0)
+    output_t = attrs.get("output_tokens", 0)
+    if input_t or output_t:
+        return f" [{input_t}>{output_t} tok]"
+    return ""
+
+
+def _format_call_span_label(span) -> str:
+    """Format a span label for show-call span tree."""
+    dur = _format_dur(span.duration_ms)
+    tokens = _call_span_tokens_info(span.attributes or {})
+    if span.span_type == "llm_call":
+        return f"llm: {span.name}{tokens} ({dur})"
+    if span.span_type == "tool_call":
+        return f"tool: {span.name} ({dur})"
+    if span.span_type == "node":
+        return f"node: {span.name.replace('node:', '')} ({dur})"
+    if span.span_type == "graph":
+        return f"graph: {span.name.replace('graph:', '')} ({dur})"
+    return f"{span.name} ({dur})"
+
+
+def _render_call_span_node(node: dict, prefix: str = "", is_last: bool = True) -> None:
+    """Render one node in the show-call span tree."""
+    span = node["span"]
+    connector = "`-- " if is_last else "|-- "
+    print(f"{prefix}{connector}{_format_call_span_label(span)}")
+    child_prefix = prefix + ("    " if is_last else "|   ")
+    children = node["children"]
+    for i, child in enumerate(children):
+        _render_call_span_node(child, child_prefix, i == len(children) - 1)
+
+
+def _print_show_call_spans(call) -> None:
+    """Print span tree and summary from call.spans."""
+    if not call.spans:
+        return
+
+    roots = _build_call_span_tree(call)
+    print("\nSpan Tree:")
+    for i, root in enumerate(roots):
+        _render_call_span_node(root, "", i == len(roots) - 1)
+
+    llm_count = sum(1 for s in call.spans if s.span_type == "llm_call")
+    tool_count = sum(1 for s in call.spans if s.span_type == "tool_call")
+    node_count = sum(1 for s in call.spans if s.span_type == "node")
+    print(f"\n  {len(call.spans)} spans | {llm_count} LLM | {tool_count} tools | {node_count} nodes")
+
+
+def _render_show_call_table(call) -> None:
+    """Render the human-readable show-call output."""
+    _print_show_call_header(call)
+    _print_show_call_inputs(call)
+    _print_show_call_output(call)
+    if call.metadata:
+        _print_show_call_metadata(call.metadata)
+    _print_show_call_events(call)
+    _print_show_call_sparse_span_timeline(call)
+    _print_show_call_spans(call)
+    print("=============================================\n")
+
+
 # ---------------------------------------------------------------------------
 # CLI Commands
 # ---------------------------------------------------------------------------
@@ -377,416 +687,338 @@ def cmd_show_call(args: argparse.Namespace) -> None:
     if output_format == "json":
         print(json.dumps(call.as_dict(), indent=2, default=str))
         return
-
-    status = "ERROR" if call.error else "OK"
-
-    def _detect_turns(inputs) -> tuple[str, int]:
-        if isinstance(inputs, dict):
-            kwargs = inputs.get("kwargs", {})
-            for key in ("messages", "history", "conversation", "turns"):
-                val = kwargs.get(key)
-                if isinstance(val, list):
-                    return ("multi" if len(val) > 1 else "single"), len(val)
-            for arg in inputs.get("args", []):
-                if isinstance(arg, list):
-                    return ("multi" if len(arg) > 1 else "single"), len(arg)
-        return "single", 1
-
-    def _count_events(kinds: list[str]) -> int:
-        return sum(1 for ev in call.trace if any(k in ev.kind.lower() for k in kinds))
-
-    def _count_llm_calls() -> int:
-        # Count from trace events (legacy providers)
-        event_count = _count_events(
-            ["completion", "request", "llm", "gemini", "openai", "anthropic"]
-        )
-        # Count from spans (modern providers like Claude Agent SDK)
-        span_count = sum(1 for s in (call.spans or []) if s.span_type == "llm_call")
-        return max(event_count, span_count)
-
-    def _count_tool_calls() -> int:
-        # Count from trace events (legacy)
-        event_count = _count_events(["tool"])
-        # Count from spans (modern)
-        span_count = sum(1 for s in (call.spans or []) if s.span_type == "tool_call")
-        return max(event_count, span_count)
-
-    turn_label, turns = _detect_turns(call.inputs)
-    llm_calls = _count_llm_calls()
-    tool_events = _count_tool_calls()
-
-    print("\n================ Call Details ================")
-    print(f"id       : {call.id}")
-    print(f"function : {call.function_name}")
-    print(f"status   : {status}")
-    print(f"session  : {call.session_id}")
-    print(f"started  : {call.started_at}")
-    print(f"ended    : {call.ended_at}")
-    print(f"duration : {call.duration_ms:.2f} ms")
-    print(f"turns    : {turn_label} ({turns})")
-    print(f"llm_calls: {llm_calls} | tool_events: {tool_events}")
-
-    print("\nInputs:")
-    args_list = call.inputs.get("args", [])
-    kwargs = call.inputs.get("kwargs", {})
-    if args_list:
-        print("  args:")
-        for idx, arg in enumerate(args_list):
-            print(f"    - [{idx}] {_format_value(arg)}")
-    if kwargs:
-        print("  kwargs:")
-        for key, value in kwargs.items():
-            print(f"    - {key}: {_format_value(value)}")
-    if not args_list and not kwargs:
-        print("  <empty>")
-
-    if call.error:
-        print("\nError:")
-        print(call.error)
-    else:
-        print("\nOutput:")
-        output_text = str(call.output or "")
-        print(f"  type   : {type(call.output).__name__}")
-        print(f"  length : {len(output_text)} chars")
-        print(f"  preview: {_format_value(output_text, max_len=1000)}")
-
-    if call.metadata:
-
-        def _print_metadata(meta: dict) -> None:
-            print("\nMetadata:")
-            for key, value in meta.items():
-                if isinstance(value, dict):
-                    print(f"  {key}:")
-                    for sub_key, sub_val in value.items():
-                        if sub_key == "source":
-                            src = sub_val or ""
-                            src_preview = (
-                                src if len(src) <= 1200 else src[:1200] + "..."
-                            )
-                            print("    source:")
-                            for line in src_preview.splitlines()[:40]:
-                                print(f"      {line}")
-                        else:
-                            print(
-                                f"    - {sub_key}: {_format_value(sub_val, max_len=400)}"
-                            )
-                else:
-                    print(f"  - {key}: {_format_value(value, max_len=400)}")
-
-        _print_metadata(call.metadata)
-
-    def _span_attr_summary(attrs, max_items=3):
-        if not isinstance(attrs, dict) or not attrs:
-            return ""
-        preferred = [
-            "model",
-            "llm.model",
-            "tool",
-            "tool.name",
-            "http.method",
-            "http.url",
-            "rpc.system",
-        ]
-        parts = []
-        seen = set()
-
-        def _add(key, value):
-            if key in seen:
-                return
-            seen.add(key)
-            if value is None:
-                return
-            text = str(value)
-            text = text if len(text) <= 60 else text[:60] + "..."
-            parts.append(f"{key}={text}")
-
-        for key in preferred:
-            if key in attrs:
-                _add(key, attrs.get(key))
-                if len(parts) >= max_items:
-                    return " ".join(parts)
-
-        for key in sorted(attrs.keys()):
-            if key.startswith("evalyn."):
-                continue
-            _add(key, attrs.get(key))
-            if len(parts) >= max_items:
-                break
-        return " ".join(parts)
-
-    def _print_span_tree(spans, call_start_ts):
-        by_id = {s.get("span_id"): s for s in spans if s.get("span_id")}
-        children = {span_id: [] for span_id in by_id}
-        for span in spans:
-            span_id = span.get("span_id")
-            parent_id = span.get("parent_span_id")
-            if parent_id in by_id and span_id in by_id:
-                children[parent_id].append(span_id)
-
-        def _sort_key(span_id):
-            span = by_id.get(span_id, {})
-            return _normalize_span_time(span.get("start_time")) or 0.0
-
-        for parent_id in children:
-            children[parent_id].sort(key=_sort_key)
-
-        roots = [
-            sid
-            for sid, span in by_id.items()
-            if span.get("parent_span_id") not in by_id
-        ]
-        roots.sort(key=_sort_key)
-
-        def _render(span_id, prefix, is_last):
-            span = by_id[span_id]
-            dur_ms = _span_duration_ms(span)
-            status = _span_status(span)
-            attr_summary = _span_attr_summary(span.get("attributes", {}))
-            start_ts = _normalize_span_time(span.get("start_time"))
-            rel_ms = None
-            if start_ts is not None and call_start_ts is not None:
-                rel_ms = (start_ts - call_start_ts) * 1000
-            dur_text = f"{dur_ms:.1f}ms" if dur_ms is not None else "n/a"
-            rel_text = f"+{rel_ms:.1f}ms" if rel_ms is not None else "n/a"
-            branch = "`- " if is_last else "|- "
-            line = (
-                f"{prefix}{branch}{span.get('name')} ({status}, {dur_text}, {rel_text})"
-            )
-            if attr_summary:
-                line += f" {attr_summary}"
-            print(line)
-            next_prefix = prefix + ("   " if is_last else "|  ")
-            child_ids = children.get(span_id, [])
-            for idx, child_id in enumerate(child_ids):
-                _render(child_id, next_prefix, idx == len(child_ids) - 1)
-
-        for idx, root_id in enumerate(roots):
-            _render(root_id, "", idx == len(roots) - 1)
-
-    if call.trace:
-
-        def _format_time(ev):
-            try:
-                delta = (ev.timestamp - call.started_at).total_seconds()
-                return f"+{delta:0.3f}s"
-            except Exception:
-                return str(ev.timestamp)
-
-        def _truncate(text, max_len=120):
-            if text is None:
-                return ""
-            text = str(text)
-            return text if len(text) <= max_len else text[:max_len] + "..."
-
-        def _format_inline(value, max_len=100):
-            try:
-                if isinstance(value, (dict, list)):
-                    text = json.dumps(value, separators=(",", ":"))
-                else:
-                    text = str(value)
-            except Exception:
-                text = str(value)
-            return text if len(text) <= max_len else text[:max_len] + "..."
-
-        def _summarize_detail(detail, max_items=4):
-            if not detail:
-                return ""
-            parts = []
-            if isinstance(detail, dict):
-                model = detail.get("model")
-                if model:
-                    parts.append(f"model={_truncate(model, 40)}")
-                tool = detail.get("tool") or detail.get("name")
-                if tool:
-                    parts.append(f"tool={_truncate(tool, 40)}")
-                if "config" in detail and len(parts) < max_items:
-                    cfg = detail.get("config") or {}
-                    tools = []
-                    raw_tools = cfg.get("tools")
-                    if isinstance(raw_tools, list):
-                        for t in raw_tools:
-                            if isinstance(t, dict):
-                                tools.extend(list(t.keys()))
-                            else:
-                                tools.append(str(t))
-                    if tools:
-                        parts.append(f"tools={','.join(tools)}")
-                    else:
-                        parts.append(f"config_keys={list(cfg.keys())}")
-                for key in (
-                    "status",
-                    "status_code",
-                    "elapsed_ms",
-                    "duration_ms",
-                    "count",
-                    "length",
-                ):
-                    if key in detail and len(parts) < max_items:
-                        parts.append(f"{key}={_format_inline(detail.get(key), 40)}")
-                for key in ("error", "url"):
-                    if key in detail and len(parts) < max_items:
-                        parts.append(f"{key}={_truncate(detail.get(key), 60)}")
-                for key in ("contents", "messages", "prompt", "prompt_excerpt"):
-                    if key in detail and len(parts) < max_items:
-                        parts.append(f"{key}={_truncate(detail.get(key), 80)}")
-            if not parts:
-                parts.append(_truncate(_format_inline(detail, 120), 120))
-            return " ".join(parts[:max_items])
-
-        print("\nEvents summary:")
-        total = len(call.trace)
-        reqs = sum(1 for ev in call.trace if ev.kind.lower().endswith(".request"))
-        resps = sum(1 for ev in call.trace if ev.kind.lower().endswith(".response"))
-        tool_cnt = sum(1 for ev in call.trace if "tool" in ev.kind.lower())
-        print(
-            f"  total={total} | requests={reqs} | responses={resps} | tool_events={tool_cnt}"
-        )
-        kind_counts = {}
-        for ev in call.trace:
-            kind_counts[ev.kind] = kind_counts.get(ev.kind, 0) + 1
-        for kind, count in sorted(kind_counts.items()):
-            print(f"  - {kind}: {count}")
-
-        print("\nEvents timeline:")
-        header = ["idx", "t+ms", "delta_ms", "kind", "summary"]
-        print(" | ".join(header))
-        print("-" * 140)
-        prev_ts = None
-        for idx, ev in enumerate(call.trace, start=1):
-            elapsed_ms = (
-                (ev.timestamp - call.started_at).total_seconds() * 1000
-                if call.started_at
-                else 0.0
-            )
-            delta_ms = (
-                (ev.timestamp - prev_ts).total_seconds() * 1000 if prev_ts else 0.0
-            )
-            summary = _summarize_detail(ev.detail or {})
-            print(
-                f"{idx} | {elapsed_ms:7.1f} | {delta_ms:7.1f} | {ev.kind} | {summary}"
-            )
-            prev_ts = ev.timestamp
-
-    # Show span timeline if trace events are minimal but spans exist
-    if len(call.trace) <= 1 and call.spans and len(call.spans) > 1:
-        print("\nSpan Timeline (chronological):")
-        print("-" * 100)
-
-        # Sort spans by start_time
-        sorted_spans = sorted(
-            [s for s in call.spans if s.start_time], key=lambda s: s.start_time
-        )
-
-        # Show first 50 spans
-        for idx, span in enumerate(sorted_spans[:50], start=1):
-            elapsed_ms = 0.0
-            if span.start_time and call.started_at:
-                elapsed_ms = (span.start_time - call.started_at).total_seconds() * 1000
-
-            dur_str = f"{span.duration_ms:.0f}ms" if span.duration_ms else "0ms"
-
-            # Get key attributes
-            attrs = span.attributes or {}
-            summary_parts = []
-            if span.span_type == "llm_call":
-                model = attrs.get("model", "")
-                if model:
-                    summary_parts.append(f"model={model}")
-            elif span.span_type == "tool_call":
-                tool = attrs.get("tool_name", span.name)
-                summary_parts.append(f"tool={tool}")
-            elif span.span_type == "user_message":
-                content = attrs.get("content", "")[:50]
-                summary_parts.append(f"input={content}")
-
-            summary = " ".join(summary_parts)
-            print(
-                f"{idx:3} | +{elapsed_ms:8.0f}ms | {span.span_type:12} | {span.name:20} | {dur_str:8} | {summary[:60]}"
-            )
-
-        if len(sorted_spans) > 50:
-            print(f"  ... and {len(sorted_spans) - 50} more spans")
-
-    # Show hierarchical spans from call.spans
-    if call.spans:
-
-        def _tokens_info(attrs):
-            input_t = attrs.get("input_tokens", 0)
-            output_t = attrs.get("output_tokens", 0)
-            if input_t or output_t:
-                return f" [{input_t}>{output_t} tok]"
-            return ""
-
-        def _status_icon(status):
-            if status == "error":
-                return "X"
-            elif status == "ok":
-                return "V"
-            return "o"
-
-        # Build tree structure
-        by_id = {s.id: {"span": s, "children": []} for s in call.spans}
-        roots = []
-        for s in call.spans:
-            node = by_id[s.id]
-            if s.parent_id and s.parent_id in by_id:
-                by_id[s.parent_id]["children"].append(node)
-            else:
-                roots.append(node)
-
-        # Sort children by start_time
-        def sort_children(node):
-            node["children"].sort(key=lambda n: n["span"].start_time or 0)
-            for child in node["children"]:
-                sort_children(child)
-
-        for root in roots:
-            sort_children(root)
-
-        # Render tree
-        def render_node(node, prefix="", is_last=True):
-            span = node["span"]
-            connector = "`-- " if is_last else "|-- "
-            dur = _format_dur(span.duration_ms)
-            tokens = _tokens_info(span.attributes or {})
-
-            if span.span_type == "llm_call":
-                label = f"llm: {span.name}{tokens} ({dur})"
-            elif span.span_type == "tool_call":
-                label = f"tool: {span.name} ({dur})"
-            elif span.span_type == "node":
-                label = f"node: {span.name.replace('node:', '')} ({dur})"
-            elif span.span_type == "graph":
-                label = f"graph: {span.name.replace('graph:', '')} ({dur})"
-            else:
-                label = f"{span.name} ({dur})"
-
-            print(f"{prefix}{connector}{label}")
-            child_prefix = prefix + ("    " if is_last else "|   ")
-            children = node["children"]
-            for i, child in enumerate(children):
-                render_node(child, child_prefix, i == len(children) - 1)
-
-        print("\nSpan Tree:")
-        for i, root in enumerate(roots):
-            render_node(root, "", i == len(roots) - 1)
-
-        # Summary
-        llm_count = sum(1 for s in call.spans if s.span_type == "llm_call")
-        tool_count = sum(1 for s in call.spans if s.span_type == "tool_call")
-        node_count = sum(1 for s in call.spans if s.span_type == "node")
-        print(
-            f"\n  {len(call.spans)} spans | {llm_count} LLM | {tool_count} tools | {node_count} nodes"
-        )
-
-    print("=============================================\n")
-
-    # Show hint to view span tree with details
+    _render_show_call_table(call)
     if call.spans:
         print_hint(
             f"To see span tree with details, run: evalyn show-trace --id {call.id[:8]} --verbose",
             quiet=getattr(args, "quiet", False),
         )
+
+
+def _show_trace_format_duration(ms: float | None) -> str:
+    """Format duration for show-trace output."""
+    if ms is None:
+        return "?"
+    if ms < 1000:
+        return f"{ms:.0f}ms"
+    return f"{ms / 1000:.1f}s"
+
+
+def _show_trace_format_tokens(attrs: dict) -> str:
+    """Format token usage suffix for show-trace labels."""
+    input_t = attrs.get("input_tokens", 0)
+    output_t = attrs.get("output_tokens", 0)
+    tool_t = attrs.get("tool_tokens", 0)
+    if input_t or output_t:
+        if tool_t:
+            return f" [{input_t}→{output_t} +{tool_t} tool tokens]"
+        return f" [{input_t}→{output_t} tokens]"
+    return ""
+
+
+def _show_trace_status_icon(status: str) -> str:
+    """Map span status to a compact icon."""
+    if status == "error":
+        return "[X]"
+    if status == "ok":
+        return "[OK]"
+    return "[-]"
+
+
+def _show_trace_grounding_lines(attrs: dict, prefix: str) -> list[str]:
+    """Format grounding metadata lines for LLM spans."""
+    lines: list[str] = []
+    queries = attrs.get("search_queries")
+    if queries:
+        lines.append(f"{prefix}    [Search] Queries: {', '.join(queries[:3])}")
+        if len(queries) > 3:
+            lines.append(f"{prefix}       ... and {len(queries) - 3} more")
+    sources = attrs.get("sources")
+    if sources:
+        lines.append(f"{prefix}    [Sources]:")
+        for src in sources[:3]:
+            title = src.get("title", "")[:50]
+            uri = src.get("uri", "")
+            lines.append(f"{prefix}       - {title}")
+            if uri:
+                lines.append(f"{prefix}         {uri[:60]}...")
+        if len(sources) > 3:
+            lines.append(f"{prefix}       ... and {len(sources) - 3} more")
+    return lines
+
+
+def _print_show_trace_no_spans(call) -> None:
+    """Fallback output when spans are unavailable."""
+    print(f"\nTrace: {call.function_name} ({_show_trace_format_duration(call.duration_ms)})")
+    print("  <no spans captured>")
+    print("\n  Tip: Re-run with latest evalyn_sdk to capture spans.")
+    if call.trace:
+        print(f"\n  Trace Events ({len(call.trace)}):")
+        for ev in call.trace[:20]:
+            print(f"    - {ev.kind}")
+        if len(call.trace) > 20:
+            print(f"    ... and {len(call.trace) - 20} more")
+
+
+def _build_show_trace_tree(spans: list) -> list[dict]:
+    """Build and sort a node tree from span records."""
+    by_id = {s.id: {"span": s, "children": []} for s in spans}
+    roots: list[dict] = []
+    for s in spans:
+        node = by_id[s.id]
+        if s.parent_id and s.parent_id in by_id:
+            by_id[s.parent_id]["children"].append(node)
+        else:
+            roots.append(node)
+
+    def sort_children(node: dict) -> None:
+        node["children"].sort(key=lambda n: n["span"].start_time)
+        for child in node["children"]:
+            sort_children(child)
+
+    for root in roots:
+        sort_children(root)
+    return roots
+
+
+def _show_trace_limits(full_output: bool) -> dict[str, Optional[int]]:
+    """Return truncation limits for verbose trace rendering."""
+    return {
+        "input": None if full_output else 800,
+        "output": None if full_output else 1000,
+        "thinking": None if full_output else 500,
+    }
+
+
+def _truncate_with_indicator(text: str, limit: Optional[int]) -> str:
+    """Truncate text and add a visible truncation marker."""
+    if limit is None or len(text) <= limit:
+        return text
+    return text[:limit] + " [...truncated]"
+
+
+def _render_show_trace_verbose_details(span, prefix: str, limits: dict[str, Optional[int]]) -> None:
+    """Render verbose details block for a span."""
+    attrs = span.attributes or {}
+    detail_prefix = prefix + "    "
+
+    if span.span_type == "user_message":
+        content = attrs.get("content", "")
+        if content:
+            print(
+                f"{detail_prefix}content: {_truncate_with_indicator(str(content), limits['input'])}"
+            )
+        return
+
+    if span.span_type == "llm_call":
+        model = attrs.get("model", "")
+        if model:
+            print(f"{detail_prefix}model: {model}")
+
+        request = attrs.get("request")
+        if request:
+            messages = request.get("messages", "") if isinstance(request, dict) else str(request)
+            if messages:
+                print(
+                    f"{detail_prefix}request: {_truncate_with_indicator(str(messages), limits['input'])}"
+                )
+
+        response = attrs.get("response")
+        if response:
+            content = response.get("content", "") if isinstance(response, dict) else str(response)
+            if content:
+                print(
+                    f"{detail_prefix}response: {_truncate_with_indicator(str(content), limits['output'])}"
+                )
+
+        output = attrs.get("output") or attrs.get("output_preview", "")
+        if output and not response:
+            print(
+                f"{detail_prefix}output: {_truncate_with_indicator(str(output), limits['output'])}"
+            )
+
+        thinking = attrs.get("thinking")
+        if thinking:
+            print(
+                f"{detail_prefix}thinking: {_truncate_with_indicator(str(thinking), limits['thinking'])}"
+            )
+        return
+
+    if span.span_type == "tool_call":
+        tool_input = attrs.get("input", "")
+        if tool_input:
+            print(
+                f"{detail_prefix}input: {_truncate_with_indicator(str(tool_input), limits['input'])}"
+            )
+        tool_output = attrs.get("output", "")
+        if tool_output:
+            print(
+                f"{detail_prefix}output: {_truncate_with_indicator(str(tool_output), limits['output'])}"
+            )
+        subagent = attrs.get("executing_subagent")
+        if subagent:
+            print(f"{detail_prefix}subagent: {subagent}")
+
+
+def _count_show_trace_descendants(node: dict) -> int:
+    """Count descendants in the span tree."""
+    count = len(node["children"])
+    for child in node["children"]:
+        count += _count_show_trace_descendants(child)
+    return count
+
+
+def _show_trace_span_label(span) -> str:
+    """Format span label for show-trace tree."""
+    duration = _show_trace_format_duration(span.duration_ms)
+    status = _show_trace_status_icon(span.status)
+    tokens = _show_trace_format_tokens(span.attributes or {})
+
+    if span.span_type == "session":
+        return f"{span.name} ({duration})"
+    if span.span_type == "graph":
+        return f"graph:{span.name.replace('graph:', '')} ({duration})"
+    if span.span_type == "node":
+        return f"node:{span.name.replace('node:', '')} ({duration})"
+    if span.span_type == "llm_call":
+        return f"llm_call {span.name}{tokens} ({duration})"
+    if span.span_type == "tool_call":
+        return f"tool_call {span.name} ({duration})"
+    if span.span_type == "scorer":
+        score = (span.attributes or {}).get("score", "?")
+        return f"{status} {span.name} (score: {score})"
+    return f"{span.name} ({duration})"
+
+
+def _render_show_trace_node(
+    node: dict,
+    *,
+    prefix: str,
+    is_last: bool,
+    depth: int,
+    max_depth: Optional[int],
+    verbose: bool,
+    truncated_count: list[int],
+    limits: dict[str, Optional[int]],
+) -> None:
+    """Render a span node with optional verbose details and depth truncation."""
+    if max_depth is not None and depth >= max_depth:
+        truncated_count[0] += 1 + _count_show_trace_descendants(node)
+        return
+
+    span = node["span"]
+    connector = "└── " if is_last else "├── "
+    print(f"{prefix}{connector}{_show_trace_span_label(span)}")
+
+    if verbose:
+        detail_prefix = prefix + ("    " if is_last else "│   ")
+        _render_show_trace_verbose_details(span, detail_prefix, limits)
+
+    if span.span_type == "llm_call":
+        for line in _show_trace_grounding_lines(span.attributes or {}, prefix):
+            print(line)
+
+    child_prefix = prefix + ("    " if is_last else "│   ")
+    children = node["children"]
+    for i, child in enumerate(children):
+        _render_show_trace_node(
+            child,
+            prefix=child_prefix,
+            is_last=i == len(children) - 1,
+            depth=depth + 1,
+            max_depth=max_depth,
+            verbose=verbose,
+            truncated_count=truncated_count,
+            limits=limits,
+        )
+
+
+def _print_show_trace_header(call) -> None:
+    """Print show-trace header lines."""
+    status = "ERROR" if call.error else "OK"
+    print(f"\nTrace: {call.function_name} ({_show_trace_format_duration(call.duration_ms)}) [{status}]")
+    print(f"Call ID: {call.id}")
+    if call.session_id:
+        print(f"Session: {call.session_id}")
+    print()
+
+
+def _print_show_trace_summary_and_hints(
+    *,
+    call,
+    spans: list,
+    args: argparse.Namespace,
+    verbose: bool,
+    full_output: bool,
+    truncated_count: list[int],
+) -> None:
+    """Print post-tree summary and helpful hints."""
+    llm_count = sum(1 for s in spans if s.span_type == "llm_call")
+    tool_count = sum(1 for s in spans if s.span_type == "tool_call")
+    node_count = sum(1 for s in spans if s.span_type == "node")
+
+    summary_line = (
+        f"\nSummary: {len(spans)} spans | {llm_count} LLM calls | {tool_count} tool calls | {node_count} nodes"
+    )
+    if truncated_count[0] > 0:
+        summary_line += f" | ({truncated_count[0]} spans hidden, use --max-depth to see more)"
+    print(summary_line)
+
+    if not verbose and (llm_count > 0 or tool_count > 0):
+        print_hint(
+            "Use --verbose to see input/output details for each span",
+            quiet=getattr(args, "quiet", False),
+        )
+
+    meta = call.metadata if isinstance(call.metadata, dict) else {}
+    project = meta.get("project_id") or meta.get("project_name")
+    if verbose and not full_output:
+        print_hint(
+            f"Use --full for no truncation, or: evalyn show-span --call-id {call.id[:8]} --span <name>",
+            quiet=getattr(args, "quiet", False),
+        )
+    if project and verbose:
+        print_hint(
+            f"To build a dataset, run: evalyn build-dataset --project {project}",
+            quiet=getattr(args, "quiet", False),
+        )
+
+
+def _render_show_trace(call, args: argparse.Namespace) -> None:
+    """Render the human-readable trace tree view."""
+    spans = call.spans or []
+    if not spans:
+        _print_show_trace_no_spans(call)
+        return
+
+    roots = _build_show_trace_tree(spans)
+    max_depth = getattr(args, "max_depth", None)
+    verbose = getattr(args, "verbose", False)
+    full_output = getattr(args, "full", False)
+    truncated_count = [0]
+    limits = _show_trace_limits(full_output)
+
+    _print_show_trace_header(call)
+    for i, root in enumerate(roots):
+        _render_show_trace_node(
+            root,
+            prefix="",
+            is_last=i == len(roots) - 1,
+            depth=0,
+            max_depth=max_depth,
+            verbose=verbose,
+            truncated_count=truncated_count,
+            limits=limits,
+        )
+
+    _print_show_trace_summary_and_hints(
+        call=call,
+        spans=spans,
+        args=args,
+        verbose=verbose,
+        full_output=full_output,
+        truncated_count=truncated_count,
+    )
 
 
 def cmd_show_trace(args: argparse.Namespace) -> None:
@@ -804,280 +1036,7 @@ def cmd_show_trace(args: argparse.Namespace) -> None:
     call = storage.get_call(call_id)
     if not call:
         fatal_error(f"No call found with id={call_id}")
-
-    def _format_duration(ms: float) -> str:
-        if ms is None:
-            return "?"
-        if ms < 1000:
-            return f"{ms:.0f}ms"
-        return f"{ms / 1000:.1f}s"
-
-    def _format_tokens(attrs: dict) -> str:
-        """Format token info if present."""
-        input_t = attrs.get("input_tokens", 0)
-        output_t = attrs.get("output_tokens", 0)
-        tool_t = attrs.get("tool_tokens", 0)
-        if input_t or output_t:
-            if tool_t:
-                return f" [{input_t}→{output_t} +{tool_t} tool tokens]"
-            return f" [{input_t}→{output_t} tokens]"
-        return ""
-
-    def _format_grounding(attrs: dict, prefix: str) -> list:
-        """Format grounding metadata (search queries, sources) as extra lines."""
-        lines = []
-        queries = attrs.get("search_queries")
-        if queries:
-            lines.append(f"{prefix}    [Search] Queries: {', '.join(queries[:3])}")
-            if len(queries) > 3:
-                lines.append(f"{prefix}       ... and {len(queries) - 3} more")
-        sources = attrs.get("sources")
-        if sources:
-            lines.append(f"{prefix}    [Sources]:")
-            for src in sources[:3]:
-                title = src.get("title", "")[:50]
-                uri = src.get("uri", "")
-                lines.append(f"{prefix}       - {title}")
-                if uri:
-                    lines.append(f"{prefix}         {uri[:60]}...")
-            if len(sources) > 3:
-                lines.append(f"{prefix}       ... and {len(sources) - 3} more")
-        return lines
-
-    def _status_icon(status: str) -> str:
-        if status == "error":
-            return "[X]"
-        elif status == "ok":
-            return "[OK]"
-        return "[-]"
-
-    # Build span tree from call.spans
-    spans = call.spans or []
-    if not spans:
-        # Try to build from trace events (backwards compat)
-        print(f"\nTrace: {call.function_name} ({_format_duration(call.duration_ms)})")
-        print("  <no spans captured>")
-        print("\n  Tip: Re-run with latest evalyn_sdk to capture spans.")
-
-        # Show trace events as fallback
-        if call.trace:
-            print(f"\n  Trace Events ({len(call.trace)}):")
-            for ev in call.trace[:20]:
-                print(f"    - {ev.kind}")
-            if len(call.trace) > 20:
-                print(f"    ... and {len(call.trace) - 20} more")
-        return
-
-    # Build tree structure
-    by_id = {s.id: {"span": s, "children": []} for s in spans}
-    roots = []
-
-    for s in spans:
-        node = by_id[s.id]
-        if s.parent_id and s.parent_id in by_id:
-            by_id[s.parent_id]["children"].append(node)
-        else:
-            roots.append(node)
-
-    # Sort children by start_time
-    def sort_children(node):
-        node["children"].sort(key=lambda n: n["span"].start_time)
-        for child in node["children"]:
-            sort_children(child)
-
-    for root in roots:
-        sort_children(root)
-
-    # Render tree with optional depth limit
-    max_depth = getattr(args, "max_depth", None)
-    verbose = getattr(args, "verbose", False)
-    full_output = getattr(args, "full", False)
-    truncated_count = [0]  # Use list to allow mutation in nested function
-
-    # Truncation limits - higher defaults, unlimited with --full
-    INPUT_LIMIT = None if full_output else 800
-    OUTPUT_LIMIT = None if full_output else 1000
-    THINKING_LIMIT = None if full_output else 500
-
-    def _truncate_with_indicator(text: str, limit: Optional[int]) -> str:
-        """Truncate text and add indicator if cut."""
-        if limit is None or len(text) <= limit:
-            return text
-        return text[:limit] + " [...truncated]"
-
-    def _format_verbose_attr(key: str, value, max_len: int = 200) -> str:
-        """Format an attribute value for verbose output."""
-        if value is None:
-            return ""
-        text = str(value)
-        if max_len and len(text) > max_len:
-            text = text[:max_len] + " [...truncated]"
-        return f"{key}: {text}"
-
-    def _render_verbose_details(span, prefix: str) -> None:
-        """Render verbose details for a span."""
-        attrs = span.attributes or {}
-        detail_prefix = prefix + "    "
-
-        if span.span_type == "user_message":
-            # Show user input
-            content = attrs.get("content", "")
-            if content:
-                content_text = _truncate_with_indicator(str(content), INPUT_LIMIT)
-                print(f"{detail_prefix}content: {content_text}")
-
-        elif span.span_type == "llm_call":
-            # Show model, request, response
-            model = attrs.get("model", "")
-            if model:
-                print(f"{detail_prefix}model: {model}")
-            # Show request (messages)
-            request = attrs.get("request")
-            if request:
-                messages = (
-                    request.get("messages", "")
-                    if isinstance(request, dict)
-                    else str(request)
-                )
-                if messages:
-                    messages_text = _truncate_with_indicator(str(messages), INPUT_LIMIT)
-                    print(f"{detail_prefix}request: {messages_text}")
-            # Show response
-            response = attrs.get("response")
-            if response:
-                content = (
-                    response.get("content", "")
-                    if isinstance(response, dict)
-                    else str(response)
-                )
-                if content:
-                    content_text = _truncate_with_indicator(str(content), OUTPUT_LIMIT)
-                    print(f"{detail_prefix}response: {content_text}")
-            # Legacy: show output if present (for older spans)
-            output = attrs.get("output") or attrs.get("output_preview", "")
-            if output and not response:
-                output_text = _truncate_with_indicator(str(output), OUTPUT_LIMIT)
-                print(f"{detail_prefix}output: {output_text}")
-            thinking = attrs.get("thinking")
-            if thinking:
-                thinking_text = _truncate_with_indicator(str(thinking), THINKING_LIMIT)
-                print(f"{detail_prefix}thinking: {thinking_text}")
-
-        elif span.span_type == "tool_call":
-            # Show input and output
-            tool_input = attrs.get("input", "")
-            if tool_input:
-                input_text = _truncate_with_indicator(str(tool_input), INPUT_LIMIT)
-                print(f"{detail_prefix}input: {input_text}")
-            tool_output = attrs.get("output", "")
-            if tool_output:
-                output_text = _truncate_with_indicator(str(tool_output), OUTPUT_LIMIT)
-                print(f"{detail_prefix}output: {output_text}")
-            # Show subagent info if present
-            subagent = attrs.get("executing_subagent")
-            if subagent:
-                print(f"{detail_prefix}subagent: {subagent}")
-
-    def render_node(node, prefix="", is_last=True, depth=0):
-        # Check depth limit
-        if max_depth is not None and depth >= max_depth:
-            truncated_count[0] += 1 + _count_descendants(node)
-            return
-
-        span = node["span"]
-        connector = "└── " if is_last else "├── "
-        duration = _format_duration(span.duration_ms)
-        status = _status_icon(span.status)
-        tokens = _format_tokens(span.attributes)
-
-        # Format name based on span type
-        if span.span_type == "session":
-            label = f"{span.name} ({duration})"
-        elif span.span_type == "graph":
-            label = f"graph:{span.name.replace('graph:', '')} ({duration})"
-        elif span.span_type == "node":
-            label = f"node:{span.name.replace('node:', '')} ({duration})"
-        elif span.span_type == "llm_call":
-            label = f"llm_call {span.name}{tokens} ({duration})"
-        elif span.span_type == "tool_call":
-            label = f"tool_call {span.name} ({duration})"
-        elif span.span_type == "scorer":
-            score = span.attributes.get("score", "?")
-            label = f"{status} {span.name} (score: {score})"
-        else:
-            label = f"{span.name} ({duration})"
-
-        print(f"{prefix}{connector}{label}")
-
-        # Show verbose details if requested
-        if verbose:
-            detail_prefix = prefix + ("    " if is_last else "│   ")
-            _render_verbose_details(span, detail_prefix)
-
-        # Show grounding info for LLM calls with search/sources
-        if span.span_type == "llm_call":
-            grounding_lines = _format_grounding(span.attributes, prefix)
-            for line in grounding_lines:
-                print(line)
-
-        # Render children
-        child_prefix = prefix + ("    " if is_last else "│   ")
-        children = node["children"]
-        for i, child in enumerate(children):
-            render_node(child, child_prefix, i == len(children) - 1, depth + 1)
-
-    def _count_descendants(node):
-        count = len(node["children"])
-        for child in node["children"]:
-            count += _count_descendants(child)
-        return count
-
-    # Print header
-    status = "ERROR" if call.error else "OK"
-    print(
-        f"\nTrace: {call.function_name} ({_format_duration(call.duration_ms)}) [{status}]"
-    )
-    print(f"Call ID: {call.id}")
-    if call.session_id:
-        print(f"Session: {call.session_id}")
-    print()
-
-    # Render all root spans
-    for i, root in enumerate(roots):
-        render_node(root, "", i == len(roots) - 1)
-
-    # Summary
-    llm_count = sum(1 for s in spans if s.span_type == "llm_call")
-    tool_count = sum(1 for s in spans if s.span_type == "tool_call")
-    node_count = sum(1 for s in spans if s.span_type == "node")
-
-    summary_line = f"\nSummary: {len(spans)} spans | {llm_count} LLM calls | {tool_count} tool calls | {node_count} nodes"
-    if truncated_count[0] > 0:
-        summary_line += (
-            f" | ({truncated_count[0]} spans hidden, use --max-depth to see more)"
-        )
-    print(summary_line)
-
-    # Show hint for --verbose if not already used
-    if not verbose and (llm_count > 0 or tool_count > 0):
-        print_hint(
-            "Use --verbose to see input/output details for each span",
-            quiet=getattr(args, "quiet", False),
-        )
-
-    # Show hint for next steps
-    meta = call.metadata if isinstance(call.metadata, dict) else {}
-    project = meta.get("project_id") or meta.get("project_name")
-    if verbose and not full_output:
-        print_hint(
-            f"Use --full for no truncation, or: evalyn show-span --call-id {call.id[:8]} --span <name>",
-            quiet=getattr(args, "quiet", False),
-        )
-    if project and verbose:
-        print_hint(
-            f"To build a dataset, run: evalyn build-dataset --project {project}",
-            quiet=getattr(args, "quiet", False),
-        )
+    _render_show_trace(call, args)
 
 
 def cmd_show_span(args: argparse.Namespace) -> None:

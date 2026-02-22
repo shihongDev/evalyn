@@ -131,144 +131,150 @@ def generate_trend_text_report(trend: TrendAnalysis) -> str:
     if not trend.runs:
         return "  No runs found for analysis."
 
-    lines = []
+    lines = _trend_report_header(trend)
+    lines.extend(_trend_run_overview_lines(trend))
+    lines.extend(_trend_metric_table_lines(trend))
+    lines.extend(_trend_summary_lines(trend))
     lines.append("=" * 70)
-    lines.append(f"  EVALUATION TRENDS - {trend.project_name}")
-    lines.append("=" * 70)
-    lines.append("")
+    return "\n".join(lines)
 
-    # Summary info
-    lines.append(f"  Runs analyzed: {len(trend.runs)} (oldest to newest)")
+
+def _format_pct_delta(value: float, *, threshold: float = 0.1, neutral: str = "=") -> str:
+    """Format a percentage delta value."""
+    if value > threshold:
+        return f"+{value:.1f}%"
+    if value < -threshold:
+        return f"{value:.1f}%"
+    return neutral
+
+
+def _short_metric_name(metric_id: str, width: int = 20) -> str:
+    """Truncate metric names for fixed-width report tables."""
+    return metric_id[:width] + ".." if len(metric_id) > width else metric_id
+
+
+def _trend_report_header(trend: TrendAnalysis) -> list[str]:
+    """Build report header and summary metadata lines."""
+    lines = [
+        "=" * 70,
+        f"  EVALUATION TRENDS - {trend.project_name}",
+        "=" * 70,
+        "",
+        f"  Runs analyzed: {len(trend.runs)} (oldest to newest)",
+    ]
     if len(trend.timestamps) >= 2:
         first_date = trend.timestamps[0][:10] if trend.timestamps[0] else "unknown"
         last_date = trend.timestamps[-1][:10] if trend.timestamps[-1] else "unknown"
         lines.append(f"  Time range: {first_date} to {last_date}")
     lines.append("")
+    return lines
 
-    # Run overview table
-    lines.append("-" * 70)
-    lines.append("  RUN OVERVIEW")
-    lines.append("-" * 70)
-    lines.append(
-        f"  {'Run ID':<14} {'Date':<18} {'Items':>8} {'Pass Rate':>12} {'Delta':>10}"
-    )
-    lines.append(f"  {'-' * 14} {'-' * 18} {'-' * 8} {'-' * 12} {'-' * 10}")
+
+def _trend_run_overview_lines(trend: TrendAnalysis) -> list[str]:
+    """Build run overview table lines."""
+    lines = [
+        "-" * 70,
+        "  RUN OVERVIEW",
+        "-" * 70,
+        f"  {'Run ID':<14} {'Date':<18} {'Items':>8} {'Pass Rate':>12} {'Delta':>10}",
+        f"  {'-' * 14} {'-' * 18} {'-' * 8} {'-' * 12} {'-' * 10}",
+    ]
 
     prev_rate = None
-    for i, run in enumerate(trend.runs):
+    for run in trend.runs:
         run_id = run.run_id[:12] + ".." if len(run.run_id) > 12 else run.run_id
         date = run.created_at[:16] if run.created_at else "unknown"
-        items = run.total_items
         rate = run.overall_pass_rate * 100
-
-        # Calculate delta from previous run
         delta_str = ""
         if prev_rate is not None:
-            delta = rate - prev_rate
-            if delta > 0.1:
-                delta_str = f"+{delta:.1f}%"
-            elif delta < -0.1:
-                delta_str = f"{delta:.1f}%"
-            else:
-                delta_str = "="
+            delta_str = _format_pct_delta(rate - prev_rate)
         prev_rate = rate
-
         lines.append(
-            f"  {run_id:<14} {date:<18} {items:>8} {rate:>11.1f}% {delta_str:>10}"
+            f"  {run_id:<14} {date:<18} {run.total_items:>8} {rate:>11.1f}% {delta_str:>10}"
         )
 
     lines.append("")
+    return lines
 
-    # Metric trends table
-    lines.append("-" * 70)
-    lines.append("  METRIC TRENDS (Pass Rate %)")
-    lines.append("-" * 70)
 
-    # Build dynamic header based on number of runs
+def _trend_metric_table_lines(trend: TrendAnalysis) -> list[str]:
+    """Build metric trend table lines."""
+    lines = ["-" * 70, "  METRIC TRENDS (Pass Rate %)", "-" * 70]
     num_runs = len(trend.runs)
     if num_runs <= 5:
-        # Show all runs
-        header = f"  {'Metric':<22}"
-        for i in range(num_runs):
-            header += f" {'R' + str(i + 1):>8}"
-        header += f" {'Delta':>10}"
-        lines.append(header)
-        lines.append(f"  {'-' * 22}" + f" {'-' * 8}" * num_runs + f" {'-' * 10}")
-
-        for metric_id in sorted(trend.metric_trends.keys()):
-            rates = trend.metric_trends[metric_id]
-            metric_name = metric_id[:20] + ".." if len(metric_id) > 20 else metric_id
-            row = f"  {metric_name:<22}"
-
-            valid_rates = []
-            for rate in rates:
-                if rate is not None:
-                    row += f" {rate * 100:>7.1f}%"
-                    valid_rates.append(rate)
-                else:
-                    row += f" {'N/A':>8}"
-
-            # Delta (first to last valid rate)
-            if len(valid_rates) >= 2:
-                delta = (valid_rates[-1] - valid_rates[0]) * 100
-                if delta > 0.1:
-                    row += f" {'+' + f'{delta:.1f}%':>10}"
-                elif delta < -0.1:
-                    row += f" {f'{delta:.1f}%':>10}"
-                else:
-                    row += f" {'=':>10}"
-            else:
-                row += f" {'N/A':>10}"
-
-            lines.append(row)
+        lines.extend(_trend_metric_table_lines_compact(trend, num_runs))
     else:
-        # Show first, last, and delta for many runs
-        header = f"  {'Metric':<22} {'First':>10} {'Latest':>10} {'Delta':>10}"
-        lines.append(header)
-        lines.append(f"  {'-' * 22} {'-' * 10} {'-' * 10} {'-' * 10}")
-
-        for metric_id in sorted(trend.metric_trends.keys()):
-            rates = trend.metric_trends[metric_id]
-            metric_name = metric_id[:20] + ".." if len(metric_id) > 20 else metric_id
-
-            valid_rates = [r for r in rates if r is not None]
-            if valid_rates:
-                first = valid_rates[0] * 100
-                last = valid_rates[-1] * 100
-                delta = last - first
-
-                if delta > 0.1:
-                    delta_str = f"+{delta:.1f}%"
-                elif delta < -0.1:
-                    delta_str = f"{delta:.1f}%"
-                else:
-                    delta_str = "="
-
-                lines.append(
-                    f"  {metric_name:<22} {first:>9.1f}% {last:>9.1f}% {delta_str:>10}"
-                )
-            else:
-                lines.append(f"  {metric_name:<22} {'N/A':>10} {'N/A':>10} {'N/A':>10}")
-
+        lines.extend(_trend_metric_table_lines_summary(trend))
     lines.append("")
+    return lines
 
-    # Summary
-    lines.append("-" * 70)
-    lines.append("  SUMMARY")
-    lines.append("-" * 70)
+
+def _trend_metric_table_lines_compact(trend: TrendAnalysis, num_runs: int) -> list[str]:
+    """Build per-run metric trend rows when run count is small."""
+    header = f"  {'Metric':<22}"
+    for idx in range(num_runs):
+        header += f" {'R' + str(idx + 1):>8}"
+    header += f" {'Delta':>10}"
+    lines = [header, f"  {'-' * 22}" + f" {'-' * 8}" * num_runs + f" {'-' * 10}"]
+
+    for metric_id in sorted(trend.metric_trends.keys()):
+        rates = trend.metric_trends[metric_id]
+        row = f"  {_short_metric_name(metric_id):<22}"
+        valid_rates: list[float] = []
+        for rate in rates:
+            if rate is None:
+                row += f" {'N/A':>8}"
+                continue
+            row += f" {rate * 100:>7.1f}%"
+            valid_rates.append(rate)
+        if len(valid_rates) >= 2:
+            row += f" {_format_pct_delta((valid_rates[-1] - valid_rates[0]) * 100):>10}"
+        else:
+            row += f" {'N/A':>10}"
+        lines.append(row)
+    return lines
+
+
+def _trend_metric_table_lines_summary(trend: TrendAnalysis) -> list[str]:
+    """Build summary metric rows when many runs exist."""
+    lines = [
+        f"  {'Metric':<22} {'First':>10} {'Latest':>10} {'Delta':>10}",
+        f"  {'-' * 22} {'-' * 10} {'-' * 10} {'-' * 10}",
+    ]
+    for metric_id in sorted(trend.metric_trends.keys()):
+        valid_rates = [r for r in trend.metric_trends[metric_id] if r is not None]
+        metric_name = _short_metric_name(metric_id)
+        if not valid_rates:
+            lines.append(f"  {metric_name:<22} {'N/A':>10} {'N/A':>10} {'N/A':>10}")
+            continue
+        first = valid_rates[0] * 100
+        last = valid_rates[-1] * 100
+        delta_str = _format_pct_delta(last - first)
+        lines.append(f"  {metric_name:<22} {first:>9.1f}% {last:>9.1f}% {delta_str:>10}")
+    return lines
+
+
+def _trend_metric_group_summary(
+    label: str, metrics: List[str], *, align_pad: str = ""
+) -> list[str]:
+    """Build summary lines for improving/regressing/stable metric groups."""
+    if not metrics:
+        return []
+    lines = [f"  {label} ({len(metrics)}):{align_pad} {', '.join(sorted(metrics)[:5])}"]
+    if len(metrics) > 5:
+        lines.append(f"    ... and {len(metrics) - 5} more")
+    return lines
+
+
+def _trend_summary_lines(trend: TrendAnalysis) -> list[str]:
+    """Build report summary and metric group summary lines."""
+    lines = ["-" * 70, "  SUMMARY", "-" * 70]
 
     if len(trend.overall_trends) >= 2:
         first_rate = trend.overall_trends[0] * 100
         last_rate = trend.overall_trends[-1] * 100
         overall_delta = last_rate - first_rate
-
-        if overall_delta > 0.1:
-            change_str = f"+{overall_delta:.1f}%"
-        elif overall_delta < -0.1:
-            change_str = f"{overall_delta:.1f}%"
-        else:
-            change_str = "no change"
-
+        change_str = _format_pct_delta(overall_delta, neutral="no change")
         lines.append(
             f"  Overall change: {change_str} ({first_rate:.1f}% to {last_rate:.1f}%)"
         )
@@ -278,32 +284,19 @@ def generate_trend_text_report(trend: TrendAnalysis) -> str:
         lines.append("  No trend data available")
 
     lines.append("")
-
-    # Metric summary
-    if trend.improving_metrics:
-        lines.append(
-            f"  Metrics improving ({len(trend.improving_metrics)}):  {', '.join(sorted(trend.improving_metrics)[:5])}"
+    lines.extend(
+        _trend_metric_group_summary(
+            "Metrics improving", trend.improving_metrics, align_pad=" "
         )
-        if len(trend.improving_metrics) > 5:
-            lines.append(f"    ... and {len(trend.improving_metrics) - 5} more")
-
-    if trend.regressing_metrics:
-        lines.append(
-            f"  Metrics regressing ({len(trend.regressing_metrics)}): {', '.join(sorted(trend.regressing_metrics)[:5])}"
-        )
-        if len(trend.regressing_metrics) > 5:
-            lines.append(f"    ... and {len(trend.regressing_metrics) - 5} more")
-
-    if trend.stable_metrics:
-        lines.append(
-            f"  Metrics stable ({len(trend.stable_metrics)}):     {', '.join(sorted(trend.stable_metrics)[:5])}"
-        )
-        if len(trend.stable_metrics) > 5:
-            lines.append(f"    ... and {len(trend.stable_metrics) - 5} more")
-
+    )
+    lines.extend(
+        _trend_metric_group_summary("Metrics regressing", trend.regressing_metrics)
+    )
+    lines.extend(
+        _trend_metric_group_summary("Metrics stable", trend.stable_metrics, align_pad="    ")
+    )
     lines.append("")
 
-    # Item count change
     if len(trend.item_count_trends) >= 2:
         first_items = trend.item_count_trends[0]
         last_items = trend.item_count_trends[-1]
@@ -313,7 +306,4 @@ def generate_trend_text_report(trend: TrendAnalysis) -> str:
             lines.append(
                 f"  Item count change: {sign}{item_delta} ({first_items} to {last_items})"
             )
-
-    lines.append("=" * 70)
-
-    return "\n".join(lines)
+    return lines

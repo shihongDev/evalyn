@@ -819,249 +819,42 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
     output_format = getattr(args, "format", "table")
     tracer = get_default_tracer()
 
-    # If --dataset provided but not --project/--target, try to infer project from meta.json
-    if not args.project and not args.target and args.dataset:
-        dataset_path = Path(args.dataset)
-        if dataset_path.is_file():
-            dataset_path = dataset_path.parent
-        meta_file = dataset_path / "meta.json"
-        if meta_file.exists():
-            try:
-                meta = json.loads(meta_file.read_text(encoding="utf-8"))
-                if meta.get("project"):
-                    args.project = meta["project"]
-            except Exception:
-                pass
+    _maybe_infer_project_from_dataset_meta(args)
+    _validate_suggest_metrics_args(args)
 
-    # Validate: need either --project or --target
-    if not args.project and not args.target:
-        fatal_error(
-            "Either --project or --target is required",
-            "Use --project <name>, --target <path>, or --dataset <path>",
-        )
-
-    # Resolve dataset path using --dataset or --latest
     config = load_config()
-    dataset_path_obj: Optional[Path] = None
-    use_latest = getattr(args, "latest", False)
-
-    if args.dataset or use_latest:
-        resolved = resolve_dataset_path(args.dataset, use_latest, config)
-        if resolved:
-            dataset_path_obj = resolved
-        elif args.dataset:
-            # Try as direct path if resolve failed
-            dataset_path_obj = Path(args.dataset)
-
-    # Validate dataset path if provided
-    if dataset_path_obj:
-        if dataset_path_obj.is_file():
-            if not dataset_path_obj.exists():
-                fatal_error(
-                    f"Dataset file not found: {dataset_path_obj}",
-                    "Run 'evalyn build-dataset' first",
-                )
-        else:
-            if not dataset_path_obj.exists():
-                fatal_error(
-                    f"Dataset directory not found: {dataset_path_obj}",
-                    "Run 'evalyn build-dataset' first",
-                )
-            has_dataset = (dataset_path_obj / "dataset.jsonl").exists() or (
-                dataset_path_obj / "dataset.json"
-            ).exists()
-            if not has_dataset and output_format != "json":
-                print(
-                    f"Warning: Directory exists but no dataset.jsonl or dataset.json found in: {dataset_path_obj}"
-                )
-
-    # Check if dataset has reference values
+    dataset_path_obj = _resolve_suggest_metrics_dataset_path(args, config, output_format)
     has_reference = _dataset_has_reference(dataset_path_obj)
-    if dataset_path_obj and not has_reference and output_format != "json":
-        print(
-            "Note: Dataset has no reference/expected values. Reference-based metrics (ROUGE, BLEU, etc.) excluded."
-        )
+    _print_reference_note_if_needed(dataset_path_obj, has_reference, output_format)
 
-    # Load traces and function info based on --project or --target
-    target_fn = None
-    metric_mode_hint = None
-    metric_bundle_hint = None
-    traces = []
-    function_name = "unknown"
+    context = _load_suggest_metrics_context(args, tracer, output_format)
+    target_fn = context["target_fn"]
+    metric_mode_hint = context["metric_mode_hint"]
+    metric_bundle_hint = context["metric_bundle_hint"]
+    traces = context["traces"]
 
-    if args.project:
-        # Project-based: load traces from storage
-        if not tracer.storage:
-            fatal_error("No storage configured", "Cannot load project traces")
-
-        # Load all calls for this project
-        all_calls = tracer.storage.list_calls(limit=500)
-        project_traces = []
-        for call in all_calls:
-            meta = call.metadata if isinstance(call.metadata, dict) else {}
-            call_project = (
-                meta.get("project_id") or meta.get("project_name") or call.function_name
-            )
-            call_version = meta.get("version") or ""
-
-            if call_project == args.project:
-                if args.version and call_version != args.version:
-                    continue
-                project_traces.append(call)
-
-        if not project_traces:
-            version_hint = f" (version: {args.version})" if args.version else ""
-            fatal_error(
-                f"No traces found for project '{args.project}'{version_hint}",
-                "Run 'evalyn show-projects' to see available projects",
-            )
-
-        traces = project_traces[: args.num_traces]
-        if output_format != "json":
-            print(f"Found {len(project_traces)} traces for project '{args.project}'")
-            if args.version:
-                print(f"  (version: {args.version})")
-
-        # Extract function info from the first trace
-        first_call = project_traces[0]
-        function_name = first_call.function_name
-        meta = first_call.metadata if isinstance(first_call.metadata, dict) else {}
-        function_docstring = meta.get("docstring", "")
-
-        # Create a placeholder function for the suggester
-        def _placeholder_fn(*a, **kw):
-            pass
-
-        _placeholder_fn.__name__ = function_name
-        _placeholder_fn.__doc__ = function_docstring
-        target_fn = _placeholder_fn
-
-    else:
-        # Target-based: load callable directly
-        target_fn = _load_callable(args.target)
-        metric_mode_hint = getattr(target_fn, "_evalyn_metric_mode", None)
-        metric_bundle_hint = getattr(target_fn, "_evalyn_metric_bundle", None)
-        traces = (
-            tracer.storage.list_calls(limit=args.num_traces) if tracer.storage else []
-        )
-        function_name = target_fn.__name__
-
-    selected_mode = (
-        metric_mode_hint or "llm-registry" if args.mode == "auto" else args.mode
-    )
+    selected_mode = _select_metric_suggestion_mode(args.mode, metric_mode_hint)
     bundle_name = args.bundle or metric_bundle_hint
-    # For bundle mode, don't limit metrics by default (bundles are pre-curated)
-    # For other modes, use the limit to avoid excessive LLM calls
-    max_metrics = args.num_metrics
-    if selected_mode == "bundle" and max_metrics == 5:  # 5 is the default
-        max_metrics = None  # No limit for bundles
-
-    # Get scope filter (None means "all")
-    scope_raw = getattr(args, "scope", "all")
-    scope_filter = None if scope_raw == "all" else scope_raw
-
-    def _filter_by_scope(templates: list) -> list:
-        """Filter templates by scope."""
-        if not scope_filter:
-            return templates
-        return [t for t in templates if t.get("scope", "overall") == scope_filter]
-
-    if scope_filter and output_format != "json":
-        print(f"Filtering metrics by scope: {scope_filter}")
-
-    def _print_spec(spec: MetricSpec) -> None:
-        if output_format == "json":
-            return
-        why = getattr(spec, "why", "") or ""
-        suffix = f" | why: {why}" if why else ""
-        print(f"- {spec.id} [{spec.type}] :: {spec.description}{suffix}")
-
-    def _output_json(
-        specs: List[MetricSpec], saved_path: Optional[Path] = None
-    ) -> None:
-        result = {
-            "metrics": [
-                {
-                    "id": s.id,
-                    "type": s.type,
-                    "name": s.name,
-                    "description": s.description,
-                    "config": s.config,
-                    "why": getattr(s, "why", ""),
-                }
-                for s in specs
-            ],
-            "count": len(specs),
-            "saved_to": str(saved_path) if saved_path else None,
-        }
-        print(json.dumps(result, indent=2))
-
-    def _finalize_output(specs: List[MetricSpec]) -> None:
-        """Apply limit, print, save, and output JSON if needed."""
-        nonlocal max_metrics
-        final_specs = specs[:max_metrics] if max_metrics else specs
-        for spec in final_specs:
-            _print_spec(spec)
-        saved_path = _save_suggested_metrics(
-            final_specs,
-            dataset_path_obj,
-            args.metrics_name,
-            getattr(args, "append", False),
-            selected_mode,
-            output_format,
-            getattr(args, "quiet", False),
-        )
-        if output_format == "json":
-            _output_json(final_specs, saved_path)
+    max_metrics = _normalize_suggest_metrics_limit(selected_mode, args.num_metrics)
+    scope_filter = _resolve_scope_filter(args, output_format)
 
     if selected_mode == "bundle":
-        bundle = (bundle_name or "").lower()
-        ids = BUNDLES.get(bundle)
-        if not ids:
-            if output_format == "json":
-                print(
-                    json.dumps(
-                        {
-                            "error": f"Unknown bundle '{args.bundle}'",
-                            "available": list(BUNDLES.keys()),
-                        }
-                    )
-                )
-            else:
-                print(
-                    f"Unknown bundle '{args.bundle}'. Available: {', '.join(BUNDLES.keys())}"
-                )
-            return
-        all_templates = _filter_by_scope(OBJECTIVE_REGISTRY + SUBJECTIVE_REGISTRY)
-        tpl_map = {t["id"]: t for t in all_templates}
-        specs = []
-        skipped_ref_metrics = []
-        for mid in ids:
-            tpl = tpl_map.get(mid)
-            if tpl:
-                # Skip reference-based metrics if no reference available
-                if tpl.get("requires_reference", False) and not has_reference:
-                    skipped_ref_metrics.append(mid)
-                    continue
-                specs.append(
-                    MetricSpec(
-                        id=tpl["id"],
-                        name=tpl["id"],
-                        type=tpl["type"],
-                        description=tpl.get("description", ""),
-                        config=tpl.get("config", {}),
-                    )
-                )
-        if skipped_ref_metrics and output_format != "json":
-            print(
-                f"Skipped reference-based metrics (no expected values): {', '.join(skipped_ref_metrics)}"
-            )
-        _finalize_output(specs)
+        _run_suggest_metrics_bundle_mode(
+            args=args,
+            bundle_name=bundle_name,
+            has_reference=has_reference,
+            scope_filter=scope_filter,
+            max_metrics=max_metrics,
+            dataset_path_obj=dataset_path_obj,
+            output_format=output_format,
+        )
         return
 
     if selected_mode == "llm-registry":
         caller = _build_llm_caller(args)
-        filtered_templates = _filter_by_scope(OBJECTIVE_REGISTRY + SUBJECTIVE_REGISTRY)
+        filtered_templates = _filter_metric_templates_by_scope(
+            OBJECTIVE_REGISTRY + SUBJECTIVE_REGISTRY, scope_filter
+        )
         selector = TemplateSelector(
             caller, filtered_templates, has_reference=has_reference
         )
@@ -1071,7 +864,14 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             code_meta=_extract_code_meta(tracer, target_fn),
             desired_count=max_metrics,
         )
-        _finalize_output(specs)
+        _finalize_suggest_metrics_output(
+            specs=specs,
+            max_metrics=max_metrics,
+            dataset_path_obj=dataset_path_obj,
+            args=args,
+            selected_mode=selected_mode,
+            output_format=output_format,
+        )
         return
 
     if selected_mode == "llm-brainstorm":
@@ -1081,27 +881,367 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
             target_fn, traces, desired_count=max_metrics, scope=scope_filter
         )
         if not specs:
-            if output_format == "json":
-                print(json.dumps({"metrics": [], "count": 0, "saved_to": None}))
-            else:
-                print("No metrics were returned by the LLM (brainstorm mode).")
+            _print_suggest_metrics_empty_brainstorm(output_format)
             return
-        _finalize_output(specs)
+        _finalize_suggest_metrics_output(
+            specs=specs,
+            max_metrics=max_metrics,
+            dataset_path_obj=dataset_path_obj,
+            args=args,
+            selected_mode=selected_mode,
+            output_format=output_format,
+        )
         return
 
-    # Default: basic heuristic mode
+    specs = _run_suggest_metrics_basic_mode(
+        target_fn=target_fn,
+        traces=traces,
+        has_reference=has_reference,
+        scope_filter=scope_filter,
+    )
+    _finalize_suggest_metrics_output(
+        specs=specs,
+        max_metrics=max_metrics,
+        dataset_path_obj=dataset_path_obj,
+        args=args,
+        selected_mode=selected_mode,
+        output_format=output_format,
+    )
+
+
+def _maybe_infer_project_from_dataset_meta(args: argparse.Namespace) -> None:
+    """Infer --project from dataset meta.json when only --dataset is provided."""
+    if args.project or args.target or not args.dataset:
+        return
+    dataset_path = Path(args.dataset)
+    if dataset_path.is_file():
+        dataset_path = dataset_path.parent
+    meta_file = dataset_path / "meta.json"
+    if not meta_file.exists():
+        return
+    try:
+        meta = json.loads(meta_file.read_text(encoding="utf-8"))
+        if meta.get("project"):
+            args.project = meta["project"]
+    except Exception:
+        pass
+
+
+def _validate_suggest_metrics_args(args: argparse.Namespace) -> None:
+    """Validate required args for metric suggestion."""
+    if args.project or args.target:
+        return
+    fatal_error(
+        "Either --project or --target is required",
+        "Use --project <name>, --target <path>, or --dataset <path>",
+    )
+
+
+def _resolve_suggest_metrics_dataset_path(
+    args: argparse.Namespace, config: dict, output_format: str
+) -> Optional[Path]:
+    """Resolve and validate optional dataset path for metric suggestion."""
+    dataset_path_obj: Optional[Path] = None
+    use_latest = getattr(args, "latest", False)
+
+    if args.dataset or use_latest:
+        resolved = resolve_dataset_path(args.dataset, use_latest, config)
+        if resolved:
+            dataset_path_obj = resolved
+        elif args.dataset:
+            dataset_path_obj = Path(args.dataset)
+
+    if not dataset_path_obj:
+        return None
+
+    if dataset_path_obj.is_file():
+        if not dataset_path_obj.exists():
+            fatal_error(
+                f"Dataset file not found: {dataset_path_obj}",
+                "Run 'evalyn build-dataset' first",
+            )
+        return dataset_path_obj
+
+    if not dataset_path_obj.exists():
+        fatal_error(
+            f"Dataset directory not found: {dataset_path_obj}",
+            "Run 'evalyn build-dataset' first",
+        )
+    has_dataset = (dataset_path_obj / "dataset.jsonl").exists() or (
+        dataset_path_obj / "dataset.json"
+    ).exists()
+    if not has_dataset and output_format != "json":
+        print(
+            f"Warning: Directory exists but no dataset.jsonl or dataset.json found in: {dataset_path_obj}"
+        )
+    return dataset_path_obj
+
+
+def _print_reference_note_if_needed(
+    dataset_path_obj: Optional[Path], has_reference: bool, output_format: str
+) -> None:
+    """Print dataset reference-value note when relevant."""
+    if dataset_path_obj and not has_reference and output_format != "json":
+        print(
+            "Note: Dataset has no reference/expected values. Reference-based metrics (ROUGE, BLEU, etc.) excluded."
+        )
+
+
+def _load_suggest_metrics_context(
+    args: argparse.Namespace, tracer, output_format: str
+) -> Dict[str, Any]:
+    """Load traces and target function context from project or target input."""
+    if args.project:
+        return _load_suggest_metrics_project_context(args, tracer, output_format)
+    return _load_suggest_metrics_target_context(args, tracer)
+
+
+def _load_suggest_metrics_project_context(
+    args: argparse.Namespace, tracer, output_format: str
+) -> Dict[str, Any]:
+    """Load trace context for project-based suggestion."""
+    if not tracer.storage:
+        fatal_error("No storage configured", "Cannot load project traces")
+
+    all_calls = tracer.storage.list_calls(limit=500)
+    project_traces = []
+    for call in all_calls:
+        meta = call.metadata if isinstance(call.metadata, dict) else {}
+        call_project = meta.get("project_id") or meta.get("project_name") or call.function_name
+        call_version = meta.get("version") or ""
+        if call_project != args.project:
+            continue
+        if args.version and call_version != args.version:
+            continue
+        project_traces.append(call)
+
+    if not project_traces:
+        version_hint = f" (version: {args.version})" if args.version else ""
+        fatal_error(
+            f"No traces found for project '{args.project}'{version_hint}",
+            "Run 'evalyn show-projects' to see available projects",
+        )
+
+    traces = project_traces[: args.num_traces]
+    if output_format != "json":
+        print(f"Found {len(project_traces)} traces for project '{args.project}'")
+        if args.version:
+            print(f"  (version: {args.version})")
+
+    first_call = project_traces[0]
+    function_name = first_call.function_name
+    meta = first_call.metadata if isinstance(first_call.metadata, dict) else {}
+    function_docstring = meta.get("docstring", "")
+
+    def _placeholder_fn(*a, **kw):
+        pass
+
+    _placeholder_fn.__name__ = function_name
+    _placeholder_fn.__doc__ = function_docstring
+
+    return {
+        "target_fn": _placeholder_fn,
+        "metric_mode_hint": None,
+        "metric_bundle_hint": None,
+        "traces": traces,
+        "function_name": function_name,
+    }
+
+
+def _load_suggest_metrics_target_context(args: argparse.Namespace, tracer) -> Dict[str, Any]:
+    """Load direct callable and optional recent traces for target-based suggestion."""
+    target_fn = _load_callable(args.target)
+    return {
+        "target_fn": target_fn,
+        "metric_mode_hint": getattr(target_fn, "_evalyn_metric_mode", None),
+        "metric_bundle_hint": getattr(target_fn, "_evalyn_metric_bundle", None),
+        "traces": tracer.storage.list_calls(limit=args.num_traces) if tracer.storage else [],
+        "function_name": target_fn.__name__,
+    }
+
+
+def _select_metric_suggestion_mode(
+    requested_mode: str, metric_mode_hint: Optional[str]
+) -> str:
+    """Resolve final metric suggestion mode including decorator hints."""
+    if requested_mode != "auto":
+        return requested_mode
+    return metric_mode_hint or "llm-registry"
+
+
+def _normalize_suggest_metrics_limit(
+    selected_mode: str, requested_limit: Optional[int]
+) -> Optional[int]:
+    """Normalize metric limit defaults by mode."""
+    max_metrics = requested_limit
+    if selected_mode == "bundle" and max_metrics == 5:
+        return None
+    return max_metrics
+
+
+def _resolve_scope_filter(args: argparse.Namespace, output_format: str) -> Optional[str]:
+    """Resolve scope filter string and print context note."""
+    scope_raw = getattr(args, "scope", "all")
+    scope_filter = None if scope_raw == "all" else scope_raw
+    if scope_filter and output_format != "json":
+        print(f"Filtering metrics by scope: {scope_filter}")
+    return scope_filter
+
+
+def _filter_metric_templates_by_scope(templates: list, scope_filter: Optional[str]) -> list:
+    """Filter metric templates by scope."""
+    if not scope_filter:
+        return templates
+    return [t for t in templates if t.get("scope", "overall") == scope_filter]
+
+
+def _print_suggested_metric_spec(spec: MetricSpec, output_format: str) -> None:
+    """Print one suggested metric in table mode."""
+    if output_format == "json":
+        return
+    why = getattr(spec, "why", "") or ""
+    suffix = f" | why: {why}" if why else ""
+    print(f"- {spec.id} [{spec.type}] :: {spec.description}{suffix}")
+
+
+def _print_suggest_metrics_json(
+    specs: List[MetricSpec], saved_path: Optional[Path] = None
+) -> None:
+    """Print JSON output for suggested metrics."""
+    result = {
+        "metrics": [
+            {
+                "id": s.id,
+                "type": s.type,
+                "name": s.name,
+                "description": s.description,
+                "config": s.config,
+                "why": getattr(s, "why", ""),
+            }
+            for s in specs
+        ],
+        "count": len(specs),
+        "saved_to": str(saved_path) if saved_path else None,
+    }
+    print(json.dumps(result, indent=2))
+
+
+def _finalize_suggest_metrics_output(
+    *,
+    specs: List[MetricSpec],
+    max_metrics: Optional[int],
+    dataset_path_obj: Optional[Path],
+    args: argparse.Namespace,
+    selected_mode: str,
+    output_format: str,
+) -> None:
+    """Apply limits, print specs, save, and emit JSON output when requested."""
+    final_specs = specs[:max_metrics] if max_metrics else specs
+    for spec in final_specs:
+        _print_suggested_metric_spec(spec, output_format)
+    saved_path = _save_suggested_metrics(
+        final_specs,
+        dataset_path_obj,
+        args.metrics_name,
+        getattr(args, "append", False),
+        selected_mode,
+        output_format,
+        getattr(args, "quiet", False),
+    )
+    if output_format == "json":
+        _print_suggest_metrics_json(final_specs, saved_path)
+
+
+def _print_suggest_metrics_empty_brainstorm(output_format: str) -> None:
+    """Print empty-result message for brainstorm mode."""
+    if output_format == "json":
+        print(json.dumps({"metrics": [], "count": 0, "saved_to": None}))
+    else:
+        print("No metrics were returned by the LLM (brainstorm mode).")
+
+
+def _run_suggest_metrics_bundle_mode(
+    *,
+    args: argparse.Namespace,
+    bundle_name: Optional[str],
+    has_reference: bool,
+    scope_filter: Optional[str],
+    max_metrics: Optional[int],
+    dataset_path_obj: Optional[Path],
+    output_format: str,
+) -> None:
+    """Handle bundle-based metric suggestion mode."""
+    bundle = (bundle_name or "").lower()
+    ids = BUNDLES.get(bundle)
+    if not ids:
+        if output_format == "json":
+            print(
+                json.dumps(
+                    {
+                        "error": f"Unknown bundle '{args.bundle}'",
+                        "available": list(BUNDLES.keys()),
+                    }
+                )
+            )
+        else:
+            print(f"Unknown bundle '{args.bundle}'. Available: {', '.join(BUNDLES.keys())}")
+        return
+
+    all_templates = _filter_metric_templates_by_scope(
+        OBJECTIVE_REGISTRY + SUBJECTIVE_REGISTRY, scope_filter
+    )
+    tpl_map = {t["id"]: t for t in all_templates}
+    specs: List[MetricSpec] = []
+    skipped_ref_metrics = []
+
+    for mid in ids:
+        tpl = tpl_map.get(mid)
+        if not tpl:
+            continue
+        if tpl.get("requires_reference", False) and not has_reference:
+            skipped_ref_metrics.append(mid)
+            continue
+        specs.append(
+            MetricSpec(
+                id=tpl["id"],
+                name=tpl["id"],
+                type=tpl["type"],
+                description=tpl.get("description", ""),
+                config=tpl.get("config", {}),
+            )
+        )
+
+    if skipped_ref_metrics and output_format != "json":
+        print(
+            f"Skipped reference-based metrics (no expected values): {', '.join(skipped_ref_metrics)}"
+        )
+
+    _finalize_suggest_metrics_output(
+        specs=specs,
+        max_metrics=max_metrics,
+        dataset_path_obj=dataset_path_obj,
+        args=args,
+        selected_mode="bundle",
+        output_format=output_format,
+    )
+
+
+def _run_suggest_metrics_basic_mode(
+    *,
+    target_fn: Callable,
+    traces: list,
+    has_reference: bool,
+    scope_filter: Optional[str],
+) -> List[MetricSpec]:
+    """Handle heuristic/basic metric suggestion mode."""
     suggester = HeuristicSuggester(has_reference=has_reference)
     specs = suggester.suggest(target_fn, traces)
+    if not scope_filter:
+        return specs
 
-    # Filter by scope if specified
-    if scope_filter:
-        all_templates = OBJECTIVE_REGISTRY + SUBJECTIVE_REGISTRY
-        template_scope = {t["id"]: t.get("scope", "overall") for t in all_templates}
-        specs = [
-            s for s in specs if template_scope.get(s.id, "overall") == scope_filter
-        ]
-
-    _finalize_output(specs)
+    all_templates = OBJECTIVE_REGISTRY + SUBJECTIVE_REGISTRY
+    template_scope = {t["id"]: t.get("scope", "overall") for t in all_templates}
+    return [s for s in specs if template_scope.get(s.id, "overall") == scope_filter]
 
 
 def cmd_select_metrics(args: argparse.Namespace) -> None:

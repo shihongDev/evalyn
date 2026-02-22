@@ -309,83 +309,79 @@ def cmd_validate(args: argparse.Namespace) -> None:
         print("\nDataset is valid!")
 
 
-def cmd_analyze(args: argparse.Namespace) -> None:
-    """Analyze evaluation results and generate insights.
-
-    Analysis includes:
-    - Metric summary: Pass rates and average scores per metric
-    - Problem metrics: Metrics with <80% pass rate
-    - Multi-fail items: Items failing multiple metrics (likely outliers)
-    - Perfect metrics: Metrics with 100% pass rate (may be too lenient)
-    - Overall health: Aggregate assessment and recommendations
-    """
+def _load_analysis_run(
+    args: argparse.Namespace,
+    *,
+    dataset_path,
+    output_format: str,
+):
+    """Load the eval run to analyze from storage or dataset folder."""
     from ...storage import SQLiteStorage
-    from ...models import EvalRun, Annotation
-    from ...calibration import AlignmentMetrics
+    from ...models import EvalRun
 
-    output_format = getattr(args, "format", "table")
-    config = load_config()
-    dataset_path = resolve_dataset_path(args.dataset, args.latest, config)
-
-    # Load eval run
     run = None
     run_id = args.run
 
     if run_id:
-        # Load from storage by ID
         storage = SQLiteStorage()
         run = storage.get_eval_run(run_id)
         if not run:
             fatal_error(f"No eval run found with ID '{run_id}'")
-    elif dataset_path:
-        # Load latest run from dataset's eval_runs directory
-        runs_dir = dataset_path / "eval_runs"
-        if runs_dir.exists():
-            # Look for results.json in timestamped subdirectories
-            run_files = sorted(runs_dir.glob("*/results.json"), reverse=True)
-            if not run_files:
-                # Fallback to direct json files
-                run_files = sorted(runs_dir.glob("*.json"), reverse=True)
-            if run_files:
-                with open(run_files[0], encoding="utf-8") as f:
-                    run_data = json.load(f)
-                    run = EvalRun.from_dict(run_data)
-                if output_format != "json":
-                    print(f"Analyzing latest run: {run_files[0].name}")
-        if not run:
-            fatal_error("No eval runs found", "Run 'evalyn run-eval' first")
-    else:
+        return run
+
+    if not dataset_path:
         fatal_error("Specify --run <run_id> or --dataset <path>")
 
-    # Load annotations if available (for alignment stats)
-    # Build lookup: (item_id, metric_id) -> human_label (bool)
-    human_labels: dict[tuple[str, str], bool] = {}
-    annotations_path = None
-    if dataset_path:
-        annotations_path = dataset_path / "annotations.jsonl"
-    if annotations_path and annotations_path.exists():
-        try:
-            with open(annotations_path, encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    data = json.loads(line)
-                    ann = Annotation.from_dict(data)
-                    # Per-metric labels take precedence
-                    if ann.metric_labels:
-                        for metric_id, ml in ann.metric_labels.items():
-                            human_labels[(ann.target_id, metric_id)] = ml.human_label
-                    elif ann.label is not None:
-                        # Fallback: apply overall label to all metrics for this item
-                        human_labels[(ann.target_id, "__overall__")] = bool(ann.label)
-        except Exception:
-            pass  # Silently ignore annotation loading errors
+    runs_dir = dataset_path / "eval_runs"
+    if runs_dir.exists():
+        run_files = sorted(runs_dir.glob("*/results.json"), reverse=True)
+        if not run_files:
+            run_files = sorted(runs_dir.glob("*.json"), reverse=True)
+        if run_files:
+            with open(run_files[0], encoding="utf-8") as f:
+                run = EvalRun.from_dict(json.load(f))
+            if output_format != "json":
+                print(f"Analyzing latest run: {run_files[0].name}")
 
-    # Aggregate metrics
+    if not run:
+        fatal_error("No eval runs found", "Run 'evalyn run-eval' first")
+    return run
+
+
+def _load_analysis_human_labels(dataset_path) -> dict[tuple[str, str], bool]:
+    """Load optional human labels for alignment calculations."""
+    from ...models import Annotation
+
+    human_labels: dict[tuple[str, str], bool] = {}
+    annotations_path = dataset_path / "annotations.jsonl" if dataset_path else None
+    if not annotations_path or not annotations_path.exists():
+        return human_labels
+
+    try:
+        with open(annotations_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                data = json.loads(line)
+                ann = Annotation.from_dict(data)
+                if ann.metric_labels:
+                    for metric_id, ml in ann.metric_labels.items():
+                        human_labels[(ann.target_id, metric_id)] = ml.human_label
+                elif ann.label is not None:
+                    human_labels[(ann.target_id, "__overall__")] = bool(ann.label)
+    except Exception:
+        pass
+    return human_labels
+
+
+def _aggregate_analysis_stats(run, human_labels: dict[tuple[str, str], bool]) -> dict:
+    """Aggregate metric, failure, and alignment stats for analysis output."""
+    from ...calibration import AlignmentMetrics
+
     metrics_stats = {}
-    item_failures = {}  # item_id -> list of failed metrics
-    alignment_stats: dict[str, AlignmentMetrics] = {}  # metric_id -> alignment
+    item_failures = {}
+    alignment_stats: dict[str, AlignmentMetrics] = {}
 
     for mr in run.metric_results:
         item_id = mr.item_id or "unknown"
@@ -415,7 +411,6 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         if score is not None:
             stats["scores"].append(score)
 
-        # Track alignment if we have human labels
         human_label = human_labels.get(
             (item_id, metric_id), human_labels.get((item_id, "__overall__"))
         )
@@ -427,11 +422,18 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         key=lambda x: x[1]["failed"] / max(1, x[1]["total"]),
         reverse=True,
     )
+    return {
+        "metrics_stats": metrics_stats,
+        "item_failures": item_failures,
+        "alignment_stats": alignment_stats,
+        "sorted_metrics": sorted_metrics,
+    }
 
-    # Build insights
+
+def _build_analysis_insights(sorted_metrics, item_failures: dict[str, list[str]]) -> dict:
+    """Build insights and high-level summary metrics for the analysis report."""
     insights = []
 
-    # Find problematic metrics (< 80% pass rate)
     problem_metrics = [
         (m, s) for m, s in sorted_metrics if s["failed"] / max(1, s["total"]) > 0.2
     ]
@@ -443,7 +445,6 @@ def cmd_analyze(args: argparse.Namespace) -> None:
             f"Consider reviewing the rubric or calibrating."
         )
 
-    # Find items failing multiple metrics
     multi_fail_items = [
         (item, metrics) for item, metrics in item_failures.items() if len(metrics) >= 2
     ]
@@ -455,7 +456,6 @@ def cmd_analyze(args: argparse.Namespace) -> None:
             + ("..." if len(worst_item[1]) > 3 else "")
         )
 
-    # Check for perfect metrics
     perfect_metrics = [
         m for m, s in sorted_metrics if s["failed"] == 0 and s["total"] > 1
     ]
@@ -466,11 +466,9 @@ def cmd_analyze(args: argparse.Namespace) -> None:
             + ("..." if len(perfect_metrics) > 3 else "")
         )
 
-    # Overall health
-    total_evals = sum(s["total"] for s in metrics_stats.values())
-    total_passed = sum(s["passed"] for s in metrics_stats.values())
+    total_evals = sum(s["total"] for _, s in sorted_metrics)
+    total_passed = sum(s["passed"] for _, s in sorted_metrics)
     overall_rate = 100 * total_passed / max(1, total_evals)
-
     health_status = (
         "GOOD"
         if overall_rate >= 90
@@ -478,31 +476,207 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         if overall_rate >= 70
         else "NEEDS_ATTENTION"
     )
-    insights.append(
-        f"Overall health is {health_status} ({overall_rate:.0f}% pass rate)"
-    )
+    insights.append(f"Overall health is {health_status} ({overall_rate:.0f}% pass rate)")
+
+    return {
+        "insights": insights,
+        "problem_metrics": problem_metrics,
+        "multi_fail_items": multi_fail_items,
+        "perfect_metrics": perfect_metrics,
+        "overall_rate": overall_rate,
+        "health_status": health_status,
+    }
+
+
+def _build_analysis_alignment_json(sorted_metrics, alignment_stats: dict) -> dict:
+    """Serialize alignment metrics for JSON output."""
+    alignment_data = {}
+    for m, _ in sorted_metrics:
+        a = alignment_stats[m]
+        if a.total <= 0:
+            continue
+        alignment_data[m] = {
+            "n": a.total,
+            "accuracy": a.accuracy,
+            "precision": a.precision,
+            "recall": a.recall,
+            "f1": a.f1,
+            "cohens_kappa": a.cohens_kappa,
+            "confusion": {
+                "tp": a.true_positive,
+                "tn": a.true_negative,
+                "fp": a.false_positive,
+                "fn": a.false_negative,
+            },
+        }
+    return alignment_data
+
+
+def _print_analysis_table_output(
+    *,
+    run,
+    sorted_metrics,
+    alignment_stats: dict,
+    insights: list[str],
+    problem_metrics,
+    item_failures: dict[str, list[str]],
+) -> None:
+    """Print table-formatted evaluation analysis."""
+    from ...calibration import AlignmentMetrics
+
+    print(f"\n{'=' * 70}")
+    print("  EVALUATION ANALYSIS")
+    print(f"{'=' * 70}")
+    print(f"\nRun ID:      {run.id}")
+    print(f"Dataset:     {run.dataset_name}")
+    print(f"Items:       {len(run.metric_results)}")
+    print(f"Created:     {run.created_at}")
+
+    print(f"\n{'=' * 70}")
+    print("  METRIC SUMMARY")
+    print(f"{'=' * 70}\n")
+
+    for metric_id, stats in sorted_metrics:
+        total = stats["total"]
+        passed = stats["passed"]
+        failed = stats["failed"]
+        pass_rate = 100 * passed / max(1, total)
+        status = "PASS" if failed == 0 else "FAIL"
+
+        avg_score = ""
+        if stats["scores"]:
+            avg = sum(stats["scores"]) / len(stats["scores"])
+            avg_score = f"  avg={avg:.2f}"
+
+        print(
+            f"  [{status}] {metric_id:<30} {passed}/{total} passed ({pass_rate:.0f}%){avg_score}"
+        )
+
+    has_alignment = any(a.total > 0 for a in alignment_stats.values())
+    if has_alignment:
+        print(f"\n{'=' * 70}")
+        print("  ALIGNMENT STATS (vs human annotations)")
+        print(f"{'=' * 70}\n")
+        print(
+            f"  {'Metric':<25} {'N':>4} {'Acc':>6} {'Prec':>6} {'Rec':>6} {'F1':>6} {'Kappa':>6}"
+        )
+        print(f"  {'-' * 61}")
+        for metric_id, _ in sorted_metrics:
+            align = alignment_stats[metric_id]
+            if align.total == 0:
+                continue
+            print(
+                f"  {metric_id:<25} {align.total:>4} "
+                f"{align.accuracy:>5.0%} {align.precision:>5.0%} "
+                f"{align.recall:>5.0%} {align.f1:>5.0%} {align.cohens_kappa:>6.2f}"
+            )
+
+        total_align = AlignmentMetrics(
+            true_positive=sum(a.true_positive for a in alignment_stats.values()),
+            true_negative=sum(a.true_negative for a in alignment_stats.values()),
+            false_positive=sum(a.false_positive for a in alignment_stats.values()),
+            false_negative=sum(a.false_negative for a in alignment_stats.values()),
+        )
+        if total_align.total > 0:
+            print(f"  {'-' * 61}")
+            print(
+                f"  {'OVERALL':<25} {total_align.total:>4} "
+                f"{total_align.accuracy:>5.0%} {total_align.precision:>5.0%} "
+                f"{total_align.recall:>5.0%} {total_align.f1:>5.0%} {total_align.cohens_kappa:>6.2f}"
+            )
+
+    print(f"\n{'=' * 70}")
+    print("  INSIGHTS")
+    print(f"{'=' * 70}\n")
+    for insight in insights:
+        print(f"  {insight}\n")
+
+    print(f"{'=' * 70}")
+    print("  RECOMMENDATIONS")
+    print(f"{'=' * 70}\n")
+
+    if problem_metrics:
+        print("  1. Run 'evalyn annotate' to provide human labels for failed items")
+        print("  2. Run 'evalyn calibrate' to improve metric alignment")
+
+    if not item_failures:
+        print("  All items passed! Consider adding more challenging test cases.")
+        print("    Run 'evalyn simulate --modes outlier' to generate edge cases.")
+
+    print()
+
+
+def _print_analysis_next_hint(
+    *,
+    run,
+    dataset_path,
+    output_format: str,
+    problem_metrics,
+    multi_fail_items,
+    quiet: bool,
+) -> None:
+    """Print post-analysis next-step hint."""
+    dataset_flag = f"--dataset {dataset_path}" if dataset_path else "--latest"
+
+    from ...metrics.subjective import SUBJECTIVE_REGISTRY
+
+    subjective_ids = {m["id"] for m in SUBJECTIVE_REGISTRY}
+    subjective_problem_metrics = [
+        (m, s) for m, s in problem_metrics if m in subjective_ids
+    ]
+
+    if subjective_problem_metrics:
+        worst_metric = subjective_problem_metrics[0][0]
+        print_hint(
+            f"To calibrate '{worst_metric}', first annotate: evalyn annotate {dataset_flag}",
+            quiet=quiet,
+            format=output_format,
+        )
+    elif problem_metrics or multi_fail_items:
+        print_hint(
+            f"To annotate failing items, run: evalyn annotate {dataset_flag}",
+            quiet=quiet,
+            format=output_format,
+        )
+    else:
+        print_hint(
+            f"To see trends over time, run: evalyn trend --project {run.dataset_name}",
+            quiet=quiet,
+            format=output_format,
+        )
+
+
+def cmd_analyze(args: argparse.Namespace) -> None:
+    """Analyze evaluation results and generate insights.
+
+    Analysis includes:
+    - Metric summary: Pass rates and average scores per metric
+    - Problem metrics: Metrics with <80% pass rate
+    - Multi-fail items: Items failing multiple metrics (likely outliers)
+    - Perfect metrics: Metrics with 100% pass rate (may be too lenient)
+    - Overall health: Aggregate assessment and recommendations
+    """
+    output_format = getattr(args, "format", "table")
+    config = load_config()
+    dataset_path = resolve_dataset_path(args.dataset, args.latest, config)
+    run = _load_analysis_run(args, dataset_path=dataset_path, output_format=output_format)
+    human_labels = _load_analysis_human_labels(dataset_path)
+    aggregated = _aggregate_analysis_stats(run, human_labels)
+    sorted_metrics = aggregated["sorted_metrics"]
+    item_failures = aggregated["item_failures"]
+    alignment_stats = aggregated["alignment_stats"]
+
+    insight_data = _build_analysis_insights(sorted_metrics, item_failures)
+    insights = insight_data["insights"]
+    problem_metrics = insight_data["problem_metrics"]
+    multi_fail_items = insight_data["multi_fail_items"]
+    perfect_metrics = insight_data["perfect_metrics"]
+    overall_rate = insight_data["overall_rate"]
+    health_status = insight_data["health_status"]
 
     # JSON output
     if output_format == "json":
-        # Build alignment data for JSON
-        alignment_data = {}
-        for m, _ in sorted_metrics:
-            a = alignment_stats[m]
-            if a.total > 0:
-                alignment_data[m] = {
-                    "n": a.total,
-                    "accuracy": a.accuracy,
-                    "precision": a.precision,
-                    "recall": a.recall,
-                    "f1": a.f1,
-                    "cohens_kappa": a.cohens_kappa,
-                    "confusion": {
-                        "tp": a.true_positive,
-                        "tn": a.true_negative,
-                        "fp": a.false_positive,
-                        "fn": a.false_negative,
-                    },
-                }
+        alignment_data = _build_analysis_alignment_json(sorted_metrics, alignment_stats)
         result = {
             "run_id": run.id,
             "dataset_name": run.dataset_name,
@@ -535,125 +709,22 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         print(json.dumps(result, indent=2, default=str))
         return
 
-    # Table output
-    print(f"\n{'=' * 70}")
-    print("  EVALUATION ANALYSIS")
-    print(f"{'=' * 70}")
-    print(f"\nRun ID:      {run.id}")
-    print(f"Dataset:     {run.dataset_name}")
-    print(f"Items:       {len(run.metric_results)}")
-    print(f"Created:     {run.created_at}")
-
-    # Print metric summary
-    print(f"\n{'=' * 70}")
-    print("  METRIC SUMMARY")
-    print(f"{'=' * 70}\n")
-
-    for metric_id, stats in sorted_metrics:
-        total = stats["total"]
-        passed = stats["passed"]
-        failed = stats["failed"]
-        pass_rate = 100 * passed / max(1, total)
-        status = "PASS" if failed == 0 else "FAIL"
-
-        avg_score = ""
-        if stats["scores"]:
-            avg = sum(stats["scores"]) / len(stats["scores"])
-            avg_score = f"  avg={avg:.2f}"
-
-        print(
-            f"  [{status}] {metric_id:<30} {passed}/{total} passed ({pass_rate:.0f}%){avg_score}"
-        )
-
-    # Alignment stats section (only if annotations exist)
-    has_alignment = any(a.total > 0 for a in alignment_stats.values())
-    if has_alignment:
-        print(f"\n{'=' * 70}")
-        print("  ALIGNMENT STATS (vs human annotations)")
-        print(f"{'=' * 70}\n")
-        print(
-            f"  {'Metric':<25} {'N':>4} {'Acc':>6} {'Prec':>6} {'Rec':>6} {'F1':>6} {'Kappa':>6}"
-        )
-        print(f"  {'-' * 61}")
-        for metric_id, _ in sorted_metrics:
-            align = alignment_stats[metric_id]
-            if align.total == 0:
-                continue
-            print(
-                f"  {metric_id:<25} {align.total:>4} "
-                f"{align.accuracy:>5.0%} {align.precision:>5.0%} "
-                f"{align.recall:>5.0%} {align.f1:>5.0%} {align.cohens_kappa:>6.2f}"
-            )
-        # Summary row
-        total_align = AlignmentMetrics(
-            true_positive=sum(a.true_positive for a in alignment_stats.values()),
-            true_negative=sum(a.true_negative for a in alignment_stats.values()),
-            false_positive=sum(a.false_positive for a in alignment_stats.values()),
-            false_negative=sum(a.false_negative for a in alignment_stats.values()),
-        )
-        if total_align.total > 0:
-            print(f"  {'-' * 61}")
-            print(
-                f"  {'OVERALL':<25} {total_align.total:>4} "
-                f"{total_align.accuracy:>5.0%} {total_align.precision:>5.0%} "
-                f"{total_align.recall:>5.0%} {total_align.f1:>5.0%} {total_align.cohens_kappa:>6.2f}"
-            )
-
-    # Insights section
-    print(f"\n{'=' * 70}")
-    print("  INSIGHTS")
-    print(f"{'=' * 70}\n")
-
-    for insight in insights:
-        print(f"  {insight}\n")
-
-    # Recommendations
-    print(f"{'=' * 70}")
-    print("  RECOMMENDATIONS")
-    print(f"{'=' * 70}\n")
-
-    if problem_metrics:
-        print("  1. Run 'evalyn annotate' to provide human labels for failed items")
-        print("  2. Run 'evalyn calibrate' to improve metric alignment")
-
-    if not item_failures:
-        print("  All items passed! Consider adding more challenging test cases.")
-        print("    Run 'evalyn simulate --modes outlier' to generate edge cases.")
-
-    print()
-
-    # Show hint for next step
-    dataset_flag = f"--dataset {dataset_path}" if dataset_path else "--latest"
-
-    # Filter problem metrics to only subjective ones (calibration only works for LLM judges)
-    from ...metrics.subjective import SUBJECTIVE_REGISTRY
-
-    subjective_ids = {m["id"] for m in SUBJECTIVE_REGISTRY}
-    subjective_problem_metrics = [
-        (m, s) for m, s in problem_metrics if m in subjective_ids
-    ]
-
-    if subjective_problem_metrics:
-        # Subjective metrics can be calibrated - suggest annotation workflow
-        worst_metric = subjective_problem_metrics[0][0]
-        print_hint(
-            f"To calibrate '{worst_metric}', first annotate: evalyn annotate {dataset_flag}",
-            quiet=getattr(args, "quiet", False),
-            format=output_format,
-        )
-    elif problem_metrics or multi_fail_items:
-        # Objective metrics or items failing multiple metrics - suggest annotation
-        print_hint(
-            f"To annotate failing items, run: evalyn annotate {dataset_flag}",
-            quiet=getattr(args, "quiet", False),
-            format=output_format,
-        )
-    else:
-        print_hint(
-            f"To see trends over time, run: evalyn trend --project {run.dataset_name}",
-            quiet=getattr(args, "quiet", False),
-            format=output_format,
-        )
+    _print_analysis_table_output(
+        run=run,
+        sorted_metrics=sorted_metrics,
+        alignment_stats=alignment_stats,
+        insights=insights,
+        problem_metrics=problem_metrics,
+        item_failures=item_failures,
+    )
+    _print_analysis_next_hint(
+        run=run,
+        dataset_path=dataset_path,
+        output_format=output_format,
+        problem_metrics=problem_metrics,
+        multi_fail_items=multi_fail_items,
+        quiet=getattr(args, "quiet", False),
+    )
 
 
 def cmd_compare(args: argparse.Namespace) -> None:

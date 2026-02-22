@@ -198,6 +198,160 @@ class CalibrationEngine:
 
         return analysis
 
+    def _build_validation_split(
+        self,
+        annotations: List[Annotation],
+        dataset_items: Optional[List[DatasetItem]],
+        *,
+        val_split: float,
+    ) -> Optional[tuple[List[Annotation], List[DatasetItem]]]:
+        """Create validation annotation/data split for prompt comparison."""
+        if not dataset_items or len(annotations) < 10:
+            return None
+
+        import random
+
+        ann_list = list(annotations)
+        random.shuffle(ann_list)
+        split_idx = int(len(ann_list) * (1 - val_split))
+        val_annotations = ann_list[split_idx:]
+        if len(val_annotations) < 3:
+            return None
+
+        ann_by_call = {ann.target_id: ann for ann in val_annotations}
+        val_items = [
+            item for item in dataset_items if item.metadata.get("call_id") in ann_by_call
+        ]
+        if not val_items:
+            return None
+        return val_annotations, val_items
+
+    def _create_validation_judges(
+        self, *, metric_id: str, original_prompt: str, optimized_prompt: str
+    ):
+        """Construct original and optimized judges for validation scoring."""
+        from ..judges import LLMJudge
+
+        try:
+            original_judge = LLMJudge(
+                name=f"{metric_id}_original",
+                prompt=original_prompt,
+                model=self.optimizer_model,
+                temperature=0.0,
+            )
+            optimized_judge = LLMJudge(
+                name=f"{metric_id}_optimized",
+                prompt=optimized_prompt,
+                model=self.optimizer_model,
+                temperature=0.0,
+            )
+            return original_judge, optimized_judge
+        except Exception:
+            return None
+
+    def _build_validation_fake_call(self, item: DatasetItem):
+        """Create a minimal FunctionCall for judge scoring on a dataset item."""
+        from ..models import FunctionCall
+
+        call_id = item.metadata.get("call_id")
+        return FunctionCall(
+            id=call_id,
+            function_name="validation",
+            inputs=item.input or {},
+            output=item.output,
+            error=None,
+            started_at=now_utc(),
+            ended_at=now_utc(),
+            duration_ms=0.0,
+            session_id=None,
+            trace=[],
+            metadata={},
+        )
+
+    def _record_validation_prediction(
+        self,
+        metrics: AlignmentMetrics,
+        *,
+        predicted_pass: bool,
+        human_pass: bool,
+    ) -> None:
+        """Update alignment counters for one prediction."""
+        if predicted_pass and human_pass:
+            metrics.true_positive += 1
+        elif not predicted_pass and not human_pass:
+            metrics.true_negative += 1
+        elif predicted_pass and not human_pass:
+            metrics.false_positive += 1
+        else:
+            metrics.false_negative += 1
+
+    def _score_validation_item(
+        self,
+        judge,
+        fake_call,
+        item: DatasetItem,
+        *,
+        human_pass: bool,
+        metrics: AlignmentMetrics,
+        accumulator: Optional[TokenAccumulator],
+    ) -> None:
+        """Score one item with one judge and update metrics/token counts."""
+        try:
+            result = judge.score(fake_call, item)
+            predicted_pass = bool(result.get("passed"))
+            if accumulator:
+                accumulator.add_usage(
+                    result.get("input_tokens", 0),
+                    result.get("output_tokens", 0),
+                    result.get("model"),
+                )
+            self._record_validation_prediction(
+                metrics,
+                predicted_pass=predicted_pass,
+                human_pass=human_pass,
+            )
+        except Exception:
+            pass
+
+    def _build_validation_recommendation(
+        self,
+        *,
+        original_metrics: AlignmentMetrics,
+        optimized_metrics: AlignmentMetrics,
+        validation_samples: int,
+    ) -> ValidationResult:
+        """Build ValidationResult from alignment metrics."""
+        original_f1 = original_metrics.f1
+        optimized_f1 = optimized_metrics.f1
+        original_acc = original_metrics.accuracy
+        optimized_acc = optimized_metrics.accuracy
+        improvement_delta = optimized_f1 - original_f1
+
+        is_better = improvement_delta > 0.02
+        is_worse = improvement_delta < -0.02
+
+        if abs(improvement_delta) < 0.02:
+            confidence = "low"
+            recommendation = "uncertain"
+        elif abs(improvement_delta) < 0.05:
+            confidence = "medium"
+            recommendation = "use_optimized" if is_better else "keep_original"
+        else:
+            confidence = "high"
+            recommendation = "use_optimized" if is_better else "keep_original"
+
+        return ValidationResult(
+            original_f1=original_f1,
+            optimized_f1=optimized_f1,
+            original_accuracy=original_acc,
+            optimized_accuracy=optimized_acc,
+            improvement_delta=improvement_delta,
+            is_better=is_better and not is_worse,
+            confidence=confidence,
+            recommendation=recommendation,
+            validation_samples=validation_samples,
+        )
+
     def _validate_optimization(
         self,
         original_prompt: str,
@@ -229,162 +383,55 @@ class CalibrationEngine:
 
         Returns None if validation cannot be performed.
         """
-        if not dataset_items or len(annotations) < 10:
-            # Need at least 10 annotations for meaningful validation
+        split = self._build_validation_split(
+            annotations,
+            dataset_items,
+            val_split=val_split,
+        )
+        if split is None:
             return None
+        val_annotations, val_items = split
 
-        # Import judge here to avoid circular dependency
-        from ..judges import LLMJudge
-
-        # Split annotations into train/val
-        import random
-
-        ann_list = list(annotations)
-        random.shuffle(ann_list)
-        split_idx = int(len(ann_list) * (1 - val_split))
-        val_annotations = ann_list[split_idx:]
-
-        if len(val_annotations) < 3:
-            # Not enough validation samples
+        judges = self._create_validation_judges(
+            metric_id=metric_id,
+            original_prompt=original_prompt,
+            optimized_prompt=optimized_prompt,
+        )
+        if judges is None:
             return None
+        original_judge, optimized_judge = judges
 
-        # Get validation dataset items
-        ann_by_call = {ann.target_id: ann for ann in val_annotations}
-        val_items = [
-            item
-            for item in dataset_items
-            if item.metadata.get("call_id") in ann_by_call
-        ]
-
-        if not val_items:
-            return None
-
-        # Create judges with original and optimized prompts
-        try:
-            original_judge = LLMJudge(
-                name=f"{metric_id}_original",
-                prompt=original_prompt,
-                model=self.optimizer_model,
-                temperature=0.0,
-            )
-
-            optimized_judge = LLMJudge(
-                name=f"{metric_id}_optimized",
-                prompt=optimized_prompt,
-                model=self.optimizer_model,
-                temperature=0.0,
-            )
-        except Exception:
-            return None
-
-        # Evaluate both prompts on validation set
         original_metrics = AlignmentMetrics()
         optimized_metrics = AlignmentMetrics()
-
-        from ..models import FunctionCall
+        ann_by_call = {ann.target_id: ann for ann in val_annotations}
 
         for item in val_items:
             call_id = item.metadata.get("call_id")
             ann = ann_by_call.get(call_id)
             if not ann:
                 continue
-
-            # Create a fake FunctionCall for the judge
-            fake_call = FunctionCall(
-                id=call_id,
-                function_name="validation",
-                inputs=item.input or {},
-                output=item.output,
-                error=None,
-                started_at=now_utc(),
-                ended_at=now_utc(),
-                duration_ms=0.0,
-                session_id=None,
-                trace=[],
-                metadata={},
+            human_pass = bool(ann.label)
+            fake_call = self._build_validation_fake_call(item)
+            self._score_validation_item(
+                original_judge,
+                fake_call,
+                item,
+                human_pass=human_pass,
+                metrics=original_metrics,
+                accumulator=accumulator,
+            )
+            self._score_validation_item(
+                optimized_judge,
+                fake_call,
+                item,
+                human_pass=human_pass,
+                metrics=optimized_metrics,
+                accumulator=accumulator,
             )
 
-            human_pass = bool(ann.label)
-
-            # Score with original prompt
-            try:
-                original_result = original_judge.score(fake_call, item)
-                original_pass = bool(original_result.get("passed"))
-
-                # Track token usage
-                if accumulator:
-                    accumulator.add_usage(
-                        original_result.get("input_tokens", 0),
-                        original_result.get("output_tokens", 0),
-                        original_result.get("model"),
-                    )
-
-                if original_pass and human_pass:
-                    original_metrics.true_positive += 1
-                elif not original_pass and not human_pass:
-                    original_metrics.true_negative += 1
-                elif original_pass and not human_pass:
-                    original_metrics.false_positive += 1
-                else:
-                    original_metrics.false_negative += 1
-            except Exception:
-                pass
-
-            # Score with optimized prompt
-            try:
-                optimized_result = optimized_judge.score(fake_call, item)
-                optimized_pass = bool(optimized_result.get("passed"))
-
-                # Track token usage
-                if accumulator:
-                    accumulator.add_usage(
-                        optimized_result.get("input_tokens", 0),
-                        optimized_result.get("output_tokens", 0),
-                        optimized_result.get("model"),
-                    )
-
-                if optimized_pass and human_pass:
-                    optimized_metrics.true_positive += 1
-                elif not optimized_pass and not human_pass:
-                    optimized_metrics.true_negative += 1
-                elif optimized_pass and not human_pass:
-                    optimized_metrics.false_positive += 1
-                else:
-                    optimized_metrics.false_negative += 1
-            except Exception:
-                pass
-
-        # Compare F1 scores
-        original_f1 = original_metrics.f1
-        optimized_f1 = optimized_metrics.f1
-        original_acc = original_metrics.accuracy
-        optimized_acc = optimized_metrics.accuracy
-        improvement_delta = optimized_f1 - original_f1
-
-        # Determine if optimized is better
-        is_better = improvement_delta > 0.02  # At least 2% improvement
-        is_worse = improvement_delta < -0.02  # More than 2% degradation
-
-        # Determine confidence and recommendation
-        if abs(improvement_delta) < 0.02:
-            confidence = "low"
-            recommendation = "uncertain"
-        elif abs(improvement_delta) < 0.05:
-            confidence = "medium"
-            recommendation = "use_optimized" if is_better else "keep_original"
-        else:
-            confidence = "high"
-            recommendation = "use_optimized" if is_better else "keep_original"
-
-        return ValidationResult(
-            original_f1=original_f1,
-            optimized_f1=optimized_f1,
-            original_accuracy=original_acc,
-            optimized_accuracy=optimized_acc,
-            improvement_delta=improvement_delta,
-            is_better=is_better and not is_worse,
-            confidence=confidence,
-            recommendation=recommendation,
+        return self._build_validation_recommendation(
+            original_metrics=original_metrics,
+            optimized_metrics=optimized_metrics,
             validation_samples=len(val_items),
         )
 

@@ -152,6 +152,429 @@ def _apply_calibration_config_defaults(args: argparse.Namespace, config: dict) -
         )
 
 
+def _load_calibration_run(args: argparse.Namespace):
+    """Load eval run for calibration (explicit run or latest)."""
+    tracer = get_default_tracer()
+    if not tracer.storage:
+        fatal_error("No storage configured")
+
+    run = tracer.storage.get_eval_run(args.run_id) if args.run_id else None
+    if run is None:
+        runs = tracer.storage.list_eval_runs(limit=1)
+        run = runs[0] if runs else None
+    if run is None:
+        fatal_error("No eval runs available")
+    return tracer, run
+
+
+def _get_calibration_metric_results(run, metric_id: str):
+    """Filter metric results for the selected metric."""
+    metric_results = [r for r in run.metric_results if r.metric_id == metric_id]
+    if not metric_results:
+        fatal_error(f"No metric results found for metric_id={metric_id} in run {run.id}")
+    return metric_results
+
+
+def _extract_calibration_metric_prompt_context(run, metric_id: str) -> tuple[List[str], str]:
+    """Extract rubric and prompt preamble from metric config in the run."""
+    current_rubric: List[str] = []
+    current_preamble = ""
+    for metric_spec in run.metrics:
+        if metric_spec.id != metric_id:
+            continue
+        cfg = metric_spec.config or {}
+        rubric_val = cfg.get("rubric", [])
+        if isinstance(rubric_val, list):
+            current_rubric = [str(r) for r in rubric_val]
+        preamble_val = cfg.get("prompt", "")
+        if isinstance(preamble_val, str):
+            current_preamble = preamble_val
+        break
+    return current_rubric, current_preamble
+
+
+def _load_optional_calibration_dataset_context(
+    args: argparse.Namespace, config: dict
+) -> tuple[Optional[Path], Optional[List[DatasetItem]]]:
+    """Resolve optional dataset context for calibration examples/validation."""
+    dataset_items: Optional[List[DatasetItem]] = None
+    dataset_dir: Optional[Path] = None
+
+    dataset_arg = getattr(args, "dataset", None)
+    use_latest = getattr(args, "latest", False)
+    resolved_dataset = resolve_dataset_path(dataset_arg, use_latest, config)
+
+    if resolved_dataset:
+        resolved = try_resolve_dataset_dir_and_file(
+            dataset_arg, use_latest, config=config
+        )
+        if resolved:
+            dataset_dir, dataset_file = resolved
+            dataset_items = load_dataset(dataset_file)
+
+    return dataset_dir, dataset_items
+
+
+def _build_calibration_optimizer_configs(args: argparse.Namespace) -> dict:
+    """Build optimizer-specific config objects from CLI args."""
+    gepa_config = None
+    if args.optimizer == "gepa":
+        if not GEPA_AVAILABLE:
+            fatal_error("GEPA is not installed", "Install with: pip install gepa")
+        gepa_config = GEPAConfig(
+            task_lm=args.gepa_task_lm,
+            reflection_lm=args.gepa_reflection_lm,
+            max_metric_calls=args.gepa_max_calls,
+        )
+
+    opro_config = None
+    if args.optimizer == "opro":
+        opro_config = OPROConfig(
+            optimizer_model=args.opro_optimizer_model,
+            scorer_model=args.opro_scorer_model,
+            max_iterations=args.opro_iterations,
+            candidates_per_step=args.opro_candidates,
+        )
+
+    ape_config = None
+    if args.optimizer == "ape":
+        ape_config = APEConfig(
+            num_candidates=args.ape_candidates,
+            eval_rounds=args.ape_rounds,
+            eval_samples_per_round=args.ape_samples,
+        )
+
+    gepa_native_config = None
+    if args.optimizer == "gepa-native":
+        gepa_native_config = GEPANativeConfig(
+            task_model=args.gepa_native_task_model,
+            reflection_model=args.gepa_native_reflection_model,
+            max_metric_calls=args.gepa_native_max_calls,
+            num_initial_candidates=args.gepa_native_initial_candidates,
+            mini_batch_size=args.gepa_native_batch_size,
+        )
+
+    return {
+        "gepa_config": gepa_config,
+        "opro_config": opro_config,
+        "ape_config": ape_config,
+        "gepa_native_config": gepa_native_config,
+    }
+
+
+def _build_calibration_engine(
+    args: argparse.Namespace,
+    *,
+    current_rubric: List[str],
+    current_preamble: str,
+    optimizer_configs: dict,
+) -> CalibrationEngine:
+    """Construct CalibrationEngine from args and optimizer configs."""
+    return CalibrationEngine(
+        judge_name=args.metric_id,
+        current_threshold=args.threshold,
+        current_rubric=current_rubric,
+        current_preamble=current_preamble,
+        optimize_prompts=not args.no_optimize,
+        optimizer_model=args.model,
+        optimizer_type=args.optimizer,
+        gepa_config=optimizer_configs.get("gepa_config"),
+        gepa_native_config=optimizer_configs.get("gepa_native_config"),
+        opro_config=optimizer_configs.get("opro_config"),
+        ape_config=optimizer_configs.get("ape_config"),
+    )
+
+
+def _run_calibration_with_spinner(
+    args: argparse.Namespace,
+    engine: CalibrationEngine,
+    metric_results,
+    anns,
+    dataset_items: Optional[List[DatasetItem]],
+):
+    """Run calibration, using a spinner for long-running optimizers."""
+    if args.optimizer == "gepa" and not args.no_optimize:
+        spinner_msg = f"Running GEPA optimization (max {args.gepa_max_calls} calls)"
+        with Spinner(spinner_msg):
+            return engine.calibrate(metric_results, anns, dataset_items)
+    if args.optimizer == "gepa-native" and not args.no_optimize:
+        spinner_msg = (
+            f"Running GEPA-Native optimization (max {args.gepa_native_max_calls} calls)"
+        )
+        with Spinner(spinner_msg):
+            return engine.calibrate(metric_results, anns, dataset_items)
+    if args.optimizer == "opro" and not args.no_optimize:
+        spinner_msg = f"Running OPRO optimization (max {args.opro_iterations} iterations)"
+        with Spinner(spinner_msg):
+            return engine.calibrate(metric_results, anns, dataset_items)
+    if args.optimizer == "ape" and not args.no_optimize:
+        spinner_msg = (
+            f"Running APE optimization ({args.ape_candidates} candidates, {args.ape_rounds} UCB rounds)"
+        )
+        with Spinner(spinner_msg):
+            return engine.calibrate(metric_results, anns, dataset_items)
+    return engine.calibrate(metric_results, anns, dataset_items)
+
+
+def _print_calibration_alignment_section(record) -> None:
+    """Print alignment metrics and confusion matrix."""
+    alignment = record.adjustments.get("alignment_metrics", {})
+    if not alignment:
+        return
+
+    print("\n--- ALIGNMENT METRICS ---")
+    print(f"Accuracy:       {alignment.get('accuracy', 0):.1%}")
+    print(f"Precision:      {alignment.get('precision', 0):.1%}")
+    print(f"Recall:         {alignment.get('recall', 0):.1%}")
+    print(f"F1 Score:       {alignment.get('f1', 0):.1%}")
+    print(f"Specificity:    {alignment.get('specificity', 0):.1%}")
+    print(f"Cohen's Kappa:  {alignment.get('cohens_kappa', 0):.3f}")
+
+    cm = alignment.get("confusion_matrix", {})
+    if not cm:
+        return
+    print("\nConfusion Matrix:")
+    print("                   Human PASS  Human FAIL")
+    print(
+        f"  Judge PASS       {cm.get('true_positive', 0):^10}  {cm.get('false_positive', 0):^10}"
+    )
+    print(
+        f"  Judge FAIL       {cm.get('false_negative', 0):^10}  {cm.get('true_negative', 0):^10}"
+    )
+
+
+def _print_calibration_disagreement_section(args: argparse.Namespace, record) -> None:
+    """Print disagreement counts and optional examples."""
+    disagreements = record.adjustments.get("disagreement_patterns", {})
+    if not disagreements:
+        return
+
+    fp_count = disagreements.get("false_positive_count", 0)
+    fn_count = disagreements.get("false_negative_count", 0)
+    if fp_count <= 0 and fn_count <= 0:
+        return
+
+    print("\n--- DISAGREEMENT PATTERNS ---")
+    print(f"False Positives (judge too lenient): {fp_count}")
+    print(f"False Negatives (judge too strict):  {fn_count}")
+
+    if not args.show_examples:
+        return
+
+    fp_examples = disagreements.get("false_positive_examples", [])[:3]
+    fn_examples = disagreements.get("false_negative_examples", [])[:3]
+
+    if fp_examples:
+        print("\nFalse Positive Examples:")
+        for i, ex in enumerate(fp_examples, 1):
+            print(f"  {i}. call_id={ex.get('call_id', '')[:8]}...")
+            print(f"     Judge reason: {ex.get('judge_reason', '')[:80]}...")
+            if ex.get("human_notes"):
+                print(f"     Human notes:  {ex.get('human_notes', '')[:80]}...")
+
+    if fn_examples:
+        print("\nFalse Negative Examples:")
+        for i, ex in enumerate(fn_examples, 1):
+            print(f"  {i}. call_id={ex.get('call_id', '')[:8]}...")
+            print(f"     Judge reason: {ex.get('judge_reason', '')[:80]}...")
+            if ex.get("human_notes"):
+                print(f"     Human notes:  {ex.get('human_notes', '')[:80]}...")
+
+
+def _print_calibration_threshold_section(record) -> None:
+    """Print threshold suggestion summary."""
+    print("\n--- THRESHOLD ---")
+    print(f"Current:   {record.adjustments.get('current_threshold', 0.5):.3f}")
+    print(f"Suggested: {record.adjustments.get('suggested_threshold', 0.5):.3f}")
+
+
+def _wrap_calibration_text(text: str, width: int = 70) -> List[str]:
+    """Simple word-wrap helper for calibration report text."""
+    words = text.split()
+    lines: List[str] = []
+    current_line = ""
+    for word in words:
+        if len(current_line) + len(word) + 1 <= width:
+            current_line += (" " if current_line else "") + word
+        else:
+            lines.append(current_line)
+            current_line = word
+    if current_line:
+        lines.append(current_line)
+    return lines
+
+
+def _print_calibration_prompt_optimization_section(record) -> None:
+    """Print prompt optimization details."""
+    optimizer_type = record.adjustments.get("optimizer_type", "basic")
+    optimization = record.adjustments.get("prompt_optimization", {})
+    if not optimization:
+        return
+
+    print("\n--- PROMPT OPTIMIZATION ---")
+    print(f"Optimizer:             {optimizer_type.upper()}")
+    print(
+        f"Estimated improvement: {optimization.get('estimated_improvement', 'unknown')}"
+    )
+
+    reasoning = optimization.get("improvement_reasoning", "")
+    if reasoning:
+        print("\nReasoning:")
+        for line in _wrap_calibration_text(reasoning):
+            print(f"  {line}")
+
+    additions = optimization.get("suggested_additions", [])
+    if additions:
+        print("\nSuggested ADDITIONS to rubric:")
+        for a in additions:
+            print(f"  + {a}")
+
+    removals = optimization.get("suggested_removals", [])
+    if removals:
+        print("\nSuggested REMOVALS from rubric:")
+        for r in removals:
+            print(f"  - {r}")
+
+    optimized_preamble = optimization.get("optimized_preamble", "")
+    if optimized_preamble:
+        print("\nOPTIMIZED PREAMBLE:")
+        preview = (
+            optimized_preamble[:200] + "..."
+            if len(optimized_preamble) > 200
+            else optimized_preamble
+        )
+        for line in preview.split("\n"):
+            print(f"  {line}")
+
+    improved = optimization.get("improved_rubric", [])
+    if improved:
+        print("\nRUBRIC (unchanged):")
+        for i, criterion in enumerate(improved, 1):
+            print(f"  {i}. {criterion}")
+
+
+def _print_calibration_validation_section(record) -> None:
+    """Print validation comparison and recommendation details."""
+    validation = record.adjustments.get("validation", {})
+    if not validation:
+        return
+
+    print("\n--- VALIDATION RESULTS ---")
+
+    is_better = validation.get("is_better", False)
+    original_f1 = validation.get("original_f1", 0.0)
+    optimized_f1 = validation.get("optimized_f1", 0.0)
+    improvement_delta = validation.get("improvement_delta", 0.0)
+    confidence = validation.get("confidence", "unknown")
+    recommendation = validation.get("recommendation", "uncertain")
+    val_samples = validation.get("validation_samples", 0)
+
+    if is_better and improvement_delta > 0.05:
+        status_icon = "SUCCESS"
+        status_msg = "Optimized prompt is SIGNIFICANTLY BETTER"
+    elif is_better:
+        status_icon = "SUCCESS"
+        status_msg = "Optimized prompt is BETTER"
+    elif improvement_delta < -0.05:
+        status_icon = "DEGRADED"
+        status_msg = "Optimized prompt is SIGNIFICANTLY WORSE"
+    elif improvement_delta < 0:
+        status_icon = "DEGRADED"
+        status_msg = "Optimized prompt is WORSE"
+    else:
+        status_icon = "UNCERTAIN"
+        status_msg = "No significant difference"
+
+    print(f"{status_icon} - {status_msg}")
+    print()
+    print(f"Original F1:     {original_f1:.3f}")
+    print(f"Optimized F1:    {optimized_f1:.3f}")
+
+    if improvement_delta > 0:
+        print(f"Improvement:     +{improvement_delta:.3f} (+{improvement_delta * 100:.1f}%)")
+    elif improvement_delta < 0:
+        print(f"Degradation:     {improvement_delta:.3f} ({improvement_delta * 100:.1f}%)")
+    else:
+        print(f"Change:          {improvement_delta:.3f}")
+
+    print(f"Validation size: {val_samples} samples")
+    print(f"Confidence:      {confidence.upper()}")
+    print()
+
+    if recommendation == "use_optimized":
+        print("RECOMMENDATION: USE OPTIMIZED PROMPT")
+        print("   Next: evalyn run-eval --latest --use-calibrated")
+    elif recommendation == "keep_original":
+        print("RECOMMENDATION: KEEP ORIGINAL PROMPT")
+        print("   The optimized prompt did not improve performance.")
+    else:
+        print("RECOMMENDATION: UNCERTAIN")
+        print("   Consider testing both prompts manually.")
+
+
+def _print_calibration_report(args: argparse.Namespace, run, record) -> None:
+    """Print full calibration report."""
+    print(f"\n{'=' * 60}")
+    print(f"CALIBRATION REPORT: {args.metric_id}")
+    print(f"{'=' * 60}")
+    print(f"Eval Run: {run.id}")
+    print(
+        f"Samples:  {record.adjustments.get('alignment_metrics', {}).get('total_samples', 0)}"
+    )
+
+    _print_calibration_alignment_section(record)
+    _print_calibration_disagreement_section(args, record)
+    _print_calibration_threshold_section(record)
+    _print_calibration_prompt_optimization_section(record)
+    _print_calibration_validation_section(record)
+
+
+def _save_calibration_outputs(
+    args: argparse.Namespace,
+    record,
+    dataset_dir: Optional[Path],
+) -> None:
+    """Save calibration record to dataset artifacts and/or explicit output path."""
+    saved_files = {}
+
+    if dataset_dir and dataset_dir.exists():
+        try:
+            saved_files = save_calibration(record, str(dataset_dir), args.metric_id)
+            print("\n--- SAVED FILES ---")
+            print(f"Calibration: {saved_files.get('calibration', 'N/A')}")
+            if saved_files.get("preamble"):
+                print(f"Preamble:    {saved_files.get('preamble')}")
+            if saved_files.get("full_prompt"):
+                print(f"Full prompt: {saved_files.get('full_prompt')}")
+        except Exception as e:
+            print(f"\nWarning: Could not save to calibrations folder: {e}")
+
+    if args.output:
+        output_path = Path(args.output)
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(record.as_dict(), f, indent=2, default=str)
+        print(f"\nCalibration record also saved to: {output_path}")
+
+
+def _print_calibration_postamble(
+    args: argparse.Namespace,
+    record,
+    dataset_dir: Optional[Path],
+) -> None:
+    """Print final token usage, footer, and next-step hint."""
+    print_token_usage_summary(
+        record.usage_summary, verbose=getattr(args, "verbose", False)
+    )
+
+    print(f"\n{'=' * 60}")
+
+    if dataset_dir:
+        print_hint(
+            f"To re-run evaluation with calibrated prompts, run: evalyn run-eval --dataset {dataset_dir} --use-calibrated",
+            quiet=getattr(args, "quiet", False),
+        )
+
+
 def cmd_calibrate(args: argparse.Namespace) -> None:
     """Calibrate a subjective metric using human annotations.
 
@@ -168,374 +591,28 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     - basic: Single-shot LLM analysis (fast, simple)
     - gepa: Evolutionary algorithm for systematic optimization (slower but thorough)
     """
-    tracer = get_default_tracer()
-    if not tracer.storage:
-        fatal_error("No storage configured")
-
-    run = tracer.storage.get_eval_run(args.run_id) if args.run_id else None
-    if run is None:
-        runs = tracer.storage.list_eval_runs(limit=1)
-        run = runs[0] if runs else None
-    if run is None:
-        fatal_error("No eval runs available")
-
-    metric_results = [r for r in run.metric_results if r.metric_id == args.metric_id]
-    if not metric_results:
-        fatal_error(
-            f"No metric results found for metric_id={args.metric_id} in run {run.id}"
-        )
-
-    # Load annotations
+    _, run = _load_calibration_run(args)
+    metric_results = _get_calibration_metric_results(run, args.metric_id)
     anns = import_annotations(args.annotations)
+    current_rubric, current_preamble = _extract_calibration_metric_prompt_context(
+        run, args.metric_id
+    )
 
-    # Get current rubric and preamble from metric config if available
-    current_rubric: List[str] = []
-    current_preamble: str = ""
-    for metric_spec in run.metrics:
-        if metric_spec.id == args.metric_id:
-            cfg = metric_spec.config or {}
-            # Extract rubric (evaluation criteria)
-            rubric_val = cfg.get("rubric", [])
-            if isinstance(rubric_val, list):
-                current_rubric = [str(r) for r in rubric_val]
-            # Extract preamble (base prompt before rubric)
-            preamble_val = cfg.get("prompt", "")
-            if isinstance(preamble_val, str):
-                current_preamble = preamble_val
-            break
-
-    # Load config and apply defaults
     config = load_config()
     _apply_calibration_config_defaults(args, config)
-
-    # Load dataset items for context (if dataset path provided)
-    dataset_items: Optional[List[DatasetItem]] = None
-    dataset_dir: Optional[Path] = None
-
-    # Resolve dataset path using --dataset, --latest, or config
-    dataset_arg = getattr(args, "dataset", None)
-    use_latest = getattr(args, "latest", False)
-    resolved_dataset = resolve_dataset_path(dataset_arg, use_latest, config)
-
-    if resolved_dataset:
-        resolved = try_resolve_dataset_dir_and_file(
-            dataset_arg, use_latest, config=config
-        )
-        if resolved:
-            dataset_dir, dataset_file = resolved
-            dataset_items = load_dataset(dataset_file)
-
-    # Build GEPA config if using GEPA optimizer
-    gepa_config = None
-    if args.optimizer == "gepa":
-        if not GEPA_AVAILABLE:
-            fatal_error("GEPA is not installed", "Install with: pip install gepa")
-        gepa_config = GEPAConfig(
-            task_lm=args.gepa_task_lm,
-            reflection_lm=args.gepa_reflection_lm,
-            max_metric_calls=args.gepa_max_calls,
-        )
-
-    # Build OPRO config if using OPRO optimizer
-    opro_config = None
-    if args.optimizer == "opro":
-        opro_config = OPROConfig(
-            optimizer_model=args.opro_optimizer_model,
-            scorer_model=args.opro_scorer_model,
-            max_iterations=args.opro_iterations,
-            candidates_per_step=args.opro_candidates,
-        )
-
-    # Build APE config if using APE optimizer
-    ape_config = None
-    if args.optimizer == "ape":
-        ape_config = APEConfig(
-            num_candidates=args.ape_candidates,
-            eval_rounds=args.ape_rounds,
-            eval_samples_per_round=args.ape_samples,
-        )
-
-    # Build GEPA-Native config if using native implementation
-    gepa_native_config = None
-    if args.optimizer == "gepa-native":
-        gepa_native_config = GEPANativeConfig(
-            task_model=args.gepa_native_task_model,
-            reflection_model=args.gepa_native_reflection_model,
-            max_metric_calls=args.gepa_native_max_calls,
-            num_initial_candidates=args.gepa_native_initial_candidates,
-            mini_batch_size=args.gepa_native_batch_size,
-        )
-
-    # Run enhanced calibration
-    engine = CalibrationEngine(
-        judge_name=args.metric_id,
-        current_threshold=args.threshold,
+    dataset_dir, dataset_items = _load_optional_calibration_dataset_context(args, config)
+    optimizer_configs = _build_calibration_optimizer_configs(args)
+    engine = _build_calibration_engine(
+        args,
         current_rubric=current_rubric,
         current_preamble=current_preamble,
-        optimize_prompts=not args.no_optimize,
-        optimizer_model=args.model,
-        optimizer_type=args.optimizer,
-        gepa_config=gepa_config,
-        gepa_native_config=gepa_native_config,
-        opro_config=opro_config,
-        ape_config=ape_config,
+        optimizer_configs=optimizer_configs,
     )
+    record = _run_calibration_with_spinner(args, engine, metric_results, anns, dataset_items)
 
-    # Use spinner for long-running operations (GEPA, OPRO, APE, or GEPA-Native)
-    if args.optimizer == "gepa" and not args.no_optimize:
-        spinner_msg = f"Running GEPA optimization (max {args.gepa_max_calls} calls)"
-        with Spinner(spinner_msg):
-            record = engine.calibrate(metric_results, anns, dataset_items)
-    elif args.optimizer == "gepa-native" and not args.no_optimize:
-        spinner_msg = (
-            f"Running GEPA-Native optimization (max {args.gepa_native_max_calls} calls)"
-        )
-        with Spinner(spinner_msg):
-            record = engine.calibrate(metric_results, anns, dataset_items)
-    elif args.optimizer == "opro" and not args.no_optimize:
-        spinner_msg = (
-            f"Running OPRO optimization (max {args.opro_iterations} iterations)"
-        )
-        with Spinner(spinner_msg):
-            record = engine.calibrate(metric_results, anns, dataset_items)
-    elif args.optimizer == "ape" and not args.no_optimize:
-        spinner_msg = f"Running APE optimization ({args.ape_candidates} candidates, {args.ape_rounds} UCB rounds)"
-        with Spinner(spinner_msg):
-            record = engine.calibrate(metric_results, anns, dataset_items)
-    else:
-        record = engine.calibrate(metric_results, anns, dataset_items)
-
-    # Display results
-    print(f"\n{'=' * 60}")
-    print(f"CALIBRATION REPORT: {args.metric_id}")
-    print(f"{'=' * 60}")
-    print(f"Eval Run: {run.id}")
-    print(
-        f"Samples:  {record.adjustments.get('alignment_metrics', {}).get('total_samples', 0)}"
-    )
-
-    # Alignment metrics
-    alignment = record.adjustments.get("alignment_metrics", {})
-    if alignment:
-        print("\n--- ALIGNMENT METRICS ---")
-        print(f"Accuracy:       {alignment.get('accuracy', 0):.1%}")
-        print(f"Precision:      {alignment.get('precision', 0):.1%}")
-        print(f"Recall:         {alignment.get('recall', 0):.1%}")
-        print(f"F1 Score:       {alignment.get('f1', 0):.1%}")
-        print(f"Specificity:    {alignment.get('specificity', 0):.1%}")
-        print(f"Cohen's Kappa:  {alignment.get('cohens_kappa', 0):.3f}")
-
-        # Confusion matrix
-        cm = alignment.get("confusion_matrix", {})
-        if cm:
-            print("\nConfusion Matrix:")
-            print("                   Human PASS  Human FAIL")
-            print(
-                f"  Judge PASS       {cm.get('true_positive', 0):^10}  {cm.get('false_positive', 0):^10}"
-            )
-            print(
-                f"  Judge FAIL       {cm.get('false_negative', 0):^10}  {cm.get('true_negative', 0):^10}"
-            )
-
-    # Disagreement patterns
-    disagreements = record.adjustments.get("disagreement_patterns", {})
-    if disagreements:
-        fp_count = disagreements.get("false_positive_count", 0)
-        fn_count = disagreements.get("false_negative_count", 0)
-        if fp_count > 0 or fn_count > 0:
-            print("\n--- DISAGREEMENT PATTERNS ---")
-            print(f"False Positives (judge too lenient): {fp_count}")
-            print(f"False Negatives (judge too strict):  {fn_count}")
-
-            if args.show_examples:
-                fp_examples = disagreements.get("false_positive_examples", [])[:3]
-                fn_examples = disagreements.get("false_negative_examples", [])[:3]
-
-                if fp_examples:
-                    print("\nFalse Positive Examples:")
-                    for i, ex in enumerate(fp_examples, 1):
-                        print(f"  {i}. call_id={ex.get('call_id', '')[:8]}...")
-                        print(
-                            f"     Judge reason: {ex.get('judge_reason', '')[:80]}..."
-                        )
-                        if ex.get("human_notes"):
-                            print(
-                                f"     Human notes:  {ex.get('human_notes', '')[:80]}..."
-                            )
-
-                if fn_examples:
-                    print("\nFalse Negative Examples:")
-                    for i, ex in enumerate(fn_examples, 1):
-                        print(f"  {i}. call_id={ex.get('call_id', '')[:8]}...")
-                        print(
-                            f"     Judge reason: {ex.get('judge_reason', '')[:80]}..."
-                        )
-                        if ex.get("human_notes"):
-                            print(
-                                f"     Human notes:  {ex.get('human_notes', '')[:80]}..."
-                            )
-
-    # Threshold suggestion
-    print("\n--- THRESHOLD ---")
-    print(f"Current:   {record.adjustments.get('current_threshold', 0.5):.3f}")
-    print(f"Suggested: {record.adjustments.get('suggested_threshold', 0.5):.3f}")
-
-    # Prompt optimization results
-    optimizer_type = record.adjustments.get("optimizer_type", "basic")
-    optimization = record.adjustments.get("prompt_optimization", {})
-    if optimization:
-        print("\n--- PROMPT OPTIMIZATION ---")
-        print(f"Optimizer:             {optimizer_type.upper()}")
-        print(
-            f"Estimated improvement: {optimization.get('estimated_improvement', 'unknown')}"
-        )
-
-        reasoning = optimization.get("improvement_reasoning", "")
-        if reasoning:
-            # Word-wrap the reasoning
-            words = reasoning.split()
-            lines = []
-            current_line = ""
-            for word in words:
-                if len(current_line) + len(word) + 1 <= 70:
-                    current_line += (" " if current_line else "") + word
-                else:
-                    lines.append(current_line)
-                    current_line = word
-            if current_line:
-                lines.append(current_line)
-            print("\nReasoning:")
-            for line in lines:
-                print(f"  {line}")
-
-        additions = optimization.get("suggested_additions", [])
-        if additions:
-            print("\nSuggested ADDITIONS to rubric:")
-            for a in additions:
-                print(f"  + {a}")
-
-        removals = optimization.get("suggested_removals", [])
-        if removals:
-            print("\nSuggested REMOVALS from rubric:")
-            for r in removals:
-                print(f"  - {r}")
-
-        # Show optimized preamble (for GEPA)
-        optimized_preamble = optimization.get("optimized_preamble", "")
-        if optimized_preamble:
-            print("\nOPTIMIZED PREAMBLE:")
-            # Show first 200 chars
-            preview = (
-                optimized_preamble[:200] + "..."
-                if len(optimized_preamble) > 200
-                else optimized_preamble
-            )
-            for line in preview.split("\n"):
-                print(f"  {line}")
-
-        improved = optimization.get("improved_rubric", [])
-        if improved:
-            print("\nRUBRIC (unchanged):")
-            for i, criterion in enumerate(improved, 1):
-                print(f"  {i}. {criterion}")
-
-    # Validation results
-    validation = record.adjustments.get("validation", {})
-    if validation:
-        print("\n--- VALIDATION RESULTS ---")
-
-        is_better = validation.get("is_better", False)
-        original_f1 = validation.get("original_f1", 0.0)
-        optimized_f1 = validation.get("optimized_f1", 0.0)
-        improvement_delta = validation.get("improvement_delta", 0.0)
-        confidence = validation.get("confidence", "unknown")
-        recommendation = validation.get("recommendation", "uncertain")
-        val_samples = validation.get("validation_samples", 0)
-
-        # Status indicator
-        if is_better and improvement_delta > 0.05:
-            status_icon = "SUCCESS"
-            status_msg = "Optimized prompt is SIGNIFICANTLY BETTER"
-        elif is_better:
-            status_icon = "SUCCESS"
-            status_msg = "Optimized prompt is BETTER"
-        elif improvement_delta < -0.05:
-            status_icon = "DEGRADED"
-            status_msg = "Optimized prompt is SIGNIFICANTLY WORSE"
-        elif improvement_delta < 0:
-            status_icon = "DEGRADED"
-            status_msg = "Optimized prompt is WORSE"
-        else:
-            status_icon = "UNCERTAIN"
-            status_msg = "No significant difference"
-
-        print(f"{status_icon} - {status_msg}")
-        print()
-        print(f"Original F1:     {original_f1:.3f}")
-        print(f"Optimized F1:    {optimized_f1:.3f}")
-
-        if improvement_delta > 0:
-            print(
-                f"Improvement:     +{improvement_delta:.3f} (+{improvement_delta * 100:.1f}%)"
-            )
-        elif improvement_delta < 0:
-            print(
-                f"Degradation:     {improvement_delta:.3f} ({improvement_delta * 100:.1f}%)"
-            )
-        else:
-            print(f"Change:          {improvement_delta:.3f}")
-
-        print(f"Validation size: {val_samples} samples")
-        print(f"Confidence:      {confidence.upper()}")
-        print()
-
-        # Recommendation
-        if recommendation == "use_optimized":
-            print("RECOMMENDATION: USE OPTIMIZED PROMPT")
-            print("   Next: evalyn run-eval --latest --use-calibrated")
-        elif recommendation == "keep_original":
-            print("RECOMMENDATION: KEEP ORIGINAL PROMPT")
-            print("   The optimized prompt did not improve performance.")
-        else:
-            print("RECOMMENDATION: UNCERTAIN")
-            print("   Consider testing both prompts manually.")
-
-    # Save calibration record
-    saved_files = {}
-
-    # Auto-save to dataset's calibrations folder if dataset was resolved
-    if dataset_dir and dataset_dir.exists():
-        try:
-            saved_files = save_calibration(record, str(dataset_dir), args.metric_id)
-            print("\n--- SAVED FILES ---")
-            print(f"Calibration: {saved_files.get('calibration', 'N/A')}")
-            if saved_files.get("preamble"):
-                print(f"Preamble:    {saved_files.get('preamble')}")
-            if saved_files.get("full_prompt"):
-                print(f"Full prompt: {saved_files.get('full_prompt')}")
-        except Exception as e:
-            print(f"\nWarning: Could not save to calibrations folder: {e}")
-
-    # Also save to explicit output path if specified
-    if args.output:
-        output_path = Path(args.output)
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(record.as_dict(), f, indent=2, default=str)
-        print(f"\nCalibration record also saved to: {output_path}")
-
-    # Display token usage summary
-    print_token_usage_summary(
-        record.usage_summary, verbose=getattr(args, "verbose", False)
-    )
-
-    print(f"\n{'=' * 60}")
-
-    # Show hint for next step
-    if dataset_dir:
-        print_hint(
-            f"To re-run evaluation with calibrated prompts, run: evalyn run-eval --dataset {dataset_dir} --use-calibrated",
-            quiet=getattr(args, "quiet", False),
-        )
+    _print_calibration_report(args, run, record)
+    _save_calibration_outputs(args, record, dataset_dir)
+    _print_calibration_postamble(args, record, dataset_dir)
 
 
 def cmd_list_calibrations(args: argparse.Namespace) -> None:

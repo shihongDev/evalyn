@@ -124,22 +124,18 @@ def cmd_export_for_annotation(args: argparse.Namespace) -> None:
     )
 
 
-def cmd_export(args: argparse.Namespace) -> None:
-    """Export evaluation results in various formats."""
+def _load_export_run_data(args: argparse.Namespace) -> dict:
+    """Load exportable eval run data from storage or dataset folder."""
     from ...storage import SQLiteStorage
 
     config = load_config()
     dataset_path = resolve_dataset_path(args.dataset, args.latest, config)
 
-    # Load eval run
-    run = None
-    run_data = None
-
     if args.run:
         storage = SQLiteStorage()
         run = storage.get_eval_run(args.run)
         if run:
-            run_data = {
+            return {
                 "id": run.id,
                 "dataset_name": run.dataset_name,
                 "started_at": run.started_at,
@@ -148,109 +144,93 @@ def cmd_export(args: argparse.Namespace) -> None:
                 "summary": run.summary,
                 "metadata": run.metadata,
             }
-    elif dataset_path:
+
+    if dataset_path:
         runs_dir = dataset_path / "eval_runs"
         if runs_dir.exists():
-            # Look for results.json in timestamped subdirectories
             run_files = sorted(runs_dir.glob("*/results.json"), reverse=True)
             if not run_files:
-                # Fallback to direct json files
                 run_files = sorted(runs_dir.glob("*.json"), reverse=True)
             if run_files:
                 with open(run_files[0], encoding="utf-8") as f:
-                    run_data = json.load(f)
+                    return json.load(f)
 
-    if not run_data:
-        fatal_error("No eval run found", "Specify --run <id> or --dataset <path>")
+    fatal_error("No eval run found", "Specify --run <id> or --dataset <path>")
 
-    output_path = Path(args.output) if args.output else None
-    format_type = args.format
 
-    if format_type == "json":
-        output = json.dumps(run_data, indent=2, default=str)
-        if output_path:
-            output_path.write_text(output)
-            print(f"Exported to: {output_path}")
-        else:
-            print(output)
+def _write_or_print_export(content: str, output_path: Path | None, *, message: str) -> None:
+    """Write export content to file or print to stdout."""
+    if output_path:
+        output_path.write_text(content, encoding="utf-8")
+        print(message.format(path=output_path))
+    else:
+        print(content)
 
-    elif format_type == "csv":
-        rows = []
-        for result in run_data.get("results", []):
-            item_id = result.get("item_id", "")
-            for mr in result.get("metrics", []):
-                rows.append(
-                    {
-                        "item_id": item_id,
-                        "metric_id": mr.get("metric_id", ""),
-                        "score": mr.get("score", ""),
-                        "passed": mr.get("passed", ""),
-                        "reason": mr.get("reason", ""),
-                    }
-                )
 
-        if output_path:
-            with open(output_path, "w", newline="", encoding="utf-8") as f:
-                if rows:
-                    writer = csv.DictWriter(f, fieldnames=rows[0].keys())
-                    writer.writeheader()
-                    writer.writerows(rows)
-            print(f"Exported {len(rows)} rows to: {output_path}")
-        else:
-            output = io.StringIO()
+def _flatten_export_rows(run_data: dict) -> list[dict]:
+    """Flatten run results into CSV rows."""
+    rows = []
+    for result in run_data.get("results", []):
+        item_id = result.get("item_id", "")
+        for mr in result.get("metrics", []):
+            rows.append(
+                {
+                    "item_id": item_id,
+                    "metric_id": mr.get("metric_id", ""),
+                    "score": mr.get("score", ""),
+                    "passed": mr.get("passed", ""),
+                    "reason": mr.get("reason", ""),
+                }
+            )
+    return rows
+
+
+def _export_json(run_data: dict, output_path: Path | None) -> None:
+    """Export JSON report."""
+    output = json.dumps(run_data, indent=2, default=str)
+    _write_or_print_export(output, output_path, message="Exported to: {path}")
+
+
+def _export_csv(run_data: dict, output_path: Path | None) -> None:
+    """Export CSV report."""
+    rows = _flatten_export_rows(run_data)
+
+    if output_path:
+        with open(output_path, "w", newline="", encoding="utf-8") as f:
             if rows:
-                writer = csv.DictWriter(output, fieldnames=rows[0].keys())
+                writer = csv.DictWriter(f, fieldnames=rows[0].keys())
                 writer.writeheader()
                 writer.writerows(rows)
-            print(output.getvalue())
+        print(f"Exported {len(rows)} rows to: {output_path}")
+        return
 
-    elif format_type == "markdown":
-        lines = []
-        lines.append("# Evaluation Report\n")
-        lines.append(f"**Run ID:** {run_data.get('id', 'unknown')}\n")
-        lines.append(f"**Dataset:** {run_data.get('dataset_name', 'unknown')}\n")
-        lines.append(f"**Started:** {run_data.get('started_at', 'unknown')}\n")
-        lines.append("\n## Summary\n")
+    output = io.StringIO()
+    if rows:
+        writer = csv.DictWriter(output, fieldnames=rows[0].keys())
+        writer.writeheader()
+        writer.writerows(rows)
+    print(output.getvalue())
 
-        summary = run_data.get("summary", {})
-        # Handle both old format (summary.items) and new format (summary.metrics.items)
-        metrics_summary = (
-            summary.get("metrics", summary) if isinstance(summary, dict) else {}
-        )
-        if metrics_summary and isinstance(metrics_summary, dict):
-            lines.append("| Metric | Avg Score | Pass Rate |")
-            lines.append("|--------|-----------|-----------|")
-            for metric_id, stats in metrics_summary.items():
-                if not isinstance(stats, dict):
-                    continue
-                avg = stats.get("avg_score", stats.get("avg", "N/A"))
-                pass_rate = stats.get("pass_rate", "N/A")
-                if isinstance(avg, float):
-                    avg = f"{avg:.2f}"
-                if isinstance(pass_rate, float):
-                    pass_rate = f"{pass_rate:.0%}"
-                lines.append(f"| {metric_id} | {avg} | {pass_rate} |")
 
-        lines.append(f"\n## Results ({len(run_data.get('results', []))} items)\n")
+def _metrics_summary_from_run_data(run_data: dict) -> dict:
+    """Normalize summary shape across old/new run formats."""
+    summary = run_data.get("summary", {})
+    return summary.get("metrics", summary) if isinstance(summary, dict) else {}
 
-        output = "\n".join(lines)
-        if output_path:
-            output_path.write_text(output)
-            print(f"Exported to: {output_path}")
-        else:
-            print(output)
 
-    elif format_type == "html":
-        # Generate standalone HTML report
-        summary = run_data.get("summary", {})
-        # Handle both old format and new format
-        metrics_summary = (
-            summary.get("metrics", summary) if isinstance(summary, dict) else {}
-        )
-        results = run_data.get("results", [])
+def _build_markdown_export(run_data: dict) -> str:
+    """Build markdown report."""
+    lines = []
+    lines.append("# Evaluation Report\n")
+    lines.append(f"**Run ID:** {run_data.get('id', 'unknown')}\n")
+    lines.append(f"**Dataset:** {run_data.get('dataset_name', 'unknown')}\n")
+    lines.append(f"**Started:** {run_data.get('started_at', 'unknown')}\n")
+    lines.append("\n## Summary\n")
 
-        # Build metric table
-        metric_rows = ""
+    metrics_summary = _metrics_summary_from_run_data(run_data)
+    if metrics_summary and isinstance(metrics_summary, dict):
+        lines.append("| Metric | Avg Score | Pass Rate |")
+        lines.append("|--------|-----------|-----------|")
         for metric_id, stats in metrics_summary.items():
             if not isinstance(stats, dict):
                 continue
@@ -259,16 +239,33 @@ def cmd_export(args: argparse.Namespace) -> None:
             if isinstance(avg, float):
                 avg = f"{avg:.2f}"
             if isinstance(pass_rate, float):
-                pct = pass_rate * 100
-                color = (
-                    "#4CAF50" if pct >= 80 else "#FF9800" if pct >= 60 else "#f44336"
-                )
-                pass_rate = f'<span style="color:{color}">{pct:.0f}%</span>'
-            metric_rows += (
-                f"<tr><td>{metric_id}</td><td>{avg}</td><td>{pass_rate}</td></tr>\n"
-            )
+                pass_rate = f"{pass_rate:.0%}"
+            lines.append(f"| {metric_id} | {avg} | {pass_rate} |")
 
-        html = f"""<!DOCTYPE html>
+    lines.append(f"\n## Results ({len(run_data.get('results', []))} items)\n")
+    return "\n".join(lines)
+
+
+def _build_html_export(run_data: dict) -> str:
+    """Build standalone HTML report."""
+    metrics_summary = _metrics_summary_from_run_data(run_data)
+    results = run_data.get("results", [])
+
+    metric_rows = ""
+    for metric_id, stats in metrics_summary.items():
+        if not isinstance(stats, dict):
+            continue
+        avg = stats.get("avg_score", stats.get("avg", "N/A"))
+        pass_rate = stats.get("pass_rate", "N/A")
+        if isinstance(avg, float):
+            avg = f"{avg:.2f}"
+        if isinstance(pass_rate, float):
+            pct = pass_rate * 100
+            color = "#4CAF50" if pct >= 80 else "#FF9800" if pct >= 60 else "#f44336"
+            pass_rate = f'<span style="color:{color}">{pct:.0f}%</span>'
+        metric_rows += f"<tr><td>{metric_id}</td><td>{avg}</td><td>{pass_rate}</td></tr>\n"
+
+    return f"""<!DOCTYPE html>
 <html>
 <head>
     <title>Evalyn Report - {run_data.get("id", "unknown")[:12]}</title>
@@ -309,11 +306,42 @@ def cmd_export(args: argparse.Namespace) -> None:
 </body>
 </html>"""
 
-        if output_path:
-            output_path.write_text(html)
-            print(f"Exported to: {output_path}")
-        else:
-            print(html)
+
+def _export_markdown(run_data: dict, output_path: Path | None) -> None:
+    """Export markdown report."""
+    _write_or_print_export(
+        _build_markdown_export(run_data),
+        output_path,
+        message="Exported to: {path}",
+    )
+
+
+def _export_html(run_data: dict, output_path: Path | None) -> None:
+    """Export HTML report."""
+    _write_or_print_export(
+        _build_html_export(run_data),
+        output_path,
+        message="Exported to: {path}",
+    )
+
+
+def cmd_export(args: argparse.Namespace) -> None:
+    """Export evaluation results in various formats."""
+    run_data = _load_export_run_data(args)
+    output_path = Path(args.output) if args.output else None
+    format_type = args.format
+
+    if format_type == "json":
+        _export_json(run_data, output_path)
+
+    elif format_type == "csv":
+        _export_csv(run_data, output_path)
+
+    elif format_type == "markdown":
+        _export_markdown(run_data, output_path)
+
+    elif format_type == "html":
+        _export_html(run_data, output_path)
 
     else:
         fatal_error(f"Unknown format '{format_type}'")

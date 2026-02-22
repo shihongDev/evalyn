@@ -234,6 +234,208 @@ def _display_span_detail(span_type: str, detail: dict) -> None:
             print(f"  Results: {detail.get('results_count')} documents")
 
 
+def _load_existing_span_annotations(
+    output_path: Path, *, restart: bool
+) -> Dict[str, SpanAnnotation]:
+    """Load existing span annotations indexed by span_id."""
+    existing_annotations: Dict[str, SpanAnnotation] = {}
+    if not output_path.exists() or restart:
+        return existing_annotations
+
+    try:
+        for line in output_path.read_text(encoding="utf-8").strip().splitlines():
+            if not line.strip():
+                continue
+            data = json.loads(line)
+            ann = SpanAnnotation.from_dict(data)
+            existing_annotations[ann.span_id] = ann
+    except Exception:
+        pass
+    return existing_annotations
+
+
+def _collect_spans_for_annotation(
+    dataset_items: List[DatasetItem],
+    tracer,
+    *,
+    span_type_filter: Optional[str],
+    existing_annotations: Dict[str, SpanAnnotation],
+) -> List[Dict[str, Any]]:
+    """Collect unannotated spans with call context attached."""
+    all_spans: List[Dict[str, Any]] = []
+    for item in dataset_items:
+        call_id = item.metadata.get("call_id", item.id)
+        call = tracer.storage.get_call(call_id)
+        if not call:
+            continue
+
+        spans = extract_spans_from_trace(call)
+        if span_type_filter:
+            spans = [s for s in spans if s["span_type"] == span_type_filter]
+        spans = [s for s in spans if s["span_id"] not in existing_annotations]
+
+        for span in spans:
+            span["call"] = call
+            all_spans.append(span)
+    return all_spans
+
+
+def _summarize_span_types(spans: List[Dict[str, Any]]) -> Dict[str, int]:
+    """Count spans by span_type for the intro summary."""
+    by_type: Dict[str, int] = {}
+    for span in spans:
+        st = span["span_type"]
+        by_type[st] = by_type.get(st, 0) + 1
+    return by_type
+
+
+def _print_span_annotation_intro(
+    *,
+    data_file: Path,
+    output_path: Path,
+    all_spans: List[Dict[str, Any]],
+    existing_annotations: Dict[str, SpanAnnotation],
+) -> None:
+    """Print span annotation session summary."""
+    by_type = _summarize_span_types(all_spans)
+
+    print("\n" + "=" * 70)
+    print("SPAN ANNOTATION MODE")
+    print("=" * 70)
+    print(f"Dataset: {data_file}")
+    print(f"Spans to annotate: {len(all_spans)}")
+    print(f"Already annotated: {len(existing_annotations)}")
+    print(f"Output: {output_path}")
+    print("\nSpan types:")
+    for st, count in sorted(by_type.items()):
+        print(f"  {st}: {count}")
+    print("\nCommands: [y/n/1-5] answer prompts  [s]kip span  [q]uit")
+    print("=" * 70)
+
+
+def _save_span_annotations(output_path: Path, annotations: List[SpanAnnotation]) -> None:
+    """Persist span annotations to disk."""
+    with open(output_path, "w", encoding="utf-8") as f:
+        for ann in annotations:
+            f.write(json.dumps(ann.as_dict(), ensure_ascii=False) + "\n")
+
+
+def _display_span_annotation_context(span: Dict[str, Any], idx: int, total: int) -> None:
+    """Display span context before prompting."""
+    call = span["call"]
+    span_type = span["span_type"]
+
+    print(f"\n{'---' * 23}")
+    print(f"Span {idx + 1}/{total} [{span_type.upper()}]")
+    print(f"Call: {call.function_name} [{call.id[:12]}...]")
+    print("---" * 23)
+
+    print(f"\n{span['summary']}")
+
+    if span_type == "overall":
+        print(
+            f"\nINPUT: {truncate_text(json.dumps(span.get('input', {}), ensure_ascii=False), 200)}"
+        )
+        print(f"OUTPUT: {truncate_text(str(span.get('output', '')), 300)}")
+    elif span.get("detail"):
+        _display_span_detail(span_type, span["detail"])
+
+    print("---" * 23)
+
+
+def _prompt_span_annotation_values(span_type: str) -> tuple[dict, bool, bool]:
+    """Prompt for annotation values. Returns (values, quit_requested, skip_span)."""
+    prompts = get_annotation_prompts(span_type)
+    annotation_values: dict = {}
+    quit_requested = False
+    skip_span = False
+
+    print(f"\nAnnotate this {span_type}:")
+
+    for prompt_info in prompts:
+        field = prompt_info["field"]
+        question = prompt_info["question"]
+        field_type = prompt_info["type"]
+
+        if field_type == "bool":
+            val = get_bool_input(question)
+            if val is None:
+                try:
+                    check = input("  Skip this span? [y/n/q]: ").strip().lower()
+                    if check in ("q", "quit"):
+                        quit_requested = True
+                        break
+                    if check in ("y", "yes"):
+                        skip_span = True
+                        break
+                except (EOFError, KeyboardInterrupt):
+                    quit_requested = True
+                    break
+                continue
+            annotation_values[field] = val
+        elif field_type == "int":
+            range_info = prompt_info.get("range", (1, 5))
+            val = get_int_input(question, range_info[0], range_info[1])
+            if val is not None:
+                annotation_values[field] = val
+        elif field_type == "str":
+            val = get_str_input(question)
+            if val:
+                annotation_values[field] = val
+
+    return annotation_values, quit_requested, skip_span
+
+
+def _build_span_annotation_record(
+    *,
+    span: Dict[str, Any],
+    args: argparse.Namespace,
+    annotation_values: dict,
+) -> SpanAnnotation:
+    """Build a SpanAnnotation model from collected form values."""
+    call = span["call"]
+    span_type = span["span_type"]
+    span_id = span["span_id"]
+    schema_cls = ANNOTATION_SCHEMAS[span_type]
+    annotation_schema = schema_cls(**annotation_values)
+    return SpanAnnotation(
+        id=f"span-ann-{uuid.uuid4().hex[:8]}",
+        call_id=call.id,
+        span_id=span_id,
+        span_type=span_type,
+        annotation=annotation_schema,
+        annotator=getattr(args, "annotator", None) or "human",
+    )
+
+
+def _handle_single_span_annotation(
+    span: Dict[str, Any],
+    idx: int,
+    total: int,
+    args: argparse.Namespace,
+) -> tuple[str, Optional[SpanAnnotation]]:
+    """Run one interactive span annotation step.
+
+    Returns:
+        ("quit"|"skip"|"saved"|"empty", annotation_or_none)
+    """
+    span_type = span["span_type"]
+    _display_span_annotation_context(span, idx, total)
+    annotation_values, quit_requested, skip_span = _prompt_span_annotation_values(
+        span_type
+    )
+
+    if quit_requested:
+        return "quit", None
+    if skip_span:
+        return "skip", None
+    if not annotation_values:
+        return "empty", None
+    return "saved", _build_span_annotation_record(
+        span=span, args=args, annotation_values=annotation_values
+    )
+
+
 def cmd_annotate_spans(args: argparse.Namespace) -> None:
     """Interactive span-level annotation interface."""
     dataset_dir, data_file = resolve_dataset_dir_and_file(
@@ -261,41 +463,16 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
         Path(args.output) if args.output else dataset_dir / "span_annotations.jsonl"
     )
 
-    # Load existing span annotations
-    existing_annotations: Dict[str, SpanAnnotation] = {}
-    if output_path.exists() and not getattr(args, "restart", False):
-        try:
-            for line in output_path.read_text(encoding="utf-8").strip().splitlines():
-                if line.strip():
-                    data = json.loads(line)
-                    ann = SpanAnnotation.from_dict(data)
-                    existing_annotations[ann.span_id] = ann
-        except Exception:
-            pass
-
-    # Collect all spans to annotate
-    all_spans = []
-    for item in dataset_items:
-        call_id = item.metadata.get("call_id", item.id)
-
-        # Fetch the full call from storage
-        call = tracer.storage.get_call(call_id)
-        if not call:
-            continue
-
-        # Extract spans from the call
-        spans = extract_spans_from_trace(call)
-
-        # Filter by span_type if specified
-        if span_type_filter:
-            spans = [s for s in spans if s["span_type"] == span_type_filter]
-
-        # Skip already annotated spans
-        spans = [s for s in spans if s["span_id"] not in existing_annotations]
-
-        for span in spans:
-            span["call"] = call  # Attach call for context
-            all_spans.append(span)
+    existing_annotations = _load_existing_span_annotations(
+        output_path,
+        restart=getattr(args, "restart", False),
+    )
+    all_spans = _collect_spans_for_annotation(
+        dataset_items,
+        tracer,
+        span_type_filter=span_type_filter,
+        existing_annotations=existing_annotations,
+    )
 
     if not all_spans:
         print(
@@ -305,133 +482,43 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
             print(f"Tip: Filter was set to '{span_type_filter}'. Try --span-type all")
         return
 
-    # Group spans by type for summary
-    by_type = {}
-    for span in all_spans:
-        st = span["span_type"]
-        by_type[st] = by_type.get(st, 0) + 1
-
-    print("\n" + "=" * 70)
-    print("SPAN ANNOTATION MODE")
-    print("=" * 70)
-    print(f"Dataset: {data_file}")
-    print(f"Spans to annotate: {len(all_spans)}")
-    print(f"Already annotated: {len(existing_annotations)}")
-    print(f"Output: {output_path}")
-    print("\nSpan types:")
-    for st, count in sorted(by_type.items()):
-        print(f"  {st}: {count}")
-    print("\nCommands: [y/n/1-5] answer prompts  [s]kip span  [q]uit")
-    print("=" * 70)
+    _print_span_annotation_intro(
+        data_file=data_file,
+        output_path=output_path,
+        all_spans=all_spans,
+        existing_annotations=existing_annotations,
+    )
 
     annotations: List[SpanAnnotation] = list(existing_annotations.values())
-
-    def save_annotations() -> None:
-        with open(output_path, "w", encoding="utf-8") as f:
-            for ann in annotations:
-                f.write(json.dumps(ann.as_dict(), ensure_ascii=False) + "\n")
 
     idx = 0
     total = len(all_spans)
 
     while idx < total:
         span = all_spans[idx]
-        call = span["call"]
-        span_type = span["span_type"]
-        span_id = span["span_id"]
+        result, span_annotation = _handle_single_span_annotation(span, idx, total, args)
 
-        print(f"\n{'---' * 23}")
-        print(f"Span {idx + 1}/{total} [{span_type.upper()}]")
-        print(f"Call: {call.function_name} [{call.id[:12]}...]")
-        print("---" * 23)
-
-        # Show span context
-        print(f"\n{span['summary']}")
-
-        if span_type == "overall":
-            # Show input/output for overall
-            print(
-                f"\nINPUT: {truncate_text(json.dumps(span.get('input', {}), ensure_ascii=False), 200)}"
-            )
-            print(f"OUTPUT: {truncate_text(str(span.get('output', '')), 300)}")
-        elif span.get("detail"):
-            _display_span_detail(span_type, span["detail"])
-
-        print("---" * 23)
-
-        # Get annotation prompts for this span type
-        prompts = get_annotation_prompts(span_type)
-        schema_cls = ANNOTATION_SCHEMAS[span_type]
-        annotation_values = {}
-
-        print(f"\nAnnotate this {span_type}:")
-
-        quit_requested = False
-        skip_span = False
-
-        for prompt_info in prompts:
-            field = prompt_info["field"]
-            question = prompt_info["question"]
-            field_type = prompt_info["type"]
-
-            if field_type == "bool":
-                val = get_bool_input(question)
-                if val is None:
-                    # Check for quit
-                    try:
-                        check = input("  Skip this span? [y/n/q]: ").strip().lower()
-                        if check in ("q", "quit"):
-                            quit_requested = True
-                            break
-                        if check in ("y", "yes"):
-                            skip_span = True
-                            break
-                    except (EOFError, KeyboardInterrupt):
-                        quit_requested = True
-                        break
-                    continue  # Skip this field
-                annotation_values[field] = val
-            elif field_type == "int":
-                range_info = prompt_info.get("range", (1, 5))
-                val = get_int_input(question, range_info[0], range_info[1])
-                if val is not None:
-                    annotation_values[field] = val
-            elif field_type == "str":
-                val = get_str_input(question)
-                if val:
-                    annotation_values[field] = val
-
-        if quit_requested:
-            save_annotations()
+        if result == "quit":
+            _save_span_annotations(output_path, annotations)
             print(f"\nSaved {len(annotations)} span annotations to {output_path}")
             return
 
-        if skip_span:
+        if result == "skip":
             print("Skipped.")
             idx += 1
             continue
 
-        # Create annotation if we have any values
-        if annotation_values:
-            annotation_schema = schema_cls(**annotation_values)
-            span_ann = SpanAnnotation(
-                id=f"span-ann-{uuid.uuid4().hex[:8]}",
-                call_id=call.id,
-                span_id=span_id,
-                span_type=span_type,
-                annotation=annotation_schema,
-                annotator=getattr(args, "annotator", None) or "human",
-            )
-            annotations.append(span_ann)
-            save_annotations()
-            print(f"Saved annotation for {span_type}")
+        if result == "saved" and span_annotation is not None:
+            annotations.append(span_annotation)
+            _save_span_annotations(output_path, annotations)
+            print(f"Saved annotation for {span['span_type']}")
         else:
             print("No annotation recorded (all fields skipped).")
 
         idx += 1
 
     # Final save
-    save_annotations()
+    _save_span_annotations(output_path, annotations)
     print("\n" + "=" * 70)
     print("SPAN ANNOTATION COMPLETE")
     print(f"Total annotated: {len(annotations)}")
