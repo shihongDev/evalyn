@@ -21,6 +21,7 @@ from evalyn_sdk.analysis.insights import (
     FeatureInsight,
     DistributionInsight,
     Recommendation,
+    InsightsReport,
 )
 
 
@@ -433,7 +434,8 @@ class TestRecommendations:
             delta=-0.2,
             severity="critical",
         )]
-        recs = generate_recommendations(run, [], regressions, [], [])
+        report = InsightsReport(regressions=regressions)
+        recs = generate_recommendations(run, report)
         assert len(recs) >= 1
         assert recs[0].category == "regression"
         assert recs[0].priority == 1
@@ -444,13 +446,15 @@ class TestRecommendations:
         corrs = [CorrelationResult(
             metric_a="a", metric_b="b", pearson=0.95, relationship="redundant",
         )]
-        recs = generate_recommendations(run, corrs, [], [], [])
+        report = InsightsReport(correlations=corrs)
+        recs = generate_recommendations(run, report)
         assert any("removing" in r.message.lower() for r in recs)
 
     def test_empty_inputs_produce_no_crash(self):
         """Empty inputs should produce empty or minimal recommendations."""
         run = _make_run_with_pass_rates({"a": 0.95})
-        recs = generate_recommendations(run, [], [], [], [])
+        report = InsightsReport()
+        recs = generate_recommendations(run, report)
         # Should not crash; may produce 0 or few recs
         assert isinstance(recs, list)
 
@@ -464,6 +468,7 @@ class TestRecommendations:
         corrs = [CorrelationResult(
             metric_a="a", metric_b="b", pearson=0.95, relationship="redundant",
         )]
-        recs = generate_recommendations(run, corrs, regressions, [], [])
+        report = InsightsReport(correlations=corrs, regressions=regressions)
+        recs = generate_recommendations(run, report)
         for i in range(len(recs) - 1):
             assert recs[i].priority <= recs[i + 1].priority

@@ -429,10 +429,7 @@ def analyze_score_distributions(
 
 def generate_recommendations(
     run_analysis: RunAnalysis,
-    correlations: List[CorrelationResult],
-    regressions: List[RegressionAlert],
-    feature_insights: List[FeatureInsight],
-    distribution_insights: List[DistributionInsight],
+    report: InsightsReport,
     dataset_path: Optional[str] = None,
 ) -> List[Recommendation]:
     """Generate prioritized recommendations from all insight sources.
@@ -443,6 +440,11 @@ def generate_recommendations(
     recs: List[Recommendation] = []
     priority = 1
     dataset_flag = f"--dataset {dataset_path}" if dataset_path else "--latest"
+
+    correlations = report.correlations
+    regressions = report.regressions
+    feature_insights = report.feature_insights
+    distribution_insights = report.distribution_insights
 
     # 1. Critical regressions
     for reg in regressions:

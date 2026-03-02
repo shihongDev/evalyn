@@ -611,22 +611,7 @@ def _print_analysis_table_output(
             analyze_score_distributions,
         )
 
-        run_analysis = _analyze_run({
-            "id": run.id,
-            "dataset_name": run.dataset_name,
-            "created_at": run.created_at.isoformat() if run.created_at else "",
-            "metrics": [{"id": m, "type": s.get("scores", []) and "objective"} for m, s in sorted_metrics],
-            "metric_results": [
-                {
-                    "metric_id": mr.metric_id,
-                    "item_id": mr.item_id,
-                    "score": mr.score,
-                    "passed": mr.passed,
-                    "details": {},
-                }
-                for mr in run.metric_results
-            ],
-        })
+        run_analysis = _analyze_run(run.as_dict())
 
         findings = []
         for c in compute_metric_correlations(run_analysis):
@@ -640,10 +625,10 @@ def _print_analysis_table_output(
             print(f"\n{'=' * 70}")
             print("  KEY FINDINGS")
             print(f"{'=' * 70}\n")
-            for f in findings[:5]:
-                print(f"  - {f}")
+            for finding in findings[:5]:
+                print(f"  - {finding}")
             print(f"\n  Run 'evalyn insights' for full diagnostic report.")
-    except Exception:
+    except (ImportError, KeyError, ValueError, TypeError):
         pass
 
     print()
@@ -955,25 +940,15 @@ def cmd_compare(args: argparse.Namespace) -> None:
             from ...analysis.core import analyze_run as _analyze_run
             from ...analysis.insights import detect_regressions as _detect_regressions
 
-            def _build_run_data(run, stats_dict):
-                return {
-                    "id": run.id, "dataset_name": run.dataset_name,
-                    "created_at": run.created_at.isoformat() if hasattr(run.created_at, "isoformat") else str(run.created_at),
-                    "metrics": [], "metric_results": [
-                        {"metric_id": mr.metric_id, "item_id": mr.item_id or "unknown",
-                         "score": mr.score, "passed": mr.passed, "details": {}}
-                        for mr in run.metric_results
-                    ],
-                }
-            a1 = _analyze_run(_build_run_data(run1, stats1))
-            a2 = _analyze_run(_build_run_data(run2, stats2))
+            a1 = _analyze_run(run1.as_dict())
+            a2 = _analyze_run(run2.as_dict())
             alerts = _detect_regressions(a2, a1)
             critical = [a for a in alerts if a.severity == "critical"]
             if critical:
                 print(f"\n  REGRESSION ALERTS:")
                 for alert in critical:
                     print(f"    [CRITICAL] {alert.metric_id}: {abs(alert.delta) * 100:.0f}% drop")
-        except Exception:
+        except (ImportError, KeyError, ValueError, TypeError):
             pass
 
     print()

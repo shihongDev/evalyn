@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 from ..utils.config import load_config, resolve_dataset_path
@@ -93,8 +94,8 @@ def _print_insights_table(report, run, previous_run_id=None):
 
     if report.feature_insights:
         print("\n  Input Feature Analysis:")
-        for f in report.feature_insights:
-            print(f"    {f.finding}")
+        for feat in report.feature_insights:
+            print(f"    {feat.finding}")
 
     # Regression alerts
     if report.regressions:
@@ -182,7 +183,6 @@ def cmd_insights(args: argparse.Namespace) -> None:
 
     # Regressions (need previous run)
     regressions = []
-    previous_run = None
     previous_run_id = None
     if dataset_path and run_file_path:
         previous_run_obj = _load_previous_run(dataset_path, run_file_path)
@@ -202,22 +202,19 @@ def cmd_insights(args: argparse.Namespace) -> None:
     # Score distributions
     distribution_insights = analyze_score_distributions(analysis)
 
-    # Recommendations
-    recommendations = generate_recommendations(
-        analysis,
-        correlations,
-        regressions,
-        feature_insights,
-        distribution_insights,
-        dataset_path=str(dataset_path) if dataset_path else None,
-    )
-
+    # Build report (without recommendations first, then generate them)
     report = InsightsReport(
         correlations=correlations,
         regressions=regressions,
         feature_insights=feature_insights,
         distribution_insights=distribution_insights,
-        recommendations=recommendations,
+    )
+
+    # Recommendations
+    report.recommendations = generate_recommendations(
+        analysis,
+        report,
+        dataset_path=str(dataset_path) if dataset_path else None,
     )
 
     if output_format == "json":
@@ -225,52 +222,11 @@ def cmd_insights(args: argparse.Namespace) -> None:
             "run_id": run.id,
             "dataset_name": run.dataset_name,
             "previous_run_id": previous_run_id,
-            "correlations": [
-                {
-                    "metric_a": c.metric_a,
-                    "metric_b": c.metric_b,
-                    "pearson": c.pearson,
-                    "relationship": c.relationship,
-                }
-                for c in report.correlations
-            ],
-            "regressions": [
-                {
-                    "metric_id": r.metric_id,
-                    "previous_pass_rate": r.previous_pass_rate,
-                    "current_pass_rate": r.current_pass_rate,
-                    "delta": r.delta,
-                    "severity": r.severity,
-                }
-                for r in report.regressions
-            ],
-            "feature_insights": [
-                {
-                    "feature_name": f.feature_name,
-                    "finding": f.finding,
-                    "affected_items": f.affected_items,
-                    "pass_rate_low": f.pass_rate_low,
-                    "pass_rate_high": f.pass_rate_high,
-                }
-                for f in report.feature_insights
-            ],
-            "distribution_insights": [
-                {
-                    "metric_id": d.metric_id,
-                    "shape": d.shape,
-                    "finding": d.finding,
-                }
-                for d in report.distribution_insights
-            ],
-            "recommendations": [
-                {
-                    "priority": rec.priority,
-                    "category": rec.category,
-                    "message": rec.message,
-                    "action": rec.action,
-                }
-                for rec in report.recommendations
-            ],
+            "correlations": [asdict(c) for c in report.correlations],
+            "regressions": [asdict(r) for r in report.regressions],
+            "feature_insights": [asdict(f) for f in report.feature_insights],
+            "distribution_insights": [asdict(d) for d in report.distribution_insights],
+            "recommendations": [asdict(r) for r in report.recommendations],
         }
         print(json.dumps(result, indent=2, default=str))
         return
