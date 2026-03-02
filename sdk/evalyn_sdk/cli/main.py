@@ -27,6 +27,7 @@ ANALYSIS:
   analyze          Analyze results and generate insights
   compare          Compare two evaluation runs
   trend            Show evaluation trends over time
+  insights         Comprehensive diagnostic and prescriptive analysis
 
 HUMAN FEEDBACK:
   annotate         Interactive annotation interface
@@ -67,6 +68,7 @@ from .commands import (
     evaluation,
     export,
     infrastructure,
+    insights,
     runs,
     simulate,
     traces,
@@ -120,6 +122,7 @@ EVALUATION
   analyze          Analyze results and generate insights
   compare          Compare two evaluation runs
   trend            Show evaluation trends over time
+  insights         Comprehensive diagnostic and prescriptive analysis
 
 ANNOTATION & CALIBRATION
   annotate         Interactive annotation interface
@@ -191,6 +194,7 @@ For more info on a command: evalyn <command> --help
     calibration.register_commands(subparsers)
     clustering.register_commands(subparsers)
     evaluation.register_commands(subparsers)
+    insights.register_commands(subparsers)
     infrastructure.register_commands(subparsers)
 
     # Parse and execute

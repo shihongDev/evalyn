@@ -52,6 +52,20 @@ from .html_report import (
     generate_report,
 )
 
+from .insights import (
+    CorrelationResult,
+    RegressionAlert,
+    FeatureInsight,
+    DistributionInsight,
+    Recommendation,
+    InsightsReport,
+    compute_metric_correlations,
+    detect_regressions,
+    analyze_input_features,
+    analyze_score_distributions,
+    generate_recommendations,
+)
+
 from .clustering import (
     ReasonCluster,
     ClusteringResult,
@@ -100,4 +114,16 @@ __all__ = [
     "FailureClusteringResult",
     "generate_failure_cluster_html",
     "generate_failure_cluster_text",
+    # Insights
+    "CorrelationResult",
+    "RegressionAlert",
+    "FeatureInsight",
+    "DistributionInsight",
+    "Recommendation",
+    "InsightsReport",
+    "compute_metric_correlations",
+    "detect_regressions",
+    "analyze_input_features",
+    "analyze_score_distributions",
+    "generate_recommendations",
 ]
