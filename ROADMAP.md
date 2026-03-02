@@ -107,7 +107,7 @@ This document tracks planned features and completed work. Future roadmap items a
 
 - [ ] **Web Dashboard** - Browser-based UI for viewing traces, datasets, and results
 - [ ] **CI/CD Integration** - GitHub Actions workflow for automated evaluation on PR
-- [ ] **Regression Detection** - Automatic alerts when metrics drop below threshold
+- [x] **Regression Detection** - Automatic alerts when metrics drop below threshold
 - [ ] **Multi-model Comparison** - Compare same prompts across different LLM providers
 - [ ] **Cost Tracking Dashboard** - Visualize LLM API costs over time
 - [ ] **API Server Mode** - REST API for programmatic access
@@ -129,9 +129,9 @@ This document tracks planned features and completed work. Future roadmap items a
 
 - [ ] **Custom Report Templates** - User-defined HTML report layouts
 - [ ] **Slack/Discord Notifications** - Alert on evaluation completion or failures
-- [ ] **Metric Correlation Analysis** - Understand relationships between metrics
+- [x] **Metric Correlation Analysis** - Understand relationships between metrics
 - [ ] **Failure Root Cause Analysis** - Automated diagnosis of failures
-- [ ] **Trend Anomaly Detection** - Alert on unusual metric patterns
+- [x] **Trend Anomaly Detection** - Alert on unusual metric patterns
 
 ---
 
