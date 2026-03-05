@@ -14,7 +14,6 @@ from .loaders import (
     _suggest_similar,
 )
 from .llm_callers import (
-    _parse_json_array,
     _ollama_caller,
     _openai_caller,
     _with_spinner,
@@ -60,7 +59,6 @@ __all__ = [
     "_get_module_callables",
     "_suggest_similar",
     # LLM callers
-    "_parse_json_array",
     "_ollama_caller",
     "_openai_caller",
     "_with_spinner",

@@ -34,6 +34,7 @@ from ..utils.config import load_config, resolve_dataset_path
 from ..utils.dataset_resolver import get_dataset
 from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
+from ...analysis.core import find_eval_runs
 
 
 def cmd_status(args: argparse.Namespace) -> None:
@@ -332,16 +333,12 @@ def _load_analysis_run(
     if not dataset_path:
         fatal_error("Specify --run <run_id> or --dataset <path>")
 
-    runs_dir = dataset_path / "eval_runs"
-    if runs_dir.exists():
-        run_files = sorted(runs_dir.glob("*/results.json"), reverse=True)
-        if not run_files:
-            run_files = sorted(runs_dir.glob("*.json"), reverse=True)
-        if run_files:
-            with open(run_files[0], encoding="utf-8") as f:
-                run = EvalRun.from_dict(json.load(f))
-            if output_format != "json":
-                print(f"Analyzing latest run: {run_files[0].name}")
+    run_files = find_eval_runs(dataset_path)
+    if run_files:
+        with open(run_files[0], encoding="utf-8") as f:
+            run = EvalRun.from_dict(json.load(f))
+        if output_format != "json":
+            print(f"Analyzing latest run: {run_files[0].name}")
 
     if not run:
         fatal_error("No eval runs found", "Run 'evalyn run-eval' first")
@@ -610,26 +607,30 @@ def _print_analysis_table_output(
             compute_metric_correlations,
             analyze_score_distributions,
         )
+    except ImportError:
+        _analyze_run = None
 
-        run_analysis = _analyze_run(run.as_dict())
+    if _analyze_run is not None:
+        try:
+            run_analysis = _analyze_run(run.as_dict())
 
-        findings = []
-        for c in compute_metric_correlations(run_analysis):
-            findings.append(
-                f"{c.metric_a} <-> {c.metric_b}: {c.relationship} (r={c.pearson})"
-            )
-        for d in analyze_score_distributions(run_analysis):
-            findings.append(f"{d.metric_id}: {d.shape} - {d.finding}")
+            findings = []
+            for c in compute_metric_correlations(run_analysis):
+                findings.append(
+                    f"{c.metric_a} <-> {c.metric_b}: {c.relationship} (r={c.pearson})"
+                )
+            for d in analyze_score_distributions(run_analysis):
+                findings.append(f"{d.metric_id}: {d.shape} - {d.finding}")
 
-        if findings:
-            print(f"\n{'=' * 70}")
-            print("  KEY FINDINGS")
-            print(f"{'=' * 70}\n")
-            for finding in findings[:5]:
-                print(f"  - {finding}")
-            print(f"\n  Run 'evalyn insights' for full diagnostic report.")
-    except (ImportError, KeyError, ValueError, TypeError):
-        pass
+            if findings:
+                print(f"\n{'=' * 70}")
+                print("  KEY FINDINGS")
+                print(f"{'=' * 70}\n")
+                for finding in findings[:5]:
+                    print(f"  - {finding}")
+                print(f"\n  Run 'evalyn insights' for full diagnostic report.")
+        except (KeyError, ValueError, TypeError):
+            pass
 
     print()
 
@@ -789,14 +790,7 @@ def cmd_compare(args: argparse.Namespace) -> None:
         if not dataset_path:
             fatal_error("No dataset found", "Use --dataset <path>")
 
-        runs_dir = dataset_path / "eval_runs"
-        if not runs_dir.exists():
-            fatal_error(f"No eval_runs directory in {dataset_path}")
-
-        # Find the two most recent runs
-        run_files = sorted(runs_dir.glob("*/results.json"), reverse=True)
-        if not run_files:
-            run_files = sorted(runs_dir.glob("*.json"), reverse=True)
+        run_files = find_eval_runs(dataset_path)
 
         if len(run_files) < 2:
             fatal_error(f"Need at least 2 runs to compare. Found: {len(run_files)}")
@@ -939,17 +933,21 @@ def cmd_compare(args: argparse.Namespace) -> None:
         try:
             from ...analysis.core import analyze_run as _analyze_run
             from ...analysis.insights import detect_regressions as _detect_regressions
+        except ImportError:
+            _analyze_run = None
 
-            a1 = _analyze_run(run1.as_dict())
-            a2 = _analyze_run(run2.as_dict())
-            alerts = _detect_regressions(a2, a1)
-            critical = [a for a in alerts if a.severity == "critical"]
-            if critical:
-                print(f"\n  REGRESSION ALERTS:")
-                for alert in critical:
-                    print(f"    [CRITICAL] {alert.metric_id}: {abs(alert.delta) * 100:.0f}% drop")
-        except (ImportError, KeyError, ValueError, TypeError):
-            pass
+        if _analyze_run is not None:
+            try:
+                a1 = _analyze_run(run1.as_dict())
+                a2 = _analyze_run(run2.as_dict())
+                alerts = _detect_regressions(a2, a1)
+                critical = [a for a in alerts if a.severity == "critical"]
+                if critical:
+                    print(f"\n  REGRESSION ALERTS:")
+                    for alert in critical:
+                        print(f"    [CRITICAL] {alert.metric_id}: {abs(alert.delta) * 100:.0f}% drop")
+            except (KeyError, ValueError, TypeError):
+                pass
 
     print()
 

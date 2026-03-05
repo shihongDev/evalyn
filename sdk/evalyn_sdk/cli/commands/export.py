@@ -31,6 +31,7 @@ from pathlib import Path
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
+from ...analysis.core import find_eval_runs
 
 
 def cmd_export_for_annotation(args: argparse.Namespace) -> None:
@@ -146,14 +147,10 @@ def _load_export_run_data(args: argparse.Namespace) -> dict:
             }
 
     if dataset_path:
-        runs_dir = dataset_path / "eval_runs"
-        if runs_dir.exists():
-            run_files = sorted(runs_dir.glob("*/results.json"), reverse=True)
-            if not run_files:
-                run_files = sorted(runs_dir.glob("*.json"), reverse=True)
-            if run_files:
-                with open(run_files[0], encoding="utf-8") as f:
-                    return json.load(f)
+        run_files = find_eval_runs(dataset_path)
+        if run_files:
+            with open(run_files[0], encoding="utf-8") as f:
+                return json.load(f)
 
     fatal_error("No eval run found", "Specify --run <id> or --dataset <path>")
 

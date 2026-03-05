@@ -12,27 +12,12 @@ from typing import Callable, List, Optional
 from .config import get_config_default, load_config
 from .ui import Spinner
 from .loaders import _load_callable
+from ...parsing import extract_json_list
 
 
 def _parse_json_array(text: str) -> List[dict]:
     """Parse JSON array from text, handling malformed responses."""
-    if not text:
-        return []
-    try:
-        parsed = json.loads(text)
-        return parsed if isinstance(parsed, list) else []
-    except Exception:
-        pass
-    start = text.find("[")
-    end = text.rfind("]")
-    if start != -1 and end != -1 and end > start:
-        snippet = text[start : end + 1]
-        try:
-            parsed = json.loads(snippet)
-            return parsed if isinstance(parsed, list) else []
-        except Exception:
-            return []
-    return []
+    return extract_json_list(text)
 
 
 def _ollama_caller(model: str) -> Callable[[str], List[dict]]:

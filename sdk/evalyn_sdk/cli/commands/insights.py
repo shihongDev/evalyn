@@ -24,7 +24,9 @@ from pathlib import Path
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.dataset_resolver import get_dataset
 from ..utils.errors import fatal_error
+from ..utils.formatters import output_json
 from ..utils.hints import print_hint
+from ...analysis.core import find_eval_runs
 
 
 def _load_dataset_items(dataset_path: Path) -> list[dict]:
@@ -41,19 +43,13 @@ def _load_dataset_items(dataset_path: Path) -> list[dict]:
     return items
 
 
-def _load_previous_run(dataset_path: Path, current_run_path: Path):
+def _load_previous_run(dataset_path: Path, current_run_path: Path) -> "EvalRun | None":
     """Load the second-most-recent run for regression detection."""
     from ...models import EvalRun
 
-    runs_dir = dataset_path / "eval_runs"
-    if not runs_dir.exists():
-        return None
+    run_files = find_eval_runs(dataset_path)
 
-    run_files = sorted(runs_dir.glob("*/results.json"), reverse=True)
-    if not run_files:
-        run_files = sorted(runs_dir.glob("*.json"), reverse=True)
-
-    # Find the run after the current one
+    # Find the first run that is not the current one
     for rf in run_files:
         if rf.resolve() != current_run_path.resolve():
             with open(rf, encoding="utf-8") as f:
@@ -159,17 +155,13 @@ def cmd_insights(args: argparse.Namespace) -> None:
         if not run:
             fatal_error(f"No eval run found with ID '{run_id}'")
     elif dataset_path:
-        runs_dir = dataset_path / "eval_runs"
-        if runs_dir.exists():
-            run_files = sorted(runs_dir.glob("*/results.json"), reverse=True)
-            if not run_files:
-                run_files = sorted(runs_dir.glob("*.json"), reverse=True)
-            if run_files:
-                run_file_path = run_files[0]
-                with open(run_file_path, encoding="utf-8") as f:
-                    run = EvalRun.from_dict(json.load(f))
-                if output_format != "json":
-                    print(f"Analyzing latest run: {run_file_path.parent.name}")
+        run_files = find_eval_runs(dataset_path)
+        if run_files:
+            run_file_path = run_files[0]
+            with open(run_file_path, encoding="utf-8") as f:
+                run = EvalRun.from_dict(json.load(f))
+            if output_format != "json":
+                print(f"Analyzing latest run: {run_file_path.parent.name}")
 
     if not run:
         fatal_error("No eval runs found", "Run 'evalyn run-eval' first")
@@ -228,7 +220,7 @@ def cmd_insights(args: argparse.Namespace) -> None:
             "distribution_insights": [asdict(d) for d in report.distribution_insights],
             "recommendations": [asdict(r) for r in report.recommendations],
         }
-        print(json.dumps(result, indent=2, default=str))
+        output_json(result)
         return
 
     _print_insights_table(report, run, previous_run_id)

@@ -7,6 +7,7 @@ actionable intelligence about evaluation results.
 
 from __future__ import annotations
 
+import json
 import math
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -242,7 +243,6 @@ def _extract_text_length(item: Dict[str, Any], key: str) -> Optional[int]:
     if isinstance(val, str):
         return len(val)
     if isinstance(val, dict):
-        import json
         return len(json.dumps(val))
     return len(str(val))
 
@@ -340,7 +340,7 @@ def _bucket_scores(scores: List[float]) -> List[float]:
         return [0.0] * 5
     buckets = [0] * 5
     for s in scores:
-        idx = min(int(s * 5), 4)
+        idx = max(0, min(int(s * 5), 4))
         buckets[idx] += 1
     return [b / n for b in buckets]
 

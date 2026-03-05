@@ -4,42 +4,10 @@ import inspect
 import json
 from typing import Any, Callable, Iterable, List, Optional
 
-import re
-
 from ..models import FunctionCall, MetricRegistry, MetricSpec
+from ..parsing import extract_json_list
 
 Suggestion = MetricSpec
-
-
-def _extract_json_list(text: str) -> list:
-    """Extract JSON list from LLM response that may contain markdown."""
-    # Try direct parse first
-    try:
-        result = json.loads(text)
-        if isinstance(result, list):
-            return result
-        return []
-    except Exception:
-        pass
-
-    # Try to extract from markdown code block
-    patterns = [
-        r"```json\s*(.*?)\s*```",  # ```json ... ```
-        r"```\s*(.*?)\s*```",  # ``` ... ```
-        r"\[.*\]",  # bare JSON array
-    ]
-    for pattern in patterns:
-        match = re.search(pattern, text, re.DOTALL)
-        if match:
-            try:
-                candidate = match.group(1) if "```" in pattern else match.group(0)
-                result = json.loads(candidate)
-                if isinstance(result, list):
-                    return result
-            except Exception:
-                continue
-
-    return []
 
 
 class MetricSuggester:
@@ -166,23 +134,7 @@ class LLMSuggester(MetricSuggester):
 
     @staticmethod
     def _parse_json_array(text: str) -> List[dict]:
-        if not text:
-            return []
-        try:
-            parsed = json.loads(text)
-            return parsed if isinstance(parsed, list) else []
-        except Exception:
-            pass
-        start = text.find("[")
-        end = text.rfind("]")
-        if start != -1 and end != -1 and end > start:
-            snippet = text[start : end + 1]
-            try:
-                parsed = json.loads(snippet)
-                return parsed if isinstance(parsed, list) else []
-            except Exception:
-                return []
-        return []
+        return extract_json_list(text)
 
     def suggest(
         self,
@@ -355,7 +307,7 @@ class TemplateSelector:
         raw = self.caller(prompt)
         # raw may be JSON string or already parsed
         if isinstance(raw, str):
-            parsed = _extract_json_list(raw)
+            parsed = extract_json_list(raw)
         else:
             parsed = raw
         specs: List[MetricSpec] = []
