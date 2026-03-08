@@ -336,6 +336,25 @@ evalyn run-eval --dataset <dataset-path>/simulations/sim-similar-...
 |-------|-------------|
 | [technical-manual.md](docs/technical-manual.md) | Architecture & internals |
 
+### Claude Code Skills
+
+Evalyn includes Claude Code skills for guided evaluation workflows. Each skill walks you through a stage of the pipeline with exact commands and data-driven recommendations.
+
+| Skill | Description |
+|-------|-------------|
+| `evalyn-setup` | Instrument your agent with the `@eval` decorator, verify traces |
+| `evalyn-eval` | Build dataset, auto-recommend metrics from traces, run evaluation |
+| `evalyn-analyze` | Analyze results, investigate failures, interpret pass rates |
+| `evalyn-calibrate` | Annotate results, calibrate LLM judges, re-evaluate |
+
+To install for personal use across projects:
+
+```bash
+cp -r sdk/skills/evalyn-* ~/.claude/skills/
+```
+
+Then in Claude Code, say "help me evaluate my agent" or invoke a skill directly.
+
 ## Example
 
 See [`example_agents/`](example_agents/) for SDK integrations:
