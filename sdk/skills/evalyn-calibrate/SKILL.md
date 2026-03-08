@@ -5,10 +5,6 @@ description: Use when LLM judges need calibration, evaluation metrics seem misal
 
 # evalyn-calibrate
 
-## Overview
-
-Guide annotation of evaluation results and calibrate LLM judges to align with human expectations. This is the feedback loop that makes evaluation reliable.
-
 ## Pre-flight
 
 1. Verify evaluation runs exist:
@@ -32,7 +28,7 @@ Look for subjective metrics (type `[llm]`) with pass rates below 90%. Only subje
 Run interactive annotation with per-metric mode for targeted feedback:
 
 ```bash
-evalyn annotate --run <latest-run-id> --per-metric
+evalyn annotate --run-id <latest-run-id> --per-metric
 ```
 
 This is an interactive terminal session. The user will:
@@ -40,21 +36,17 @@ This is an interactive terminal session. The user will:
 - Agree or disagree with each metric's judgment
 - Commands: `[y]es/pass`, `[n]o/fail`, `[s]kip`, `[v]iew full`, `[q]uit`
 
-Guidelines for the user:
-- Annotate at least 20-30 items for reliable calibration
-- Focus on items where you disagree with the judge
-- Be consistent - the calibrator learns from your patterns
-- Each annotation saves immediately, so you can quit and resume later
+Aim for 20-30+ annotations. Focus on disagreements. Annotations save immediately - quit and resume anytime.
 
 ## Step 2: Run Calibration
 
 Start with the basic optimizer (fast, single-shot analysis):
 
 ```bash
-evalyn calibrate --metric-id <target-metric>
+evalyn calibrate --metric-id <target-metric> --annotations <annotations-dir>
 ```
 
-The `calibrate` command auto-discovers annotations from the dataset directory.
+The `--annotations` flag points to the directory containing annotation files (created by `evalyn annotate`).
 
 The output shows alignment metrics:
 - **Accuracy**: overall agreement rate
@@ -68,14 +60,15 @@ The output shows alignment metrics:
 | `basic` | `--optimizer basic` | Fast (1 API call) | First pass, small annotation sets |
 | `ape` | `--optimizer ape` | Medium | Exploring many prompt variants |
 | `opro` | `--optimizer opro` | Medium | Iterative refinement |
-| `gepa` | `--optimizer gepa` | Slow | Maximum quality, large annotation sets |
+| `gepa-native` | `--optimizer gepa-native` | Slow | Best quality, built-in token tracking |
+| `gepa` | `--optimizer gepa` | Slow | Evolutionary (requires `pip install gepa`) |
 
-Optimizer-specific settings (iterations, candidates, etc.) are configured in `evalyn.yaml`, not via CLI flags.
+Optimizer-specific settings are available as CLI flags (e.g., `--opro-iterations`, `--ape-candidates`, `--gepa-generations`, `--gepa-population-size`).
 
 If basic doesn't improve alignment enough:
 
 ```bash
-evalyn calibrate --metric-id <target-metric> --optimizer gepa
+evalyn calibrate --metric-id <target-metric> --annotations <annotations-dir> --optimizer gepa
 ```
 
 ## Step 3: Re-evaluate with Calibrated Judges
@@ -108,7 +101,7 @@ If alignment is still poor:
 - Try a different optimizer (`gepa` for maximum quality)
 - Add more annotations (more data = better calibration)
 - Review the metric's rubric in the metrics JSON file - it may need manual editing
-- Run `evalyn cluster-misalignments --run <run-id>` to see patterns in disagreements
+- Run `evalyn cluster-misalignments --run-id <run-id>` to see patterns in disagreements
 
 ## No Automatic Next Step
 

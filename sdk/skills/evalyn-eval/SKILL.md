@@ -47,18 +47,18 @@ evalyn show-trace --last -v
 
 Analyze the trace structure and recommend a bundle. Evalyn has 17 curated metric bundles:
 
-| Trace Pattern | Recommended Bundle | Why |
-|--------------|-------------------|-----|
-| Multiple tool calls, planning steps | `orchestrator` | Agent orchestrates tools |
-| Tool calls + multi-turn context | `multi-step-agent` | Complex agent workflow |
-| URLs or citations in output | `research-agent` | Research/retrieval agent |
-| RAG retrieval spans, source docs | `rag-qa` | Retrieval-augmented QA |
-| Conversational, multi-turn | `chatbot` | Dialog agent |
-| Code blocks in output | `code-assistant` | Code generation agent |
-| Short summary outputs | `summarization` | Summarization agent |
-| Educational/tutorial content | `tutor` | Teaching agent |
-| Content generation, blog posts | `content-writer` | Content creation |
-| Customer-facing Q&A | `customer-support` | Support agent |
+| Trace Pattern | Recommended Bundle |
+|--------------|-------------------|
+| Multiple tool calls, planning steps | `orchestrator` |
+| Tool calls + multi-turn context | `multi-step-agent` |
+| URLs or citations in output | `research-agent` |
+| RAG retrieval spans, source docs | `rag-qa` |
+| Conversational, multi-turn | `chatbot` |
+| Code blocks in output | `code-assistant` |
+| Short summary outputs | `summarization` |
+| Educational/tutorial content | `tutor` |
+| Content generation, blog posts | `content-writer` |
+| Customer-facing Q&A | `customer-support` |
 
 To see all available bundles:
 
@@ -97,13 +97,7 @@ Do NOT use modes like `agent`, `rag`, or `classify` - those do not exist.
 evalyn run-eval --dataset <path>
 ```
 
-This will:
-- Load metrics from the dataset's `metrics/` directory
-- Run objective metrics (instant) and subjective metrics (LLM judge calls)
-- Generate `results.json` and `report.html` in the `eval_runs/` directory
-- Print a summary table with pass rates and scores
-
-Note the run ID from the output for analysis.
+This runs all metrics, generates `results.json` and `report.html` in `eval_runs/`, and prints a summary table. Note the run ID from the output.
 
 Useful flags:
 - `--workers 8`: increase parallel workers (default 4, max 16)

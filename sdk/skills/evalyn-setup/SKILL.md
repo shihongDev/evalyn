@@ -33,19 +33,11 @@ uv pip install evalyn-sdk
 
 Scan the user's agent code for imports to determine the framework:
 
-| Import Pattern | Framework | Instrumentation |
-|---------------|-----------|-----------------|
-| `from langchain` / `import langchain` | LangChain | Auto-instrumented. Decorator is sufficient. |
-| `from langgraph` / `import langgraph` | LangGraph | Auto-instrumented with node tracking. Decorator is sufficient. |
-| `from anthropic` / `import anthropic` | Anthropic SDK | Auto-instrumented. Decorator is sufficient. |
-| `from openai` / `import openai` | OpenAI SDK | Auto-instrumented. Decorator is sufficient. |
-| `import google.generativeai` | Gemini SDK | Auto-instrumented. Decorator is sufficient. |
-| `from google.adk` | Google ADK | Auto-instrumented via callback injection. Decorator is sufficient. |
-| `from claude_agent_sdk` | Claude Agent SDK | Auto-instrumented via hooks. Decorator is sufficient. |
+Supported frameworks (all auto-instrumented - decorator is sufficient):
 
-If no recognized framework: the decorator still works for any Python function. LLM calls won't have token/cost details unless using a supported SDK.
+`langchain`, `langgraph`, `anthropic`, `openai`, `google.generativeai`, `google.adk`, `claude_agent_sdk`
 
-All supported frameworks are auto-instrumented at first trace time - no manual patching needed.
+If no recognized framework: the decorator still works for any Python function, but LLM calls won't have token/cost details.
 
 ## Step 2: Add the Decorator
 

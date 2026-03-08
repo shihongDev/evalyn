@@ -56,7 +56,7 @@ evalyn compare --run1 <previous-run-id> --run2 <latest-run-id>
 For longer history across all runs in a dataset:
 
 ```bash
-evalyn trend --dataset <dataset-path>
+evalyn trend --project <project-name>
 ```
 
 Note: use `--run1` and `--run2` flags for compare, not positional arguments.
@@ -66,7 +66,7 @@ Note: use `--run1` and `--run2` flags for compare, not positional arguments.
 If any metric has pass rate below 90%:
 
 ```bash
-evalyn cluster-failures --run <run-id>
+evalyn cluster-failures --run-id <run-id>
 ```
 
 This clusters failed items by failure reason, revealing patterns (e.g., "all failures involve long inputs" or "failures cluster around a specific topic").
