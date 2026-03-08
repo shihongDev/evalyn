@@ -338,22 +338,45 @@ evalyn run-eval --dataset <dataset-path>/simulations/sim-similar-...
 
 ### Claude Code Skills
 
-Evalyn includes Claude Code skills for guided evaluation workflows. Each skill walks you through a stage of the pipeline with exact commands and data-driven recommendations.
+Evalyn includes [Claude Code skills](https://docs.anthropic.com/en/docs/claude-code/skills) that let Claude guide you through the full evaluation pipeline. Instead of reading docs and figuring out which commands to run, you describe what you want and Claude handles the workflow - detecting your framework, picking metrics based on your actual traces, and interpreting results.
 
-| Skill | Description |
-|-------|-------------|
-| `evalyn-setup` | Instrument your agent with the `@eval` decorator, verify traces |
-| `evalyn-eval` | Build dataset, auto-recommend metrics from traces, run evaluation |
-| `evalyn-analyze` | Analyze results, investigate failures, interpret pass rates |
-| `evalyn-calibrate` | Annotate results, calibrate LLM judges, re-evaluate |
-
-To install for personal use across projects:
+#### Install
 
 ```bash
 cp -r sdk/skills/evalyn-* ~/.claude/skills/
 ```
 
-Then in Claude Code, say "help me evaluate my agent" or invoke a skill directly.
+This copies the skills to your personal Claude Code skills directory. They will be available in all projects.
+
+#### Skills
+
+| Skill | Triggers when you... | What Claude does |
+|-------|---------------------|-----------------|
+| `evalyn-setup` | Want to instrument an agent | Detects your framework, adds the `@eval` decorator, verifies traces are captured |
+| `evalyn-eval` | Want to evaluate your agent | Builds a dataset, inspects your traces to recommend metric bundles, runs evaluation |
+| `evalyn-analyze` | Want to understand eval results | Runs progressive analysis, clusters failures, interprets pass rates, recommends next steps |
+| `evalyn-calibrate` | Think judges are too strict/lenient | Guides annotation, runs calibration optimizers, re-evaluates with tuned judges |
+
+#### Usage
+
+Start a Claude Code session and describe what you need. Claude picks the right skill automatically:
+
+```
+> "Help me set up evaluation for my agent"        -> evalyn-setup
+> "Evaluate my agent's performance"               -> evalyn-eval
+> "What do the evaluation results mean?"           -> evalyn-analyze
+> "The judges seem too strict on factual_accuracy" -> evalyn-calibrate
+```
+
+Skills chain together. After setup completes, Claude suggests moving to eval. After eval, it suggests analyze. If pass rates are low, it suggests calibrate. You can also jump to any skill directly.
+
+#### How it works
+
+Each skill gives Claude:
+- **Pre-flight checks** - verifies prerequisites before starting (e.g., traces exist before building a dataset)
+- **Exact CLI commands** - no guessing, no hallucinated flags
+- **Data-driven decisions** - metric recommendations come from inspecting your actual traces, not abstract questions
+- **Interpretation guidance** - what pass rates mean, when to calibrate vs. fix the agent
 
 ## Example
 
