@@ -138,7 +138,12 @@ def build_dataset_from_storage(
     since = _as_aware(since)
     until = _as_aware(until)
 
-    calls = storage.list_calls(limit=limit * 5) if storage else []
+    project_filter = project_id or project_name
+    calls = (
+        storage.list_calls(limit=limit * 5, project=project_filter)
+        if storage
+        else []
+    )
     items: List[DatasetItem] = []
     for call in calls:
         started_at = call.started_at
@@ -148,13 +153,6 @@ def build_dataset_from_storage(
             continue
         if function_name and call.function_name != function_name:
             continue
-        if (project_id or project_name) and isinstance(call.metadata, dict):
-            meta_pid = call.metadata.get("project_id") or call.metadata.get(
-                "project_name"
-            )
-            wanted = project_id or project_name
-            if meta_pid != wanted:
-                continue
         if version and isinstance(call.metadata, dict):
             if call.metadata.get("version") != version:
                 continue

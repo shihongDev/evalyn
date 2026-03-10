@@ -1003,16 +1003,14 @@ def _load_suggest_metrics_project_context(
     if not tracer.storage:
         fatal_error("No storage configured", "Cannot load project traces")
 
-    all_calls = tracer.storage.list_calls(limit=500)
+    all_calls = tracer.storage.list_calls(limit=500, project=args.project)
     project_traces = []
     for call in all_calls:
-        meta = call.metadata if isinstance(call.metadata, dict) else {}
-        call_project = meta.get("project_id") or meta.get("project_name") or call.function_name
-        call_version = meta.get("version") or ""
-        if call_project != args.project:
-            continue
-        if args.version and call_version != args.version:
-            continue
+        if args.version:
+            meta = call.metadata if isinstance(call.metadata, dict) else {}
+            call_version = meta.get("version") or ""
+            if call_version != args.version:
+                continue
         project_traces.append(call)
 
     if not project_traces:
