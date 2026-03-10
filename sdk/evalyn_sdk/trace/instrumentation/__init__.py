@@ -37,6 +37,12 @@ from .providers.gemini import GeminiInstrumentor
 from .providers.langchain import LangChainInstrumentor
 from .providers.langgraph import LangGraphInstrumentor
 from .providers.xai import XAIInstrumentor
+from .providers.crewai import CrewAIInstrumentor
+from .providers.autogen import AutoGenInstrumentor
+from .providers.dspy import DSPyInstrumentor
+from .providers.haystack import HaystackInstrumentor
+from .providers.llamaindex import LlamaIndexInstrumentor
+from .providers.semantic_kernel import SemanticKernelInstrumentor
 
 # Optional providers
 try:
@@ -92,6 +98,12 @@ def _setup_registry() -> None:
     registry.register(LangChainInstrumentor())
     registry.register(LangGraphInstrumentor())
     registry.register(XAIInstrumentor())
+    registry.register(CrewAIInstrumentor())
+    registry.register(AutoGenInstrumentor())
+    registry.register(DSPyInstrumentor())
+    registry.register(HaystackInstrumentor())
+    registry.register(LlamaIndexInstrumentor())
+    registry.register(SemanticKernelInstrumentor())
 
     # Optional OTEL-native instrumentors
     if _has_google_adk:
@@ -227,4 +239,10 @@ __all__ = [
     "LangChainInstrumentor",
     "LangGraphInstrumentor",
     "XAIInstrumentor",
+    "CrewAIInstrumentor",
+    "AutoGenInstrumentor",
+    "DSPyInstrumentor",
+    "HaystackInstrumentor",
+    "LlamaIndexInstrumentor",
+    "SemanticKernelInstrumentor",
 ]
