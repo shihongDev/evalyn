@@ -1,5 +1,5 @@
 """
-Instrumentation providers for various LLM SDKs.
+Instrumentation providers for various LLM SDKs and agent frameworks.
 
 Each provider implements the Instrumentor protocol for a specific SDK.
 """
@@ -11,6 +11,12 @@ from .anthropic import AnthropicInstrumentor
 from .gemini import GeminiInstrumentor
 from .langchain import LangChainInstrumentor
 from .langgraph import LangGraphInstrumentor
+from .crewai import CrewAIInstrumentor
+from .autogen import AutoGenInstrumentor
+from .dspy import DSPyInstrumentor
+from .haystack import HaystackInstrumentor
+from .llamaindex import LlamaIndexInstrumentor
+from .semantic_kernel import SemanticKernelInstrumentor
 
 # These are imported conditionally to avoid import errors if deps not installed
 try:
@@ -30,6 +36,12 @@ __all__ = [
     "GeminiInstrumentor",
     "LangChainInstrumentor",
     "LangGraphInstrumentor",
+    "CrewAIInstrumentor",
+    "AutoGenInstrumentor",
+    "DSPyInstrumentor",
+    "HaystackInstrumentor",
+    "LlamaIndexInstrumentor",
+    "SemanticKernelInstrumentor",
     "GoogleADKInstrumentor",
     "AnthropicAgentsInstrumentor",
 ]

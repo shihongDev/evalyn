@@ -26,12 +26,12 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Together AI
   - [ ] Replicate
 - [ ] **Framework Instrumentors**
-  - [ ] CrewAI
-  - [ ] AutoGen
-  - [ ] DSPy
-  - [ ] Haystack
-  - [ ] LlamaIndex
-  - [ ] Semantic Kernel
+  - [x] CrewAI
+  - [x] AutoGen
+  - [x] DSPy
+  - [x] Haystack
+  - [x] LlamaIndex
+  - [x] Semantic Kernel
 - [ ] **Memory/RAG Tracing** - Capture retrieval context and memory operations
 - [ ] **Async/Parallel Call Tracking** - Better support for concurrent LLM calls
 
