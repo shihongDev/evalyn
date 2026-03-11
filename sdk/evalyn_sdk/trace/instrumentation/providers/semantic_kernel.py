@@ -1,10 +1,11 @@
 """
 Semantic Kernel framework instrumentor.
 
-Uses monkey-patching on key service methods to capture:
-- Kernel function invocations (Kernel.invoke)
-- LLM calls (ChatCompletionClientBase.get_chat_message_contents)
-- Agent invocations (Agent.invoke)
+Uses a hybrid approach:
+- Filter-based: Patches Kernel.__init__ to auto-register a function invocation
+  filter on every new Kernel instance, using SK's official filter API.
+- Monkey-patching: Patches ChatCompletionClientBase.get_chat_message_contents
+  and Agent.invoke directly, since no filter system exists for those.
 
 Span hierarchy:
     kernel:{plugin}.{function}
@@ -24,6 +25,59 @@ from ..base import Instrumentor, InstrumentorType
 from ....models import Span
 from ... import context as span_context
 from ._shared import calculate_cost
+
+
+async def _function_invocation_filter(context: Any, next: Any) -> None:
+    """SK function invocation filter that creates tracing spans.
+
+    Registered on each Kernel instance via the patched __init__.
+    Uses the official Semantic Kernel filter API:
+        kernel.add_filter("function_invocation", filter_fn)
+    """
+    func_name = getattr(context.function, "name", "unknown")
+    plugin_name = getattr(context.function, "plugin_name", "")
+
+    display_name = f"{plugin_name}.{func_name}" if plugin_name else func_name
+
+    span = Span.new(
+        name=f"kernel:{display_name}",
+        span_type="agent",
+        parent_id=span_context.get_current_span_id(),
+    )
+
+    span.attributes["sk.type"] = "kernel_invoke"
+    span.attributes["sk.function_name"] = func_name
+    if plugin_name:
+        span.attributes["sk.plugin_name"] = plugin_name
+
+    arguments = getattr(context, "arguments", None)
+    if arguments:
+        span.attributes["sk.arguments"] = str(arguments)[:500]
+
+    stack = span_context._span_stack.get()
+    span_context._span_stack.set(stack + [span.id])
+
+    try:
+        await next(context)
+
+        result = getattr(context, "result", None)
+        if result:
+            value = getattr(result, "value", None)
+            if value is not None:
+                span.attributes["sk.result"] = str(value)[:1000]
+            metadata = getattr(result, "metadata", None)
+            if metadata:
+                span.attributes["sk.result_metadata"] = str(metadata)[:500]
+
+        span_context._span_stack.set(stack)
+        span.finish(status="ok")
+        span_context._add_span_to_collector(span)
+
+    except Exception as e:
+        span_context._span_stack.set(stack)
+        span.finish(status="error", error=str(e))
+        span_context._add_span_to_collector(span)
+        raise
 
 
 class SemanticKernelInstrumentor(Instrumentor):
@@ -51,7 +105,7 @@ class SemanticKernelInstrumentor(Instrumentor):
             return True
 
         patched_any = False
-        patched_any = self._patch_kernel_invoke() or patched_any
+        patched_any = self._patch_kernel_init() or patched_any
         patched_any = self._patch_chat_completion() or patched_any
         patched_any = self._patch_agent() or patched_any
 
@@ -59,71 +113,34 @@ class SemanticKernelInstrumentor(Instrumentor):
             self._instrumented = True
         return patched_any
 
-    def _patch_kernel_invoke(self) -> bool:
-        """Patch Kernel.invoke to capture function invocations."""
+    def _patch_kernel_init(self) -> bool:
+        """Patch Kernel.__init__ to auto-register our function invocation filter.
+
+        Instead of monkey-patching Kernel.invoke, we hook into Kernel.__init__
+        so that every new Kernel instance automatically gets our tracing filter
+        registered via the official SK filter API (kernel.add_filter).
+        """
         try:
             from semantic_kernel.kernel import Kernel
         except ImportError:
             return False
 
-        if not hasattr(Kernel, "invoke"):
+        if not hasattr(Kernel, "__init__"):
             return False
 
-        original = Kernel.invoke
-        self._originals["kernel_invoke"] = original
+        original_init = Kernel.__init__
+        self._originals["kernel_init"] = original_init
 
-        @functools.wraps(original)
-        async def wrapped_invoke(kernel_self, *args, **kwargs):
-            function = kwargs.get("function") or (args[0] if args else None)
-            func_name = "unknown"
-            plugin_name = ""
-            if function:
-                func_name = getattr(function, "name", "unknown")
-                plugin_name = getattr(function, "plugin_name", "")
+        @functools.wraps(original_init)
+        def patched_init(kernel_self, *args, **kwargs):
+            original_init(kernel_self, *args, **kwargs)
+            # Register our filter via the official SK API
+            if hasattr(kernel_self, "add_filter"):
+                kernel_self.add_filter(
+                    "function_invocation", _function_invocation_filter
+                )
 
-            display_name = (
-                f"{plugin_name}.{func_name}" if plugin_name else func_name
-            )
-
-            span = Span.new(
-                name=f"kernel:{display_name}",
-                span_type="agent",
-                parent_id=span_context.get_current_span_id(),
-            )
-
-            span.attributes["sk.type"] = "kernel_invoke"
-            span.attributes["sk.function_name"] = func_name
-            if plugin_name:
-                span.attributes["sk.plugin_name"] = plugin_name
-
-            arguments = kwargs.get("arguments")
-            if arguments:
-                span.attributes["sk.arguments"] = str(arguments)[:500]
-
-            stack = span_context._span_stack.get()
-            span_context._span_stack.set(stack + [span.id])
-
-            try:
-                result = await original(kernel_self, *args, **kwargs)
-
-                if result:
-                    span.attributes["sk.result"] = str(result)[:1000]
-                    metadata = getattr(result, "metadata", None)
-                    if metadata:
-                        span.attributes["sk.result_metadata"] = str(metadata)[:500]
-
-                span_context._span_stack.set(stack)
-                span.finish(status="ok")
-                span_context._add_span_to_collector(span)
-                return result
-
-            except Exception as e:
-                span_context._span_stack.set(stack)
-                span.finish(status="error", error=str(e))
-                span_context._add_span_to_collector(span)
-                raise
-
-        Kernel.invoke = wrapped_invoke
+        Kernel.__init__ = patched_init
         return True
 
     def _patch_chat_completion(self) -> bool:
@@ -283,10 +300,10 @@ class SemanticKernelInstrumentor(Instrumentor):
             return True
 
         try:
-            if "kernel_invoke" in self._originals:
+            if "kernel_init" in self._originals:
                 from semantic_kernel.kernel import Kernel
 
-                Kernel.invoke = self._originals["kernel_invoke"]
+                Kernel.__init__ = self._originals["kernel_init"]
         except ImportError:
             pass
 
