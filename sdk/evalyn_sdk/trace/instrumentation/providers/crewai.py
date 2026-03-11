@@ -1,13 +1,15 @@
 """
 CrewAI framework instrumentor.
 
-Uses CrewAI's native event bus system (HOOK_BASED) to capture:
+Uses CrewAI's BaseEventListener pattern (official public API) to capture:
 - Crew kickoff lifecycle (start/complete/fail)
 - Agent execution (start/complete/error)
 - Task execution (start/complete/fail)
 - LLM calls (start/complete/fail) with token usage
+- LLM streaming chunks
 - Tool usage (start/finish/error)
 - Memory operations (query/save)
+- Knowledge retrieval (start/complete)
 - Flow execution (start/finish/fail)
 
 Span hierarchy:
@@ -17,6 +19,7 @@ Span hierarchy:
           -> llm_call:{model}
           -> tool_call:{tool_name}
           -> memory:query / memory:save
+          -> knowledge:retrieval
 """
 
 from __future__ import annotations
@@ -29,6 +32,168 @@ from ..base import Instrumentor, InstrumentorType
 from ....models import Span
 from ... import context as span_context
 from ._shared import calculate_cost
+
+
+# ---------------------------------------------------------------------------
+# Resilient imports: prefer crewai.events (public API), fall back to
+# crewai.utilities.events.* (older versions).
+# ---------------------------------------------------------------------------
+
+def _import_event_bus() -> Any:
+    """Import crewai_event_bus from the best available path."""
+    try:
+        from crewai.events import crewai_event_bus
+        return crewai_event_bus
+    except ImportError:
+        pass
+    try:
+        from crewai.utilities.events.event_listener import crewai_event_bus
+        return crewai_event_bus
+    except ImportError:
+        return None
+
+
+def _import_base_event_listener() -> Any:
+    """Import BaseEventListener from the best available path."""
+    try:
+        from crewai.events import BaseEventListener
+        return BaseEventListener
+    except ImportError:
+        pass
+    return None
+
+
+def _import_core_events() -> Optional[Dict[str, type]]:
+    """Import core event classes. Returns dict of name->class or None."""
+    try:
+        from crewai.events import (
+            CrewKickoffStartedEvent,
+            CrewKickoffCompletedEvent,
+            AgentExecutionStartedEvent,
+            AgentExecutionCompletedEvent,
+            TaskStartedEvent,
+            TaskCompletedEvent,
+            ToolUsageStartedEvent,
+            ToolUsageFinishedEvent,
+            LLMCallStartedEvent,
+            LLMCallCompletedEvent,
+        )
+        return {
+            "CrewKickoffStartedEvent": CrewKickoffStartedEvent,
+            "CrewKickoffCompletedEvent": CrewKickoffCompletedEvent,
+            "AgentExecutionStartedEvent": AgentExecutionStartedEvent,
+            "AgentExecutionCompletedEvent": AgentExecutionCompletedEvent,
+            "TaskStartedEvent": TaskStartedEvent,
+            "TaskCompletedEvent": TaskCompletedEvent,
+            "ToolUsageStartedEvent": ToolUsageStartedEvent,
+            "ToolUsageFinishedEvent": ToolUsageFinishedEvent,
+            "LLMCallStartedEvent": LLMCallStartedEvent,
+            "LLMCallCompletedEvent": LLMCallCompletedEvent,
+        }
+    except ImportError:
+        pass
+
+    # Fallback to old internal import paths
+    try:
+        from crewai.utilities.events.crew_events import (
+            CrewKickoffStartedEvent,
+            CrewKickoffCompletedEvent,
+            CrewKickoffFailedEvent,
+        )
+        from crewai.utilities.events.agent_events import (
+            AgentExecutionStartedEvent,
+            AgentExecutionCompletedEvent,
+            AgentExecutionErrorEvent,
+        )
+        from crewai.utilities.events.task_events import (
+            TaskStartedEvent,
+            TaskCompletedEvent,
+            TaskFailedEvent,
+        )
+        from crewai.utilities.events.llm_events import (
+            LLMCallStartedEvent,
+            LLMCallCompletedEvent,
+            LLMCallFailedEvent,
+        )
+        from crewai.utilities.events.tool_events import (
+            ToolUsageStartedEvent,
+            ToolUsageFinishedEvent,
+            ToolUsageErrorEvent,
+        )
+        return {
+            "CrewKickoffStartedEvent": CrewKickoffStartedEvent,
+            "CrewKickoffCompletedEvent": CrewKickoffCompletedEvent,
+            "CrewKickoffFailedEvent": CrewKickoffFailedEvent,
+            "AgentExecutionStartedEvent": AgentExecutionStartedEvent,
+            "AgentExecutionCompletedEvent": AgentExecutionCompletedEvent,
+            "AgentExecutionErrorEvent": AgentExecutionErrorEvent,
+            "TaskStartedEvent": TaskStartedEvent,
+            "TaskCompletedEvent": TaskCompletedEvent,
+            "TaskFailedEvent": TaskFailedEvent,
+            "LLMCallStartedEvent": LLMCallStartedEvent,
+            "LLMCallCompletedEvent": LLMCallCompletedEvent,
+            "LLMCallFailedEvent": LLMCallFailedEvent,
+            "ToolUsageStartedEvent": ToolUsageStartedEvent,
+            "ToolUsageFinishedEvent": ToolUsageFinishedEvent,
+            "ToolUsageErrorEvent": ToolUsageErrorEvent,
+        }
+    except ImportError:
+        return None
+
+
+def _import_optional_events() -> Dict[str, type]:
+    """Import optional event classes that may not exist in all versions."""
+    events: Dict[str, type] = {}
+
+    # Memory events
+    try:
+        from crewai.events import MemoryQueryCompletedEvent
+        events["MemoryQueryCompletedEvent"] = MemoryQueryCompletedEvent
+    except ImportError:
+        try:
+            from crewai.utilities.events.memory_events import (
+                MemoryQueryStarted,
+                MemoryQueryCompleted,
+                MemorySaveStarted,
+                MemorySaveCompleted,
+            )
+            events["MemoryQueryStarted"] = MemoryQueryStarted
+            events["MemoryQueryCompleted"] = MemoryQueryCompleted
+            events["MemorySaveStarted"] = MemorySaveStarted
+            events["MemorySaveCompleted"] = MemorySaveCompleted
+        except ImportError:
+            pass
+
+    # Knowledge retrieval events
+    try:
+        from crewai.events import (
+            KnowledgeRetrievalStartedEvent,
+            KnowledgeRetrievalCompletedEvent,
+        )
+        events["KnowledgeRetrievalStartedEvent"] = KnowledgeRetrievalStartedEvent
+        events["KnowledgeRetrievalCompletedEvent"] = KnowledgeRetrievalCompletedEvent
+    except ImportError:
+        pass
+
+    # LLM stream chunk event
+    try:
+        from crewai.events import LLMStreamChunkEvent
+        events["LLMStreamChunkEvent"] = LLMStreamChunkEvent
+    except ImportError:
+        pass
+
+    # Flow events
+    try:
+        from crewai.utilities.events.flow_events import (
+            FlowStartedEvent,
+            FlowFinishedEvent,
+        )
+        events["FlowStartedEvent"] = FlowStartedEvent
+        events["FlowFinishedEvent"] = FlowFinishedEvent
+    except ImportError:
+        pass
+
+    return events
 
 
 class CrewAIInstrumentor(Instrumentor):
@@ -54,13 +219,12 @@ class CrewAIInstrumentor(Instrumentor):
         if self._instrumented:
             return True
 
-        try:
-            from crewai.utilities.events.event_listener import crewai_event_bus
-        except ImportError:
+        event_bus = _import_event_bus()
+        if event_bus is None:
             return False
 
         self._span_tracker = _SpanTracker()
-        self._register_event_handlers(crewai_event_bus)
+        self._register_event_handlers(event_bus)
         self._instrumented = True
         return True
 
@@ -68,269 +232,326 @@ class CrewAIInstrumentor(Instrumentor):
         """Register handlers for all CrewAI event types."""
         tracker = self._span_tracker
 
-        try:
-            from crewai.utilities.events.crew_events import (
-                CrewKickoffStartedEvent,
-                CrewKickoffCompletedEvent,
-                CrewKickoffFailedEvent,
-            )
-            from crewai.utilities.events.agent_events import (
-                AgentExecutionStartedEvent,
-                AgentExecutionCompletedEvent,
-                AgentExecutionErrorEvent,
-            )
-            from crewai.utilities.events.task_events import (
-                TaskStartedEvent,
-                TaskCompletedEvent,
-                TaskFailedEvent,
-            )
-            from crewai.utilities.events.llm_events import (
-                LLMCallStartedEvent,
-                LLMCallCompletedEvent,
-                LLMCallFailedEvent,
-            )
-            from crewai.utilities.events.tool_events import (
-                ToolUsageStartedEvent,
-                ToolUsageFinishedEvent,
-                ToolUsageErrorEvent,
-            )
-        except ImportError:
+        core = _import_core_events()
+        if core is None:
             return
 
+        optional = _import_optional_events()
+
         # Crew lifecycle
-        @event_bus.on(CrewKickoffStartedEvent)
-        def on_crew_start(source: Any, event: Any) -> None:
-            crew_name = getattr(source, "name", None) or "crew"
-            inputs = getattr(event, "inputs", None) or {}
-            tracker.start_span(
-                key=("crew", id(source)),
-                name=f"crew:{crew_name}",
-                span_type="agent",
-                attributes={
-                    "crewai.type": "crew",
-                    "crewai.crew_name": crew_name,
-                    "crewai.inputs": str(inputs)[:500],
-                },
-            )
+        CrewKickoffStartedEvent = core.get("CrewKickoffStartedEvent")
+        CrewKickoffCompletedEvent = core.get("CrewKickoffCompletedEvent")
+        CrewKickoffFailedEvent = core.get("CrewKickoffFailedEvent")
 
-        @event_bus.on(CrewKickoffCompletedEvent)
-        def on_crew_complete(source: Any, event: Any) -> None:
-            output = getattr(event, "output", None)
-            tracker.finish_span(
-                key=("crew", id(source)),
-                status="ok",
-                attributes={
-                    "crewai.output": str(output)[:1000] if output else None,
-                    "crewai.token_usage": _extract_token_usage(output),
-                },
-            )
+        if CrewKickoffStartedEvent:
+            @event_bus.on(CrewKickoffStartedEvent)
+            def on_crew_start(source: Any, event: Any) -> None:
+                crew_name = getattr(source, "name", None) or "crew"
+                inputs = getattr(event, "inputs", None) or {}
+                tracker.start_span(
+                    key=("crew", id(source)),
+                    name=f"crew:{crew_name}",
+                    span_type="agent",
+                    attributes={
+                        "crewai.type": "crew",
+                        "crewai.crew_name": crew_name,
+                        "crewai.inputs": str(inputs)[:500],
+                    },
+                )
 
-        @event_bus.on(CrewKickoffFailedEvent)
-        def on_crew_fail(source: Any, event: Any) -> None:
-            error = getattr(event, "error", None)
-            tracker.finish_span(
-                key=("crew", id(source)),
-                status="error",
-                attributes={"error": str(error) if error else "unknown"},
-            )
+        if CrewKickoffCompletedEvent:
+            @event_bus.on(CrewKickoffCompletedEvent)
+            def on_crew_complete(source: Any, event: Any) -> None:
+                output = getattr(event, "output", None)
+                tracker.finish_span(
+                    key=("crew", id(source)),
+                    status="ok",
+                    attributes={
+                        "crewai.output": str(output)[:1000] if output else None,
+                        "crewai.token_usage": _extract_token_usage(output),
+                    },
+                )
+
+        if CrewKickoffFailedEvent:
+            @event_bus.on(CrewKickoffFailedEvent)
+            def on_crew_fail(source: Any, event: Any) -> None:
+                error = getattr(event, "error", None)
+                tracker.finish_span(
+                    key=("crew", id(source)),
+                    status="error",
+                    attributes={"error": str(error) if error else "unknown"},
+                )
 
         # Agent lifecycle
-        @event_bus.on(AgentExecutionStartedEvent)
-        def on_agent_start(source: Any, event: Any) -> None:
-            agent = getattr(event, "agent", source)
-            role = getattr(agent, "role", "agent")
-            goal = getattr(agent, "goal", "")
-            tracker.start_span(
-                key=("agent", id(source)),
-                name=f"agent:{role}",
-                span_type="agent",
-                attributes={
-                    "crewai.type": "agent",
-                    "crewai.agent_role": str(role),
-                    "crewai.agent_goal": str(goal)[:500],
-                },
-            )
+        AgentExecutionStartedEvent = core.get("AgentExecutionStartedEvent")
+        AgentExecutionCompletedEvent = core.get("AgentExecutionCompletedEvent")
+        AgentExecutionErrorEvent = core.get("AgentExecutionErrorEvent")
 
-        @event_bus.on(AgentExecutionCompletedEvent)
-        def on_agent_complete(source: Any, event: Any) -> None:
-            output = getattr(event, "output", None)
-            tracker.finish_span(
-                key=("agent", id(source)),
-                status="ok",
-                attributes={
-                    "crewai.agent_output": str(output)[:1000] if output else None,
-                },
-            )
+        if AgentExecutionStartedEvent:
+            @event_bus.on(AgentExecutionStartedEvent)
+            def on_agent_start(source: Any, event: Any) -> None:
+                agent = getattr(event, "agent", source)
+                role = getattr(agent, "role", "agent")
+                goal = getattr(agent, "goal", "")
+                tracker.start_span(
+                    key=("agent", id(source)),
+                    name=f"agent:{role}",
+                    span_type="agent",
+                    attributes={
+                        "crewai.type": "agent",
+                        "crewai.agent_role": str(role),
+                        "crewai.agent_goal": str(goal)[:500],
+                    },
+                )
 
-        @event_bus.on(AgentExecutionErrorEvent)
-        def on_agent_error(source: Any, event: Any) -> None:
-            error = getattr(event, "error", None)
-            tracker.finish_span(
-                key=("agent", id(source)),
-                status="error",
-                attributes={"error": str(error) if error else "unknown"},
-            )
+        if AgentExecutionCompletedEvent:
+            @event_bus.on(AgentExecutionCompletedEvent)
+            def on_agent_complete(source: Any, event: Any) -> None:
+                output = getattr(event, "output", None)
+                tracker.finish_span(
+                    key=("agent", id(source)),
+                    status="ok",
+                    attributes={
+                        "crewai.agent_output": str(output)[:1000] if output else None,
+                    },
+                )
+
+        if AgentExecutionErrorEvent:
+            @event_bus.on(AgentExecutionErrorEvent)
+            def on_agent_error(source: Any, event: Any) -> None:
+                error = getattr(event, "error", None)
+                tracker.finish_span(
+                    key=("agent", id(source)),
+                    status="error",
+                    attributes={"error": str(error) if error else "unknown"},
+                )
 
         # Task lifecycle
-        @event_bus.on(TaskStartedEvent)
-        def on_task_start(source: Any, event: Any) -> None:
-            task = getattr(event, "task", source)
-            description = getattr(task, "description", "task")
-            tracker.start_span(
-                key=("task", id(source)),
-                name=f"task:{str(description)[:60]}",
-                span_type="agent",
-                attributes={
-                    "crewai.type": "task",
-                    "crewai.task_description": str(description)[:500],
-                    "crewai.expected_output": str(
-                        getattr(task, "expected_output", "")
-                    )[:500],
-                },
-            )
+        TaskStartedEvent = core.get("TaskStartedEvent")
+        TaskCompletedEvent = core.get("TaskCompletedEvent")
+        TaskFailedEvent = core.get("TaskFailedEvent")
 
-        @event_bus.on(TaskCompletedEvent)
-        def on_task_complete(source: Any, event: Any) -> None:
-            output = getattr(event, "output", None)
-            tracker.finish_span(
-                key=("task", id(source)),
-                status="ok",
-                attributes={
-                    "crewai.task_output": str(output)[:1000] if output else None,
-                },
-            )
+        if TaskStartedEvent:
+            @event_bus.on(TaskStartedEvent)
+            def on_task_start(source: Any, event: Any) -> None:
+                task = getattr(event, "task", source)
+                description = getattr(task, "description", "task")
+                tracker.start_span(
+                    key=("task", id(source)),
+                    name=f"task:{str(description)[:60]}",
+                    span_type="agent",
+                    attributes={
+                        "crewai.type": "task",
+                        "crewai.task_description": str(description)[:500],
+                        "crewai.expected_output": str(
+                            getattr(task, "expected_output", "")
+                        )[:500],
+                    },
+                )
 
-        @event_bus.on(TaskFailedEvent)
-        def on_task_fail(source: Any, event: Any) -> None:
-            error = getattr(event, "error", None)
-            tracker.finish_span(
-                key=("task", id(source)),
-                status="error",
-                attributes={"error": str(error) if error else "unknown"},
-            )
+        if TaskCompletedEvent:
+            @event_bus.on(TaskCompletedEvent)
+            def on_task_complete(source: Any, event: Any) -> None:
+                output = getattr(event, "output", None)
+                tracker.finish_span(
+                    key=("task", id(source)),
+                    status="ok",
+                    attributes={
+                        "crewai.task_output": str(output)[:1000] if output else None,
+                    },
+                )
+
+        if TaskFailedEvent:
+            @event_bus.on(TaskFailedEvent)
+            def on_task_fail(source: Any, event: Any) -> None:
+                error = getattr(event, "error", None)
+                tracker.finish_span(
+                    key=("task", id(source)),
+                    status="error",
+                    attributes={"error": str(error) if error else "unknown"},
+                )
 
         # LLM calls
-        @event_bus.on(LLMCallStartedEvent)
-        def on_llm_start(source: Any, event: Any) -> None:
-            model = getattr(event, "model", None) or getattr(
-                source, "model", "unknown"
-            )
-            messages = getattr(event, "messages", None)
-            call_id = getattr(event, "call_id", None) or id(event)
-            tracker.start_span(
-                key=("llm", call_id),
-                name=f"crewai:{model}",
-                span_type="llm_call",
-                attributes={
-                    "crewai.type": "llm_call",
-                    "provider": "crewai",
-                    "model": str(model),
-                    "request": {
-                        "messages": _truncate_messages(messages),
-                    }
-                    if messages
-                    else {},
-                },
-            )
+        LLMCallStartedEvent = core.get("LLMCallStartedEvent")
+        LLMCallCompletedEvent = core.get("LLMCallCompletedEvent")
+        LLMCallFailedEvent = core.get("LLMCallFailedEvent")
 
-        @event_bus.on(LLMCallCompletedEvent)
-        def on_llm_complete(source: Any, event: Any) -> None:
-            call_id = getattr(event, "call_id", None) or id(event)
-            model = getattr(event, "model", None) or getattr(
-                source, "model", "unknown"
-            )
-            response = getattr(event, "response", None)
-            token_usage = getattr(event, "token_usage", None) or {}
-
-            input_tokens = 0
-            output_tokens = 0
-            if isinstance(token_usage, dict):
-                input_tokens = token_usage.get(
-                    "prompt_tokens", token_usage.get("input_tokens", 0)
+        if LLMCallStartedEvent:
+            @event_bus.on(LLMCallStartedEvent)
+            def on_llm_start(source: Any, event: Any) -> None:
+                model = getattr(event, "model", None) or getattr(
+                    source, "model", "unknown"
                 )
-                output_tokens = token_usage.get(
-                    "completion_tokens", token_usage.get("output_tokens", 0)
+                messages = getattr(event, "messages", None)
+                call_id = getattr(event, "call_id", None) or id(event)
+                tracker.start_span(
+                    key=("llm", call_id),
+                    name=f"crewai:{model}",
+                    span_type="llm_call",
+                    attributes={
+                        "crewai.type": "llm_call",
+                        "provider": "crewai",
+                        "model": str(model),
+                        "request": {
+                            "messages": _truncate_messages(messages),
+                        }
+                        if messages
+                        else {},
+                    },
                 )
 
-            cost = calculate_cost(str(model), input_tokens, output_tokens)
+        if LLMCallCompletedEvent:
+            @event_bus.on(LLMCallCompletedEvent)
+            def on_llm_complete(source: Any, event: Any) -> None:
+                call_id = getattr(event, "call_id", None) or id(event)
+                model = getattr(event, "model", None) or getattr(
+                    source, "model", "unknown"
+                )
+                response = getattr(event, "response", None)
+                token_usage = getattr(event, "token_usage", None) or {}
 
-            tracker.finish_span(
-                key=("llm", call_id),
-                status="ok",
-                attributes={
-                    "model": str(model),
-                    "input_tokens": input_tokens,
-                    "output_tokens": output_tokens,
-                    "cost_usd": cost,
-                    "response": {
-                        "content": str(response)[:1000],
-                    }
-                    if response
-                    else {},
-                },
-            )
+                input_tokens = 0
+                output_tokens = 0
+                if isinstance(token_usage, dict):
+                    input_tokens = token_usage.get(
+                        "prompt_tokens", token_usage.get("input_tokens", 0)
+                    )
+                    output_tokens = token_usage.get(
+                        "completion_tokens", token_usage.get("output_tokens", 0)
+                    )
 
-        @event_bus.on(LLMCallFailedEvent)
-        def on_llm_fail(source: Any, event: Any) -> None:
-            call_id = getattr(event, "call_id", None) or id(event)
-            error = getattr(event, "error", None)
-            tracker.finish_span(
-                key=("llm", call_id),
-                status="error",
-                attributes={"error": str(error) if error else "unknown"},
-            )
+                cost = calculate_cost(str(model), input_tokens, output_tokens)
+
+                tracker.finish_span(
+                    key=("llm", call_id),
+                    status="ok",
+                    attributes={
+                        "model": str(model),
+                        "input_tokens": input_tokens,
+                        "output_tokens": output_tokens,
+                        "cost_usd": cost,
+                        "response": {
+                            "content": str(response)[:1000],
+                        }
+                        if response
+                        else {},
+                    },
+                )
+
+        if LLMCallFailedEvent:
+            @event_bus.on(LLMCallFailedEvent)
+            def on_llm_fail(source: Any, event: Any) -> None:
+                call_id = getattr(event, "call_id", None) or id(event)
+                error = getattr(event, "error", None)
+                tracker.finish_span(
+                    key=("llm", call_id),
+                    status="error",
+                    attributes={"error": str(error) if error else "unknown"},
+                )
 
         # Tool usage - keyed by source id for consistent start/finish matching
-        @event_bus.on(ToolUsageStartedEvent)
-        def on_tool_start(source: Any, event: Any) -> None:
-            tool_name = getattr(event, "tool_name", None) or getattr(
-                event, "name", "unknown"
-            )
-            tool_input = getattr(event, "tool_input", None) or getattr(
-                event, "input", None
-            )
-            tracker.start_span(
-                key=("tool", id(source)),
-                name=str(tool_name),
-                span_type="tool_call",
-                attributes={
-                    "crewai.type": "tool_call",
-                    "tool_name": str(tool_name),
-                    "tool_input": str(tool_input)[:1000] if tool_input else None,
-                },
-            )
+        ToolUsageStartedEvent = core.get("ToolUsageStartedEvent")
+        ToolUsageFinishedEvent = core.get("ToolUsageFinishedEvent")
+        ToolUsageErrorEvent = core.get("ToolUsageErrorEvent")
 
-        @event_bus.on(ToolUsageFinishedEvent)
-        def on_tool_finish(source: Any, event: Any) -> None:
-            tool_output = getattr(event, "tool_output", None) or getattr(
-                event, "output", None
-            )
-            tracker.finish_span(
-                key=("tool", id(source)),
-                status="ok",
-                attributes={
-                    "tool_output": str(tool_output)[:1000] if tool_output else None,
-                },
-            )
+        if ToolUsageStartedEvent:
+            @event_bus.on(ToolUsageStartedEvent)
+            def on_tool_start(source: Any, event: Any) -> None:
+                tool_name = getattr(event, "tool_name", None) or getattr(
+                    event, "name", "unknown"
+                )
+                tool_input = getattr(event, "tool_input", None) or getattr(
+                    event, "input", None
+                )
+                tracker.start_span(
+                    key=("tool", id(source)),
+                    name=str(tool_name),
+                    span_type="tool_call",
+                    attributes={
+                        "crewai.type": "tool_call",
+                        "tool_name": str(tool_name),
+                        "tool_input": str(tool_input)[:1000] if tool_input else None,
+                    },
+                )
 
-        @event_bus.on(ToolUsageErrorEvent)
-        def on_tool_error(source: Any, event: Any) -> None:
-            error = getattr(event, "error", None)
-            tracker.finish_span(
-                key=("tool", id(source)),
-                status="error",
-                attributes={"error": str(error) if error else "unknown"},
-            )
+        if ToolUsageFinishedEvent:
+            @event_bus.on(ToolUsageFinishedEvent)
+            def on_tool_finish(source: Any, event: Any) -> None:
+                tool_output = getattr(event, "tool_output", None) or getattr(
+                    event, "output", None
+                )
+                tracker.finish_span(
+                    key=("tool", id(source)),
+                    status="ok",
+                    attributes={
+                        "tool_output": str(tool_output)[:1000] if tool_output else None,
+                    },
+                )
 
-        # Optionally handle memory events if available
-        try:
-            from crewai.utilities.events.memory_events import (
-                MemoryQueryStarted,
-                MemoryQueryCompleted,
-                MemorySaveStarted,
-                MemorySaveCompleted,
-            )
+        if ToolUsageErrorEvent:
+            @event_bus.on(ToolUsageErrorEvent)
+            def on_tool_error(source: Any, event: Any) -> None:
+                error = getattr(event, "error", None)
+                tracker.finish_span(
+                    key=("tool", id(source)),
+                    status="error",
+                    attributes={"error": str(error) if error else "unknown"},
+                )
 
+        # --- Optional events (may not exist in all CrewAI versions) ---
+
+        # LLM stream chunks
+        LLMStreamChunkEvent = optional.get("LLMStreamChunkEvent")
+        if LLMStreamChunkEvent:
+            @event_bus.on(LLMStreamChunkEvent)
+            def on_llm_stream_chunk(source: Any, event: Any) -> None:
+                call_id = getattr(event, "call_id", None) or id(source)
+                chunk = getattr(event, "chunk", None) or ""
+                # Append chunk to the open LLM span's streamed content
+                tracker.append_attribute(
+                    key=("llm", call_id),
+                    attr_key="crewai.stream_chunks",
+                    value=str(chunk),
+                )
+
+        # Knowledge retrieval events
+        KnowledgeRetrievalStartedEvent = optional.get("KnowledgeRetrievalStartedEvent")
+        KnowledgeRetrievalCompletedEvent = optional.get("KnowledgeRetrievalCompletedEvent")
+
+        if KnowledgeRetrievalStartedEvent:
+            @event_bus.on(KnowledgeRetrievalStartedEvent)
+            def on_knowledge_retrieval_start(source: Any, event: Any) -> None:
+                query = getattr(event, "query", None) or ""
+                tracker.start_span(
+                    key=("knowledge", id(source)),
+                    name="knowledge:retrieval",
+                    span_type="retrieval",
+                    attributes={
+                        "crewai.type": "knowledge_retrieval",
+                        "query": str(query)[:500],
+                    },
+                )
+
+        if KnowledgeRetrievalCompletedEvent:
+            @event_bus.on(KnowledgeRetrievalCompletedEvent)
+            def on_knowledge_retrieval_complete(source: Any, event: Any) -> None:
+                results = getattr(event, "results", None)
+                tracker.finish_span(
+                    key=("knowledge", id(source)),
+                    status="ok",
+                    attributes={
+                        "result_count": len(results) if results else 0,
+                    },
+                )
+
+        # Memory events (old-style from crewai.utilities.events.memory_events)
+        MemoryQueryStarted = optional.get("MemoryQueryStarted")
+        MemoryQueryCompleted = optional.get("MemoryQueryCompleted")
+        MemorySaveStarted = optional.get("MemorySaveStarted")
+        MemorySaveCompleted = optional.get("MemorySaveCompleted")
+        MemoryQueryCompletedEvent = optional.get("MemoryQueryCompletedEvent")
+
+        if MemoryQueryStarted:
             @event_bus.on(MemoryQueryStarted)
             def on_memory_query_start(source: Any, event: Any) -> None:
                 tracker.start_span(
@@ -343,6 +564,7 @@ class CrewAIInstrumentor(Instrumentor):
                     },
                 )
 
+        if MemoryQueryCompleted:
             @event_bus.on(MemoryQueryCompleted)
             def on_memory_query_complete(source: Any, event: Any) -> None:
                 results = getattr(event, "results", None)
@@ -354,6 +576,20 @@ class CrewAIInstrumentor(Instrumentor):
                     },
                 )
 
+        if MemoryQueryCompletedEvent and not MemoryQueryCompleted:
+            # New-style public API memory event
+            @event_bus.on(MemoryQueryCompletedEvent)
+            def on_memory_query_complete_new(source: Any, event: Any) -> None:
+                results = getattr(event, "results", None)
+                tracker.finish_span(
+                    key=("memory_query", id(source)),
+                    status="ok",
+                    attributes={
+                        "result_count": len(results) if results else 0,
+                    },
+                )
+
+        if MemorySaveStarted:
             @event_bus.on(MemorySaveStarted)
             def on_memory_save_start(source: Any, event: Any) -> None:
                 tracker.start_span(
@@ -363,22 +599,19 @@ class CrewAIInstrumentor(Instrumentor):
                     attributes={"crewai.type": "memory_save"},
                 )
 
+        if MemorySaveCompleted:
             @event_bus.on(MemorySaveCompleted)
             def on_memory_save_complete(source: Any, event: Any) -> None:
                 tracker.finish_span(
                     key=("memory_save", id(source)),
                     status="ok",
                 )
-        except ImportError:
-            pass  # Memory events not available in this CrewAI version
 
-        # Optionally handle flow events if available
-        try:
-            from crewai.utilities.events.flow_events import (
-                FlowStartedEvent,
-                FlowFinishedEvent,
-            )
+        # Flow events
+        FlowStartedEvent = optional.get("FlowStartedEvent")
+        FlowFinishedEvent = optional.get("FlowFinishedEvent")
 
+        if FlowStartedEvent:
             @event_bus.on(FlowStartedEvent)
             def on_flow_start(source: Any, event: Any) -> None:
                 flow_name = getattr(source, "name", None) or getattr(
@@ -394,6 +627,7 @@ class CrewAIInstrumentor(Instrumentor):
                     },
                 )
 
+        if FlowFinishedEvent:
             @event_bus.on(FlowFinishedEvent)
             def on_flow_finish(source: Any, event: Any) -> None:
                 result = getattr(event, "result", None)
@@ -406,8 +640,6 @@ class CrewAIInstrumentor(Instrumentor):
                         else None,
                     },
                 )
-        except ImportError:
-            pass  # Flow events not available in this CrewAI version
 
     def uninstrument(self) -> bool:
         if not self._instrumented:
@@ -479,6 +711,23 @@ class _SpanTracker:
 
         open_span.span.finish(status=status)
         span_context._add_span_to_collector(open_span.span)
+
+    def append_attribute(
+        self,
+        key: tuple,
+        attr_key: str,
+        value: str,
+    ) -> None:
+        """Append a value to a list attribute on an open span (thread-safe)."""
+        with self._lock:
+            open_span = self._open_spans.get(key)
+            if open_span is None:
+                return
+            existing = open_span.span.attributes.get(attr_key, [])
+            if not isinstance(existing, list):
+                existing = [existing]
+            existing.append(value)
+            open_span.span.attributes[attr_key] = existing
 
 
 class _OpenSpan:
