@@ -144,6 +144,22 @@ class MockToolUsageErrorEvent:
         self.error = error
 
 
+class MockKnowledgeRetrievalStartedEvent:
+    def __init__(self, query=None):
+        self.query = query
+
+
+class MockKnowledgeRetrievalCompletedEvent:
+    def __init__(self, results=None):
+        self.results = results
+
+
+class MockLLMStreamChunkEvent:
+    def __init__(self, call_id=None, chunk=None):
+        self.call_id = call_id
+        self.chunk = chunk
+
+
 # Mock source objects
 class MockCrew:
     def __init__(self, name="test_crew"):
@@ -172,8 +188,13 @@ class TestCrewAIInstrumentor:
     def setup_method(self):
         _reset_span_context()
 
-    def _create_instrumentor_with_mock_bus(self):
-        """Create a CrewAI instrumentor wired to a mock event bus."""
+    def _create_instrumentor_with_mock_bus(self, include_optional=False):
+        """Create a CrewAI instrumentor wired to a mock event bus.
+
+        Args:
+            include_optional: if True, include KnowledgeRetrieval and LLMStreamChunk
+                in the optional events dict.
+        """
         from evalyn_sdk.trace.instrumentation.providers.crewai import (
             CrewAIInstrumentor,
             _SpanTracker,
@@ -185,41 +206,35 @@ class TestCrewAIInstrumentor:
         # Manually set up - bypass the real import
         instrumentor._span_tracker = _SpanTracker()
 
-        # Build mock modules for the event imports
-        mock_crew_events = MagicMock()
-        mock_crew_events.CrewKickoffStartedEvent = MockCrewKickoffStartedEvent
-        mock_crew_events.CrewKickoffCompletedEvent = MockCrewKickoffCompletedEvent
-        mock_crew_events.CrewKickoffFailedEvent = MockCrewKickoffFailedEvent
+        # Build core events dict matching _import_core_events() return format
+        core_events = {
+            "CrewKickoffStartedEvent": MockCrewKickoffStartedEvent,
+            "CrewKickoffCompletedEvent": MockCrewKickoffCompletedEvent,
+            "CrewKickoffFailedEvent": MockCrewKickoffFailedEvent,
+            "AgentExecutionStartedEvent": MockAgentExecutionStartedEvent,
+            "AgentExecutionCompletedEvent": MockAgentExecutionCompletedEvent,
+            "AgentExecutionErrorEvent": MockAgentExecutionErrorEvent,
+            "TaskStartedEvent": MockTaskStartedEvent,
+            "TaskCompletedEvent": MockTaskCompletedEvent,
+            "TaskFailedEvent": MockTaskFailedEvent,
+            "LLMCallStartedEvent": MockLLMCallStartedEvent,
+            "LLMCallCompletedEvent": MockLLMCallCompletedEvent,
+            "LLMCallFailedEvent": MockLLMCallFailedEvent,
+            "ToolUsageStartedEvent": MockToolUsageStartedEvent,
+            "ToolUsageFinishedEvent": MockToolUsageFinishedEvent,
+            "ToolUsageErrorEvent": MockToolUsageErrorEvent,
+        }
 
-        mock_agent_events = MagicMock()
-        mock_agent_events.AgentExecutionStartedEvent = MockAgentExecutionStartedEvent
-        mock_agent_events.AgentExecutionCompletedEvent = MockAgentExecutionCompletedEvent
-        mock_agent_events.AgentExecutionErrorEvent = MockAgentExecutionErrorEvent
+        # Build optional events dict
+        optional_events: dict = {}
+        if include_optional:
+            optional_events["KnowledgeRetrievalStartedEvent"] = MockKnowledgeRetrievalStartedEvent
+            optional_events["KnowledgeRetrievalCompletedEvent"] = MockKnowledgeRetrievalCompletedEvent
+            optional_events["LLMStreamChunkEvent"] = MockLLMStreamChunkEvent
 
-        mock_task_events = MagicMock()
-        mock_task_events.TaskStartedEvent = MockTaskStartedEvent
-        mock_task_events.TaskCompletedEvent = MockTaskCompletedEvent
-        mock_task_events.TaskFailedEvent = MockTaskFailedEvent
-
-        mock_llm_events = MagicMock()
-        mock_llm_events.LLMCallStartedEvent = MockLLMCallStartedEvent
-        mock_llm_events.LLMCallCompletedEvent = MockLLMCallCompletedEvent
-        mock_llm_events.LLMCallFailedEvent = MockLLMCallFailedEvent
-
-        mock_tool_events = MagicMock()
-        mock_tool_events.ToolUsageStartedEvent = MockToolUsageStartedEvent
-        mock_tool_events.ToolUsageFinishedEvent = MockToolUsageFinishedEvent
-        mock_tool_events.ToolUsageErrorEvent = MockToolUsageErrorEvent
-
-        with patch.dict("sys.modules", {
-            "crewai.utilities.events.crew_events": mock_crew_events,
-            "crewai.utilities.events.agent_events": mock_agent_events,
-            "crewai.utilities.events.task_events": mock_task_events,
-            "crewai.utilities.events.llm_events": mock_llm_events,
-            "crewai.utilities.events.tool_events": mock_tool_events,
-            "crewai.utilities.events.memory_events": MagicMock(side_effect=ImportError),
-            "crewai.utilities.events.flow_events": MagicMock(side_effect=ImportError),
-        }):
+        crewai_mod = "evalyn_sdk.trace.instrumentation.providers.crewai"
+        with patch(f"{crewai_mod}._import_core_events", return_value=core_events), \
+             patch(f"{crewai_mod}._import_optional_events", return_value=optional_events):
             instrumentor._register_event_handlers(bus)
 
         instrumentor._instrumented = True
@@ -477,6 +492,81 @@ class TestCrewAIInstrumentor:
 
         mock_output.token_usage = None
         assert _extract_token_usage(mock_output) is None
+
+    def test_knowledge_retrieval_span(self):
+        """Test knowledge retrieval start/complete creates a retrieval span."""
+        instrumentor, bus = self._create_instrumentor_with_mock_bus(include_optional=True)
+
+        source = MagicMock()
+        bus.emit(
+            MockKnowledgeRetrievalStartedEvent,
+            source,
+            MockKnowledgeRetrievalStartedEvent(query="what is AI?"),
+        )
+        bus.emit(
+            MockKnowledgeRetrievalCompletedEvent,
+            source,
+            MockKnowledgeRetrievalCompletedEvent(results=["result1", "result2"]),
+        )
+
+        spans = _get_collected_spans()
+        assert len(spans) == 1
+        assert spans[0].name == "knowledge:retrieval"
+        assert spans[0].span_type == "retrieval"
+        assert spans[0].status == "ok"
+        assert spans[0].attributes["crewai.type"] == "knowledge_retrieval"
+        assert spans[0].attributes["query"] == "what is AI?"
+        assert spans[0].attributes["result_count"] == 2
+
+    def test_llm_stream_chunk_appends_to_span(self):
+        """Test LLM stream chunks accumulate on the open LLM span."""
+        instrumentor, bus = self._create_instrumentor_with_mock_bus(include_optional=True)
+
+        call_id = "stream-call-1"
+        bus.emit(
+            MockLLMCallStartedEvent,
+            MagicMock(),
+            MockLLMCallStartedEvent(model="gpt-4o", call_id=call_id),
+        )
+
+        # Send stream chunks
+        bus.emit(
+            MockLLMStreamChunkEvent,
+            MagicMock(),
+            MockLLMStreamChunkEvent(call_id=call_id, chunk="Hello"),
+        )
+        bus.emit(
+            MockLLMStreamChunkEvent,
+            MagicMock(),
+            MockLLMStreamChunkEvent(call_id=call_id, chunk=" world"),
+        )
+
+        # Finish the LLM call
+        bus.emit(
+            MockLLMCallCompletedEvent,
+            MagicMock(),
+            MockLLMCallCompletedEvent(model="gpt-4o", call_id=call_id),
+        )
+
+        spans = _get_collected_spans()
+        assert len(spans) == 1
+        assert spans[0].attributes["crewai.stream_chunks"] == ["Hello", " world"]
+
+    def test_knowledge_retrieval_not_registered_without_optional(self):
+        """Test that knowledge retrieval handlers are not registered without optional events."""
+        instrumentor, bus = self._create_instrumentor_with_mock_bus(include_optional=False)
+
+        # These event types should have no handlers
+        assert MockKnowledgeRetrievalStartedEvent not in bus._handlers
+        assert MockKnowledgeRetrievalCompletedEvent not in bus._handlers
+
+    def test_append_attribute_on_nonexistent_span_is_noop(self):
+        """Test that appending to a nonexistent span does nothing."""
+        from evalyn_sdk.trace.instrumentation.providers.crewai import _SpanTracker
+
+        tracker = _SpanTracker()
+        # Should not raise
+        tracker.append_attribute(("nonexistent", 123), "key", "value")
 
 
 # ---------------------------------------------------------------------------
