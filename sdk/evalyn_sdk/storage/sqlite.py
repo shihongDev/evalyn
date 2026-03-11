@@ -173,16 +173,33 @@ class SQLiteStorage:
             return None
         return self._row_to_call(row)
 
-    def list_calls(self, limit: int = 100) -> List[FunctionCall]:
+    def list_calls(
+        self, limit: int = 100, project: Optional[str] = None
+    ) -> List[FunctionCall]:
         cur = self.conn.cursor()
-        cur.execute(
-            """
-            SELECT * FROM function_calls
-            ORDER BY started_at DESC
-            LIMIT ?
-            """,
-            (limit,),
-        )
+        if project:
+            # Filter by project in SQL using JSON metadata fields
+            cur.execute(
+                """
+                SELECT * FROM function_calls
+                WHERE (
+                    json_extract(metadata, '$.project_id') = ?
+                    OR json_extract(metadata, '$.project_name') = ?
+                )
+                ORDER BY started_at DESC
+                LIMIT ?
+                """,
+                (project, project, limit),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT * FROM function_calls
+                ORDER BY started_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
         rows = cur.fetchall()
         calls: List[FunctionCall] = []
         for row in rows:

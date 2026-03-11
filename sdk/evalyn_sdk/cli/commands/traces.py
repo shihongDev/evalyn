@@ -459,17 +459,11 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
     storage = _get_storage(args)
     # Fetch more calls for filtering (we'll slice later for pagination)
     fetch_limit = args.limit + getattr(args, "offset", 0) + 100
-    all_calls = storage.list_calls(limit=fetch_limit) if storage else []
+    project = getattr(args, "project", None)
+    all_calls = (
+        storage.list_calls(limit=fetch_limit, project=project) if storage else []
+    )
     calls = list(all_calls)
-
-    # Filter by project
-    if args.project and calls:
-        filtered = []
-        for c in calls:
-            pid = extract_project_id(c.metadata)
-            if pid == args.project:
-                filtered.append(c)
-        calls = filtered
 
     # Filter by function name
     if getattr(args, "function", None) and calls:
