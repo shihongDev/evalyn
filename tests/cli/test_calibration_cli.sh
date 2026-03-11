@@ -147,12 +147,10 @@ log_header "cluster-failures Command"
 if require_api_key "cluster-failures"; then
     run_cmd_allow_fail "cluster-failures" run_evalyn cluster-failures \
         --dataset "$DATASET_DIR" \
-        --num-clusters 3 \
         --output "$CALIBRATION_DIR/failure_clusters.json"
 
     run_cmd_allow_fail "cluster-failures --run-id" run_evalyn cluster-failures \
-        --run-id "$(get_run_id)" \
-        --num-clusters 3
+        --run-id "$(get_run_id)"
 fi
 
 # =============================================================================
@@ -163,9 +161,9 @@ log_header "cluster-misalignments Command"
 
 if require_api_key "cluster-misalignments"; then
     run_cmd_allow_fail "cluster-misalignments" run_evalyn cluster-misalignments \
+        --metric-id "helpfulness" \
         --dataset "$DATASET_DIR" \
         --annotations "$ANNOTATIONS_FILE" \
-        --num-clusters 3 \
         --output "$CALIBRATION_DIR/misalignment_clusters.json"
 fi
 

@@ -153,15 +153,43 @@ def _apply_calibration_config_defaults(args: argparse.Namespace, config: dict) -
 
 
 def _load_calibration_run(args: argparse.Namespace):
-    """Load eval run for calibration (explicit run or latest)."""
-    tracer = get_default_tracer()
-    if not tracer.storage:
-        fatal_error("No storage configured")
+    """Load eval run for calibration (explicit run or latest with target metric).
 
-    run = tracer.storage.get_eval_run(args.run_id) if args.run_id else None
+    Checks SQLite storage first, then falls back to dataset directory's
+    eval_runs/ folder. When no explicit run_id is given, finds the latest
+    run that contains the target metric_id.
+    """
+    import json
+    from ...models import EvalRun
+    from ...analysis.core import find_eval_runs
+
+    tracer = get_default_tracer()
+    metric_id = getattr(args, "metric_id", None)
+
+    run = None
+    if args.run_id and tracer.storage:
+        run = tracer.storage.get_eval_run(args.run_id)
+
+    # Try dataset directory's eval_runs/ folder
     if run is None:
+        dataset_arg = getattr(args, "dataset", None)
+        if dataset_arg:
+            dataset_path = Path(dataset_arg)
+            run_files = find_eval_runs(dataset_path)
+            for run_file in run_files:
+                with open(run_file, encoding="utf-8") as f:
+                    candidate = EvalRun.from_dict(json.load(f))
+                if not metric_id or any(
+                    r.metric_id == metric_id for r in candidate.metric_results
+                ):
+                    run = candidate
+                    break
+
+    # Fall back to latest run in storage
+    if run is None and tracer.storage:
         runs = tracer.storage.list_eval_runs(limit=1)
         run = runs[0] if runs else None
+
     if run is None:
         fatal_error("No eval runs available")
     return tracer, run
