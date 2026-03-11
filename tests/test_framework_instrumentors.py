@@ -783,6 +783,190 @@ class TestAutoGenInstrumentor:
         assert spans[0].span_type == "graph"
         assert spans[0].attributes["autogen.participants"] == ["researcher", "writer"]
 
+    def test_llm_event_handler_captures_events(self):
+        """Test _LLMEventHandler captures LLMCallEvent from logging."""
+        import logging
+        import types
+        import sys
+        from evalyn_sdk.trace.instrumentation.providers.autogen import _LLMEventHandler
+
+        handler = _LLMEventHandler()
+
+        # Create a mock LLMCallEvent class and instance
+        class FakeLLMCallEvent:
+            def __init__(self, prompt_tokens, completion_tokens):
+                self.prompt_tokens = prompt_tokens
+                self.completion_tokens = completion_tokens
+
+        mock_event = FakeLLMCallEvent(prompt_tokens=25, completion_tokens=12)
+
+        # Register fake autogen_core.logging so the handler can import LLMCallEvent
+        mock_core = types.ModuleType("autogen_core")
+        mock_logging_module = types.ModuleType("autogen_core.logging")
+        mock_logging_module.LLMCallEvent = FakeLLMCallEvent
+        sys.modules["autogen_core"] = mock_core
+        sys.modules["autogen_core.logging"] = mock_logging_module
+
+        try:
+            record = logging.LogRecord(
+                name="autogen_agentchat.events",
+                level=logging.INFO,
+                pathname="",
+                lineno=0,
+                msg=mock_event,
+                args=None,
+                exc_info=None,
+            )
+
+            handler.emit(record)
+
+            assert handler.total_prompt_tokens == 25
+            assert handler.total_completion_tokens == 12
+            assert len(handler.events) == 1
+            assert handler.events[0]["prompt_tokens"] == 25
+            assert handler.events[0]["completion_tokens"] == 12
+
+            # Emit a second event - tokens accumulate
+            mock_event_2 = FakeLLMCallEvent(prompt_tokens=30, completion_tokens=15)
+            record2 = logging.LogRecord(
+                name="autogen_agentchat.events",
+                level=logging.INFO,
+                pathname="",
+                lineno=0,
+                msg=mock_event_2,
+                args=None,
+                exc_info=None,
+            )
+            handler.emit(record2)
+
+            assert handler.total_prompt_tokens == 55
+            assert handler.total_completion_tokens == 27
+            assert len(handler.events) == 2
+        finally:
+            sys.modules.pop("autogen_core.logging", None)
+            sys.modules.pop("autogen_core", None)
+
+    def test_llm_event_handler_ignores_non_llm_events(self):
+        """Test _LLMEventHandler ignores records that are not LLMCallEvent."""
+        import logging
+        import types
+        import sys
+        from evalyn_sdk.trace.instrumentation.providers.autogen import _LLMEventHandler
+
+        handler = _LLMEventHandler()
+
+        # Create a fake LLMCallEvent class that a plain string won't match
+        class FakeLLMCallEvent:
+            pass
+
+        mock_core = types.ModuleType("autogen_core")
+        mock_logging_module = types.ModuleType("autogen_core.logging")
+        mock_logging_module.LLMCallEvent = FakeLLMCallEvent
+        sys.modules["autogen_core"] = mock_core
+        sys.modules["autogen_core.logging"] = mock_logging_module
+
+        try:
+            # Plain string message - not an LLMCallEvent
+            record = logging.LogRecord(
+                name="autogen_agentchat.events",
+                level=logging.INFO,
+                pathname="",
+                lineno=0,
+                msg="some plain log message",
+                args=None,
+                exc_info=None,
+            )
+            handler.emit(record)
+
+            assert handler.total_prompt_tokens == 0
+            assert handler.total_completion_tokens == 0
+            assert len(handler.events) == 0
+        finally:
+            sys.modules.pop("autogen_core.logging", None)
+            sys.modules.pop("autogen_core", None)
+
+    def test_llm_event_handler_reset(self):
+        """Test _LLMEventHandler.reset() clears accumulated data."""
+        import logging
+        import types
+        import sys
+        from evalyn_sdk.trace.instrumentation.providers.autogen import _LLMEventHandler
+
+        handler = _LLMEventHandler()
+
+        class FakeLLMCallEvent:
+            def __init__(self, prompt_tokens, completion_tokens):
+                self.prompt_tokens = prompt_tokens
+                self.completion_tokens = completion_tokens
+
+        mock_event = FakeLLMCallEvent(prompt_tokens=10, completion_tokens=5)
+
+        mock_core = types.ModuleType("autogen_core")
+        mock_logging_module = types.ModuleType("autogen_core.logging")
+        mock_logging_module.LLMCallEvent = FakeLLMCallEvent
+        sys.modules["autogen_core"] = mock_core
+        sys.modules["autogen_core.logging"] = mock_logging_module
+
+        try:
+            record = logging.LogRecord(
+                name="test",
+                level=logging.INFO,
+                pathname="",
+                lineno=0,
+                msg=mock_event,
+                args=None,
+                exc_info=None,
+            )
+            handler.emit(record)
+            assert handler.total_prompt_tokens == 10
+
+            handler.reset()
+            assert handler.total_prompt_tokens == 0
+            assert handler.total_completion_tokens == 0
+            assert len(handler.events) == 0
+        finally:
+            sys.modules.pop("autogen_core.logging", None)
+            sys.modules.pop("autogen_core", None)
+
+    def test_attach_detach_llm_event_handler(self):
+        """Test instrument/uninstrument attaches/detaches the logging handler."""
+        import logging
+        import types
+        import sys
+        from evalyn_sdk.trace.instrumentation.providers.autogen import (
+            AutoGenInstrumentor,
+            _LLMEventHandler,
+        )
+
+        # Mock autogen_agentchat with EVENT_LOGGER_NAME
+        mock_agentchat = types.ModuleType("autogen_agentchat")
+        mock_agentchat.EVENT_LOGGER_NAME = "autogen_agentchat.events"
+        sys.modules["autogen_agentchat"] = mock_agentchat
+
+        logger = logging.getLogger("autogen_agentchat.events")
+        original_handlers = list(logger.handlers)
+
+        try:
+            inst = AutoGenInstrumentor()
+
+            # _attach_llm_event_handler should succeed
+            result = inst._attach_llm_event_handler()
+            assert result is True
+            assert inst.llm_event_handler is not None
+
+            # Verify the handler is attached to the logger
+            assert inst.llm_event_handler in logger.handlers
+
+            # Detach
+            handler_ref = inst.llm_event_handler
+            inst._detach_llm_event_handler()
+            assert inst.llm_event_handler is None
+            assert handler_ref not in logger.handlers
+        finally:
+            # Restore original logger state
+            logger.handlers = original_handlers
+            sys.modules.pop("autogen_agentchat", None)
+
 
 # ---------------------------------------------------------------------------
 # DSPy Instrumentor Tests
@@ -1251,24 +1435,89 @@ class TestSemanticKernelInstrumentor:
         assert len(result[0]["content"]) == 500
 
     @pytest.mark.asyncio
-    async def test_kernel_invoke_span(self):
-        """Test kernel invoke creates a span."""
-        # Simulate kernel invoke span
-        span = Span.new(
-            name="kernel:MyPlugin.generate",
-            span_type="agent",
-            parent_id=None,
+    async def test_kernel_init_registers_filter(self):
+        """Test that patched Kernel.__init__ registers the invocation filter."""
+        from evalyn_sdk.trace.instrumentation.providers.semantic_kernel import (
+            SemanticKernelInstrumentor,
+            _function_invocation_filter,
         )
-        span.attributes["sk.type"] = "kernel_invoke"
-        span.attributes["sk.function_name"] = "generate"
-        span.attributes["sk.plugin_name"] = "MyPlugin"
-        span.finish(status="ok")
-        span_context._add_span_to_collector(span)
+
+        # Build a mock Kernel class with __init__ and add_filter
+        class MockKernel:
+            def __init__(self):
+                self._filters = {}
+
+            def add_filter(self, filter_type, fn):
+                self._filters[filter_type] = fn
+
+        # Patch the import so the instrumentor finds our mock
+        import sys
+        mock_module = type(sys)("semantic_kernel.kernel")
+        mock_module.Kernel = MockKernel
+        sys.modules["semantic_kernel.kernel"] = mock_module
+
+        try:
+            inst = SemanticKernelInstrumentor()
+            result = inst._patch_kernel_init()
+            assert result is True
+
+            # Creating a kernel should auto-register our filter
+            kernel = MockKernel()
+            assert "function_invocation" in kernel._filters
+            assert kernel._filters["function_invocation"] is _function_invocation_filter
+        finally:
+            del sys.modules["semantic_kernel.kernel"]
+
+    @pytest.mark.asyncio
+    async def test_function_invocation_filter_creates_span(self):
+        """Test the filter function creates spans correctly."""
+        from evalyn_sdk.trace.instrumentation.providers.semantic_kernel import (
+            _function_invocation_filter,
+        )
+
+        # Build a mock FunctionInvocationContext
+        context = MagicMock()
+        context.function.name = "generate"
+        context.function.plugin_name = "MyPlugin"
+        context.arguments = {"input": "hello"}
+        context.result.value = "generated text"
+        context.result.metadata = {"key": "val"}
+
+        async def mock_next(ctx):
+            pass
+
+        await _function_invocation_filter(context, mock_next)
 
         spans = _get_collected_spans()
         assert len(spans) == 1
         assert spans[0].name == "kernel:MyPlugin.generate"
+        assert spans[0].attributes["sk.type"] == "kernel_invoke"
         assert spans[0].attributes["sk.function_name"] == "generate"
+        assert spans[0].attributes["sk.plugin_name"] == "MyPlugin"
+        assert spans[0].status == "ok"
+
+    @pytest.mark.asyncio
+    async def test_function_invocation_filter_error(self):
+        """Test the filter function handles errors correctly."""
+        from evalyn_sdk.trace.instrumentation.providers.semantic_kernel import (
+            _function_invocation_filter,
+        )
+
+        context = MagicMock()
+        context.function.name = "fail_func"
+        context.function.plugin_name = ""
+        context.arguments = None
+
+        async def mock_next_error(ctx):
+            raise ValueError("something went wrong")
+
+        with pytest.raises(ValueError, match="something went wrong"):
+            await _function_invocation_filter(context, mock_next_error)
+
+        spans = _get_collected_spans()
+        assert len(spans) == 1
+        assert spans[0].name == "kernel:fail_func"
+        assert spans[0].status == "error"
 
     @pytest.mark.asyncio
     async def test_llm_call_span(self):

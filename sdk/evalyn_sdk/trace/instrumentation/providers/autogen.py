@@ -1,11 +1,11 @@
 """
 AutoGen framework instrumentor (v0.4+ / autogen-agentchat).
 
-Patches key methods to capture:
-- Agent invocations (run, on_messages)
-- LLM calls (ChatCompletionClient.create)
-- Tool execution (BaseTool.run_json)
-- Team orchestration (BaseGroupChat.run)
+Hybrid approach:
+1. Monkey-patches agent/tool/team methods for span creation (AutoGen has no
+   logging events for these).
+2. Attaches a logging handler to AutoGen's EVENT_LOGGER_NAME to capture
+   LLMCallEvent structured events for richer LLM token data.
 
 Span hierarchy:
     team:run (if team)
@@ -18,7 +18,8 @@ from __future__ import annotations
 
 import functools
 import importlib.util
-from typing import Any
+import logging
+from typing import Any, List
 
 from ..base import Instrumentor, InstrumentorType
 from ....models import Span
@@ -26,11 +27,69 @@ from ... import context as span_context
 from ._shared import calculate_cost
 
 
+class _LLMEventHandler(logging.Handler):
+    """Logging handler that captures AutoGen LLMCallEvent structured events.
+
+    AutoGen emits LLMCallEvent via its EVENT_LOGGER_NAME logger. Each event
+    carries prompt_tokens and completion_tokens. We accumulate these so the
+    instrumentor (or downstream consumers) can access structured token usage
+    data that complements the monkey-patched spans.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._prompt_tokens: int = 0
+        self._completion_tokens: int = 0
+        self._events: List[dict] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        # Guard: only process LLMCallEvent instances
+        try:
+            from autogen_core.logging import LLMCallEvent
+        except ImportError:
+            return
+
+        if not isinstance(record.msg, LLMCallEvent):
+            return
+
+        event = record.msg
+        prompt_tokens = getattr(event, "prompt_tokens", 0) or 0
+        completion_tokens = getattr(event, "completion_tokens", 0) or 0
+
+        self._prompt_tokens += prompt_tokens
+        self._completion_tokens += completion_tokens
+
+        self._events.append({
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+        })
+
+    @property
+    def total_prompt_tokens(self) -> int:
+        return self._prompt_tokens
+
+    @property
+    def total_completion_tokens(self) -> int:
+        return self._completion_tokens
+
+    @property
+    def events(self) -> List[dict]:
+        return list(self._events)
+
+    def reset(self) -> None:
+        self._prompt_tokens = 0
+        self._completion_tokens = 0
+        self._events.clear()
+
+
 class AutoGenInstrumentor(Instrumentor):
     """Instrumentor for Microsoft AutoGen (autogen-agentchat v0.4+)."""
 
     _instrumented = False
     _originals: dict[str, Any] = {}
+
+    def __init__(self) -> None:
+        self._llm_event_handler: _LLMEventHandler | None = None
 
     @property
     def name(self) -> str:
@@ -45,6 +104,11 @@ class AutoGenInstrumentor(Instrumentor):
 
     def is_instrumented(self) -> bool:
         return self._instrumented
+
+    @property
+    def llm_event_handler(self) -> _LLMEventHandler | None:
+        """Access the logging handler for LLMCallEvent data."""
+        return self._llm_event_handler
 
     def instrument(self) -> bool:
         if self._instrumented:
@@ -64,9 +128,45 @@ class AutoGenInstrumentor(Instrumentor):
         # Patch BaseGroupChat for team orchestration
         patched_any = self._patch_team() or patched_any
 
+        # Attach logging handler for LLMCallEvent structured events
+        patched_any = self._attach_llm_event_handler() or patched_any
+
         if patched_any:
             self._instrumented = True
         return patched_any
+
+    def _attach_llm_event_handler(self) -> bool:
+        """Attach a logging handler to capture LLMCallEvent from AutoGen."""
+        try:
+            from autogen_agentchat import EVENT_LOGGER_NAME  # noqa: F401
+        except ImportError:
+            return False
+
+        handler = _LLMEventHandler()
+        handler.setLevel(logging.DEBUG)
+        self._llm_event_handler = handler
+
+        logger = logging.getLogger(EVENT_LOGGER_NAME)
+        logger.addHandler(handler)
+        # Ensure the logger level allows events through
+        if logger.level == logging.NOTSET or logger.level > logging.DEBUG:
+            logger.setLevel(logging.DEBUG)
+        return True
+
+    def _detach_llm_event_handler(self) -> None:
+        """Remove the logging handler from AutoGen's event logger."""
+        if self._llm_event_handler is None:
+            return
+
+        try:
+            from autogen_agentchat import EVENT_LOGGER_NAME
+        except ImportError:
+            self._llm_event_handler = None
+            return
+
+        logger = logging.getLogger(EVENT_LOGGER_NAME)
+        logger.removeHandler(self._llm_event_handler)
+        self._llm_event_handler = None
 
     def _patch_model_client(self) -> bool:
         """Patch ChatCompletionClient.create to capture LLM calls."""
@@ -407,6 +507,9 @@ class AutoGenInstrumentor(Instrumentor):
                 BaseGroupChat.run = self._originals["team_run"]
         except ImportError:
             pass
+
+        # Remove the logging handler
+        self._detach_llm_event_handler()
 
         self._originals.clear()
         self._instrumented = False
