@@ -8,11 +8,18 @@ from __future__ import annotations
 
 import functools
 import importlib.util
-from typing import Any, Callable, Optional
+from contextvars import ContextVar
+from typing import Any, Callable, Optional, Set
 
 from ..base import Instrumentor, InstrumentorType
 from ....models import Span
 from ... import context as span_context
+
+# Track active node spans to prevent double-spanning when both _execute_node
+# patching and node function wrapping fire for the same node execution.
+_active_node_spans: ContextVar[Set[str]] = ContextVar(
+    "_active_node_spans", default=frozenset()
+)
 
 
 class LangGraphInstrumentor(Instrumentor):
@@ -42,7 +49,7 @@ class LangGraphInstrumentor(Instrumentor):
 
         try:
             from langgraph.graph import StateGraph
-            from langgraph.graph.graph import CompiledGraph
+            from langgraph.graph.state import CompiledStateGraph
         except ImportError:
             return False
 
@@ -56,8 +63,8 @@ class LangGraphInstrumentor(Instrumentor):
 
         StateGraph.compile = patched_compile
 
-        # Also patch CompiledGraph directly for already-compiled graphs
-        self._patch_compiled_graph_class(CompiledGraph)
+        # Also patch CompiledStateGraph directly for already-compiled graphs
+        self._patch_compiled_graph_class(CompiledStateGraph)
 
         self._instrumented = True
         return True
@@ -139,6 +146,11 @@ class LangGraphInstrumentor(Instrumentor):
 
             @functools.wraps(original_execute)
             def patched_execute(inst, node_name, *args, **kwargs):
+                # Guard: skip if node span already active (from node func wrapper)
+                active = _active_node_spans.get()
+                if node_name in active:
+                    return original_execute(inst, node_name, *args, **kwargs)
+
                 parent_span_id = span_context.get_current_span_id()
 
                 # Create node span
@@ -148,6 +160,10 @@ class LangGraphInstrumentor(Instrumentor):
                     parent_id=parent_span_id,
                     node_name=node_name,
                 )
+
+                # Mark this node as actively spanned
+                new_active = set(active) | {node_name}
+                active_token = _active_node_spans.set(new_active)
 
                 # Push node span so LLM/tool calls are children
                 stack = span_context._span_stack.get()
@@ -163,6 +179,7 @@ class LangGraphInstrumentor(Instrumentor):
                     raise
                 finally:
                     span_context._span_stack.set(stack)
+                    _active_node_spans.set(active)
                     span_context._add_span_to_collector(node_span)
 
             CompiledGraph._execute_node = patched_execute
@@ -198,6 +215,11 @@ class LangGraphInstrumentor(Instrumentor):
 
             @functools.wraps(node_func)
             async def async_wrapper(*args, **kwargs):
+                # Guard: skip if node span already active (from _execute_node)
+                active = _active_node_spans.get()
+                if node_name in active:
+                    return await node_func(*args, **kwargs)
+
                 parent_span_id = span_context.get_current_span_id()
                 node_span = Span.new(
                     name=f"node:{node_name}",
@@ -205,6 +227,10 @@ class LangGraphInstrumentor(Instrumentor):
                     parent_id=parent_span_id,
                     node_name=node_name,
                 )
+
+                # Mark this node as actively spanned
+                new_active = set(active) | {node_name}
+                active_token = _active_node_spans.set(new_active)  # noqa: F841
 
                 stack = span_context._span_stack.get()
                 new_stack = stack + [node_span.id]
@@ -219,6 +245,7 @@ class LangGraphInstrumentor(Instrumentor):
                     raise
                 finally:
                     span_context._span_stack.set(stack)
+                    _active_node_spans.set(active)
                     span_context._add_span_to_collector(node_span)
 
             return async_wrapper
@@ -226,6 +253,11 @@ class LangGraphInstrumentor(Instrumentor):
 
             @functools.wraps(node_func)
             def sync_wrapper(*args, **kwargs):
+                # Guard: skip if node span already active (from _execute_node)
+                active = _active_node_spans.get()
+                if node_name in active:
+                    return node_func(*args, **kwargs)
+
                 parent_span_id = span_context.get_current_span_id()
                 node_span = Span.new(
                     name=f"node:{node_name}",
@@ -233,6 +265,10 @@ class LangGraphInstrumentor(Instrumentor):
                     parent_id=parent_span_id,
                     node_name=node_name,
                 )
+
+                # Mark this node as actively spanned
+                new_active = set(active) | {node_name}
+                active_token = _active_node_spans.set(new_active)  # noqa: F841
 
                 stack = span_context._span_stack.get()
                 new_stack = stack + [node_span.id]
@@ -247,6 +283,7 @@ class LangGraphInstrumentor(Instrumentor):
                     raise
                 finally:
                     span_context._span_stack.set(stack)
+                    _active_node_spans.set(active)
                     span_context._add_span_to_collector(node_span)
 
             return sync_wrapper
@@ -257,12 +294,12 @@ class LangGraphInstrumentor(Instrumentor):
 
         try:
             from langgraph.graph import StateGraph
-            from langgraph.graph.graph import CompiledGraph
+            from langgraph.graph.state import CompiledStateGraph
 
             if self._original_compile:
                 StateGraph.compile = self._original_compile
             if self._original_init:
-                CompiledGraph.__init__ = self._original_init
+                CompiledStateGraph.__init__ = self._original_init
 
             self._instrumented = False
             self._original_compile = None

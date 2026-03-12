@@ -81,6 +81,16 @@ class XAIInstrumentor(Instrumentor):
         # Store original methods
         self._original_sample = Chat.sample
 
+        def _extract_request(args, kwargs):
+            """Build a request dict from sample() arguments."""
+            parts = []
+            for a in args:
+                parts.append(str(a)[:500])
+            prompt = kwargs.get("prompt") or kwargs.get("message")
+            if prompt:
+                parts.append(str(prompt)[:500])
+            return {"messages": parts} if parts else None
+
         @functools.wraps(self._original_sample)
         def patched_sample(chat_self, *args, **kwargs):
             start = time.time()
@@ -88,34 +98,14 @@ class XAIInstrumentor(Instrumentor):
             model = getattr(chat_self, "_model", None) or getattr(
                 chat_self, "model", "unknown"
             )
+            request = _extract_request(args, kwargs)
 
             try:
                 response = self._original_sample(chat_self, *args, **kwargs)
                 duration_ms = (time.time() - start) * 1000
 
-                # Extract token usage if available
-                # xai-sdk response structure may vary
-                input_tokens = 0
-                output_tokens = 0
-
-                # Try to get usage from response
-                usage = getattr(response, "usage", None)
-                if usage:
-                    input_tokens = getattr(usage, "prompt_tokens", 0) or getattr(
-                        usage, "input_tokens", 0
-                    )
-                    output_tokens = getattr(usage, "completion_tokens", 0) or getattr(
-                        usage, "output_tokens", 0
-                    )
-
-                # Extract response content
-                content = ""
-                if hasattr(response, "content"):
-                    content = str(response.content)[:500]
-                elif hasattr(response, "text"):
-                    content = str(response.text)[:500]
-                elif hasattr(response, "message"):
-                    content = str(getattr(response.message, "content", ""))[:500]
+                input_tokens, output_tokens = _extract_usage(response)
+                content = _extract_content(response)
 
                 log_llm_call(
                     provider="xai",
@@ -124,6 +114,7 @@ class XAIInstrumentor(Instrumentor):
                     output_tokens=output_tokens,
                     duration_ms=duration_ms,
                     success=True,
+                    request=request,
                     response={"content": content} if content else None,
                 )
 
@@ -136,6 +127,7 @@ class XAIInstrumentor(Instrumentor):
                     duration_ms=duration_ms,
                     success=False,
                     error=str(e),
+                    request=request,
                 )
                 raise
 
@@ -151,32 +143,14 @@ class XAIInstrumentor(Instrumentor):
                 model = getattr(chat_self, "_model", None) or getattr(
                     chat_self, "model", "unknown"
                 )
+                request = _extract_request(args, kwargs)
 
                 try:
                     response = await self._original_asample(chat_self, *args, **kwargs)
                     duration_ms = (time.time() - start) * 1000
 
-                    # Extract token usage if available
-                    input_tokens = 0
-                    output_tokens = 0
-
-                    usage = getattr(response, "usage", None)
-                    if usage:
-                        input_tokens = getattr(usage, "prompt_tokens", 0) or getattr(
-                            usage, "input_tokens", 0
-                        )
-                        output_tokens = getattr(
-                            usage, "completion_tokens", 0
-                        ) or getattr(usage, "output_tokens", 0)
-
-                    # Extract response content
-                    content = ""
-                    if hasattr(response, "content"):
-                        content = str(response.content)[:500]
-                    elif hasattr(response, "text"):
-                        content = str(response.text)[:500]
-                    elif hasattr(response, "message"):
-                        content = str(getattr(response.message, "content", ""))[:500]
+                    input_tokens, output_tokens = _extract_usage(response)
+                    content = _extract_content(response)
 
                     log_llm_call(
                         provider="xai",
@@ -185,6 +159,7 @@ class XAIInstrumentor(Instrumentor):
                         output_tokens=output_tokens,
                         duration_ms=duration_ms,
                         success=True,
+                        request=request,
                         response={"content": content} if content else None,
                     )
 
@@ -197,6 +172,7 @@ class XAIInstrumentor(Instrumentor):
                         duration_ms=duration_ms,
                         success=False,
                         error=str(e),
+                        request=request,
                     )
                     raise
 

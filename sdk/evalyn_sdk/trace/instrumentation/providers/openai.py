@@ -34,6 +34,43 @@ def _detect_provider(completions_instance) -> str:
     return "openai"
 
 
+def _build_request_dict(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Build a request dict capturing messages and optional params."""
+    req: dict[str, Any] = {"messages": str(kwargs.get("messages", []))[:500]}
+    if "temperature" in kwargs:
+        req["temperature"] = kwargs["temperature"]
+    if "max_tokens" in kwargs:
+        req["max_tokens"] = kwargs["max_tokens"]
+    return req
+
+
+def _build_response_dict(response: Any) -> dict[str, Any]:
+    """Build a response dict from an OpenAI ChatCompletion response."""
+    resp: dict[str, Any] = {}
+    if not getattr(response, "choices", None):
+        return resp
+
+    choice = response.choices[0]
+    message = getattr(choice, "message", None)
+
+    if message is not None:
+        resp["content"] = str(getattr(message, "content", ""))[:500]
+
+        # Capture tool calls if present
+        tool_calls = getattr(message, "tool_calls", None)
+        if tool_calls:
+            resp["tool_calls"] = [
+                {
+                    "name": getattr(tc.function, "name", ""),
+                    "arguments": str(getattr(tc.function, "arguments", ""))[:300],
+                }
+                for tc in tool_calls
+            ]
+
+    resp["finish_reason"] = getattr(choice, "finish_reason", None)
+    return resp
+
+
 class OpenAIInstrumentor(Instrumentor):
     """Instrumentor for OpenAI SDK."""
 
@@ -75,14 +112,12 @@ class OpenAIInstrumentor(Instrumentor):
             def patched_create(inst, *args, **kwargs):
                 start = time.time()
                 model = kwargs.get("model", "unknown")
-                messages = kwargs.get("messages", [])
                 provider = _detect_provider(inst)
 
                 try:
                     response = self._original_create(inst, *args, **kwargs)
                     duration_ms = (time.time() - start) * 1000
 
-                    # Extract token usage
                     usage = getattr(response, "usage", None)
                     input_tokens = getattr(usage, "prompt_tokens", 0) if usage else 0
                     output_tokens = (
@@ -96,14 +131,8 @@ class OpenAIInstrumentor(Instrumentor):
                         output_tokens=output_tokens,
                         duration_ms=duration_ms,
                         success=True,
-                        request={"messages": str(messages)[:500]},
-                        response={
-                            "content": str(
-                                getattr(response.choices[0].message, "content", "")
-                            )[:500]
-                            if response.choices
-                            else None
-                        },
+                        request=_build_request_dict(kwargs),
+                        response=_build_response_dict(response),
                     )
 
                     return response
@@ -147,6 +176,8 @@ class OpenAIInstrumentor(Instrumentor):
                         output_tokens=output_tokens,
                         duration_ms=duration_ms,
                         success=True,
+                        request=_build_request_dict(kwargs),
+                        response=_build_response_dict(response),
                     )
 
                     return response

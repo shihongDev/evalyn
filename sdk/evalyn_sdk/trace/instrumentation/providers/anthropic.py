@@ -18,6 +18,36 @@ from ._shared import log_llm_call
 logger = logging.getLogger(__name__)
 
 
+def _extract_response(response: Any) -> dict:
+    """Extract response content from Anthropic Message response."""
+    resp: dict[str, Any] = {}
+    content_blocks = getattr(response, "content", None)
+    if content_blocks:
+        texts = []
+        tool_calls = []
+        for block in content_blocks:
+            block_type = getattr(block, "type", "")
+            if block_type == "text":
+                texts.append(str(getattr(block, "text", ""))[:500])
+            elif block_type == "tool_use":
+                tool_calls.append(
+                    {
+                        "name": getattr(block, "name", ""),
+                        "input": str(getattr(block, "input", ""))[:300],
+                    }
+                )
+        if texts:
+            resp["content"] = " ".join(texts)[:1000]
+        if tool_calls:
+            resp["tool_calls"] = tool_calls
+
+    stop_reason = getattr(response, "stop_reason", None)
+    if stop_reason:
+        resp["stop_reason"] = stop_reason
+
+    return resp
+
+
 def _extract_usage(response: Any) -> dict:
     """Extract token usage from Anthropic response."""
     usage = getattr(response, "usage", None)
@@ -88,6 +118,7 @@ class AnthropicInstrumentor(Instrumentor):
                         duration_ms=duration_ms,
                         success=True,
                         request={"messages": str(messages)[:500]},
+                        response=_extract_response(response),
                         **usage,
                     )
 
@@ -126,6 +157,7 @@ class AnthropicInstrumentor(Instrumentor):
                         duration_ms=duration_ms,
                         success=True,
                         request={"messages": str(messages)[:500]},
+                        response=_extract_response(response),
                         **usage,
                     )
 

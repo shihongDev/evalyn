@@ -46,21 +46,51 @@ class LangChainInstrumentor(Instrumentor):
         # Create a callback handler that logs to Evalyn
         class EvalynCallbackHandler(BaseCallbackHandler):
             def __init__(self):
-                self._start_times: Dict[str, float] = {}
+                # Maps run_id to (start_time, model_name, request_messages)
+                self._start_times: Dict[str, Any] = {}
 
             def on_llm_start(self, serialized, prompts, **kwargs):
                 run_id = str(kwargs.get("run_id", ""))
-                self._start_times[run_id] = time.time()
+                model = (
+                    kwargs.get("invocation_params", {}).get("model_name")
+                    or kwargs.get("invocation_params", {}).get("model")
+                    or serialized.get("kwargs", {}).get("model_name")
+                    or serialized.get("kwargs", {}).get("model")
+                    or "unknown"
+                )
+                # Capture request messages (prompts list)
+                request_msgs = [str(p)[:500] for p in (prompts or [])]
+                self._start_times[run_id] = (time.time(), model, request_msgs)
 
             def on_llm_end(self, response, **kwargs):
                 run_id = str(kwargs.get("run_id", ""))
-                start = self._start_times.pop(run_id, time.time())
+                entry = self._start_times.pop(run_id, None)
+                if entry is not None:
+                    start, start_model, request_msgs = entry
+                else:
+                    start, start_model, request_msgs = time.time(), "unknown", []
                 duration_ms = (time.time() - start) * 1000
 
                 # Extract info from response
                 llm_output = getattr(response, "llm_output", {}) or {}
                 token_usage = llm_output.get("token_usage", {})
-                model = llm_output.get("model_name", "unknown")
+                model = llm_output.get("model_name") or start_model
+
+                # Extract response content
+                content = ""
+                generations = getattr(response, "generations", None)
+                if generations:
+                    for gen_list in generations:
+                        for gen in (gen_list if isinstance(gen_list, list) else [gen_list]):
+                            text = getattr(gen, "text", "")
+                            if text:
+                                content = str(text)[:500]
+                                break
+                        if content:
+                            break
+
+                request = {"messages": request_msgs} if request_msgs else None
+                response_data = {"content": content} if content else None
 
                 log_llm_call(
                     provider="langchain",
@@ -69,19 +99,26 @@ class LangChainInstrumentor(Instrumentor):
                     output_tokens=token_usage.get("completion_tokens", 0),
                     duration_ms=duration_ms,
                     success=True,
+                    request=request,
+                    response=response_data,
                 )
 
             def on_llm_error(self, error, **kwargs):
                 run_id = str(kwargs.get("run_id", ""))
-                start = self._start_times.pop(run_id, time.time())
+                entry = self._start_times.pop(run_id, None)
+                if entry is not None:
+                    start, model, request_msgs = entry
+                else:
+                    start, model, request_msgs = time.time(), "unknown", []
                 duration_ms = (time.time() - start) * 1000
 
                 log_llm_call(
                     provider="langchain",
-                    model="unknown",
+                    model=model,
                     duration_ms=duration_ms,
                     success=False,
                     error=str(error),
+                    request={"messages": request_msgs} if request_msgs else None,
                 )
 
             def on_tool_start(self, serialized, input_str, **kwargs):
