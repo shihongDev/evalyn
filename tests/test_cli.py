@@ -8,12 +8,10 @@ Fast tests only: pytest tests/test_cli.py -v -m "not slow"
 from __future__ import annotations
 
 import json
-import os
-from pathlib import Path
 
 import pytest
 
-from conftest import run_cli, SDK_ROOT
+from conftest import run_cli
 
 
 # ===========================================================================
@@ -332,18 +330,6 @@ class TestRunEval:
             "--metrics",
             str(sample_metrics_file),
         )
-        # Should run with the specified metrics
-        result.assert_success()
-
-    def test_run_eval_with_explicit_metrics(self, sample_dataset, sample_metrics_file):
-        """Test run-eval with explicit metrics file."""
-        result = run_cli(
-            "run-eval",
-            "--dataset",
-            str(sample_dataset),
-            "--metrics",
-            str(sample_metrics_file),
-        )
         result.assert_success()
 
     def test_run_eval_nonexistent_dataset(self, temp_dir):
@@ -542,16 +528,13 @@ class TestOneClick:
 class TestCLIIntegration:
     """Integration tests that run full workflows."""
 
-    @pytest.mark.skip(
-        reason="Requires traces in storage - needs integration test setup"
-    )
     def test_full_workflow_basic_metrics(self, sample_dataset):
         """Test basic workflow: suggest metrics -> run eval."""
-        # 1. Suggest metrics using basic mode (requires --project)
+        # 1. Suggest metrics using --target (avoids needing traces in storage)
         result = run_cli(
             "suggest-metrics",
-            "--project",
-            "test-project",
+            "--target",
+            "evalyn_sdk.cli.main:main",
             "--dataset",
             str(sample_dataset),
             "--mode",
@@ -573,16 +556,13 @@ class TestCLIIntegration:
         result = run_cli("status", "--dataset", str(sample_dataset))
         result.assert_success()
 
-    @pytest.mark.skip(
-        reason="Requires traces in storage - needs integration test setup"
-    )
     def test_dataset_with_bundle_metrics(self, sample_dataset):
         """Test using bundled metrics."""
-        # Suggest metrics with bundle (requires --project)
+        # Suggest metrics with --target (avoids needing traces in storage)
         result = run_cli(
             "suggest-metrics",
-            "--project",
-            "test-project",
+            "--target",
+            "evalyn_sdk.cli.main:main",
             "--dataset",
             str(sample_dataset),
             "--mode",
@@ -792,3 +772,40 @@ class TestDeleteTraces:
             "warning" in result.stdout.lower()
             or "no traces found" in result.stdout.lower()
         )
+
+
+# ===========================================================================
+# Insights CLI flag tests
+# ===========================================================================
+
+
+class TestInsightsFlags:
+    """Tests for insights command flags (--deep, --format html, --provider, etc)."""
+
+    def test_insights_help_shows_new_flags(self):
+        """Insights help should show --deep, --provider, --model, --experts, --format html."""
+        result = run_cli("insights", "--help")
+        result.assert_success()
+        result.assert_output_contains("--deep")
+        result.assert_output_contains("--provider")
+        result.assert_output_contains("--model")
+        result.assert_output_contains("--experts")
+
+    def test_insights_format_html_in_help(self):
+        """HTML should be listed as a format choice."""
+        result = run_cli("insights", "--help")
+        result.assert_success()
+        result.assert_output_contains("html")
+
+    def test_insights_provider_choices(self):
+        """Provider arg should accept gemini, openai, ollama."""
+        result = run_cli("insights", "--help")
+        result.assert_success()
+        result.assert_output_contains("gemini")
+        result.assert_output_contains("openai")
+        result.assert_output_contains("ollama")
+
+    def test_insights_invalid_format(self):
+        """Invalid format should fail."""
+        result = run_cli("insights", "--format", "csv")
+        result.assert_failure()
