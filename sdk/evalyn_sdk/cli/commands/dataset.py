@@ -28,6 +28,7 @@ from typing import Optional
 
 from ...datasets import build_dataset_from_storage, save_dataset_with_meta
 from ...decorators import get_default_tracer
+from ...sampling import SAMPLING_MODES, apply_sampling
 from ..utils.config import get_data_dir
 from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
@@ -72,20 +73,38 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
         except Exception:
             return None
 
+    mode = args.mode
+    needs_oversampling = mode != "all" or args.deduplicate
+    fetch_limit = args.limit * 10 if needs_oversampling else args.limit
+
     items = build_dataset_from_storage(
         tracer.storage,
-        function_name=None,  # prefer project-based grouping
+        function_name=None,
         project_id=args.project,
         project_name=args.project,
         version=args.version,
-        simulation_only=getattr(args, "simulation", False),
-        production_only=getattr(args, "production", False),
+        simulation_only=args.simulation,
+        production_only=args.production,
         since=_parse_dt(args.since),
         until=_parse_dt(args.until),
         limit=args.limit,
+        fetch_limit=fetch_limit,
         success_only=not args.include_errors,
         include_metadata=True,
     )
+
+    if mode != "all" or args.deduplicate:
+        pre_count = len(items)
+        items = apply_sampling(
+            items,
+            mode=mode,
+            limit=args.limit,
+            dedup=args.deduplicate,
+            dedup_threshold=args.dedup_threshold,
+            n_clusters=args.n_clusters,
+            seed=args.seed,
+        )
+        print(f"Sampling: {pre_count} candidates -> {len(items)} items (mode={mode})")
 
     ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     proj = args.project or "all"
@@ -110,8 +129,8 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
     input_keys = set()
     meta_keys = set()
     for item in items:
-        if isinstance(item.inputs, dict):
-            input_keys.update(item.inputs.keys())
+        if isinstance(item.input, dict):
+            input_keys.update(item.input.keys())
         if isinstance(item.metadata, dict):
             meta_keys.update(item.metadata.keys())
 
@@ -126,6 +145,13 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
             "until": args.until,
             "limit": args.limit,
             "include_errors": bool(args.include_errors),
+        },
+        "sampling": {
+            "mode": mode,
+            "deduplicate": args.deduplicate,
+            "dedup_threshold": args.dedup_threshold,
+            "n_clusters": args.n_clusters,
+            "seed": args.seed,
         },
         "counts": {"items": len(items)},
         "schema": {
@@ -180,6 +206,35 @@ def register_commands(subparsers) -> None:
         "--include-errors",
         action="store_true",
         help="Include errored calls (default: skip)",
+    )
+    p.add_argument(
+        "--mode",
+        choices=list(SAMPLING_MODES),
+        default="all",
+        help="Sampling mode: all (default), random, diverse, stratified, clustered",
+    )
+    p.add_argument(
+        "--deduplicate",
+        action="store_true",
+        help="Remove near-duplicate inputs before sampling (requires sentence-transformers)",
+    )
+    p.add_argument(
+        "--dedup-threshold",
+        type=float,
+        default=0.95,
+        help="Cosine similarity threshold for deduplication (default: 0.95)",
+    )
+    p.add_argument(
+        "--n-clusters",
+        type=int,
+        default=10,
+        help="Number of clusters for 'clustered' mode (default: 10)",
+    )
+    p.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for reproducible sampling (default: 42)",
     )
     p.set_defaults(func=cmd_build_dataset)
 

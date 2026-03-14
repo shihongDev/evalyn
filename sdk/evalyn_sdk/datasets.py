@@ -105,6 +105,7 @@ def build_dataset_from_storage(
     since: Optional[datetime] = None,
     until: Optional[datetime] = None,
     limit: int = 500,
+    fetch_limit: Optional[int] = None,
     success_only: bool = True,
     include_metadata: bool = True,
 ) -> List[DatasetItem]:
@@ -126,6 +127,10 @@ def build_dataset_from_storage(
       - since/until: call.started_at within range
       - success_only: skip calls with errors
       - limit: max number of matching calls to include (after filtering)
+      - fetch_limit: max calls to fetch from storage before filtering.
+        When sampling modes need more candidates than ``limit``, pass a
+        larger ``fetch_limit`` so the sampler has a bigger pool to choose from.
+        Defaults to ``limit`` for backward compatibility.
     """
 
     def _as_aware(dt: Optional[datetime]) -> Optional[datetime]:
@@ -138,9 +143,10 @@ def build_dataset_from_storage(
     since = _as_aware(since)
     until = _as_aware(until)
 
+    effective_fetch = fetch_limit if fetch_limit is not None else limit
     project_filter = project_id or project_name
     calls = (
-        storage.list_calls(limit=limit * 5, project=project_filter)
+        storage.list_calls(limit=effective_fetch * 5, project=project_filter)
         if storage
         else []
     )
@@ -189,6 +195,6 @@ def build_dataset_from_storage(
                 metadata=meta,
             )
         )
-        if len(items) >= limit:
+        if len(items) >= effective_fetch:
             break
     return items

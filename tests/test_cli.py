@@ -230,6 +230,32 @@ class TestBuildDataset:
         # Note: If only one project exists, it would succeed; with multiple it fails
         assert result.success or "Multiple projects found" in result.stdout
 
+    def test_build_dataset_help_shows_sampling_flags(self):
+        """Test build-dataset --help shows sampling flags."""
+        result = run_cli("build-dataset", "--help")
+        result.assert_success()
+        result.assert_output_contains("--mode")
+        result.assert_output_contains("--deduplicate")
+        result.assert_output_contains("--dedup-threshold")
+        result.assert_output_contains("--n-clusters")
+        result.assert_output_contains("--seed")
+
+    def test_build_dataset_mode_choices(self):
+        """Test build-dataset --mode accepts valid modes and rejects invalid ones."""
+        # Valid mode should not fail on argument parsing
+        result = run_cli("build-dataset", "--help")
+        result.assert_success()
+        result.assert_output_contains("all")
+        result.assert_output_contains("random")
+        result.assert_output_contains("diverse")
+        result.assert_output_contains("stratified")
+        result.assert_output_contains("clustered")
+
+    def test_build_dataset_invalid_mode(self):
+        """Test build-dataset with invalid --mode fails."""
+        result = run_cli("build-dataset", "--mode", "invalid_mode")
+        result.assert_failure()
+
 
 # ===========================================================================
 # suggest-metrics tests
