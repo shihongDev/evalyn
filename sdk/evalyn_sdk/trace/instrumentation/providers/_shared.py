@@ -128,6 +128,48 @@ COST_PER_1M_TOKENS = dict(
 )
 
 
+_MODEL_CONTEXT_WINDOWS_UNSORTED = {
+    "gpt-4o": 128_000,
+    "gpt-4o-mini": 128_000,
+    "gpt-4-turbo": 128_000,
+    "gpt-4": 8_192,
+    "gpt-3.5-turbo": 16_385,
+    "claude-opus-4-5": 200_000,
+    "claude-sonnet-4-5": 200_000,
+    "claude-haiku-4-5": 200_000,
+    "claude-opus-4-1": 200_000,
+    "claude-sonnet-4": 200_000,
+    "claude-opus-4": 200_000,
+    "claude-3-5-sonnet": 200_000,
+    "claude-3-5-haiku": 200_000,
+    "claude-3-opus": 200_000,
+    "claude-3-sonnet": 200_000,
+    "claude-3-haiku": 200_000,
+    "gemini-2.5-flash": 1_048_576,
+    "gemini-2.5-flash-lite": 1_048_576,
+    "gemini-2.5-pro": 1_048_576,
+    "gemini-2.0-flash": 1_048_576,
+    "gemini-1.5-pro": 2_097_152,
+    "gemini-1.5-flash": 1_048_576,
+    "grok-4": 131_072,
+}
+
+MODEL_CONTEXT_WINDOWS = dict(
+    sorted(
+        _MODEL_CONTEXT_WINDOWS_UNSORTED.items(), key=lambda x: len(x[0]), reverse=True
+    )
+)
+
+
+def get_model_context_window(model: str) -> Optional[int]:
+    """Return context window size for a model, or None if unknown."""
+    model_lower = model.lower()
+    for model_key, window in MODEL_CONTEXT_WINDOWS.items():
+        if model_key in model_lower:
+            return window
+    return None
+
+
 def is_model_pricing_known(model: str) -> bool:
     """Check if a model's pricing is in our registry."""
     model_lower = model.lower()
@@ -233,6 +275,12 @@ def log_llm_call(
         "success": success,
     }
 
+    # Context window utilization
+    max_ctx = get_model_context_window(model)
+    if max_ctx and input_tokens:
+        context_utilization_pct = round(input_tokens / max_ctx * 100, 1)
+        detail["context_utilization_pct"] = context_utilization_pct
+
     # Add cache token info if present
     if cache_creation_tokens:
         detail["cache_creation_tokens"] = cache_creation_tokens
@@ -264,6 +312,10 @@ def log_llm_call(
         output_tokens=output_tokens,
         cost_usd=cost,
     )
+
+    # Add context utilization to span
+    if max_ctx and input_tokens:
+        span.attributes["context_utilization_pct"] = context_utilization_pct
 
     # Add cache token info to span
     if cache_creation_tokens:
