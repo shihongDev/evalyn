@@ -6,7 +6,7 @@ import sqlite3
 from pathlib import Path
 from typing import Iterable, List, Optional
 
-from ..models import Annotation, EvalRun, FunctionCall
+from ..models import Annotation, EvalRun, FunctionCall, SpanMetricLink
 
 # Default paths for prod/test separation
 DEFAULT_PROD_DB = "data/prod/traces.sqlite"
@@ -108,6 +108,31 @@ class SQLiteStorage:
                 confidence REAL,
                 created_at TEXT
             )
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS span_metric_links (
+                id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                metric_result_id TEXT NOT NULL,
+                span_id TEXT NOT NULL,
+                relevance REAL NOT NULL,
+                reason TEXT DEFAULT '',
+                UNIQUE(run_id, metric_result_id, span_id)
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_sml_run_metric
+            ON span_metric_links(run_id, metric_result_id)
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_sml_run_span
+            ON span_metric_links(run_id, span_id)
             """
         )
         self.conn.commit()
@@ -391,6 +416,55 @@ class SQLiteStorage:
                 )
             )
         return anns
+
+    def store_span_metric_links(self, links: Iterable[SpanMetricLink]) -> None:
+        cur = self.conn.cursor()
+        for link in links:
+            cur.execute(
+                """
+                INSERT OR REPLACE INTO span_metric_links
+                (id, run_id, metric_result_id, span_id, relevance, reason)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    link.id,
+                    link.run_id,
+                    link.metric_result_id,
+                    link.span_id,
+                    link.relevance,
+                    link.reason,
+                ),
+            )
+        self.conn.commit()
+
+    def list_span_metric_links(
+        self,
+        run_id: str,
+        span_id: Optional[str] = None,
+        metric_result_id: Optional[str] = None,
+    ) -> List[SpanMetricLink]:
+        cur = self.conn.cursor()
+        query = "SELECT * FROM span_metric_links WHERE run_id = ?"
+        params: list = [run_id]
+        if span_id:
+            query += " AND span_id = ?"
+            params.append(span_id)
+        if metric_result_id:
+            query += " AND metric_result_id = ?"
+            params.append(metric_result_id)
+        cur.execute(query, params)
+        rows = cur.fetchall()
+        return [
+            SpanMetricLink(
+                id=r["id"],
+                run_id=r["run_id"],
+                metric_result_id=r["metric_result_id"],
+                span_id=r["span_id"],
+                relevance=r["relevance"],
+                reason=r["reason"],
+            )
+            for r in rows
+        ]
 
     def list_spans(self, call_id: str) -> List[dict]:
         cur = self.conn.cursor()
