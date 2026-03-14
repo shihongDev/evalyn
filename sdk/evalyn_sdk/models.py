@@ -382,6 +382,32 @@ class MetricResult:
         )
 
 
+@dataclass
+class SpanMetricLink:
+    """Links a metric result to a specific span with relevance scoring."""
+
+    id: str
+    metric_result_id: str  # composite: metric_id:item_id:call_id
+    span_id: str
+    relevance: float  # 0.0-1.0
+    reason: str
+    run_id: str
+
+    def as_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "SpanMetricLink":
+        return cls(
+            id=data["id"],
+            metric_result_id=data["metric_result_id"],
+            span_id=data["span_id"],
+            relevance=data.get("relevance", 0.0),
+            reason=data.get("reason", ""),
+            run_id=data["run_id"],
+        )
+
+
 class Metric:
     """Runtime metric that binds a spec to an evaluation function."""
 
