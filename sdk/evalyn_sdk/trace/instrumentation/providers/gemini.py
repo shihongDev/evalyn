@@ -85,6 +85,61 @@ class GeminiInstrumentor(Instrumentor):
 
                 try:
                     response = self._original_generate(inst, *args, **kwargs)
+
+                    if kwargs.get("stream"):
+                        from ._streaming import StreamingSpanWrapper
+                        import time as _time
+
+                        class GeminiStreamWrapper(StreamingSpanWrapper):
+                            def __next__(self):
+                                chunk = super().__next__()
+                                usage = getattr(chunk, "usage_metadata", None)
+                                if usage:
+                                    self.accumulated_input_tokens = getattr(
+                                        usage, "prompt_token_count", 0
+                                    )
+                                    self.accumulated_output_tokens = getattr(
+                                        usage, "candidates_token_count", 0
+                                    )
+                                return chunk
+
+                        wrapper = GeminiStreamWrapper(
+                            response, request_start_time=start
+                        )
+
+                        class LoggingWrapper:
+                            """Proxy that logs when stream is exhausted."""
+
+                            def __init__(self, w):
+                                self._w = w
+                                self._exhausted = False
+
+                            def __iter__(self):
+                                return self
+
+                            def __next__(self):
+                                try:
+                                    return next(self._w)
+                                except StopIteration:
+                                    if not self._exhausted:
+                                        self._exhausted = True
+                                        duration_ms = (_time.time() - start) * 1000
+                                        log_llm_call(
+                                            provider="gemini",
+                                            model=str(model),
+                                            input_tokens=self._w.accumulated_input_tokens,
+                                            output_tokens=self._w.accumulated_output_tokens,
+                                            duration_ms=duration_ms,
+                                            success=True,
+                                            streaming_attributes=self._w.as_span_attributes(),
+                                        )
+                                    raise
+
+                            def __getattr__(self, name):
+                                return getattr(self._w._iterator, name)
+
+                        return LoggingWrapper(wrapper)
+
                     duration_ms = (time.time() - start) * 1000
 
                     # Extract token usage
@@ -160,6 +215,61 @@ class GeminiInstrumentor(Instrumentor):
 
                 try:
                     response = self._original_legacy_generate(inst, *args, **kwargs)
+
+                    if kwargs.get("stream"):
+                        from ._streaming import StreamingSpanWrapper
+                        import time as _time
+
+                        class GeminiStreamWrapper(StreamingSpanWrapper):
+                            def __next__(self):
+                                chunk = super().__next__()
+                                usage = getattr(chunk, "usage_metadata", None)
+                                if usage:
+                                    self.accumulated_input_tokens = getattr(
+                                        usage, "prompt_token_count", 0
+                                    )
+                                    self.accumulated_output_tokens = getattr(
+                                        usage, "candidates_token_count", 0
+                                    )
+                                return chunk
+
+                        wrapper = GeminiStreamWrapper(
+                            response, request_start_time=start
+                        )
+
+                        class LoggingWrapper:
+                            """Proxy that logs when stream is exhausted."""
+
+                            def __init__(self, w):
+                                self._w = w
+                                self._exhausted = False
+
+                            def __iter__(self):
+                                return self
+
+                            def __next__(self):
+                                try:
+                                    return next(self._w)
+                                except StopIteration:
+                                    if not self._exhausted:
+                                        self._exhausted = True
+                                        duration_ms = (_time.time() - start) * 1000
+                                        log_llm_call(
+                                            provider="gemini",
+                                            model=model,
+                                            input_tokens=self._w.accumulated_input_tokens,
+                                            output_tokens=self._w.accumulated_output_tokens,
+                                            duration_ms=duration_ms,
+                                            success=True,
+                                            streaming_attributes=self._w.as_span_attributes(),
+                                        )
+                                    raise
+
+                            def __getattr__(self, name):
+                                return getattr(self._w._iterator, name)
+
+                        return LoggingWrapper(wrapper)
+
                     duration_ms = (time.time() - start) * 1000
 
                     # Extract token usage

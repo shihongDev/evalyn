@@ -255,6 +255,7 @@ def log_llm_call(
     sources: Optional[List[Dict[str, str]]] = None,
     cache_creation_tokens: int = 0,
     cache_read_tokens: int = 0,
+    streaming_attributes: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Log an LLM call to the tracer and create a span."""
     tracer = _get_tracer()
@@ -336,6 +337,11 @@ def log_llm_call(
         span.attributes["request"] = request
     if response:
         span.attributes["response"] = response
+
+    # Merge streaming attributes if present
+    if streaming_attributes:
+        span.attributes.update(streaming_attributes)
+        detail.update(streaming_attributes)
 
     # Set duration retroactively (span was created after the call)
     span.start_time = span.start_time - timedelta(milliseconds=duration_ms)
