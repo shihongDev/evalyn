@@ -378,6 +378,21 @@ Each skill gives Claude:
 - **Data-driven decisions** - metric recommendations come from inspecting your actual traces, not abstract questions
 - **Interpretation guidance** - what pass rates mean, when to calibrate vs. fix the agent
 
+## Testing
+
+```bash
+# Run all tests
+uv run pytest tests/ -v
+
+# Run with coverage
+uv run pytest tests/ --cov=evalyn_sdk --cov-report=term-missing
+
+# Run fast unit tests only (no subprocess CLI tests)
+uv run pytest tests/test_analysis.py tests/test_models_extended.py tests/test_storage.py tests/test_cli_utils.py tests/test_metrics_extended.py tests/test_cli_export.py
+```
+
+The test suite covers analysis engine, model serialization, storage, CLI commands, export formats, metrics, tracing, and instrumentation. See [CONTRIBUTING.md](CONTRIBUTING.md) for details on the test structure and writing tests.
+
 ## Example
 
 See [`example_agents/`](example_agents/) for SDK integrations:

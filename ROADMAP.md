@@ -106,7 +106,7 @@ This document tracks planned features and completed work. Future roadmap items a
 ### Infrastructure & Platform
 
 - [ ] **Web Dashboard** - Browser-based UI for viewing traces, datasets, and results
-- [ ] **CI/CD Integration** - GitHub Actions workflow for automated evaluation on PR
+- [ ] **CI/CD Integration** - GitHub Actions for automated testing and evaluation on PR
 - [x] **Regression Detection** - Automatic alerts when metrics drop below threshold
 - [ ] **Multi-model Comparison** - Compare same prompts across different LLM providers
 - [ ] **Cost Tracking Dashboard** - Visualize LLM API costs over time
@@ -331,4 +331,18 @@ This document tracks planned features and completed work. Future roadmap items a
 - [x] **JSONL datasets** - Human-readable, git-friendly format
 - [x] **Checkpoint system** - Resume interrupted evaluations
 
-*Last updated: 2026-01-26*
+### Testing & Quality
+
+- [x] **Test coverage improvement** - 330 tests across 7 new test files (3,191 lines)
+  - [x] Analysis engine: trends, reports, core properties (61 tests)
+  - [x] Model roundtrips: Span, FunctionCall, DatasetItem, Annotation (34 tests)
+  - [x] SQLiteStorage: CRUD, ID resolution, annotations (36 tests)
+  - [x] CLI utilities: formatters, validation, config (49 tests)
+  - [x] CLI commands: analyze, compare, trend, list-runs, show-run (19 tests)
+  - [x] Export formats: markdown, HTML, CSV builders (32 tests)
+  - [x] Metrics: HeuristicSuggester, subjective template validation (26 tests)
+- [x] **Realistic test fixtures** - 10+ items, 3 metrics, mixed scores, failure reasons
+- [x] **pytest-cov integration** - Coverage reporting via `--cov=evalyn_sdk`
+- [x] **Integration test unskip** - Fixed 2 skipped integration tests
+
+*Last updated: 2026-03-14*
