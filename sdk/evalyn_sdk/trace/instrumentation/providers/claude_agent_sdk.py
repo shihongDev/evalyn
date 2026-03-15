@@ -238,6 +238,7 @@ class EvalynAgentHooks:
             "turn": turn,
             "model": model,
             "provider": "anthropic",
+            "gen_ai.request.model": model,
         }
         if output_text:
             attrs["output_preview"] = output_text[:2000]
@@ -299,6 +300,7 @@ class EvalynAgentHooks:
             subagent_type = tool_input.get("subagent_type", "unknown")
             extra_attrs["subagent_type"] = subagent_type
             extra_attrs["description"] = tool_input.get("description", "")
+            extra_attrs["gen_ai.agent.name"] = subagent_type
             self.register_subagent(tool_use_id, tool_input)
 
         # Track current subagent context
@@ -307,6 +309,12 @@ class EvalynAgentHooks:
             subagent_ctx = self._subagent_contexts.get(self._current_parent_tool_use_id)
             if subagent_ctx:
                 extra_attrs["executing_subagent"] = subagent_ctx.subagent_type
+
+        # GenAI semantic convention attributes
+        extra_attrs["gen_ai.tool.name"] = tool_name
+        extra_attrs["gen_ai.tool.type"] = (
+            "extension" if tool_name == "Task" else "function"
+        )
 
         span = Span.new(
             name=tool_name,
