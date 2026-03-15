@@ -165,6 +165,13 @@ class LLMJudge:
             "trace_excerpt": trace_excerpt if trace_excerpt else None,
         }
 
+        # Include span IDs for attribution when spans are available
+        span_ids = []
+        if call.spans:
+            for s in call.spans:
+                span_ids.append({"span_id": s.id, "name": s.name, "type": s.span_type})
+            evaluation_input["spans"] = span_ids
+
         # Include rubric if available
         rubric_text = ""
         if self.rubric:
@@ -180,6 +187,9 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
 - "passed": boolean (true if criteria met, false otherwise)
 - "reason": string (brief explanation)
 - "score": number 0-1 (optional, defaults to 1 if passed, 0 if failed)
+- "span_attribution": array (optional, only if spans are provided in the input)
+  Each element: {{"span_id": "...", "relevance": 0.0-1.0, "reason": "..."}}
+  Identify which spans most influenced your verdict.
 """
         return full_prompt
 
