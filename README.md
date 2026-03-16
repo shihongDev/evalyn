@@ -272,6 +272,9 @@ evalyn run-eval --dataset <dataset-path>/simulations/sim-similar-...
 | `evalyn suggest-metrics --project X --dataset D` | Get metric recommendations |
 | `evalyn run-eval --dataset D` | Run evaluation + generate HTML report (use `--provider` for OpenAI/Ollama) |
 | `evalyn show-run --last` | View most recent eval run |
+| `evalyn insights --latest` | Comprehensive insights with correlations, regressions, recommendations |
+| `evalyn insights --latest --deep` | Add LLM expert panel analysis |
+| `evalyn insights --latest --format html` | Generate interactive HTML dashboard |
 | `evalyn trend --project X` | View metric trends across eval runs |
 | `evalyn annotate --dataset D` | Human annotation (interactive) |
 | `evalyn calibrate --metric-id X` | Calibrate LLM judge |
@@ -315,6 +318,7 @@ evalyn run-eval --dataset <dataset-path>/simulations/sim-similar-...
 | [list-runs](docs/clis/list-runs.md) | List past eval runs |
 | [show-run](docs/clis/show-run.md) | View eval run details |
 | [analyze](docs/clis/analyze.md) | Analyze eval run insights |
+| [insights](docs/clis/insights.md) | Comprehensive insights with expert panel and HTML dashboard |
 | [compare](docs/clis/compare.md) | Compare two eval runs |
 | [trend](docs/clis/trend.md) | View metric trends across runs |
 | [export](docs/clis/export.md) | Export results (JSON/CSV/MD/HTML) |

@@ -40,6 +40,7 @@ Complete documentation for all Evalyn CLI commands.
 | [list-runs](list-runs.md) | List evaluation runs |
 | [show-run](show-run.md) | View run details |
 | [analyze](analyze.md) | Analyze eval run insights |
+| [insights](insights.md) | Comprehensive insights with LLM expert panel and HTML dashboard |
 | [compare](compare.md) | Compare two eval runs |
 | [trend](trend.md) | Show eval trends over time |
 | [export](export.md) | Export results (JSON/CSV/MD/HTML) |

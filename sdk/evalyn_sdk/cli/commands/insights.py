@@ -6,12 +6,17 @@ Surfaces actionable intelligence about evaluation results by combining:
 - Input feature analysis (correlate input characteristics with outcomes)
 - Score distribution analysis (detect unusual distribution shapes)
 - Prioritized recommendations (what to do next)
+- LLM expert panel analysis (--deep flag)
+- Interactive HTML dashboard (--format html)
 
 Usage:
     evalyn insights --latest
     evalyn insights --run <id>
     evalyn insights --dataset <path>
     evalyn insights --format json
+    evalyn insights --format html
+    evalyn insights --latest --deep --provider gemini
+    evalyn insights --latest --deep --experts quality_analyst,strategist
 """
 
 from __future__ import annotations
@@ -57,7 +62,7 @@ def _load_previous_run(dataset_path: Path, current_run_path: Path) -> "EvalRun |
     return None
 
 
-def _print_insights_table(report, run, previous_run_id=None):
+def _print_insights_table(report, run, previous_run_id=None, panel_discussion=None):
     """Print insights report in table format."""
     print(f"\n{'=' * 70}")
     print("  EVALYN INSIGHTS")
@@ -119,6 +124,39 @@ def _print_insights_table(report, run, previous_run_id=None):
         print("  No significant insights found - evaluation looks healthy!")
         print(f"{'=' * 70}")
 
+    # Expert panel discussion
+    if panel_discussion:
+        print(f"\n{'=' * 70}")
+        print("  EXPERT PANEL ANALYSIS")
+        print(f"{'=' * 70}")
+
+        for expert in panel_discussion.experts:
+            role_display = expert.role.replace("_", " ").title()
+            print(f"\n  [{role_display}] (confidence: {expert.confidence:.0%})")
+            print(f"    {expert.summary}")
+            for f in expert.findings:
+                print(f"      - {f}")
+            if expert.concerns:
+                print(f"    Concerns: {'; '.join(expert.concerns)}")
+
+        if panel_discussion.synthesis:
+            print(f"\n  SYNTHESIS:")
+            print(f"    {panel_discussion.synthesis}")
+
+        if panel_discussion.action_plan:
+            print(f"\n  ACTION PLAN:")
+            for i, step in enumerate(panel_discussion.action_plan, 1):
+                print(f"    {i}. {step}")
+
+        if panel_discussion.dissenting_views:
+            print(f"\n  DISSENTING VIEWS:")
+            for d in panel_discussion.dissenting_views:
+                print(f"    - {d}")
+
+        total_tokens = panel_discussion.total_input_tokens + panel_discussion.total_output_tokens
+        print(f"\n  Tokens: {panel_discussion.total_input_tokens} in / "
+              f"{panel_discussion.total_output_tokens} out ({total_tokens} total)")
+
     print()
 
 
@@ -136,6 +174,7 @@ def cmd_insights(args: argparse.Namespace) -> None:
     )
 
     output_format = getattr(args, "format", "table")
+    use_deep = getattr(args, "deep", False)
     config = load_config()
     dataset_path = resolve_dataset_path(
         getattr(args, "dataset", None),
@@ -160,7 +199,7 @@ def cmd_insights(args: argparse.Namespace) -> None:
             run_file_path = run_files[0]
             with open(run_file_path, encoding="utf-8") as f:
                 run = EvalRun.from_dict(json.load(f))
-            if output_format != "json":
+            if output_format not in ("json", "html"):
                 print(f"Analyzing latest run: {run_file_path.parent.name}")
 
     if not run:
@@ -185,6 +224,7 @@ def cmd_insights(args: argparse.Namespace) -> None:
             regressions = detect_regressions(analysis, prev_analysis)
 
     # Input feature analysis
+    dataset_items = []
     feature_insights = []
     if dataset_path:
         dataset_items = _load_dataset_items(dataset_path)
@@ -209,6 +249,30 @@ def cmd_insights(args: argparse.Namespace) -> None:
         dataset_path=str(dataset_path) if dataset_path else None,
     )
 
+    # Expert panel (--deep)
+    panel_discussion = None
+    if use_deep:
+        from ...analysis.panel import create_api_client, run_expert_panel
+
+        provider = getattr(args, "provider", None) or "gemini"
+        model = getattr(args, "model", None)
+        experts_arg = getattr(args, "experts", None)
+        expert_roles = experts_arg.split(",") if experts_arg else None
+
+        if output_format not in ("json", "html"):
+            print(f"\nRunning expert panel ({provider})...")
+
+        client = create_api_client(provider=provider, model=model)
+        panel_discussion = run_expert_panel(
+            run_analysis=analysis,
+            insights_report=report,
+            client=client,
+            dataset_items=dataset_items or None,
+            experts=expert_roles,
+            verbose=output_format not in ("json", "html"),
+        )
+
+    # Output
     if output_format == "json":
         result = {
             "run_id": run.id,
@@ -220,10 +284,32 @@ def cmd_insights(args: argparse.Namespace) -> None:
             "distribution_insights": [asdict(d) for d in report.distribution_insights],
             "recommendations": [asdict(r) for r in report.recommendations],
         }
+        if panel_discussion:
+            result["expert_panel"] = panel_discussion.as_dict()
         output_json(result)
         return
 
-    _print_insights_table(report, run, previous_run_id)
+    if output_format == "html":
+        from ...analysis.insights_dashboard import generate_insights_html
+
+        html_content = generate_insights_html(
+            run_analysis=analysis,
+            insights_report=report,
+            panel_discussion=panel_discussion,
+            dataset_items=dataset_items or None,
+        )
+
+        # Save to dataset dir or current dir
+        if dataset_path:
+            output_path = Path(dataset_path) / "insights_report.html"
+        else:
+            output_path = Path("insights_report.html")
+
+        output_path.write_text(html_content, encoding="utf-8")
+        print(f"Insights dashboard saved to: {output_path}")
+        return
+
+    _print_insights_table(report, run, previous_run_id, panel_discussion)
 
     print_hint(
         "To drill into failures, run: evalyn cluster-failures"
@@ -246,8 +332,25 @@ def register_commands(subparsers) -> None:
         help="Use the most recently modified dataset",
     )
     p.add_argument(
-        "--format", choices=["table", "json"], default="table",
+        "--format", choices=["table", "json", "html"], default="table",
         help="Output format (default: table)",
+    )
+    # LLM expert panel flags
+    p.add_argument(
+        "--deep", action="store_true",
+        help="Enable LLM expert panel analysis",
+    )
+    p.add_argument(
+        "--provider", choices=["gemini", "openai", "ollama"],
+        help="LLM provider for expert panel (default: gemini)",
+    )
+    p.add_argument(
+        "--model",
+        help="Model override for expert panel",
+    )
+    p.add_argument(
+        "--experts",
+        help="Comma-separated expert subset (quality_analyst,metric_critic,data_scientist,strategist)",
     )
     p.set_defaults(func=cmd_insights)
 

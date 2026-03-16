@@ -258,6 +258,11 @@ This document tracks planned features and completed work. Future roadmap items a
 - [x] **Pass rate charts** - ASCII bar charts in terminal
 - [x] **Score distributions** - Mini histograms
 - [x] **Failed item breakdown** - List items with failure reasons
+- [x] **evalyn insights** - Comprehensive diagnostic, prescriptive, and proactive analysis
+  - [x] Metric correlations, regressions, distributions, feature analysis
+  - [x] Prioritized recommendations
+  - [x] LLM expert panel (--deep) with 4 expert roles + moderator synthesis
+  - [x] Interactive HTML dashboard (--format html) with Chart.js charts
 
 ### Human Annotation
 
@@ -345,4 +350,4 @@ This document tracks planned features and completed work. Future roadmap items a
 - [x] **pytest-cov integration** - Coverage reporting via `--cov=evalyn_sdk`
 - [x] **Integration test unskip** - Fixed 2 skipped integration tests
 
-*Last updated: 2026-03-14*
+*Last updated: 2026-03-15*

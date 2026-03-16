@@ -80,6 +80,22 @@ from .clustering import (
     generate_failure_cluster_text,
 )
 
+from .panel import (
+    ExpertOpinion,
+    PanelDiscussion,
+    EXPERT_ROLES,
+    prepare_panel_context,
+    build_expert_prompt,
+    build_moderator_prompt,
+    parse_expert_response,
+    create_api_client,
+    run_expert_panel,
+)
+
+from .insights_dashboard import (
+    generate_insights_html,
+)
+
 __all__ = [
     # Core classes
     "MetricStats",
@@ -126,4 +142,16 @@ __all__ = [
     "analyze_input_features",
     "analyze_score_distributions",
     "generate_recommendations",
+    # Expert panel
+    "ExpertOpinion",
+    "PanelDiscussion",
+    "EXPERT_ROLES",
+    "prepare_panel_context",
+    "build_expert_prompt",
+    "build_moderator_prompt",
+    "parse_expert_response",
+    "create_api_client",
+    "run_expert_panel",
+    # Insights dashboard
+    "generate_insights_html",
 ]
