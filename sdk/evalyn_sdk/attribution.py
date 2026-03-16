@@ -1,10 +1,9 @@
 """Extract span-metric attribution links from judge results."""
 from __future__ import annotations
 
-import uuid
 from typing import List
 
-from .models import MetricResult, SpanMetricLink
+from .models import MetricResult, SpanMetricLink, _default_id
 
 
 def extract_span_metric_links(
@@ -32,7 +31,7 @@ def extract_span_metric_links(
             continue
         links.append(
             SpanMetricLink(
-                id=str(uuid.uuid4()),
+                id=_default_id(),
                 metric_result_id=metric_result_id,
                 span_id=span_id,
                 relevance=float(attr.get("relevance", 0.0)),

@@ -419,22 +419,17 @@ class SQLiteStorage:
 
     def store_span_metric_links(self, links: Iterable[SpanMetricLink]) -> None:
         cur = self.conn.cursor()
-        for link in links:
-            cur.execute(
-                """
-                INSERT OR REPLACE INTO span_metric_links
-                (id, run_id, metric_result_id, span_id, relevance, reason)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    link.id,
-                    link.run_id,
-                    link.metric_result_id,
-                    link.span_id,
-                    link.relevance,
-                    link.reason,
-                ),
-            )
+        cur.executemany(
+            """
+            INSERT OR REPLACE INTO span_metric_links
+            (id, run_id, metric_result_id, span_id, relevance, reason)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                (l.id, l.run_id, l.metric_result_id, l.span_id, l.relevance, l.reason)
+                for l in links
+            ),
+        )
         self.conn.commit()
 
     def list_span_metric_links(

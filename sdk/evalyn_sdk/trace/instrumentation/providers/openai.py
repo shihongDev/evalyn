@@ -118,8 +118,10 @@ class OpenAIInstrumentor(Instrumentor):
                     response = self._original_create(inst, *args, **kwargs)
 
                     if kwargs.get("stream"):
-                        from ._streaming import StreamingSpanWrapper
-                        import time as _time
+                        from ._streaming import (
+                            LoggingWrapper,
+                            StreamingSpanWrapper,
+                        )
 
                         class OpenAIStreamWrapper(StreamingSpanWrapper):
                             def __next__(self):
@@ -136,39 +138,20 @@ class OpenAIInstrumentor(Instrumentor):
 
                         wrapper = OpenAIStreamWrapper(response, request_start_time=start)
 
-                        class LoggingWrapper:
-                            """Proxy that logs when stream is exhausted."""
+                        def _on_exhaust(w):
+                            duration_ms = (time.time() - start) * 1000
+                            log_llm_call(
+                                provider=provider,
+                                model=model,
+                                input_tokens=w.accumulated_input_tokens,
+                                output_tokens=w.accumulated_output_tokens,
+                                duration_ms=duration_ms,
+                                success=True,
+                                request=_build_request_dict(kwargs),
+                                streaming_attributes=w.as_span_attributes(),
+                            )
 
-                            def __init__(self, w):
-                                self._w = w
-                                self._exhausted = False
-
-                            def __iter__(self):
-                                return self
-
-                            def __next__(self):
-                                try:
-                                    return next(self._w)
-                                except StopIteration:
-                                    if not self._exhausted:
-                                        self._exhausted = True
-                                        duration_ms = (_time.time() - start) * 1000
-                                        log_llm_call(
-                                            provider=provider,
-                                            model=model,
-                                            input_tokens=self._w.accumulated_input_tokens,
-                                            output_tokens=self._w.accumulated_output_tokens,
-                                            duration_ms=duration_ms,
-                                            success=True,
-                                            request=_build_request_dict(kwargs),
-                                            streaming_attributes=self._w.as_span_attributes(),
-                                        )
-                                    raise
-
-                            def __getattr__(self, name):
-                                return getattr(self._w._iterator, name)
-
-                        return LoggingWrapper(wrapper)
+                        return LoggingWrapper(wrapper, _on_exhaust)
 
                     duration_ms = (time.time() - start) * 1000
 
@@ -217,71 +200,38 @@ class OpenAIInstrumentor(Instrumentor):
                     response = await self._original_acreate(inst, *args, **kwargs)
 
                     if kwargs.get("stream"):
-                        from ._streaming import StreamingSpanWrapper
-                        import time as _time
+                        from ._streaming import (
+                            AsyncLoggingWrapper,
+                            StreamingSpanWrapper,
+                        )
 
-                        class OpenAIStreamWrapper(StreamingSpanWrapper):
-                            def __next__(self):
-                                chunk = super().__next__()
+                        class OpenAIAsyncStreamWrapper(AsyncLoggingWrapper):
+                            def _extract_tokens(self, chunk):
                                 usage = getattr(chunk, "usage", None)
                                 if usage:
-                                    self.accumulated_input_tokens = (
+                                    self._wrapper.accumulated_input_tokens = (
                                         getattr(usage, "prompt_tokens", 0) or 0
                                     )
-                                    self.accumulated_output_tokens = (
+                                    self._wrapper.accumulated_output_tokens = (
                                         getattr(usage, "completion_tokens", 0) or 0
                                     )
-                                return chunk
 
-                        class AsyncLoggingWrapper:
-                            def __init__(self, aiter, start_time):
-                                self._aiter = aiter
-                                self._wrapper = OpenAIStreamWrapper(
-                                    iter([]), request_start_time=start_time
-                                )
-                                self._start = start_time
-                                self._exhausted = False
+                        tracker = StreamingSpanWrapper(iter([]), request_start_time=start)
 
-                            def __aiter__(self):
-                                return self
+                        def _on_exhaust(w):
+                            duration_ms = (time.time() - start) * 1000
+                            log_llm_call(
+                                provider=provider,
+                                model=model,
+                                input_tokens=w.accumulated_input_tokens,
+                                output_tokens=w.accumulated_output_tokens,
+                                duration_ms=duration_ms,
+                                success=True,
+                                request=_build_request_dict(kwargs),
+                                streaming_attributes=w.as_span_attributes(),
+                            )
 
-                            async def __anext__(self):
-                                try:
-                                    chunk = await self._aiter.__anext__()
-                                    now = _time.time()
-                                    if self._wrapper._first_chunk_time is None:
-                                        self._wrapper._first_chunk_time = now
-                                    self._wrapper._last_chunk_time = now
-                                    self._wrapper.chunk_count += 1
-                                    usage = getattr(chunk, "usage", None)
-                                    if usage:
-                                        self._wrapper.accumulated_input_tokens = (
-                                            getattr(usage, "prompt_tokens", 0) or 0
-                                        )
-                                        self._wrapper.accumulated_output_tokens = (
-                                            getattr(usage, "completion_tokens", 0) or 0
-                                        )
-                                    return chunk
-                                except StopAsyncIteration:
-                                    if not self._exhausted:
-                                        self._exhausted = True
-                                        duration_ms = (_time.time() - self._start) * 1000
-                                        log_llm_call(
-                                            provider=provider,
-                                            model=model,
-                                            input_tokens=self._wrapper.accumulated_input_tokens,
-                                            output_tokens=self._wrapper.accumulated_output_tokens,
-                                            duration_ms=duration_ms,
-                                            success=True,
-                                            request=_build_request_dict(kwargs),
-                                            streaming_attributes=self._wrapper.as_span_attributes(),
-                                        )
-                                    raise
-
-                            def __getattr__(self, name):
-                                return getattr(self._aiter, name)
-
-                        return AsyncLoggingWrapper(response, start)
+                        return OpenAIAsyncStreamWrapper(response, tracker, _on_exhaust)
 
                     duration_ms = (time.time() - start) * 1000
 

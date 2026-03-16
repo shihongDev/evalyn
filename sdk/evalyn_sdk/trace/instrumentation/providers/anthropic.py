@@ -111,8 +111,10 @@ class AnthropicInstrumentor(Instrumentor):
                     response = self._original_create(inst, *args, **kwargs)
 
                     if kwargs.get("stream"):
-                        from ._streaming import StreamingSpanWrapper
-                        import time as _time
+                        from ._streaming import (
+                            LoggingWrapper,
+                            StreamingSpanWrapper,
+                        )
 
                         class AnthropicStreamWrapper(StreamingSpanWrapper):
                             def __next__(self):
@@ -138,41 +140,20 @@ class AnthropicInstrumentor(Instrumentor):
                             response, request_start_time=start
                         )
 
-                        class LoggingWrapper:
-                            """Proxy that logs when stream is exhausted."""
+                        def _on_exhaust(w):
+                            duration_ms = (time.time() - start) * 1000
+                            log_llm_call(
+                                provider="anthropic",
+                                model=model,
+                                input_tokens=w.accumulated_input_tokens,
+                                output_tokens=w.accumulated_output_tokens,
+                                duration_ms=duration_ms,
+                                success=True,
+                                request={"messages": str(messages)[:500]},
+                                streaming_attributes=w.as_span_attributes(),
+                            )
 
-                            def __init__(self, w):
-                                self._w = w
-                                self._exhausted = False
-
-                            def __iter__(self):
-                                return self
-
-                            def __next__(self):
-                                try:
-                                    return next(self._w)
-                                except StopIteration:
-                                    if not self._exhausted:
-                                        self._exhausted = True
-                                        duration_ms = (_time.time() - start) * 1000
-                                        log_llm_call(
-                                            provider="anthropic",
-                                            model=model,
-                                            input_tokens=self._w.accumulated_input_tokens,
-                                            output_tokens=self._w.accumulated_output_tokens,
-                                            duration_ms=duration_ms,
-                                            success=True,
-                                            request={
-                                                "messages": str(messages)[:500]
-                                            },
-                                            streaming_attributes=self._w.as_span_attributes(),
-                                        )
-                                    raise
-
-                            def __getattr__(self, name):
-                                return getattr(self._w._iterator, name)
-
-                        return LoggingWrapper(wrapper)
+                        return LoggingWrapper(wrapper, _on_exhaust)
 
                     duration_ms = (time.time() - start) * 1000
                     usage = _extract_usage(response)
@@ -215,87 +196,48 @@ class AnthropicInstrumentor(Instrumentor):
                     response = await self._original_acreate(inst, *args, **kwargs)
 
                     if kwargs.get("stream"):
-                        from ._streaming import StreamingSpanWrapper
-                        import time as _time
+                        from ._streaming import (
+                            AsyncLoggingWrapper,
+                            StreamingSpanWrapper,
+                        )
 
-                        class AnthropicStreamWrapper(StreamingSpanWrapper):
-                            def __next__(self):
-                                chunk = super().__next__()
-                                event_type = getattr(chunk, "type", "")
-                                if event_type == "message_start":
-                                    msg = getattr(chunk, "message", None)
-                                    if msg:
-                                        usage = getattr(msg, "usage", None)
-                                        if usage:
-                                            self.accumulated_input_tokens = getattr(
-                                                usage, "input_tokens", 0
-                                            )
-                                elif event_type == "message_delta":
-                                    usage = getattr(chunk, "usage", None)
+                        def _extract_anthropic_tokens(wrapper, chunk):
+                            event_type = getattr(chunk, "type", "")
+                            if event_type == "message_start":
+                                msg = getattr(chunk, "message", None)
+                                if msg:
+                                    usage = getattr(msg, "usage", None)
                                     if usage:
-                                        self.accumulated_output_tokens = getattr(
-                                            usage, "output_tokens", 0
+                                        wrapper.accumulated_input_tokens = (
+                                            getattr(usage, "input_tokens", 0)
                                         )
-                                return chunk
+                            elif event_type == "message_delta":
+                                usage = getattr(chunk, "usage", None)
+                                if usage:
+                                    wrapper.accumulated_output_tokens = (
+                                        getattr(usage, "output_tokens", 0)
+                                    )
 
-                        class AsyncLoggingWrapper:
-                            def __init__(self, aiter, start_time):
-                                self._aiter = aiter
-                                self._wrapper = AnthropicStreamWrapper(
-                                    iter([]), request_start_time=start_time
-                                )
-                                self._start = start_time
-                                self._exhausted = False
+                        class AnthropicAsyncStreamWrapper(AsyncLoggingWrapper):
+                            def _extract_tokens(self, chunk):
+                                _extract_anthropic_tokens(self._wrapper, chunk)
 
-                            def __aiter__(self):
-                                return self
+                        tracker = StreamingSpanWrapper(iter([]), request_start_time=start)
 
-                            async def __anext__(self):
-                                try:
-                                    chunk = await self._aiter.__anext__()
-                                    now = _time.time()
-                                    if self._wrapper._first_chunk_time is None:
-                                        self._wrapper._first_chunk_time = now
-                                    self._wrapper._last_chunk_time = now
-                                    self._wrapper.chunk_count += 1
-                                    event_type = getattr(chunk, "type", "")
-                                    if event_type == "message_start":
-                                        msg = getattr(chunk, "message", None)
-                                        if msg:
-                                            usage = getattr(msg, "usage", None)
-                                            if usage:
-                                                self._wrapper.accumulated_input_tokens = (
-                                                    getattr(usage, "input_tokens", 0)
-                                                )
-                                    elif event_type == "message_delta":
-                                        usage = getattr(chunk, "usage", None)
-                                        if usage:
-                                            self._wrapper.accumulated_output_tokens = (
-                                                getattr(usage, "output_tokens", 0)
-                                            )
-                                    return chunk
-                                except StopAsyncIteration:
-                                    if not self._exhausted:
-                                        self._exhausted = True
-                                        duration_ms = (_time.time() - self._start) * 1000
-                                        log_llm_call(
-                                            provider="anthropic",
-                                            model=model,
-                                            input_tokens=self._wrapper.accumulated_input_tokens,
-                                            output_tokens=self._wrapper.accumulated_output_tokens,
-                                            duration_ms=duration_ms,
-                                            success=True,
-                                            request={
-                                                "messages": str(messages)[:500]
-                                            },
-                                            streaming_attributes=self._wrapper.as_span_attributes(),
-                                        )
-                                    raise
+                        def _on_exhaust(w):
+                            duration_ms = (time.time() - start) * 1000
+                            log_llm_call(
+                                provider="anthropic",
+                                model=model,
+                                input_tokens=w.accumulated_input_tokens,
+                                output_tokens=w.accumulated_output_tokens,
+                                duration_ms=duration_ms,
+                                success=True,
+                                request={"messages": str(messages)[:500]},
+                                streaming_attributes=w.as_span_attributes(),
+                            )
 
-                            def __getattr__(self, name):
-                                return getattr(self._aiter, name)
-
-                        return AsyncLoggingWrapper(response, start)
+                        return AnthropicAsyncStreamWrapper(response, tracker, _on_exhaust)
 
                     duration_ms = (time.time() - start) * 1000
                     usage = _extract_usage(response)
