@@ -3,7 +3,7 @@
 Orchestrates the full calibration workflow:
 1. Compute alignment metrics (precision, recall, F1, kappa)
 2. Analyze disagreement patterns
-3. Use optimizer (Basic, GEPA, GEPA-Native, OPRO, or APE) to improve prompts
+3. Use optimizer (Basic, GEPA, GEPA-Native, OPRO, APE, or TextGrad) to improve prompts
 4. Validate optimized prompts on held-out data
 
 IMPORTANT: All optimizers only optimize the preamble (system prompt/instructions).
@@ -45,11 +45,12 @@ class CalibrationConfig:
     current_preamble: str = ""  # Base prompt before rubric
     optimize_prompts: bool = True
     optimizer_model: str = DEFAULT_EVAL_MODEL
-    optimizer_type: str = "basic"  # "basic", "gepa", "gepa-native", "opro", or "ape"
+    optimizer_type: str = "basic"  # "basic", "gepa", "gepa-native", "opro", "ape", or "textgrad"
     gepa_config: Optional[GEPAConfig] = None
     gepa_native_config: Optional[Any] = None  # GEPANativeConfig
     opro_config: Optional[Any] = None  # OPROConfig (import avoided for circular deps)
     ape_config: Optional[Any] = None  # APEConfig (import avoided for circular deps)
+    textgrad_config: Optional[Any] = None  # TextGradConfig (import avoided for circular deps)
 
 
 class CalibrationEngine:
@@ -57,7 +58,7 @@ class CalibrationEngine:
     Enhanced calibration engine that:
     1. Computes alignment metrics (precision, recall, F1, kappa)
     2. Analyzes disagreement patterns
-    3. Uses LLM, GEPA, GEPA-Native, OPRO, or APE to optimize judge prompts
+    3. Uses LLM, GEPA, GEPA-Native, OPRO, APE, or TextGrad to optimize judge prompts
 
     IMPORTANT: All optimizers only optimize the preamble (system prompt/instructions).
     The rubric (evaluation criteria) is kept FIXED as defined by humans.
@@ -72,11 +73,12 @@ class CalibrationEngine:
         current_preamble: str = "",  # Base prompt before rubric
         optimize_prompts: bool = True,
         optimizer_model: str = DEFAULT_EVAL_MODEL,
-        optimizer_type: str = "basic",  # "basic", "gepa", "gepa-native", "opro", or "ape"
+        optimizer_type: str = "basic",  # "basic", "gepa", "gepa-native", "opro", "ape", or "textgrad"
         gepa_config: Optional[GEPAConfig] = None,
         gepa_native_config: Optional[Any] = None,  # GEPANativeConfig
         opro_config: Optional[Any] = None,  # OPROConfig
         ape_config: Optional[Any] = None,  # APEConfig
+        textgrad_config: Optional[Any] = None,  # TextGradConfig
         *,
         config: Optional[CalibrationConfig] = None,
     ):
@@ -93,6 +95,7 @@ class CalibrationEngine:
             self.gepa_native_config = config.gepa_native_config
             self.opro_config = config.opro_config
             self.ape_config = config.ape_config
+            self.textgrad_config = config.textgrad_config
         else:
             if judge_name is None:
                 raise ValueError("judge_name is required")
@@ -107,6 +110,7 @@ class CalibrationEngine:
             self.gepa_native_config = gepa_native_config
             self.opro_config = opro_config
             self.ape_config = ape_config
+            self.textgrad_config = textgrad_config
 
     def compute_alignment(
         self,
@@ -529,6 +533,22 @@ class CalibrationEngine:
                         current_preamble=self.current_preamble,
                         accumulator=accumulator,
                     )
+                elif self.optimizer_type == "textgrad":
+                    # Use TextGrad optimization (preamble only, rubric stays fixed)
+                    from .textgrad import TextGradOptimizer
+
+                    textgrad_optimizer = TextGradOptimizer(
+                        config=self.textgrad_config
+                    )
+                    prompt_optimization = textgrad_optimizer.optimize(
+                        metric_id=self.judge_name,
+                        current_rubric=self.current_rubric,
+                        current_preamble=self.current_preamble,
+                        metric_results=metric_results,
+                        annotations=annotations,
+                        dataset_items=dataset_items,
+                        accumulator=accumulator,
+                    )
                 else:
                     # Use basic single-shot optimization (default)
                     # Note: Like APE/OPRO, only preamble is optimized; rubric stays fixed
@@ -613,6 +633,13 @@ class CalibrationEngine:
                     "num_candidates": self.ape_config.num_candidates,
                     "eval_rounds": self.ape_config.eval_rounds,
                     "eval_samples_per_round": self.ape_config.eval_samples_per_round,
+                }
+            elif self.optimizer_type == "textgrad" and self.textgrad_config:
+                adjustments["textgrad_config"] = {
+                    "max_iterations": self.textgrad_config.max_iterations,
+                    "improvement_threshold": self.textgrad_config.improvement_threshold,
+                    "num_failure_examples": self.textgrad_config.num_failure_examples,
+                    "early_stop_patience": self.textgrad_config.early_stop_patience,
                 }
 
         if validation_result:
