@@ -440,3 +440,76 @@ class TestTextGrad:
     def test_factory_creates_textgrad(self):
         opt = create_optimizer("textgrad", config=TextGradConfig())
         assert isinstance(opt, TextGradOptimizer)
+
+
+# ---------------------------------------------------------------------------
+# MIPROv2 tests
+# ---------------------------------------------------------------------------
+
+from evalyn_sdk.calibration.miprov2 import MIPROv2Config, MIPROv2Optimizer
+
+
+class TestMIPROv2Config:
+    def test_defaults(self):
+        cfg = MIPROv2Config()
+        assert cfg.num_instructions == 6
+        assert cfg.num_demos == 3
+        assert cfg.eval_samples == 10
+
+    def test_custom_values(self):
+        cfg = MIPROv2Config(num_instructions=10, num_demos=5)
+        assert cfg.num_instructions == 10
+        assert cfg.num_demos == 5
+
+
+class TestMIPROv2:
+    def _make_optimizer(self):
+        cfg = MIPROv2Config(num_instructions=3, num_demos=2, eval_samples=5)
+        opt = MIPROv2Optimizer(config=cfg)
+        mock_client = MagicMock()
+        mock_client.generate_with_usage.return_value = _make_generate_result(
+            '["Preamble candidate 1", "Preamble candidate 2", "Preamble candidate 3"]'
+        )
+        opt._task_client_instance = mock_client
+        return opt
+
+    def test_bootstrap_demos_diversity(self):
+        cfg = MIPROv2Config(num_demos=4)
+        opt = MIPROv2Optimizer(config=cfg)
+        examples = []
+        for i in range(20):
+            label = "PASS" if i < 10 else "FAIL"
+            input_text = "x" * (10 if i % 2 == 0 else 200)
+            examples.append({
+                "id": f"ex-{i}", "input": input_text, "output": f"out-{i}",
+                "expected": label, "call_id": f"call-{i}",
+            })
+        demos = opt._bootstrap_demos(examples)
+        assert len(demos) == 4
+        for demo in demos:
+            assert "Example: INPUT:" in demo
+
+    def test_bootstrap_demos_empty(self):
+        opt = MIPROv2Optimizer(config=MIPROv2Config(num_demos=3))
+        assert opt._bootstrap_demos([]) == []
+
+    def test_embed_demos_format(self):
+        opt = MIPROv2Optimizer()
+        instruction = "You are an expert evaluator."
+        demos = [
+            "Example: INPUT: test1 OUTPUT: out1 -> VERDICT: pass REASON: good",
+            "Example: INPUT: test2 OUTPUT: out2 -> VERDICT: fail REASON: bad",
+        ]
+        result = opt._embed_demos(instruction, demos)
+        assert result.startswith("You are an expert evaluator.")
+        assert "Here are examples of correct evaluations:" in result
+        assert "test1" in result
+        assert "test2" in result
+
+    def test_embed_demos_empty_returns_instruction(self):
+        opt = MIPROv2Optimizer()
+        assert opt._embed_demos("instruction", []) == "instruction"
+
+    def test_factory_creates_miprov2(self):
+        opt = create_optimizer("miprov2", config=MIPROv2Config())
+        assert isinstance(opt, MIPROv2Optimizer)
