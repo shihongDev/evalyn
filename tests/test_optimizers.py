@@ -160,3 +160,167 @@ class TestFactory:
             extra_param="should be passed through",
         )
         assert isinstance(result, PromptOptimizationResult)
+
+
+# ---------------------------------------------------------------------------
+# EvoPrompt tests
+# ---------------------------------------------------------------------------
+
+from evalyn_sdk.calibration.evoprompt import EvoPromptConfig, EvoPromptOptimizer
+
+
+class TestEvoPromptConfig:
+    def test_defaults(self):
+        cfg = EvoPromptConfig()
+        assert cfg.population_size == 8
+        assert cfg.generations == 5
+        assert cfg.mutation_rate == 0.3
+        assert cfg.crossover_rate == 0.7
+        assert cfg.tournament_size == 2
+        assert cfg.early_stop_patience == 2
+
+    def test_custom_values(self):
+        cfg = EvoPromptConfig(population_size=4, generations=3)
+        assert cfg.population_size == 4
+        assert cfg.generations == 3
+
+
+class TestEvoPrompt:
+    def _make_optimizer(self, score_sequence=None, llm_text="variant preamble"):
+        """Helper: create optimizer with mocked LLM and score_preamble."""
+        cfg = EvoPromptConfig(
+            population_size=4,
+            generations=3,
+            early_stop_patience=2,
+        )
+        opt = EvoPromptOptimizer(config=cfg, api_key="fake-key")
+
+        # Mock the LLM client
+        mock_client = MagicMock()
+        mock_result = MagicMock()
+        mock_result.text = llm_text
+        mock_result.input_tokens = 10
+        mock_result.output_tokens = 20
+        mock_result.model = "test-model"
+        mock_client.generate_with_usage.return_value = mock_result
+        opt._task_client_instance = mock_client
+
+        # Mock split_train_val
+        train = [
+            {"id": "1", "input": "in1", "output": "out1", "expected": "PASS", "call_id": "1"},
+            {"id": "2", "input": "in2", "output": "out2", "expected": "FAIL", "call_id": "2"},
+            {"id": "3", "input": "in3", "output": "out3", "expected": "PASS", "call_id": "3"},
+        ]
+        val = [
+            {"id": "4", "input": "in4", "output": "out4", "expected": "PASS", "call_id": "4"},
+            {"id": "5", "input": "in5", "output": "out5", "expected": "FAIL", "call_id": "5"},
+        ]
+        opt.split_train_val = MagicMock(return_value=(train, val))
+
+        # Mock score_preamble with a sequence or constant
+        if score_sequence is not None:
+            opt.score_preamble = MagicMock(side_effect=score_sequence)
+        else:
+            opt.score_preamble = MagicMock(return_value=0.8)
+
+        return opt
+
+    def test_optimize_returns_result(self):
+        opt = self._make_optimizer()
+        result = opt.optimize(
+            metric_id="accuracy",
+            current_rubric=["be correct"],
+            current_preamble="evaluate quality",
+            metric_results=[],
+            annotations=[],
+            disagreements=None,
+            dataset_items=[],
+            accumulator=None,
+        )
+        assert isinstance(result, PromptOptimizationResult)
+        assert result.original_preamble == "evaluate quality"
+        assert result.optimized_preamble  # non-empty
+        assert result.full_prompt  # non-empty
+        assert result.improved_rubric == ["be correct"]  # rubric unchanged
+
+    def test_early_stopping(self):
+        """When score_preamble always returns the same value, early stopping triggers."""
+        # All scores identical -> no improvement -> early stop after patience
+        scores = [0.5] * 200  # enough for any number of calls
+        opt = self._make_optimizer(score_sequence=scores)
+        result = opt.optimize(
+            metric_id="accuracy",
+            current_rubric=["be correct"],
+            current_preamble="evaluate quality",
+            metric_results=[],
+            annotations=[],
+        )
+        assert isinstance(result, PromptOptimizationResult)
+        # Verify score_preamble was called, but generations should have stopped early
+        # With patience=2 and 3 generations, it should stop before gen 3
+        # Initial population (4 scores) + gen0 offspring (4) + gen1 offspring (4) + 2 val = ~14
+        # If it ran all 3 gens: 4 + 3*4 + 2 = 18. Early stop should be less.
+        assert opt.score_preamble.call_count < 30
+
+    def test_tournament_select(self):
+        opt = EvoPromptOptimizer(config=EvoPromptConfig())
+        scored = [
+            ("preamble_a", 0.3),
+            ("preamble_b", 0.9),
+            ("preamble_c", 0.5),
+            ("preamble_d", 0.7),
+        ]
+        # With tournament_size >= population, the best always wins
+        winner = opt._tournament_select(scored, tournament_size=4)
+        assert winner == "preamble_b"
+
+    def test_tournament_select_single(self):
+        opt = EvoPromptOptimizer(config=EvoPromptConfig())
+        scored = [("only_one", 0.6)]
+        winner = opt._tournament_select(scored, tournament_size=1)
+        assert winner == "only_one"
+
+    def test_factory_creates_evoprompt(self):
+        from evalyn_sdk.calibration.factory import create_optimizer
+
+        opt = create_optimizer("evoprompt", config=EvoPromptConfig())
+        assert isinstance(opt, EvoPromptOptimizer)
+
+    def test_not_enough_data_returns_early(self):
+        cfg = EvoPromptConfig(population_size=4, generations=2)
+        opt = EvoPromptOptimizer(config=cfg, api_key="fake")
+        # Return insufficient data
+        opt.split_train_val = MagicMock(return_value=([], []))
+        result = opt.optimize(
+            metric_id="m",
+            current_rubric=["r1"],
+            current_preamble="preamble",
+            metric_results=[],
+            annotations=[],
+        )
+        assert isinstance(result, PromptOptimizationResult)
+        assert "Not enough data" in result.improvement_reasoning
+
+    def test_crossover_calls_llm(self):
+        opt = self._make_optimizer(llm_text="merged preamble")
+        result = opt._crossover("parent A", "parent B")
+        assert result == "merged preamble"
+        opt._task_client_instance.generate_with_usage.assert_called_once()
+
+    def test_mutate_calls_llm(self):
+        opt = self._make_optimizer(llm_text="mutated preamble")
+        failures = [{"input": "x", "output": "y", "expected": "PASS"}]
+        result = opt._mutate("original", failures)
+        assert result == "mutated preamble"
+        opt._task_client_instance.generate_with_usage.assert_called_once()
+
+    def test_mutate_no_failures(self):
+        opt = self._make_optimizer(llm_text="mutated preamble")
+        result = opt._mutate("original", [])
+        assert result == "mutated preamble"
+
+    def test_init_population_includes_current(self):
+        opt = self._make_optimizer(llm_text='["var1", "var2", "var3"]')
+        population = opt._init_population("current", None, ["r1"])
+        assert population[0] == "current"
+        assert len(population) == opt.config.population_size
