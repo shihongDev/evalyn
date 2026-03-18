@@ -19,7 +19,7 @@ evalyn calibrate --metric-id <id> --annotations <file> [OPTIONS]
 | `--dataset PATH` | - | Dataset path (for prompt optimization) |
 | `--latest` | false | Use the most recently modified dataset |
 | `--no-optimize` | false | Skip prompt optimization, only compute metrics |
-| `--optimizer TYPE` | llm | Optimizer: `llm`, `gepa`, `opro`, or `ape` |
+| `--optimizer TYPE` | basic | Optimizer: `basic`, `ape`, `opro`, `gepa`, `gepa-native`, `evoprompt`, `textgrad`, `miprov2`, `promptbreeder` |
 | `--model MODEL` | - | LLM model for prompt optimization (llm mode) |
 | `--gepa-task-lm MODEL` | - | Task model for GEPA (model being optimized) |
 | `--gepa-reflection-lm MODEL` | - | Reflection model for GEPA (strong model for reflection) |
@@ -31,6 +31,16 @@ evalyn calibrate --metric-id <id> --annotations <file> [OPTIONS]
 | `--ape-candidates N` | 10 | Number of candidate prompts for APE |
 | `--ape-rounds N` | 5 | UCB evaluation rounds for APE |
 | `--ape-samples N` | 5 | Samples per candidate per APE round |
+| `--evo-population N` | 8 | Population size for EvoPrompt |
+| `--evo-generations N` | 5 | Number of generations for EvoPrompt |
+| `--evo-mutation-rate F` | 0.3 | Mutation rate for EvoPrompt |
+| `--textgrad-iterations N` | 8 | Max iterations for TextGrad |
+| `--textgrad-threshold F` | 0.01 | Min F1 improvement threshold for TextGrad |
+| `--mipro-instructions N` | 6 | Instruction candidates for MIPROv2 |
+| `--mipro-demos N` | 3 | Few-shot demos for MIPROv2 |
+| `--mipro-eval-samples N` | 10 | Eval samples per candidate for MIPROv2 |
+| `--pb-population N` | 6 | Population size for PromptBreeder |
+| `--pb-generations N` | 5 | Generations for PromptBreeder |
 | `--show-examples` | false | Show disagreement examples |
 | `--output FILE` | - | Save calibration record to file |
 | `--format FMT` | table | Output format: `table` or `json` |
@@ -50,10 +60,15 @@ evalyn calibrate --metric-id <id> --annotations <file> [OPTIONS]
 
 | Optimizer | Description | Best For |
 |-----------|-------------|----------|
-| `llm` | Single-shot LLM analysis of disagreements | Quick iterations, low cost |
-| `gepa` | Evolutionary optimization with reflection | Complex rubrics, diversity |
-| `opro` | Trajectory-based iterative refinement | Finding local optima |
+| `basic` | Single-shot LLM analysis of disagreements | Quick iterations, low cost |
 | `ape` | UCB bandit search across candidates | Exploration vs exploitation |
+| `opro` | Trajectory-based iterative refinement | Finding local optima |
+| `gepa` | Evolutionary optimization with reflection (external) | Complex rubrics, diversity |
+| `gepa-native` | Evolutionary with Pareto front + token tracking | Complex rubrics, cost-aware |
+| `evoprompt` | Population-based mutation/crossover | Diverse candidate exploration |
+| `textgrad` | Iterative critique-revise loop | Targeted incremental improvement |
+| `miprov2` | Joint instruction + few-shot demo optimization | Rubrics that benefit from examples |
+| `promptbreeder` | Self-referential prompt evolution | Novel rubric strategies |
 
 See [Optimizer Documentation](../optimizers/README.md) for detailed algorithm descriptions and diagrams.
 
@@ -136,6 +151,31 @@ evalyn calibrate --metric-id helpfulness_accuracy --annotations data/my-dataset/
 ### APE with custom configuration
 ```bash
 evalyn calibrate --metric-id helpfulness_accuracy --annotations data/my-dataset/annotations.jsonl --dataset data/my-dataset --optimizer ape --ape-candidates 15 --ape-rounds 8
+```
+
+### Use EvoPrompt optimizer
+```bash
+evalyn calibrate --metric-id helpfulness_accuracy --annotations data/my-dataset/annotations.jsonl --dataset data/my-dataset --optimizer evoprompt
+```
+
+### EvoPrompt with custom population
+```bash
+evalyn calibrate --metric-id helpfulness_accuracy --annotations data/my-dataset/annotations.jsonl --dataset data/my-dataset --optimizer evoprompt --evo-population 12 --evo-generations 8
+```
+
+### Use TextGrad optimizer
+```bash
+evalyn calibrate --metric-id helpfulness_accuracy --annotations data/my-dataset/annotations.jsonl --dataset data/my-dataset --optimizer textgrad
+```
+
+### Use MIPROv2 optimizer
+```bash
+evalyn calibrate --metric-id helpfulness_accuracy --annotations data/my-dataset/annotations.jsonl --dataset data/my-dataset --optimizer miprov2
+```
+
+### Use PromptBreeder optimizer
+```bash
+evalyn calibrate --metric-id helpfulness_accuracy --annotations data/my-dataset/annotations.jsonl --dataset data/my-dataset --optimizer promptbreeder
 ```
 
 ## Sample Output

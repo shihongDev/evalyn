@@ -1,66 +1,109 @@
-"""Factory for creating calibration optimizers by name.
+"""Optimizer factory: lazy-import, instantiate, and call optimizers by name.
 
-Provides a single entry point ``create_optimizer`` that maps string
-names to concrete optimizer instances.
+Replaces the if/elif dispatch chain in engine.py. Handles both legacy
+optimizers (with inconsistent signatures) and new BaseOptimizer subclasses.
 """
-
 from __future__ import annotations
 
-from typing import Any, Optional
+import inspect
+from typing import Any
+
+from .models import PromptOptimizationResult
+
+# Registry: name -> (module_path, class_name)
+OPTIMIZER_REGISTRY: dict[str, tuple[str, str]] = {
+    "basic": ("evalyn_sdk.calibration.basic", "BasicOptimizer"),
+    "ape": ("evalyn_sdk.calibration.ape", "APEOptimizer"),
+    "opro": ("evalyn_sdk.calibration.opro", "OPROOptimizer"),
+    "gepa": ("evalyn_sdk.calibration.gepa", "GEPAOptimizer"),
+    "gepa-native": ("evalyn_sdk.calibration.gepa_native", "GEPANativeOptimizer"),
+    "evoprompt": ("evalyn_sdk.calibration.evoprompt", "EvoPromptOptimizer"),
+    "textgrad": ("evalyn_sdk.calibration.textgrad", "TextGradOptimizer"),
+    "miprov2": ("evalyn_sdk.calibration.miprov2", "MIPROv2Optimizer"),
+    "promptbreeder": ("evalyn_sdk.calibration.promptbreeder", "PromptBreederOptimizer"),
+}
 
 
-def create_optimizer(name: str, *, config: Any = None, api_key: Optional[str] = None) -> Any:
-    """Create an optimizer instance by name.
-
-    Supported names:
-    - ``"ape"`` - APE (Automatic Prompt Engineer)
-    - ``"opro"`` - OPRO (Optimization by PROmpting)
-    - ``"textgrad"`` - TextGrad (critique-and-revise)
-    - ``"basic"`` - BasicOptimizer (single-shot)
+def create_optimizer(
+    name: str,
+    config: Any = None,
+    api_key: str | None = None,
+    **legacy_kwargs,
+) -> Any:
+    """Lazy-import and instantiate optimizer by name.
 
     Args:
-        name: Optimizer name (case-insensitive).
-        config: Optimizer-specific config dataclass. If ``None``, defaults
-                are used.
-        api_key: Optional API key forwarded to the optimizer.
-
-    Returns:
-        An optimizer instance.
-
-    Raises:
-        ValueError: If the name is not recognized.
+        name: optimizer name (must be in OPTIMIZER_REGISTRY)
+        config: optimizer-specific Config dataclass
+        api_key: optional API key
+        **legacy_kwargs: for BasicOptimizer compatibility (model=..., etc.)
     """
-    key = name.lower().strip()
+    if name not in OPTIMIZER_REGISTRY:
+        raise ValueError(
+            f"Unknown optimizer: '{name}'. "
+            f"Available: {', '.join(sorted(OPTIMIZER_REGISTRY))}"
+        )
 
-    if key == "ape":
-        from .ape import APEConfig, APEOptimizer
+    module_path, class_name = OPTIMIZER_REGISTRY[name]
 
-        return APEOptimizer(config=config or APEConfig(), api_key=api_key)
+    # Special handling for GEPA (external library)
+    if name == "gepa":
+        from .gepa import GEPA_AVAILABLE
 
-    if key == "opro":
-        from .opro import OPROConfig, OPROOptimizer
+        if not GEPA_AVAILABLE:
+            raise ImportError(
+                "GEPA optimizer requires the 'gepa' package. "
+                "Install with: pip install gepa"
+            )
 
-        return OPROOptimizer(config=config or OPROConfig(), api_key=api_key)
+    # Lazy import
+    import importlib
 
-    if key == "textgrad":
-        from .textgrad import TextGradConfig, TextGradOptimizer
+    module = importlib.import_module(module_path)
+    cls = getattr(module, class_name)
 
-        return TextGradOptimizer(config=config or TextGradConfig(), api_key=api_key)
+    # Instantiate based on constructor signature
+    init_sig = inspect.signature(cls.__init__)
+    init_params = {p.name for p in init_sig.parameters.values() if p.name != "self"}
 
-    if key == "basic":
-        from .basic import BasicOptimizer
+    if "config" in init_params and config is not None:
+        kwargs = {"config": config}
+        if "api_key" in init_params:
+            kwargs["api_key"] = api_key
+        return cls(**kwargs)
+    elif "model" in init_params:
+        # BasicOptimizer takes model, api_key
+        kwargs: dict[str, Any] = {}
+        if legacy_kwargs.get("model"):
+            kwargs["model"] = legacy_kwargs["model"]
+        if "api_key" in init_params and api_key:
+            kwargs["api_key"] = api_key
+        return cls(**kwargs)
+    else:
+        # Fallback
+        try:
+            return cls(config=config, api_key=api_key)
+        except TypeError:
+            try:
+                return cls(config=config)
+            except TypeError:
+                return cls()
 
-        return BasicOptimizer(api_key=api_key)
 
-    if key in ("gepa-native", "gepa_native"):
-        from .gepa_native import GEPANativeConfig, GEPANativeOptimizer
+def call_optimizer(optimizer: Any, **kwargs) -> PromptOptimizationResult:
+    """Call optimizer.optimize() with signature-aware kwarg filtering.
 
-        return GEPANativeOptimizer(config=config or GEPANativeConfig(), api_key=api_key)
+    New optimizers (with **kwargs in optimize()) get all params.
+    Legacy optimizers get only the params their signature accepts.
+    """
+    sig = inspect.signature(optimizer.optimize)
+    params = list(sig.parameters.values())
 
-    raise ValueError(
-        f"Unknown optimizer: {name!r}. "
-        f"Supported: ape, opro, textgrad, basic, gepa-native"
-    )
+    # If optimize() accepts **kwargs, pass everything
+    if any(p.kind == p.VAR_KEYWORD for p in params):
+        return optimizer.optimize(**kwargs)
 
-
-__all__ = ["create_optimizer"]
+    # Otherwise filter to accepted params only
+    accepted = {p.name for p in params if p.name != "self"}
+    filtered = {k: v for k, v in kwargs.items() if k in accepted}
+    return optimizer.optimize(**filtered)

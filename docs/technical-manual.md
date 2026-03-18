@@ -121,13 +121,20 @@ import evalyn_sdk
 
 | SDK | Instrumentation Type | Captured Data |
 |-----|---------------------|---------------|
-| OpenAI | Monkey-patch | tokens, cost, duration, request/response |
-| Anthropic Client | Monkey-patch | tokens, cost, duration, request/response |
-| Claude Agent SDK | Hook-based | tool calls, subagent hierarchy, token usage, thinking blocks |
-| Google Gemini | Monkey-patch | tokens, cost, duration, request/response |
+| OpenAI | Monkey-patch | tokens, cost, duration, request/response, streaming |
+| Anthropic Client | Monkey-patch | tokens, cost, duration, request/response, streaming |
+| Claude Agent SDK | Hook-based | tool calls, subagent hierarchy, token usage, thinking blocks, GenAI attributes |
+| Google Gemini | Monkey-patch | tokens, cost, duration, request/response, streaming |
+| xAI (Grok) | Monkey-patch | tokens, cost, duration, request/response |
 | Google ADK | Hybrid (OTEL + Callbacks) | agent/LLM/tool spans, token usage, request/response |
 | LangChain | Callback handler | LLM calls, tool calls |
 | LangGraph | Monkey-patch | graph/node execution spans |
+| CrewAI | Monkey-patch | agent/task/tool spans |
+| AutoGen | Monkey-patch | agent/message spans |
+| DSPy | Monkey-patch | module/predict spans |
+| Haystack | Monkey-patch | pipeline/component spans |
+| LlamaIndex | Monkey-patch | query/retrieval spans |
+| Semantic Kernel | Monkey-patch | function/plugin spans |
 
 ### Instrumentation Types
 
@@ -135,7 +142,7 @@ The instrumentation registry supports three strategies:
 
 | Type | Description | SDKs |
 |------|-------------|------|
-| `MONKEY_PATCH` | Wrap SDK methods directly | OpenAI, Anthropic, Gemini |
+| `MONKEY_PATCH` | Wrap SDK methods directly | OpenAI, Anthropic, Gemini, xAI, CrewAI, AutoGen, DSPy, Haystack, LlamaIndex, Semantic Kernel |
 | `OTEL_NATIVE` | Use SDK's built-in OTEL with custom SpanProcessor + callback injection | Google ADK |
 | `HOOK_BASED` | Use SDK's hook/callback system | Claude Agent SDK |
 
@@ -165,6 +172,14 @@ The instrumentation registry supports three strategies:
 | Request/response content | Agent loop structure |
 | Call duration | Business logic between calls |
 | Errors | - |
+
+### Streaming Capture
+
+Provider instrumentors capture streaming LLM responses via `StreamingSpanWrapper` (`_streaming.py`). When a provider returns a streaming iterator, the wrapper intercepts each chunk, accumulates the full response, extracts token usage from the final chunk, and creates a complete span. Transparent to callers. Supported for OpenAI, Anthropic, and Gemini.
+
+### GenAI Semantic Convention Attributes
+
+Provider instrumentors attach OpenTelemetry GenAI semantic convention attributes (`gen_ai.system`, `gen_ai.request.model`, `gen_ai.response.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`) for interoperability. Currently applied to Claude Agent SDK spans.
 
 ### LangChain Callback Handler
 
@@ -615,7 +630,19 @@ CREATE TABLE annotations (
 );
 ```
 
-All complex fields stored as JSON blobs for flexibility. No migrations needed.
+-- Span-metric attribution links
+CREATE TABLE span_metric_links (
+    id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    metric_result_id TEXT NOT NULL,
+    span_id TEXT NOT NULL,
+    relevance REAL NOT NULL,
+    reason TEXT DEFAULT '',
+    UNIQUE(run_id, metric_result_id, span_id)
+);
+```
+
+All complex fields stored as JSON blobs for flexibility. The `span_metric_links` table uses a relational schema for efficient querying by run, span, or metric. No migrations needed.
 
 ### Default Location
 
@@ -994,6 +1021,22 @@ Input: Original rubric + disagreement examples
 Output: Improved rubric with clarified criteria
 ```
 
+### Optimizer Methods
+
+| Optimizer | Algorithm | Key Idea |
+|-----------|-----------|----------|
+| `basic` | Single-shot LLM | Analyze disagreements in one pass |
+| `ape` | UCB bandit search | Generate candidates, select via exploration/exploitation |
+| `opro` | Trajectory-based | Use history of prompt/score pairs to guide improvement |
+| `gepa` | Evolutionary (external) | LLM-based reflection and evolution |
+| `gepa-native` | Evolutionary (native) | Pareto-front evolution with token tracking |
+| `evoprompt` | Evolutionary | Population-based mutation/crossover with LLM operators |
+| `textgrad` | Critique-revise | Iterative LLM critique of failures, revise preamble |
+| `miprov2` | Instruction+demo joint | Optimize preamble and few-shot examples together |
+| `promptbreeder` | Self-referential | Evolve both prompts and the mutation operators themselves |
+
+All share a common interface: `optimize() -> PromptOptimizationResult`. New optimizers inherit from `BaseOptimizer` (in `calibration/base_optimizer.py`), which provides train/val split, candidate scoring, and token tracking utilities. A factory function in `engine.py` dispatches to the correct optimizer.
+
 ---
 
 ## Data Models
@@ -1267,6 +1310,22 @@ The HTML report includes:
 - Detailed metrics table
 - Color-coded pass/fail indicators
 
+### Insights Engine
+
+`evalyn insights` (`analysis/insights.py`) provides deeper analysis: metric correlations (Pearson r), regression detection vs previous run, input feature analysis, score distribution shape detection (bimodal, cliff, skewed), and prioritized recommendations.
+
+### LLM Expert Panel
+
+`--deep` activates an LLM expert panel (`analysis/panel.py`): quality_analyst -> metric_critic -> data_scientist -> strategist -> moderator. Each expert sees prior opinions for progressive deepening. Moderator synthesizes into action plan with dissenting views.
+
+### Insights HTML Dashboard
+
+`--format html` generates an interactive Chart.js dashboard (`analysis/insights_dashboard.py`) with pass rate bars, radar chart, score histograms, item-metric heatmap, scatter plots, correlation matrix, regression waterfall, recommendation cards, and collapsible expert panel section.
+
+### Span-Metric Attribution
+
+`attribution.py` links metric results to specific spans: `extract_span_metric_links()` produces `SpanMetricLink` records with relevance scores (0.0-1.0) and textual reasons, enabling span-level drill-down.
+
 ---
 
 ## File Structure
@@ -1281,11 +1340,16 @@ evalyn/
 │       ├── datasets.py          # Dataset I/O
 │       ├── runner.py            # EvalRunner (uses ExecutionStrategy)
 │       ├── execution.py         # Execution strategies (Sequential/Parallel)
+│       ├── attribution.py       # Span-metric attribution extraction
 │       ├── analysis/            # Analysis & visualization module
 │       │   ├── core.py          # RunAnalysis, MetricStats classes
 │       │   ├── reports.py       # Text/ASCII reports
-│       │   ├── html_report.py   # HTML dashboard generation
-│       │   └── trends.py        # Trend analysis over time
+│       │   ├── html_report.py   # HTML report generation
+│       │   ├── trends.py        # Trend analysis over time
+│       │   ├── insights.py      # Correlations, regressions, distributions
+│       │   ├── insights_dashboard.py  # Interactive HTML insights dashboard
+│       │   ├── panel.py         # LLM expert panel analysis
+│       │   └── clustering.py    # Failure/misalignment clustering
 │       ├── trace/
 │       │   ├── tracer.py        # EvalTracer, session management
 │       │   ├── context.py       # Context management
@@ -1295,13 +1359,22 @@ evalyn/
 │       │       ├── registry.py  # InstrumentorRegistry
 │       │       ├── base.py      # Instrumentor base class
 │       │       └── providers/   # Per-SDK instrumentors
+│       │           ├── _shared.py       # Shared utilities
+│       │           ├── _streaming.py    # StreamingSpanWrapper base
 │       │           ├── openai.py
 │       │           ├── anthropic.py
 │       │           ├── claude_agent_sdk.py
 │       │           ├── gemini.py
+│       │           ├── xai.py
 │       │           ├── google_adk.py
 │       │           ├── langchain.py
-│       │           └── langgraph.py
+│       │           ├── langgraph.py
+│       │           ├── crewai.py
+│       │           ├── autogen.py
+│       │           ├── dspy.py
+│       │           ├── haystack.py
+│       │           ├── llamaindex.py
+│       │           └── semantic_kernel.py
 │       ├── storage/
 │       │   ├── base.py          # StorageBackend interface
 │       │   └── sqlite.py        # SQLiteStorage
@@ -1329,10 +1402,12 @@ evalyn/
 │       │   │   ├── analysis.py
 │       │   │   ├── annotation.py
 │       │   │   ├── calibration.py
+│       │   │   ├── clustering.py
 │       │   │   ├── dataset.py
 │       │   │   ├── evaluation.py
 │       │   │   ├── export.py
 │       │   │   ├── infrastructure.py  # one-click command
+│       │   │   ├── insights.py        # evalyn insights command
 │       │   │   ├── runs.py
 │       │   │   ├── simulate.py
 │       │   │   └── traces.py

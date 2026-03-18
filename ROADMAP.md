@@ -14,6 +14,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Video frame sampling
   - [ ] Base64/URL reference storage options
 - [ ] **Streaming Support** - Capture streaming LLM responses
+  - [x] Streaming response capture (OpenAI, Anthropic, Gemini via StreamingSpanWrapper)
   - [ ] Token-by-token capture with timing
   - [ ] First-token latency (TTFT) metric
   - [ ] Streaming interruption detection
@@ -59,11 +60,11 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Calibration & Optimization
 
-- [ ] **More Optimizers**
-  - [ ] DSPy MIPROv2 - Multi-stage instruction optimization
-  - [ ] TextGrad - Gradient-based prompt optimization
-  - [ ] EvoPrompt - Evolutionary prompt optimization
-  - [ ] PromptBreeder - Self-referential prompt evolution
+- [x] **More Optimizers**
+  - [x] DSPy MIPROv2 - Multi-stage instruction optimization
+  - [x] TextGrad - Gradient-based prompt optimization
+  - [x] EvoPrompt - Evolutionary prompt optimization
+  - [x] PromptBreeder - Self-referential prompt evolution
 - [ ] **Rubric Optimization** - Auto-generate and refine evaluation rubrics
 - [ ] **Few-Shot Example Selection** - Optimize which examples to include in prompts
 - [ ] **Judge Ensemble** - Combine multiple judges for robust evaluation
@@ -154,6 +155,10 @@ This document tracks planned features and completed work. Future roadmap items a
 - [x] **evalyn show-call** - View detailed call information
 - [x] **evalyn show-trace** - Phoenix-style span tree visualization
 - [x] **evalyn show-projects** - Project summary with trace counts
+- [x] **Streaming response capture** - StreamingSpanWrapper for OpenAI, Anthropic, Gemini
+- [x] **GenAI semantic convention attributes** - OpenTelemetry gen_ai.* attributes on spans
+- [x] **Span-metric attribution** - Link metric results to specific spans with relevance scoring
+- [x] **Context window utilization tracking** - Track context usage in spans
 - [x] **--db flag** - Switch between prod/test databases
 - [x] **Short ID support** - 8-character ID prefixes for convenience
 
@@ -284,6 +289,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] OPRO method - Trajectory-based optimization
   - [x] GEPA method - Evolutionary prompt optimization (external library)
   - [x] GEPA-Native method - Evolutionary optimization with token tracking
+  - [x] EvoPrompt method - Population-based mutation/crossover
+  - [x] TextGrad method - Iterative critique-revise refinement
+  - [x] MIPROv2 method - Joint instruction + few-shot demo optimization
+  - [x] PromptBreeder method - Self-referential prompt evolution
+  - [x] BaseOptimizer base class + factory dispatch
 - [x] **evalyn list-calibrations** - List calibration records
 - [x] **Alignment metrics** - Accuracy, precision, recall, F1, Cohen's Kappa
 - [x] **Validation split** - Test calibration on held-out samples
@@ -350,4 +360,4 @@ This document tracks planned features and completed work. Future roadmap items a
 - [x] **pytest-cov integration** - Coverage reporting via `--cov=evalyn_sdk`
 - [x] **Integration test unskip** - Fixed 2 skipped integration tests
 
-*Last updated: 2026-03-15*
+*Last updated: 2026-03-18*

@@ -3,7 +3,7 @@
 Orchestrates the full calibration workflow:
 1. Compute alignment metrics (precision, recall, F1, kappa)
 2. Analyze disagreement patterns
-3. Use optimizer (Basic, GEPA, GEPA-Native, OPRO, APE, or TextGrad) to improve prompts
+3. Use optimizer (Basic, GEPA, GEPA-Native, OPRO, or APE) to improve prompts
 4. Validate optimized prompts on held-out data
 
 IMPORTANT: All optimizers only optimize the preamble (system prompt/instructions).
@@ -20,8 +20,8 @@ from uuid import uuid4
 
 from ..defaults import DEFAULT_EVAL_MODEL
 from ..models import Annotation, CalibrationRecord, DatasetItem, MetricResult, now_utc
-from .basic import BasicOptimizer
-from .gepa import GEPA_AVAILABLE, GEPAConfig, GEPAOptimizer
+from .factory import call_optimizer, create_optimizer
+from .gepa import GEPAConfig
 from .models import (
     AlignmentMetrics,
     DisagreementAnalysis,
@@ -45,12 +45,14 @@ class CalibrationConfig:
     current_preamble: str = ""  # Base prompt before rubric
     optimize_prompts: bool = True
     optimizer_model: str = DEFAULT_EVAL_MODEL
-    optimizer_type: str = "basic"  # "basic", "gepa", "gepa-native", "opro", "ape", or "textgrad"
+    optimizer_type: str = "basic"
+    optimizer_config: Optional[Any] = None  # Generic optimizer config (any Config dataclass)
+    optimizer_api_key: Optional[str] = None
+    # Backward compat (deprecated - use optimizer_config):
     gepa_config: Optional[GEPAConfig] = None
-    gepa_native_config: Optional[Any] = None  # GEPANativeConfig
-    opro_config: Optional[Any] = None  # OPROConfig (import avoided for circular deps)
-    ape_config: Optional[Any] = None  # APEConfig (import avoided for circular deps)
-    textgrad_config: Optional[Any] = None  # TextGradConfig (import avoided for circular deps)
+    gepa_native_config: Optional[Any] = None
+    opro_config: Optional[Any] = None
+    ape_config: Optional[Any] = None
 
 
 class CalibrationEngine:
@@ -58,7 +60,7 @@ class CalibrationEngine:
     Enhanced calibration engine that:
     1. Computes alignment metrics (precision, recall, F1, kappa)
     2. Analyzes disagreement patterns
-    3. Uses LLM, GEPA, GEPA-Native, OPRO, APE, or TextGrad to optimize judge prompts
+    3. Uses LLM, GEPA, GEPA-Native, OPRO, or APE to optimize judge prompts
 
     IMPORTANT: All optimizers only optimize the preamble (system prompt/instructions).
     The rubric (evaluation criteria) is kept FIXED as defined by humans.
@@ -70,15 +72,17 @@ class CalibrationEngine:
         judge_name: Optional[str] = None,
         current_threshold: float = 0.5,
         current_rubric: Optional[List[str]] = None,
-        current_preamble: str = "",  # Base prompt before rubric
+        current_preamble: str = "",
         optimize_prompts: bool = True,
         optimizer_model: str = DEFAULT_EVAL_MODEL,
-        optimizer_type: str = "basic",  # "basic", "gepa", "gepa-native", "opro", "ape", or "textgrad"
+        optimizer_type: str = "basic",
+        optimizer_config: Optional[Any] = None,
+        optimizer_api_key: Optional[str] = None,
+        # Backward compat (deprecated - use optimizer_config):
         gepa_config: Optional[GEPAConfig] = None,
-        gepa_native_config: Optional[Any] = None,  # GEPANativeConfig
-        opro_config: Optional[Any] = None,  # OPROConfig
-        ape_config: Optional[Any] = None,  # APEConfig
-        textgrad_config: Optional[Any] = None,  # TextGradConfig
+        gepa_native_config: Optional[Any] = None,
+        opro_config: Optional[Any] = None,
+        ape_config: Optional[Any] = None,
         *,
         config: Optional[CalibrationConfig] = None,
     ):
@@ -91,11 +95,14 @@ class CalibrationEngine:
             self.optimize_prompts = config.optimize_prompts
             self.optimizer_model = config.optimizer_model
             self.optimizer_type = config.optimizer_type
-            self.gepa_config = config.gepa_config
-            self.gepa_native_config = config.gepa_native_config
-            self.opro_config = config.opro_config
-            self.ape_config = config.ape_config
-            self.textgrad_config = config.textgrad_config
+            self.optimizer_config = (
+                config.optimizer_config
+                or config.gepa_config
+                or config.gepa_native_config
+                or config.opro_config
+                or config.ape_config
+            )
+            self.optimizer_api_key = config.optimizer_api_key
         else:
             if judge_name is None:
                 raise ValueError("judge_name is required")
@@ -106,11 +113,14 @@ class CalibrationEngine:
             self.optimize_prompts = optimize_prompts
             self.optimizer_model = optimizer_model
             self.optimizer_type = optimizer_type
-            self.gepa_config = gepa_config
-            self.gepa_native_config = gepa_native_config
-            self.opro_config = opro_config
-            self.ape_config = ape_config
-            self.textgrad_config = textgrad_config
+            self.optimizer_config = (
+                optimizer_config
+                or gepa_config
+                or gepa_native_config
+                or opro_config
+                or ape_config
+            )
+            self.optimizer_api_key = optimizer_api_key
 
     def compute_alignment(
         self,
@@ -472,95 +482,24 @@ class CalibrationEngine:
         prompt_optimization = None
         if self.optimize_prompts and disagreements.total_disagreements > 0:
             try:
-                if self.optimizer_type == "gepa":
-                    # Use GEPA evolutionary optimization (preamble only, rubric stays fixed)
-                    # Note: GEPA uses external library, token tracking not available
-                    if not GEPA_AVAILABLE:
-                        raise ImportError(
-                            "GEPA is not installed. Install with: pip install gepa"
-                        )
-                    gepa_optimizer = GEPAOptimizer(config=self.gepa_config)
-                    prompt_optimization = gepa_optimizer.optimize(
-                        metric_id=self.judge_name,
-                        current_rubric=self.current_rubric,
-                        metric_results=metric_results,
-                        annotations=annotations,
-                        dataset_items=dataset_items,
-                        current_preamble=self.current_preamble,
-                    )
-                elif self.optimizer_type == "gepa-native":
-                    # Use native GEPA with token tracking (no external library)
-                    from .gepa_native import GEPANativeOptimizer
-
-                    gepa_native_optimizer = GEPANativeOptimizer(
-                        config=self.gepa_native_config
-                    )
-                    prompt_optimization = gepa_native_optimizer.optimize(
-                        metric_id=self.judge_name,
-                        current_rubric=self.current_rubric,
-                        metric_results=metric_results,
-                        annotations=annotations,
-                        dataset_items=dataset_items,
-                        current_preamble=self.current_preamble,
-                        accumulator=accumulator,
-                    )
-                elif self.optimizer_type == "opro":
-                    # Use OPRO optimization (preamble only, rubric stays fixed)
-                    from .opro import OPROOptimizer
-
-                    opro_optimizer = OPROOptimizer(config=self.opro_config)
-                    prompt_optimization = opro_optimizer.optimize(
-                        metric_id=self.judge_name,
-                        current_rubric=self.current_rubric,
-                        metric_results=metric_results,
-                        annotations=annotations,
-                        dataset_items=dataset_items,
-                        current_preamble=self.current_preamble,
-                        accumulator=accumulator,
-                    )
-                elif self.optimizer_type == "ape":
-                    # Use APE optimization (preamble only, rubric stays fixed)
-                    from .ape import APEOptimizer
-
-                    ape_optimizer = APEOptimizer(config=self.ape_config)
-                    prompt_optimization = ape_optimizer.optimize(
-                        metric_id=self.judge_name,
-                        current_rubric=self.current_rubric,
-                        metric_results=metric_results,
-                        annotations=annotations,
-                        disagreements=disagreements,
-                        dataset_items=dataset_items,
-                        current_preamble=self.current_preamble,
-                        accumulator=accumulator,
-                    )
-                elif self.optimizer_type == "textgrad":
-                    # Use TextGrad optimization (preamble only, rubric stays fixed)
-                    from .textgrad import TextGradOptimizer
-
-                    textgrad_optimizer = TextGradOptimizer(
-                        config=self.textgrad_config
-                    )
-                    prompt_optimization = textgrad_optimizer.optimize(
-                        metric_id=self.judge_name,
-                        current_rubric=self.current_rubric,
-                        current_preamble=self.current_preamble,
-                        metric_results=metric_results,
-                        annotations=annotations,
-                        dataset_items=dataset_items,
-                        accumulator=accumulator,
-                    )
-                else:
-                    # Use basic single-shot optimization (default)
-                    # Note: Like APE/OPRO, only preamble is optimized; rubric stays fixed
-                    optimizer = BasicOptimizer(model=self.optimizer_model)
-                    prompt_optimization = optimizer.optimize(
-                        metric_id=self.judge_name,
-                        current_rubric=self.current_rubric,
-                        disagreements=disagreements,
-                        alignment_metrics=alignment,
-                        current_preamble=self.current_preamble,
-                        accumulator=accumulator,
-                    )
+                optimizer = create_optimizer(
+                    self.optimizer_type,
+                    config=self.optimizer_config,
+                    api_key=self.optimizer_api_key,
+                    model=self.optimizer_model,  # for BasicOptimizer compat
+                )
+                prompt_optimization = call_optimizer(
+                    optimizer,
+                    metric_id=self.judge_name,
+                    current_rubric=self.current_rubric,
+                    metric_results=metric_results,
+                    annotations=annotations,
+                    disagreements=disagreements,
+                    alignment_metrics=alignment,
+                    dataset_items=dataset_items,
+                    current_preamble=self.current_preamble,
+                    accumulator=accumulator,
+                )
             except Exception as e:
                 prompt_optimization = PromptOptimizationResult(
                     original_rubric=self.current_rubric,
@@ -613,33 +552,11 @@ class CalibrationEngine:
 
         if prompt_optimization:
             adjustments["prompt_optimization"] = prompt_optimization.as_dict()
-            # Include optimizer-specific config
-            if self.optimizer_type == "gepa" and self.gepa_config:
-                adjustments["gepa_config"] = {
-                    "task_lm": self.gepa_config.task_lm,
-                    "reflection_lm": self.gepa_config.reflection_lm,
-                    "max_metric_calls": self.gepa_config.max_metric_calls,
-                }
-            elif self.optimizer_type == "gepa-native" and self.gepa_native_config:
-                adjustments["gepa_native_config"] = {
-                    "task_model": self.gepa_native_config.task_model,
-                    "reflection_model": self.gepa_native_config.reflection_model,
-                    "max_metric_calls": self.gepa_native_config.max_metric_calls,
-                    "num_initial_candidates": self.gepa_native_config.num_initial_candidates,
-                    "mini_batch_size": self.gepa_native_config.mini_batch_size,
-                }
-            elif self.optimizer_type == "ape" and self.ape_config:
-                adjustments["ape_config"] = {
-                    "num_candidates": self.ape_config.num_candidates,
-                    "eval_rounds": self.ape_config.eval_rounds,
-                    "eval_samples_per_round": self.ape_config.eval_samples_per_round,
-                }
-            elif self.optimizer_type == "textgrad" and self.textgrad_config:
-                adjustments["textgrad_config"] = {
-                    "max_iterations": self.textgrad_config.max_iterations,
-                    "improvement_threshold": self.textgrad_config.improvement_threshold,
-                    "num_failure_examples": self.textgrad_config.num_failure_examples,
-                    "early_stop_patience": self.textgrad_config.early_stop_patience,
+            # Serialize optimizer config generically
+            if self.optimizer_config and hasattr(self.optimizer_config, "__dataclass_fields__"):
+                adjustments["optimizer_config"] = {
+                    k: getattr(self.optimizer_config, k)
+                    for k in self.optimizer_config.__dataclass_fields__
                 }
 
         if validation_result:
