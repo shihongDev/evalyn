@@ -11,8 +11,10 @@ The rubric (evaluation criteria) is kept FIXED as defined by humans.
 """
 
 from .ape import APEConfig, APEOptimizer
+from .base_optimizer import BaseOptimizer
 from .basic import BasicOptimizer
 from .engine import CalibrationConfig, CalibrationEngine
+from .factory import OPTIMIZER_REGISTRY, call_optimizer, create_optimizer
 from .gepa import GEPA_AVAILABLE, GEPAConfig, GEPAOptimizer
 from .gepa_native import GEPANativeConfig, GEPANativeOptimizer
 from .models import (
@@ -37,6 +39,11 @@ __all__ = [
     # Engine
     "CalibrationConfig",
     "CalibrationEngine",
+    # Factory
+    "BaseOptimizer",
+    "create_optimizer",
+    "call_optimizer",
+    "OPTIMIZER_REGISTRY",
     # Models
     "AlignmentMetrics",
     "DisagreementAnalysis",
