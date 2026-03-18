@@ -282,11 +282,45 @@ def _build_calibration_optimizer_configs(args: argparse.Namespace) -> dict:
             mini_batch_size=args.gepa_native_batch_size,
         )
 
+    # New optimizers use generic optimizer_config
+    optimizer_config = None
+    if args.optimizer == "evoprompt":
+        from ...calibration.evoprompt import EvoPromptConfig
+
+        optimizer_config = EvoPromptConfig(
+            population_size=getattr(args, "evo_population", 8),
+            generations=getattr(args, "evo_generations", 5),
+            mutation_rate=getattr(args, "evo_mutation_rate", 0.3),
+        )
+    elif args.optimizer == "textgrad":
+        from ...calibration.textgrad import TextGradConfig
+
+        optimizer_config = TextGradConfig(
+            max_iterations=getattr(args, "textgrad_iterations", 8),
+            improvement_threshold=getattr(args, "textgrad_threshold", 0.01),
+        )
+    elif args.optimizer == "miprov2":
+        from ...calibration.miprov2 import MIPROv2Config
+
+        optimizer_config = MIPROv2Config(
+            num_instructions=getattr(args, "mipro_instructions", 6),
+            num_demos=getattr(args, "mipro_demos", 3),
+            eval_samples=getattr(args, "mipro_eval_samples", 10),
+        )
+    elif args.optimizer == "promptbreeder":
+        from ...calibration.promptbreeder import PromptBreederConfig
+
+        optimizer_config = PromptBreederConfig(
+            population_size=getattr(args, "pb_population", 6),
+            generations=getattr(args, "pb_generations", 5),
+        )
+
     return {
         "gepa_config": gepa_config,
         "opro_config": opro_config,
         "ape_config": ape_config,
         "gepa_native_config": gepa_native_config,
+        "optimizer_config": optimizer_config,
     }
 
 
@@ -306,6 +340,7 @@ def _build_calibration_engine(
         optimize_prompts=not args.no_optimize,
         optimizer_model=args.model,
         optimizer_type=args.optimizer,
+        optimizer_config=optimizer_configs.get("optimizer_config"),
         gepa_config=optimizer_configs.get("gepa_config"),
         gepa_native_config=optimizer_configs.get("gepa_native_config"),
         opro_config=optimizer_configs.get("opro_config"),
@@ -776,9 +811,9 @@ def register_commands(subparsers) -> None:
     )
     calibrate_parser.add_argument(
         "--optimizer",
-        choices=["basic", "gepa", "gepa-native", "opro", "ape"],
+        choices=["basic", "gepa", "gepa-native", "opro", "ape", "evoprompt", "textgrad", "miprov2", "promptbreeder"],
         default="basic",
-        help="Optimization method: 'basic' (single-shot, default), 'gepa' (evolutionary), 'gepa-native' (evolutionary with token tracking), 'opro' (trajectory-based), or 'ape' (search-based)",
+        help="Optimization method: 'basic' (single-shot), 'ape' (search), 'opro' (trajectory), 'evoprompt' (evolutionary), 'textgrad' (critique-revise), 'miprov2' (instruction+demo), 'promptbreeder' (self-referential)",
     )
     calibrate_parser.add_argument(
         "--model",
@@ -871,6 +906,50 @@ def register_commands(subparsers) -> None:
         type=int,
         default=5,
         help="Mini-batch size for GEPA-Native feedback (default: 5)",
+    )
+    # EvoPrompt-specific arguments
+    calibrate_parser.add_argument(
+        "--evo-population", type=int, default=8,
+        help="Population size for EvoPrompt (default: 8)",
+    )
+    calibrate_parser.add_argument(
+        "--evo-generations", type=int, default=5,
+        help="Number of generations for EvoPrompt (default: 5)",
+    )
+    calibrate_parser.add_argument(
+        "--evo-mutation-rate", type=float, default=0.3,
+        help="Mutation rate for EvoPrompt (default: 0.3)",
+    )
+    # TextGrad-specific arguments
+    calibrate_parser.add_argument(
+        "--textgrad-iterations", type=int, default=8,
+        help="Max iterations for TextGrad (default: 8)",
+    )
+    calibrate_parser.add_argument(
+        "--textgrad-threshold", type=float, default=0.01,
+        help="Min F1 improvement threshold for TextGrad (default: 0.01)",
+    )
+    # MIPROv2-specific arguments
+    calibrate_parser.add_argument(
+        "--mipro-instructions", type=int, default=6,
+        help="Number of instruction candidates for MIPROv2 (default: 6)",
+    )
+    calibrate_parser.add_argument(
+        "--mipro-demos", type=int, default=3,
+        help="Number of few-shot demos for MIPROv2 (default: 3)",
+    )
+    calibrate_parser.add_argument(
+        "--mipro-eval-samples", type=int, default=10,
+        help="Evaluation samples per candidate for MIPROv2 (default: 10)",
+    )
+    # PromptBreeder-specific arguments
+    calibrate_parser.add_argument(
+        "--pb-population", type=int, default=6,
+        help="Population size for PromptBreeder (default: 6)",
+    )
+    calibrate_parser.add_argument(
+        "--pb-generations", type=int, default=5,
+        help="Number of generations for PromptBreeder (default: 5)",
     )
     calibrate_parser.add_argument(
         "--show-examples", action="store_true", help="Show example disagreement cases"
