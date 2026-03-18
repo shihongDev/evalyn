@@ -93,3 +93,70 @@ class TestBaseOptimizer:
         )
         assert isinstance(result, PromptOptimizationResult)
         assert result.optimized_preamble == "improved judge prompt"
+
+
+# ---------------------------------------------------------------------------
+# Factory tests
+# ---------------------------------------------------------------------------
+
+from evalyn_sdk.calibration.factory import (
+    OPTIMIZER_REGISTRY,
+    call_optimizer,
+    create_optimizer,
+)
+
+
+class TestFactory:
+    def test_registry_has_all_optimizers(self):
+        expected = {
+            "basic", "ape", "opro", "gepa", "gepa-native",
+            "evoprompt", "textgrad", "miprov2", "promptbreeder",
+        }
+        assert set(OPTIMIZER_REGISTRY.keys()) == expected
+
+    def test_create_basic_optimizer(self):
+        opt = create_optimizer("basic", model="gemini-2.5-flash-lite")
+        assert opt.__class__.__name__ == "BasicOptimizer"
+
+    def test_create_ape_optimizer(self):
+        from evalyn_sdk.calibration.ape import APEConfig
+
+        opt = create_optimizer("ape", config=APEConfig())
+        assert opt.__class__.__name__ == "APEOptimizer"
+
+    def test_create_opro_optimizer(self):
+        from evalyn_sdk.calibration.opro import OPROConfig
+
+        opt = create_optimizer("opro", config=OPROConfig())
+        assert opt.__class__.__name__ == "OPROOptimizer"
+
+    def test_create_unknown_raises(self):
+        with pytest.raises(ValueError, match="Unknown optimizer"):
+            create_optimizer("nonexistent")
+
+    def test_call_optimizer_filters_kwargs_for_legacy(self):
+        """Legacy optimizers only get params they accept."""
+        import inspect
+
+        opt = create_optimizer("basic", model="gemini-2.5-flash-lite")
+        sig = inspect.signature(opt.optimize)
+        param_names = {p.name for p in sig.parameters.values() if p.name != "self"}
+        # BasicOptimizer does not accept metric_results
+        assert "metric_results" not in param_names
+
+    def test_call_optimizer_passes_all_kwargs_to_new_style(self):
+        """New-style optimizers with **kwargs get everything."""
+        opt = ConcreteOptimizer(config=DummyConfig())
+        result = call_optimizer(
+            opt,
+            metric_id="test",
+            current_rubric=["r1"],
+            current_preamble="preamble",
+            metric_results=[],
+            annotations=[],
+            disagreements=None,
+            dataset_items=[],
+            accumulator=None,
+            extra_param="should be passed through",
+        )
+        assert isinstance(result, PromptOptimizationResult)
