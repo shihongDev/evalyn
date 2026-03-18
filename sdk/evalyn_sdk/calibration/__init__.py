@@ -17,6 +17,7 @@ from .basic import BasicOptimizer
 from .engine import CalibrationConfig, CalibrationEngine
 from .factory import OPTIMIZER_REGISTRY, call_optimizer, create_optimizer
 from .gepa import GEPA_AVAILABLE, GEPAConfig, GEPAOptimizer
+from .textgrad import TextGradConfig, TextGradOptimizer
 from .gepa_native import GEPANativeConfig, GEPANativeOptimizer
 from .models import (
     AlignmentMetrics,
@@ -66,6 +67,8 @@ __all__ = [
     "APEOptimizer",
     "EvoPromptConfig",
     "EvoPromptOptimizer",
+    "TextGradConfig",
+    "TextGradOptimizer",
     # Utils
     "build_full_prompt",
     "build_dataset_from_annotations",

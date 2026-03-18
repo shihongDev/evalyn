@@ -324,3 +324,119 @@ class TestEvoPrompt:
         population = opt._init_population("current", None, ["r1"])
         assert population[0] == "current"
         assert len(population) == opt.config.population_size
+
+
+# ---------------------------------------------------------------------------
+# TextGrad tests
+# ---------------------------------------------------------------------------
+
+from evalyn_sdk.calibration.textgrad import TextGradConfig, TextGradOptimizer
+from evalyn_sdk.calibration.models import TokenAccumulator
+from evalyn_sdk.utils.api_client import GenerateResult
+
+
+def _make_generate_result(text: str = "ok") -> GenerateResult:
+    """Build a minimal GenerateResult for mocking."""
+    return GenerateResult(text=text, input_tokens=10, output_tokens=5, model="test")
+
+
+def _make_examples(n: int = 10) -> list:
+    """Build a list of labelled examples for train/val splits."""
+    examples = []
+    for i in range(n):
+        examples.append({
+            "id": f"call-{i}",
+            "input": f"input {i}",
+            "output": f"output {i}",
+            "expected": "PASS" if i % 2 == 0 else "FAIL",
+            "call_id": f"call-{i}",
+        })
+    return examples
+
+
+class TestTextGradConfig:
+    def test_defaults(self):
+        cfg = TextGradConfig()
+        assert cfg.max_iterations == 8
+        assert cfg.improvement_threshold == 0.01
+        assert cfg.num_failure_examples == 5
+        assert cfg.early_stop_patience == 3
+
+    def test_custom_values(self):
+        cfg = TextGradConfig(max_iterations=4, early_stop_patience=1)
+        assert cfg.max_iterations == 4
+        assert cfg.early_stop_patience == 1
+
+
+class TestTextGrad:
+    def _make_optimizer(self) -> TextGradOptimizer:
+        cfg = TextGradConfig(max_iterations=3, early_stop_patience=2)
+        opt = TextGradOptimizer(config=cfg, api_key="fake-key")
+        mock_task = MagicMock()
+        mock_task.generate_with_usage.return_value = _make_generate_result(
+            "Revised preamble: be stricter on edge cases."
+        )
+        opt._task_client = mock_task
+        mock_scorer = MagicMock()
+        mock_scorer.generate_with_usage.return_value = _make_generate_result(
+            '{"passed": true, "reason": "ok", "score": 0.9}'
+        )
+        opt._scorer_client = mock_scorer
+        return opt
+
+    def test_optimize_returns_result(self):
+        opt = self._make_optimizer()
+        train = _make_examples(7)
+        val = _make_examples(3)
+        opt.split_train_val = MagicMock(return_value=(train, val))
+        call_count = {"n": 0}
+        def increasing_score(*_a, **_kw):
+            call_count["n"] += 1
+            return 0.5 + call_count["n"] * 0.05
+        opt.score_preamble = MagicMock(side_effect=increasing_score)
+        result = opt.optimize(
+            metric_id="test_metric",
+            current_rubric=["Be accurate"],
+            current_preamble="You are a judge.",
+            metric_results=[], annotations=[],
+        )
+        assert isinstance(result, PromptOptimizationResult)
+        assert result.original_preamble == "You are a judge."
+        assert result.improved_rubric == ["Be accurate"]
+
+    def test_early_stopping(self):
+        opt = self._make_optimizer()
+        opt.config.early_stop_patience = 2
+        opt.config.max_iterations = 10
+        opt.split_train_val = MagicMock(return_value=(_make_examples(7), _make_examples(3)))
+        opt.score_preamble = MagicMock(return_value=0.6)
+        result = opt.optimize(
+            metric_id="test", current_rubric=["r1"], current_preamble="orig",
+            metric_results=[], annotations=[],
+        )
+        assert isinstance(result, PromptOptimizationResult)
+        assert opt.score_preamble.call_count <= 8
+
+    def test_not_enough_data(self):
+        opt = self._make_optimizer()
+        opt.split_train_val = MagicMock(return_value=([], []))
+        result = opt.optimize(
+            metric_id="test", current_rubric=["r1"], current_preamble="orig",
+            metric_results=[], annotations=[],
+        )
+        assert "Not enough data" in result.improvement_reasoning
+
+    def test_no_failures_stops_early(self):
+        opt = self._make_optimizer()
+        opt.split_train_val = MagicMock(return_value=(_make_examples(7), _make_examples(3)))
+        opt.score_preamble = MagicMock(return_value=1.0)
+        opt._collect_failures = MagicMock(return_value=[])
+        result = opt.optimize(
+            metric_id="test", current_rubric=["r1"], current_preamble="orig",
+            metric_results=[], annotations=[],
+        )
+        assert isinstance(result, PromptOptimizationResult)
+
+    def test_factory_creates_textgrad(self):
+        opt = create_optimizer("textgrad", config=TextGradConfig())
+        assert isinstance(opt, TextGradOptimizer)
