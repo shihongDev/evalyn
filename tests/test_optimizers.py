@@ -513,3 +513,119 @@ class TestMIPROv2:
     def test_factory_creates_miprov2(self):
         opt = create_optimizer("miprov2", config=MIPROv2Config())
         assert isinstance(opt, MIPROv2Optimizer)
+
+
+# ---------------------------------------------------------------------------
+# PromptBreeder tests
+# ---------------------------------------------------------------------------
+
+from evalyn_sdk.calibration.promptbreeder import (
+    BreederUnit,
+    PromptBreederConfig,
+    PromptBreederOptimizer,
+)
+
+
+class TestPromptBreederConfig:
+    def test_defaults(self):
+        cfg = PromptBreederConfig()
+        assert cfg.population_size == 6
+        assert cfg.generations == 5
+        assert cfg.num_initial_mutation_prompts == 4
+        assert cfg.early_stop_patience == 2
+
+    def test_custom_values(self):
+        cfg = PromptBreederConfig(population_size=10, generations=8)
+        assert cfg.population_size == 10
+        assert cfg.generations == 8
+
+
+class TestBreederUnit:
+    def test_dataclass(self):
+        unit = BreederUnit(preamble="test", mutation_prompt="improve clarity")
+        assert unit.f1_score == 0.0
+
+    def test_score_assignment(self):
+        unit = BreederUnit(preamble="p", mutation_prompt="m", f1_score=0.85)
+        assert unit.f1_score == 0.85
+
+
+class TestPromptBreeder:
+    def _make_optimizer(self) -> PromptBreederOptimizer:
+        cfg = PromptBreederConfig(
+            population_size=3, generations=2,
+            num_initial_mutation_prompts=2, early_stop_patience=1,
+        )
+        opt = PromptBreederOptimizer(config=cfg)
+        mock_client = MagicMock()
+        mock_client.generate_with_usage.return_value = _make_generate_result(
+            '["strategy one", "strategy two"]'
+        )
+        opt._task_client_instance = mock_client
+        opt.score_preamble = MagicMock(return_value=0.75)
+        opt.split_train_val = MagicMock(return_value=(_make_examples(6), _make_examples(4)))
+        return opt
+
+    def test_optimize_returns_result(self):
+        opt = self._make_optimizer()
+        result = opt.optimize(
+            metric_id="test", current_rubric=["Be accurate"],
+            metric_results=[], annotations=[], dataset_items=[],
+            current_preamble="You are a judge.",
+        )
+        assert isinstance(result, PromptOptimizationResult)
+        assert result.original_preamble == "You are a judge."
+        assert result.improved_rubric == ["Be accurate"]
+
+    def test_early_stopping(self):
+        opt = self._make_optimizer()
+        result = opt.optimize(
+            metric_id="test", current_rubric=["r1"],
+            metric_results=[], annotations=[], dataset_items=[],
+            current_preamble="Judge.",
+        )
+        assert isinstance(result, PromptOptimizationResult)
+
+    def test_insufficient_data(self):
+        opt = self._make_optimizer()
+        opt.split_train_val = MagicMock(return_value=([], []))
+        result = opt.optimize(
+            metric_id="test", current_rubric=["r1"],
+            metric_results=[], annotations=[],
+            current_preamble="Judge.",
+        )
+        assert "Not enough data" in result.improvement_reasoning
+
+    def test_factory_creates_promptbreeder(self):
+        opt = create_optimizer("promptbreeder", config=PromptBreederConfig())
+        assert isinstance(opt, PromptBreederOptimizer)
+
+    def test_apply_mutation_returns_new_preamble(self):
+        opt = PromptBreederOptimizer()
+        mock_client = MagicMock()
+        mock_client.generate_with_usage.return_value = _make_generate_result(
+            "A completely new improved preamble."
+        )
+        opt._task_client_instance = mock_client
+        unit = BreederUnit(preamble="old", mutation_prompt="focus on precision")
+        new = opt._apply_mutation(unit, "(no failures)")
+        assert new == "A completely new improved preamble."
+
+    def test_apply_mutation_fallback_on_error(self):
+        opt = PromptBreederOptimizer()
+        mock_client = MagicMock()
+        mock_client.generate_with_usage.side_effect = RuntimeError("fail")
+        opt._task_client_instance = mock_client
+        unit = BreederUnit(preamble="original", mutation_prompt="improve")
+        assert opt._apply_mutation(unit, "") == "original"
+
+    def test_evolve_mutation_prompt(self):
+        opt = PromptBreederOptimizer()
+        mock_client = MagicMock()
+        mock_client.generate_with_usage.return_value = _make_generate_result(
+            "Focus on boundary conditions."
+        )
+        opt._task_client_instance = mock_client
+        unit = BreederUnit(preamble="t", mutation_prompt="old strat", f1_score=0.7)
+        refined = opt._evolve_mutation_prompt(unit, prev_best_f1=0.6)
+        assert refined == "Focus on boundary conditions."
