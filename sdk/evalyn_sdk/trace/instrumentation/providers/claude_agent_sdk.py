@@ -613,6 +613,7 @@ class ClaudeAgentSDKInstrumentor(Instrumentor):
             return
 
         self._original_send_message = ClaudeSDKClient.query
+        original_method = self._original_send_message
         hooks = self._hooks
 
         async def patched_query(self_client: Any, prompt: str, **kwargs: Any) -> Any:
@@ -620,7 +621,7 @@ class ClaudeAgentSDKInstrumentor(Instrumentor):
             if hooks is not None:
                 hooks.capture_user_input(prompt)
             # Call original method
-            return await ClaudeAgentSDKInstrumentor._original_send_message(
+            return await original_method(
                 self_client, prompt, **kwargs
             )
 

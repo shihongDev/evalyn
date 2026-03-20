@@ -264,12 +264,7 @@ def save_calibration(
             preamble = optimization.get("optimized_preamble", "")
             rubric = optimization.get("improved_rubric", [])
             if preamble or rubric:
-                rubric_text = ""
-                if rubric:
-                    rubric_lines = "\n".join([f"- {r}" for r in rubric])
-                    rubric_text = f"\n\nEvaluate using this rubric (PASS only if all criteria met):\n{rubric_lines}"
-
-                full_built = (preamble or "") + rubric_text
+                full_built = build_full_prompt(preamble or "", rubric)
                 if full_built.strip():
                     full_file = prompts_dir / f"{timestamp}_full.txt"
                     with open(full_file, "w", encoding="utf-8") as f:

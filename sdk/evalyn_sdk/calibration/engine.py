@@ -235,7 +235,7 @@ class CalibrationEngine:
 
         ann_by_call = {ann.target_id: ann for ann in val_annotations}
         val_items = [
-            item for item in dataset_items if item.metadata.get("call_id") in ann_by_call
+            item for item in dataset_items if item.metadata.get("call_id", item.id) in ann_by_call
         ]
         if not val_items:
             return None
@@ -268,7 +268,7 @@ class CalibrationEngine:
         """Create a minimal FunctionCall for judge scoring on a dataset item."""
         from ..models import FunctionCall
 
-        call_id = item.metadata.get("call_id")
+        call_id = item.metadata.get("call_id", item.id)
         return FunctionCall(
             id=call_id,
             function_name="validation",
@@ -421,7 +421,7 @@ class CalibrationEngine:
         ann_by_call = {ann.target_id: ann for ann in val_annotations}
 
         for item in val_items:
-            call_id = item.metadata.get("call_id")
+            call_id = item.metadata.get("call_id", item.id)
             ann = ann_by_call.get(call_id)
             if not ann:
                 continue

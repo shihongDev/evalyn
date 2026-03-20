@@ -495,6 +495,7 @@ class EvalynADKCallbacks:
         self._llm_call_counts.clear()
         self._tool_call_counts.clear()
         self._output_text.clear()
+        self._last_llm_key.clear()
         self._run_start_time = None
 
 
