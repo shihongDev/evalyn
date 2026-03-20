@@ -18,6 +18,7 @@ class BaseOptimizer:
     def __init__(self, config: Any, api_key: str | None = None):
         self.config = config
         self._api_key = api_key
+        self._base_scorer_client = None
 
     def split_train_val(
         self,
@@ -52,11 +53,16 @@ class BaseOptimizer:
         Note: build_dataset_from_annotations returns "PASS"/"FAIL" strings
         for the 'expected' field, not booleans.
         """
-        from ..utils.api_client import GeminiClient
-
         full_prompt = build_full_prompt(preamble, rubric)
-        scorer_model = getattr(self.config, "scorer_model", None)
-        client = GeminiClient(model=scorer_model, api_key=self._api_key)
+        if self._base_scorer_client is None:
+            from ..utils.api_client import GeminiClient
+
+            scorer_model = getattr(self.config, "scorer_model", None)
+            timeout = getattr(self.config, "timeout", 120)
+            self._base_scorer_client = GeminiClient(
+                model=scorer_model, temperature=0.0, api_key=self._api_key, timeout=timeout,
+            )
+        client = self._base_scorer_client
 
         metrics = AlignmentMetrics()
         for ex in examples:

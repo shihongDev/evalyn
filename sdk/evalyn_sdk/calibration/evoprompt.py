@@ -304,7 +304,7 @@ class EvoPromptOptimizer(BaseOptimizer):
                         break
             except Exception:
                 pass
-        return failures if failures else examples[:max_failures]
+        return failures
 
     # -- Main optimization loop --
 
