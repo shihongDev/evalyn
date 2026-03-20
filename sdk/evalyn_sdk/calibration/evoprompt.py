@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from tqdm import tqdm
 
@@ -26,6 +26,7 @@ from .models import (
     PromptOptimizationResult,
     TokenAccumulator,
 )
+from .utils import build_full_prompt, parse_judge_response
 
 @dataclass
 class EvoPromptConfig:
@@ -117,6 +118,7 @@ class EvoPromptOptimizer(BaseOptimizer):
         cfg = config or EvoPromptConfig()
         super().__init__(config=cfg, api_key=api_key)
         self._task_client_instance: Optional[GeminiClient] = None
+        self._scorer_client_instance: Optional[GeminiClient] = None
 
     @property
     def _task_client(self) -> GeminiClient:
@@ -128,6 +130,17 @@ class EvoPromptOptimizer(BaseOptimizer):
                 api_key=self._api_key,
             )
         return self._task_client_instance
+
+    @property
+    def scorer_client(self) -> GeminiClient:
+        """Lazy-initialized scorer client for failure collection."""
+        if self._scorer_client_instance is None:
+            self._scorer_client_instance = GeminiClient(
+                model=self.config.scorer_model,
+                temperature=0.0,
+                api_key=self._api_key,
+            )
+        return self._scorer_client_instance
 
     # -- Evolutionary operators --
 
@@ -264,6 +277,35 @@ class EvoPromptOptimizer(BaseOptimizer):
         except Exception:
             return preamble
 
+    def _collect_failures(
+        self,
+        preamble: str,
+        rubric: List[str],
+        examples: List[Dict[str, Any]],
+        accumulator: Optional[TokenAccumulator] = None,
+        max_failures: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Score examples and return ones where prediction != human label."""
+        full_prompt = build_full_prompt(preamble, rubric)
+        failures: List[Dict[str, Any]] = []
+        for ex in examples:
+            try:
+                eval_input = f"INPUT: {str(ex.get('input', ''))[:500]}\nOUTPUT: {str(ex.get('output', ''))[:500]}"
+                result = self.scorer_client.generate_with_usage(
+                    full_prompt + "\n\n" + eval_input
+                )
+                if accumulator:
+                    accumulator.add(result)
+                predicted = parse_judge_response(result.text)
+                actual = ex.get("expected") == "PASS"
+                if predicted != actual:
+                    failures.append(ex)
+                    if len(failures) >= max_failures:
+                        break
+            except Exception:
+                pass
+        return failures if failures else examples[:max_failures]
+
     # -- Main optimization loop --
 
     def optimize(
@@ -326,9 +368,11 @@ class EvoPromptOptimizer(BaseOptimizer):
         no_improve_count = 0
         generations_run = 0
 
-        # Collect failures for mutation guidance
-        # (examples where the best preamble might get wrong - use val as proxy)
-        failure_examples = trainset[:5]
+        # Collect actual failure cases for mutation guidance
+        best_preamble = max(scored, key=lambda s: s[1])[0]
+        failure_examples = self._collect_failures(
+            best_preamble, current_rubric, trainset, accumulator
+        )
 
         pbar = tqdm(range(self.config.generations), desc="EvoPrompt", unit="gen")
         for gen in pbar:

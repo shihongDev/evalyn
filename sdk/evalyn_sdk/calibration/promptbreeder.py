@@ -359,6 +359,7 @@ Provide your verdict:"""
 
     def optimize(
         self,
+        *,
         metric_id: str,
         current_rubric: List[str],
         metric_results: List[MetricResult],
@@ -420,9 +421,7 @@ Provide your verdict:"""
             )
 
         best_f1 = max(u.f1_score for u in population)
-        seed_train_f1 = self.score_preamble(
-            seed_preamble, current_rubric, trainset, accumulator
-        )
+        seed_train_f1 = population[0].f1_score  # population[0] is always the seed
         no_improve_count = 0
 
         # -- Generational loop --

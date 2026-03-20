@@ -440,6 +440,7 @@ Provide your verdict:"""
 
     def optimize(
         self,
+        *,
         metric_id: str,
         current_rubric: List[str],
         metric_results: List[MetricResult],
