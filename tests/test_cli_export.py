@@ -24,34 +24,31 @@ def _make_run_data(
     metrics=None,
     summary=None,
 ):
-    """Build realistic run_data dict for export testing."""
+    """Build realistic run_data dict matching EvalRun.as_dict() format."""
     if metrics is None:
         metrics = {"helpfulness": {"avg_score": 0.85, "pass_rate": 0.90},
                    "safety": {"avg_score": 0.95, "pass_rate": 1.0}}
     if summary is None:
         summary = {"metrics": metrics}
 
-    results = []
+    metric_results = []
     for i in range(num_items):
         item_id = f"item-{i:03d}"
         for metric_id in metrics:
-            results.append({
+            metric_results.append({
+                "metric_id": metric_id,
                 "item_id": item_id,
-                "metrics": [
-                    {
-                        "metric_id": metric_id,
-                        "score": metrics[metric_id]["avg_score"],
-                        "passed": True,
-                        "reason": "Looks good",
-                    }
-                ],
+                "call_id": f"call-{i:03d}",
+                "score": metrics[metric_id]["avg_score"],
+                "passed": True,
+                "details": {"reason": "Looks good"},
             })
 
     return {
         "id": run_id,
         "dataset_name": dataset_name,
-        "started_at": "2026-03-14T10:00:00Z",
-        "results": results,
+        "created_at": "2026-03-14T10:00:00Z",
+        "metric_results": metric_results,
         "summary": summary,
     }
 
@@ -79,7 +76,7 @@ class TestFlattenExportRows:
             assert "passed" in row
 
     def test_empty_results(self):
-        run_data = {"results": []}
+        run_data = {"metric_results": []}
         rows = _flatten_export_rows(run_data)
         assert rows == []
 

@@ -159,18 +159,14 @@ def _write_or_print_export(content: str, output_path: Path | None, *, message: s
 def _flatten_export_rows(run_data: dict) -> list[dict]:
     """Flatten run results into CSV rows."""
     rows = []
-    for result in run_data.get("results", []):
-        item_id = result.get("item_id", "")
-        for mr in result.get("metrics", []):
-            rows.append(
-                {
-                    "item_id": item_id,
-                    "metric_id": mr.get("metric_id", ""),
-                    "score": mr.get("score", ""),
-                    "passed": mr.get("passed", ""),
-                    "reason": mr.get("reason", ""),
-                }
-            )
+    for mr in run_data.get("metric_results", []):
+        rows.append({
+            "item_id": mr.get("item_id", ""),
+            "metric_id": mr.get("metric_id", ""),
+            "score": mr.get("score", ""),
+            "passed": mr.get("passed", ""),
+            "reason": mr.get("details", {}).get("reason", "") if isinstance(mr.get("details"), dict) else "",
+        })
     return rows
 
 
@@ -213,7 +209,7 @@ def _build_markdown_export(run_data: dict) -> str:
     lines.append("# Evaluation Report\n")
     lines.append(f"**Run ID:** {run_data.get('id', 'unknown')}\n")
     lines.append(f"**Dataset:** {run_data.get('dataset_name', 'unknown')}\n")
-    lines.append(f"**Started:** {run_data.get('started_at', 'unknown')}\n")
+    lines.append(f"**Started:** {run_data.get('created_at', 'unknown')}\n")
     lines.append("\n## Summary\n")
 
     metrics_summary = _metrics_summary_from_run_data(run_data)
@@ -231,14 +227,14 @@ def _build_markdown_export(run_data: dict) -> str:
                 pass_rate = f"{pass_rate:.0%}"
             lines.append(f"| {metric_id} | {avg} | {pass_rate} |")
 
-    lines.append(f"\n## Results ({len(run_data.get('results', []))} items)\n")
+    lines.append(f"\n## Results ({len(run_data.get('metric_results', []))} items)\n")
     return "\n".join(lines)
 
 
 def _build_html_export(run_data: dict) -> str:
     """Build standalone HTML report."""
     metrics_summary = _metrics_summary_from_run_data(run_data)
-    results = run_data.get("results", [])
+    results = run_data.get("metric_results", [])
 
     metric_rows = ""
     for metric_id, stats in metrics_summary.items():
@@ -279,7 +275,7 @@ def _build_html_export(run_data: dict) -> str:
     <div class="meta">
         <p><strong>Run ID:</strong> {run_data.get("id", "unknown")}</p>
         <p><strong>Dataset:</strong> {run_data.get("dataset_name", "unknown")}</p>
-        <p><strong>Started:</strong> {run_data.get("started_at", "unknown")}</p>
+        <p><strong>Started:</strong> {run_data.get("created_at", "unknown")}</p>
         <p><strong>Items:</strong> {len(results)}</p>
     </div>
 
