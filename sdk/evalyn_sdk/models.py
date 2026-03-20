@@ -499,6 +499,11 @@ class DatasetItem:
             self.input = self.inputs
         elif self.input and not self.inputs:
             self.inputs = self.input
+        # Sync expected <-> output for backwards compat
+        if self.expected is not None and self.output is None:
+            self.output = self.expected
+        elif self.output is not None and self.expected is None:
+            self.expected = self.output
 
     def as_dict(self) -> Dict[str, Any]:
         return {

@@ -325,7 +325,7 @@ class TestDatasetItem:
         assert item.metadata["call_id"] == call.id
         assert item.metadata["function"] == call.function_name
         assert item.metadata["duration_ms"] == call.duration_ms
-        assert item.expected is None
+        assert item.expected == call.output
 
     def test_as_dict_uses_new_format(self):
         item = DatasetItem.from_payload({"id": "d1", "input": {"q": "hi"}, "output": "bye"})

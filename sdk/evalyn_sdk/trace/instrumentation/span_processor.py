@@ -103,9 +103,9 @@ def get_or_create_tracer_provider() -> Any:
     # Check if it's already a TracerProvider (not NoOpTracerProvider)
     if isinstance(current, TracerProvider):
         # Add our processor if not already present
-        for processor in getattr(current, "_active_span_processor", {}).get(
-            "_span_processors", []
-        ):
+        active = getattr(current, '_active_span_processor', None)
+        processors = getattr(active, '_span_processors', []) if active else []
+        for processor in processors:
             if isinstance(processor, EvalynSpanProcessor):
                 return current
 

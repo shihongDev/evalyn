@@ -118,6 +118,8 @@ class EvalynADKCallbacks:
 
         # Track LLM call count per agent for naming
         self._llm_call_counts: Dict[str, int] = {}
+        # Track last LLM span key per agent for before/after correlation
+        self._last_llm_key: Dict[str, str] = {}
 
         # Track tool call count per agent for naming
         self._tool_call_counts: Dict[str, int] = {}
@@ -274,6 +276,7 @@ class EvalynADKCallbacks:
         self._llm_call_counts[agent_name] = count
 
         span_key = self._get_llm_span_key(ctx)
+        self._last_llm_key[agent_name] = span_key
         parent_id = span_context.get_current_span_id()
         model = getattr(llm_request, "model", None) or "unknown"
 
@@ -316,7 +319,7 @@ class EvalynADKCallbacks:
         self, ctx: "CallbackContext", llm_response: "LlmResponse"
     ) -> Optional["LlmResponse"]:
         """Called after LLM model returns response. Finishes LLM span."""
-        span_key = self._get_llm_span_key(ctx)
+        span_key = self._last_llm_key.pop(ctx.agent_name, None) or self._get_llm_span_key(ctx)
         state = self._llm_spans.pop(span_key, None)
 
         if state:

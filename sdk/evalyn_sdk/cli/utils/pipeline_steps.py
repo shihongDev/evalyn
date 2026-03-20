@@ -581,6 +581,23 @@ class CalibrationStep(PipelineStep):
                 show_examples=False,
                 output=None,
                 format="table",
+                evo_population=8,
+                evo_generations=5,
+                evo_mutation_rate=0.3,
+                textgrad_iterations=8,
+                textgrad_threshold=0.01,
+                mipro_instructions=6,
+                mipro_demos=3,
+                mipro_eval_samples=10,
+                pb_population=6,
+                pb_generations=5,
+                gepa_native_task_model="gemini-2.5-flash",
+                gepa_native_reflection_model="gemini-2.5-flash",
+                gepa_native_max_calls=150,
+                gepa_native_initial_candidates=5,
+                gepa_native_batch_size=5,
+                verbose=False,
+                quiet=False,
             )
             try:
                 cmd_calibrate(cal_args)

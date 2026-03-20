@@ -84,11 +84,11 @@ def _normalize_span_time(raw: Any) -> float | None:
         return None
     if isinstance(raw, (int, float)):
         value = float(raw)
+        if value > 1e15:
+            return value / 1e9
         if value > 1e12:
-            return value / 1e9
+            return value / 1e6
         if value > 1e10:
-            return value / 1e9
-        if value > 1e6:
             return value / 1e3
         return value
     if isinstance(raw, str):
