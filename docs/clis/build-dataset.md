@@ -16,6 +16,7 @@ evalyn build-dataset [OPTIONS]
 | `--all` | false | Include all projects (use with caution) |
 | `--version V` | - | Filter by version |
 | `--limit N` | 500 | Maximum number of items |
+| `--mode MODE` | all | Sampling mode: `all`, `random`, `diverse`, `stratified`, `clustered` |
 | `--output PATH` | auto | Custom output path |
 | `--production` | false | Only production traces |
 | `--simulation` | false | Only simulation traces |

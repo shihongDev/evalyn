@@ -55,7 +55,7 @@ evalyn one-click --project <name> [OPTIONS]
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--skip-calibration` | false | Skip calibration step |
-| `--optimizer TYPE` | llm | Optimizer: llm, gepa |
+| `--optimizer TYPE` | basic | Optimizer: `basic`, `gepa`, `opro`, `ape` |
 | `--calibrate-all-metrics` | false | Calibrate all subjective metrics |
 
 ### Simulation Options
@@ -64,7 +64,7 @@ evalyn one-click --project <name> [OPTIONS]
 | `--enable-simulation` | false | Enable simulation step |
 | `--simulation-modes M` | similar | Modes to run |
 | `--num-similar N` | 3 | Similar queries per seed |
-| `--num-outlier N` | 2 | Outlier queries per seed |
+| `--num-outlier N` | 1 | Outlier queries per seed |
 | `--max-sim-seeds N` | 10 | Max seeds for simulation |
 
 ## Pipeline Steps

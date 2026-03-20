@@ -17,7 +17,7 @@ evalyn simulate --dataset <path> [OPTIONS]
 | `--output PATH` | auto | Output directory |
 | `--modes MODES` | similar,outlier | Comma-separated: `similar`, `outlier` |
 | `--num-similar N` | 3 | Similar queries per seed |
-| `--num-outlier N` | 2 | Outlier queries per seed |
+| `--num-outlier N` | 1 | Outlier queries per seed |
 | `--max-seeds N` | 50 | Max seed queries to use |
 | `--model NAME` | gemini-2.5-flash-lite | Model for generation |
 | `--temp-similar F` | 0.3 | Temperature for similar queries |

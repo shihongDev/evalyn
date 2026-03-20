@@ -612,23 +612,58 @@ The `@eval` decorator captures:
 
 ```sql
 -- Main trace storage
-CREATE TABLE calls (
+CREATE TABLE function_calls (
     id TEXT PRIMARY KEY,
-    data JSON  -- FunctionCall serialized
+    function_name TEXT,
+    session_id TEXT,
+    started_at TEXT,
+    ended_at TEXT,
+    duration_ms REAL,
+    inputs TEXT,      -- JSON
+    output TEXT,      -- JSON
+    error TEXT,
+    trace TEXT,       -- JSON array of TraceEvents
+    metadata TEXT     -- JSON
+);
+
+-- OpenTelemetry span storage
+CREATE TABLE otel_spans (
+    trace_id TEXT,
+    span_id TEXT PRIMARY KEY,
+    parent_span_id TEXT,
+    call_id TEXT,
+    name TEXT,
+    start_time TEXT,
+    end_time TEXT,
+    status TEXT,
+    attributes TEXT,  -- JSON
+    events TEXT       -- JSON
 );
 
 -- Evaluation run results
 CREATE TABLE eval_runs (
     id TEXT PRIMARY KEY,
-    data JSON  -- EvalRun serialized
+    dataset_name TEXT,
+    created_at TEXT,
+    metric_results TEXT,  -- JSON array of MetricResults
+    metrics TEXT,         -- JSON array of MetricSpecs
+    judge_configs TEXT,   -- JSON array of JudgeConfigs
+    summary TEXT,         -- JSON
+    usage_summary TEXT    -- JSON
 );
 
 -- Human annotations
 CREATE TABLE annotations (
     id TEXT PRIMARY KEY,
-    data JSON  -- Annotation serialized
+    target_id TEXT,
+    label TEXT,
+    rationale TEXT,
+    annotator TEXT,
+    source TEXT,
+    confidence REAL,
+    created_at TEXT,
+    metric_labels TEXT   -- JSON
 );
-```
 
 -- Span-metric attribution links
 CREATE TABLE span_metric_links (
@@ -642,7 +677,7 @@ CREATE TABLE span_metric_links (
 );
 ```
 
-All complex fields stored as JSON blobs for flexibility. The `span_metric_links` table uses a relational schema for efficient querying by run, span, or metric. No migrations needed.
+Tables use individual columns (not JSON blobs) for efficient querying. JSON is used for nested/variable-length fields (inputs, metadata, metric_results, etc.).
 
 ### Default Location
 
@@ -1051,64 +1086,86 @@ class FunctionCall:
     inputs: Dict[str, Any]
     output: Any
     error: Optional[str]
-    duration_ms: float
-    timestamp: datetime
-    session_id: str
-    project: str
-    version: str
-    trace_events: List[TraceEvent]
-    metadata: Dict[str, Any]  # signature, docstring, source, hash
+    started_at: datetime
+    ended_at: Optional[datetime]
+    duration_ms: Optional[float]
+    session_id: Optional[str]
+    trace: List[TraceEvent]          # Formerly trace_events
+    metadata: Dict[str, Any]         # signature, docstring, source, hash
+    parent_call_id: Optional[str]    # For nested @eval calls
+    spans: List[Span]                # Hierarchical span tree
 
 @dataclass
 class TraceEvent:
-    type: str  # llm_call, tool_call, trace, error
+    kind: str                        # llm_call, tool_call, trace, error
     timestamp: datetime
-    data: Dict[str, Any]
+    detail: Dict[str, Any]
+    span_id: Optional[str]           # Link to associated Span
+    parent_span_id: Optional[str]    # Parent span for hierarchy
 
 @dataclass
 class DatasetItem:
     id: str
-    inputs: Dict[str, Any]
-    expected: Optional[Any]
+    input: Dict[str, Any]            # User input
+    output: Optional[Any]            # Agent output
+    human_label: Optional[Dict]      # Human judgement (for calibration)
     metadata: Dict[str, Any]
-
-@dataclass
-class MetricSpec:
-    id: str
-    name: str
-    type: Literal["objective", "subjective"]
-    description: str
-    config: Dict[str, Any]  # rubric, thresholds, etc.
+    # Backward-compat aliases: inputs, expected
 
 @dataclass
 class MetricResult:
     metric_id: str
-    score: float
-    passed: bool
-    details: Dict[str, Any]  # reason, raw_response, etc.
+    item_id: str
+    call_id: str
+    score: Optional[float]
+    passed: Optional[bool]
+    details: Dict[str, Any]
+    raw_judge: Optional[Dict]        # Raw LLM judge response
+    input_tokens: Optional[int]      # Token usage for subjective metrics
+    output_tokens: Optional[int]
+    model: Optional[str]
+    unit_id: Optional[str]           # For span-level evaluation
+    unit_type: Optional[str]         # EvalUnitType
+    span_ids: Optional[List[str]]
 
 @dataclass
 class EvalRun:
     id: str
-    dataset_path: str
-    results: List[MetricResult]
-    summary: Dict[str, Any]  # per-metric aggregates
-    timestamp: datetime
+    dataset_name: str
+    created_at: datetime
+    metric_results: List[MetricResult]
+    metrics: List[MetricSpec]
+    judge_configs: List[JudgeConfig]
+    summary: Dict[str, Any]          # Per-metric aggregates
+    usage_summary: Dict[str, Any]    # Token usage totals
 
 @dataclass
 class Annotation:
     id: str
-    item_id: str
-    label: bool  # pass/fail
-    confidence: int  # 1-5
-    notes: str
-    metric_labels: Dict[str, MetricLabel]  # per-metric mode
+    target_id: str                   # Item being annotated
+    label: Any                       # Overall pass/fail
+    rationale: Optional[str]
+    annotator: str
+    source: str                      # "human" default
+    confidence: Optional[int]        # 1-5 scale
+    metric_labels: Dict[str, MetricLabel]
+    created_at: datetime
 
 @dataclass
 class MetricLabel:
+    metric_id: str
     agree_with_llm: bool
     human_label: bool
     notes: str
+
+@dataclass
+class SpanMetricLink:
+    id: str
+    metric_result_id: str            # composite: metric_id:item_id:call_id
+    span_id: str
+    relevance: float                 # 0.0-1.0
+    reason: str
+    run_id: str
 ```
 
 ---
@@ -1412,9 +1469,11 @@ evalyn/
 │       │   │   ├── simulate.py
 │       │   │   └── traces.py
 │       │   └── utils/           # CLI utilities
+│       │       ├── command_common.py  # Shared command utilities
 │       │       ├── config.py         # Config file handling
 │       │       ├── dataset_resolver.py # Dataset path resolution
 │       │       ├── dataset_utils.py  # Dataset loading helpers
+│       │       ├── llm_callers.py    # LLM caller helpers
 │       │       ├── errors.py         # CLI error handling
 │       │       ├── formatters.py     # Output formatters
 │       │       ├── hints.py          # Post-command hints
@@ -1445,7 +1504,10 @@ evalyn/
 | `EVALYN_AUTO_INSTRUMENT` | `on` | Enable/disable auto-patching |
 | `EVALYN_NO_HINTS` | `off` | Set to `1` or `true` to suppress CLI hint messages |
 | `GEMINI_API_KEY` | - | Gemini API key for LLM judges |
+| `GOOGLE_API_KEY` | - | Fallback for GEMINI_API_KEY |
 | `OPENAI_API_KEY` | - | OpenAI API key (alternative) |
+| `EVALYN_DB` | - | Override database path |
+| `EVALYN_OTEL_ENDPOINT` | - | OpenTelemetry endpoint URL |
 | `EVALYN_OTEL` | `off` | Enable OpenTelemetry spans |
 | `EVALYN_OTEL_SERVICE` | `evalyn` | OTel service name |
 | `EVALYN_OTEL_EXPORTER` | `sqlite` | OTel exporter type |

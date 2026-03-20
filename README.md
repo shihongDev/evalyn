@@ -467,7 +467,7 @@ def compute_your_metric_name(output: str, config: dict, **kwargs) -> dict:
     return {"score": score, "passed": passed, "reason": "Explanation"}
 ```
 
-Then register it in the `METRIC_HANDLERS` dict.
+Then register it via `register_builtin_metrics()` in the same file.
 
 ### Step 4: Add Tests
 

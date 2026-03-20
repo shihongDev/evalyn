@@ -12,7 +12,7 @@ evalyn list-runs [OPTIONS]
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--limit N` | 20 | Maximum runs to display |
+| `--limit N` | 10 | Maximum runs to display |
 | `--format FMT` | table | Output format: `table` or `json` |
 
 ## Examples

@@ -132,7 +132,7 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **Slack/Discord Notifications** - Alert on evaluation completion or failures
 - [x] **Metric Correlation Analysis** - Understand relationships between metrics
 - [ ] **Failure Root Cause Analysis** - Automated diagnosis of failures
-- [x] **Trend Anomaly Detection** - Alert on unusual metric patterns
+- [ ] **Trend Anomaly Detection** - Alert on unusual metric patterns
 
 ---
 
@@ -348,16 +348,17 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Testing & Quality
 
-- [x] **Test coverage improvement** - 330 tests across 7 new test files (3,191 lines)
-  - [x] Analysis engine: trends, reports, core properties (61 tests)
-  - [x] Model roundtrips: Span, FunctionCall, DatasetItem, Annotation (34 tests)
-  - [x] SQLiteStorage: CRUD, ID resolution, annotations (36 tests)
-  - [x] CLI utilities: formatters, validation, config (49 tests)
-  - [x] CLI commands: analyze, compare, trend, list-runs, show-run (19 tests)
-  - [x] Export formats: markdown, HTML, CSV builders (32 tests)
-  - [x] Metrics: HeuristicSuggester, subjective template validation (26 tests)
+- [x] **Test coverage improvement** - 1,063 tests across 30 test files
+  - [x] Analysis engine: trends, reports, core properties, insights
+  - [x] Model roundtrips: Span, FunctionCall, DatasetItem, Annotation, SpanMetricLink
+  - [x] SQLiteStorage: CRUD, ID resolution, annotations
+  - [x] CLI utilities: formatters, validation, config
+  - [x] CLI commands: analyze, compare, trend, list-runs, show-run, insights
+  - [x] Export formats: markdown, HTML, CSV builders
+  - [x] Metrics: HeuristicSuggester, subjective template validation, objective metrics
+  - [x] Tracing: instrumentation, streaming, provider instrumentors
 - [x] **Realistic test fixtures** - 10+ items, 3 metrics, mixed scores, failure reasons
 - [x] **pytest-cov integration** - Coverage reporting via `--cov=evalyn_sdk`
 - [x] **Integration test unskip** - Fixed 2 skipped integration tests
 
-*Last updated: 2026-03-18*
+*Last updated: 2026-03-20*
