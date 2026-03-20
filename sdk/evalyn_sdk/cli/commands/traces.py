@@ -189,7 +189,7 @@ def _print_show_call_header(call) -> None:
     print(f"session  : {call.session_id}")
     print(f"started  : {call.started_at}")
     print(f"ended    : {call.ended_at}")
-    print(f"duration : {call.duration_ms:.2f} ms")
+    print(f"duration : {call.duration_ms:.2f} ms" if call.duration_ms is not None else "duration : N/A")
     print(f"turns    : {turn_label} ({turns})")
     print(f"llm_calls: {llm_calls} | tool_events: {tool_events}")
 
@@ -342,7 +342,7 @@ def _print_show_call_sparse_span_timeline(call) -> None:
         if span.start_time and call.started_at:
             elapsed_ms = (span.start_time - call.started_at).total_seconds() * 1000
 
-        dur_str = f"{span.duration_ms:.0f}ms" if span.duration_ms else "0ms"
+        dur_str = f"{span.duration_ms:.0f}ms" if span.duration_ms is not None else "N/A"
         attrs = span.attributes or {}
         summary_parts = []
         if span.span_type == "llm_call":
@@ -637,7 +637,7 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
             _short_path(file_path),
             str(call.started_at),
             str(call.ended_at),
-            f"{call.duration_ms:.2f}",
+            f"{call.duration_ms:.2f}" if call.duration_ms is not None else "N/A",
         ]
         print(" | ".join(row))
 
