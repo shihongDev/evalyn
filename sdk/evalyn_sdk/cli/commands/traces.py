@@ -364,11 +364,11 @@ def _print_show_call_sparse_span_timeline(call) -> None:
         print(f"  ... and {len(sorted_spans) - 50} more spans")
 
 
-def _build_call_span_tree(call) -> list[dict]:
-    """Build a sorted span tree from call.spans for display."""
-    by_id = {s.id: {"span": s, "children": []} for s in (call.spans or [])}
+def _build_span_tree(spans: list) -> list[dict]:
+    """Build a sorted span tree from a list of spans for display."""
+    by_id = {s.id: {"span": s, "children": []} for s in spans}
     roots: list[dict] = []
-    for s in call.spans or []:
+    for s in spans:
         node = by_id[s.id]
         if s.parent_id and s.parent_id in by_id:
             by_id[s.parent_id]["children"].append(node)
@@ -425,7 +425,7 @@ def _print_show_call_spans(call) -> None:
     if not call.spans:
         return
 
-    roots = _build_call_span_tree(call)
+    roots = _build_span_tree(call.spans or [])
     print("\nSpan Tree:")
     for i, root in enumerate(roots):
         _render_call_span_node(root, "", i == len(roots) - 1)
@@ -689,15 +689,6 @@ def cmd_show_call(args: argparse.Namespace) -> None:
         )
 
 
-def _show_trace_format_duration(ms: float | None) -> str:
-    """Format duration for show-trace output."""
-    if ms is None:
-        return "?"
-    if ms < 1000:
-        return f"{ms:.0f}ms"
-    return f"{ms / 1000:.1f}s"
-
-
 def _show_trace_format_tokens(attrs: dict) -> str:
     """Format token usage suffix for show-trace labels."""
     input_t = attrs.get("input_tokens", 0)
@@ -743,7 +734,7 @@ def _show_trace_grounding_lines(attrs: dict, prefix: str) -> list[str]:
 
 def _print_show_trace_no_spans(call) -> None:
     """Fallback output when spans are unavailable."""
-    print(f"\nTrace: {call.function_name} ({_show_trace_format_duration(call.duration_ms)})")
+    print(f"\nTrace: {call.function_name} ({_format_dur(call.duration_ms)})")
     print("  <no spans captured>")
     print("\n  Tip: Re-run with latest evalyn_sdk to capture spans.")
     if call.trace:
@@ -753,26 +744,6 @@ def _print_show_trace_no_spans(call) -> None:
         if len(call.trace) > 20:
             print(f"    ... and {len(call.trace) - 20} more")
 
-
-def _build_show_trace_tree(spans: list) -> list[dict]:
-    """Build and sort a node tree from span records."""
-    by_id = {s.id: {"span": s, "children": []} for s in spans}
-    roots: list[dict] = []
-    for s in spans:
-        node = by_id[s.id]
-        if s.parent_id and s.parent_id in by_id:
-            by_id[s.parent_id]["children"].append(node)
-        else:
-            roots.append(node)
-
-    def sort_children(node: dict) -> None:
-        node["children"].sort(key=lambda n: n["span"].start_time)
-        for child in node["children"]:
-            sort_children(child)
-
-    for root in roots:
-        sort_children(root)
-    return roots
 
 
 def _show_trace_limits(full_output: bool) -> dict[str, Optional[int]]:
@@ -864,7 +835,7 @@ def _count_show_trace_descendants(node: dict) -> int:
 
 def _show_trace_span_label(span) -> str:
     """Format span label for show-trace tree."""
-    duration = _show_trace_format_duration(span.duration_ms)
+    duration = _format_dur(span.duration_ms)
     status = _show_trace_status_icon(span.status)
     tokens = _show_trace_format_tokens(span.attributes or {})
 
@@ -930,7 +901,7 @@ def _render_show_trace_node(
 def _print_show_trace_header(call) -> None:
     """Print show-trace header lines."""
     status = "ERROR" if call.error else "OK"
-    print(f"\nTrace: {call.function_name} ({_show_trace_format_duration(call.duration_ms)}) [{status}]")
+    print(f"\nTrace: {call.function_name} ({_format_dur(call.duration_ms)}) [{status}]")
     print(f"Call ID: {call.id}")
     if call.session_id:
         print(f"Session: {call.session_id}")
@@ -985,7 +956,7 @@ def _render_show_trace(call, args: argparse.Namespace) -> None:
         _print_show_trace_no_spans(call)
         return
 
-    roots = _build_show_trace_tree(spans)
+    roots = _build_span_tree(spans)
     max_depth = getattr(args, "max_depth", None)
     verbose = getattr(args, "verbose", False)
     full_output = getattr(args, "full", False)

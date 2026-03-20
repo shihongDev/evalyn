@@ -31,12 +31,9 @@ For advanced instrumentation:
 
 from .context import (
     span,
-    root_span,
     get_current_span_id,
     get_current_call,
     set_current_call,
-    create_span,
-    record_span,
 )
 from .tracer import EvalTracer, eval_session
 from .auto_instrument import (
@@ -67,12 +64,9 @@ from .instrumentation import (
 __all__ = [
     # Context
     "span",
-    "root_span",
     "get_current_span_id",
     "get_current_call",
     "set_current_call",
-    "create_span",
-    "record_span",
     # Tracer
     "EvalTracer",
     "eval_session",

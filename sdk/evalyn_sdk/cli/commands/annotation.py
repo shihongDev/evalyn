@@ -42,6 +42,7 @@ from ..utils.input_helpers import (
     get_bool_input,
     get_int_input,
     get_str_input,
+    get_confidence,
 )
 from ...annotation import (
     SpanAnnotation,
@@ -585,23 +586,6 @@ def _display_annotation_item(
     return subjective_metrics
 
 
-def _get_annotation_confidence() -> Optional[int]:
-    """Get confidence score 1-5 from user."""
-    try:
-        conf_input = input("Confidence (1-5, Enter to skip): ").strip()
-        if not conf_input:
-            return None
-        conf = int(conf_input)
-        if 1 <= conf <= 5:
-            return conf
-        print("Invalid. Use 1-5.")
-        return _get_annotation_confidence()
-    except ValueError:
-        print("Invalid. Use 1-5 or Enter to skip.")
-        return _get_annotation_confidence()
-    except (EOFError, KeyboardInterrupt):
-        return None
-
 
 def _save_single_annotation(output_path: Path, ann: Annotation) -> bool:
     """Append a single annotation atomically with fsync."""
@@ -708,7 +692,7 @@ def _annotate_per_metric(
 
     human_passes = [ml.human_label for ml in metric_labels.values()]
     overall_passed = all(human_passes) if human_passes else True
-    confidence = _get_annotation_confidence()
+    confidence = get_confidence()
 
     try:
         overall_notes = input("Overall notes (optional): ").strip()
@@ -760,7 +744,7 @@ def _annotate_simple(
             print("Invalid input. Use: y(es), n(o), s(kip), v(iew), q(uit)")
             continue
 
-        confidence = _get_annotation_confidence()
+        confidence = get_confidence()
         try:
             notes = input("Notes (optional): ").strip()
         except (EOFError, KeyboardInterrupt):

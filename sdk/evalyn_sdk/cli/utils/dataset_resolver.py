@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .config import load_config, get_config_default
+from .config import load_config, get_config_default, find_latest_dataset as _config_find_latest_dataset
 from .errors import fatal_error
 
 
@@ -129,20 +129,12 @@ def _load_info(path: Path) -> DatasetInfo:
 
 
 def find_latest_dataset(data_dir: str = "data") -> Optional[Path]:
-    """Find most recently modified dataset directory."""
-    data_path = Path(data_dir)
-    if not data_path.exists():
-        return None
+    """Find most recently modified dataset directory.
 
-    dataset_dirs = [
-        d for d in data_path.iterdir() if d.is_dir() and (d / "dataset.jsonl").exists()
-    ]
-
-    if not dataset_dirs:
-        return None
-
-    dataset_dirs.sort(key=lambda d: (d / "dataset.jsonl").stat().st_mtime, reverse=True)
-    return dataset_dirs[0]
+    Delegates to config.find_latest_dataset which also checks
+    data/prod/datasets/ and data/test/datasets/.
+    """
+    return _config_find_latest_dataset(data_dir)
 
 
 def list_datasets(data_dir: str = "data", limit: int = 10) -> List[Path]:

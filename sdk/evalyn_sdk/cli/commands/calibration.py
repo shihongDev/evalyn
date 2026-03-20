@@ -356,24 +356,8 @@ def _run_calibration_with_spinner(
     dataset_items: Optional[List[DatasetItem]],
 ):
     """Run calibration, using a spinner for long-running optimizers."""
-    if args.optimizer == "gepa" and not args.no_optimize:
-        spinner_msg = f"Running GEPA optimization (max {args.gepa_max_calls} calls)"
-        with Spinner(spinner_msg):
-            return engine.calibrate(metric_results, anns, dataset_items)
-    if args.optimizer == "gepa-native" and not args.no_optimize:
-        spinner_msg = (
-            f"Running GEPA-Native optimization (max {args.gepa_native_max_calls} calls)"
-        )
-        with Spinner(spinner_msg):
-            return engine.calibrate(metric_results, anns, dataset_items)
-    if args.optimizer == "opro" and not args.no_optimize:
-        spinner_msg = f"Running OPRO optimization (max {args.opro_iterations} iterations)"
-        with Spinner(spinner_msg):
-            return engine.calibrate(metric_results, anns, dataset_items)
-    if args.optimizer == "ape" and not args.no_optimize:
-        spinner_msg = (
-            f"Running APE optimization ({args.ape_candidates} candidates, {args.ape_rounds} UCB rounds)"
-        )
+    if args.optimizer != "basic" and not args.no_optimize:
+        spinner_msg = f"Running {args.optimizer.upper()} optimization..."
         with Spinner(spinner_msg):
             return engine.calibrate(metric_results, anns, dataset_items)
     return engine.calibrate(metric_results, anns, dataset_items)

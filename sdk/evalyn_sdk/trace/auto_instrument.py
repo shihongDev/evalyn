@@ -22,13 +22,11 @@ maintaining backward compatibility with the existing API.
 
 from __future__ import annotations
 
-import contextvars
 import functools
 import inspect
 import time
 import uuid
-from contextlib import contextmanager
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Optional
 
 # Import from the new instrumentation module
 from .instrumentation.registry import get_registry
@@ -39,30 +37,6 @@ def _get_tracer():
     from ..decorators import get_default_tracer
 
     return get_default_tracer()
-
-
-# Track nested calls (for backwards compat)
-_call_stack: contextvars.ContextVar[List[str]] = contextvars.ContextVar(
-    "evalyn_call_stack", default=[]
-)
-
-
-def _get_parent_call_id() -> Optional[str]:
-    """Get the current parent call ID from the stack."""
-    stack = _call_stack.get()
-    return stack[-1] if stack else None
-
-
-@contextmanager
-def _push_call(call_id: str):
-    """Push a call ID onto the stack for nested tracking."""
-    stack = _call_stack.get().copy()
-    stack.append(call_id)
-    token = _call_stack.set(stack)
-    try:
-        yield
-    finally:
-        _call_stack.reset(token)
 
 
 # =============================================================================
@@ -196,36 +170,34 @@ def trace(name: Optional[str] = None):
                         "call_id": call_id,
                         "args": str(args)[:200],
                         "kwargs": str(kwargs)[:200],
-                        "parent_call_id": _get_parent_call_id(),
                     },
                 )
 
-                with _push_call(call_id):
-                    try:
-                        result = await func(*args, **kwargs)
-                        duration_ms = (time.time() - start) * 1000
-                        tracer.log_event(
-                            f"trace.{func_name}.end",
-                            {
-                                "call_id": call_id,
-                                "duration_ms": duration_ms,
-                                "success": True,
-                                "result": str(result)[:200],
-                            },
-                        )
-                        return result
-                    except Exception as e:
-                        duration_ms = (time.time() - start) * 1000
-                        tracer.log_event(
-                            f"trace.{func_name}.error",
-                            {
-                                "call_id": call_id,
-                                "duration_ms": duration_ms,
-                                "success": False,
-                                "error": str(e),
-                            },
-                        )
-                        raise
+                try:
+                    result = await func(*args, **kwargs)
+                    duration_ms = (time.time() - start) * 1000
+                    tracer.log_event(
+                        f"trace.{func_name}.end",
+                        {
+                            "call_id": call_id,
+                            "duration_ms": duration_ms,
+                            "success": True,
+                            "result": str(result)[:200],
+                        },
+                    )
+                    return result
+                except Exception as e:
+                    duration_ms = (time.time() - start) * 1000
+                    tracer.log_event(
+                        f"trace.{func_name}.error",
+                        {
+                            "call_id": call_id,
+                            "duration_ms": duration_ms,
+                            "success": False,
+                            "error": str(e),
+                        },
+                    )
+                    raise
 
             return async_wrapper
         else:
@@ -242,36 +214,34 @@ def trace(name: Optional[str] = None):
                         "call_id": call_id,
                         "args": str(args)[:200],
                         "kwargs": str(kwargs)[:200],
-                        "parent_call_id": _get_parent_call_id(),
                     },
                 )
 
-                with _push_call(call_id):
-                    try:
-                        result = func(*args, **kwargs)
-                        duration_ms = (time.time() - start) * 1000
-                        tracer.log_event(
-                            f"trace.{func_name}.end",
-                            {
-                                "call_id": call_id,
-                                "duration_ms": duration_ms,
-                                "success": True,
-                                "result": str(result)[:200],
-                            },
-                        )
-                        return result
-                    except Exception as e:
-                        duration_ms = (time.time() - start) * 1000
-                        tracer.log_event(
-                            f"trace.{func_name}.error",
-                            {
-                                "call_id": call_id,
-                                "duration_ms": duration_ms,
-                                "success": False,
-                                "error": str(e),
-                            },
-                        )
-                        raise
+                try:
+                    result = func(*args, **kwargs)
+                    duration_ms = (time.time() - start) * 1000
+                    tracer.log_event(
+                        f"trace.{func_name}.end",
+                        {
+                            "call_id": call_id,
+                            "duration_ms": duration_ms,
+                            "success": True,
+                            "result": str(result)[:200],
+                        },
+                    )
+                    return result
+                except Exception as e:
+                    duration_ms = (time.time() - start) * 1000
+                    tracer.log_event(
+                        f"trace.{func_name}.error",
+                        {
+                            "call_id": call_id,
+                            "duration_ms": duration_ms,
+                            "success": False,
+                            "error": str(e),
+                        },
+                    )
+                    raise
 
             return sync_wrapper
 
