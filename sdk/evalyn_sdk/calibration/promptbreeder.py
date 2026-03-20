@@ -99,7 +99,7 @@ Strategy: {mutation_prompt}
 Current preamble:
 {preamble}
 
-Failure examples where this preamble made wrong judgments:
+Here are challenging examples that require careful evaluation:
 {failures}
 
 Apply the strategy to produce an improved preamble.
@@ -425,6 +425,7 @@ Provide your verdict:"""
         no_improve_count = 0
 
         # -- Generational loop --
+        gen = 0
         pbar = tqdm(
             range(1, self.config.generations + 1),
             desc="PromptBreeder",

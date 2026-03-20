@@ -22,6 +22,7 @@ from ..defaults import DEFAULT_EVAL_MODEL
 from ..models import Annotation, CalibrationRecord, DatasetItem, MetricResult, now_utc
 from .factory import call_optimizer, create_optimizer
 from .gepa import GEPAConfig
+from .utils import build_full_prompt
 from .models import (
     AlignmentMetrics,
     DisagreementAnalysis,
@@ -513,13 +514,9 @@ class CalibrationEngine:
         # Step 5: Validate optimized prompt if available
         validation_result = None
         if prompt_optimization and dataset_items:
-            # Build original prompt for comparison
-            original_prompt = self.current_preamble
-            if self.current_rubric:
-                original_prompt += (
-                    "\n\nEvaluate using this rubric (PASS only if all criteria met):\n"
-                )
-                original_prompt += "\n".join([f"- {r}" for r in self.current_rubric])
+            # Build original prompt for comparison (using build_full_prompt
+            # so it includes output format, matching how optimized_prompt is built)
+            original_prompt = build_full_prompt(self.current_preamble, self.current_rubric)
 
             optimized_prompt = (
                 prompt_optimization.full_prompt

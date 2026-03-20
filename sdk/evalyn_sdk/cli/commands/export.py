@@ -136,15 +136,7 @@ def _load_export_run_data(args: argparse.Namespace) -> dict:
         storage = SQLiteStorage()
         run = storage.get_eval_run(args.run)
         if run:
-            return {
-                "id": run.id,
-                "dataset_name": run.dataset_name,
-                "started_at": run.started_at,
-                "finished_at": run.finished_at,
-                "results": run.results,
-                "summary": run.summary,
-                "metadata": run.metadata,
-            }
+            return run.as_dict()
 
     if dataset_path:
         run_files = find_eval_runs(dataset_path)
