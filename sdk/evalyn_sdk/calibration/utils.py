@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from ..models import Annotation, DatasetItem, MetricResult
@@ -176,13 +177,13 @@ def parse_judge_response(response: str) -> bool:
     except (json.JSONDecodeError, ValueError):
         pass
 
-    # Fallback: look for keywords
-    if "true" in text or '"passed": true' in text:
+    # Fallback: check for standalone "true"/"false" keywords (not substrings)
+    if re.search(r'\btrue\b', text):
         return True
-    if "false" in text or '"passed": false' in text:
+    if re.search(r'\bfalse\b', text):
         return False
 
-    # Default to fail if unclear
+    # Default to fail if unparseable
     return False
 
 

@@ -92,7 +92,8 @@ class SQLiteStorage:
                 metric_results TEXT,
                 metrics TEXT,
                 judge_configs TEXT,
-                summary TEXT
+                summary TEXT,
+                usage_summary TEXT
             )
             """
         )
@@ -106,7 +107,8 @@ class SQLiteStorage:
                 annotator TEXT,
                 source TEXT,
                 confidence REAL,
-                created_at TEXT
+                created_at TEXT,
+                metric_labels TEXT
             )
             """
         )
@@ -138,6 +140,8 @@ class SQLiteStorage:
         self.conn.commit()
         self._ensure_otel_columns()
         self._ensure_span_columns()
+        self._ensure_eval_run_columns()
+        self._ensure_annotation_columns()
 
     def _ensure_otel_columns(self) -> None:
         cur = self.conn.cursor()
@@ -162,6 +166,24 @@ class SQLiteStorage:
         ]:
             if col not in cols:
                 cur.execute(f"ALTER TABLE function_calls ADD COLUMN {col} {col_type}")
+        self.conn.commit()
+
+    def _ensure_eval_run_columns(self) -> None:
+        """Add usage_summary column to eval_runs table if missing."""
+        cur = self.conn.cursor()
+        cur.execute("PRAGMA table_info(eval_runs)")
+        cols = {row[1] for row in cur.fetchall()}
+        if "usage_summary" not in cols:
+            cur.execute("ALTER TABLE eval_runs ADD COLUMN usage_summary TEXT")
+        self.conn.commit()
+
+    def _ensure_annotation_columns(self) -> None:
+        """Add metric_labels column to annotations table if missing."""
+        cur = self.conn.cursor()
+        cur.execute("PRAGMA table_info(annotations)")
+        cols = {row[1] for row in cur.fetchall()}
+        if "metric_labels" not in cols:
+            cur.execute("ALTER TABLE annotations ADD COLUMN metric_labels TEXT")
         self.conn.commit()
 
     def store_call(self, call: FunctionCall) -> None:
@@ -256,8 +278,8 @@ class SQLiteStorage:
         cur.execute(
             """
             INSERT OR REPLACE INTO eval_runs
-            (id, dataset_name, created_at, metric_results, metrics, judge_configs, summary)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (id, dataset_name, created_at, metric_results, metrics, judge_configs, summary, usage_summary)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 run.id,
@@ -267,6 +289,7 @@ class SQLiteStorage:
                 _dumps([m.__dict__ for m in run.metrics]),
                 _dumps([j.__dict__ for j in run.judge_configs]),
                 _dumps(run.summary),
+                _dumps(run.usage_summary),
             ),
         )
         self.conn.commit()
@@ -359,8 +382,8 @@ class SQLiteStorage:
             cur.execute(
                 """
                 INSERT OR REPLACE INTO annotations
-                (id, target_id, label, rationale, annotator, source, confidence, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (id, target_id, label, rationale, annotator, source, confidence, created_at, metric_labels)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     ann.id,
@@ -371,6 +394,9 @@ class SQLiteStorage:
                     ann.source,
                     ann.confidence,
                     ann.created_at.isoformat(),
+                    _dumps({k: v.as_dict() for k, v in ann.metric_labels.items()})
+                    if ann.metric_labels
+                    else None,
                 ),
             )
         self.conn.commit()
@@ -412,6 +438,9 @@ class SQLiteStorage:
                         "source": row["source"],
                         "confidence": row["confidence"],
                         "created_at": row["created_at"],
+                        "metric_labels": json.loads(row["metric_labels"])
+                        if row["metric_labels"]
+                        else {},
                     }
                 )
             )
@@ -556,5 +585,8 @@ class SQLiteStorage:
                 if row["judge_configs"]
                 else [],
                 "summary": json.loads(row["summary"]) if row["summary"] else {},
+                "usage_summary": json.loads(row["usage_summary"])
+                if row["usage_summary"]
+                else {},
             }
         )

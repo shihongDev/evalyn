@@ -813,7 +813,7 @@ def cmd_compare(args: argparse.Namespace) -> None:
                 if run1_path.exists():
                     with open(run1_path, encoding="utf-8") as f:
                         data = json.load(f)
-                        run1 = EvalRun(**data)
+                        run1 = EvalRun.from_dict(data)
 
         if not run1:
             fatal_error(f"Could not load run1: {args.run1}")
@@ -827,7 +827,7 @@ def cmd_compare(args: argparse.Namespace) -> None:
                 if run2_path.exists():
                     with open(run2_path, encoding="utf-8") as f:
                         data = json.load(f)
-                        run2 = EvalRun(**data)
+                        run2 = EvalRun.from_dict(data)
 
         if not run2:
             fatal_error(f"Could not load run2: {args.run2}")
