@@ -62,3 +62,42 @@ def test_list_span_metric_links_by_span():
         results = store.list_span_metric_links(run_id="run-1", span_id="span-a")
         assert len(results) == 2
         store.close()
+
+
+def test_store_span_metric_links_empty():
+    """Empty iterable should not raise."""
+    with tempfile.NamedTemporaryFile(suffix=".db") as f:
+        store = SQLiteStorage(f.name)
+        store.store_span_metric_links([])
+        results = store.list_span_metric_links(run_id="run-1")
+        assert results == []
+        store.close()
+
+
+def test_store_span_metric_links_duplicate_upsert():
+    """INSERT OR REPLACE should overwrite on duplicate (run_id, metric_result_id, span_id)."""
+    with tempfile.NamedTemporaryFile(suffix=".db") as f:
+        store = SQLiteStorage(f.name)
+        link_v1 = SpanMetricLink(
+            id="sml-1",
+            metric_result_id="m:i:c",
+            span_id="s1",
+            relevance=0.5,
+            reason="first version",
+            run_id="run-1",
+        )
+        link_v2 = SpanMetricLink(
+            id="sml-1",
+            metric_result_id="m:i:c",
+            span_id="s1",
+            relevance=0.9,
+            reason="updated version",
+            run_id="run-1",
+        )
+        store.store_span_metric_links([link_v1])
+        store.store_span_metric_links([link_v2])
+        results = store.list_span_metric_links(run_id="run-1")
+        assert len(results) == 1
+        assert results[0].relevance == 0.9
+        assert results[0].reason == "updated version"
+        store.close()
