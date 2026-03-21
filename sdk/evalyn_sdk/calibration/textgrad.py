@@ -17,8 +17,11 @@ The rubric (evaluation criteria) is kept FIXED as defined by humans.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 from tqdm import tqdm
 
@@ -28,10 +31,6 @@ from .base_optimizer import BaseOptimizer
 from .models import (
     PromptOptimizationResult,
     TokenAccumulator,
-)
-from .utils import (
-    build_full_prompt,
-    parse_judge_response,
 )
 
 
@@ -150,52 +149,7 @@ class TextGradOptimizer(BaseOptimizer):
     # Core algorithm steps
     # ------------------------------------------------------------------
 
-    def _collect_failures(
-        self,
-        preamble: str,
-        rubric: List[str],
-        train_examples: List[Dict[str, Any]],
-        accumulator: Optional[TokenAccumulator] = None,
-    ) -> List[Dict[str, Any]]:
-        """Score each training example and collect mismatches.
-
-        Returns up to ``config.num_failure_examples`` cases where the
-        judge's prediction disagrees with the human label.
-        """
-        full_prompt = build_full_prompt(preamble, rubric)
-        failures: List[Dict[str, Any]] = []
-
-        for ex in train_examples:
-            eval_prompt = f"""{full_prompt}
-
-## Input to evaluate
-{ex.get("input", "")[:1000]}
-
-## Output to evaluate
-{ex.get("output", "")[:1000]}
-
-Provide your verdict:"""
-
-            try:
-                result = self.scorer_client.generate_with_usage(eval_prompt)
-                if accumulator:
-                    accumulator.add(result)
-                judge_pass = parse_judge_response(result.text)
-                human_pass = ex.get("expected") == "PASS"
-
-                if judge_pass != human_pass:
-                    failures.append({
-                        "input": ex.get("input", "")[:500],
-                        "output": ex.get("output", "")[:500],
-                        "judge_said": "PASS" if judge_pass else "FAIL",
-                        "human_said": "PASS" if human_pass else "FAIL",
-                    })
-                    if len(failures) >= self.config.num_failure_examples:
-                        break
-            except Exception:
-                pass
-
-        return failures
+    # _collect_failures is inherited from BaseOptimizer
 
     def _critique(
         self,
@@ -233,6 +187,7 @@ Provide your verdict:"""
                 accumulator.add(result)
             return result.text.strip()
         except Exception:
+            logger.warning("Failed to generate critique, using fallback", exc_info=True)
             return "Unable to generate critique."
 
     def _revise(
@@ -262,6 +217,7 @@ Provide your verdict:"""
                 accumulator.add(result)
             return result.text.strip()
         except Exception:
+            logger.warning("Failed to revise preamble, keeping current version", exc_info=True)
             return preamble  # Fall back to current preamble on error
 
     # ------------------------------------------------------------------
@@ -355,7 +311,8 @@ Provide your verdict:"""
         for iteration in pbar:
             # Step 1: Collect failure cases
             failures = self._collect_failures(
-                current_preamble_text, current_rubric, trainset, accumulator
+                current_preamble_text, current_rubric, trainset,
+                max_failures=self.config.num_failure_examples, accumulator=accumulator,
             )
 
             if not failures:
@@ -404,14 +361,7 @@ Provide your verdict:"""
 
         # Determine improvement level
         improvement_delta = val_score - seed_val_score
-        if improvement_delta > 0.05:
-            estimated_improvement = "high"
-        elif improvement_delta > 0.02:
-            estimated_improvement = "medium"
-        elif improvement_delta > 0:
-            estimated_improvement = "low"
-        else:
-            estimated_improvement = "none"
+        estimated_improvement = self.classify_improvement(improvement_delta)
 
         reasoning = (
             f"TextGrad optimization completed. "

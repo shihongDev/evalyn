@@ -16,8 +16,11 @@ The rubric (evaluation criteria) is kept FIXED as defined by humans.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 from tqdm import tqdm
 
@@ -171,7 +174,7 @@ Provide your verdict:"""
                 metrics.record(judge_pass, human_pass)
             except Exception:
                 # On error, skip this example
-                pass
+                logger.warning("Failed to score example during evaluation, skipping", exc_info=True)
 
         return metrics.f1, metrics.accuracy
 
@@ -294,6 +297,7 @@ Do not include any other text, just the JSON array."""
                 accumulator.add(result)
             return parse_candidates_response(result.text)
         except Exception:
+            logger.warning("Failed to generate candidates for this iteration", exc_info=True)
             return []
 
     def optimize(

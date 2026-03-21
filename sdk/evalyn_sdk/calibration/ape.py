@@ -17,10 +17,13 @@ The rubric (evaluation criteria) is kept FIXED as defined by humans.
 
 from __future__ import annotations
 
+import logging
 import math
 import random
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 from tqdm import tqdm
 
@@ -201,6 +204,7 @@ Example {i}:
                 accumulator.add(result)
             return parse_candidates_response(result.text)
         except Exception:
+            logger.warning("Failed to generate candidate preambles", exc_info=True)
             return []
 
     def _score_candidate(
@@ -246,7 +250,7 @@ Provide your verdict:"""
                 metrics.record(judge_pass, human_pass)
             except Exception:
                 # On error, skip this example
-                pass
+                logger.warning("Failed to score candidate example, skipping", exc_info=True)
 
         return metrics.f1
 

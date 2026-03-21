@@ -510,6 +510,50 @@ class TestMIPROv2:
         opt = MIPROv2Optimizer()
         assert opt._embed_demos("instruction", []) == "instruction"
 
+    def test_optimize_returns_result(self):
+        opt = self._make_optimizer()
+        # Mock build_dataset_from_annotations to return train/val splits
+        train = _make_examples(7)
+        val = _make_examples(3)
+        import evalyn_sdk.calibration.miprov2 as miprov2_mod
+        original_build = miprov2_mod.build_dataset_from_annotations
+        miprov2_mod.build_dataset_from_annotations = MagicMock(return_value=(train, val))
+        try:
+            opt.score_preamble = MagicMock(return_value=0.75)
+            result = opt.optimize(
+                metric_id="test",
+                current_rubric=["Be accurate"],
+                current_preamble="You are a judge.",
+                metric_results=[],
+                annotations=[],
+                dataset_items=[],
+            )
+            assert isinstance(result, PromptOptimizationResult)
+            assert result.original_preamble == "You are a judge."
+            assert result.optimized_preamble  # non-empty
+            assert result.full_prompt  # non-empty
+            assert result.improved_rubric == ["Be accurate"]  # rubric unchanged
+        finally:
+            miprov2_mod.build_dataset_from_annotations = original_build
+
+    def test_not_enough_data(self):
+        opt = self._make_optimizer()
+        import evalyn_sdk.calibration.miprov2 as miprov2_mod
+        original_build = miprov2_mod.build_dataset_from_annotations
+        miprov2_mod.build_dataset_from_annotations = MagicMock(return_value=([], []))
+        try:
+            result = opt.optimize(
+                metric_id="test",
+                current_rubric=["r1"],
+                current_preamble="Judge.",
+                metric_results=[],
+                annotations=[],
+            )
+            assert isinstance(result, PromptOptimizationResult)
+            assert "Not enough data" in result.improvement_reasoning
+        finally:
+            miprov2_mod.build_dataset_from_annotations = original_build
+
     def test_factory_creates_miprov2(self):
         opt = create_optimizer("miprov2", config=MIPROv2Config())
         assert isinstance(opt, MIPROv2Optimizer)

@@ -12,9 +12,12 @@ The rubric (evaluation criteria) is kept FIXED as defined by humans.
 
 from __future__ import annotations
 
+import logging
 import random
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 from tqdm import tqdm
 
@@ -26,7 +29,6 @@ from .models import (
     PromptOptimizationResult,
     TokenAccumulator,
 )
-from .utils import build_full_prompt, parse_judge_response
 
 @dataclass
 class EvoPromptConfig:
@@ -195,6 +197,7 @@ class EvoPromptOptimizer(BaseOptimizer):
 
             variants = parse_candidates_response(result.text)
         except Exception:
+            logger.warning("Failed to generate preamble variants, using seed only", exc_info=True)
             variants = []
 
         # Always include current preamble; pad with it if generation fell short
@@ -242,6 +245,7 @@ class EvoPromptOptimizer(BaseOptimizer):
                 text = text.strip()
             return text if text else parent1
         except Exception:
+            logger.warning("Crossover failed, returning parent1 unchanged", exc_info=True)
             return parent1
 
     def _mutate(
@@ -275,36 +279,10 @@ class EvoPromptOptimizer(BaseOptimizer):
                 text = text.strip()
             return text if text else preamble
         except Exception:
+            logger.warning("Mutation failed, using original preamble", exc_info=True)
             return preamble
 
-    def _collect_failures(
-        self,
-        preamble: str,
-        rubric: List[str],
-        examples: List[Dict[str, Any]],
-        accumulator: Optional[TokenAccumulator] = None,
-        max_failures: int = 5,
-    ) -> List[Dict[str, Any]]:
-        """Score examples and return ones where prediction != human label."""
-        full_prompt = build_full_prompt(preamble, rubric)
-        failures: List[Dict[str, Any]] = []
-        for ex in examples:
-            try:
-                eval_input = f"INPUT: {str(ex.get('input', ''))[:500]}\nOUTPUT: {str(ex.get('output', ''))[:500]}"
-                result = self.scorer_client.generate_with_usage(
-                    full_prompt + "\n\n" + eval_input
-                )
-                if accumulator:
-                    accumulator.add(result)
-                predicted = parse_judge_response(result.text)
-                actual = ex.get("expected") == "PASS"
-                if predicted != actual:
-                    failures.append(ex)
-                    if len(failures) >= max_failures:
-                        break
-            except Exception:
-                pass
-        return failures
+    # _collect_failures is inherited from BaseOptimizer
 
     # -- Main optimization loop --
 
@@ -371,7 +349,7 @@ class EvoPromptOptimizer(BaseOptimizer):
         # Collect actual failure cases for mutation guidance
         best_preamble = max(scored, key=lambda s: s[1])[0]
         failure_examples = self._collect_failures(
-            best_preamble, current_rubric, trainset, accumulator
+            best_preamble, current_rubric, trainset, accumulator=accumulator
         )
 
         pbar = tqdm(range(self.config.generations), desc="EvoPrompt", unit="gen")
@@ -428,14 +406,7 @@ class EvoPromptOptimizer(BaseOptimizer):
         seed_val_f1 = self.score_preamble(seed, current_rubric, valset, accumulator)
 
         improvement_delta = val_f1 - seed_val_f1
-        if improvement_delta > 0.05:
-            est = "high"
-        elif improvement_delta > 0.02:
-            est = "medium"
-        elif improvement_delta > 0:
-            est = "low"
-        else:
-            est = "none"
+        est = self.classify_improvement(improvement_delta)
 
         reasoning = (
             f"EvoPrompt optimization completed. "

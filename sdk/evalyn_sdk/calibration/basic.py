@@ -7,7 +7,10 @@ disagreement patterns and suggest improvements.
 from __future__ import annotations
 
 import json
+import logging
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 from ..defaults import DEFAULT_EVAL_MODEL
 from ..utils.api_client import GeminiClient
@@ -95,6 +98,7 @@ class BasicOptimizer:
                 result.text, current_rubric, current_preamble
             )
         except Exception as e:
+            logger.warning("LLM optimization call failed: %s", e, exc_info=True)
             # Return a fallback result on error
             return PromptOptimizationResult(
                 original_rubric=current_rubric,
@@ -251,7 +255,7 @@ Return ONLY the JSON object, no other text."""
                                 full_prompt=full_prompt,
                             )
         except Exception:
-            pass
+            logger.warning("Failed to parse LLM optimization response as JSON", exc_info=True)
 
         # Fallback if parsing fails
         return PromptOptimizationResult(

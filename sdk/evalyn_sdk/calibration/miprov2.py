@@ -18,16 +18,19 @@ The rubric (evaluation criteria) is kept FIXED as defined by humans.
 
 from __future__ import annotations
 
+import logging
 import random
 from dataclasses import dataclass
 from statistics import median
 from typing import Any, Dict, List, Optional
 
+logger = logging.getLogger(__name__)
+
 from ..defaults import DEFAULT_EVAL_MODEL
 from ..models import Annotation, DatasetItem, MetricResult
 from ..utils.api_client import GeminiClient
+from .base_optimizer import BaseOptimizer
 from .models import (
-    AlignmentMetrics,
     DisagreementAnalysis,
     PromptOptimizationResult,
     TokenAccumulator,
@@ -36,7 +39,6 @@ from .utils import (
     build_dataset_from_annotations,
     build_full_prompt,
     parse_candidates_response,
-    parse_judge_response,
 )
 
 
@@ -74,7 +76,7 @@ Output format - return ONLY a JSON array of preamble strings:
 ["preamble 1", "preamble 2", ...]"""
 
 
-class MIPROv2Optimizer:
+class MIPROv2Optimizer(BaseOptimizer):
     """
     MIPROv2: Multi-stage Instruction and Demonstration Joint Optimizer.
 
@@ -101,10 +103,8 @@ class MIPROv2Optimizer:
             config: MIPROv2 configuration (uses defaults if not provided)
             api_key: Optional API key for Gemini (default: from env)
         """
-        self.config = config or MIPROv2Config()
-        self._api_key = api_key
+        super().__init__(config=config or MIPROv2Config(), api_key=api_key)
         self._task_client_instance: Optional[GeminiClient] = None
-        self._scorer_client_instance: Optional[GeminiClient] = None
 
     @property
     def _task_client(self) -> GeminiClient:
@@ -117,66 +117,6 @@ class MIPROv2Optimizer:
                 timeout=120,
             )
         return self._task_client_instance
-
-    @property
-    def _scorer_client(self) -> GeminiClient:
-        """Lazy-initialized scorer LLM client (for evaluating prompts)."""
-        if self._scorer_client_instance is None:
-            self._scorer_client_instance = GeminiClient(
-                model=self.config.scorer_model,
-                temperature=0.0,
-                api_key=self._api_key,
-                timeout=120,
-            )
-        return self._scorer_client_instance
-
-    def _score_preamble(
-        self,
-        preamble: str,
-        rubric: List[str],
-        examples: List[Dict[str, Any]],
-        accumulator: Optional[TokenAccumulator] = None,
-    ) -> float:
-        """Score a preamble by running it as a judge on examples.
-
-        Args:
-            preamble: The preamble to evaluate
-            rubric: Fixed rubric criteria
-            examples: Examples to evaluate on
-            accumulator: Optional TokenAccumulator to track token usage
-
-        Returns:
-            F1 score
-        """
-        full_prompt = build_full_prompt(preamble, rubric)
-        metrics = AlignmentMetrics()
-
-        sample = examples
-        if len(examples) > self.config.eval_samples:
-            sample = random.sample(examples, self.config.eval_samples)
-
-        for ex in sample:
-            eval_prompt = f"""{full_prompt}
-
-## Input to evaluate
-{ex.get("input", "")[:1000]}
-
-## Output to evaluate
-{ex.get("output", "")[:1000]}
-
-Provide your verdict:"""
-
-            try:
-                result = self._scorer_client.generate_with_usage(eval_prompt)
-                if accumulator:
-                    accumulator.add(result)
-                judge_pass = parse_judge_response(result.text)
-                human_pass = ex.get("expected") == "PASS"
-                metrics.record(judge_pass, human_pass)
-            except Exception:
-                pass
-
-        return metrics.f1
 
     # ------------------------------------------------------------------
     # Stage 1: Instruction Generation
@@ -245,6 +185,7 @@ Provide your verdict:"""
                 accumulator.add(result)
             return parse_candidates_response(result.text)
         except Exception:
+            logger.warning("Failed to generate instruction candidates", exc_info=True)
             return []
 
     # ------------------------------------------------------------------
@@ -352,7 +293,7 @@ Provide your verdict:"""
         """
         scored: List[tuple[str, float]] = []
         for instruction in instructions:
-            f1 = self._score_preamble(instruction, rubric, train_examples, accumulator)
+            f1 = self.score_preamble(instruction, rubric, train_examples, accumulator, max_samples=self.config.eval_samples)
             scored.append((instruction, f1))
 
         scored.sort(key=lambda x: x[1], reverse=True)
@@ -379,8 +320,8 @@ Provide your verdict:"""
             List of selected demo strings
         """
         base_preamble = instruction
-        current_f1 = self._score_preamble(
-            base_preamble, rubric, train_examples, accumulator
+        current_f1 = self.score_preamble(
+            base_preamble, rubric, train_examples, accumulator, max_samples=self.config.eval_samples
         )
 
         selected_demos: List[str] = []
@@ -397,8 +338,8 @@ Provide your verdict:"""
                 candidate_preamble = self._embed_demos(
                     instruction, selected_demos + [demo]
                 )
-                f1 = self._score_preamble(
-                    candidate_preamble, rubric, train_examples, accumulator
+                f1 = self.score_preamble(
+                    candidate_preamble, rubric, train_examples, accumulator, max_samples=self.config.eval_samples
                 )
                 if f1 > best_f1:
                     best_f1 = f1
@@ -541,28 +482,21 @@ Provide your verdict:"""
             else:
                 candidate = instruction
 
-            f1 = self._score_preamble(
-                candidate, current_rubric, valset, accumulator
+            f1 = self.score_preamble(
+                candidate, current_rubric, valset, accumulator, max_samples=self.config.eval_samples
             )
             if f1 > best_f1:
                 best_f1 = f1
                 best_preamble = candidate
 
         # Evaluate seed on validation set for comparison
-        seed_f1 = self._score_preamble(
-            seed_preamble, current_rubric, valset, accumulator
+        seed_f1 = self.score_preamble(
+            seed_preamble, current_rubric, valset, accumulator, max_samples=self.config.eval_samples
         )
 
         # Determine improvement
         improvement_delta = best_f1 - seed_f1
-        if improvement_delta > 0.05:
-            estimated_improvement = "high"
-        elif improvement_delta > 0.02:
-            estimated_improvement = "medium"
-        elif improvement_delta > 0:
-            estimated_improvement = "low"
-        else:
-            estimated_improvement = "none"
+        estimated_improvement = self.classify_improvement(improvement_delta)
 
         full_optimized_prompt = build_full_prompt(best_preamble, current_rubric)
 

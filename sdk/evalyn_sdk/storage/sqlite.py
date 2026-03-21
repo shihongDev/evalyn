@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Iterable, List, Optional
 
 from ..models import Annotation, EvalRun, FunctionCall, SpanMetricLink
+from .migrations import run_migrations
 
 # Default paths for prod/test separation
 DEFAULT_PROD_DB = "data/prod/traces.sqlite"
@@ -138,53 +139,7 @@ class SQLiteStorage:
             """
         )
         self.conn.commit()
-        self._ensure_otel_columns()
-        self._ensure_span_columns()
-        self._ensure_eval_run_columns()
-        self._ensure_annotation_columns()
-
-    def _ensure_otel_columns(self) -> None:
-        cur = self.conn.cursor()
-        cur.execute("PRAGMA table_info(otel_spans)")
-        cols = {row[1] for row in cur.fetchall()}
-        for col, col_type in [
-            ("trace_id", "TEXT"),
-            ("parent_span_id", "TEXT"),
-        ]:
-            if col not in cols:
-                cur.execute(f"ALTER TABLE otel_spans ADD COLUMN {col} {col_type}")
-        self.conn.commit()
-
-    def _ensure_span_columns(self) -> None:
-        """Add hierarchical span columns to function_calls table."""
-        cur = self.conn.cursor()
-        cur.execute("PRAGMA table_info(function_calls)")
-        cols = {row[1] for row in cur.fetchall()}
-        for col, col_type in [
-            ("parent_call_id", "TEXT"),  # Parent @eval call
-            ("spans", "TEXT"),  # JSON array of Span objects
-        ]:
-            if col not in cols:
-                cur.execute(f"ALTER TABLE function_calls ADD COLUMN {col} {col_type}")
-        self.conn.commit()
-
-    def _ensure_eval_run_columns(self) -> None:
-        """Add usage_summary column to eval_runs table if missing."""
-        cur = self.conn.cursor()
-        cur.execute("PRAGMA table_info(eval_runs)")
-        cols = {row[1] for row in cur.fetchall()}
-        if "usage_summary" not in cols:
-            cur.execute("ALTER TABLE eval_runs ADD COLUMN usage_summary TEXT")
-        self.conn.commit()
-
-    def _ensure_annotation_columns(self) -> None:
-        """Add metric_labels column to annotations table if missing."""
-        cur = self.conn.cursor()
-        cur.execute("PRAGMA table_info(annotations)")
-        cols = {row[1] for row in cur.fetchall()}
-        if "metric_labels" not in cols:
-            cur.execute("ALTER TABLE annotations ADD COLUMN metric_labels TEXT")
-        self.conn.commit()
+        run_migrations(self.conn)
 
     def store_call(self, call: FunctionCall) -> None:
         cur = self.conn.cursor()

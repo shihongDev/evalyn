@@ -13,10 +13,13 @@ The rubric (evaluation criteria) is kept FIXED as defined by humans.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from statistics import mean
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
+
+logger = logging.getLogger(__name__)
 
 from ..defaults import DEFAULT_EVAL_MODEL
 from ..models import Annotation, CalibrationRecord, DatasetItem, MetricResult, now_utc
@@ -262,6 +265,7 @@ class CalibrationEngine:
             )
             return original_judge, optimized_judge
         except Exception:
+            logger.warning("Failed to create validation judges, skipping validation", exc_info=True)
             return None
 
     def _build_validation_fake_call(self, item: DatasetItem):
@@ -326,7 +330,7 @@ class CalibrationEngine:
                 human_pass=human_pass,
             )
         except Exception:
-            pass
+            logger.warning("Failed to score validation item, skipping", exc_info=True)
 
     def _build_validation_recommendation(
         self,
@@ -502,6 +506,7 @@ class CalibrationEngine:
                     accumulator=accumulator,
                 )
             except Exception as e:
+                logger.warning("Prompt optimization failed: %s", e, exc_info=True)
                 prompt_optimization = PromptOptimizationResult(
                     original_rubric=self.current_rubric,
                     improved_rubric=self.current_rubric,
@@ -536,6 +541,7 @@ class CalibrationEngine:
                         accumulator=accumulator,
                     )
                 except Exception:
+                    logger.warning("Failed to validate optimized prompt, skipping validation", exc_info=True)
                     validation_result = None
 
         # Build adjustments dict with all calibration data

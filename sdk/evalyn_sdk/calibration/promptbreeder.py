@@ -17,25 +17,26 @@ The rubric (evaluation criteria) is kept FIXED as defined by humans.
 
 from __future__ import annotations
 
+import logging
 import random
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 from tqdm import tqdm
 
 from ..defaults import DEFAULT_EVAL_MODEL
 from ..models import Annotation, DatasetItem, MetricResult
 from ..utils.api_client import GeminiClient
+from .base_optimizer import BaseOptimizer
 from .models import (
-    AlignmentMetrics,
     PromptOptimizationResult,
     TokenAccumulator,
 )
 from .utils import (
-    build_dataset_from_annotations,
     build_full_prompt,
     parse_candidates_response,
-    parse_judge_response,
 )
 
 
@@ -118,7 +119,7 @@ How should this strategy be refined to produce even better preambles?
 Return ONLY the improved strategy (1-2 sentences), no explanation."""
 
 
-class PromptBreederOptimizer:
+class PromptBreederOptimizer(BaseOptimizer):
     """
     PromptBreeder: Self-Referential Self-Improvement via Prompt Evolution.
 
@@ -138,10 +139,8 @@ class PromptBreederOptimizer:
         config: Optional[PromptBreederConfig] = None,
         api_key: Optional[str] = None,
     ):
-        self.config = config or PromptBreederConfig()
-        self._api_key = api_key
+        super().__init__(config=config or PromptBreederConfig(), api_key=api_key)
         self._task_client_instance: Optional[GeminiClient] = None
-        self._scorer_client_instance: Optional[GeminiClient] = None
 
     @property
     def _task_client(self) -> GeminiClient:
@@ -154,56 +153,6 @@ class PromptBreederOptimizer:
                 timeout=self.config.timeout,
             )
         return self._task_client_instance
-
-    @property
-    def _scorer_client(self) -> GeminiClient:
-        """Lazy-initialized scorer LLM client (for evaluating prompts)."""
-        if self._scorer_client_instance is None:
-            self._scorer_client_instance = GeminiClient(
-                model=self.config.scorer_model,
-                temperature=0.0,
-                api_key=self._api_key,
-                timeout=self.config.timeout,
-            )
-        return self._scorer_client_instance
-
-    # ------------------------------------------------------------------
-    # Scoring
-    # ------------------------------------------------------------------
-
-    def score_preamble(
-        self,
-        preamble: str,
-        rubric: List[str],
-        examples: List[Dict[str, Any]],
-        accumulator: Optional[TokenAccumulator] = None,
-    ) -> float:
-        """Score a preamble by running it as judge on examples. Returns F1."""
-        full_prompt = build_full_prompt(preamble, rubric)
-        metrics = AlignmentMetrics()
-
-        for ex in examples:
-            eval_prompt = f"""{full_prompt}
-
-## Input to evaluate
-{ex.get("input", "")[:1000]}
-
-## Output to evaluate
-{ex.get("output", "")[:1000]}
-
-Provide your verdict:"""
-
-            try:
-                result = self._scorer_client.generate_with_usage(eval_prompt)
-                if accumulator:
-                    accumulator.add(result)
-                judge_pass = parse_judge_response(result.text)
-                human_pass = ex.get("expected") == "PASS"
-                metrics.record(judge_pass, human_pass)
-            except Exception:
-                pass
-
-        return metrics.f1
 
     # ------------------------------------------------------------------
     # Population initialization
@@ -235,6 +184,7 @@ Provide your verdict:"""
                 if text:
                     preambles.append(text)
             except Exception:
+                logger.warning("Failed to generate preamble variant, using seed", exc_info=True)
                 preambles.append(current_preamble)
 
         # Pad if we got fewer than pop_size
@@ -250,7 +200,7 @@ Provide your verdict:"""
                 accumulator.add(result)
             mutation_prompts = parse_candidates_response(result.text)
         except Exception:
-            pass
+            logger.warning("Failed to generate mutation strategies, using defaults", exc_info=True)
 
         # Fallback defaults
         defaults = [
@@ -315,6 +265,7 @@ Provide your verdict:"""
             text = result.text.strip()
             return text if text else unit.preamble
         except Exception:
+            logger.warning("Failed to apply mutation, using original preamble", exc_info=True)
             return unit.preamble
 
     def _evolve_mutation_prompt(
@@ -339,23 +290,12 @@ Provide your verdict:"""
             text = result.text.strip()
             return text if text else unit.mutation_prompt
         except Exception:
+            logger.warning("Failed to evolve mutation strategy, keeping current", exc_info=True)
             return unit.mutation_prompt
 
     # ------------------------------------------------------------------
     # Main optimize loop
     # ------------------------------------------------------------------
-
-    def split_train_val(
-        self,
-        metric_results: List[MetricResult],
-        annotations: List[Annotation],
-        dataset_items: Optional[List[DatasetItem]],
-        train_ratio: float = 0.7,
-    ):
-        """Split data into train/val sets. Delegates to shared utility."""
-        return build_dataset_from_annotations(
-            metric_results, annotations, dataset_items, train_ratio
-        )
 
     def optimize(
         self,
@@ -389,7 +329,7 @@ Provide your verdict:"""
             metric_results,
             annotations,
             dataset_items,
-            self.config.train_split,
+            train_ratio=self.config.train_split,
         )
 
         if len(trainset) < 3 or len(valset) < 2:
@@ -484,14 +424,7 @@ Provide your verdict:"""
 
         # -- Build result --
         improvement_delta = val_f1 - seed_val_f1
-        if improvement_delta > 0.05:
-            estimated_improvement = "high"
-        elif improvement_delta > 0.02:
-            estimated_improvement = "medium"
-        elif improvement_delta > 0:
-            estimated_improvement = "low"
-        else:
-            estimated_improvement = "none"
+        estimated_improvement = self.classify_improvement(improvement_delta)
 
         full_optimized_prompt = build_full_prompt(best_unit.preamble, current_rubric)
 

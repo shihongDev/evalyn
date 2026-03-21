@@ -20,25 +20,43 @@ from ..utils.api_client import GenerateResult
 class TokenAccumulator:
     """Accumulates token usage across multiple LLM calls for cost tracking."""
 
-    input_tokens: int = 0
-    output_tokens: int = 0
-    models: set = field(default_factory=set)
+    _per_model: Dict[str, Dict[str, int]] = field(default_factory=dict)
+
+    def _ensure_model(self, model_key: str) -> None:
+        """Ensure a model entry exists in the per-model dict."""
+        if model_key not in self._per_model:
+            self._per_model[model_key] = {"input_tokens": 0, "output_tokens": 0}
 
     def add(self, result: GenerateResult) -> None:
         """Add tokens from a GenerateResult."""
-        self.input_tokens += result.input_tokens
-        self.output_tokens += result.output_tokens
-        if result.model:
-            self.models.add(result.model)
+        model_key = result.model if result.model else "_unknown"
+        self._ensure_model(model_key)
+        self._per_model[model_key]["input_tokens"] += result.input_tokens
+        self._per_model[model_key]["output_tokens"] += result.output_tokens
 
     def add_usage(
         self, input_tokens: int, output_tokens: int, model: Optional[str] = None
     ) -> None:
         """Add tokens directly from counts (e.g., from LLMJudge.score() result)."""
-        self.input_tokens += input_tokens
-        self.output_tokens += output_tokens
-        if model:
-            self.models.add(model)
+        model_key = model if model else "_unknown"
+        self._ensure_model(model_key)
+        self._per_model[model_key]["input_tokens"] += input_tokens
+        self._per_model[model_key]["output_tokens"] += output_tokens
+
+    @property
+    def input_tokens(self) -> int:
+        """Total input tokens across all models (backwards compatible)."""
+        return sum(v["input_tokens"] for v in self._per_model.values())
+
+    @property
+    def output_tokens(self) -> int:
+        """Total output tokens across all models (backwards compatible)."""
+        return sum(v["output_tokens"] for v in self._per_model.values())
+
+    @property
+    def models(self) -> set:
+        """Set of model names used (backwards compatible)."""
+        return {k for k in self._per_model if k != "_unknown"}
 
     def as_usage_summary(self) -> dict:
         """Convert to usage_summary dict compatible with print_token_usage_summary."""
@@ -50,20 +68,21 @@ class TokenAccumulator:
         total_tokens = self.input_tokens + self.output_tokens
         has_unknown_pricing = any(not is_model_pricing_known(m) for m in self.models)
 
-        # Calculate total cost across all models
-        # Since we don't track per-model token counts, we estimate by averaging
+        # Calculate total cost using actual per-model token counts
         total_cost = 0.0
-        if self.models:
-            for model in self.models:
-                # Proportionally distribute tokens across models
-                cost = calculate_cost(
-                    model,
-                    self.input_tokens // len(self.models),
-                    self.output_tokens // len(self.models),
-                )
-                total_cost += cost
-        else:
-            # Fallback: use default rate
+        has_real_models = False
+        for model_key, counts in self._per_model.items():
+            if model_key == "_unknown":
+                continue
+            has_real_models = True
+            total_cost += calculate_cost(
+                model_key,
+                counts["input_tokens"],
+                counts["output_tokens"],
+            )
+
+        if not has_real_models and total_tokens > 0:
+            # Fallback: use default rate when no model info available
             total_cost = total_tokens / 1_000_000 * 1.0
 
         return {
