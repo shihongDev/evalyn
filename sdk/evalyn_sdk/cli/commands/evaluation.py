@@ -580,8 +580,12 @@ def _save_eval_run_and_report(
     output_format: str,
     dataset_dir: Path,
     dataset_list: List[Any],
-) -> tuple[Path, Path, Optional[Path]]:
-    """Persist run and generate HTML report."""
+) -> tuple[Path, Path, Optional[Path], Optional[Any]]:
+    """Persist run and generate HTML report.
+
+    Returns (run_folder, results_path, report_path, run_analysis).
+    run_analysis is the RunAnalysis object if analysis succeeded, else None.
+    """
     from ...evaluation.runner import save_eval_run_json
     from ...analysis import (
         analyze_run as analyze_run_data,
@@ -591,6 +595,7 @@ def _save_eval_run_and_report(
 
     run_folder = save_eval_run_json(run, dataset_dir)
     results_path = run_folder / "results.json"
+    analysis = None
 
     try:
         run_data = load_eval_run(results_path)
@@ -610,7 +615,7 @@ def _save_eval_run_and_report(
         if output_format != "json":
             print(f"Warning: Could not generate HTML report: {e}")
 
-    return run_folder, results_path, report_path
+    return run_folder, results_path, report_path, analysis
 
 
 def _render_run_eval_output(
@@ -727,6 +732,140 @@ def _render_run_eval_output(
     )
 
 
+def _run_auto_insights(
+    run_analysis: Any,
+    dataset_dir: Path,
+    dataset_list: List[Any],
+    results_path: Path,
+) -> None:
+    """Run lightweight deterministic insights after an eval and print a summary.
+
+    This runs after every run-eval to surface actionable intelligence without
+    requiring an explicit insights command. No LLM calls are made.
+
+    Two tiers:
+    - Lightweight (always): regression detection, top recommendations
+    - Deep (dataset <= 500 items): metric correlations, input feature analysis
+    """
+    from ...analysis import (
+        find_eval_runs,
+        load_eval_run,
+        analyze_run as analyze_run_data,
+    )
+    from ...analysis.insights import (
+        InsightsReport,
+        compute_metric_correlations,
+        detect_regressions,
+        analyze_input_features,
+        analyze_score_distributions,
+        generate_recommendations,
+    )
+
+    print()
+    print("=" * 80)
+    print("  AUTO-INSIGHTS")
+    print("=" * 80)
+
+    # --- Regression detection ---
+    previous_analysis = None
+    try:
+        all_runs = find_eval_runs(dataset_dir)
+        # Filter out the current run to find the previous one
+        resolved_current = results_path.resolve()
+        previous_runs = [r for r in all_runs if r.resolve() != resolved_current]
+        if previous_runs:
+            prev_data = load_eval_run(previous_runs[0])
+            previous_analysis = analyze_run_data(prev_data)
+    except Exception:
+        previous_analysis = None
+
+    regressions = []
+    if previous_analysis is not None:
+        try:
+            regressions = detect_regressions(run_analysis, previous_analysis)
+        except Exception:
+            regressions = []
+
+        if regressions:
+            print()
+            print("Regressions detected:")
+            for alert in regressions:
+                _SEVERITY_ICONS = {"critical": "!!!", "warning": "! ", "info": "  "}
+                icon = _SEVERITY_ICONS.get(alert.severity, "  ")
+                print(
+                    f"  {icon} {alert.metric_id}: "
+                    f"{alert.previous_pass_rate * 100:.0f}% -> {alert.current_pass_rate * 100:.0f}% "
+                    f"({alert.delta * 100:+.0f}pp) [{alert.severity}]"
+                )
+        else:
+            print()
+            print("No regressions detected vs. previous run.")
+    else:
+        print()
+        print("This run will be used as the baseline for future comparisons.")
+
+    # --- Deep analysis for small datasets ---
+    report = InsightsReport()
+    report.regressions = regressions
+
+    num_items = len(dataset_list)
+    if num_items <= 500:
+        try:
+            correlations = compute_metric_correlations(run_analysis)
+            report.correlations = correlations
+            if correlations:
+                print()
+                print("Metric correlations:")
+                for corr in correlations[:5]:
+                    label = "redundant" if corr.relationship == "redundant" else "tradeoff"
+                    print(f"  {corr.metric_a} <-> {corr.metric_b}: r={corr.pearson} ({label})")
+        except Exception:
+            pass
+
+        try:
+            dataset_dicts = []
+            for item in dataset_list:
+                d: Dict[str, Any] = {"id": item.id}
+                for field in ("input", "inputs", "output", "expected"):
+                    val = getattr(item, field, None)
+                    if val is not None:
+                        d[field] = val
+                dataset_dicts.append(d)
+            feature_insights = analyze_input_features(dataset_dicts, run_analysis)
+            report.feature_insights = feature_insights
+            if feature_insights:
+                print()
+                print("Feature analysis:")
+                for feat in feature_insights:
+                    print(f"  {feat.finding}")
+        except Exception:
+            pass
+
+    # --- Score distributions (used by recommendations) ---
+    try:
+        dist_insights = analyze_score_distributions(run_analysis)
+        report.distribution_insights = dist_insights
+    except Exception:
+        pass
+
+    # --- Recommendations ---
+    try:
+        recommendations = generate_recommendations(run_analysis, report)
+        if recommendations:
+            print()
+            top_recs = recommendations[:3]
+            print("Top recommendations:")
+            for rec in top_recs:
+                print(f"  {rec.priority}. [{rec.category}] {rec.message}")
+                print(f"     -> {rec.action}")
+    except Exception:
+        pass
+
+    print()
+    print("Run `evalyn insights --deep` for full LLM expert analysis.")
+    print("=" * 80)
+
+
 def cmd_run_eval(args: argparse.Namespace) -> None:
     """Run evaluation using pre-computed traces from dataset and metrics from JSON file(s).
 
@@ -787,7 +926,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     if run is None:
         return
 
-    run_folder, results_path, report_path = _save_eval_run_and_report(
+    run_folder, results_path, report_path, run_analysis = _save_eval_run_and_report(
         run, output_format, dataset_dir, dataset_list
     )
     _render_run_eval_output(
@@ -799,6 +938,15 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         report_path,
         metrics,
     )
+
+    # Auto-insights: lightweight deterministic analysis after every eval
+    if output_format != "json" and run_analysis is not None:
+        _run_auto_insights(
+            run_analysis=run_analysis,
+            dataset_dir=dataset_dir,
+            dataset_list=dataset_list,
+            results_path=results_path,
+        )
 
 
 def cmd_suggest_metrics(args: argparse.Namespace) -> None:

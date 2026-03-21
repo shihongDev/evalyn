@@ -14,19 +14,13 @@ Guide a developer through instrumenting their LLM agent with evalyn so traces ar
 Check evalyn is installed:
 
 ```bash
-uv pip show evalyn-sdk
+python -m pip show evalyn-sdk 2>/dev/null
 ```
 
-If not installed, install from the evalyn repo:
+If not installed:
 
 ```bash
-uv pip install -e "./sdk[llm]"
-```
-
-Or if user has a separate project:
-
-```bash
-uv pip install evalyn-sdk
+pip install evalyn-sdk
 ```
 
 ## Step 1: Detect Agent Framework
@@ -41,9 +35,11 @@ If no recognized framework: the decorator still works for any Python function, b
 
 ## Step 2: Add the Decorator
 
-Add to the agent's main entry function. The decorator is named `eval` and is imported from `evalyn_sdk`:
+Add to the agent's main entry function. The `import evalyn_sdk` line MUST come before any framework imports (it patches LLM clients via `sys.meta_path`):
 
 ```python
+import evalyn_sdk  # Must be FIRST import — patches LLM clients for tracing
+
 from evalyn_sdk import eval
 
 @eval(project="<project-name>", version="v1")
@@ -53,6 +49,7 @@ def agent_function(query: str) -> str:
 ```
 
 Rules:
+- `import evalyn_sdk` must be the very first import in the file
 - `project`: descriptive kebab-case name (e.g., "my-research-agent")
 - `version`: tracks iterations, start with "v1"
 - Wrap the outermost function that represents one agent invocation
@@ -62,6 +59,8 @@ Rules:
 Real example from the codebase:
 
 ```python
+import evalyn_sdk  # First import
+
 from evalyn_sdk import eval
 
 @eval(project="gemini-deep-research-agent", version="v1", name="research_agent")

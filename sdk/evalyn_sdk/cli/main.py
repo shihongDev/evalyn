@@ -48,8 +48,10 @@ EXPORT:
   export-for-annotation Export for external annotation tools
 
 PIPELINE:
+  quickstart       Detect framework, generate snippet, set up evaluation
   init             Initialize configuration file
   one-click        Run complete pipeline in one command
+  dashboard        Generate and open interactive HTML dashboard
 """
 
 from __future__ import annotations
@@ -64,11 +66,13 @@ from .commands import (
     annotation,
     calibration,
     clustering,
+    dashboard,
     dataset,
     evaluation,
     export,
     infrastructure,
     insights,
+    quickstart,
     runs,
     simulate,
     traces,
@@ -95,6 +99,7 @@ def _print_ascii_help(parser: argparse.ArgumentParser) -> None:
     # Print grouped commands instead of raw argparse help
     grouped_help = """
 QUICK START
+  quickstart       Detect framework, generate snippet, set up evaluation
   workflow         Show evaluation workflow and next steps
   one-click        Run complete pipeline in one command
   init             Initialize configuration file
@@ -123,6 +128,7 @@ EVALUATION
   compare          Compare two evaluation runs
   trend            Show evaluation trends over time
   insights         Comprehensive diagnostic and prescriptive analysis
+  dashboard        Generate and open interactive HTML dashboard
 
 ANNOTATION & CALIBRATION
   annotate         Interactive annotation interface
@@ -196,6 +202,8 @@ For more info on a command: evalyn <command> --help
     evaluation.register_commands(subparsers)
     insights.register_commands(subparsers)
     infrastructure.register_commands(subparsers)
+    dashboard.register_commands(subparsers)
+    quickstart.register_commands(subparsers)
 
     # Parse and execute
     args = parser.parse_args(argv)
