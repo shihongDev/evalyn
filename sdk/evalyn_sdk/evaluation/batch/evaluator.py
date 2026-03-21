@@ -22,7 +22,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, TypeAlias
 
 from ...models import DatasetItem, FunctionCall, Metric, MetricResult
 from .providers import create_batch_provider
@@ -43,7 +43,7 @@ class BatchEvalProgress:
     eta_seconds: Optional[float] = None
 
 
-type ProgressCallback = Callable[[BatchEvalProgress], None]
+ProgressCallback: TypeAlias = Callable[[BatchEvalProgress], None]
 
 
 class BatchEvaluator:
