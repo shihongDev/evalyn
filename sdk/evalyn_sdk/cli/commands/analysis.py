@@ -29,7 +29,7 @@ import argparse
 import json
 from pathlib import Path
 
-from ..utils.command_common import resolve_dataset_dir_and_file
+from ..utils.command_common import load_eval_run_for_command, resolve_dataset_dir_and_file
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.dataset_resolver import get_dataset
 from ..utils.errors import fatal_error
@@ -317,32 +317,14 @@ def _load_analysis_run(
     output_format: str,
 ):
     """Load the eval run to analyze from storage or dataset folder."""
-    from ...storage import SQLiteStorage
-    from ...models import EvalRun
-
-    run = None
-    run_id = args.run
-
-    if run_id:
-        storage = SQLiteStorage()
-        run = storage.get_eval_run(run_id)
-        if not run:
-            fatal_error(f"No eval run found with ID '{run_id}'")
-        return run
-
-    if not dataset_path:
-        fatal_error("Specify --run <run_id> or --dataset <path>")
-
-    run_files = find_eval_runs(dataset_path)
-    if run_files:
-        with open(run_files[0], encoding="utf-8") as f:
-            run = EvalRun.from_dict(json.load(f))
-        if output_format != "json":
-            print(f"Analyzing latest run: {run_files[0].name}")
-
-    if not run:
-        fatal_error("No eval runs found", "Run 'evalyn run-eval' first")
-    return run
+    loaded = load_eval_run_for_command(
+        run_id=getattr(args, "run", None),
+        dataset_path=dataset_path,
+        error_hint="Specify --run <run_id> or --dataset <path>",
+    )
+    if loaded.run_file_path and output_format != "json":
+        print(f"Analyzing latest run: {loaded.run_file_path.name}")
+    return loaded.run
 
 
 def _load_analysis_human_labels(dataset_path) -> dict[tuple[str, str], bool]:

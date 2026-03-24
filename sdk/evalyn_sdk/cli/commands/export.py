@@ -28,10 +28,10 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from ..utils.command_common import load_eval_run_for_command
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
-from ...analysis.core import find_eval_runs
 
 
 def cmd_export_for_annotation(args: argparse.Namespace) -> None:
@@ -127,24 +127,16 @@ def cmd_export_for_annotation(args: argparse.Namespace) -> None:
 
 def _load_export_run_data(args: argparse.Namespace) -> dict:
     """Load exportable eval run data from storage or dataset folder."""
-    from ...storage import SQLiteStorage
-
     config = load_config()
     dataset_path = resolve_dataset_path(args.dataset, args.latest, config)
 
-    if args.run:
-        storage = SQLiteStorage()
-        run = storage.get_eval_run(args.run)
-        if run:
-            return run.as_dict()
-
-    if dataset_path:
-        run_files = find_eval_runs(dataset_path)
-        if run_files:
-            with open(run_files[0], encoding="utf-8") as f:
-                return json.load(f)
-
-    fatal_error("No eval run found", "Specify --run <id> or --dataset <path>")
+    loaded = load_eval_run_for_command(
+        run_id=getattr(args, "run", None),
+        dataset_path=dataset_path,
+        error_message="No eval run found",
+        error_hint="Specify --run <id> or --dataset <path>",
+    )
+    return loaded.run.as_dict()
 
 
 def _write_or_print_export(content: str, output_path: Path | None, *, message: str) -> None:

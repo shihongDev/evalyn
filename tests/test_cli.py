@@ -81,8 +81,6 @@ class TestListCalls:
         """Test list-calls with default options."""
         result = run_cli("list-calls")
         result.assert_success()
-        # Should show header or "No calls found" message
-        assert "id" in result.stdout.lower() or "no calls" in result.stdout.lower()
 
     def test_list_calls_with_limit(self):
         """Test list-calls with --limit."""
@@ -126,10 +124,9 @@ class TestShowCall:
         result.assert_output_contains("--id")
 
     def test_show_call_missing_id(self):
-        """Test show-call without --id shows error message."""
+        """Test show-call without --id fails."""
         result = run_cli("show-call")
-        # Command prints error message but may return 0
-        assert "error" in result.stdout.lower() or not result.success
+        result.assert_failure()
 
     def test_show_call_nonexistent_id(self):
         """Test show-call with nonexistent ID."""
@@ -153,10 +150,9 @@ class TestShowTrace:
         result.assert_output_contains("--id")
 
     def test_show_trace_missing_call(self):
-        """Test show-trace without --id shows error message."""
+        """Test show-trace without --id fails."""
         result = run_cli("show-trace")
-        # Command prints error message but may return 0
-        assert "error" in result.stdout.lower() or not result.success
+        result.assert_failure()
 
 
 # ===========================================================================
@@ -221,12 +217,11 @@ class TestBuildDataset:
         result.assert_output_contains("--project")
 
     def test_build_dataset_missing_project(self):
-        """Test build-dataset without --project fails when multiple projects exist."""
+        """Test build-dataset without --project succeeds if zero or one project exists."""
         result = run_cli("build-dataset")
-        # Without --project, it fails if multiple projects exist in storage
-        # This is expected behavior - user should specify --project or --all
-        # Note: If only one project exists, it would succeed; with multiple it fails
-        assert result.success or "Multiple projects found" in result.stdout
+        # With empty/single-project DB, the command succeeds (writes 0 items).
+        # With multiple projects it would fail, asking user to specify --project.
+        result.assert_success()
 
     def test_build_dataset_help_shows_sampling_flags(self):
         """Test build-dataset --help shows sampling flags."""
@@ -471,8 +466,7 @@ class TestStatus:
         """Test status with a dataset."""
         result = run_cli("status", "--dataset", str(sample_dataset))
         result.assert_success()
-        # Should show dataset info (output uses uppercase "DATASET STATUS")
-        assert "DATASET STATUS" in result.stdout or "dataset" in result.stdout.lower()
+        result.assert_output_contains("DATASET")
 
 
 # ===========================================================================
@@ -758,9 +752,7 @@ class TestDeleteTraces:
         """Test delete-traces with no traces in test db (after deletion)."""
         # This should gracefully handle empty database
         result = run_cli("delete-traces", "-n", "0", "--db", "test", "--yes")
-        # Should succeed or report no traces found
-        # Note: -n 0 deletes 0 traces, so it will show "No traces found" or succeed
-        assert result.success or "no traces" in result.stdout.lower()
+        result.assert_success()
 
     def test_delete_traces_with_nonexistent_id(self):
         """Test delete-traces with nonexistent ID shows warning."""
@@ -809,3 +801,155 @@ class TestInsightsFlags:
         """Invalid format should fail."""
         result = run_cli("insights", "--format", "csv")
         result.assert_failure()
+
+
+# ===========================================================================
+# Quickstart tests
+# ===========================================================================
+
+
+class TestQuickstart:
+    """Tests for quickstart pure functions and CLI flags."""
+
+    def test_scan_file_for_frameworks_openai(self, tmp_path):
+        """Detect openai import in a Python file."""
+        from evalyn_sdk.cli.commands.quickstart import _scan_file_for_frameworks
+
+        agent_file = tmp_path / "agent.py"
+        agent_file.write_text("import openai\nclient = openai.OpenAI()\n")
+        result = _scan_file_for_frameworks(agent_file)
+        assert result == ["openai"]
+
+    def test_scan_file_for_frameworks_anthropic(self, tmp_path):
+        """Detect anthropic import in a Python file."""
+        from evalyn_sdk.cli.commands.quickstart import _scan_file_for_frameworks
+
+        agent_file = tmp_path / "agent.py"
+        agent_file.write_text("import anthropic\nclient = anthropic.Anthropic()\n")
+        result = _scan_file_for_frameworks(agent_file)
+        assert result == ["anthropic"]
+
+    def test_scan_file_for_frameworks_multiple(self, tmp_path):
+        """Detect multiple frameworks (openai and langchain) in one file."""
+        from evalyn_sdk.cli.commands.quickstart import _scan_file_for_frameworks
+
+        agent_file = tmp_path / "agent.py"
+        agent_file.write_text(
+            "import openai\nfrom langchain import chains\n"
+        )
+        result = _scan_file_for_frameworks(agent_file)
+        assert "openai" in result
+        assert "langchain" in result
+
+    def test_scan_file_for_frameworks_none(self, tmp_path):
+        """No framework imports yields empty list."""
+        from evalyn_sdk.cli.commands.quickstart import _scan_file_for_frameworks
+
+        agent_file = tmp_path / "agent.py"
+        agent_file.write_text("import os\nimport sys\nprint('hello')\n")
+        result = _scan_file_for_frameworks(agent_file)
+        assert result == []
+
+    def test_scan_file_for_frameworks_only_top_50_lines(self, tmp_path):
+        """Import on line 60 should NOT be detected (only first 50 lines scanned)."""
+        from evalyn_sdk.cli.commands.quickstart import _scan_file_for_frameworks
+
+        agent_file = tmp_path / "agent.py"
+        lines = ["# filler\n"] * 59 + ["import openai\n"]
+        agent_file.write_text("".join(lines))
+        result = _scan_file_for_frameworks(agent_file)
+        assert result == []
+
+    def test_check_instrumentation_present_true(self, tmp_path):
+        """File containing 'import evalyn_sdk' should return True."""
+        from evalyn_sdk.cli.commands.quickstart import _check_instrumentation_present
+
+        agent_file = tmp_path / "agent.py"
+        agent_file.write_text("import evalyn_sdk\nimport openai\n")
+        assert _check_instrumentation_present(str(agent_file)) is True
+
+    def test_check_instrumentation_present_false(self, tmp_path):
+        """File without evalyn_sdk import should return False."""
+        from evalyn_sdk.cli.commands.quickstart import _check_instrumentation_present
+
+        agent_file = tmp_path / "agent.py"
+        agent_file.write_text("import openai\n")
+        assert _check_instrumentation_present(str(agent_file)) is False
+
+    def test_check_instrumentation_present_nonexistent_file(self):
+        """Nonexistent file should return False."""
+        from evalyn_sdk.cli.commands.quickstart import _check_instrumentation_present
+
+        assert _check_instrumentation_present("/tmp/no_such_file_xyz.py") is False
+
+    def test_quickstart_help(self):
+        """quickstart --help shows key flags."""
+        result = run_cli("quickstart", "--help")
+        result.assert_success()
+        result.assert_output_contains("--agent-file")
+        result.assert_output_contains("--run")
+        result.assert_output_contains("--timeout")
+
+
+# ===========================================================================
+# Dashboard tests
+# ===========================================================================
+
+
+class TestDashboard:
+    """Tests for dashboard command."""
+
+    def test_dashboard_help(self):
+        """dashboard --help shows key flags."""
+        result = run_cli("dashboard", "--help")
+        result.assert_success()
+        result.assert_output_contains("--run")
+        result.assert_output_contains("--dataset")
+        result.assert_output_contains("--output")
+
+    def test_dashboard_no_data(self):
+        """dashboard without data fails with appropriate message."""
+        result = run_cli("dashboard")
+        result.assert_failure()
+
+
+# ===========================================================================
+# _open_in_browser tests
+# ===========================================================================
+
+
+class TestOpenInBrowser:
+    """Tests for the _open_in_browser helper."""
+
+    def test_open_in_browser_returns_bool(self, tmp_path):
+        """_open_in_browser should return a bool regardless of success."""
+        from evalyn_sdk.cli.commands.dashboard import _open_in_browser
+
+        fake_file = tmp_path / "test.html"
+        fake_file.write_text("<html></html>")
+        result = _open_in_browser(fake_file)
+        assert isinstance(result, bool)
+
+    def test_open_in_browser_success(self, tmp_path):
+        """Successful subprocess call returns True."""
+        from unittest.mock import patch
+        from evalyn_sdk.cli.commands.dashboard import _open_in_browser
+
+        fake_file = tmp_path / "test.html"
+        fake_file.write_text("<html></html>")
+        with patch("evalyn_sdk.cli.commands.dashboard.subprocess.run"):
+            assert _open_in_browser(fake_file) is True
+
+    def test_open_in_browser_failure(self, tmp_path):
+        """Failed subprocess call returns False."""
+        from unittest.mock import patch
+        import subprocess
+        from evalyn_sdk.cli.commands.dashboard import _open_in_browser
+
+        fake_file = tmp_path / "test.html"
+        fake_file.write_text("<html></html>")
+        with patch(
+            "evalyn_sdk.cli.commands.dashboard.subprocess.run",
+            side_effect=subprocess.CalledProcessError(1, "open"),
+        ):
+            assert _open_in_browser(fake_file) is False

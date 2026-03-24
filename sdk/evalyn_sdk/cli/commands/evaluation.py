@@ -590,7 +590,6 @@ def _save_eval_run_and_report(
     from ...analysis import (
         analyze_run as analyze_run_data,
         generate_html_report,
-        load_eval_run,
     )
 
     run_folder = save_eval_run_json(run, dataset_dir)
@@ -598,7 +597,7 @@ def _save_eval_run_and_report(
     analysis = None
 
     try:
-        run_data = load_eval_run(results_path)
+        run_data = run.as_dict()
         analysis = analyze_run_data(run_data)
         item_details = {}
         for item in dataset_list:
@@ -766,32 +765,32 @@ def _run_auto_insights(
     print("  AUTO-INSIGHTS")
     print("=" * 80)
 
-    # --- Regression detection ---
     previous_analysis = None
     try:
         all_runs = find_eval_runs(dataset_dir)
-        # Filter out the current run to find the previous one
         resolved_current = results_path.resolve()
         previous_runs = [r for r in all_runs if r.resolve() != resolved_current]
         if previous_runs:
             prev_data = load_eval_run(previous_runs[0])
             previous_analysis = analyze_run_data(prev_data)
-    except Exception:
+    except Exception as e:
+        print(f"  Warning: could not load previous run: {e}")
         previous_analysis = None
 
     regressions = []
     if previous_analysis is not None:
         try:
             regressions = detect_regressions(run_analysis, previous_analysis)
-        except Exception:
+        except Exception as e:
+            print(f"  Warning: regression detection failed: {e}")
             regressions = []
 
         if regressions:
             print()
             print("Regressions detected:")
+            severity_icons = {"critical": "!!!", "warning": "! ", "info": "  "}
             for alert in regressions:
-                _SEVERITY_ICONS = {"critical": "!!!", "warning": "! ", "info": "  "}
-                icon = _SEVERITY_ICONS.get(alert.severity, "  ")
+                icon = severity_icons.get(alert.severity, "  ")
                 print(
                     f"  {icon} {alert.metric_id}: "
                     f"{alert.previous_pass_rate * 100:.0f}% -> {alert.current_pass_rate * 100:.0f}% "
@@ -804,7 +803,6 @@ def _run_auto_insights(
         print()
         print("This run will be used as the baseline for future comparisons.")
 
-    # --- Deep analysis for small datasets ---
     report = InsightsReport()
     report.regressions = regressions
 
@@ -819,8 +817,8 @@ def _run_auto_insights(
                 for corr in correlations[:5]:
                     label = "redundant" if corr.relationship == "redundant" else "tradeoff"
                     print(f"  {corr.metric_a} <-> {corr.metric_b}: r={corr.pearson} ({label})")
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"  Warning: correlation analysis failed: {e}")
 
         try:
             dataset_dicts = []
@@ -838,17 +836,15 @@ def _run_auto_insights(
                 print("Feature analysis:")
                 for feat in feature_insights:
                     print(f"  {feat.finding}")
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"  Warning: feature analysis failed: {e}")
 
-    # --- Score distributions (used by recommendations) ---
     try:
         dist_insights = analyze_score_distributions(run_analysis)
         report.distribution_insights = dist_insights
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"  Warning: score distribution analysis failed: {e}")
 
-    # --- Recommendations ---
     try:
         recommendations = generate_recommendations(run_analysis, report)
         if recommendations:
@@ -858,8 +854,8 @@ def _run_auto_insights(
             for rec in top_recs:
                 print(f"  {rec.priority}. [{rec.category}] {rec.message}")
                 print(f"     -> {rec.action}")
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"  Warning: recommendation generation failed: {e}")
 
     print()
     print("Run `evalyn insights --deep` for full LLM expert analysis.")
@@ -1393,7 +1389,7 @@ def _run_suggest_metrics_basic_mode(
 def cmd_select_metrics(args: argparse.Namespace) -> None:
     """LLM-guided selection from metric registry."""
     from ...metrics.suggester import TemplateSelector
-    from ...models import register_builtin_metrics
+    from ...metrics.objective import register_builtin_metrics
 
     target_fn = _load_callable(args.target)
     tracer = get_default_tracer()

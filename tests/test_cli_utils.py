@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import json
 import os
-from unittest.mock import patch
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -289,6 +290,8 @@ class TestResolveDatasetPath:
 # ---------------------------------------------------------------------------
 
 from evalyn_sdk.cli.utils.command_common import (
+    LoadedRun,
+    load_eval_run_for_command,
     resolve_call_id,
     try_resolve_call_id,
 )
@@ -332,3 +335,138 @@ class TestTryResolveCallId:
         class PlainStorage:
             pass
         assert try_resolve_call_id(PlainStorage(), "id") == "id"
+
+
+# ---------------------------------------------------------------------------
+# load_eval_run_for_command
+# ---------------------------------------------------------------------------
+
+from evalyn_sdk.models import EvalRun, MetricResult, MetricSpec
+
+
+def _make_eval_run(run_id="run-001", metric_id="accuracy"):
+    """Helper to build a minimal EvalRun for tests."""
+    from conftest import T0
+
+    return EvalRun(
+        id=run_id,
+        dataset_name="test-ds",
+        created_at=T0,
+        metric_results=[
+            MetricResult(
+                metric_id=metric_id,
+                item_id="item-1",
+                call_id="call-1",
+                score=0.9,
+                passed=True,
+            ),
+        ],
+        metrics=[MetricSpec(id=metric_id, name=metric_id.title(), type="objective")],
+    )
+
+
+def _write_run_to_dataset(dataset_dir: Path, run: EvalRun) -> Path:
+    """Write an EvalRun into the dataset eval_runs/ structure."""
+    run_dir = dataset_dir / "eval_runs" / run.id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    results_file = run_dir / "results.json"
+    results_file.write_text(json.dumps(run.as_dict()), encoding="utf-8")
+    return results_file
+
+
+class TestLoadEvalRunForCommand:
+    def test_load_by_run_id(self):
+        """Mock SQLiteStorage, verify run loaded by ID."""
+        run = _make_eval_run(run_id="run-by-id")
+        mock_storage = MagicMock()
+        mock_storage.get_eval_run.return_value = run
+
+        with patch(
+            "evalyn_sdk.storage.SQLiteStorage",
+            return_value=mock_storage,
+        ):
+            loaded = load_eval_run_for_command(run_id="run-by-id")
+
+        assert loaded.run.id == "run-by-id"
+        assert loaded.run_file_path is None
+        mock_storage.get_eval_run.assert_called_once_with("run-by-id")
+
+    def test_load_from_dataset_dir(self, tmp_path):
+        """Create a temp dir with a results.json, verify run loaded from file."""
+        run = _make_eval_run(run_id="run-from-dir")
+        _write_run_to_dataset(tmp_path, run)
+
+        loaded = load_eval_run_for_command(dataset_path=tmp_path)
+
+        assert loaded.run.id == "run-from-dir"
+        assert loaded.run_file_path is not None
+        assert loaded.run_file_path.exists()
+
+    def test_fatal_on_missing_run_id(self):
+        """Verify SystemExit when run_id points to nonexistent run."""
+        mock_storage = MagicMock()
+        mock_storage.get_eval_run.return_value = None
+
+        with patch(
+            "evalyn_sdk.storage.SQLiteStorage",
+            return_value=mock_storage,
+        ):
+            with pytest.raises(SystemExit):
+                load_eval_run_for_command(run_id="nonexistent-id")
+
+    def test_fatal_when_no_run_found(self):
+        """No run_id, no dataset_path, verify SystemExit."""
+        with pytest.raises(SystemExit):
+            load_eval_run_for_command()
+
+    def test_fallback_to_storage(self, tmp_path):
+        """Set fallback_to_storage=True, verify it tries storage when dataset has no runs."""
+        run = _make_eval_run(run_id="fallback-run")
+        mock_storage = MagicMock()
+        mock_storage.list_eval_runs.return_value = [run]
+
+        # dataset_path exists but has no eval_runs dir
+        with patch(
+            "evalyn_sdk.storage.SQLiteStorage",
+            return_value=mock_storage,
+        ):
+            loaded = load_eval_run_for_command(
+                dataset_path=tmp_path, fallback_to_storage=True
+            )
+
+        assert loaded.run.id == "fallback-run"
+        mock_storage.list_eval_runs.assert_called_once_with(limit=1)
+
+    def test_metric_id_filter(self, tmp_path):
+        """Create two runs with different metrics, verify the right one is returned."""
+        run_a = _make_eval_run(run_id="run-a", metric_id="safety")
+        run_b = _make_eval_run(run_id="run-b", metric_id="accuracy")
+        _write_run_to_dataset(tmp_path, run_a)
+        _write_run_to_dataset(tmp_path, run_b)
+
+        loaded = load_eval_run_for_command(
+            dataset_path=tmp_path, metric_id="accuracy"
+        )
+
+        assert loaded.run.id == "run-b"
+
+    def test_metric_id_no_match(self, tmp_path):
+        """Verify SystemExit when metric_id matches no available run."""
+        run = _make_eval_run(run_id="run-safety-only", metric_id="safety")
+        _write_run_to_dataset(tmp_path, run)
+
+        with pytest.raises(SystemExit):
+            load_eval_run_for_command(
+                dataset_path=tmp_path, metric_id="nonexistent"
+            )
+
+    def test_loaded_run_has_file_path(self, tmp_path):
+        """When loaded from dataset, verify run_file_path is set."""
+        run = _make_eval_run(run_id="run-fp")
+        expected_path = _write_run_to_dataset(tmp_path, run)
+
+        loaded = load_eval_run_for_command(dataset_path=tmp_path)
+
+        assert loaded.run_file_path is not None
+        assert loaded.run_file_path == expected_path
+        assert str(loaded.run_file_path).endswith("results.json")

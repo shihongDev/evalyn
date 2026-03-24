@@ -582,6 +582,119 @@ class TestEvalRun:
 
 
 # ---------------------------------------------------------------------------
+# MetricSpec tests
+# ---------------------------------------------------------------------------
+
+class TestMetricSpec:
+    def test_metric_spec_roundtrip(self):
+        spec = MetricSpec(
+            id="helpfulness",
+            name="Helpfulness",
+            type="subjective",
+            description="Rates helpfulness of response",
+            config={"temperature": 0.0, "model": "gpt-4o"},
+            why="Core quality signal",
+            unit_types=["outcome", "single_turn"],
+        )
+        d = spec.as_dict()
+        restored = MetricSpec.from_dict(d)
+        assert restored.id == "helpfulness"
+        assert restored.name == "Helpfulness"
+        assert restored.type == "subjective"
+        assert restored.description == "Rates helpfulness of response"
+        assert restored.config == {"temperature": 0.0, "model": "gpt-4o"}
+        assert restored.why == "Core quality signal"
+        assert restored.unit_types == ["outcome", "single_turn"]
+
+    def test_metric_spec_from_dict_defaults(self):
+        restored = MetricSpec.from_dict({"id": "m1", "name": "M1"})
+        assert restored.type == "objective"
+        assert restored.description == ""
+        assert restored.config == {}
+        assert restored.why == ""
+        assert restored.unit_types == ["outcome"]
+
+    def test_metric_spec_from_dict_ignores_extra_keys(self):
+        data = {
+            "id": "m2",
+            "name": "M2",
+            "unknown_field": "should not crash",
+            "extra": 42,
+        }
+        restored = MetricSpec.from_dict(data)
+        assert restored.id == "m2"
+        assert restored.name == "M2"
+
+
+# ---------------------------------------------------------------------------
+# JudgeConfig tests
+# ---------------------------------------------------------------------------
+
+class TestJudgeConfig:
+    def test_judge_config_roundtrip(self):
+        jc = JudgeConfig(
+            id="judge-v2",
+            model="gemini-2.5-flash",
+            prompt="Rate quality 1-5",
+            parameters={"temperature": 0.1, "max_tokens": 200},
+            version="v2",
+        )
+        d = jc.as_dict()
+        restored = JudgeConfig.from_dict(d)
+        assert restored.id == "judge-v2"
+        assert restored.model == "gemini-2.5-flash"
+        assert restored.prompt == "Rate quality 1-5"
+        assert restored.parameters == {"temperature": 0.1, "max_tokens": 200}
+        assert restored.version == "v2"
+
+    def test_judge_config_from_dict_defaults(self):
+        restored = JudgeConfig.from_dict({"id": "j1", "model": "gpt-4o"})
+        assert restored.prompt == ""
+        assert restored.parameters == {}
+        assert restored.version == "v0"
+
+    def test_judge_config_from_dict_ignores_extra_keys(self):
+        data = {
+            "id": "j2",
+            "model": "claude-3",
+            "unrecognized": True,
+            "foo": [1, 2, 3],
+        }
+        restored = JudgeConfig.from_dict(data)
+        assert restored.id == "j2"
+        assert restored.model == "claude-3"
+
+
+# ---------------------------------------------------------------------------
+# MetricResult error-path tests
+# ---------------------------------------------------------------------------
+
+class TestMetricResultErrorPath:
+    def test_metric_result_requires_item_id(self):
+        """MetricResult must have item_id - the error handler in execution.py
+        uses item_id_hint to ensure it is always set."""
+        result = MetricResult(
+            metric_id="accuracy",
+            item_id="item-42",
+            call_id="error-item-42",
+            score=None,
+            passed=False,
+            details={"error": "something failed", "error_type": "RuntimeError"},
+        )
+        assert result.item_id == "item-42"
+        assert result.score is None
+        assert result.passed is False
+        assert result.details["error_type"] == "RuntimeError"
+
+        # Verify it roundtrips correctly even with error data
+        d = result.as_dict()
+        restored = MetricResult.from_dict(d)
+        assert restored.item_id == "item-42"
+        assert restored.call_id == "error-item-42"
+        assert restored.details["error"] == "something failed"
+
+
+# ---------------------------------------------------------------------------
 # TraceEvent tests
 # ---------------------------------------------------------------------------
 

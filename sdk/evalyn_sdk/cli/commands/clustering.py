@@ -43,6 +43,7 @@ from ...calibration import CalibrationEngine
 from ...datasets import load_dataset
 from ...decorators import get_default_tracer
 from ...models import DatasetItem, EvalRun, MetricResult
+from ..utils.command_common import load_eval_run_for_command
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
@@ -50,38 +51,19 @@ from ..utils.hints import print_hint
 
 def _get_eval_run(args: argparse.Namespace) -> EvalRun:
     """Load eval run from storage or dataset directory's eval_runs/ folder."""
-    from ...analysis.core import find_eval_runs
-
     tracer = get_default_tracer()
+    dataset_arg = getattr(args, "dataset", None)
+    dataset_path = Path(dataset_arg) if dataset_arg else None
 
-    run = None
-    if args.run_id and tracer.storage:
-        run = tracer.storage.get_eval_run(args.run_id)
-
-    # Try dataset directory's eval_runs/ folder
-    if run is None:
-        dataset_arg = getattr(args, "dataset", None)
-        if dataset_arg:
-            dataset_path = Path(dataset_arg)
-            run_files = find_eval_runs(dataset_path)
-            metric_id = getattr(args, "metric_id", None)
-            for run_file in run_files:
-                with open(run_file, encoding="utf-8") as f:
-                    candidate = EvalRun.from_dict(json.load(f))
-                if not metric_id or any(
-                    r.metric_id == metric_id for r in candidate.metric_results
-                ):
-                    run = candidate
-                    break
-
-    # Fall back to latest run in storage
-    if run is None and tracer.storage:
-        runs = tracer.storage.list_eval_runs(limit=1)
-        run = runs[0] if runs else None
-
-    if run is None:
-        fatal_error("No eval runs available")
-    return run
+    loaded = load_eval_run_for_command(
+        run_id=getattr(args, "run_id", None),
+        dataset_path=dataset_path,
+        metric_id=getattr(args, "metric_id", None),
+        fallback_to_storage=True,
+        storage=tracer.storage,
+        error_message="No eval runs available",
+    )
+    return loaded.run
 
 
 def _get_eval_run_and_metrics(

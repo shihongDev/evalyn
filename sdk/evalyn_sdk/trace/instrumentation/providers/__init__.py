@@ -25,9 +25,9 @@ except ImportError:
     GoogleADKInstrumentor = None  # type: ignore
 
 try:
-    from .anthropic_agents import AnthropicAgentsInstrumentor
+    from .claude_agent_sdk import ClaudeAgentSDKInstrumentor
 except ImportError:
-    AnthropicAgentsInstrumentor = None  # type: ignore
+    ClaudeAgentSDKInstrumentor = None  # type: ignore
 
 
 __all__ = [
@@ -43,5 +43,5 @@ __all__ = [
     "LlamaIndexInstrumentor",
     "SemanticKernelInstrumentor",
     "GoogleADKInstrumentor",
-    "AnthropicAgentsInstrumentor",
+    "ClaudeAgentSDKInstrumentor",
 ]
