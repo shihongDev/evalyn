@@ -347,9 +347,9 @@ class MetricSpec:
             "name": self.name,
             "type": self.type,
             "description": self.description,
-            "config": dict(self.config),
+            "config": dict(self.config or {}),
             "why": self.why,
-            "unit_types": list(self.unit_types),
+            "unit_types": list(self.unit_types or ["outcome"]),
         }
 
     @classmethod
@@ -586,7 +586,7 @@ class JudgeConfig:
             "id": self.id,
             "model": self.model,
             "prompt": self.prompt,
-            "parameters": dict(self.parameters),
+            "parameters": dict(self.parameters or {}),
             "version": self.version,
         }
 

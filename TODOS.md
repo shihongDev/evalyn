@@ -4,16 +4,6 @@ Technical debt and improvements identified during architecture review (2026-03-2
 
 ---
 
-## Critical
-
-### Commit storage/migrations.py to git
-- **What:** `sdk/evalyn_sdk/storage/migrations.py` exists locally but is not tracked by git. The import was added in commit 8d6291a but the file was never committed.
-- **Why:** Anyone cloning the repo gets `ModuleNotFoundError: No module named 'evalyn_sdk.storage.migrations'` on any import. Alternatively, inline the migration logic back into sqlite.py if the separate file is unnecessary.
-- **Context:** The migrations handle schema evolution (adding columns like parent_call_id, spans, usage_summary, metric_labels to existing DBs). For a project with no external users, you could also drop migrations and ensure CREATE TABLE includes all columns upfront.
-- **Depends on:** Nothing.
-
----
-
 ## High Priority
 
 ### Restructure __init__.py to lazy imports
@@ -67,3 +57,13 @@ Technical debt and improvements identified during architecture review (2026-03-2
 - **Cons:** WAL creates additional -wal and -shm files alongside the DB. Some very old SQLite versions don't support it (but Python 3.10+ bundles SQLite 3.35+).
 - **Context:** The project root is on /mnt/c (WSL2), which has known slow I/O. WAL mode is the standard recommendation for SQLite write-heavy workloads.
 - **Depends on:** Nothing.
+
+---
+
+## Completed
+
+### Commit storage/migrations.py to git
+- **Completed:** fix/test-parallel-and-migrations (2026-03-24)
+
+### Consolidate run-loading into shared helper (partial: Extract shared CLI storage helpers)
+- **Completed:** fix/test-parallel-and-migrations (2026-03-24) - run-loading pattern consolidated in `load_eval_run_for_command`. Storage instantiation helpers remain TODO.
