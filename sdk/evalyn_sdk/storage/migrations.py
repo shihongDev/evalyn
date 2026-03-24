@@ -23,7 +23,10 @@ def _add_missing_columns(
     existing = _get_columns(cur, table)
     for col, col_type in columns:
         if col not in existing:
-            cur.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
+            try:
+                cur.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
+            except sqlite3.OperationalError:
+                pass  # concurrent process already added the column
     conn.commit()
 
 

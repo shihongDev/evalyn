@@ -32,7 +32,6 @@ from ..utils.command_common import load_eval_run_for_command
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
-from ...analysis.core import find_eval_runs
 
 
 def cmd_export_for_annotation(args: argparse.Namespace) -> None:

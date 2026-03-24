@@ -9,18 +9,21 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from .config import load_config, resolve_dataset_path
 from .errors import fatal_error
+
+if TYPE_CHECKING:
+    from ...models import EvalRun
+    from ...storage.base import StorageBackend
 
 
 @dataclass
 class LoadedRun:
     """Result of loading an eval run, with metadata about the source."""
-    run: Any  # EvalRun
-    run_file_path: Optional[Path] = None  # set when loaded from dataset dir
-    dataset_path: Optional[Path] = None
+    run: EvalRun
+    run_file_path: Optional[Path] = None
 
 
 def load_eval_run_for_command(
@@ -29,30 +32,36 @@ def load_eval_run_for_command(
     dataset_path: Optional[Path] = None,
     metric_id: Optional[str] = None,
     fallback_to_storage: bool = False,
+    storage: Optional[StorageBackend] = None,
     error_message: str = "No eval runs found",
     error_hint: str = "Run 'evalyn run-eval' first",
 ) -> LoadedRun:
     """Load an EvalRun from explicit ID, dataset directory, or storage fallback.
 
     Consolidates the run-loading pattern used across CLI commands:
-    1. If run_id given, load from SQLite storage
+    1. If run_id given, load from storage
     2. If dataset_path given, find latest run in eval_runs/ dir
     3. If fallback_to_storage, try latest run in storage
     4. fatal_error if nothing found
+
+    When *storage* is None, falls back to creating a default SQLiteStorage.
     """
     from ...models import EvalRun
     from ...storage import SQLiteStorage
     from ...analysis.core import find_eval_runs
 
+    def _get_storage():
+        return storage if storage is not None else SQLiteStorage()
+
     run = None
     run_file_path = None
 
     if run_id:
-        storage = SQLiteStorage()
-        run = storage.get_eval_run(run_id)
+        s = _get_storage()
+        run = s.get_eval_run(run_id)
         if not run:
             fatal_error(f"No eval run found with ID '{run_id}'")
-        return LoadedRun(run=run, dataset_path=dataset_path)
+        return LoadedRun(run=run)
 
     if dataset_path:
         run_files = find_eval_runs(dataset_path)
@@ -67,15 +76,15 @@ def load_eval_run_for_command(
                 break
 
     if run is None and fallback_to_storage:
-        storage = SQLiteStorage()
-        runs = storage.list_eval_runs(limit=1)
+        s = _get_storage()
+        runs = s.list_eval_runs(limit=1)
         if runs:
             run = runs[0]
 
     if run is None:
         fatal_error(error_message, error_hint)
 
-    return LoadedRun(run=run, run_file_path=run_file_path, dataset_path=dataset_path)
+    return LoadedRun(run=run, run_file_path=run_file_path)
 
 
 def resolve_dataset_dir_and_file(

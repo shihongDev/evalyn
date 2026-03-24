@@ -51,6 +51,7 @@ from ..utils.hints import print_hint
 
 def _get_eval_run(args: argparse.Namespace) -> EvalRun:
     """Load eval run from storage or dataset directory's eval_runs/ folder."""
+    tracer = get_default_tracer()
     dataset_arg = getattr(args, "dataset", None)
     dataset_path = Path(dataset_arg) if dataset_arg else None
 
@@ -59,6 +60,7 @@ def _get_eval_run(args: argparse.Namespace) -> EvalRun:
         dataset_path=dataset_path,
         metric_id=getattr(args, "metric_id", None),
         fallback_to_storage=True,
+        storage=tracer.storage,
         error_message="No eval runs available",
     )
     return loaded.run

@@ -401,7 +401,6 @@ class TestLoadEvalRunForCommand:
         assert loaded.run.id == "run-from-dir"
         assert loaded.run_file_path is not None
         assert loaded.run_file_path.exists()
-        assert loaded.dataset_path == tmp_path
 
     def test_fatal_on_missing_run_id(self):
         """Verify SystemExit when run_id points to nonexistent run."""
@@ -450,6 +449,16 @@ class TestLoadEvalRunForCommand:
         )
 
         assert loaded.run.id == "run-b"
+
+    def test_metric_id_no_match(self, tmp_path):
+        """Verify SystemExit when metric_id matches no available run."""
+        run = _make_eval_run(run_id="run-safety-only", metric_id="safety")
+        _write_run_to_dataset(tmp_path, run)
+
+        with pytest.raises(SystemExit):
+            load_eval_run_for_command(
+                dataset_path=tmp_path, metric_id="nonexistent"
+            )
 
     def test_loaded_run_has_file_path(self, tmp_path):
         """When loaded from dataset, verify run_file_path is set."""

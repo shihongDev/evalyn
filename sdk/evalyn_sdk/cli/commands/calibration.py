@@ -163,6 +163,7 @@ def _load_calibration_run(args: argparse.Namespace):
         dataset_path=dataset_path,
         metric_id=getattr(args, "metric_id", None),
         fallback_to_storage=True,
+        storage=tracer.storage,
         error_message="No eval runs available",
     )
     return tracer, loaded.run

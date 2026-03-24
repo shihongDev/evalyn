@@ -59,7 +59,7 @@ def make_run_analysis(
     items: dict[str, dict[str, dict]],
     run_id: str = "test-run",
     dataset_name: str = "test-dataset",
-    metric_ids: list[str] | None = None,
+    metric_type: str = "objective",
 ) -> RunAnalysis:
     """Build a RunAnalysis from {item_id: {metric_id: {passed, score, reason?}}} dict.
 
@@ -67,8 +67,7 @@ def make_run_analysis(
         items: Mapping of item IDs to metric results.
         run_id: Run identifier (default "test-run").
         dataset_name: Dataset name (default "test-dataset").
-        metric_ids: Unused - kept for API compatibility. Metrics are
-            inferred from the *items* dict.
+        metric_type: Type for all metrics (default "objective").
 
     Returns:
         A fully populated RunAnalysis instance.
@@ -92,7 +91,7 @@ def make_run_analysis(
 
             if metric_id not in metric_stats_map:
                 metric_stats_map[metric_id] = MetricStats(
-                    metric_id=metric_id, metric_type="objective"
+                    metric_id=metric_id, metric_type=metric_type
                 )
             ms = metric_stats_map[metric_id]
             ms.count += 1
