@@ -24,7 +24,9 @@ PROJECT_ROOT = Path(__file__).parent.parent
 SDK_ROOT = PROJECT_ROOT / "sdk"
 EVALYN_SDK_PATH = SDK_ROOT / "evalyn_sdk"
 TEST_DATA_DIR = PROJECT_ROOT / "data" / "test-output"
-TEST_DB_PATH = PROJECT_ROOT / "data" / "test" / "traces.sqlite"
+# Per-worker DB path for pytest-xdist parallel safety
+_worker_id = os.environ.get("PYTEST_XDIST_WORKER", "gw0")
+TEST_DB_PATH = PROJECT_ROOT / "data" / "test" / f"traces_{_worker_id}.sqlite"
 
 # Add SDK to sys.path so all test files can import evalyn_sdk directly
 sys.path.insert(0, str(SDK_ROOT))
@@ -44,6 +46,79 @@ TEST_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 # Set test database for all tests
 os.environ["EVALYN_DB"] = str(TEST_DB_PATH)
+
+
+# ---------------------------------------------------------------------------
+# Shared RunAnalysis builder
+# ---------------------------------------------------------------------------
+
+from evalyn_sdk.analysis.core import RunAnalysis, MetricStats, ItemStats
+
+
+def make_run_analysis(
+    items: dict[str, dict[str, dict]],
+    run_id: str = "test-run",
+    dataset_name: str = "test-dataset",
+    metric_ids: list[str] | None = None,
+) -> RunAnalysis:
+    """Build a RunAnalysis from {item_id: {metric_id: {passed, score, reason?}}} dict.
+
+    Args:
+        items: Mapping of item IDs to metric results.
+        run_id: Run identifier (default "test-run").
+        dataset_name: Dataset name (default "test-dataset").
+        metric_ids: Unused - kept for API compatibility. Metrics are
+            inferred from the *items* dict.
+
+    Returns:
+        A fully populated RunAnalysis instance.
+    """
+    item_stats = {}
+    metric_stats_map: dict[str, MetricStats] = {}
+
+    for item_id, metrics in items.items():
+        ist = ItemStats(item_id=item_id)
+        for metric_id, result in metrics.items():
+            ist.metric_results[metric_id] = {
+                "passed": result.get("passed", True),
+                "score": result.get("score", 1.0),
+                "reason": result.get("reason"),
+                "details": {},
+            }
+            if result.get("passed", True):
+                ist.metrics_passed += 1
+            else:
+                ist.metrics_failed += 1
+
+            if metric_id not in metric_stats_map:
+                metric_stats_map[metric_id] = MetricStats(
+                    metric_id=metric_id, metric_type="objective"
+                )
+            ms = metric_stats_map[metric_id]
+            ms.count += 1
+            score = result.get("score", 1.0)
+            if score is not None:
+                ms.scores.append(score)
+            if result.get("passed", True):
+                ms.passed += 1
+            else:
+                ms.failed += 1
+            ms.has_pass_fail = True
+
+        item_stats[item_id] = ist
+
+    failed_items = [iid for iid, ist in item_stats.items() if not ist.all_passed]
+
+    return RunAnalysis(
+        run_id=run_id,
+        dataset_name=dataset_name,
+        created_at="2026-01-01",
+        total_items=len(item_stats),
+        total_metrics=len(metric_stats_map),
+        metric_stats=metric_stats_map,
+        item_stats=item_stats,
+        failed_items=failed_items,
+    )
 
 
 # ---------------------------------------------------------------------------
