@@ -341,6 +341,29 @@ class MetricSpec:
     # Unit types this metric can evaluate (default: ["outcome"] for backward compat)
     unit_types: List[str] = field(default_factory=lambda: ["outcome"])
 
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "type": self.type,
+            "description": self.description,
+            "config": self.config,
+            "why": self.why,
+            "unit_types": self.unit_types,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "MetricSpec":
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            type=data.get("type", "objective"),
+            description=data.get("description", ""),
+            config=data.get("config", {}),
+            why=data.get("why", ""),
+            unit_types=data.get("unit_types", ["outcome"]),
+        )
+
 
 @dataclass
 class MetricResult:
@@ -558,6 +581,25 @@ class JudgeConfig:
     parameters: Dict[str, Any] = field(default_factory=dict)
     version: str = "v0"
 
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "model": self.model,
+            "prompt": self.prompt,
+            "parameters": self.parameters,
+            "version": self.version,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "JudgeConfig":
+        return cls(
+            id=data["id"],
+            model=data["model"],
+            prompt=data.get("prompt", ""),
+            parameters=data.get("parameters", {}),
+            version=data.get("version", "v0"),
+        )
+
 
 @dataclass
 class EvalRun:
@@ -577,8 +619,8 @@ class EvalRun:
             "dataset_name": self.dataset_name,
             "created_at": _iso(self.created_at),
             "metric_results": [r.as_dict() for r in self.metric_results],
-            "metrics": [asdict(m) for m in self.metrics],
-            "judge_configs": [asdict(j) for j in self.judge_configs],
+            "metrics": [m.as_dict() for m in self.metrics],
+            "judge_configs": [j.as_dict() for j in self.judge_configs],
             "summary": self.summary,
             "usage_summary": self.usage_summary,
         }
@@ -592,8 +634,8 @@ class EvalRun:
             metric_results=[
                 MetricResult.from_dict(r) for r in data.get("metric_results", [])
             ],
-            metrics=[MetricSpec(**m) for m in data.get("metrics", [])],
-            judge_configs=[JudgeConfig(**j) for j in data.get("judge_configs", [])],
+            metrics=[MetricSpec.from_dict(m) for m in data.get("metrics", [])],
+            judge_configs=[JudgeConfig.from_dict(j) for j in data.get("judge_configs", [])],
             summary=data.get("summary", {}),
             usage_summary=data.get("usage_summary", {}),
         )

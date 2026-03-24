@@ -14,16 +14,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import platform
 import subprocess
-import sys
 from pathlib import Path
 
+from ..utils.command_common import load_eval_run_for_command
 from ..utils.config import load_config, resolve_dataset_path
-from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
-from ...analysis.core import find_eval_runs
 from .insights import _load_dataset_items, _load_previous_run
 
 
@@ -46,7 +43,6 @@ def _open_in_browser(file_path: Path) -> bool:
 
 def cmd_dashboard(args: argparse.Namespace) -> None:
     """Generate and open an HTML insights dashboard."""
-    from ...models import EvalRun
     from ...analysis.core import analyze_run
     from ...analysis.insights import (
         compute_metric_correlations,
@@ -65,48 +61,24 @@ def cmd_dashboard(args: argparse.Namespace) -> None:
         config,
     )
 
-    # Load the run
-    run = None
-    run_file_path = None
-    run_id = getattr(args, "run", None)
+    loaded = load_eval_run_for_command(
+        run_id=getattr(args, "run", None),
+        dataset_path=dataset_path,
+    )
 
-    if run_id:
-        from ...storage import SQLiteStorage
+    print(f"Analyzing run: {loaded.run.id[:12]}...")
 
-        storage = SQLiteStorage()
-        run = storage.get_eval_run(run_id)
-        if not run:
-            fatal_error(f"No eval run found with ID '{run_id}'")
-    elif dataset_path:
-        run_files = find_eval_runs(dataset_path)
-        if run_files:
-            run_file_path = run_files[0]
-            with open(run_file_path, encoding="utf-8") as f:
-                run = EvalRun.from_dict(json.load(f))
-
-    if not run:
-        print("No evaluation results found. Run `evalyn run-eval` first.")
-        sys.exit(1)
-
-    print(f"Analyzing run: {run.id[:12]}...")
-
-    # Build RunAnalysis
-    run_data = run.as_dict()
+    run_data = loaded.run.as_dict()
     analysis = analyze_run(run_data)
-
-    # Correlations
     correlations = compute_metric_correlations(analysis)
 
-    # Regressions (need previous run)
     regressions = []
-    if dataset_path and run_file_path:
-        previous_run_obj = _load_previous_run(dataset_path, run_file_path)
+    if dataset_path and loaded.run_file_path:
+        previous_run_obj = _load_previous_run(dataset_path, loaded.run_file_path)
         if previous_run_obj:
-            prev_data = previous_run_obj.as_dict()
-            prev_analysis = analyze_run(prev_data)
+            prev_analysis = analyze_run(previous_run_obj.as_dict())
             regressions = detect_regressions(analysis, prev_analysis)
 
-    # Input feature analysis
     dataset_items = []
     feature_insights = []
     if dataset_path:
@@ -114,10 +86,8 @@ def cmd_dashboard(args: argparse.Namespace) -> None:
         if dataset_items:
             feature_insights = analyze_input_features(dataset_items, analysis)
 
-    # Score distributions
     distribution_insights = analyze_score_distributions(analysis)
 
-    # Build report
     report = InsightsReport(
         correlations=correlations,
         regressions=regressions,
@@ -125,14 +95,12 @@ def cmd_dashboard(args: argparse.Namespace) -> None:
         distribution_insights=distribution_insights,
     )
 
-    # Recommendations
     report.recommendations = generate_recommendations(
         analysis,
         report,
         dataset_path=str(dataset_path) if dataset_path else None,
     )
 
-    # Generate HTML dashboard
     html_content = generate_insights_html(
         run_analysis=analysis,
         insights_report=report,
@@ -140,7 +108,6 @@ def cmd_dashboard(args: argparse.Namespace) -> None:
         dataset_items=dataset_items or None,
     )
 
-    # Determine output path
     output_path = Path(getattr(args, "output", None) or ".evalyn/dashboard.html")
     output_path = output_path.resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -148,7 +115,6 @@ def cmd_dashboard(args: argparse.Namespace) -> None:
 
     print(f"Dashboard saved to: {output_path}")
 
-    # Try to open in browser
     if _open_in_browser(output_path):
         print("Opened dashboard in default browser.")
     else:

@@ -179,6 +179,7 @@ class ParallelStrategy(ExecutionStrategy):
                         logger.warning(f"Evaluation task failed: {e}")
                         result = MetricResult(
                             metric_id=metric_id,
+                            item_id=item_id_hint,
                             call_id=f"error-{item_id_hint}",
                             score=None,
                             passed=False,

@@ -26,6 +26,7 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
+from ..utils.command_common import load_eval_run_for_command
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.dataset_resolver import get_dataset
 from ..utils.errors import fatal_error
@@ -182,28 +183,14 @@ def cmd_insights(args: argparse.Namespace) -> None:
         config,
     )
 
-    # Load the run
-    run = None
-    run_file_path = None
-    run_id = getattr(args, "run", None)
-
-    if run_id:
-        from ...storage import SQLiteStorage
-        storage = SQLiteStorage()
-        run = storage.get_eval_run(run_id)
-        if not run:
-            fatal_error(f"No eval run found with ID '{run_id}'")
-    elif dataset_path:
-        run_files = find_eval_runs(dataset_path)
-        if run_files:
-            run_file_path = run_files[0]
-            with open(run_file_path, encoding="utf-8") as f:
-                run = EvalRun.from_dict(json.load(f))
-            if output_format not in ("json", "html"):
-                print(f"Analyzing latest run: {run_file_path.parent.name}")
-
-    if not run:
-        fatal_error("No eval runs found", "Run 'evalyn run-eval' first")
+    loaded = load_eval_run_for_command(
+        run_id=getattr(args, "run", None),
+        dataset_path=dataset_path,
+    )
+    run = loaded.run
+    run_file_path = loaded.run_file_path
+    if run_file_path and output_format not in ("json", "html"):
+        print(f"Analyzing latest run: {run_file_path.parent.name}")
 
     # Build RunAnalysis
     run_data = run.as_dict()
