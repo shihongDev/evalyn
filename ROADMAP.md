@@ -827,6 +827,56 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Fuzz _parse_passed with edge case values
   - [ ] Ensure no unhandled exceptions on any input
 
+### Rubric Engineering
+
+- [ ] **Multi-Language Rubrics** - Judge prompts and rubrics in languages other than English
+  - [ ] Rubric translation support in JUDGE_TEMPLATES (locale field per template)
+  - [ ] Language-matched judging: use rubric language matching the output language
+  - [ ] Cross-language evaluation: judge non-English outputs with English rubrics vs native rubrics
+- [ ] **Community Rubric Library** - Import and export rubrics from a shared repository
+  - [ ] evalyn rubric-export --metric <id> producing a portable YAML rubric file
+  - [ ] evalyn rubric-import from URL or local file
+  - [ ] Rubric metadata: author, version, tested-on, accuracy stats
+- [ ] **Rubric Testing** - Validate that a rubric produces consistent scores on test cases
+  - [ ] evalyn test-rubric --metric <id> running rubric against a set of known pass/fail items
+  - [ ] Consistency score: same rubric, same item, N runs, measure agreement
+  - [ ] Edge case detection: find items where rubric is ambiguous (close to threshold)
+- [ ] **Domain-Specific Rubric Packs** - Downloadable rubric sets for specialized domains
+  - [ ] Medical: HIPAA compliance, clinical accuracy, patient safety, drug interaction checks
+  - [ ] Legal: jurisdictional accuracy, precedent citation, privilege preservation
+  - [ ] Finance: SEC compliance, fiduciary duty, risk disclosure completeness
+  - [ ] evalyn install-rubric-pack medical
+
+### Dashboard Interactivity
+
+- [ ] **Embeddable Widget Mode** - Iframe-friendly dashboard for embedding in other tools
+  - [ ] evalyn dashboard --embed producing minimal HTML without navigation chrome
+  - [ ] Configurable widget size and chart selection
+  - [ ] PostMessage API for parent page communication (filter events, score updates)
+- [ ] **In-Dashboard Data Export** - CSV/JSON export buttons on each chart in HTML reports
+  - [ ] Download button per chart exporting underlying data as CSV
+  - [ ] Full dataset export button in failed items section
+  - [ ] Copy-to-clipboard for individual metric summaries
+- [ ] **Comparison Overlay Dashboard** - Overlay two runs on same charts for visual comparison
+  - [ ] evalyn dashboard --compare <run1> <run2>
+  - [ ] Dual bar charts, overlaid radar plots, side-by-side heatmaps
+  - [ ] Toggle visibility of each run for clean comparison
+
+### Audit & Governance
+
+- [ ] **Evaluation Audit Trail** - Immutable log of who ran what and when
+  - [ ] Record: user, timestamp, command, args, config hash, result summary
+  - [ ] Append-only audit log in .evalyn/audit.jsonl
+  - [ ] evalyn audit-log showing evaluation history with filters
+- [ ] **Data Governance Metadata** - Track data provenance and compliance attributes
+  - [ ] Dataset-level tags: PII-present, internal-only, customer-data, synthetic
+  - [ ] Eval run compliance flag: was evaluation run on approved infrastructure?
+  - [ ] Exportable governance report for compliance audits
+- [ ] **Structured Logging** - JSON-formatted logs with configurable verbosity
+  - [ ] --log-level flag (debug, info, warning, error) on all commands
+  - [ ] JSON log format for machine parsing in production environments
+  - [ ] Log file output: --log-file evalyn.log
+
 ---
 
 ## Completed Features
