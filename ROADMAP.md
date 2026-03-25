@@ -1281,6 +1281,21 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Exit codes: 0=pass, 1=fail, 2=error for CI gate integration
   - [ ] jq-friendly output structure
 
+### Run Management
+
+- [ ] **Run Naming** - Give eval runs human-readable names instead of only UUIDs
+  - [ ] --name flag on run-eval: evalyn run-eval --name "prompt-v3-experiment"
+  - [ ] Name stored in EvalRun metadata, displayed in list-runs
+  - [ ] Resolve runs by name: evalyn show-run --name "prompt-v3-experiment"
+- [ ] **Run Pinning** - Mark a run as baseline for automatic comparison
+  - [ ] evalyn pin-run --id <id> marking a run as the project baseline
+  - [ ] Subsequent analyze and compare commands auto-compare against pinned run
+  - [ ] evalyn list-runs showing pinned run with a marker
+- [ ] **Run Cleanup** - Bulk delete runs matching criteria
+  - [ ] evalyn cleanup-runs --older-than 30d --keep-pinned
+  - [ ] evalyn cleanup-runs --below-pass-rate 0.3 for removing low-quality runs
+  - [ ] --dry-run mode showing what would be deleted with total storage savings
+
 ### Metrics Enhancements
 
 - [ ] **Custom Metric DSL** - Define metrics via YAML config without writing Python code
@@ -1332,6 +1347,21 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Namespace prefix: "team-safety/toxicity" vs "team-quality/toxicity"
   - [ ] Namespace-scoped metric search in list-metrics
   - [ ] Cross-namespace metric comparison
+
+### Metric Bundle Customization
+
+- [ ] **User-Defined Bundles** - Define custom metric bundles in evalyn.yaml
+  - [ ] bundles: section in evalyn.yaml with named metric lists
+  - [ ] evalyn suggest-metrics --mode bundle --bundle my-custom-bundle
+  - [ ] Inherit from built-in bundles and override (e.g. extend "chatbot" with custom metrics)
+- [ ] **Bundle Composition** - Combine multiple bundles into one with deduplication
+  - [ ] evalyn suggest-metrics --bundle chatbot+safety merging two bundles
+  - [ ] Automatic deduplication when combining overlapping bundles
+  - [ ] Conflict resolution when same metric appears with different configs
+- [ ] **Bundle Recommendation** - Auto-suggest bundle based on captured trace patterns
+  - [ ] Analyze trace spans to detect agent type (RAG, orchestrator, chatbot, etc.)
+  - [ ] Match detected patterns to best-fit built-in bundle
+  - [ ] evalyn suggest-metrics --mode auto-bundle choosing bundle without user input
 
 ### LLM Provider Support
 
