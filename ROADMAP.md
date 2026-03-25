@@ -957,6 +957,49 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] JSON log format for machine parsing in production environments
   - [ ] Log file output: --log-file evalyn.log
 
+### Security
+
+- [ ] **API Key Rotation Support** - Gracefully handle key rotation without interrupting evaluation runs
+  - [ ] Accept multiple API keys per provider in evalyn.yaml (primary + fallback)
+  - [ ] Automatic fallback to secondary key when primary returns 401/403
+  - [ ] evalyn rotate-key --provider gemini to update key and verify connectivity
+- [ ] **Secrets Backend Integration** - Load API keys from external secret managers instead of plaintext config
+  - [ ] Support AWS Secrets Manager, GCP Secret Manager, HashiCorp Vault
+  - [ ] evalyn.yaml secrets_backend: "aws" with ARN references
+  - [ ] Environment variable passthrough as default (no config change needed)
+- [ ] **Trace Content Redaction Policies** - Configurable rules for what gets stored in trace payloads
+  - [ ] Policy definitions in evalyn.yaml: never store full messages, only store first/last N chars
+  - [ ] Per-project redaction rules (strict for production, relaxed for test)
+  - [ ] Redaction audit: report showing how much content was redacted per trace
+
+### Offline & Air-Gapped Mode
+
+- [ ] **Fully Offline Evaluation** - Run complete evaluation pipeline without internet access
+  - [ ] Objective-only mode: all 73 objective metrics work offline with no API calls
+  - [ ] Ollama provider for subjective metrics using local models
+  - [ ] Pre-download and cache model artifacts for sentence-transformers embeddings
+  - [ ] evalyn run-eval --offline flag that errors if any metric would require internet
+- [ ] **Local Model Performance Baselines** - Benchmark local models against API models for judge quality
+  - [ ] evalyn benchmark-judges --local ollama:llama3 --api gemini comparing alignment
+  - [ ] Per-metric local vs API agreement scores
+  - [ ] Recommend which metrics are safe to evaluate locally
+
+### Scale & Performance
+
+- [ ] **Large Dataset Optimization** - Handle 10k+ item datasets without memory issues
+  - [ ] Streaming evaluation: process items without loading full dataset into memory
+  - [ ] Chunked metric result storage: write results in batches to avoid OOM
+  - [ ] Progress checkpointing every N items (currently only on interrupt)
+  - [ ] Memory usage monitoring and warning when approaching system limits
+- [ ] **SQLite Full-Text Search** - FTS5 index for searching trace content and outputs
+  - [ ] FTS index on function_call inputs and outputs
+  - [ ] evalyn search "user asked about refund policy" finding matching traces
+  - [ ] Search integration with build-dataset for content-based dataset curation
+- [ ] **Aggregation Queries** - Efficient database queries for cost and usage analytics
+  - [ ] Cost by project, by date range, by model
+  - [ ] Trace count and token usage per provider
+  - [ ] evalyn stats --project <name> --since 2026-03-01 for project-level analytics
+
 ---
 
 ## Completed Features
