@@ -28,8 +28,9 @@ Evalyn focuses on making GenAI App evaluation practical and easy. It provides li
 │  1. COLLECT                                                      │
 │                                                                  │
 │     @eval  ->  TRACE (SQLite)  ->  DATASET (JSONL)               │
-│               show-trace -v        build-dataset                 │
-│               show-span                                          │
+│               list-calls / show-call   build-dataset             │
+│               show-trace -v            validate / status         │
+│               show-span / show-projects                          │
 └──────────────────────────────────────────────────────────────────┘
                               |
                               v
@@ -37,8 +38,9 @@ Evalyn focuses on making GenAI App evaluation practical and easy. It provides li
 │  2. EVALUATE                                                     │
 │                                                                  │
 │     suggest-metrics  ->  run-eval  ->  ANALYZE                   │
-│                                        analyze / compare / trend │
-│                                        insights / dashboard      │
+│     select-metrics       show-run      analyze / compare / trend │
+│     list-metrics         list-runs     insights / dashboard      │
+│                                        export                    │
 └──────────────────────────────────────────────────────────────────┘
                               |
                               v
@@ -46,9 +48,10 @@ Evalyn focuses on making GenAI App evaluation practical and easy. It provides li
 │  3. CALIBRATE                                                    │
 │                                                                  │
 │     annotate  ->  calibrate  ->  run-eval --use-calibrated       │
-│      (Human)      (Auto-iterates until aligned)                  │
+│      (Human)      list-calibrations                              │
 │                                                                  │
-│     cluster-failures / cluster-misalignments for insights        │
+│     annotation-stats / import-annotations                        │
+│     cluster-failures / cluster-misalignments                     │
 └──────────────────────────────────────────────────────────────────┘
                               |
                               v
