@@ -13,9 +13,9 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any, Optional
 
-logger = logging.getLogger(__name__)
-
 from ..defaults import DEFAULT_EVAL_MODEL
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass

@@ -127,16 +127,16 @@ _LAZY_SUBMODULES: dict[str, str] = {
 
 
 def __getattr__(name: str):
+    import importlib
+
     if name in _LAZY_IMPORTS:
         module_path, attr_name = _LAZY_IMPORTS[name]
-        import importlib
         mod = importlib.import_module(module_path, __name__)
         val = getattr(mod, attr_name)
         globals()[name] = val  # Cache so __getattr__ is not called again
         return val
 
     if name in _LAZY_SUBMODULES:
-        import importlib
         mod = importlib.import_module(_LAZY_SUBMODULES[name], __name__)
         globals()[name] = mod
         return mod

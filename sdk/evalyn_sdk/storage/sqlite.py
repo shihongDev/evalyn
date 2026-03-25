@@ -191,38 +191,19 @@ class SQLiteStorage:
             """
         )
         # Performance indexes for common query patterns
-        cur.execute(
-            "CREATE INDEX IF NOT EXISTS idx_fc_started_at "
-            "ON function_calls(started_at)"
-        )
-        cur.execute(
-            "CREATE INDEX IF NOT EXISTS idx_er_created_at "
-            "ON eval_runs(created_at)"
-        )
-        cur.execute(
-            "CREATE INDEX IF NOT EXISTS idx_er_dataset "
-            "ON eval_runs(dataset_name)"
-        )
-        cur.execute(
-            "CREATE INDEX IF NOT EXISTS idx_ann_target "
-            "ON annotations(target_id)"
-        )
-        cur.execute(
-            "CREATE INDEX IF NOT EXISTS idx_ann_created_at "
-            "ON annotations(created_at)"
-        )
-        cur.execute(
-            "CREATE INDEX IF NOT EXISTS idx_mr_run "
-            "ON metric_results_rows(run_id)"
-        )
-        cur.execute(
-            "CREATE INDEX IF NOT EXISTS idx_mr_run_item "
-            "ON metric_results_rows(run_id, item_id)"
-        )
-        cur.execute(
-            "CREATE INDEX IF NOT EXISTS idx_mr_config "
-            "ON metric_results_rows(run_id, metric_id, config_hash)"
-        )
+        for idx_name, idx_def in [
+            ("idx_fc_started_at", "function_calls(started_at)"),
+            ("idx_er_created_at", "eval_runs(created_at)"),
+            ("idx_er_dataset", "eval_runs(dataset_name)"),
+            ("idx_ann_target", "annotations(target_id)"),
+            ("idx_ann_created_at", "annotations(created_at)"),
+            ("idx_mr_run", "metric_results_rows(run_id)"),
+            ("idx_mr_run_item", "metric_results_rows(run_id, item_id)"),
+            ("idx_mr_config", "metric_results_rows(run_id, metric_id, config_hash)"),
+        ]:
+            cur.execute(
+                f"CREATE INDEX IF NOT EXISTS {idx_name} ON {idx_def}"
+            )
         self.conn.commit()
         run_migrations(self.conn)
 
@@ -287,11 +268,7 @@ class SQLiteStorage:
                 """,
                 (limit,),
             )
-        rows = cur.fetchall()
-        calls: List[FunctionCall] = []
-        for row in rows:
-            calls.append(self._row_to_call(row))
-        return calls
+        return [self._row_to_call(row) for row in cur.fetchall()]
 
     def delete_calls(self, call_ids: List[str]) -> int:
         """Delete calls by IDs. Returns number deleted.
@@ -343,8 +320,6 @@ class SQLiteStorage:
         self, run_id: str, results: List, batch_size: int = 1000
     ) -> None:
         """Insert metric results in batches for efficient writes."""
-        from ..models import MetricResult
-
         cur = self.conn.cursor()
         for i in range(0, len(results), batch_size):
             batch = results[i : i + batch_size]
@@ -367,11 +342,11 @@ class SQLiteStorage:
                         1 if r.passed else (0 if r.passed is not None else None),
                         _dumps(r.details) if r.details else None,
                         getattr(r, "config_hash", None),
-                        getattr(r, "unit_id", None),
-                        getattr(r, "unit_type", None),
-                        getattr(r, "input_tokens", None),
-                        getattr(r, "output_tokens", None),
-                        getattr(r, "model", None),
+                        r.unit_id,
+                        r.unit_type,
+                        r.input_tokens,
+                        r.output_tokens,
+                        r.model,
                     )
                     for r in batch
                 ],
@@ -386,28 +361,26 @@ class SQLiteStorage:
         cur.execute(
             "SELECT * FROM metric_results_rows WHERE run_id = ?", (run_id,)
         )
-        rows = cur.fetchall()
-        results = []
-        for row in rows:
-            details = json.loads(row["details"]) if row["details"] else {}
-            passed_val = row["passed"]
-            passed = bool(passed_val) if passed_val is not None else None
-            results.append(
-                MetricResult(
-                    metric_id=row["metric_id"],
-                    item_id=row["item_id"],
-                    call_id=row["call_id"] or "",
-                    score=row["score"],
-                    passed=passed,
-                    details=details,
-                    unit_id=row["unit_id"],
-                    unit_type=row["unit_type"],
-                    input_tokens=row["input_tokens"],
-                    output_tokens=row["output_tokens"],
-                    model=row["model"],
-                )
-            )
-        return results
+        return [self._row_to_metric_result(row) for row in cur.fetchall()]
+
+    @staticmethod
+    def _row_to_metric_result(row: sqlite3.Row):
+        from ..models import MetricResult
+
+        passed_val = row["passed"]
+        return MetricResult(
+            metric_id=row["metric_id"],
+            item_id=row["item_id"],
+            call_id=row["call_id"] or "",
+            score=row["score"],
+            passed=bool(passed_val) if passed_val is not None else None,
+            details=json.loads(row["details"]) if row["details"] else {},
+            unit_id=row["unit_id"],
+            unit_type=row["unit_type"],
+            input_tokens=row["input_tokens"],
+            output_tokens=row["output_tokens"],
+            model=row["model"],
+        )
 
     def list_eval_runs(self, limit: int = 20) -> List[EvalRun]:
         cur = self.conn.cursor()
@@ -539,27 +512,24 @@ class SQLiteStorage:
                 """,
                 (limit,),
             )
-        rows = cur.fetchall()
-        anns: List[Annotation] = []
-        for row in rows:
-            anns.append(
-                Annotation.from_dict(
-                    {
-                        "id": row["id"],
-                        "target_id": row["target_id"],
-                        "label": json.loads(row["label"]) if row["label"] else None,
-                        "rationale": row["rationale"],
-                        "annotator": row["annotator"],
-                        "source": row["source"],
-                        "confidence": row["confidence"],
-                        "created_at": row["created_at"],
-                        "metric_labels": json.loads(row["metric_labels"])
-                        if row["metric_labels"]
-                        else {},
-                    }
-                )
+        return [
+            Annotation.from_dict(
+                {
+                    "id": row["id"],
+                    "target_id": row["target_id"],
+                    "label": json.loads(row["label"]) if row["label"] else None,
+                    "rationale": row["rationale"],
+                    "annotator": row["annotator"],
+                    "source": row["source"],
+                    "confidence": row["confidence"],
+                    "created_at": row["created_at"],
+                    "metric_labels": json.loads(row["metric_labels"])
+                    if row["metric_labels"]
+                    else {},
+                }
             )
-        return anns
+            for row in cur.fetchall()
+        ]
 
     def store_span_metric_links(self, links: Iterable[SpanMetricLink]) -> None:
         cur = self.conn.cursor()
@@ -631,26 +601,23 @@ class SQLiteStorage:
             """,
             (trace_id,),
         )
-        rows = cur.fetchall()
-        spans = []
-        for r in rows:
-            spans.append(
-                {
-                    "trace_id": r["trace_id"],
-                    "span_id": r["span_id"],
-                    "parent_span_id": r["parent_span_id"],
-                    "call_id": r["call_id"],
-                    "name": r["name"],
-                    "start_time": r["start_time"],
-                    "end_time": r["end_time"],
-                    "status": r["status"],
-                    "attributes": json.loads(r["attributes"])
-                    if r["attributes"]
-                    else {},
-                    "events": json.loads(r["events"]) if r["events"] else [],
-                }
-            )
-        return spans
+        return [
+            {
+                "trace_id": r["trace_id"],
+                "span_id": r["span_id"],
+                "parent_span_id": r["parent_span_id"],
+                "call_id": r["call_id"],
+                "name": r["name"],
+                "start_time": r["start_time"],
+                "end_time": r["end_time"],
+                "status": r["status"],
+                "attributes": json.loads(r["attributes"])
+                if r["attributes"]
+                else {},
+                "events": json.loads(r["events"]) if r["events"] else [],
+            }
+            for r in cur.fetchall()
+        ]
 
     def close(self) -> None:
         self.conn.close()
