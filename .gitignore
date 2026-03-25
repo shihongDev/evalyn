@@ -77,3 +77,6 @@ docs/dev/
 # ralph
 .ralph/
 
+# MCP config (contains tokens)
+.mcp.json
+

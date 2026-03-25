@@ -35,6 +35,12 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Semantic Kernel
 - [ ] **Memory/RAG Tracing** - Capture retrieval context and memory operations
 - [ ] **Async/Parallel Call Tracking** - Better support for concurrent LLM calls
+- [ ] **Trace Export to OTel Backends** - Export traces to Jaeger, Zipkin, or any OpenTelemetry collector
+- [ ] **Trace Replay** - Re-run a captured trace against a different model to compare outputs
+- [ ] **Cost Budget Alerts** - Warn or stop when cumulative LLM cost exceeds a configurable threshold
+- [ ] **Trace Diff** - Side-by-side comparison of two traces showing divergent spans
+- [ ] **Trace Search Query Language** - Filter traces by span attributes, duration, cost, or error status
+- [ ] **PII Redaction** - Scrub sensitive data from inputs/outputs before storage
 
 ### Evaluation Enhancements
 
@@ -57,6 +63,12 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **Reference-Free Evaluation** - Metrics that don't need ground truth
   - [x] Self-consistency checking (via --confidence consistency)
   - [x] Uncertainty quantification (via confidence module)
+- [ ] **Evaluation Budget Control** - Stop early if token or cost budget is exceeded mid-run
+- [ ] **Differential Evaluation** - Only re-evaluate items that changed between dataset versions
+- [ ] **Evaluation Caching** - Skip re-computing unchanged metric/item pairs across runs
+- [ ] **Evaluation Dry-Run** - Estimate token cost and wall-clock time before executing
+- [ ] **Cross-Validation Evaluation** - K-fold scoring for statistically robust metric estimates
+- [ ] **Evaluation Replay** - Re-run a past evaluation with different judge prompts or providers
 
 ### Calibration & Optimization
 
@@ -69,6 +81,11 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **Few-Shot Example Selection** - Optimize which examples to include in prompts
 - [ ] **Judge Ensemble** - Combine multiple judges for robust evaluation
 - [ ] **Active Learning** - Smart sample selection for annotation
+- [ ] **Transfer Calibration** - Apply calibration learned on one metric to similar metrics
+- [ ] **Calibration Staleness Detection** - Warn when calibration age or dataset drift exceeds threshold
+- [ ] **Cross-Provider Calibration** - Calibrate for consistency when switching judge providers
+- [ ] **Calibration A/B Testing** - Compare calibrated vs uncalibrated prompts on the same dataset
+- [ ] **Calibration Rollback** - Revert to a previous calibration if the new one degrades alignment
 
 ### Multi-Modal Evaluation
 
@@ -114,6 +131,11 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **API Server Mode** - REST API for programmatic access
 - [ ] **Team Collaboration** - Multi-user annotation with conflict resolution
 - [ ] **Cloud Storage Backend** - Optional S3/GCS storage for large datasets
+- [ ] **Storage Compaction** - Vacuum and optimize SQLite database on demand
+- [ ] **Data Retention Policies** - Auto-delete traces and runs older than a configurable threshold
+- [ ] **Storage Migration** - Export/import data between different storage backends
+- [ ] **Encrypted Storage** - At-rest encryption for sensitive trace and evaluation data
+- [ ] **Storage Statistics** - Show database size, row counts, and growth rate over time
 
 ### Data & Dataset
 
@@ -125,6 +147,12 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Domain-specific generators
 - [ ] **Data Augmentation** - Automatically expand datasets
 - [ ] **Golden Set Management** - Curate and maintain evaluation benchmarks
+- [ ] **Dataset Splitting** - Train/test/validation splits with stratification by metadata fields
+- [ ] **Dataset Statistics** - Auto-compute input/output length distributions, token counts, label balance
+- [ ] **Dataset Merge and Diff** - Combine two datasets or show item-level differences between them
+- [ ] **External Format Import** - Import from HuggingFace datasets, LMSYS Arena, or custom CSV schemas
+- [ ] **Schema Evolution** - Handle format changes across dataset versions with automatic migration
+- [ ] **Dataset Sampling Preview** - Show sample items and summary stats before building full dataset
 
 ### Reporting & Analytics
 
@@ -133,6 +161,11 @@ This document tracks planned features and completed work. Future roadmap items a
 - [x] **Metric Correlation Analysis** - Understand relationships between metrics
 - [ ] **Failure Root Cause Analysis** - Automated diagnosis of failures
 - [ ] **Trend Anomaly Detection** - Alert on unusual metric patterns
+- [ ] **Cohort Analysis** - Compare metrics across user-defined item groups (by metadata, input length, etc.)
+- [ ] **Statistical Significance Testing** - P-values and confidence intervals for run-to-run comparisons
+- [ ] **Judge Confusion Matrix** - Visualize agreement/disagreement patterns between judge and human
+- [ ] **Jupyter Notebook Export** - Generate .ipynb with pre-built charts and analysis from eval runs
+- [ ] **Metric Budget Analysis** - Estimate cost savings from dropping low-signal metrics
 
 ---
 
@@ -305,6 +338,19 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] outlier mode - Edge cases and unusual inputs
 - [x] **Temperature control** - Separate temps for similar/outlier
 - [x] **Seed sampling** - Control number of seed examples
+- [ ] **Persona-Based Simulation** - Generate inputs as specific user personas (novice, expert, adversarial)
+- [ ] **Multi-Turn Simulation** - Generate full multi-turn conversations, not just single queries
+- [ ] **Adversarial Simulation** - Deliberately craft inputs targeting known failure modes
+- [ ] **Domain Transfer Simulation** - Adapt seed inputs from one domain to another (e.g. medical to legal)
+- [ ] **Regression Simulation** - Re-generate past failure inputs to verify they no longer fail
+
+### Sampling
+
+- [ ] **Importance Sampling** - Weight sample selection by item difficulty or model uncertainty
+- [ ] **Curriculum Sampling** - Order samples from easy to hard for progressive evaluation
+- [ ] **Time-Weighted Sampling** - Prefer recent traces over older ones during dataset construction
+- [ ] **Coverage-Aware Sampling** - Maximize coverage of the input feature space
+- [ ] **Balanced Sampling** - Ensure equal representation across metadata categories or labels
 
 ### Export & Reporting
 
@@ -323,6 +369,23 @@ This document tracks planned features and completed work. Future roadmap items a
 - [x] **--last flag** - Quick access to most recent item
 - [x] **Short IDs** - 8-character prefixes for easier use
 - [x] **Error messages with hints** - Helpful troubleshooting suggestions
+
+### CLI Enhancements
+
+- [ ] **Interactive TUI Mode** - Rich terminal UI with navigation, filtering, and drill-down
+- [ ] **Shell Completion** - Bash/zsh/fish tab completion for all commands and flags
+- [ ] **Watch Mode** - Auto-rerun evaluation when dataset or config file changes
+- [ ] **Profile Command** - Show storage size, run counts, disk usage, and system health
+- [ ] **Config Validation Command** - Check evalyn.yaml for errors, missing fields, and deprecations
+
+### Metrics Enhancements
+
+- [ ] **Custom Metric DSL** - Define metrics via YAML config without writing Python code
+- [ ] **Metric Composition** - Combine multiple metrics into weighted composite scores
+- [ ] **Metric Weighting Profiles** - Named weight sets for different evaluation use cases
+- [ ] **Metric Versioning** - Track when metric implementations change and flag affected runs
+- [ ] **Metric Benchmarking** - Measure computation cost and latency per metric
+- [ ] **Inter-Rater Reliability** - Compute agreement stats when multiple judges score the same items
 
 ### LLM Provider Support
 
@@ -361,4 +424,4 @@ This document tracks planned features and completed work. Future roadmap items a
 - [x] **pytest-cov integration** - Coverage reporting via `--cov=evalyn_sdk`
 - [x] **Integration test unskip** - Fixed 2 skipped integration tests
 
-*Last updated: 2026-03-20*
+*Last updated: 2026-03-25*
