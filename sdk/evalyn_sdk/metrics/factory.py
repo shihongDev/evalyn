@@ -97,7 +97,6 @@ from .objective import (
     link_density_metric,
 )
 from ..models import Metric
-from ..judges import LLMJudge
 from .objective import OBJECTIVE_REGISTRY
 from .subjective import SUBJECTIVE_REGISTRY
 
@@ -612,7 +611,8 @@ def build_subjective_metric(
         }
         model = cfg.get("model", default_models.get(provider, "gemini-2.5-flash-lite"))
         temperature = float(cfg.get("temperature", 0.0))
-        judge = LLMJudge(
+        from ..judges import LLMJudge as _LLMJudge
+        judge = _LLMJudge(
             name=metric_id,
             prompt=prompt,
             model=model,

@@ -12,7 +12,6 @@ from .objective import (
     tool_call_count_metric,
     register_builtin_metrics,
 )
-from ..judges import LLMJudge, EchoJudge
 from .subjective import JUDGE_TEMPLATES
 from .subjective import (
     SUBJECTIVE_REGISTRY,
@@ -37,9 +36,6 @@ __all__ = [
     "token_length_metric",
     "tool_call_count_metric",
     "register_builtin_metrics",
-    # LLM Judges
-    "LLMJudge",
-    "EchoJudge",
     "JUDGE_TEMPLATES",
     # Subjective templates
     "SUBJECTIVE_REGISTRY",
