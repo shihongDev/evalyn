@@ -209,6 +209,14 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Poll provider API for completion percentage
   - [ ] Display progress bar with ETA during batch wait
   - [ ] Configurable poll interval (default 30s)
+- [ ] **Multi-Provider Batch Splitting** - Split a single evaluation batch across multiple providers
+  - [ ] Route N% of items to gemini, M% to openai for cost/latency comparison
+  - [ ] Provider-aware retry: re-route failed items to alternate provider
+  - [ ] Unified result merging regardless of which provider evaluated each item
+- [ ] **Streaming Partial Results** - Start analyzing results before the full batch completes
+  - [ ] Process completed items as they arrive from batch polling
+  - [ ] Live-updating analysis dashboard during batch wait
+  - [ ] Early termination: stop batch if enough results show clear pass/fail
 
 ### Session Management
 
@@ -443,6 +451,42 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Logical consistency
   - [ ] Evidence usage
   - [ ] Conclusion validity
+
+### Graph & Multi-Agent Evaluation
+
+- [ ] **Graph Topology Extraction** - Extract and visualize LangGraph execution topology from traces
+  - [ ] Build DAG from graph/node spans captured by LangGraphInstrumentor
+  - [ ] Identify critical path (longest execution chain through nodes)
+  - [ ] Detect cycles and redundant node executions
+  - [ ] evalyn show-graph --call <id> rendering ASCII or Mermaid diagram
+- [ ] **Node-Level Metric Attribution** - Attribute eval failures to specific graph nodes
+  - [ ] Map MetricResult failures back to the node span that produced the failing output
+  - [ ] Per-node pass rate aggregation across dataset items
+  - [ ] Identify "bottleneck nodes" that cause the most failures
+- [ ] **Subagent Cost Allocation** - Track cost per subagent in multi-agent traces
+  - [ ] Aggregate token/cost from Claude Agent SDK's SubagentContext hierarchy
+  - [ ] Per-subagent cost breakdown in show-trace and analyze output
+  - [ ] Identify most expensive subagent paths for optimization
+- [ ] **Agent Decision Tree Visualization** - Render agent's tool selection choices as a tree
+  - [ ] Build decision tree from tool_call/tool_result span sequences
+  - [ ] Highlight decision points where agent chose between tools
+  - [ ] Compare decision trees across different runs or models
+
+### Pipeline Customization
+
+- [ ] **Custom Pipeline Definitions** - User-defined step sequences beyond the fixed 7-step pipeline
+  - [ ] Pipeline definition in evalyn.yaml with ordered step list
+  - [ ] Skip/include steps declaratively (instead of --skip-annotation flags)
+  - [ ] Custom step plugins: user-defined Python functions as pipeline steps
+- [ ] **Pipeline Templates** - Preset pipelines for different evaluation goals
+  - [ ] "quick-check" template: build-dataset -> objective metrics only -> analyze
+  - [ ] "full-audit" template: all 7 steps + simulation + deep insights
+  - [ ] "ci-gate" template: objective metrics + threshold check + exit code
+  - [ ] evalyn one-click --template quick-check
+- [ ] **Pipeline Comparison** - Compare results of two one-click pipeline runs
+  - [ ] evalyn compare-pipelines <dir1> <dir2>
+  - [ ] Step-by-step comparison: dataset size, metric count, scores, cost
+  - [ ] Identify which pipeline changes improved or degraded results
 
 ### Infrastructure & Platform
 
