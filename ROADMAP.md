@@ -102,6 +102,32 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Plugin interface for extracting custom attributes from OTEL spans
   - [ ] Provider-specific extractors (e.g. extract function_call from OpenAI tool use spans)
   - [ ] Configurable truncation limits per attribute (currently hardcoded 1000 chars)
+- [ ] **Trace Compression** - Compress span payloads before SQLite storage to reduce database size
+  - [ ] gzip or zstd compression for input/output fields exceeding size threshold
+  - [ ] Transparent decompression on read in SQLiteStorage
+  - [ ] Compression ratio reporting in storage-stats command
+  - [ ] Configurable compression level and minimum payload size for compression
+- [ ] **Span Dependency Graph** - Auto-detect causal data flow between spans within a trace
+  - [ ] Detect when output of span A appears as input to span B (content overlap heuristic)
+  - [ ] Build directed dependency graph from data flow analysis
+  - [ ] Visualize as Mermaid or ASCII DAG in show-trace
+  - [ ] Identify bottleneck spans that block the most downstream work
+- [ ] **Hot Path Detection** - Identify the most frequently executed span sequences across traces
+  - [ ] Extract sequential span-type patterns (e.g. llm_call->tool_call->llm_call)
+  - [ ] Rank patterns by frequency and cumulative cost
+  - [ ] Highlight optimization opportunities for repeated expensive patterns
+- [ ] **Trace Density Heatmap** - Time-based visualization showing trace volume across hours and days
+  - [ ] Hour-of-day x day-of-week grid showing trace counts
+  - [ ] Overlay cost or error rate on the heatmap
+  - [ ] ASCII heatmap for terminal, HTML for reports
+- [ ] **Provider SDK Version Tracking** - Capture installed SDK versions of instrumented providers in span metadata
+  - [ ] Record openai, anthropic, google-generativeai package versions at instrumentation time
+  - [ ] Store as span attributes (evalyn.provider_sdk_version)
+  - [ ] Surface version mismatches across traces in show-trace output
+- [ ] **Trace Anonymization Export** - Export traces with user content replaced by synthetic equivalents for sharing
+  - [ ] Replace input/output text with length-preserving placeholder content
+  - [ ] Preserve span structure, timing, token counts, and cost data
+  - [ ] evalyn export-traces --anonymize for safe sharing and bug reports
 
 ### Trace Lifecycle Management
 
@@ -396,6 +422,26 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Worker process that pulls and evaluates metric tasks
   - [ ] Centralized result collection and checkpoint merging
   - [ ] --distributed flag with queue URL configuration
+- [ ] **Canary Evaluation** - Run eval on a small random subset first; abort full run if pass rate is below threshold
+  - [ ] --canary N flag to evaluate N items before committing to full run
+  - [ ] Configurable abort threshold (default: 20% pass rate on canary)
+  - [ ] Cost savings report: how much was saved by aborting early
+- [ ] **Evaluation Warm-Up** - Discard first K results to reduce cold-start score variance from judge LLM
+  - [ ] --warmup K flag discarding first K item scores
+  - [ ] Re-evaluate warm-up items after LLM cache is primed
+  - [ ] Measure score variance reduction from warm-up vs no warm-up
+- [ ] **Multi-Language Auto-Detection** - Detect output language and apply language-appropriate metric rubrics automatically
+  - [ ] Language detection via character set and n-gram analysis (no external API)
+  - [ ] Route to language-matched rubric variant when available
+  - [ ] Report language distribution across dataset items
+- [ ] **Metric Score Normalization** - Normalize scores across metrics to a common scale for fair cross-metric comparison
+  - [ ] Z-score normalization using historical score distributions per metric
+  - [ ] Min-max normalization to [0, 1] range
+  - [ ] --normalize flag on analyze and compare for normalized views
+- [ ] **Evaluation Resource Monitoring** - Track memory and CPU usage during evaluation to detect resource issues
+  - [ ] Per-worker memory tracking via psutil (optional dependency)
+  - [ ] Warning when memory exceeds configurable threshold
+  - [ ] Resource usage summary in eval run metadata
 
 ### Calibration & Optimization
 
@@ -456,6 +502,31 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Sort calibration examples by judge confidence (easy = high confidence)
   - [ ] Progressive expansion: start with top-50% easiest, add harder items
   - [ ] Early stopping if optimizer plateaus before reaching hard examples
+- [ ] **Calibration Convergence Visualization** - Plot alignment score vs optimization step to diagnose optimizer behavior
+  - [ ] Record per-step alignment scores during optimization
+  - [ ] Detect plateau, oscillation, and divergence patterns
+  - [ ] ASCII convergence chart in terminal, SVG in HTML reports
+  - [ ] Recommend optimizer parameter changes based on convergence shape
+- [ ] **Prompt Length Regularization** - Penalize prompt length during calibration to keep judge prompts concise
+  - [ ] Add token count penalty term to optimizer objective function
+  - [ ] Configurable weight: --length-penalty 0.1 (default 0, no penalty)
+  - [ ] Report prompt token savings vs alignment trade-off
+- [ ] **Calibration Data Augmentation** - Augment calibration examples by paraphrasing to improve optimizer generalization
+  - [ ] LLM-powered paraphrase of calibration inputs preserving semantics
+  - [ ] Expand calibration set 2-5x without additional human annotation
+  - [ ] Validate paraphrased items preserve original labels
+- [ ] **Calibration Difficulty Weighting** - Weight alignment errors by item difficulty so hard items count more
+  - [ ] Difficulty estimate from cross-annotator disagreement or judge confidence
+  - [ ] Weighted accuracy metric in optimizer objective
+  - [ ] Prevent optimizer from gaming easy items while ignoring hard ones
+- [ ] **Per-Score-Level Calibration** - Calibrate separately for each score level to reduce systematic bias
+  - [ ] Detect if judge systematically over/under-scores at specific levels
+  - [ ] Score-level-specific preamble adjustments
+  - [ ] Confusion matrix per score level showing calibration effectiveness
+- [ ] **Calibration Ensemble Fusion** - Run multiple optimizers and fuse outputs via tournament selection
+  - [ ] Run 2-3 optimizers in parallel on same calibration data
+  - [ ] Tournament: evaluate each optimizer's prompt on held-out set
+  - [ ] Select best-performing prompt or blend top-K prompts
 
 ### Multi-Modal Evaluation
 
@@ -617,6 +688,26 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Complexity heuristic based on input length, output length, and metric type
   - [ ] Model routing: flash-lite for simple items, flash for complex items
   - [ ] Cost savings report showing how much auto-selection saved vs always-smart
+- [ ] **Storage Partitioning** - Partition SQLite databases by time period for better performance at scale
+  - [ ] Monthly or weekly database files (evalyn_2026_03.sqlite)
+  - [ ] Transparent cross-partition queries via ATTACH DATABASE
+  - [ ] Auto-archive old partitions to reduce active DB size
+- [ ] **Storage Integrity Checks** - Verify referential integrity between tables
+  - [ ] Check function_calls referenced by eval_runs still exist
+  - [ ] Check otel_spans have valid parent span references
+  - [ ] evalyn storage-check producing integrity report with fixable/unfixable issues
+- [ ] **Storage Schema Introspection** - Show current database schema and statistics
+  - [ ] evalyn storage-schema listing table schemas, column types, index definitions
+  - [ ] Schema version and migration history
+  - [ ] Useful for debugging and plugin development
+- [ ] **Storage Merge** - Merge two SQLite databases from different machines with conflict resolution
+  - [ ] evalyn storage-merge --source <db2> --into <db1>
+  - [ ] Deduplication by primary key (function call ID, span ID, run ID)
+  - [ ] Conflict strategy: skip, overwrite, or rename
+- [ ] **Storage Index Tuning** - Auto-create indexes based on common query patterns
+  - [ ] Profile slow queries in list-calls, list-runs, build-dataset
+  - [ ] evalyn storage-tune creating recommended indexes
+  - [ ] Report query speedup after index creation
 
 ### Data & Dataset
 
@@ -690,6 +781,28 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Empty/null field detection in input, output, and metadata
   - [ ] Duplicate input detection via hash_inputs
   - [ ] evalyn dataset-health command with pass/warn/fail summary
+- [ ] **Dataset Decontamination** - Detect items that overlap with known LLM benchmark/training data
+  - [ ] N-gram overlap check against common benchmarks (MMLU, HumanEval, GSM8K)
+  - [ ] Configurable contamination threshold (default: 13-gram exact match)
+  - [ ] evalyn dataset-decontaminate --report showing contaminated items
+  - [ ] Auto-exclude contaminated items from evaluation datasets
+- [ ] **Dataset Drift Detection** - Statistical tests comparing input distributions between dataset versions
+  - [ ] Kolmogorov-Smirnov test on input length, token count distributions
+  - [ ] Chi-square test on categorical metadata field distributions
+  - [ ] Embedding centroid shift measurement between versions
+  - [ ] evalyn dataset-drift --v1 <path1> --v2 <path2> with drift severity score
+- [ ] **Dataset Annotation Coverage Map** - Visualize which items have annotations and which need them
+  - [ ] Per-metric coverage percentage across dataset items
+  - [ ] ASCII heatmap: items on Y-axis, metrics on X-axis, filled/empty cells
+  - [ ] Prioritize unannotated items in items with lowest judge confidence
+- [ ] **Dataset from Production Logs** - Import HTTP request/response logs as trace-like dataset items
+  - [ ] Parse common log formats (JSON, Apache, nginx) into DatasetItem input/output
+  - [ ] evalyn import-logs --format json --input-field request --output-field response
+  - [ ] Auto-deduplicate against existing traces in storage
+- [ ] **Dataset Snapshot Comparison** - Compare two dataset versions showing item-level content diffs
+  - [ ] Side-by-side text diff for modified items (input or output changed)
+  - [ ] Summary: items added, removed, modified, unchanged
+  - [ ] evalyn dataset-snapshot-diff --before <v1> --after <v2>
 
 ### Reporting & Analytics
 
@@ -757,6 +870,27 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn snapshot --name "pre-refactor" saves RunAnalysis + InsightsReport
   - [ ] evalyn compare-snapshots for before/after comparison
   - [ ] Snapshots stored in .evalyn/ directory as JSON
+- [ ] **Item Difficulty Estimation** - Compute per-item difficulty scores based on cross-run fail rates
+  - [ ] Aggregate pass/fail across multiple eval runs per item
+  - [ ] Difficulty score: inverse of average pass rate across runs
+  - [ ] Rank items by difficulty in analysis output
+  - [ ] Use difficulty scores to weight calibration and sampling
+- [ ] **Metric Interaction Effects** - Detect non-linear interactions between metrics beyond pairwise correlation
+  - [ ] Chi-square test for co-failure: items failing both A and B more than expected by chance
+  - [ ] Interaction strength score per metric pair
+  - [ ] Surface metric pairs with strong interactions in insights report
+- [ ] **Improvement Priority Ranking** - Rank metrics by expected ROI: which improvement would raise overall pass rate most
+  - [ ] Compute marginal gain: if metric M improved by 10%, how much does overall pass rate increase
+  - [ ] Factor in metric weight from weighting profiles
+  - [ ] Actionable ranking in insights output: "Fix metric X first for maximum impact"
+- [ ] **Score Distribution Normality Testing** - Verify if metric scores follow expected distributions
+  - [ ] Shapiro-Wilk test per metric score distribution
+  - [ ] Flag metrics with non-normal distributions (bimodal, heavy-tailed)
+  - [ ] Recommend appropriate statistical tests based on distribution shape
+- [ ] **Cross-Run Stability Analysis** - Measure how stable metric scores are across repeated runs of same data
+  - [ ] Run same eval N times and compute per-metric coefficient of variation
+  - [ ] Flag metrics with high variance as unreliable
+  - [ ] Recommend increasing samples or switching judge model for unstable metrics
 
 ### Interoperability
 
@@ -1247,6 +1381,26 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Score seeds by diversity of generated outputs
   - [ ] Greedy selection: pick seeds that maximize coverage of unexplored input space
   - [ ] Drop seeds that produce near-duplicate simulations
+- [ ] **Simulation with Reference Answers** - Generate both inputs and expected outputs for automatic golden set creation
+  - [ ] LLM generates input-output pairs where the output serves as ground truth
+  - [ ] Configurable quality threshold: only keep pairs where LLM confidence is high
+  - [ ] Useful for bootstrapping evaluation datasets with expected references
+- [ ] **Simulation Coverage Report** - Compare embedding space coverage of simulated vs production traces
+  - [ ] Compute coverage overlap between simulated and real item embeddings
+  - [ ] Identify production input regions not represented in simulated data
+  - [ ] Recommend additional simulation targets to fill coverage gaps
+- [ ] **Simulation Budget Optimizer** - Given a token budget, optimize the mix of similar/outlier/adversarial items
+  - [ ] Estimate token cost per simulation mode based on prompt complexity
+  - [ ] Maximize diversity under budget constraint via greedy allocation
+  - [ ] Report actual vs budgeted cost after generation
+- [ ] **Constraint-Guided Simulation** - Generate inputs satisfying specific constraints
+  - [ ] --constraint "topic=refunds AND length>200" flag on simulate command
+  - [ ] LLM-guided generation with constraint verification loop
+  - [ ] Reject and regenerate items that fail constraint checks
+- [ ] **Simulation Diversity Metrics** - Quantify how diverse the generated set is vs seed set
+  - [ ] Embedding spread: average pairwise distance in generated set
+  - [ ] Vocabulary uniqueness ratio vs seed set
+  - [ ] Novelty score: fraction of generated items far from all seed items
 
 ### Sampling
 
@@ -1278,6 +1432,26 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Bin items by score range (0-0.2, 0.2-0.4, ..., 0.8-1.0)
   - [ ] Equal sampling from each bin
   - [ ] Useful for calibration datasets needing score diversity
+- [ ] **Embedding Drift Sampling** - Prioritize items whose embeddings shifted most between dataset versions
+  - [ ] Compute per-item embedding delta between old and new dataset
+  - [ ] Sample items with largest cosine distance change
+  - [ ] Useful for targeting evaluation on items most affected by data updates
+- [ ] **Cost-Aware Sampling** - Prefer shorter/cheaper items when evaluation budget is constrained
+  - [ ] Estimate per-item evaluation cost from input/output token counts
+  - [ ] Greedy selection maximizing item count within token/cost budget
+  - [ ] --max-eval-cost flag on build-dataset to cap total evaluation expense
+- [ ] **Human Disagreement Sampling** - Prioritize items where annotators previously disagreed
+  - [ ] Query annotation store for items with divergent human labels
+  - [ ] Weight by disagreement severity (binary flip vs minor score difference)
+  - [ ] Useful for building targeted calibration datasets
+- [ ] **Cluster Boundary Sampling** - Sample items near cluster decision boundaries for maximum information gain
+  - [ ] Identify items closest to cluster centroids vs farthest from all centroids
+  - [ ] Preferentially sample boundary items that are hardest to classify
+  - [ ] Combine with existing clustered sampling mode
+- [ ] **Bootstrap Resampling** - Generate bootstrap samples for confidence interval estimation on metrics
+  - [ ] --bootstrap N flag on run-eval to create N resampled evaluation runs
+  - [ ] Report 95% confidence intervals for each metric from bootstrap distribution
+  - [ ] Useful for small datasets where point estimates are unreliable
 
 ### Export & Reporting
 
@@ -1364,6 +1538,26 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] JSONL streaming for long-running operations (progress events)
   - [ ] Exit codes: 0=pass, 1=fail, 2=error for CI gate integration
   - [ ] jq-friendly output structure
+- [ ] **CLI Plugin System** - Register custom commands via Python entry points
+  - [ ] evalyn.commands entry point group for third-party command modules
+  - [ ] Auto-discovery and registration at startup
+  - [ ] evalyn list-plugins showing installed command plugins
+- [ ] **CLI Alias Support** - User-defined command aliases in evalyn.yaml
+  - [ ] aliases: section mapping short names to full commands (e.g. "q" -> "quickstart")
+  - [ ] Aliases can include default flags (e.g. "fast-eval" -> "run-eval --workers 8 --provider ollama")
+  - [ ] evalyn alias list showing configured aliases
+- [ ] **CLI Command History** - Record and replay command sequences for reproducible workflows
+  - [ ] Auto-log commands to .evalyn/history.jsonl with timestamps and exit codes
+  - [ ] evalyn history showing recent commands
+  - [ ] evalyn replay --from <timestamp> to re-run a sequence of commands
+- [ ] **CLI Batch Script** - Run multiple commands from a script file
+  - [ ] evalyn batch commands.txt executing one command per line
+  - [ ] Stop-on-error vs continue-on-error modes
+  - [ ] Variable substitution: $DATE, $LATEST_RUN, $LATEST_DATASET
+- [ ] **CLI Output Pagination** - Built-in pager for long terminal outputs
+  - [ ] Auto-page when output exceeds terminal height
+  - [ ] Respect PAGER env var, default to less
+  - [ ] --no-pager flag to disable for piping
 
 ### Run Management
 
@@ -1431,6 +1625,30 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Namespace prefix: "team-safety/toxicity" vs "team-quality/toxicity"
   - [ ] Namespace-scoped metric search in list-metrics
   - [ ] Cross-namespace metric comparison
+- [ ] **Metric Score Explanations** - Return human-readable explanations for objective metric scores
+  - [ ] Per-metric explain() function describing why the score is what it is
+  - [ ] Example: "json_valid: FAIL - parse error at line 3, column 12: unexpected token"
+  - [ ] Include explanations in show-run and failed item breakdown output
+- [ ] **Metric Warmup Averaging** - Run each subjective metric N times and average to reduce LLM variance
+  - [ ] --metric-samples N flag on run-eval (default 1)
+  - [ ] Report per-metric score variance across samples
+  - [ ] Flag items where samples disagree (high variance) for review
+- [ ] **Metric Runtime Estimation** - Predict eval duration per metric based on historical timing data
+  - [ ] Store per-metric median execution time from past runs
+  - [ ] Estimate total run time before execution starts
+  - [ ] Surface slow metrics in dry-run output with time contribution
+- [ ] **Metric Compatibility Matrix** - Show which metrics work with which evaluation unit types
+  - [ ] Matrix: metrics on Y-axis, unit types (outcome, single_turn, tool_use, multi_turn) on X-axis
+  - [ ] evalyn list-metrics --compatibility showing supported unit types per metric
+  - [ ] Warn when user selects metrics incompatible with their trace structure
+- [ ] **Metric Score Binning** - Configurable score-to-grade mapping for human-friendly reporting
+  - [ ] Grade definitions in evalyn.yaml (e.g. A=0.8-1.0, B=0.6-0.8, C=0.4-0.6, F=0-0.4)
+  - [ ] Grade distribution chart in analyze output
+  - [ ] Custom grade labels and thresholds per project
+- [ ] **Reference-Adaptive Metrics** - Auto-switch metric rubric based on whether expected reference is present
+  - [ ] Detect reference availability per item via _dataset_has_reference
+  - [ ] Use reference-based rubric when available, reference-free rubric otherwise
+  - [ ] Report which rubric variant was used per item in MetricResult details
 
 ### Metric Bundle Customization
 
