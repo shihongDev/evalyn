@@ -602,6 +602,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] --append flag on build-dataset
   - [ ] Track last-build timestamp to only process new traces
   - [ ] Deduplication against existing items using hash_inputs
+- [ ] **Dataset Health Check** - Validate dataset quality before evaluation
+  - [ ] Reference coverage: % of items with ground truth (uses _dataset_has_reference logic)
+  - [ ] Empty/null field detection in input, output, and metadata
+  - [ ] Duplicate input detection via hash_inputs
+  - [ ] evalyn dataset-health command with pass/warn/fail summary
 
 ### Reporting & Analytics
 
@@ -710,6 +715,37 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] --item-timeout flag (default: 120s per item)
   - [ ] Timeout recorded as failure with reason "timeout"
   - [ ] Separate timeout for objective vs subjective metrics
+
+### Output & Formatting
+
+- [ ] **Color-Coded Terminal Output** - ANSI colors for pass/fail/warning states
+  - [ ] Green for pass, red for fail, yellow for warning across all commands
+  - [ ] Respect NO_COLOR env var and --no-color flag for CI environments
+  - [ ] Color-coded score ranges in analyze and compare output
+- [ ] **Compact Output Mode** - Minimal output for CI logs and scripting
+  - [ ] --compact flag producing single-line summaries per command
+  - [ ] Summary format: "RUN <id> PASS 85% (17/20) COST $0.12 TIME 45s"
+  - [ ] Pair with exit codes for CI gate integration (exit 1 if pass rate < threshold)
+- [ ] **PDF Report Export** - Generate PDF reports from HTML dashboards
+  - [ ] evalyn export --format pdf using headless browser or weasyprint
+  - [ ] Page breaks between sections, print-friendly layout
+  - [ ] Cover page with run metadata, date, project name
+- [ ] **HTML Report Dark Mode** - Dark theme option for HTML dashboards and insights
+  - [ ] CSS dark mode support via prefers-color-scheme media query
+  - [ ] Manual toggle button in report header
+  - [ ] Dark-friendly Chart.js color palette
+
+### Code Change Tracking
+
+- [ ] **Source Code Diff Correlation** - Track agent code changes alongside metric changes
+  - [ ] Store source_hash from _extract_code_meta in each eval run
+  - [ ] Detect when source code changed between consecutive runs
+  - [ ] Correlate code diffs with metric deltas in compare output
+  - [ ] evalyn code-diff --run1 <id> --run2 <id> showing code changes alongside score changes
+- [ ] **Prompt Version Tracking** - Track judge prompt changes across calibration rounds
+  - [ ] Hash judge prompts and store in MetricResult metadata
+  - [ ] Warn when comparing runs that used different prompt versions
+  - [ ] Prompt changelog: show how each metric's prompt evolved over time
 
 ### Programmatic SDK
 
