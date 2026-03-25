@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import threading
 from pathlib import Path
 from typing import Iterable, List, Optional
 
@@ -45,9 +46,35 @@ class SQLiteStorage:
     def __init__(self, path: str | Path | None = None):
         self.path = Path(path if path is not None else _get_default_db_path())
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(self.path, check_same_thread=False)
-        self.conn.row_factory = sqlite3.Row
+        self._local = threading.local()
+        self.conn = self._make_connection()
         self._init_tables()
+
+    def _make_connection(self) -> sqlite3.Connection:
+        """Create a new SQLite connection with standard pragmas."""
+        conn = sqlite3.connect(self.path, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
+        return conn
+
+    def get_connection(self) -> sqlite3.Connection:
+        """Get a thread-local connection. Creates one if needed.
+
+        The main thread uses self.conn. Worker threads get their own
+        connection via threading.local() to avoid SQLite mutex contention
+        under WAL mode.
+        """
+        conn = getattr(self._local, "conn", None)
+        if conn is not None:
+            return conn
+        # Main thread: use the primary connection
+        if threading.current_thread() is threading.main_thread():
+            return self.conn
+        # Worker thread: create a new connection
+        conn = self._make_connection()
+        self._local.conn = conn
+        return conn
 
     def _init_tables(self) -> None:
         cur = self.conn.cursor()
@@ -113,6 +140,31 @@ class SQLiteStorage:
             )
             """
         )
+        # Relational metric results table (replaces JSON blob in eval_runs)
+        #
+        #   eval_runs 1──< metric_results_rows (one run has many results)
+        #       id              run_id, item_id, metric_id, config_hash
+        #
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS metric_results_rows (
+                id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                item_id TEXT NOT NULL,
+                call_id TEXT,
+                metric_id TEXT NOT NULL,
+                score REAL,
+                passed INTEGER,
+                details TEXT,
+                config_hash TEXT,
+                unit_id TEXT,
+                unit_type TEXT,
+                input_tokens INTEGER,
+                output_tokens INTEGER,
+                model TEXT
+            )
+            """
+        )
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS span_metric_links (
@@ -137,6 +189,39 @@ class SQLiteStorage:
             CREATE INDEX IF NOT EXISTS idx_sml_run_span
             ON span_metric_links(run_id, span_id)
             """
+        )
+        # Performance indexes for common query patterns
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_fc_started_at "
+            "ON function_calls(started_at)"
+        )
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_er_created_at "
+            "ON eval_runs(created_at)"
+        )
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_er_dataset "
+            "ON eval_runs(dataset_name)"
+        )
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_ann_target "
+            "ON annotations(target_id)"
+        )
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_ann_created_at "
+            "ON annotations(created_at)"
+        )
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_mr_run "
+            "ON metric_results_rows(run_id)"
+        )
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_mr_run_item "
+            "ON metric_results_rows(run_id, item_id)"
+        )
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_mr_config "
+            "ON metric_results_rows(run_id, metric_id, config_hash)"
         )
         self.conn.commit()
         run_migrations(self.conn)
@@ -230,6 +315,7 @@ class SQLiteStorage:
 
     def store_eval_run(self, run: EvalRun) -> None:
         cur = self.conn.cursor()
+        # Store run metadata (no JSON blob for metric_results on new runs)
         cur.execute(
             """
             INSERT OR REPLACE INTO eval_runs
@@ -240,14 +326,88 @@ class SQLiteStorage:
                 run.id,
                 run.dataset_name,
                 run.created_at.isoformat(),
-                _dumps([r.as_dict() for r in run.metric_results]),
+                None,  # New runs skip the JSON blob
                 _dumps([m.as_dict() for m in run.metrics]),
                 _dumps([j.as_dict() for j in run.judge_configs]),
                 _dumps(run.summary),
                 _dumps(run.usage_summary),
             ),
         )
-        self.conn.commit()
+        # Store individual metric results in relational table
+        if run.metric_results:
+            self.batch_insert_metric_results(run.id, run.metric_results)
+        else:
+            self.conn.commit()
+
+    def batch_insert_metric_results(
+        self, run_id: str, results: List, batch_size: int = 1000
+    ) -> None:
+        """Insert metric results in batches for efficient writes."""
+        from ..models import MetricResult
+
+        cur = self.conn.cursor()
+        for i in range(0, len(results), batch_size):
+            batch = results[i : i + batch_size]
+            cur.executemany(
+                """
+                INSERT OR REPLACE INTO metric_results_rows
+                (id, run_id, item_id, call_id, metric_id, score, passed,
+                 details, config_hash, unit_id, unit_type, input_tokens,
+                 output_tokens, model)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        f"{run_id}-{r.item_id}-{r.metric_id}"[:64],
+                        run_id,
+                        r.item_id,
+                        r.call_id,
+                        r.metric_id,
+                        r.score,
+                        1 if r.passed else (0 if r.passed is not None else None),
+                        _dumps(r.details) if r.details else None,
+                        getattr(r, "config_hash", None),
+                        getattr(r, "unit_id", None),
+                        getattr(r, "unit_type", None),
+                        getattr(r, "input_tokens", None),
+                        getattr(r, "output_tokens", None),
+                        getattr(r, "model", None),
+                    )
+                    for r in batch
+                ],
+            )
+            self.conn.commit()
+
+    def load_metric_results(self, run_id: str) -> List:
+        """Load metric results from relational table for a run."""
+        from ..models import MetricResult
+
+        cur = self.conn.cursor()
+        cur.execute(
+            "SELECT * FROM metric_results_rows WHERE run_id = ?", (run_id,)
+        )
+        rows = cur.fetchall()
+        results = []
+        for row in rows:
+            details = json.loads(row["details"]) if row["details"] else {}
+            passed_val = row["passed"]
+            passed = bool(passed_val) if passed_val is not None else None
+            results.append(
+                MetricResult(
+                    metric_id=row["metric_id"],
+                    item_id=row["item_id"],
+                    call_id=row["call_id"] or "",
+                    score=row["score"],
+                    passed=passed,
+                    details=details,
+                    unit_id=row["unit_id"],
+                    unit_type=row["unit_type"],
+                    input_tokens=row["input_tokens"],
+                    output_tokens=row["output_tokens"],
+                    model=row["model"],
+                )
+            )
+        return results
 
     def list_eval_runs(self, limit: int = 20) -> List[EvalRun]:
         cur = self.conn.cursor()
@@ -527,14 +687,22 @@ class SQLiteStorage:
         )
 
     def _row_to_eval_run(self, row: sqlite3.Row) -> EvalRun:
+        # Load metric results from relational table first, fall back to JSON blob
+        run_id = row["id"]
+        json_blob = row["metric_results"]
+        if json_blob:
+            metric_results_raw = json.loads(json_blob)
+        else:
+            metric_results_raw = [
+                r.as_dict() for r in self.load_metric_results(run_id)
+            ]
+
         return EvalRun.from_dict(
             {
-                "id": row["id"],
+                "id": run_id,
                 "dataset_name": row["dataset_name"],
                 "created_at": row["created_at"],
-                "metric_results": json.loads(row["metric_results"])
-                if row["metric_results"]
-                else [],
+                "metric_results": metric_results_raw,
                 "metrics": json.loads(row["metrics"]) if row["metrics"] else [],
                 "judge_configs": json.loads(row["judge_configs"])
                 if row["judge_configs"]

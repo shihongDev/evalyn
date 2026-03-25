@@ -50,14 +50,6 @@ Technical debt and improvements identified during architecture review (2026-03-2
 - **Context:** `as_dict()` already only serializes new fields. The cleanup is mostly mechanical: grep for `.inputs` and `.expected` across the codebase.
 - **Depends on:** Nothing.
 
-### Enable SQLite WAL mode
-- **What:** Add `self.conn.execute('PRAGMA journal_mode=WAL')` to `SQLiteStorage.__init__()`.
-- **Why:** Eval runs with 500+ items do 500 individual commits (`self.conn.commit()` per store_call). WAL mode allows concurrent reads during writes and improves write performance 2-5x, especially on WSL2 or networked filesystems.
-- **Pros:** One-line change, significant performance improvement on slow filesystems.
-- **Cons:** WAL creates additional -wal and -shm files alongside the DB. Some very old SQLite versions don't support it (but Python 3.10+ bundles SQLite 3.35+).
-- **Context:** The project root is on /mnt/c (WSL2), which has known slow I/O. WAL mode is the standard recommendation for SQLite write-heavy workloads.
-- **Depends on:** Nothing.
-
 ---
 
 ## Completed
@@ -67,3 +59,9 @@ Technical debt and improvements identified during architecture review (2026-03-2
 
 ### Consolidate run-loading into shared helper (partial: Extract shared CLI storage helpers)
 - **Completed:** fix/test-parallel-and-migrations (2026-03-24) - run-loading pattern consolidated in `load_eval_run_for_command`. Storage instantiation helpers remain TODO.
+
+### Enable SQLite WAL mode + thread-local connections + relational metric results
+- **Completed:** feat/efficiency-at-scale (2026-03-24) - WAL mode, busy_timeout=5000, thread-local connections for worker threads, relational metric_results_rows table with batch inserts and performance indexes. Old JSON blob data still loads via fallback.
+
+### Add stream_dataset() for memory-efficient dataset loading
+- **Completed:** feat/efficiency-at-scale (2026-03-24) - Generator-based JSONL streaming with malformed line skipping. load_dataset() now wraps stream_dataset().
