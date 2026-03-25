@@ -132,6 +132,15 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Create proper Span objects instead of TraceEvent pairs (start/end)
   - [ ] Automatic parent-child hierarchy via span_context stack
   - [ ] Visible in show-trace as child spans alongside LLM and tool spans
+- [ ] **Anthropic Thinking Block Capture** - Capture extended thinking/reasoning from Claude responses
+  - [ ] Extract thinking content blocks from Anthropic Messages API responses
+  - [ ] Store thinking text in span attributes alongside output content
+  - [ ] Display thinking blocks in show-trace with distinct styling
+  - [ ] Enable reasoning quality evaluation on captured thinking content
+- [ ] **Metric-Specific Provider Routing** - Use different judge providers for different metric categories
+  - [ ] Route safety metrics to Gemini, quality metrics to OpenAI, etc.
+  - [ ] Provider routing config per metric in evalyn.yaml
+  - [ ] Cost optimization: use cheap models for simple metrics, expensive for nuanced ones
 
 ### Instrumentation & Decorator Enhancements
 
@@ -1067,6 +1076,15 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Display both annotators' labels with their confidence and reasoning
   - [ ] Third-party tiebreaker annotation with full context
   - [ ] Resolution policies: majority vote, senior override, discussion required
+- [ ] **Annotation UX Improvements** - Faster, more forgiving annotation workflow
+  - [ ] Undo/edit previous annotation without re-annotating from scratch
+  - [ ] Skip items with "s" key (mark as skipped, return to later)
+  - [ ] Keyboard shortcuts: y=pass, n=fail, 1-5=confidence, s=skip, u=undo
+  - [ ] Batch mode: present N items at once for rapid annotation
+- [ ] **Annotation Session Persistence** - Save and resume annotation progress
+  - [ ] Track annotated item IDs in session file per annotator
+  - [ ] evalyn annotate --resume to continue where last session ended
+  - [ ] Session statistics: items/hour, agreement rate over time
 
 ### Human Annotation
 
@@ -1185,6 +1203,21 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Markdown - Human-readable report
   - [x] HTML - Standalone interactive report
 - [x] **evalyn export-for-annotation** - Export for external annotation tools
+
+### Additional Export Formats
+
+- [ ] **Parquet Export** - Columnar format for big data tooling and ML pipelines
+  - [ ] evalyn export --format parquet using pyarrow (optional dependency)
+  - [ ] Schema: one row per (item, metric) pair with score, passed, details columns
+  - [ ] Efficient for loading into pandas, DuckDB, or Spark
+- [ ] **OpenAI Evals Format Export** - Compatibility with OpenAI's evaluation framework
+  - [ ] evalyn export --format openai-evals producing JSONL in OpenAI evals schema
+  - [ ] Map evalyn MetricResult to OpenAI eval sample format
+  - [ ] Include system prompt and messages for replay in OpenAI's eval harness
+- [ ] **Experiment Tracker Integration** - Push eval results to W&B, MLflow, or Neptune
+  - [ ] evalyn export --format wandb logging metrics as W&B runs
+  - [ ] evalyn export --format mlflow logging as MLflow experiments
+  - [ ] Configurable tracker URL and credentials in evalyn.yaml
 
 ### Developer Experience
 
