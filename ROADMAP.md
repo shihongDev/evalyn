@@ -103,6 +103,36 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Provider-specific extractors (e.g. extract function_call from OpenAI tool use spans)
   - [ ] Configurable truncation limits per attribute (currently hardcoded 1000 chars)
 
+### Trace Lifecycle Management
+
+- [ ] **Trace Archival** - Move old traces to cold storage instead of deleting
+  - [ ] evalyn archive-traces --older-than 90d moving traces to archive.sqlite
+  - [ ] Archive is read-only and queryable via --db archive flag
+  - [ ] Restore from archive: evalyn restore-traces --from archive --id <id>
+- [ ] **Post-Hoc Trace Annotation** - Add notes and tags to existing traces after capture
+  - [ ] evalyn tag-trace --id <id> --tag "regression-candidate"
+  - [ ] evalyn annotate-trace --id <id> --note "Root cause: stale prompt cache"
+  - [ ] Tags and notes queryable in list-calls and build-dataset filters
+- [ ] **Trace Bookmarking** - Mark interesting traces for later review or inclusion in datasets
+  - [ ] evalyn bookmark --id <id> --reason "edge case: empty input"
+  - [ ] evalyn list-bookmarks showing all bookmarked traces
+  - [ ] --bookmarked-only flag on build-dataset to create datasets from bookmarks
+
+### Provider-Specific Feature Capture
+
+- [ ] **Gemini Safety Rating Capture** - Capture safety ratings from Gemini responses
+  - [ ] Extract safetyRatings array from GenerateContent responses
+  - [ ] Store per-category ratings (harassment, hate, dangerous, sexual) in span attributes
+  - [ ] Surface safety blocks in show-trace output
+- [ ] **Gemini Grounding Metadata Capture** - Capture search grounding results from Gemini
+  - [ ] Extract groundingMetadata and searchEntryPoint from grounded responses
+  - [ ] Store grounding sources and confidence in span attributes
+  - [ ] Link grounding data to grounding metrics (source_attribution, claim_verification)
+- [ ] **@trace Decorator Span Upgrade** - Upgrade @trace from event-based to span-based tracing
+  - [ ] Create proper Span objects instead of TraceEvent pairs (start/end)
+  - [ ] Automatic parent-child hierarchy via span_context stack
+  - [ ] Visible in show-trace as child spans alongside LLM and tool spans
+
 ### Instrumentation & Decorator Enhancements
 
 - [ ] **Selective Instrumentation** - Only instrument specific methods or classes, not entire SDK
@@ -1107,6 +1137,14 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] --workers flag on simulate command
   - [ ] Batch LLM calls for generation efficiency
   - [ ] Progress bar with items generated / total target
+- [ ] **Structured Input Simulation** - Generate dict/JSON inputs, not just text prompts
+  - [ ] Infer input schema from seed dataset items (detect keys, types, value ranges)
+  - [ ] Generate valid structured inputs conforming to detected schema
+  - [ ] Configurable field-level variation (mutate one field at a time for targeted testing)
+- [ ] **Seed Selection Optimization** - Choose which seed items produce the most diverse simulations
+  - [ ] Score seeds by diversity of generated outputs
+  - [ ] Greedy selection: pick seeds that maximize coverage of unexplored input space
+  - [ ] Drop seeds that produce near-duplicate simulations
 
 ### Sampling
 
