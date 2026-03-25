@@ -27,15 +27,25 @@ Evalyn focuses on making GenAI App evaluation practical and easy. It provides li
 ┌──────────────────────────────────────────────────────────────────┐
 │  1. COLLECT                                                      │
 │                                                                  │
-│     @eval  ->  TRACE (SQLite)  ->  DATASET (JSONL)               │
-│               list-calls / show-call   build-dataset             │
-│               show-trace -v            validate / status         │
-│               show-span / show-projects                          │
+│     @eval  ->  TRACE (SQLite)                                    │
+│               list-calls / show-call                             │
+│               show-trace -v / show-span                          │
+│               show-projects / delete-traces                      │
 └──────────────────────────────────────────────────────────────────┘
                               |
                               v
 ┌──────────────────────────────────────────────────────────────────┐
-│  2. EVALUATE                                                     │
+│  2. BUILD                                                        │
+│                                                                  │
+│     build-dataset  ->  DATASET (JSONL)                            │
+│       --mode random/diverse/stratified/clustered                 │
+│       --deduplicate                                              │
+│     validate / status                                            │
+└──────────────────────────────────────────────────────────────────┘
+                              |
+                              v
+┌──────────────────────────────────────────────────────────────────┐
+│  3. EVALUATE                                                     │
 │                                                                  │
 │     suggest-metrics  ->  run-eval  ->  ANALYZE                   │
 │     select-metrics       show-run      analyze / compare / trend │
@@ -45,7 +55,7 @@ Evalyn focuses on making GenAI App evaluation practical and easy. It provides li
                               |
                               v
 ┌──────────────────────────────────────────────────────────────────┐
-│  3. CALIBRATE                                                    │
+│  4. CALIBRATE                                                    │
 │                                                                  │
 │     annotate  ->  calibrate  ->  run-eval --use-calibrated       │
 │      (Human)      list-calibrations                              │
@@ -56,9 +66,9 @@ Evalyn focuses on making GenAI App evaluation practical and easy. It provides li
                               |
                               v
 ┌──────────────────────────────────────────────────────────────────┐
-│  4. EXPAND                                                       │
+│  5. EXPAND                                                       │
 │                                                                  │
-│     simulate  ->  synthetic queries  ->  Back to Step 2          │
+│     simulate  ->  synthetic queries  ->  Back to Step 3          │
 │                                                                  │
 └──────────────────────────────────────────────────────────────────┘
 ```
