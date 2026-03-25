@@ -93,6 +93,15 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] API: tag_current_span(key, value) callable inside traced functions
   - [ ] Tags stored in span metadata and queryable via list-calls
   - [ ] Standard tags: environment, user_id, experiment_id, variant
+- [ ] **Native Embedding and Reranker Span Types** - First-class span types for embedding and reranking operations
+  - [ ] "embedding" span type capturing model name, input text, vector dimensions
+  - [ ] "reranker" span type capturing query, documents, and re-ranked scores
+  - [ ] "guardrail" span type capturing check name, pass/fail, and blocked content
+  - [ ] Update SPAN_KIND_TO_TYPE mapping in conventions.py (currently mapped to "custom")
+- [ ] **Span Attribute Extraction Plugins** - Pluggable attribute extractors for SpanConverter
+  - [ ] Plugin interface for extracting custom attributes from OTEL spans
+  - [ ] Provider-specific extractors (e.g. extract function_call from OpenAI tool use spans)
+  - [ ] Configurable truncation limits per attribute (currently hardcoded 1000 chars)
 
 ### Instrumentation & Decorator Enhancements
 
@@ -578,6 +587,47 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn snapshot --name "pre-refactor" saves RunAnalysis + InsightsReport
   - [ ] evalyn compare-snapshots for before/after comparison
   - [ ] Snapshots stored in .evalyn/ directory as JSON
+
+### Interoperability
+
+- [ ] **Phoenix/Langfuse Trace Export** - Native export to popular LLM observability platforms
+  - [ ] evalyn export-traces --format phoenix to produce Phoenix-compatible JSONL
+  - [ ] evalyn export-traces --format langfuse for Langfuse import format
+  - [ ] Preserve span hierarchy and OpenInference attributes in export
+- [ ] **Trace Import from External Platforms** - Bring existing traces into evalyn for evaluation
+  - [ ] evalyn import-traces --format phoenix/langfuse/otel
+  - [ ] Map external span types to Evalyn span types via conventions.py
+  - [ ] Deduplicate against existing traces by span ID
+- [ ] **OpenInference Full Compliance** - Complete implementation of OpenInference semantic conventions
+  - [ ] Full document/retrieval attribute capture (DocumentAttributes, RetrievalAttributes)
+  - [ ] Embedding attribute capture (EmbeddingAttributes.EMBEDDINGS, TEXT)
+  - [ ] Session and user attribute propagation (SessionAttributes)
+  - [ ] Reranker score capture and display in show-trace
+- [ ] **Eval Result Export to Observability Platforms** - Push evaluation scores back to trace viewers
+  - [ ] Annotate Phoenix spans with evalyn metric scores
+  - [ ] Push eval results as Langfuse scores
+  - [ ] Bi-directional sync: traces in, scores out
+
+### Resilience & Error Handling
+
+- [ ] **Circuit Breaker for Providers** - Stop calling a provider after N consecutive failures
+  - [ ] Configurable failure threshold (default: 5 consecutive errors)
+  - [ ] Cool-down period before retrying (exponential backoff)
+  - [ ] Automatic fallback to alternative provider when circuit opens
+  - [ ] Circuit state visible in progress output
+- [ ] **Graceful Item-Level Failure** - Continue evaluation when individual items fail
+  - [ ] Catch and log per-item errors without stopping the run
+  - [ ] Record failure reason in MetricResult.details
+  - [ ] Summary of failed items at end of run with error categories
+  - [ ] --fail-fast flag to override and stop on first error
+- [ ] **Provider Fallback Chain** - Automatically try alternative providers on failure
+  - [ ] Ordered provider list: [gemini, openai, ollama]
+  - [ ] Fall back to next provider on timeout, rate limit, or API error
+  - [ ] Log which provider was actually used per item
+- [ ] **Evaluation Timeout Per Item** - Prevent single slow items from blocking the entire run
+  - [ ] --item-timeout flag (default: 120s per item)
+  - [ ] Timeout recorded as failure with reason "timeout"
+  - [ ] Separate timeout for objective vs subjective metrics
 
 ### Programmatic SDK
 
