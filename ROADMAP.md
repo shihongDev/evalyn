@@ -170,6 +170,26 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Detect session-level chaining where output of call A is input to call B
   - [ ] Render as directed graph showing data flow across function calls
   - [ ] evalyn show-lineage --session <id> producing Mermaid or ASCII graph
+- [ ] **Orphan Span Recovery** - Detect and attach spans captured outside an active trace context
+  - [ ] Orphan spans collected in _orphan_spans list (context.py) are currently lost
+  - [ ] Match orphans to the nearest active FunctionCall by timestamp proximity
+  - [ ] Report recovered vs truly lost orphan spans in show-trace
+- [ ] **Context Propagation Diagnostics** - Verify ContextVar propagation across async and thread boundaries
+  - [ ] evalyn check-context that spawns test async tasks and threads to verify span hierarchy
+  - [ ] Detect when ThreadPoolExecutor breaks ContextVar inheritance
+  - [ ] Recommend workarounds when propagation failures are detected
+- [ ] **Instrumentation Toggle API** - Hot-toggle instrumentation on/off at runtime without restart
+  - [ ] evalyn_sdk.toggle_instrumentation(enabled=False) to pause tracing
+  - [ ] Useful for excluding specific code sections from tracing overhead
+  - [ ] Toggle state visible in show-projects output
+- [ ] **Span Collector Statistics** - Report collected, orphaned, and lost spans per session
+  - [ ] Track spans collected vs expected (from OTEL SpanProcessor callbacks)
+  - [ ] Warning when span loss exceeds threshold (e.g. >5% lost)
+  - [ ] Statistics available via evalyn show-call --stats flag
+- [ ] **Instrumentation Dry-Run** - Show what would be patched without actually applying instrumentation
+  - [ ] evalyn check-instrumentation --dry-run listing SDK methods that would be wrapped
+  - [ ] Report detected SDK versions and instrumentation strategy per provider
+  - [ ] Useful for verifying compatibility before enabling auto-instrumentation
 
 ### Trace Lifecycle Management
 
@@ -524,6 +544,22 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] When a baseline run is pinned, run-eval auto-runs compare at the end
   - [ ] Regression summary appended to run-eval output
   - [ ] --no-auto-compare flag to disable
+- [ ] **Evaluation Isolation Mode** - Run each metric in a subprocess to prevent crashes from affecting other metrics
+  - [ ] --isolate flag spawning each metric evaluation in a child process
+  - [ ] Crash in one metric produces error result without killing the run
+  - [ ] Useful for untested custom metrics or unstable provider connections
+- [ ] **Evaluation Result Signing** - Cryptographic hash of results for tamper detection
+  - [ ] SHA-256 hash of all MetricResults stored in EvalRun metadata
+  - [ ] evalyn verify-run --id <id> checking result integrity against stored hash
+  - [ ] Detect if results were manually edited after evaluation
+- [ ] **Evaluation Item-Level Cost Attribution** - Track exact LLM cost per dataset item
+  - [ ] Sum input/output tokens across all metrics for each item
+  - [ ] Per-item cost in show-run output and export formats
+  - [ ] Identify most expensive items for cost optimization
+- [ ] **Evaluation Output Diff** - Show exact text differences between expected and actual output per item
+  - [ ] evalyn diff-outputs --run <id> showing per-item expected vs actual text diff
+  - [ ] Highlight added/removed/changed text with color coding
+  - [ ] Filter to only items where expected reference is available
 
 ### Calibration & Optimization
 
@@ -649,6 +685,22 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] --max-time flag on calibrate command (e.g. --max-time 10m)
   - [ ] Return best prompt found within time budget
   - [ ] Report whether optimizer converged or was time-limited
+- [ ] **Calibration Alignment Curve** - Plot alignment vs annotation count to find diminishing returns
+  - [ ] Re-calibrate with increasing annotation subsets (10%, 25%, 50%, 75%, 100%)
+  - [ ] Plot alignment improvement vs annotation count
+  - [ ] Recommend minimum annotation count for acceptable calibration quality
+- [ ] **Calibration Negative Example Mining** - Find the hardest examples where calibrated prompt still fails
+  - [ ] After calibration, identify items where the calibrated judge still disagrees with humans
+  - [ ] Cluster these remaining failures by pattern
+  - [ ] Use as targeted additions to calibration set for next round
+- [ ] **Calibration Prompt Templates** - Reusable preamble templates for common calibration patterns
+  - [ ] Built-in templates: "strict evaluator", "lenient evaluator", "domain expert"
+  - [ ] --template flag on calibrate to start from a template instead of blank
+  - [ ] Save successful calibration preambles as custom templates
+- [ ] **Calibration Batch Processing** - Calibrate multiple metrics in one command
+  - [ ] evalyn calibrate --metrics all calibrating every metric with annotations
+  - [ ] Parallel calibration of independent metrics for speed
+  - [ ] Combined calibration report showing per-metric alignment improvements
 
 ### Multi-Modal Evaluation
 
@@ -870,6 +922,14 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] auto_vacuum_threshold setting in evalyn.yaml (e.g. 500MB)
   - [ ] Run VACUUM automatically when DB crosses threshold during write operations
   - [ ] Log vacuum events with space reclaimed
+- [ ] **Storage Data Checksums** - Verify data integrity with per-row checksums
+  - [ ] Store SHA-256 hash of critical fields (input, output, spans) alongside rows
+  - [ ] evalyn storage-verify checking all rows against stored checksums
+  - [ ] Detect corruption from concurrent writes or filesystem errors
+- [ ] **Storage Anonymous Export** - Strip identifying information when sharing databases
+  - [ ] evalyn storage-export --anonymous replacing PII-like content with placeholders
+  - [ ] Preserve data structure, metadata, and statistics while removing content
+  - [ ] Useful for sharing databases for debugging without exposing user data
 
 ### Data & Dataset
 
@@ -1005,6 +1065,22 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Append entry to data/changelog.jsonl on each build-dataset invocation
   - [ ] Record: timestamp, filters used, item count, sampling mode, hash
   - [ ] evalyn dataset-changelog showing chronological build history
+- [ ] **Dataset Cross-Contamination Check** - Verify no item leakage between train/test/calibration splits
+  - [ ] Hash-based check that no item appears in both train and test splits
+  - [ ] Embedding-based check for near-duplicate items across splits
+  - [ ] evalyn dataset-xcontam --train <path1> --test <path2> reporting contamination
+- [ ] **Dataset Item Semantic Search** - Find items by natural language query using embeddings
+  - [ ] evalyn dataset-search --query "user asks about refund policy" finding nearest items
+  - [ ] Uses pre-built embedding index (from Dataset Embedding Index feature)
+  - [ ] Return top-K matches with similarity scores
+- [ ] **Dataset Format Autodetect** - Auto-detect and load from multiple formats without explicit --format flag
+  - [ ] Detect JSONL, JSON array, CSV, and TSV from file content and extension
+  - [ ] Auto-map columns to input/output/metadata fields using heuristics
+  - [ ] Warn when auto-detection is ambiguous and suggest explicit format
+- [ ] **Dataset Metadata Schema Enforcement** - Validate item metadata against a defined schema
+  - [ ] Schema definition in meta.json: required_fields, field_types, allowed_values
+  - [ ] Validation on build-dataset and import, rejecting non-conforming items
+  - [ ] evalyn dataset-validate --schema showing validation results
 
 ### Reporting & Analytics
 
@@ -1133,6 +1209,22 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Executive template: overall pass rate, top regressions, cost summary
   - [ ] Engineering template: per-metric details, failed item list, prompt diffs
   - [ ] --template flag on compare command
+- [ ] **Analysis What-If Simulator** - Interactively model "what if metric X improved by N%"
+  - [ ] evalyn what-if --metric helpfulness --improve 20% showing projected overall pass rate
+  - [ ] Model multiple simultaneous improvements
+  - [ ] Identify the minimum improvement per metric needed to reach a target pass rate
+- [ ] **Analysis Dashboard Theming** - Configurable chart colors and styles for HTML reports
+  - [ ] Theme definitions in evalyn.yaml: primary color, accent, chart palette
+  - [ ] Built-in themes: corporate, academic, dark-mode, print-friendly
+  - [ ] Custom CSS injection for branded reports
+- [ ] **Analysis Data Export API** - Export analysis data as structured Python objects for custom analysis
+  - [ ] evalyn.analyze_to_dict(run) returning dict-of-lists for pandas DataFrame construction
+  - [ ] evalyn export --format feather producing columnar format for direct notebook loading
+  - [ ] Enable custom statistical analysis beyond built-in insights
+- [ ] **Analysis Time Series Decomposition** - Separate trend, seasonality, and noise in metric time series
+  - [ ] Decompose metric pass rates across runs into systematic trend and random variation
+  - [ ] Distinguish genuine improvement from normal score fluctuation
+  - [ ] Visualize decomposed components in trend analysis output
 
 ### Interoperability
 
@@ -1774,6 +1866,14 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] embedding_model setting in evalyn.yaml (default: all-MiniLM-L6-v2)
   - [ ] Support custom models from HuggingFace or local paths
   - [ ] Cache embeddings keyed by model name to avoid recomputation
+- [ ] **Reservoir Sampling** - Online sampling for streaming dataset construction
+  - [ ] Build dataset from continuous trace stream without knowing total count upfront
+  - [ ] Maintain fixed-size sample with uniform probability guarantees
+  - [ ] Useful for production monitoring: always keep a representative sample of recent traces
+- [ ] **Coreset Sampling** - Find minimal representative subset preserving distribution properties
+  - [ ] Greedy coreset construction minimizing maximum approximation error
+  - [ ] Guarantee that statistics computed on coreset approximate full dataset within bounds
+  - [ ] --coreset N flag on build-dataset for maximum compression with minimal information loss
 
 ### Export & Reporting
 
@@ -1920,6 +2020,18 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn !! repeating last command exactly
   - [ ] evalyn !! --workers 8 repeating with flag override
   - [ ] Command history stored in .evalyn/history.jsonl
+- [ ] **CLI Color Theme Configuration** - User-configurable terminal color scheme
+  - [ ] theme setting in evalyn.yaml: default, solarized, monokai, high-contrast
+  - [ ] EVALYN_THEME env var for quick switching
+  - [ ] Separate from NO_COLOR which disables all colors entirely
+- [ ] **CLI Output Width Control** - Respect terminal width for table and chart formatting
+  - [ ] Auto-detect terminal width and adjust table column widths accordingly
+  - [ ] --width N flag to override detected width (useful for piping to files)
+  - [ ] Truncate long cell values to fit within available space
+- [ ] **CLI Execution Audit Log** - Log every CLI command with full arguments for reproducibility
+  - [ ] Auto-append to .evalyn/command_log.jsonl: timestamp, command, args, exit code, duration
+  - [ ] evalyn audit-log showing chronological command history
+  - [ ] Distinct from evaluation audit trail (covers all commands, not just eval runs)
 
 ### Run Management
 
@@ -2051,6 +2163,14 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Estimate tokens from metric prompt template + average input/output sizes
   - [ ] evalyn list-metrics --show-tokens displaying per-metric token cost
   - [ ] Factor into cost estimation in dry-run mode
+- [ ] **Metric A/B Variant Testing** - Evaluate same items with two rubric variants of the same metric
+  - [ ] Define variant rubrics in evalyn.yaml: helpfulness_v1 vs helpfulness_v2
+  - [ ] Run both variants in a single eval, compare scores and agreement
+  - [ ] Select the variant with better alignment to human annotations
+- [ ] **Metric Cold Start Detection** - Detect when a metric's first N items score differently than the rest
+  - [ ] Compare score distribution of first K items vs remaining items per metric
+  - [ ] Statistical test (KS or Mann-Whitney) for distribution shift
+  - [ ] Recommend warm-up if cold start effect is significant
 
 ### Metric Bundle Customization
 
