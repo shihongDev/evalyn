@@ -41,6 +41,11 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **Trace Diff** - Side-by-side comparison of two traces showing divergent spans
 - [ ] **Trace Search Query Language** - Filter traces by span attributes, duration, cost, or error status
 - [ ] **PII Redaction** - Scrub sensitive data from inputs/outputs before storage
+- [ ] **Trace Sampling Rate** - Capture only N% of traces in production to reduce storage overhead
+- [ ] **Distributed Trace Propagation** - Pass trace context across service boundaries via HTTP headers
+- [ ] **Trace Size Limits** - Cap span payload size with configurable truncation for large inputs/outputs
+- [ ] **Custom Span Types** - Register user-defined span types beyond the built-in set (llm_call, tool_call, etc.)
+- [ ] **Span Tagging at Trace Time** - Add custom key-value tags to spans during execution for later filtering
 
 ### Evaluation Enhancements
 
@@ -69,6 +74,11 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **Evaluation Dry-Run** - Estimate token cost and wall-clock time before executing
 - [ ] **Cross-Validation Evaluation** - K-fold scoring for statistically robust metric estimates
 - [ ] **Evaluation Replay** - Re-run a past evaluation with different judge prompts or providers
+- [ ] **Conditional Metrics** - Run expensive subjective metrics only if cheap objective metrics pass first
+- [ ] **Evaluation Profiles** - Named configs (fast/thorough/cost-optimized) bundling workers, providers, and metric sets
+- [ ] **Evaluation Tagging** - Tag runs with custom labels for filtering and organization
+- [ ] **Async Evaluation Strategy** - Native asyncio execution strategy alongside sequential and parallel
+- [ ] **Distributed Evaluation** - Fan out metric evaluation across multiple machines via task queue
 
 ### Calibration & Optimization
 
@@ -86,6 +96,9 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **Cross-Provider Calibration** - Calibrate for consistency when switching judge providers
 - [ ] **Calibration A/B Testing** - Compare calibrated vs uncalibrated prompts on the same dataset
 - [ ] **Calibration Rollback** - Revert to a previous calibration if the new one degrades alignment
+- [ ] **Multi-Objective Calibration** - Optimize jointly for accuracy and cost (fewer tokens per judgment)
+- [ ] **Calibration Cost Tracking** - Report total LLM cost of the calibration process itself
+- [ ] **Calibration Curriculum** - Start optimization on easy examples, progressively add harder ones
 
 ### Multi-Modal Evaluation
 
@@ -139,6 +152,9 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **Plugin System** - Third-party metric, instrumentor, and storage backend plugins via entry points
 - [ ] **Webhook Notifications** - Trigger HTTP webhooks on eval completion, failure, or regression
 - [ ] **Rate Limit Awareness** - Respect LLM provider rate limits with automatic throttling during evaluation
+- [ ] **Connection Pooling** - Reuse SQLite connections for high-throughput multi-threaded evaluation
+- [ ] **Incremental Backup** - Periodic automatic backup of database to a secondary location
+- [ ] **Auto Model Selection** - Choose judge model based on task complexity (fast model for easy items, smart model for hard ones)
 
 ### Data & Dataset
 
@@ -156,6 +172,10 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **External Format Import** - Import from HuggingFace datasets, LMSYS Arena, or custom CSV schemas
 - [ ] **Schema Evolution** - Handle format changes across dataset versions with automatic migration
 - [ ] **Dataset Sampling Preview** - Show sample items and summary stats before building full dataset
+- [ ] **Dataset Pinning** - Lock a dataset version hash for reproducible evaluations across environments
+- [ ] **Dataset Lineage** - Track which traces and runs produced each dataset item
+- [ ] **Dataset Filtering DSL** - Query-based item filtering (e.g. "items where output_length > 500 and tag=production")
+- [ ] **Incremental Dataset Build** - Append new traces to an existing dataset without full rebuild
 
 ### Reporting & Analytics
 
@@ -169,6 +189,10 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **Judge Confusion Matrix** - Visualize agreement/disagreement patterns between judge and human
 - [ ] **Jupyter Notebook Export** - Generate .ipynb with pre-built charts and analysis from eval runs
 - [ ] **Metric Budget Analysis** - Estimate cost savings from dropping low-signal metrics
+- [ ] **Regression Bisection** - Binary search across dataset items to pinpoint exact cause of a regression
+- [ ] **Comparative Heatmap** - Visual heatmap of metric scores across items and runs
+- [ ] **Failure Taxonomy** - Auto-categorize failures into a structured taxonomy (prompt, model, data, tool)
+- [ ] **Analysis Snapshots** - Save analysis state at a point in time for later comparison
 
 ---
 
@@ -354,6 +378,9 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **Adversarial Simulation** - Deliberately craft inputs targeting known failure modes
 - [ ] **Domain Transfer Simulation** - Adapt seed inputs from one domain to another (e.g. medical to legal)
 - [ ] **Regression Simulation** - Re-generate past failure inputs to verify they no longer fail
+- [ ] **Conditional Simulation** - Generate inputs that specifically test edge conditions (empty input, max length, unicode)
+- [ ] **Simulation Validation** - Auto-verify that generated items match expected statistical distributions
+- [ ] **Parallel Simulation** - Generate synthetic data with configurable concurrency for large-scale runs
 
 ### Sampling
 
@@ -362,6 +389,8 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **Time-Weighted Sampling** - Prefer recent traces over older ones during dataset construction
 - [ ] **Coverage-Aware Sampling** - Maximize coverage of the input feature space
 - [ ] **Balanced Sampling** - Ensure equal representation across metadata categories or labels
+- [ ] **Adversarial Sampling** - Select items most likely to trigger model failures based on past results
+- [ ] **Score-Stratified Sampling** - Ensure representation across the full metric score range
 
 ### Export & Reporting
 
@@ -390,6 +419,9 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **Config Validation Command** - Check evalyn.yaml for errors, missing fields, and deprecations
 - [ ] **evalyn doctor** - Diagnose common setup issues (missing API keys, stale data, broken config)
 - [ ] **evalyn playground** - Interactive prompt testing with live metric scoring in the terminal
+- [ ] **evalyn diff** - Diff two evaluation runs showing changed scores per item
+- [ ] **evalyn gc** - Garbage collect orphaned data (stale checkpoints, runs without datasets)
+- [ ] **Piped JSON Mode** - Machine-readable JSON output for scripting and CI pipeline integration
 
 ### Metrics Enhancements
 
@@ -401,6 +433,9 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **Inter-Rater Reliability** - Compute agreement stats when multiple judges score the same items
 - [ ] **Metric Sensitivity Analysis** - Measure score stability across small input perturbations
 - [ ] **Metric Correlation Pruning** - Auto-suggest removing redundant metrics that track the same signal
+- [ ] **Metric Dependencies** - Declare that metric B requires metric A to run first (dependency graph)
+- [ ] **Conditional Metric Chains** - If metric A fails, automatically run a diagnostic follow-up metric B
+- [ ] **Metric Namespacing** - Organize metrics by project/team namespace to avoid collisions
 
 ### LLM Provider Support
 
