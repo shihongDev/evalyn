@@ -136,6 +136,9 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **Storage Migration** - Export/import data between different storage backends
 - [ ] **Encrypted Storage** - At-rest encryption for sensitive trace and evaluation data
 - [ ] **Storage Statistics** - Show database size, row counts, and growth rate over time
+- [ ] **Plugin System** - Third-party metric, instrumentor, and storage backend plugins via entry points
+- [ ] **Webhook Notifications** - Trigger HTTP webhooks on eval completion, failure, or regression
+- [ ] **Rate Limit Awareness** - Respect LLM provider rate limits with automatic throttling during evaluation
 
 ### Data & Dataset
 
@@ -302,6 +305,14 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] LLM expert panel (--deep) with 4 expert roles + moderator synthesis
   - [x] Interactive HTML dashboard (--format html) with Chart.js charts
 
+### Annotation Enhancements
+
+- [ ] **Inter-Annotator Agreement** - Track and visualize consistency between multiple annotators
+- [ ] **Annotation Delegation** - Assign specific items to specific annotators by expertise
+- [ ] **Bulk Pre-Annotation via LLM** - Use LLM to pre-fill annotations for human review and correction
+- [ ] **Annotation Guidelines Generator** - Auto-generate annotation guidelines from metric definitions
+- [ ] **Annotation Conflict Resolution UI** - Side-by-side view when annotators disagree, with tiebreaker workflow
+
 ### Human Annotation
 
 - [x] **evalyn annotate** - Interactive annotation interface
@@ -377,6 +388,8 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **Watch Mode** - Auto-rerun evaluation when dataset or config file changes
 - [ ] **Profile Command** - Show storage size, run counts, disk usage, and system health
 - [ ] **Config Validation Command** - Check evalyn.yaml for errors, missing fields, and deprecations
+- [ ] **evalyn doctor** - Diagnose common setup issues (missing API keys, stale data, broken config)
+- [ ] **evalyn playground** - Interactive prompt testing with live metric scoring in the terminal
 
 ### Metrics Enhancements
 
@@ -386,6 +399,8 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **Metric Versioning** - Track when metric implementations change and flag affected runs
 - [ ] **Metric Benchmarking** - Measure computation cost and latency per metric
 - [ ] **Inter-Rater Reliability** - Compute agreement stats when multiple judges score the same items
+- [ ] **Metric Sensitivity Analysis** - Measure score stability across small input perturbations
+- [ ] **Metric Correlation Pruning** - Auto-suggest removing redundant metrics that track the same signal
 
 ### LLM Provider Support
 
