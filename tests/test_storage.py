@@ -482,3 +482,240 @@ class TestEdgeCases:
         temp_db.store_annotations(anns)
         result = temp_db.list_annotations(target_id="shared-target")
         assert len(result) == 5
+
+
+# ---------------------------------------------------------------------------
+# WAL mode and connection pragmas
+# ---------------------------------------------------------------------------
+
+class TestWALMode:
+    def test_wal_mode_enabled(self, temp_db):
+        cur = temp_db.conn.execute("PRAGMA journal_mode")
+        mode = cur.fetchone()[0]
+        assert mode == "wal"
+
+    def test_busy_timeout_set(self, temp_db):
+        cur = temp_db.conn.execute("PRAGMA busy_timeout")
+        timeout = cur.fetchone()[0]
+        assert timeout == 5000
+
+
+# ---------------------------------------------------------------------------
+# Thread-local connections
+# ---------------------------------------------------------------------------
+
+class TestThreadLocalConnections:
+    def test_main_thread_returns_primary_conn(self, temp_db):
+        conn = temp_db.get_connection()
+        assert conn is temp_db.conn
+
+    def test_worker_thread_gets_separate_conn(self, temp_db):
+        import threading
+        results = {}
+
+        def check():
+            results["conn"] = temp_db.get_connection()
+            results["is_same"] = results["conn"] is temp_db.conn
+
+        t = threading.Thread(target=check)
+        t.start()
+        t.join()
+
+        assert results["is_same"] is False
+        assert results["conn"] is not None
+
+    def test_worker_thread_conn_reused_on_same_thread(self, temp_db):
+        import threading
+        results = {}
+
+        def check():
+            c1 = temp_db.get_connection()
+            c2 = temp_db.get_connection()
+            results["same"] = c1 is c2
+
+        t = threading.Thread(target=check)
+        t.start()
+        t.join()
+
+        assert results["same"] is True
+
+    def test_worker_thread_conn_has_wal(self, temp_db):
+        import threading
+        results = {}
+
+        def check():
+            conn = temp_db.get_connection()
+            cur = conn.execute("PRAGMA journal_mode")
+            results["mode"] = cur.fetchone()[0]
+
+        t = threading.Thread(target=check)
+        t.start()
+        t.join()
+
+        assert results["mode"] == "wal"
+
+
+# ---------------------------------------------------------------------------
+# Relational metric results (metric_results_rows table)
+# ---------------------------------------------------------------------------
+
+class TestRelationalMetricResults:
+    def test_store_run_writes_to_relational_table(self, temp_db):
+        """New runs store metric results in metric_results_rows, not JSON blob."""
+        run = _make_eval_run("rel-run-1")
+        temp_db.store_eval_run(run)
+
+        # JSON blob should be NULL
+        cur = temp_db.conn.cursor()
+        cur.execute("SELECT metric_results FROM eval_runs WHERE id = ?", ("rel-run-1",))
+        blob = cur.fetchone()[0]
+        assert blob is None
+
+        # Relational table should have the results
+        cur.execute("SELECT COUNT(*) FROM metric_results_rows WHERE run_id = ?", ("rel-run-1",))
+        count = cur.fetchone()[0]
+        assert count == 1
+
+    def test_load_metric_results_roundtrip(self, temp_db):
+        run = _make_eval_run("rel-run-2")
+        temp_db.store_eval_run(run)
+
+        results = temp_db.load_metric_results("rel-run-2")
+        assert len(results) == 1
+        assert results[0].metric_id == "accuracy"
+        assert results[0].score == 0.95
+        assert results[0].passed is True
+        assert results[0].item_id == "item-1"
+        assert results[0].details == {"reason": "exact match"}
+
+    def test_get_eval_run_uses_relational_results(self, temp_db):
+        """_row_to_eval_run loads from relational table when JSON blob is NULL."""
+        run = _make_eval_run("rel-run-3")
+        temp_db.store_eval_run(run)
+
+        restored = temp_db.get_eval_run("rel-run-3")
+        assert len(restored.metric_results) == 1
+        assert restored.metric_results[0].score == 0.95
+        assert restored.metric_results[0].metric_id == "accuracy"
+
+    def test_json_blob_fallback(self, temp_db):
+        """Old runs with JSON blob still load correctly."""
+        # Manually insert with JSON blob (simulating old data)
+        import json
+        results_json = json.dumps([{
+            "metric_id": "old-metric",
+            "item_id": "old-item",
+            "call_id": "old-call",
+            "score": 0.5,
+            "passed": False,
+            "details": {},
+        }])
+        cur = temp_db.conn.cursor()
+        cur.execute(
+            """INSERT INTO eval_runs
+            (id, dataset_name, created_at, metric_results, metrics, judge_configs, summary, usage_summary)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            ("old-run", "old-ds", "2026-01-01T00:00:00+00:00", results_json, "[]", "[]", "{}", "{}"),
+        )
+        temp_db.conn.commit()
+
+        restored = temp_db.get_eval_run("old-run")
+        assert len(restored.metric_results) == 1
+        assert restored.metric_results[0].metric_id == "old-metric"
+        assert restored.metric_results[0].score == 0.5
+
+    def test_batch_insert_many_results(self, temp_db):
+        """batch_insert_metric_results handles large batches."""
+        results = [
+            MetricResult(
+                metric_id=f"m-{i}",
+                item_id=f"item-{i}",
+                call_id=f"call-{i}",
+                score=i / 100.0,
+                passed=i % 2 == 0,
+                details={"idx": i},
+            )
+            for i in range(50)
+        ]
+        temp_db.batch_insert_metric_results("batch-run", results)
+
+        loaded = temp_db.load_metric_results("batch-run")
+        assert len(loaded) == 50
+        scores = sorted(r.score for r in loaded)
+        assert scores[0] == 0.0
+        assert scores[-1] == 0.49
+
+    def test_batch_insert_small_batch_size(self, temp_db):
+        """Verify batching works with a small batch_size."""
+        results = [
+            MetricResult(
+                metric_id=f"m-{i}",
+                item_id=f"item-{i}",
+                call_id="c",
+                score=float(i),
+                passed=True,
+            )
+            for i in range(7)
+        ]
+        temp_db.batch_insert_metric_results("small-batch-run", results, batch_size=3)
+
+        loaded = temp_db.load_metric_results("small-batch-run")
+        assert len(loaded) == 7
+
+    def test_store_run_no_metric_results(self, temp_db):
+        """Run with empty metric_results doesn't crash."""
+        run = EvalRun(
+            id="empty-mr-run",
+            dataset_name="ds",
+            created_at=T0,
+            metric_results=[],
+            metrics=[],
+            judge_configs=[],
+        )
+        temp_db.store_eval_run(run)
+        restored = temp_db.get_eval_run("empty-mr-run")
+        assert restored.metric_results == []
+
+    def test_passed_none_preserved(self, temp_db):
+        """MetricResult with passed=None survives roundtrip."""
+        results = [
+            MetricResult(
+                metric_id="m-none",
+                item_id="item-none",
+                call_id="c",
+                score=0.5,
+                passed=None,
+                details={},
+            )
+        ]
+        temp_db.batch_insert_metric_results("none-passed-run", results)
+        loaded = temp_db.load_metric_results("none-passed-run")
+        assert len(loaded) == 1
+        assert loaded[0].passed is None
+
+    def test_load_metric_results_empty_run(self, temp_db):
+        """Loading results for a run with no rows returns empty list."""
+        results = temp_db.load_metric_results("nonexistent-run")
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# Performance indexes
+# ---------------------------------------------------------------------------
+
+class TestPerformanceIndexes:
+    def test_indexes_created(self, temp_db):
+        cur = temp_db.conn.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='index'")
+        indexes = {row[0] for row in cur.fetchall()}
+        expected = {
+            "idx_fc_started_at",
+            "idx_er_created_at",
+            "idx_er_dataset",
+            "idx_ann_target",
+            "idx_ann_created_at",
+            "idx_mr_run",
+            "idx_mr_run_item",
+            "idx_mr_config",
+        }
+        assert expected.issubset(indexes)

@@ -2,30 +2,61 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from pathlib import Path
-from typing import Any, Iterable, List, Mapping, Optional
+from typing import Any, Generator, Iterable, List, Mapping, Optional
 from datetime import datetime, timezone
 
 from .models import DatasetItem, FunctionCall
 
+logger = logging.getLogger(__name__)
+
+
+def stream_dataset(path: str | Path) -> Generator[DatasetItem, None, None]:
+    """
+    Stream dataset items from a JSONL or JSON array file, one at a time.
+
+    Memory-efficient: only one item in memory at a time for JSONL files.
+    For JSON array files, the full array is parsed (unavoidable), but items
+    are yielded one at a time.
+
+    Malformed JSONL lines are logged and skipped rather than crashing.
+    """
+    path = Path(path)
+    with path.open("r", encoding="utf-8") as f:
+        first_char = f.read(1)
+        if not first_char:
+            return
+        if first_char == "[":
+            # JSON array: must parse the whole thing
+            f.seek(0)
+            rows = json.loads(f.read())
+            for row in rows:
+                yield DatasetItem.from_payload(row)
+        else:
+            # JSONL: stream line-by-line
+            f.seek(0)
+            for line_num, line in enumerate(f, start=1):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                    yield DatasetItem.from_payload(row)
+                except json.JSONDecodeError as e:
+                    logger.warning(
+                        "Skipping malformed JSONL line %d: %s", line_num, e
+                    )
+
 
 def load_dataset(path: str | Path) -> List[DatasetItem]:
     """
-    Load dataset items from a JSON array or JSONL file.
-    Each row should contain at least an `inputs` object.
+    Load all dataset items into memory from a JSON array or JSONL file.
+
+    For large datasets (>10K items), prefer stream_dataset() which yields
+    items one at a time without loading the full file into memory.
     """
-    path = Path(path)
-    raw = path.read_text(encoding="utf-8").strip()
-    rows: List[Any] = []
-    if not raw:
-        return []
-    if raw.startswith("["):
-        rows = json.loads(raw)
-    else:
-        for line in raw.splitlines():
-            if line.strip():
-                rows.append(json.loads(line))
-    return [DatasetItem.from_payload(row) for row in rows]
+    return list(stream_dataset(path))
 
 
 def save_dataset(items: Iterable[DatasetItem], path: str | Path) -> None:

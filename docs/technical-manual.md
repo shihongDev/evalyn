@@ -715,7 +715,7 @@ configure(storage_path="/custom/path/traces.sqlite")
 │   - token_count         │     │   - toxicity            │
 │   - json_valid          │     │   - hallucination       │
 │   - bleu, rouge, etc.   │     │   - coherence, etc.     │
-│   (73 metrics total)    │     │   (60 metrics total)    │
+│   (73 metrics total)    │     │   (62 metrics total)    │
 └─────────────────────────┘     └─────────────────────────┘
 ```
 
@@ -1395,9 +1395,19 @@ evalyn/
 │       ├── decorators.py        # @eval, @trace
 │       ├── models.py            # Dataclasses
 │       ├── datasets.py          # Dataset I/O
-│       ├── runner.py            # EvalRunner (uses ExecutionStrategy)
-│       ├── execution.py         # Execution strategies (Sequential/Parallel)
+│       ├── defaults.py          # Default model constants
+│       ├── parsing.py           # JSON and response parsing
+│       ├── sampling.py          # Dataset sampling strategies
 │       ├── attribution.py       # Span-metric attribution extraction
+│       ├── evaluation/          # Evaluation engine
+│       │   ├── runner.py        # EvalRunner orchestrator
+│       │   ├── execution.py     # Sequential/Parallel strategies
+│       │   ├── units/
+│       │   │   ├── builders.py  # EvalUnit discovery from traces
+│       │   │   └── views.py     # EvalView projections
+│       │   └── batch/
+│       │       ├── evaluator.py # Large-scale batch evaluation
+│       │       └── providers.py # Batch API providers (OpenAI)
 │       ├── analysis/            # Analysis & visualization module
 │       │   ├── core.py          # RunAnalysis, MetricStats classes
 │       │   ├── reports.py       # Text/ASCII reports
@@ -1415,6 +1425,9 @@ evalyn/
 │       │   └── instrumentation/ # SDK instrumentation
 │       │       ├── registry.py  # InstrumentorRegistry
 │       │       ├── base.py      # Instrumentor base class
+│       │       ├── conventions.py # Naming conventions
+│       │       ├── span_converter.py # OTEL span conversion
+│       │       ├── span_processor.py # Span processing
 │       │       └── providers/   # Per-SDK instrumentors
 │       │           ├── _shared.py       # Shared utilities
 │       │           ├── _streaming.py    # StreamingSpanWrapper base
@@ -1434,25 +1447,40 @@ evalyn/
 │       │           └── semantic_kernel.py
 │       ├── storage/
 │       │   ├── base.py          # StorageBackend interface
-│       │   └── sqlite.py        # SQLiteStorage
+│       │   ├── sqlite.py        # SQLiteStorage
+│       │   └── migrations.py    # Schema version upgrades
 │       ├── metrics/
 │       │   ├── objective.py     # 73 objective metric templates + handlers
-│       │   ├── subjective.py    # 60 subjective metric definitions
-│       │   ├── judges.py        # LLM judge implementations
+│       │   ├── subjective.py    # 62 subjective metric definitions
 │       │   ├── factory.py       # Metric builders
 │       │   └── suggester.py     # Metric suggestion logic
+│       ├── judges/
+│       │   ├── llm_judge.py     # LLM judge implementation
+│       │   └── confidence/      # Confidence estimation
+│       │       ├── base.py      # ConfidenceEstimator ABC
+│       │       ├── logprobs.py  # Logprobs, perplexity, entropy
+│       │       ├── consistency.py # Self-consistency, majority vote
+│       │       └── verbalized.py # Extract self-reported confidence
+│       ├── calibration/         # Prompt calibration optimizers
+│       │   ├── engine.py        # Calibration execution engine
+│       │   ├── base_optimizer.py # BaseOptimizer protocol
+│       │   ├── factory.py       # Optimizer factory
+│       │   ├── models.py        # Optimization models/results
+│       │   ├── utils.py         # Shared utilities
+│       │   ├── basic.py         # Basic random search
+│       │   ├── ape.py           # Automatic Prompt Engineer
+│       │   ├── opro.py          # In-context optimization
+│       │   ├── gepa.py          # Genetic evolutionary alignment
+│       │   ├── gepa_native.py   # Native GEPA implementation
+│       │   ├── evoprompt.py     # Evolutionary optimization
+│       │   ├── textgrad.py      # Text-based gradient optimization
+│       │   ├── miprov2.py       # Multi-stage instruction optimization
+│       │   └── promptbreeder.py # Self-referential evolution
 │       ├── annotation/
 │       │   ├── annotations.py   # Annotation models
-│       │   ├── calibration.py   # Calibration engine
 │       │   └── span_annotation.py # Span-level annotation
 │       ├── simulation/
-│       │   ├── simulator.py     # Synthetic data generation
-│       │   └── simulation.py    # Simulation models
-│       ├── confidence/
-│       │   ├── base.py          # ConfidenceEstimator ABC
-│       │   ├── logprobs.py      # Logprobs, perplexity, entropy
-│       │   ├── consistency.py   # Self-consistency, majority vote
-│       │   └── verbalized.py    # Extract self-reported confidence
+│       │   └── simulator.py     # Synthetic data generation
 │       ├── cli/
 │       │   ├── main.py          # CLI entry point
 │       │   ├── commands/        # CLI command modules
@@ -1465,6 +1493,8 @@ evalyn/
 │       │   │   ├── export.py
 │       │   │   ├── infrastructure.py  # one-click command
 │       │   │   ├── insights.py        # evalyn insights command
+│       │   │   ├── dashboard.py      # Interactive dashboard
+│       │   │   ├── quickstart.py     # Onboarding workflow
 │       │   │   ├── runs.py
 │       │   │   ├── simulate.py
 │       │   │   └── traces.py
@@ -1487,11 +1517,13 @@ evalyn/
 │           └── api_client.py    # API clients (Gemini, OpenAI, Ollama)
 ├── docs/
 │   ├── technical-manual.md      # This file
-│   └── clis/                    # CLI command documentation
-│       ├── README.md
-│       ├── one-click.md
-│       ├── run-eval.md
-│       └── ...                  # Other CLI docs
+│   ├── clis/                    # CLI command documentation
+│   │   ├── README.md
+│   │   ├── one-click.md
+│   │   ├── run-eval.md
+│   │   └── ...                  # Other CLI docs
+│   ├── dev/                     # Developer docs
+│   └── optimizers/              # Optimizer design docs
 └── example_agents/              # SDK integration examples
 ```
 
@@ -1554,4 +1586,4 @@ export EVALYN_NO_HINTS=1
 
 ---
 
-*Last updated: 2026-01-24*
+*Last updated: 2026-03-24*

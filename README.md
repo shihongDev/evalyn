@@ -16,8 +16,9 @@ Evalyn focuses on making GenAI App evaluation practical and easy. It provides li
 |---|---|
 | **Fully Local** | All data stays on your machine. SQLite storage, no cloud dependencies. |
 | **Easy Onboarding** | Just `import evalyn_sdk` — LLM calls auto-captured with tokens & cost. |
-| **Metric Bank** | 130+ built-in metrics (73 objective, 60 LLM judges). Community contributions welcome. |
-| **Auto Calibration** | Align LLM judges with human feedback through automatic prompt optimization such as GEPA. |
+| **Metric Bank** | 135 built-in metrics (73 objective, 62 LLM judges). Community contributions welcome. |
+| **Auto Calibration** | 9 calibration optimizers (GEPA, APE, OPRO, EvoPrompt, TextGrad, MIPROv2, PromptBreeder, and more). |
+| **14 Instrumentors** | Auto-captures OpenAI, Anthropic, Gemini, xAI, LangChain, LangGraph, Google ADK, Claude Agent SDK, CrewAI, AutoGen, DSPy, Haystack, LlamaIndex, Semantic Kernel. |
 | **One Command** | Run the entire pipeline with `evalyn one-click`. |
 
 ## The Pipeline
@@ -36,7 +37,8 @@ Evalyn focuses on making GenAI App evaluation practical and easy. It provides li
 │  2. EVALUATE                                                     │
 │                                                                  │
 │     suggest-metrics  ->  run-eval  ->  ANALYZE                   │
-│                                        trend / compare / analyze │
+│                                        analyze / compare / trend │
+│                                        insights / dashboard      │
 └──────────────────────────────────────────────────────────────────┘
                               |
                               v
@@ -96,12 +98,17 @@ evalyn init  # Create evalyn.yaml config and edit evalyn.yaml to set your GEMINI
 
 ### 3. Choose Your Workflow
 
-**Option A: One-Click (Automated)** — Run the full pipeline in one command
+**Option A: Quickstart (Guided)** - Interactive walkthrough for new users
+```bash
+evalyn quickstart                                         # Detect framework, instrument, configure
+```
+
+**Option B: One-Click (Automated)** - Run the full pipeline in one command
 ```bash
 evalyn one-click --project gemini-deep-research-agent    # Dataset -> Metrics -> Eval -> Report
 ```
 
-**Option B: Step-by-Step (Manual)** — See [Sample Workflow](#sample-workflow) for granular control over each step.
+**Option C: Step-by-Step (Manual)** - See [Sample Workflow](#sample-workflow) for granular control over each step.
 
 
 
@@ -137,7 +144,7 @@ Hint: To suggest metrics, run: evalyn suggest-metrics --dataset <path> --mode ba
 
 ### Step 3: Select Metrics
 
-Use `--mode llm-registry` to pick from 130+ built-in metrics via LLM selection:
+Use `--mode llm-registry` to pick from 135 built-in metrics via LLM selection:
 ```bash
 evalyn suggest-metrics --dataset <dataset-path> --mode llm-registry
 ```
@@ -279,6 +286,9 @@ evalyn run-eval --dataset <dataset-path>/simulations/sim-similar-...
 | `evalyn annotate --dataset D` | Human annotation (interactive) |
 | `evalyn calibrate --metric-id X` | Calibrate LLM judge |
 | `evalyn simulate --dataset D` | Generate synthetic test data |
+| `evalyn dashboard --latest` | Open interactive HTML insights dashboard in browser |
+| `evalyn quickstart` | Guided first-run experience: detect framework, instrument, configure |
+| `evalyn workflow` | Show evaluation workflow and next steps |
 
 ## Environment Variables
 
@@ -298,6 +308,9 @@ evalyn run-eval --dataset <dataset-path>/simulations/sim-similar-...
 |---------|-------------|
 | [one-click](docs/clis/one-click.md) | Run full evaluation pipeline |
 | [init](docs/clis/init.md) | Initialize config file |
+| [quickstart](docs/clis/quickstart.md) | Guided first-run experience |
+| [dashboard](docs/clis/dashboard.md) | Open interactive HTML insights dashboard |
+| [workflow](docs/clis/workflow.md) | Show evaluation workflow and next steps |
 | [status](docs/clis/status.md) | Show dataset status overview |
 | **Tracing** | |
 | [list-calls](docs/clis/list-calls.md) | List captured traces |
@@ -395,14 +408,31 @@ uv run pytest tests/ --cov=evalyn_sdk --cov-report=term-missing
 uv run pytest tests/test_analysis.py tests/test_models_extended.py tests/test_storage.py tests/test_cli_utils.py tests/test_metrics_extended.py tests/test_cli_export.py
 ```
 
-The test suite covers analysis engine, model serialization, storage, CLI commands, export formats, metrics, tracing, and instrumentation. See [CONTRIBUTING.md](CONTRIBUTING.md) for details on the test structure and writing tests.
+The test suite has 1,100+ tests across 30 files covering analysis engine, model serialization, storage, CLI commands, export formats, metrics, tracing, and instrumentation. See [CONTRIBUTING.md](CONTRIBUTING.md) for details on the test structure and writing tests.
 
 ## Example
 
 See [`example_agents/`](example_agents/) for SDK integrations:
-- **LangChain**: Auto-instrumentation via callback handler
-- **Claude Agent SDK**: Hook-based integration (see [technical manual](docs/technical-manual.md#claude-agent-sdk-integration))
-- **Google ADK**: Automatic callback injection (see [technical manual](docs/technical-manual.md#google-adk-integration))
+- **LangChain Deep Research**: Auto-instrumentation via callback handler
+- **Claude Agent SDK (Anthropic)**: Hook-based integration (see [technical manual](docs/technical-manual.md#claude-agent-sdk-integration))
+- **Google ADK Academic Research**: Automatic callback injection (see [technical manual](docs/technical-manual.md#google-adk-integration))
+
+### Supported Auto-Instrumentation
+
+Evalyn auto-patches these providers when `@eval` is applied - no manual setup needed:
+
+| LLM Providers | Agent Frameworks |
+|---------------|------------------|
+| OpenAI | LangChain |
+| Anthropic | LangGraph |
+| Gemini | Google ADK |
+| xAI (Grok) | Claude Agent SDK |
+| | CrewAI |
+| | AutoGen |
+| | DSPy |
+| | Haystack |
+| | LlamaIndex |
+| | Semantic Kernel |
 
 ## Contribution
 

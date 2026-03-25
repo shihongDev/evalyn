@@ -6,14 +6,6 @@ Technical debt and improvements identified during architecture review (2026-03-2
 
 ## High Priority
 
-### Restructure __init__.py to lazy imports
-- **What:** Move calibration, simulation, annotation behind `__getattr__` so `import evalyn_sdk` only loads core (models, eval, trace).
-- **Why:** Current eager loading pulls in all 9 calibration optimizers, all metric templates, simulation, annotation, storage, tracing, and the full evaluation engine on any import. CLI startup is slower than needed, and optional dependencies would fail the import even if users only want tracing.
-- **Pros:** Faster import, smaller memory footprint, optional deps don't block core functionality.
-- **Cons:** Slightly less discoverable (IDE autocomplete may not show lazy-loaded names without type stubs).
-- **Context:** The SDK has ~80 exported names in `__all__`. Most users will only need `@eval`, `EvalRunner`, and a few metrics. Pre-1.0 is the right time to restructure.
-- **Depends on:** Nothing.
-
 ### Write tests for 11 untested modules
 - **What:** Add dedicated test files for: parsing.py, evaluation/execution.py, evaluation/batch/evaluator.py, judges/llm_judge.py, judges/confidence/* (3 files), simulation/simulator.py, calibration/factory.py, calibration/engine.py, datasets.py, cli/utils/pipeline_steps.py.
 - **Why:** These orchestrator modules are currently covered only indirectly through CLI integration tests. A failure in JSON parsing surfaces as "run-eval failed" in the CLI test - debugging is 5-10x slower. The test suite has 236 tests across 18.5K LOC but is concentrated on instrumentation (8.2K LOC) while the evaluation core has gaps.
@@ -22,13 +14,6 @@ Technical debt and improvements identified during architecture review (2026-03-2
 - **Context:** Most critical gaps: parsing.py (used everywhere for LLM response extraction), execution.py (parallel strategy), confidence/* (3 estimation methods). The parsing module likely accounts for a significant chunk of production bugs.
 - **Depends on:** Nothing.
 
-### Add retry with exponential backoff to HTTP client
-- **What:** Add 3 retries with jitter (1s, 2s, 4s) to `api_client._http_post()` for 429/503/5xx responses.
-- **Why:** Eval runs make hundreds of LLM calls. A single transient 429 rate-limit or 503 from Gemini crashes the entire eval run. Checkpoint/resume helps recover but doesn't prevent the crash.
-- **Pros:** Eval runs survive transient API failures without manual intervention.
-- **Cons:** Adds ~30 lines to api_client.py. Needs a max timeout to avoid hanging forever.
-- **Context:** The urllib-based HTTP client is deliberately dependency-free (core deps are just opentelemetry-sdk + tqdm). The retry logic should use stdlib only (time.sleep + random.uniform for jitter).
-- **Depends on:** Nothing.
 
 ---
 
@@ -50,14 +35,6 @@ Technical debt and improvements identified during architecture review (2026-03-2
 - **Context:** `as_dict()` already only serializes new fields. The cleanup is mostly mechanical: grep for `.inputs` and `.expected` across the codebase.
 - **Depends on:** Nothing.
 
-### Enable SQLite WAL mode
-- **What:** Add `self.conn.execute('PRAGMA journal_mode=WAL')` to `SQLiteStorage.__init__()`.
-- **Why:** Eval runs with 500+ items do 500 individual commits (`self.conn.commit()` per store_call). WAL mode allows concurrent reads during writes and improves write performance 2-5x, especially on WSL2 or networked filesystems.
-- **Pros:** One-line change, significant performance improvement on slow filesystems.
-- **Cons:** WAL creates additional -wal and -shm files alongside the DB. Some very old SQLite versions don't support it (but Python 3.10+ bundles SQLite 3.35+).
-- **Context:** The project root is on /mnt/c (WSL2), which has known slow I/O. WAL mode is the standard recommendation for SQLite write-heavy workloads.
-- **Depends on:** Nothing.
-
 ---
 
 ## Completed
@@ -67,3 +44,15 @@ Technical debt and improvements identified during architecture review (2026-03-2
 
 ### Consolidate run-loading into shared helper (partial: Extract shared CLI storage helpers)
 - **Completed:** fix/test-parallel-and-migrations (2026-03-24) - run-loading pattern consolidated in `load_eval_run_for_command`. Storage instantiation helpers remain TODO.
+
+### Enable SQLite WAL mode + thread-local connections + relational metric results
+- **Completed:** feat/efficiency-at-scale (2026-03-24) - WAL mode, busy_timeout=5000, thread-local connections for worker threads, relational metric_results_rows table with batch inserts and performance indexes. Old JSON blob data still loads via fallback.
+
+### Add stream_dataset() for memory-efficient dataset loading
+- **Completed:** feat/efficiency-at-scale (2026-03-24) - Generator-based JSONL streaming with malformed line skipping. load_dataset() now wraps stream_dataset().
+
+### Restructure __init__.py to lazy imports
+- **Completed:** feat/efficiency-at-scale (2026-03-24) - Calibration, simulation, annotation, judges, metrics, suggesters moved behind __getattr__. Core (models, eval, trace, datasets) stays eager. Broke circular import in metrics/factory.py.
+
+### Add retry with exponential backoff to HTTP client
+- **Completed:** feat/efficiency-at-scale (2026-03-24) - 3 retries with jitter on 429/5xx, 30s total timeout, stdlib-only.
