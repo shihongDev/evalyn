@@ -236,6 +236,47 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Override default pricing for Ollama and other local models
   - [ ] Cost model versioning for tracking price changes over time
 
+### Cost Intelligence
+
+- [ ] **Auto-Update Pricing Tables** - Fetch latest model pricing from provider APIs
+  - [ ] Scrape/fetch pricing from OpenAI, Anthropic, Google pricing pages
+  - [ ] evalyn update-pricing command to refresh COST_PER_1M_TOKENS in _shared.py
+  - [ ] Warn when using a model not in the pricing table
+- [ ] **Prompt Cache Savings Report** - Show how much prompt caching saved per run
+  - [ ] Aggregate cache_creation_tokens and cache_read_tokens from spans
+  - [ ] Calculate: actual cost vs hypothetical cost without caching
+  - [ ] Recommend caching strategy based on prompt repetition patterns
+- [ ] **Context Window Utilization Alerts** - Warn when spans approach context limits
+  - [ ] Alert when context_utilization_pct exceeds configurable threshold (default 80%)
+  - [ ] Per-run summary: max utilization, mean utilization, models hitting limits
+  - [ ] Suggest model upgrade when context is consistently near capacity
+
+### Confidence Enhancements
+
+- [ ] **Adaptive Consistency Sampling** - Stop early when judge agreement is already clear
+  - [ ] Sequential sampling: stop after 3 samples if all agree (skip remaining 2)
+  - [ ] Configurable early-stop threshold (e.g. 100% agreement after 3 of 5 samples)
+  - [ ] Cost savings report: samples skipped vs full sampling
+- [ ] **Confidence-Based Re-Evaluation** - Re-evaluate uncertain items with a stronger model
+  - [ ] Identify items where confidence score < threshold after initial eval
+  - [ ] Automatically re-run those items with a more capable model (e.g. flash -> pro)
+  - [ ] Merge re-evaluated scores back into the run results
+- [ ] **Confidence Threshold Tuning** - Find optimal confidence cutoff per metric
+  - [ ] Binary search for threshold that maximizes alignment with human annotations
+  - [ ] Per-metric optimal threshold stored in calibration record
+  - [ ] evalyn tune-confidence command
+
+### Config Enhancements
+
+- [ ] **Config Profiles** - Named environment profiles (dev/staging/prod) in evalyn.yaml
+  - [ ] profiles: section with per-profile overrides
+  - [ ] --profile flag on all commands to select active profile
+  - [ ] Profiles inherit from base config, override specific keys
+- [ ] **Environment Variable Validation** - Check all required env vars at command startup
+  - [ ] Required vars per command (e.g. run-eval needs GEMINI_API_KEY)
+  - [ ] Validate key format and basic connectivity before starting long operations
+  - [ ] Clear error messages: "GEMINI_API_KEY is set but invalid (HTTP 401)"
+
 ### Evaluation Enhancements
 
 - [ ] **Span-Level Evaluation** - Evaluate individual spans within a trace
