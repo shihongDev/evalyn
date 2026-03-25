@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
+import random
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 from ..defaults import DEFAULT_EVAL_MODEL
 
@@ -23,6 +28,12 @@ class GenerateResult:
     model: str = ""
 
 
+_RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+_MAX_RETRIES = 3
+_BASE_DELAY = 1.0  # seconds
+_MAX_TOTAL_TIMEOUT = 30.0  # seconds - give up after this total elapsed time
+
+
 def _http_post(
     url: str,
     payload: dict[str, Any],
@@ -30,18 +41,52 @@ def _http_post(
     timeout: int,
     error_prefix: str,
 ) -> dict[str, Any]:
-    """Make HTTP POST request and return JSON response."""
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+    """Make HTTP POST request with retry on transient failures.
 
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode("utf-8") if e.fp else ""
-        raise RuntimeError(f"{error_prefix} error ({e.code}): {error_body}") from e
-    except urllib.error.URLError as e:
-        raise RuntimeError(f"{error_prefix} connection error: {e.reason}") from e
+    Retries up to 3 times with exponential backoff and jitter for
+    429/5xx responses. Non-retryable errors (4xx except 429) raise
+    immediately.
+    """
+    data = json.dumps(payload).encode("utf-8")
+    start = time.monotonic()
+    last_error: Exception | None = None
+
+    for attempt in range(_MAX_RETRIES + 1):
+        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            if e.code not in _RETRYABLE_STATUS_CODES or attempt == _MAX_RETRIES:
+                error_body = e.read().decode("utf-8") if e.fp else ""
+                raise RuntimeError(
+                    f"{error_prefix} error ({e.code}): {error_body}"
+                ) from e
+            last_error = e
+        except urllib.error.URLError as e:
+            if attempt == _MAX_RETRIES:
+                raise RuntimeError(
+                    f"{error_prefix} connection error: {e.reason}"
+                ) from e
+            last_error = e
+
+        # Exponential backoff with jitter: 1s, 2s, 4s (plus up to 0.5s jitter)
+        delay = _BASE_DELAY * (2 ** attempt) + random.uniform(0, 0.5)
+        elapsed = time.monotonic() - start
+        if elapsed + delay > _MAX_TOTAL_TIMEOUT:
+            break
+        logger.warning(
+            "%s: retrying in %.1fs (attempt %d/%d)",
+            error_prefix, delay, attempt + 1, _MAX_RETRIES,
+        )
+        time.sleep(delay)
+
+    # Exhausted retries or total timeout
+    if last_error:
+        raise RuntimeError(
+            f"{error_prefix}: failed after {_MAX_RETRIES} retries"
+        ) from last_error
+    raise RuntimeError(f"{error_prefix}: unexpected retry loop exit")
 
 
 class GeminiClient:
