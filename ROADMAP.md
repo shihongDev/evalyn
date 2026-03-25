@@ -195,6 +195,47 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Unit type distribution chart in analysis output
   - [ ] Filter analysis by unit type: --unit-type single_turn
 
+### Batch Evaluation Enhancements
+
+- [ ] **Batch Job Persistence** - Save batch job state to disk for recovery after crash or restart
+  - [ ] Write BatchJob to .evalyn/batch_jobs/ as JSON on submit
+  - [ ] evalyn batch-status to list pending/completed batch jobs
+  - [ ] evalyn batch-resume to collect results from a previously submitted batch
+- [ ] **Mixed-Mode Evaluation** - Use batch API for large runs, real-time for small runs
+  - [ ] Auto-select mode based on item count threshold (e.g. batch if > 50 items)
+  - [ ] --mode auto/batch/realtime flag on run-eval
+  - [ ] Cost/speed comparison in dry-run output
+- [ ] **Batch Progress Polling** - Live progress updates while batch job is processing
+  - [ ] Poll provider API for completion percentage
+  - [ ] Display progress bar with ETA during batch wait
+  - [ ] Configurable poll interval (default 30s)
+
+### Session Management
+
+- [ ] **Session-Level Analysis** - Aggregate metrics across all calls within an eval_session
+  - [ ] Group traces by session_id in analysis output
+  - [ ] Per-session pass rate, cost, and latency summaries
+  - [ ] Cross-session comparison for the same user journey
+- [ ] **Session Replay** - Re-execute a full session against a different model or prompt version
+  - [ ] Extract all inputs from session traces in order
+  - [ ] Replay with swapped model/provider
+  - [ ] Session-level diff: compare original vs replayed outputs turn by turn
+
+### Reproducibility
+
+- [ ] **Deterministic Evaluation Mode** - Ensure runs produce identical results given identical inputs
+  - [ ] Fixed random seed for all sampling operations
+  - [ ] Temperature 0 enforcement for judge LLM calls
+  - [ ] --seed flag on run-eval for reproducible runs
+- [ ] **Run Manifest** - Record every parameter that could affect evaluation results
+  - [ ] Store: evalyn version, Python version, provider versions, metric hashes, config hash
+  - [ ] Manifest file alongside eval run results
+  - [ ] evalyn verify-manifest to check reproducibility of a past run
+- [ ] **Custom Cost Models** - User-defined pricing for custom or self-hosted models
+  - [ ] Per-model cost-per-token config in evalyn.yaml
+  - [ ] Override default pricing for Ollama and other local models
+  - [ ] Cost model versioning for tracking price changes over time
+
 ### Evaluation Enhancements
 
 - [ ] **Span-Level Evaluation** - Evaluate individual spans within a trace
