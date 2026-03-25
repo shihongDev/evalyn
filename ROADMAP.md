@@ -94,6 +94,44 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Tags stored in span metadata and queryable via list-calls
   - [ ] Standard tags: environment, user_id, experiment_id, variant
 
+### Confidence & Judge Robustness
+
+- [ ] **Confidence Method Comparison** - Run all confidence methods on same data and compare calibration
+  - [ ] Side-by-side comparison of logprobs, deepconf, consistency, verbalized methods
+  - [ ] Calibration curve: confidence score vs actual correctness
+  - [ ] Recommend best method per metric/provider combination
+- [ ] **Hybrid Confidence** - Combine multiple confidence methods into a single robust score
+  - [ ] Weighted ensemble of available methods
+  - [ ] Fall back gracefully when a method is unavailable (e.g. no logprobs)
+  - [ ] Bayesian combination with learned weights
+- [ ] **Structured Output Enforcement** - Force JSON mode on judge LLM calls for reliable parsing
+  - [ ] Use provider-native JSON mode (Gemini response_mime_type, OpenAI response_format)
+  - [ ] Schema enforcement via provider-specific structured output features
+  - [ ] Fallback to regex extraction when JSON mode unavailable
+- [ ] **Judge Output Retry** - Automatically retry judge calls when output fails to parse
+  - [ ] Configurable max retries (default 2)
+  - [ ] Append "respond with valid JSON" on retry attempts
+  - [ ] Track parse failure rate per metric for diagnostics
+- [ ] **Judge Latency Optimization** - Reduce judge call overhead for large-scale evaluation
+  - [ ] Prompt caching: reuse system prompt prefix across items
+  - [ ] Batch multiple items into single judge call where possible
+  - [ ] Model-specific prompt length optimization
+
+### Evaluation Units & Views
+
+- [ ] **Custom Unit Builder Plugins** - User-defined evaluation boundaries via pluggable builders
+  - [ ] Register custom EvalUnitBuilder subclasses via entry points
+  - [ ] Builder configuration in evalyn.yaml per metric
+  - [ ] Example builders: per-paragraph, per-code-block, per-citation
+- [ ] **Unit Type Auto-Detection** - Infer best EvalUnit type from trace structure
+  - [ ] Detect multi-turn patterns from sequential LLM spans
+  - [ ] Detect tool-use patterns from tool_call/tool_result span pairs
+  - [ ] Default to outcome when trace structure is flat
+- [ ] **Unit-Level Reporting** - Per-unit-type metric breakdowns in analysis
+  - [ ] Separate pass rates for outcome vs single_turn vs tool_use units
+  - [ ] Unit type distribution chart in analysis output
+  - [ ] Filter analysis by unit type: --unit-type single_turn
+
 ### Evaluation Enhancements
 
 - [ ] **Span-Level Evaluation** - Evaluate individual spans within a trace
@@ -486,6 +524,42 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn snapshot --name "pre-refactor" saves RunAnalysis + InsightsReport
   - [ ] evalyn compare-snapshots for before/after comparison
   - [ ] Snapshots stored in .evalyn/ directory as JSON
+
+### Programmatic SDK
+
+- [ ] **Python API for Running Evaluations** - Run evaluations from Python code without CLI
+  - [ ] evalyn.run(dataset, metrics, provider) returning EvalRun object
+  - [ ] evalyn.analyze(run) returning RunAnalysis directly
+  - [ ] evalyn.compare(run_a, run_b) returning comparison dict
+  - [ ] Async variants: await evalyn.run_async(...)
+- [ ] **Event Callback Hooks** - Register functions that fire on evaluation events
+  - [ ] on_item_complete(callback) for per-item processing
+  - [ ] on_metric_complete(callback) for per-metric processing
+  - [ ] on_run_complete(callback) for post-run triggers
+  - [ ] Hook registration via evalyn.yaml or Python API
+- [ ] **Context Manager Tracing** - Manual span creation with `with` syntax
+  - [ ] with evalyn.span("name", "type") as s: for explicit span boundaries
+  - [ ] Automatic parent-child linking via context propagation
+  - [ ] Span attribute setting: s.set_attribute("key", "value")
+- [ ] **Embedding as Library** - Use evalyn as imported library in test suites
+  - [ ] pytest plugin: @pytest.mark.evalyn(metrics=["helpfulness"])
+  - [ ] Assert on metric scores: assert result.metrics["helpfulness"].passed
+  - [ ] Integration with pytest-xdist for parallel testing
+
+### Testing & Quality Enhancements
+
+- [ ] **Snapshot Testing for Metrics** - Detect unintended changes to metric scoring behavior
+  - [ ] Record expected scores for a golden dataset
+  - [ ] Flag when metric output changes (new code, model update)
+  - [ ] evalyn test-metrics --update-snapshots to accept changes
+- [ ] **Performance Benchmark Suite** - Track and prevent performance regressions in evalyn itself
+  - [ ] Benchmarks for: dataset loading, metric scoring, analysis, export
+  - [ ] Baseline timings stored in repo
+  - [ ] CI check: fail if any benchmark regresses > 20%
+- [ ] **Fuzz Testing for Parsers** - Stress-test JSON/judge output parsing with malformed inputs
+  - [ ] Fuzz _extract_json_object and extract_json_list with random strings
+  - [ ] Fuzz _parse_passed with edge case values
+  - [ ] Ensure no unhandled exceptions on any input
 
 ---
 
