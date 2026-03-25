@@ -128,6 +128,27 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Replace input/output text with length-preserving placeholder content
   - [ ] Preserve span structure, timing, token counts, and cost data
   - [ ] evalyn export-traces --anonymize for safe sharing and bug reports
+- [ ] **Trace Flame Graph** - Flame graph rendering for span durations within a trace
+  - [ ] Stacked bar visualization where width represents wall-clock time per span
+  - [ ] Color-code by span type (llm_call, tool_call, node, etc.)
+  - [ ] ASCII flame graph for terminal, SVG for HTML reports
+  - [ ] Identify time-dominant spans at a glance vs nested show-trace tree
+- [ ] **Trace Summary Generation** - LLM-generated natural language summary of trace behavior
+  - [ ] Summarize what the agent did: tools called, decisions made, output produced
+  - [ ] evalyn summarize-trace --id <id> producing 2-3 sentence summary
+  - [ ] Batch summaries for dataset items to understand coverage
+- [ ] **Trace Metadata Inheritance** - Child spans automatically inherit parent's custom tags
+  - [ ] Inheritance rules configurable: inherit-all, inherit-listed, no-inherit
+  - [ ] Override inherited tags at child level
+  - [ ] Useful for propagating environment, user_id, experiment_id down the span tree
+- [ ] **Trace Cost Breakdown by Phase** - Attribute cost to trace phases (reasoning, tool use, output)
+  - [ ] Classify spans into phases based on span type and position in tree
+  - [ ] Per-phase cost aggregation in show-trace and analyze output
+  - [ ] Identify which phase consumes the most tokens/cost
+- [ ] **Trace Correlation with External Events** - Link traces to deployments, incidents, or config changes
+  - [ ] evalyn mark-event --type deploy --label "v2.1 rollout" recording event timestamp
+  - [ ] Overlay events on trend charts to correlate metric changes with deploys
+  - [ ] Query traces around an event: evalyn list-calls --around-event <event-id>
 
 ### Trace Lifecycle Management
 
@@ -442,6 +463,26 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Per-worker memory tracking via psutil (optional dependency)
   - [ ] Warning when memory exceeds configurable threshold
   - [ ] Resource usage summary in eval run metadata
+- [ ] **Evaluation Abort Conditions** - Compound abort rules beyond simple pass rate threshold
+  - [ ] Rule syntax: "abort if any safety metric < 50% on any item"
+  - [ ] Multiple abort conditions combinable with AND/OR logic
+  - [ ] --abort-on flag on run-eval with condition expression
+- [ ] **Human-AI Hybrid Scoring** - Route uncertain items to human annotator during evaluation
+  - [ ] Confidence threshold below which items are queued for human review
+  - [ ] Interactive prompt during eval for human labels on flagged items
+  - [ ] Merge human and judge scores in final EvalRun results
+- [ ] **Evaluation Result Changelog** - LLM-generated summary of differences between two runs
+  - [ ] Natural language description: "3 items regressed on helpfulness, all related to multi-step queries"
+  - [ ] evalyn changelog --run1 <id> --run2 <id> producing human-readable diff
+  - [ ] Highlight most impactful changes
+- [ ] **Metric Execution Priority Queue** - Run most-likely-to-fail metrics first for faster feedback
+  - [ ] Priority based on historical failure rate per metric
+  - [ ] Surface failing metrics early in progress output
+  - [ ] Combine with abort conditions for fast-fail workflows
+- [ ] **Evaluation Retry Budget** - Bound total retries across all items with a per-run budget
+  - [ ] --max-retries-total flag (default: unlimited)
+  - [ ] Track retries consumed vs budget in progress output
+  - [ ] Prevent retry storms from consuming excessive tokens
 
 ### Calibration & Optimization
 
@@ -527,6 +568,26 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Run 2-3 optimizers in parallel on same calibration data
   - [ ] Tournament: evaluate each optimizer's prompt on held-out set
   - [ ] Select best-performing prompt or blend top-K prompts
+- [ ] **Calibration Sensitivity Analysis** - Measure alignment sensitivity to small prompt perturbations
+  - [ ] Perturb calibrated prompt (word swaps, paraphrase, reorder)
+  - [ ] Measure alignment variance across perturbations
+  - [ ] Flag calibrations that are fragile (small change causes large alignment drop)
+- [ ] **Few-Shot Example Ordering** - Optimize the order of examples in few-shot judge prompts
+  - [ ] Test permutations of example order and measure alignment impact
+  - [ ] Heuristics: put hardest examples last, group by failure type
+  - [ ] Store optimal order in CalibrationRecord
+- [ ] **Calibration Diagnostic Report** - Detailed analysis of why calibration improved or degraded alignment
+  - [ ] Per-item breakdown: which items flipped from wrong to right (and vice versa)
+  - [ ] Prompt diff showing exactly what changed in the preamble
+  - [ ] Categorize improvements by item type (false positive fixes vs false negative fixes)
+- [ ] **Calibration Freeze** - Lock a calibration record to prevent accidental overwriting
+  - [ ] evalyn freeze-calibration --id <id> marking calibration as immutable
+  - [ ] Prevent calibrate command from overwriting frozen records
+  - [ ] evalyn unfreeze-calibration to unlock when intentional re-calibration is needed
+- [ ] **Calibration Comparison Dashboard** - Side-by-side view of multiple calibration attempts
+  - [ ] evalyn compare-calibrations --ids <id1> <id2> showing alignment metrics
+  - [ ] Prompt diff between calibration versions
+  - [ ] Per-item score change matrix across calibrations
 
 ### Multi-Modal Evaluation
 
@@ -708,6 +769,26 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Profile slow queries in list-calls, list-runs, build-dataset
   - [ ] evalyn storage-tune creating recommended indexes
   - [ ] Report query speedup after index creation
+- [ ] **Storage Query Logging** - Log SQL queries for performance debugging and optimization
+  - [ ] EVALYN_QUERY_LOG=1 env var enabling query logging to .evalyn/queries.log
+  - [ ] Log query text, execution time, rows returned
+  - [ ] Identify slowest queries for index tuning
+- [ ] **Storage Cross-Reference Report** - Show relationships between stored entities
+  - [ ] evalyn storage-xref showing: traces -> datasets -> runs -> annotations linkage
+  - [ ] Identify orphaned entities (runs referencing deleted datasets, etc.)
+  - [ ] Entity count summary per relationship type
+- [ ] **Storage Connection Diagnostics** - Report SQLite configuration and health
+  - [ ] evalyn storage-diag showing WAL mode, journal mode, page size, cache size
+  - [ ] File lock status and concurrent access warnings
+  - [ ] Recommend optimal SQLite pragmas for current workload
+- [ ] **Storage Snapshot/Restore** - Point-in-time snapshots for safe experimentation
+  - [ ] evalyn storage-snapshot --name "before-cleanup" creating named copy
+  - [ ] evalyn storage-restore --name "before-cleanup" reverting to snapshot
+  - [ ] Snapshot list with timestamps and sizes
+- [ ] **Storage Usage Forecast** - Predict storage growth based on current usage rate
+  - [ ] Compute growth rate from last 7/30/90 days
+  - [ ] Estimate when storage will reach configurable size threshold
+  - [ ] evalyn storage-forecast showing projected growth chart
 
 ### Data & Dataset
 
@@ -803,6 +884,26 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Side-by-side text diff for modified items (input or output changed)
   - [ ] Summary: items added, removed, modified, unchanged
   - [ ] evalyn dataset-snapshot-diff --before <v1> --after <v2>
+- [ ] **Dataset Complexity Scoring** - Auto-compute per-item difficulty from input features
+  - [ ] Heuristics: input length, vocabulary diversity, question complexity indicators
+  - [ ] Store complexity_score in item metadata for filtering and stratification
+  - [ ] evalyn dataset-stats --complexity showing difficulty distribution
+- [ ] **Dataset Bias Auditing** - Detect systematic biases in input distribution
+  - [ ] Topic distribution analysis via LLM classification
+  - [ ] Length and vocabulary skew detection
+  - [ ] evalyn dataset-audit producing bias report with recommendations
+- [ ] **Dataset Curation Suggestions** - LLM-powered gap analysis suggesting items to add
+  - [ ] Analyze current dataset coverage against metric requirements
+  - [ ] Suggest input types, edge cases, and scenarios not yet represented
+  - [ ] evalyn dataset-suggest --dataset <path> producing curation plan
+- [ ] **Dataset A/B Split Generator** - Create matched pairs for controlled model comparison
+  - [ ] Stratified pairing by complexity, topic, and metadata fields
+  - [ ] Ensure balanced splits for statistical validity
+  - [ ] evalyn dataset-ab-split --dataset <path> producing split_a.jsonl and split_b.jsonl
+- [ ] **Dataset Subset Extraction** - Extract semantically meaningful subsets via clustering
+  - [ ] Cluster items by embedding similarity into N groups
+  - [ ] evalyn dataset-subset --clusters N --dataset <path> extracting per-cluster subsets
+  - [ ] Useful for focused evaluation on specific input categories
 
 ### Reporting & Analytics
 
@@ -891,6 +992,26 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Run same eval N times and compute per-metric coefficient of variation
   - [ ] Flag metrics with high variance as unreliable
   - [ ] Recommend increasing samples or switching judge model for unstable metrics
+- [ ] **Metric Contribution Analysis** - SHAP-style attribution of each metric's contribution to overall pass/fail
+  - [ ] Compute marginal contribution of each metric to overall item pass rate
+  - [ ] Identify metrics that are decisive (flip overall pass/fail) vs redundant
+  - [ ] Visualization: waterfall chart showing per-metric contribution
+- [ ] **Worst-Case Item Identification** - Surface items that fail across the most metrics simultaneously
+  - [ ] Rank items by number of failed metrics (cross-metric failure count)
+  - [ ] Highlight items that are "universally bad" vs "edge case failures"
+  - [ ] Useful for prioritizing which agent behaviors to fix first
+- [ ] **Time-to-Fix Tracking** - Track how many runs it takes for failing items to start passing
+  - [ ] Per-item pass/fail history across consecutive runs
+  - [ ] Average time-to-fix per metric and per failure category
+  - [ ] Identify persistently failing items that resist fixes
+- [ ] **Analysis Report Diff** - Diff two RunAnalysis outputs showing what changed
+  - [ ] evalyn analysis-diff --run1 <id> --run2 <id>
+  - [ ] Delta per metric: pass rate change, score mean change, new/resolved failures
+  - [ ] ASCII table with color-coded improvements/regressions
+- [ ] **Run Quality Score** - Composite score summarizing overall run health
+  - [ ] Weighted combination: pass rate, cost efficiency, coverage, judge confidence
+  - [ ] Single 0-100 score for quick run quality assessment
+  - [ ] Configurable weights in evalyn.yaml
 
 ### Interoperability
 
@@ -1401,6 +1522,26 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Embedding spread: average pairwise distance in generated set
   - [ ] Vocabulary uniqueness ratio vs seed set
   - [ ] Novelty score: fraction of generated items far from all seed items
+- [ ] **Simulation Evaluation Loop** - Generate, evaluate, and iterate on simulated data in one command
+  - [ ] evalyn simulate-and-eval --rounds 3 running simulate + run-eval in a loop
+  - [ ] Each round generates items targeting previous round's failure patterns
+  - [ ] Convergence tracking: stop when pass rate stabilizes
+- [ ] **Simulation with Tool Schemas** - Generate inputs that exercise specific tool call patterns
+  - [ ] Provide tool definitions in evalyn.yaml; simulator generates queries requiring those tools
+  - [ ] Coverage tracking: % of tools exercised by generated inputs
+  - [ ] Useful for testing tool selection and parameter correctness
+- [ ] **Simulation Seed Clustering** - Cluster seeds before simulation to ensure diverse coverage
+  - [ ] Auto-cluster seed items into groups by embedding similarity
+  - [ ] Sample proportionally from each cluster for simulation seeds
+  - [ ] Prevent simulation from over-representing one cluster of similar inputs
+- [ ] **Simulation Template Library** - Pre-built simulation configs for common use cases
+  - [ ] Templates: customer-support, rag-qa, code-review, multi-step-agent
+  - [ ] Each template defines persona mix, edge case types, output format constraints
+  - [ ] evalyn simulate --template customer-support
+- [ ] **Simulation Difficulty Grading** - Auto-tag generated items with estimated difficulty level
+  - [ ] Difficulty heuristics: input complexity, number of constraints, ambiguity level
+  - [ ] Tag in metadata as difficulty: easy/medium/hard
+  - [ ] Ensure generated set has balanced difficulty distribution
 
 ### Sampling
 
@@ -1452,6 +1593,26 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] --bootstrap N flag on run-eval to create N resampled evaluation runs
   - [ ] Report 95% confidence intervals for each metric from bootstrap distribution
   - [ ] Useful for small datasets where point estimates are unreliable
+- [ ] **Similarity-Based Sampling** - Sample items most or least similar to a given reference item
+  - [ ] --similar-to <item-id> flag selecting nearest neighbors by embedding distance
+  - [ ] --dissimilar-to <item-id> for maximum diversity from a reference
+  - [ ] Useful for focused investigation around a specific failure or success case
+- [ ] **Error-Pattern Sampling** - Preferentially sample items matching known failure patterns
+  - [ ] Extract failure patterns from cluster-failures output
+  - [ ] Match new items against known patterns via embedding similarity
+  - [ ] Ensures calibration and evaluation sets include known-hard cases
+- [ ] **Progressive Sampling** - Start with small sample, expand if metrics are statistically inconclusive
+  - [ ] Initial sample of N items, evaluate, check confidence intervals
+  - [ ] Expand sample size if CI width exceeds threshold
+  - [ ] Stop when statistical power is sufficient or budget exhausted
+- [ ] **Metadata-Conditional Sampling** - Variable sample rates by metadata field values
+  - [ ] Config: sample 100% of "production" items, 20% of "test" items
+  - [ ] Per-field rate definitions in evalyn.yaml or --sample-by flag
+  - [ ] Report actual sampling ratios applied per metadata value
+- [ ] **Novelty Sampling** - Prioritize items most unlike the existing labeled/annotated set
+  - [ ] Compute embedding distance from each unlabeled item to nearest labeled item
+  - [ ] Sample items with maximum novelty for annotation or calibration
+  - [ ] Expand labeled set coverage efficiently
 
 ### Export & Reporting
 
@@ -1558,6 +1719,26 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Auto-page when output exceeds terminal height
   - [ ] Respect PAGER env var, default to less
   - [ ] --no-pager flag to disable for piping
+- [ ] **CLI Notification on Completion** - System notification when long-running commands finish
+  - [ ] Desktop notification via notify-send (Linux), osascript (macOS), or toast (Windows)
+  - [ ] --notify flag on run-eval, calibrate, and one-click commands
+  - [ ] Include pass/fail summary in notification body
+- [ ] **CLI Config Show** - Display effective merged configuration from all sources
+  - [ ] evalyn config-show displaying global + project + env var + flag overrides
+  - [ ] Highlight which source each setting comes from
+  - [ ] Useful for debugging "why is this provider being used?"
+- [ ] **CLI Compare Shorthand** - Quick comparison shortcuts for common comparison patterns
+  - [ ] evalyn compare --last-2 comparing two most recent runs
+  - [ ] evalyn compare --latest-vs-pinned comparing latest against pinned baseline
+  - [ ] evalyn compare --latest-vs-previous for sequential regression checking
+- [ ] **CLI Checkpoint Inspection** - View and manage evaluation checkpoints
+  - [ ] evalyn checkpoints listing all saved checkpoints with item counts and timestamps
+  - [ ] evalyn checkpoint-info <id> showing checkpoint details
+  - [ ] evalyn checkpoint-delete <id> cleaning up stale checkpoints
+- [ ] **CLI Pipeline Visualization** - Show pipeline steps as ASCII flowchart before execution
+  - [ ] evalyn one-click --show-plan displaying step sequence with estimated times
+  - [ ] Indicate which steps will be skipped based on flags
+  - [ ] Confirm before executing the visualized plan
 
 ### Run Management
 
@@ -1649,6 +1830,26 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Detect reference availability per item via _dataset_has_reference
   - [ ] Use reference-based rubric when available, reference-free rubric otherwise
   - [ ] Report which rubric variant was used per item in MetricResult details
+- [ ] **Metric Debug Mode** - Verbose logging of the complete judge interaction per item
+  - [ ] --debug-metrics flag showing: prompt sent, raw response, parsed result per item
+  - [ ] Log to .evalyn/metric_debug.jsonl for post-hoc analysis
+  - [ ] Useful for diagnosing why a metric scores differently than expected
+- [ ] **Metric Template Variables** - Custom variables in judge prompt templates beyond standard input/output/expected
+  - [ ] User-defined variables in evalyn.yaml: template_vars: {domain: "healthcare", persona: "clinician"}
+  - [ ] Variable interpolation in judge prompts: "Evaluate from the perspective of a {{persona}}"
+  - [ ] Per-dataset variable overrides in meta.json
+- [ ] **Metric Registry Freeze** - Lock the metric set for a project to prevent accidental changes
+  - [ ] evalyn freeze-metrics --project <name> locking current metrics.json
+  - [ ] Warn when attempting to modify frozen metric set
+  - [ ] evalyn unfreeze-metrics to unlock for intentional changes
+- [ ] **Metric Output Post-Processing** - Pluggable post-processors on raw judge output before scoring
+  - [ ] Post-processor chain in evalyn.yaml per metric (e.g. normalize, clamp, round)
+  - [ ] Built-in processors: score_clamp(0,1), binary_threshold(0.5), invert_score
+  - [ ] Custom Python post-processor functions via entry points
+- [ ] **Metric Deprecation Lifecycle** - Formal deprecation with migration path and sunset date
+  - [ ] Deprecation metadata on MetricSpec: deprecated_since, replacement, sunset_date
+  - [ ] Warning when using deprecated metrics in run-eval
+  - [ ] evalyn list-metrics --deprecated showing deprecated metrics with migration hints
 
 ### Metric Bundle Customization
 
