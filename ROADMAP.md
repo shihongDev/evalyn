@@ -866,6 +866,47 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Fuzz _parse_passed with edge case values
   - [ ] Ensure no unhandled exceptions on any input
 
+### Packaging & Distribution
+
+- [ ] **Docker Image** - Official Docker image for CI/CD and isolated evaluation environments
+  - [ ] Dockerfile with evalyn pre-installed and all optional dependencies
+  - [ ] Configurable via environment variables (API keys, config path)
+  - [ ] Docker Compose example with SQLite volume mount for data persistence
+  - [ ] GitHub Actions example using the Docker image for eval-on-PR
+- [ ] **Standalone Binary** - Single-file executable without Python dependency
+  - [ ] PyInstaller or Nuitka build for Linux, macOS, Windows
+  - [ ] GitHub Releases automation for versioned binaries
+  - [ ] Install script: curl -sSL https://evalyn.dev/install | sh
+- [ ] **evalyn version and Update Check** - Version management and update notifications
+  - [ ] evalyn version showing installed version and latest available
+  - [ ] Optional update check on startup (configurable, off by default)
+  - [ ] evalyn self-update command to upgrade in place
+
+### Documentation Generation
+
+- [ ] **CLI Reference Auto-Generation** - Generate CLI docs from argparse definitions
+  - [ ] evalyn docs --format markdown producing per-command reference pages
+  - [ ] Include all flags, defaults, examples, and cross-references
+  - [ ] Auto-update on release via CI
+- [ ] **Metric Catalog** - Auto-generated browsable catalog of all 133 metrics
+  - [ ] evalyn docs --metrics producing metric reference with rubrics, categories, scopes
+  - [ ] HTML format with search and filter by category/type
+  - [ ] Include metric bundle membership and recommended use cases
+- [ ] **Config Reference** - Auto-generated documentation for evalyn.yaml options
+  - [ ] Generate from evalyn.yaml.example with type annotations and valid values
+  - [ ] Show default values, environment variable overrides, and CLI flag mappings
+
+### Deprecation & Migration
+
+- [ ] **Deprecation Warnings** - Warn when using deprecated config keys, flags, or APIs
+  - [ ] Deprecation registry mapping old names to new names
+  - [ ] Yellow warning on first use, error after N versions
+  - [ ] evalyn migrate-config to auto-update deprecated config keys
+- [ ] **Breaking Change Detection** - Detect when upgrading evalyn would break existing runs
+  - [ ] Compare metric version hashes between installed version and pinned run manifest
+  - [ ] Warn before evaluation if metric behavior changed since last run
+  - [ ] Migration guide output for each detected breaking change
+
 ### Rubric Engineering
 
 - [ ] **Multi-Language Rubrics** - Judge prompts and rubrics in languages other than English
