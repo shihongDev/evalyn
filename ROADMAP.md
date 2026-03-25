@@ -94,6 +94,60 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Tags stored in span metadata and queryable via list-calls
   - [ ] Standard tags: environment, user_id, experiment_id, variant
 
+### Instrumentation & Decorator Enhancements
+
+- [ ] **Selective Instrumentation** - Only instrument specific methods or classes, not entire SDK
+  - [ ] Allowlist/blocklist of method names to instrument per provider
+  - [ ] Config in evalyn.yaml: instrument.openai.methods: ["chat.completions.create"]
+  - [ ] Reduce overhead by skipping low-value calls (e.g. embeddings, moderation)
+- [ ] **Instrumentation Health Check** - Verify instrumentation is capturing spans correctly
+  - [ ] evalyn check-instrumentation that runs a test call and verifies span capture
+  - [ ] Report which providers are instrumented, which failed, and why
+  - [ ] Warning when instrumented SDK is imported before evalyn_sdk
+- [ ] **Instrumentation Overhead Measurement** - Measure performance impact of tracing
+  - [ ] Benchmark: instrumented vs uninstrumented call latency
+  - [ ] Report added overhead in ms and % per provider
+  - [ ] Auto-disable instrumentation if overhead exceeds threshold
+- [ ] **Experiment Tracking** - Group traces by experiment ID for A/B comparisons
+  - [ ] @eval(experiment="prompt-v2") decorator parameter
+  - [ ] Filter traces by experiment in list-calls and build-dataset
+  - [ ] Cross-experiment metric comparison in analyze command
+- [ ] **Conditional Tracing** - Only trace when runtime conditions are met
+  - [ ] Sample-based: trace 10% of calls via @eval(sample_rate=0.1)
+  - [ ] Predicate-based: @eval(trace_if=lambda args: args["user_id"] in sample_set)
+  - [ ] Environment-based: only trace in production, skip in unit tests
+
+### Onboarding & Templates
+
+- [ ] **Quickstart Templates** - Framework-specific guided templates beyond generic quickstart
+  - [ ] evalyn quickstart --template rag for RAG pipeline setup
+  - [ ] evalyn quickstart --template chatbot for conversational agent setup
+  - [ ] evalyn quickstart --template multi-agent for multi-agent orchestration
+  - [ ] Each template pre-selects relevant metric bundles
+- [ ] **Interactive Tutorial Mode** - Step-by-step in-terminal tutorial for learning evalyn
+  - [ ] evalyn tutorial that walks through trace/build/eval/analyze cycle
+  - [ ] Bundled sample traces so tutorial works without API keys
+  - [ ] Progressive disclosure: each step explains what happened and why
+- [ ] **Example Agent Gallery** - Bundled working example agents for each supported framework
+  - [ ] example_agents/ directory with one example per framework
+  - [ ] Each example includes: agent code, pre-built dataset, expected results
+  - [ ] evalyn example --framework openai to scaffold from template
+
+### Config & Project Management
+
+- [ ] **Config Inheritance** - Base config with per-project overrides
+  - [ ] Global ~/.evalyn/config.yaml for shared settings (API keys, provider defaults)
+  - [ ] Project-level evalyn.yaml inherits and overrides global config
+  - [ ] Per-dataset config override via meta.json
+- [ ] **Project Scaffolding** - evalyn new-project to create standard project structure
+  - [ ] Create data/ directory, evalyn.yaml, and .gitignore entries
+  - [ ] Optional: create example agent file for chosen framework
+  - [ ] Optional: create GitHub Actions workflow for CI evaluation
+- [ ] **Multi-Project Dashboard** - View and compare metrics across multiple projects
+  - [ ] evalyn projects showing all projects with latest run status
+  - [ ] Cross-project regression detection
+  - [ ] Unified cost tracking across projects
+
 ### Confidence & Judge Robustness
 
 - [ ] **Confidence Method Comparison** - Run all confidence methods on same data and compare calibration
