@@ -334,16 +334,16 @@ Any alternative backend implementing only the protocol is silently incompatible.
 - ~~Replace `fatal_error()` with exceptions in business logic~~ DONE (calibration + simulation helpers)
 - ~~Replace direct `SQLiteStorage()` construction with injection~~ DONE (7 sites eliminated)
 
-### Phase 6 - Protocol and Type Completeness (future)
+### Phase 6 - Protocol and Type Completeness
 - ~~Complete StorageBackend protocol (add 4 missing methods)~~ DONE
 - ~~Make BaseOptimizer a proper ABC~~ DONE
 - ~~Type the `**kwargs` on ConfidenceEstimator.estimate()~~ DONE (documented per-subclass args, fixed details field)
 - Replace untyped Dict fields with dataclasses (raw_judge, summary, usage_summary)
-- Unify serialization (mixin or consistent manual approach, handle datetime everywhere)
+- ~~Unify serialization (consistent manual dict approach, no more asdict())~~ DONE
 
 ### Phase 7 - Generic Abstractions
 - Extract generic Registry[T] from 4 registry implementations
 - ~~Extract ProviderFactory from 3 provider dispatch locations~~ DONE (create_llm_client in api_client.py)
-- Extract MetricsLoader from 3 metric-building implementations
+- ~~Extract MetricsLoader from 3 metric-building implementations~~ DONE (build_metrics_from_specs in factory.py)
 
 *Last updated: 2026-03-26*
