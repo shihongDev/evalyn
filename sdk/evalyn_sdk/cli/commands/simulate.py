@@ -84,12 +84,12 @@ def cmd_simulate(args: argparse.Namespace) -> None:
         dataset_path = dataset_file.parent
 
     if not dataset_file.exists():
-        fatal_error(f"Dataset not found at {dataset_file}")
+        raise FileNotFoundError(f"Dataset not found at {dataset_file}")
 
     # Load seed dataset
     seed_items = load_dataset(dataset_file)
     if not seed_items:
-        fatal_error("No items found in seed dataset")
+        raise ValueError("No items found in seed dataset")
 
     print(f"Loaded {len(seed_items)} seed items from {dataset_file}")
 

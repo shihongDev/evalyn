@@ -173,7 +173,7 @@ def _get_calibration_metric_results(run, metric_id: str):
     """Filter metric results for the selected metric."""
     metric_results = [r for r in run.metric_results if r.metric_id == metric_id]
     if not metric_results:
-        fatal_error(f"No metric results found for metric_id={metric_id} in run {run.id}")
+        raise ValueError(f"No metric results found for metric_id={metric_id} in run {run.id}")
     return metric_results
 
 
@@ -222,7 +222,7 @@ def _build_calibration_optimizer_configs(args: argparse.Namespace) -> dict:
     gepa_config = None
     if args.optimizer == "gepa":
         if not GEPA_AVAILABLE:
-            fatal_error("GEPA is not installed", "Install with: pip install gepa")
+            raise ImportError("GEPA is not installed. Install with: pip install gepa")
         gepa_config = GEPAConfig(
             task_lm=args.gepa_task_lm,
             reflection_lm=args.gepa_reflection_lm,
