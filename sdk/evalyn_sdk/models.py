@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Literal, Optional
 import uuid
@@ -295,7 +295,13 @@ class EvalUnit:
     context: Dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        return {
+            "id": self.id,
+            "unit_type": self.unit_type,
+            "call_id": self.call_id,
+            "span_ids": list(self.span_ids),
+            "context": dict(self.context),
+        }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "EvalUnit":
@@ -324,7 +330,13 @@ class EvalView:
     context: Dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        return {
+            "unit_id": self.unit_id,
+            "unit_type": self.unit_type,
+            "input": self.input,
+            "output": self.output,
+            "context": dict(self.context),
+        }
 
 
 MetricType = Literal["objective", "subjective"]
@@ -384,7 +396,21 @@ class MetricResult:
     span_ids: Optional[List[str]] = None
 
     def as_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        return {
+            "metric_id": self.metric_id,
+            "item_id": self.item_id,
+            "call_id": self.call_id,
+            "score": self.score,
+            "passed": self.passed,
+            "details": self.details,
+            "raw_judge": self.raw_judge,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "model": self.model,
+            "unit_id": self.unit_id,
+            "unit_type": self.unit_type,
+            "span_ids": self.span_ids,
+        }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "MetricResult":
@@ -417,7 +443,14 @@ class SpanMetricLink:
     run_id: str
 
     def as_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        return {
+            "id": self.id,
+            "metric_result_id": self.metric_result_id,
+            "span_id": self.span_id,
+            "relevance": self.relevance,
+            "reason": self.reason,
+            "run_id": self.run_id,
+        }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "SpanMetricLink":
