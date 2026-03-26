@@ -503,7 +503,8 @@ class DatasetItem:
     - human_label: Human judgement/annotation (optional, for calibration)
     - metadata: Additional info (call_id, trace data, etc.)
 
-    The old 'inputs' and 'expected' fields are kept for backwards compatibility.
+    The 'inputs' and 'expected' properties are kept for backwards compatibility
+    and always delegate to the canonical 'input' and 'output' fields.
     """
 
     id: str
@@ -512,21 +513,23 @@ class DatasetItem:
     human_label: Optional[Dict[str, Any]] = None  # Human judgement
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-    # Backwards compatibility
-    inputs: Dict[str, Any] = field(default_factory=dict)  # Alias for input
-    expected: Optional[Any] = None  # Deprecated
+    @property
+    def inputs(self) -> Dict[str, Any]:
+        """Backward-compat alias for input."""
+        return self.input
 
-    def __post_init__(self):
-        # Merge inputs into input for backwards compat
-        if self.inputs and not self.input:
-            self.input = self.inputs
-        elif self.input and not self.inputs:
-            self.inputs = self.input
-        # Sync expected <-> output for backwards compat
-        if self.expected is not None and self.output is None:
-            self.output = self.expected
-        elif self.output is not None and self.expected is None:
-            self.expected = self.output
+    @inputs.setter
+    def inputs(self, value: Dict[str, Any]) -> None:
+        self.input = value
+
+    @property
+    def expected(self) -> Optional[Any]:
+        """Backward-compat alias for output."""
+        return self.output
+
+    @expected.setter
+    def expected(self, value: Any) -> None:
+        self.output = value
 
     def as_dict(self) -> Dict[str, Any]:
         return {
@@ -549,8 +552,6 @@ class DatasetItem:
             output=output_data,
             human_label=payload.get("human_label"),
             metadata=payload.get("metadata", {}),
-            inputs=input_data,  # Backwards compat
-            expected=output_data,  # Backwards compat
         )
 
     @classmethod
@@ -568,8 +569,6 @@ class DatasetItem:
                 "error": call.error,
                 "session_id": call.session_id,
             },
-            inputs=call.inputs,
-            expected=None,
         )
 
 

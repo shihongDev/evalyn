@@ -310,8 +310,12 @@ class TestDatasetItem:
         assert item.expected == "4"
 
     def test_backwards_compat_inputs_syncs_to_input(self):
-        item = DatasetItem(id="x", inputs={"a": 1})
-        assert item.input == {"a": 1}
+        item = DatasetItem(id="x", input={"a": 1})
+        # .inputs property delegates to .input
+        assert item.inputs == {"a": 1}
+        # Setting via .inputs property updates .input
+        item.inputs = {"c": 3}
+        assert item.input == {"c": 3}
 
     def test_backwards_compat_input_syncs_to_inputs(self):
         item = DatasetItem(id="y", input={"b": 2})
