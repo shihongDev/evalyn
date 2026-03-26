@@ -70,17 +70,9 @@ class TestBaseOptimizer:
         assert result.original_rubric == result.improved_rubric
 
     def test_optimize_abstract_raises(self):
-        with pytest.raises(NotImplementedError):
-            BaseOptimizer(config=DummyConfig()).optimize(
-                metric_id="test",
-                current_rubric=[],
-                current_preamble="",
-                disagreements=None,
-                metric_results=[],
-                annotations=[],
-                dataset_items=[],
-                accumulator=None,
-            )
+        # BaseOptimizer is now an ABC - instantiation fails if optimize() not implemented
+        with pytest.raises(TypeError, match="abstract"):
+            BaseOptimizer(config=DummyConfig())
 
     def test_concrete_optimize_works(self):
         opt = ConcreteOptimizer(config=DummyConfig())

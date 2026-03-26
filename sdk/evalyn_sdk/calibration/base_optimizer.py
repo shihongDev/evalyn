@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import random
 import time
+from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ from .models import AlignmentMetrics, PromptOptimizationResult, TokenAccumulator
 from .utils import build_dataset_from_annotations, build_full_prompt, parse_judge_response
 
 
-class BaseOptimizer:
+class BaseOptimizer(ABC):
     """Common foundation for new preamble optimizers."""
 
     def __init__(self, config: Any, api_key: str | None = None):
@@ -217,6 +218,7 @@ class BaseOptimizer:
             full_prompt=build_full_prompt(optimized_preamble, rubric),
         )
 
+    @abstractmethod
     def optimize(
         self,
         *,
@@ -230,4 +232,5 @@ class BaseOptimizer:
         accumulator: TokenAccumulator | None = None,
         **kwargs,
     ) -> PromptOptimizationResult:
-        raise NotImplementedError
+        """Optimize the preamble. Subclasses must implement this."""
+        ...
