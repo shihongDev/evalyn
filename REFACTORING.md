@@ -322,7 +322,7 @@ Any alternative backend implementing only the protocol is silently incompatible.
 - ~~Extract dataset path normalization (#24)~~ DONE
 - ~~Delete _aggregate_analysis_stats, use analyze_run (#17)~~ DONE
 - ~~Fix list_datasets missing data/prod/datasets (#19)~~ DONE
-- Extract CalibrationStep typed service (#20)
+- ~~Extract CalibrationStep typed service (#20)~~ DONE
 - ~~Fix CalibrationEngine deprecated field warnings (#25)~~ DONE
 - ~~Fix substring model matching (#23)~~ DONE
 - ~~Fix process-level cache (#16)~~ DONE
@@ -330,14 +330,14 @@ Any alternative backend implementing only the protocol is silently incompatible.
 ### Phase 5 - Service Layer Extraction (future)
 - Create `services/` directory with typed service classes
 - Migrate business logic from CLI commands to services
-- Replace argparse.Namespace pipeline calls with service calls
+- ~~Replace argparse.Namespace pipeline calls with service calls~~ DONE (CalibrationStep)
 - Replace `fatal_error()` with exceptions in business logic
 - Replace direct `SQLiteStorage()` construction with injection
 
 ### Phase 6 - Protocol and Type Completeness (future)
 - ~~Complete StorageBackend protocol (add 4 missing methods)~~ DONE
-- Make BaseOptimizer a proper ABC
-- Type the `**kwargs` on ConfidenceEstimator.estimate()
+- ~~Make BaseOptimizer a proper ABC~~ DONE
+- ~~Type the `**kwargs` on ConfidenceEstimator.estimate()~~ DONE (documented per-subclass args, fixed details field)
 - Replace untyped Dict fields with dataclasses (raw_judge, summary, usage_summary)
 - Unify serialization (mixin or consistent manual approach, handle datetime everywhere)
 
