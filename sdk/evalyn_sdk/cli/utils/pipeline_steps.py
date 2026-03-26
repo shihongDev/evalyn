@@ -30,40 +30,25 @@ def _build_metrics_from_specs(
 ) -> Tuple[List, int]:
     """Build metric instances from spec data.
 
-    Args:
-        metrics_data: List of metric spec dictionaries
-        gemini_key: API key for Gemini LLM judges
-        calibrated_prompts: Optional dict mapping metric_id to optimized prompt
+    Delegates to the shared build_metrics_from_specs in metrics.factory.
 
     Returns:
         Tuple of (metrics list, calibrated count)
     """
-    from ...models import MetricSpec
-    from ...metrics.factory import build_objective_metric, build_subjective_metric
+    from ...metrics.factory import build_metrics_from_specs
 
-    metrics = []
-    calibrated_count = 0
     calibrated_prompts = calibrated_prompts or {}
+    calibrated_count = sum(
+        1 for s in metrics_data
+        if s.get("type") == "subjective" and s.get("id", "") in calibrated_prompts
+    )
 
-    for spec_data in metrics_data:
-        spec = MetricSpec.from_dict(spec_data)
-
-        # Apply calibrated prompt if available
-        if spec.type == "subjective" and spec.id in calibrated_prompts:
-            spec.config = dict(spec.config or {})
-            spec.config["prompt"] = calibrated_prompts[spec.id]
-            calibrated_count += 1
-
-        try:
-            if spec.type == "objective":
-                m = build_objective_metric(spec.id, spec.config)
-            else:
-                m = build_subjective_metric(spec.id, spec.config, api_key=gemini_key)
-            if m:
-                metrics.append(m)
-        except Exception as e:
-            print(f"  Warning: could not build metric '{spec.id}': {e}")
-
+    metrics = build_metrics_from_specs(
+        metrics_data,
+        api_key=gemini_key,
+        calibrated_prompts=calibrated_prompts,
+        on_error=lambda mid, e: print(f"  Warning: could not build metric '{mid}': {e}"),
+    )
     return metrics, calibrated_count
 
 

@@ -649,3 +649,64 @@ def build_subjective_metric(
     metric = wrapper() if wrapper else base_metric
 
     return _apply_unit_types(metric, cfg)
+
+
+def build_metrics_from_specs(
+    specs_data: List[Dict[str, Any]],
+    *,
+    api_key: Optional[str] = None,
+    provider: str = "gemini",
+    calibrated_prompts: Optional[Dict[str, str]] = None,
+    confidence_method: str = "none",
+    confidence_samples: int = 3,
+    on_error: Optional[Callable[[str, Exception], None]] = None,
+) -> List:
+    """Build metric instances from a list of spec dicts.
+
+    Shared logic used by both CLI run-eval and pipeline steps.
+
+    Args:
+        specs_data: List of metric spec dicts (each must have "id" and "type")
+        api_key: API key for LLM judge providers
+        provider: Judge provider name ("gemini", "openai", "ollama")
+        calibrated_prompts: Optional dict mapping metric_id to optimized prompt
+        confidence_method: Confidence estimation method ("none", "consistency", etc.)
+        confidence_samples: Number of samples for consistency confidence
+        on_error: Callback for build errors; receives (metric_id, exception)
+
+    Returns:
+        List of built Metric instances
+    """
+    from ..models import MetricSpec
+
+    calibrated_prompts = calibrated_prompts or {}
+    metrics = []
+
+    for spec_data in specs_data:
+        spec = MetricSpec.from_dict(spec_data)
+
+        # Apply calibrated prompt if available
+        if spec.type == "subjective" and spec.id in calibrated_prompts:
+            spec.config = dict(spec.config or {})
+            spec.config["prompt"] = calibrated_prompts[spec.id]
+
+        try:
+            if spec.type == "objective":
+                m = build_objective_metric(spec.id, spec.config)
+            else:
+                m = build_subjective_metric(
+                    spec.id,
+                    spec.config,
+                    description=spec.description,
+                    api_key=api_key,
+                    provider=provider,
+                    confidence_method=confidence_method,
+                    confidence_samples=confidence_samples,
+                )
+            if m:
+                metrics.append(m)
+        except Exception as e:
+            if on_error:
+                on_error(spec.id, e)
+
+    return metrics
