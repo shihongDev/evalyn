@@ -303,9 +303,9 @@ Any alternative backend implementing only the protocol is silently incompatible.
 - ~~Fix consistency tie-break (#15)~~ DONE
 
 ### Phase 2 - Concurrency Correctness
-- Fix global state data race (#1)
+- ~~Fix global state data race (#1)~~ DONE
 - ~~Fix ContextVar token reset (#4)~~ DONE
-- Fix unit eval strategy bypass (#6)
+- ~~Fix unit eval strategy bypass (#6)~~ DONE
 - ~~Fix non-deterministic unit IDs (#13)~~ DONE
 - ~~Fix sample_diverse seed (#14)~~ DONE
 
@@ -313,14 +313,14 @@ Any alternative backend implementing only the protocol is silently incompatible.
 - ~~Fix silent metric build failures (#8)~~ DONE
 - ~~Fix StorageBackend protocol (#9)~~ DONE
 - ~~Fix N+1 query (#10)~~ DONE
-- Fix DatasetItem dual fields (#11)
+- ~~Fix DatasetItem dual fields (#11)~~ DONE
 - ~~Fix hardcoded /7 step count (#18)~~ DONE
 
 ### Phase 4 - Maintainability
 - ~~Consolidate default model table (#22)~~ DONE
 - ~~Extract _get_scorer_client (#21)~~ DONE
 - ~~Extract dataset path normalization (#24)~~ DONE
-- Delete _aggregate_analysis_stats, use analyze_run (#17)
+- ~~Delete _aggregate_analysis_stats, use analyze_run (#17)~~ DONE
 - ~~Fix list_datasets missing data/prod/datasets (#19)~~ DONE
 - Extract CalibrationStep typed service (#20)
 - ~~Fix CalibrationEngine deprecated field warnings (#25)~~ DONE
