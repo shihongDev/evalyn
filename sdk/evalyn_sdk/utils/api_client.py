@@ -489,10 +489,40 @@ class OllamaClient:
         return text, []
 
 
+def create_llm_client(
+    provider: str,
+    model: str,
+    temperature: float = 0.0,
+    api_key: Optional[str] = None,
+    timeout: int = 120,
+):
+    """Factory for creating LLM clients by provider name.
+
+    Args:
+        provider: One of "gemini", "openai", "ollama"
+        model: Model name/ID
+        temperature: Generation temperature
+        api_key: API key (not needed for ollama)
+        timeout: Request timeout in seconds
+
+    Returns:
+        GeminiClient, OpenAIClient, or OllamaClient instance
+    """
+    if provider == "openai":
+        return OpenAIClient(model=model, temperature=temperature, api_key=api_key)
+    elif provider == "ollama":
+        return OllamaClient(model=model, temperature=temperature)
+    else:
+        return GeminiClient(
+            model=model, temperature=temperature, api_key=api_key, timeout=timeout,
+        )
+
+
 __all__ = [
     "GenerateResult",
     "GeminiClient",
     "OpenAIClient",
     "OllamaClient",
     "call_gemini_api",
+    "create_llm_client",
 ]

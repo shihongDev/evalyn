@@ -19,7 +19,7 @@ import json
 from typing import Any, Dict, List, Optional
 
 from ..models import DatasetItem, FunctionCall, Metric, MetricResult, MetricSpec
-from ..utils.api_client import GeminiClient
+from ..utils.api_client import create_llm_client
 
 # Import canonical templates from metrics.subjective
 from ..metrics.subjective import JUDGE_TEMPLATES
@@ -82,27 +82,12 @@ class LLMJudge:
     def client(self):
         """Lazy-initialized API client based on provider."""
         if self._client is None:
-            if self.provider == "openai":
-                from ..utils.api_client import OpenAIClient
-
-                self._client = OpenAIClient(
-                    model=self.model,
-                    temperature=self.temperature,
-                    api_key=self._api_key,
-                )
-            elif self.provider == "ollama":
-                from ..utils.api_client import OllamaClient
-
-                self._client = OllamaClient(
-                    model=self.model,
-                    temperature=self.temperature,
-                )
-            else:  # gemini (default)
-                self._client = GeminiClient(
-                    model=self.model,
-                    temperature=self.temperature,
-                    api_key=self._api_key,
-                )
+            self._client = create_llm_client(
+                provider=self.provider,
+                model=self.model,
+                temperature=self.temperature,
+                api_key=self._api_key,
+            )
         return self._client
 
     @classmethod
