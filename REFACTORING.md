@@ -311,8 +311,8 @@ Any alternative backend implementing only the protocol is silently incompatible.
 
 ### Phase 3 - Code Quality
 - ~~Fix silent metric build failures (#8)~~ DONE
-- Fix StorageBackend protocol (#9)
-- Fix N+1 query (#10)
+- ~~Fix StorageBackend protocol (#9)~~ DONE
+- ~~Fix N+1 query (#10)~~ DONE
 - Fix DatasetItem dual fields (#11)
 - ~~Fix hardcoded /7 step count (#18)~~ DONE
 
@@ -321,11 +321,11 @@ Any alternative backend implementing only the protocol is silently incompatible.
 - ~~Extract _get_scorer_client (#21)~~ DONE
 - ~~Extract dataset path normalization (#24)~~ DONE
 - Delete _aggregate_analysis_stats, use analyze_run (#17)
-- Fix list_datasets missing data/prod/datasets (#19)
+- ~~Fix list_datasets missing data/prod/datasets (#19)~~ DONE
 - Extract CalibrationStep typed service (#20)
-- Fix CalibrationEngine deprecated field warnings (#25)
-- Fix substring model matching (#23)
-- Fix process-level cache (#16)
+- ~~Fix CalibrationEngine deprecated field warnings (#25)~~ DONE
+- ~~Fix substring model matching (#23)~~ DONE
+- ~~Fix process-level cache (#16)~~ DONE
 
 ### Phase 5 - Service Layer Extraction (future)
 - Create `services/` directory with typed service classes
@@ -335,7 +335,7 @@ Any alternative backend implementing only the protocol is silently incompatible.
 - Replace direct `SQLiteStorage()` construction with injection
 
 ### Phase 6 - Protocol and Type Completeness (future)
-- Complete StorageBackend protocol (add 4 missing methods)
+- ~~Complete StorageBackend protocol (add 4 missing methods)~~ DONE
 - Make BaseOptimizer a proper ABC
 - Type the `**kwargs` on ConfidenceEstimator.estimate()
 - Replace untyped Dict fields with dataclasses (raw_judge, summary, usage_summary)
