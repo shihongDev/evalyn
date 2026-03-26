@@ -25,6 +25,18 @@ class BaseOptimizer:
         self._api_key = api_key
         self._base_scorer_client = None
 
+    def _get_scorer_client(self):
+        """Lazily create the scorer client for preamble evaluation."""
+        if self._base_scorer_client is None:
+            from ..utils.api_client import GeminiClient
+
+            scorer_model = getattr(self.config, "scorer_model", None)
+            timeout = getattr(self.config, "timeout", 120)
+            self._base_scorer_client = GeminiClient(
+                model=scorer_model, temperature=0.0, api_key=self._api_key, timeout=timeout,
+            )
+        return self._base_scorer_client
+
     def _generate_with_retry(self, client, prompt: str, max_retries: int = 2,
                               accumulator=None) -> Optional["GenerateResult"]:
         """Call client.generate_with_usage with retry and exponential backoff.
@@ -102,15 +114,7 @@ class BaseOptimizer:
         for the 'expected' field, not booleans.
         """
         full_prompt = build_full_prompt(preamble, rubric)
-        if self._base_scorer_client is None:
-            from ..utils.api_client import GeminiClient
-
-            scorer_model = getattr(self.config, "scorer_model", None)
-            timeout = getattr(self.config, "timeout", 120)
-            self._base_scorer_client = GeminiClient(
-                model=scorer_model, temperature=0.0, api_key=self._api_key, timeout=timeout,
-            )
-        client = self._base_scorer_client
+        client = self._get_scorer_client()
 
         sample = examples
         if max_samples is not None and len(examples) > max_samples:
@@ -150,15 +154,7 @@ class BaseOptimizer:
             List of failure dicts with keys: input, output, judge_said, human_said.
         """
         full_prompt = build_full_prompt(preamble, rubric)
-        if self._base_scorer_client is None:
-            from ..utils.api_client import GeminiClient
-
-            scorer_model = getattr(self.config, "scorer_model", None)
-            timeout = getattr(self.config, "timeout", 120)
-            self._base_scorer_client = GeminiClient(
-                model=scorer_model, temperature=0.0, api_key=self._api_key, timeout=timeout,
-            )
-        client = self._base_scorer_client
+        client = self._get_scorer_client()
 
         failures: List[Dict[str, Any]] = []
         for ex in examples:

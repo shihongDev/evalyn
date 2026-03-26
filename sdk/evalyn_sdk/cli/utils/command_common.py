@@ -87,6 +87,26 @@ def load_eval_run_for_command(
     return LoadedRun(run=run, run_file_path=run_file_path)
 
 
+def _normalize_dataset_path(path: Path) -> Optional[tuple[Path, Path]]:
+    """Normalize a path to (dataset_dir, dataset_file).
+
+    Handles both directory paths (looks for dataset.jsonl/dataset.json inside)
+    and direct file paths. Returns None if the resolved file doesn't exist.
+    """
+    if path.is_dir():
+        dataset_dir = path
+        dataset_file = path / "dataset.jsonl"
+        if not dataset_file.exists():
+            dataset_file = path / "dataset.json"
+    else:
+        dataset_dir = path.parent
+        dataset_file = path
+
+    if not dataset_file.exists():
+        return None
+    return dataset_dir, dataset_file
+
+
 def resolve_dataset_dir_and_file(
     dataset_arg: Optional[str],
     use_latest: bool,
@@ -100,20 +120,10 @@ def resolve_dataset_dir_and_file(
     if not resolved_path:
         fatal_error("No dataset specified", "Use --dataset <path> or --latest")
 
-    dataset_path = Path(resolved_path)
-    if dataset_path.is_dir():
-        dataset_dir = dataset_path
-        dataset_file = dataset_path / "dataset.jsonl"
-        if not dataset_file.exists():
-            dataset_file = dataset_path / "dataset.json"
-    else:
-        dataset_dir = dataset_path.parent
-        dataset_file = dataset_path
-
-    if not dataset_file.exists():
-        fatal_error(f"Dataset file not found: {dataset_file}")
-
-    return dataset_dir, dataset_file
+    result = _normalize_dataset_path(Path(resolved_path))
+    if result is None:
+        fatal_error(f"Dataset file not found in: {resolved_path}")
+    return result
 
 
 def try_resolve_dataset_dir_and_file(
@@ -128,20 +138,7 @@ def try_resolve_dataset_dir_and_file(
     if not resolved_path:
         return None
 
-    dataset_path = Path(resolved_path)
-    if dataset_path.is_dir():
-        dataset_dir = dataset_path
-        dataset_file = dataset_path / "dataset.jsonl"
-        if not dataset_file.exists():
-            dataset_file = dataset_path / "dataset.json"
-    else:
-        dataset_dir = dataset_path.parent
-        dataset_file = dataset_path
-
-    if not dataset_file.exists():
-        return None
-
-    return dataset_dir, dataset_file
+    return _normalize_dataset_path(Path(resolved_path))
 
 
 def resolve_call_id(
