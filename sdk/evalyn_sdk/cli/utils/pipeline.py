@@ -111,10 +111,13 @@ class PipelineStep(ABC):
         self.args = args
         self.config = config
 
+    # Total steps - set by PipelineOrchestrator before execution
+    total_steps: int = 7
+
     @property
     def header(self) -> str:
         """Step header for display."""
-        return f"[{self.step_number}/7] {self.display_name}"
+        return f"[{self.step_number}/{self.total_steps}] {self.display_name}"
 
     def should_skip(self) -> Optional[str]:
         """Return skip reason if step should be skipped, None otherwise."""
@@ -160,6 +163,11 @@ class PipelineOrchestrator:
         """Run the pipeline."""
         self._init_state()
         self._print_header()
+
+        # Set total step count on each step for accurate header display
+        total = len(self.steps)
+        for step in self.steps:
+            step.total_steps = total
 
         try:
             for step in self.steps:

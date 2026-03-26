@@ -604,12 +604,9 @@ def build_subjective_metric(
     # Create judge if not provided
     if judge is None:
         # Default model depends on provider
-        default_models = {
-            "gemini": "gemini-2.5-flash-lite",
-            "openai": "gpt-4o-mini",
-            "ollama": "llama3.2",
-        }
-        model = cfg.get("model", default_models.get(provider, "gemini-2.5-flash-lite"))
+        from ..defaults import DEFAULT_MODELS_BY_PROVIDER, DEFAULT_EVAL_MODEL
+
+        model = cfg.get("model", DEFAULT_MODELS_BY_PROVIDER.get(provider, DEFAULT_EVAL_MODEL))
         temperature = float(cfg.get("temperature", 0.0))
         from ..judges import LLMJudge as _LLMJudge
         judge = _LLMJudge(

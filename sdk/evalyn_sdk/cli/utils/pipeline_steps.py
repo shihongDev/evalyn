@@ -61,8 +61,8 @@ def _build_metrics_from_specs(
                 m = build_subjective_metric(spec.id, spec.config, api_key=gemini_key)
             if m:
                 metrics.append(m)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"  Warning: could not build metric '{spec.id}': {e}")
 
     return metrics, calibrated_count
 

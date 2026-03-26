@@ -72,12 +72,9 @@ class LLMJudge:
 
         # Default model depends on provider
         if model is None:
-            default_models = {
-                "gemini": "gemini-2.5-flash-lite",
-                "openai": "gpt-4o-mini",
-                "ollama": "llama3.2",
-            }
-            self.model = default_models.get(provider, "gemini-2.5-flash-lite")
+            from ..defaults import DEFAULT_MODELS_BY_PROVIDER, DEFAULT_EVAL_MODEL
+
+            self.model = DEFAULT_MODELS_BY_PROVIDER.get(provider, DEFAULT_EVAL_MODEL)
         else:
             self.model = model
 

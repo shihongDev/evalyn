@@ -17,11 +17,12 @@ DEFAULT_GENERATOR_MODEL = "gemini-2.5-flash"
 # DSPy-formatted model strings for GEPA
 DEFAULT_DSPY_MODEL = "gemini/gemini-2.5-flash"
 
-# Provider-specific defaults
+# Provider-specific defaults for LLM judge evaluation
 DEFAULT_MODELS_BY_PROVIDER = {
     "gemini": DEFAULT_EVAL_MODEL,
     "openai": "gpt-4o-mini",
     "anthropic": "claude-3-haiku-20240307",
+    "ollama": "llama3.2",
 }
 
 __all__ = [
