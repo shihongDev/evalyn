@@ -373,6 +373,17 @@ class EvalRunner:
             )
         else:
             # Unit-based mode: discover units and evaluate per-unit
+            # Note: unit evaluation runs sequentially without checkpointing
+            if self.max_workers > 1:
+                logger.warning(
+                    "Unit-based evaluation does not support parallel execution; "
+                    "running sequentially (max_workers=%d ignored)", self.max_workers,
+                )
+            if self.checkpoint_path:
+                logger.warning(
+                    "Unit-based evaluation does not support checkpointing; "
+                    "checkpoint_path=%s ignored", self.checkpoint_path,
+                )
             new_results = self._run_unit_evaluation(
                 prepared=prepared,
                 run_id=run_id,
