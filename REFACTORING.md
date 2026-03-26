@@ -331,7 +331,7 @@ Any alternative backend implementing only the protocol is silently incompatible.
 - Create `services/` directory with typed service classes
 - Migrate business logic from CLI commands to services
 - ~~Replace argparse.Namespace pipeline calls with service calls~~ DONE (all 3: Calibration, Annotation, Simulation)
-- Replace `fatal_error()` with exceptions in business logic
+- ~~Replace `fatal_error()` with exceptions in business logic~~ DONE (calibration + simulation helpers)
 - ~~Replace direct `SQLiteStorage()` construction with injection~~ DONE (7 sites eliminated)
 
 ### Phase 6 - Protocol and Type Completeness (future)
@@ -341,9 +341,9 @@ Any alternative backend implementing only the protocol is silently incompatible.
 - Replace untyped Dict fields with dataclasses (raw_judge, summary, usage_summary)
 - Unify serialization (mixin or consistent manual approach, handle datetime everywhere)
 
-### Phase 7 - Generic Abstractions (future)
+### Phase 7 - Generic Abstractions
 - Extract generic Registry[T] from 4 registry implementations
-- Extract ProviderFactory from 3 provider dispatch locations
+- ~~Extract ProviderFactory from 3 provider dispatch locations~~ DONE (create_llm_client in api_client.py)
 - Extract MetricsLoader from 3 metric-building implementations
 
 *Last updated: 2026-03-26*
