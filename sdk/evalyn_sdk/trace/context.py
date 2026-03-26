@@ -40,7 +40,9 @@ _span_collector: ContextVar[List["Span"]] = ContextVar(
 # Thread-safe global collector fallback (for threads that don't inherit ContextVar)
 _global_lock = threading.Lock()
 _global_collectors: Dict[str, List["Span"]] = {}
-_global_call_id: Optional[str] = None
+# Per-thread call ID tracking (replaces single scalar to avoid data races
+# when multiple @eval calls run concurrently in different threads)
+_thread_call_ids: Dict[int, str] = {}
 
 # Default orphan collector for spans created without a session/call context
 # This allows hooks to capture spans even when @eval decorator isn't used
@@ -68,16 +70,17 @@ def get_current_call() -> Optional["FunctionCall"]:
 
 def set_current_call(call: Optional["FunctionCall"]) -> None:
     """Set the currently active FunctionCall and manage global collector."""
-    global _global_call_id
+    tid = threading.get_ident()
     _active_call.set(call)
 
     with _global_lock:
         if call is not None:
             _global_collectors[call.id] = []
-            _global_call_id = call.id
-        elif _global_call_id:
-            _global_collectors.pop(_global_call_id, None)
-            _global_call_id = None
+            _thread_call_ids[tid] = call.id
+        else:
+            old_id = _thread_call_ids.pop(tid, None)
+            if old_id:
+                _global_collectors.pop(old_id, None)
 
 
 def get_span_collector() -> List["Span"]:
@@ -121,8 +124,10 @@ def _add_span_to_collector(span: "Span") -> None:
 
     # Fallback: use global collector (for threads without ContextVar)
     with _global_lock:
-        if _global_call_id and _global_call_id in _global_collectors:
-            _global_collectors[_global_call_id].append(span)
+        tid = threading.get_ident()
+        call_id = _thread_call_ids.get(tid)
+        if call_id and call_id in _global_collectors:
+            _global_collectors[call_id].append(span)
             return
 
         # Final fallback: orphan collector for hooks without session context
