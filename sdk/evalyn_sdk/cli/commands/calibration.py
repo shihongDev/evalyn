@@ -596,32 +596,51 @@ def _print_calibration_postamble(
         )
 
 
-def cmd_calibrate(args: argparse.Namespace) -> None:
-    """Calibrate a subjective metric using human annotations.
+def calibrate_metric(
+    metric_id: str,
+    annotations_path: str,
+    dataset_dir: str,
+    *,
+    optimizer: str = "basic",
+    model: str = "gemini-2.5-flash-lite",
+    threshold: float = 0.5,
+    no_optimize: bool = False,
+    run_id: Optional[str] = None,
+    verbose: bool = False,
+) -> None:
+    """Run calibration for a single metric - callable without argparse.
 
-    Calibration process:
-    1. Load metric results from an eval run (LLM judge verdicts)
-    2. Load human annotations (ground truth labels)
-    3. Calculate alignment metrics (accuracy, F1, Cohen's Kappa)
-    4. Analyze disagreement patterns (false positives/negatives)
-    5. Optimize the judge prompt to reduce disagreements
-    6. Validate the optimized prompt against held-out samples
-    7. Save calibration record and optimized prompt
-
-    Optimization methods:
-    - basic: Single-shot LLM analysis (fast, simple)
-    - gepa: Evolutionary algorithm for systematic optimization (slower but thorough)
+    This is the typed API for calibration used by both the CLI and pipeline.
+    It loads the run, annotations, and dataset, runs calibration, and saves outputs.
     """
+    # Build a minimal namespace for existing helper compatibility
+    args = argparse.Namespace(
+        metric_id=metric_id,
+        annotations=annotations_path,
+        dataset=dataset_dir,
+        latest=False,
+        run_id=run_id,
+        optimizer=optimizer,
+        model=model,
+        threshold=threshold,
+        no_optimize=no_optimize,
+        show_examples=False,
+        output=None,
+        format="table",
+        verbose=verbose,
+        quiet=False,
+    )
+
     _, run = _load_calibration_run(args)
-    metric_results = _get_calibration_metric_results(run, args.metric_id)
-    anns = import_annotations(args.annotations)
+    metric_results = _get_calibration_metric_results(run, metric_id)
+    anns = import_annotations(annotations_path)
     current_rubric, current_preamble = _extract_calibration_metric_prompt_context(
-        run, args.metric_id
+        run, metric_id
     )
 
     config = load_config()
     _apply_calibration_config_defaults(args, config)
-    dataset_dir, dataset_items = _load_optional_calibration_dataset_context(args, config)
+    ds_dir, dataset_items = _load_optional_calibration_dataset_context(args, config)
     optimizer_configs = _build_calibration_optimizer_configs(args)
     engine = _build_calibration_engine(
         args,
@@ -632,8 +651,23 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     record = _run_calibration_with_spinner(args, engine, metric_results, anns, dataset_items)
 
     _print_calibration_report(args, run, record)
-    _save_calibration_outputs(args, record, dataset_dir)
-    _print_calibration_postamble(args, record, dataset_dir)
+    _save_calibration_outputs(args, record, ds_dir)
+    _print_calibration_postamble(args, record, ds_dir)
+
+
+def cmd_calibrate(args: argparse.Namespace) -> None:
+    """Calibrate a subjective metric using human annotations."""
+    calibrate_metric(
+        metric_id=args.metric_id,
+        annotations_path=args.annotations,
+        dataset_dir=getattr(args, "dataset", None) or "",
+        optimizer=getattr(args, "optimizer", "basic"),
+        model=getattr(args, "model", "gemini-2.5-flash-lite"),
+        threshold=getattr(args, "threshold", 0.5),
+        no_optimize=getattr(args, "no_optimize", False),
+        run_id=getattr(args, "run_id", None),
+        verbose=getattr(args, "verbose", False),
+    )
 
 
 def cmd_list_calibrations(args: argparse.Namespace) -> None:

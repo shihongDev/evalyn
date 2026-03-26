@@ -508,7 +508,7 @@ class CalibrationStep(PipelineStep):
     def execute(
         self, output_dir: Path, context: Dict[str, Any]
     ) -> Tuple[StepResult, Dict[str, Any]]:
-        from ..commands.calibration import cmd_calibrate
+        from ..commands.calibration import calibrate_metric
 
         ann_path = output_dir / "annotations" / "annotations.jsonl"
         if not ann_path.exists():
@@ -541,52 +541,14 @@ class CalibrationStep(PipelineStep):
 
         for spec in subj_metrics:
             print(f"  [{spec.id}]")
-            cal_args = argparse.Namespace(
-                metric_id=spec.id,
-                annotations=str(ann_path),
-                run_id=None,
-                threshold=0.5,
-                dataset=str(dataset_dir),
-                latest=False,
-                no_optimize=False,
-                optimizer=optimizer,
-                model=model,
-                # GEPA settings
-                gepa_task_lm="gemini/gemini-2.5-flash",
-                gepa_reflection_lm="gemini/gemini-2.5-flash",
-                gepa_max_calls=150,
-                # OPRO settings
-                opro_optimizer_model="gemini-2.5-flash",
-                opro_scorer_model="gemini-2.5-flash-lite",
-                opro_iterations=10,
-                opro_candidates=4,
-                # APE settings
-                ape_candidates=10,
-                ape_rounds=5,
-                ape_samples=5,
-                show_examples=False,
-                output=None,
-                format="table",
-                evo_population=8,
-                evo_generations=5,
-                evo_mutation_rate=0.3,
-                textgrad_iterations=8,
-                textgrad_threshold=0.01,
-                mipro_instructions=6,
-                mipro_demos=3,
-                mipro_eval_samples=10,
-                pb_population=6,
-                pb_generations=5,
-                gepa_native_task_model="gemini-2.5-flash",
-                gepa_native_reflection_model="gemini-2.5-flash",
-                gepa_native_max_calls=150,
-                gepa_native_initial_candidates=5,
-                gepa_native_batch_size=5,
-                verbose=False,
-                quiet=False,
-            )
             try:
-                cmd_calibrate(cal_args)
+                calibrate_metric(
+                    metric_id=spec.id,
+                    annotations_path=str(ann_path),
+                    dataset_dir=str(dataset_dir),
+                    optimizer=optimizer,
+                    model=model,
+                )
                 calibrated_metrics.append(spec.id)
                 print()
             except Exception as e:
