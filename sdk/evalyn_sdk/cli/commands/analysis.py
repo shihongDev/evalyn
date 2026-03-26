@@ -355,46 +355,46 @@ def _load_analysis_human_labels(dataset_path) -> dict[tuple[str, str], bool]:
 
 
 def _aggregate_analysis_stats(run, human_labels: dict[tuple[str, str], bool]) -> dict:
-    """Aggregate metric, failure, and alignment stats for analysis output."""
+    """Aggregate metric, failure, and alignment stats for analysis output.
+
+    Delegates metric/item statistics to analysis.core.analyze_run and adds
+    alignment computation against human labels.
+    """
+    from ...analysis.core import analyze_run
     from ...calibration import AlignmentMetrics
 
+    # Use the canonical analysis engine for metric stats
+    run_analysis = analyze_run(run.as_dict())
+
+    # Convert RunAnalysis into the dict format used by downstream output code
     metrics_stats = {}
     item_failures = {}
-    alignment_stats: dict[str, AlignmentMetrics] = {}
+    for metric_id, ms in run_analysis.metric_stats.items():
+        metrics_stats[metric_id] = {
+            "total": ms.count,
+            "passed": ms.passed,
+            "failed": ms.failed,
+            "scores": list(ms.scores),
+            "failed_items": [],
+        }
+    for item_id, ist in run_analysis.item_stats.items():
+        for mid, mr_info in ist.metric_results.items():
+            if mr_info.get("passed") is False:
+                metrics_stats.get(mid, {}).setdefault("failed_items", []).append(item_id)
+                item_failures.setdefault(item_id, []).append(mid)
 
+    # Compute alignment against human annotations (unique to this function)
+    alignment_stats: dict[str, AlignmentMetrics] = {}
     for mr in run.metric_results:
         item_id = mr.item_id or "unknown"
         metric_id = mr.metric_id
-        passed = mr.passed
-        score = mr.score
-
-        if metric_id not in metrics_stats:
-            metrics_stats[metric_id] = {
-                "total": 0,
-                "passed": 0,
-                "failed": 0,
-                "scores": [],
-                "failed_items": [],
-            }
+        if metric_id not in alignment_stats:
             alignment_stats[metric_id] = AlignmentMetrics()
-
-        stats = metrics_stats[metric_id]
-        stats["total"] += 1
-        if passed:
-            stats["passed"] += 1
-        else:
-            stats["failed"] += 1
-            stats["failed_items"].append(item_id)
-            item_failures.setdefault(item_id, []).append(metric_id)
-
-        if score is not None:
-            stats["scores"].append(score)
-
         human_label = human_labels.get(
             (item_id, metric_id), human_labels.get((item_id, "__overall__"))
         )
         if human_label is not None:
-            alignment_stats[metric_id].record(predicted=passed, actual=human_label)
+            alignment_stats[metric_id].record(predicted=mr.passed, actual=human_label)
 
     sorted_metrics = sorted(
         metrics_stats.items(),
