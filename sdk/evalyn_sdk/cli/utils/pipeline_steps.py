@@ -46,13 +46,7 @@ def _build_metrics_from_specs(
     calibrated_prompts = calibrated_prompts or {}
 
     for spec_data in metrics_data:
-        spec = MetricSpec(
-            id=spec_data["id"],
-            name=spec_data.get("name", spec_data["id"]),
-            type=spec_data["type"],
-            description=spec_data.get("description", ""),
-            config=spec_data.get("config", {}),
-        )
+        spec = MetricSpec.from_dict(spec_data)
 
         # Apply calibrated prompt if available
         if spec.type == "subjective" and spec.id in calibrated_prompts:
@@ -289,15 +283,7 @@ class SuggestMetricsStep(PipelineStep):
         for mid in ids:
             tpl = tpl_map.get(mid)
             if tpl:
-                specs.append(
-                    MetricSpec(
-                        id=tpl["id"],
-                        name=tpl["id"],
-                        type=tpl["type"],
-                        description=tpl.get("description", ""),
-                        config=tpl.get("config", {}),
-                    )
-                )
+                specs.append(MetricSpec.from_dict(tpl))
         return specs
 
     def _suggest_all_modes(

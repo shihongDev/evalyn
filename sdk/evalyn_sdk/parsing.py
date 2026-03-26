@@ -29,25 +29,20 @@ def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
     except Exception:
         pass
 
-    # Try to find JSON object by brace matching
+    # Find JSON object using bracket-finding (handles braces inside strings correctly
+    # by delegating to json.loads rather than manual brace-depth counting)
     start = text.find("{")
     if start < 0:
         return None
-    depth = 0
-    for i in range(start, len(text)):
-        ch = text[i]
-        if ch == "{":
-            depth += 1
-        elif ch == "}":
-            depth -= 1
-            if depth == 0:
-                snippet = text[start : i + 1]
-                try:
-                    parsed = json.loads(snippet)
-                    return parsed if isinstance(parsed, dict) else None
-                except Exception:
-                    return None
-    return None
+    end = text.rfind("}")
+    if end <= start:
+        return None
+    snippet = text[start : end + 1]
+    try:
+        parsed = json.loads(snippet)
+        return parsed if isinstance(parsed, dict) else None
+    except Exception:
+        return None
 
 
 def extract_json_list(text: str) -> List[dict]:

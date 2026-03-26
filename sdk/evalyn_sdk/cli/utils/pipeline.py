@@ -246,14 +246,7 @@ class PipelineOrchestrator:
                 metrics_data = json.load(f)
             specs = []
             for data in metrics_data:
-                spec = MetricSpec(
-                    id=data["id"],
-                    name=data.get("name", data["id"]),
-                    type=data["type"],
-                    description=data.get("description", ""),
-                    config=data.get("config", {}),
-                )
-                specs.append(spec)
+                specs.append(MetricSpec.from_dict(data))
             self.context["metric_specs"] = specs
         except Exception:
             pass  # Non-fatal, steps will handle missing specs

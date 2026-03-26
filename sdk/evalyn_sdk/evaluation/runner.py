@@ -123,8 +123,9 @@ class EvalRunner:
             completed = set(data.get("completed_items", []))
             run_id = data.get("run_id", str(uuid4()))
             return {"results": results, "completed_items": completed, "run_id": run_id}
-        except Exception:
-            # If checkpoint is corrupted, start fresh
+        except Exception as e:
+            # If checkpoint is corrupted, start fresh but warn the user
+            logger.warning("Checkpoint corrupted, starting fresh: %s", e)
             return {"results": [], "completed_items": set(), "run_id": str(uuid4())}
 
     def _save_checkpoint(
@@ -161,7 +162,8 @@ class EvalRunner:
                 if os.path.exists(temp_path):
                     os.unlink(temp_path)
                 raise
-        except Exception:
+        except Exception as e:
+            logger.warning("Failed to save checkpoint: %s", e)
             return False
 
     def _cleanup_checkpoint(self) -> None:

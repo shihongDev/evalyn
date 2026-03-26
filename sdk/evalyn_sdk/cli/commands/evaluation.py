@@ -337,13 +337,7 @@ def _build_run_eval_metrics(
     skipped_metrics = []
 
     for spec_data in all_metrics_data.values():
-        spec = MetricSpec(
-            id=spec_data["id"],
-            name=spec_data.get("name", spec_data["id"]),
-            type=spec_data["type"],
-            description=spec_data.get("description", ""),
-            config=spec_data.get("config", {}),
-        )
+        spec = MetricSpec.from_dict(spec_data)
 
         if use_calibrated and spec.type == "subjective":
             try:
@@ -1343,15 +1337,7 @@ def _run_suggest_metrics_bundle_mode(
         if tpl.get("requires_reference", False) and not has_reference:
             skipped_ref_metrics.append(mid)
             continue
-        specs.append(
-            MetricSpec(
-                id=tpl["id"],
-                name=tpl["id"],
-                type=tpl["type"],
-                description=tpl.get("description", ""),
-                config=tpl.get("config", {}),
-            )
-        )
+        specs.append(MetricSpec.from_dict(tpl))
 
     if skipped_ref_metrics and output_format != "json":
         print(

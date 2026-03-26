@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sqlite3
@@ -333,7 +334,7 @@ class SQLiteStorage:
                 """,
                 [
                     (
-                        f"{run_id}-{r.item_id}-{r.metric_id}"[:64],
+                        hashlib.sha256(f"{run_id}:{r.item_id}:{r.metric_id}:{r.unit_id or ''}".encode()).hexdigest()[:32],
                         run_id,
                         r.item_id,
                         r.call_id,

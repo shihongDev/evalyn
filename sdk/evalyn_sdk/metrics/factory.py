@@ -183,9 +183,9 @@ def _wrap_with_consistency_confidence(
             passed = False
             score = 0.0
         else:
-            # Tie: use first result
+            # Tie: use first result, but keep score consistent with passed
             passed = results[0].get("passed")
-            score = results[0].get("score", 0.5)
+            score = 1.0 if passed else 0.0
 
         # Collect reasons from all samples
         reasons = [r.get("reason") for r in results if r.get("reason")]

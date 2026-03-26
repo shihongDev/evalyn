@@ -356,7 +356,7 @@ class MetricSpec:
     def from_dict(cls, data: Dict[str, Any]) -> "MetricSpec":
         return cls(
             id=data["id"],
-            name=data["name"],
+            name=data.get("name", data["id"]),
             type=data.get("type", "objective"),
             description=data.get("description", ""),
             config=data.get("config", {}),
