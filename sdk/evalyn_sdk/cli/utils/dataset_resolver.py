@@ -138,14 +138,31 @@ def find_latest_dataset(data_dir: str = "data") -> Optional[Path]:
 
 
 def list_datasets(data_dir: str = "data", limit: int = 10) -> List[Path]:
-    """List available dataset directories."""
+    """List available dataset directories.
+
+    Searches three locations (matching find_latest_dataset behavior):
+    1. data/<name>/dataset.jsonl (direct children)
+    2. data/prod/datasets/<name>/dataset.jsonl
+    3. data/test/datasets/<name>/dataset.jsonl
+    """
     data_path = Path(data_dir)
     if not data_path.exists():
         return []
 
-    datasets = [
-        d for d in data_path.iterdir() if d.is_dir() and (d / "dataset.jsonl").exists()
-    ]
+    search_dirs = [data_path]
+    for sub in ("prod/datasets", "test/datasets"):
+        candidate = data_path / sub
+        if candidate.exists():
+            search_dirs.append(candidate)
+
+    seen: set = set()
+    datasets: List[Path] = []
+    for search_dir in search_dirs:
+        for d in search_dir.iterdir():
+            if d.is_dir() and (d / "dataset.jsonl").exists() and d not in seen:
+                seen.add(d)
+                datasets.append(d)
+
     datasets.sort(key=lambda d: d.stat().st_mtime, reverse=True)
     return datasets[:limit]
 

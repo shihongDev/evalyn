@@ -99,6 +99,17 @@ class CalibrationEngine:
             self.optimize_prompts = config.optimize_prompts
             self.optimizer_model = config.optimizer_model
             self.optimizer_type = config.optimizer_type
+            deprecated_configs = {
+                k: getattr(config, k) for k in
+                ("gepa_config", "gepa_native_config", "opro_config", "ape_config")
+                if getattr(config, k, None) is not None
+            }
+            if config.optimizer_config and deprecated_configs:
+                logger.warning(
+                    "optimizer_config provided alongside deprecated fields %s; "
+                    "deprecated fields will be ignored",
+                    list(deprecated_configs.keys()),
+                )
             self.optimizer_config = (
                 config.optimizer_config
                 or config.gepa_config
@@ -117,6 +128,18 @@ class CalibrationEngine:
             self.optimize_prompts = optimize_prompts
             self.optimizer_model = optimizer_model
             self.optimizer_type = optimizer_type
+            deprecated = {
+                k: v for k, v in [
+                    ("gepa_config", gepa_config), ("gepa_native_config", gepa_native_config),
+                    ("opro_config", opro_config), ("ape_config", ape_config),
+                ] if v is not None
+            }
+            if optimizer_config and deprecated:
+                logger.warning(
+                    "optimizer_config provided alongside deprecated fields %s; "
+                    "deprecated fields will be ignored",
+                    list(deprecated.keys()),
+                )
             self.optimizer_config = (
                 optimizer_config
                 or gepa_config
