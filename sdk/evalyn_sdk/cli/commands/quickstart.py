@@ -320,9 +320,9 @@ def _run_agent(run_cmd: str, timeout: int) -> bool:
 def _check_traces_captured() -> int:
     """Check how many traces were captured. Returns count."""
     try:
-        from ...storage import SQLiteStorage
+        from ...decorators import get_default_tracer
 
-        storage = SQLiteStorage()
+        storage = get_default_tracer().storage
         calls = storage.list_calls(limit=10)
         return len(calls)
     except Exception:

@@ -33,7 +33,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from ...storage import SQLiteStorage
+from ...decorators import get_default_tracer
 from ..utils.config import load_config, get_config_default, find_project_root
 from ..utils.errors import fatal_error
 
@@ -171,7 +171,7 @@ def _resolve_version(args: argparse.Namespace) -> None:
     if args.version:
         return
 
-    storage = SQLiteStorage()
+    storage = get_default_tracer().storage
     calls = storage.list_calls(limit=500)
     versions = {
         (call.metadata or {}).get("version")

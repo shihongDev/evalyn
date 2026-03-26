@@ -376,16 +376,12 @@ def _write_run_to_dataset(dataset_dir: Path, run: EvalRun) -> Path:
 
 class TestLoadEvalRunForCommand:
     def test_load_by_run_id(self):
-        """Mock SQLiteStorage, verify run loaded by ID."""
+        """Pass mock storage directly, verify run loaded by ID."""
         run = _make_eval_run(run_id="run-by-id")
         mock_storage = MagicMock()
         mock_storage.get_eval_run.return_value = run
 
-        with patch(
-            "evalyn_sdk.storage.SQLiteStorage",
-            return_value=mock_storage,
-        ):
-            loaded = load_eval_run_for_command(run_id="run-by-id")
+        loaded = load_eval_run_for_command(run_id="run-by-id", storage=mock_storage)
 
         assert loaded.run.id == "run-by-id"
         assert loaded.run_file_path is None
@@ -407,12 +403,8 @@ class TestLoadEvalRunForCommand:
         mock_storage = MagicMock()
         mock_storage.get_eval_run.return_value = None
 
-        with patch(
-            "evalyn_sdk.storage.SQLiteStorage",
-            return_value=mock_storage,
-        ):
-            with pytest.raises(SystemExit):
-                load_eval_run_for_command(run_id="nonexistent-id")
+        with pytest.raises(SystemExit):
+            load_eval_run_for_command(run_id="nonexistent-id", storage=mock_storage)
 
     def test_fatal_when_no_run_found(self):
         """No run_id, no dataset_path, verify SystemExit."""
@@ -426,13 +418,9 @@ class TestLoadEvalRunForCommand:
         mock_storage.list_eval_runs.return_value = [run]
 
         # dataset_path exists but has no eval_runs dir
-        with patch(
-            "evalyn_sdk.storage.SQLiteStorage",
-            return_value=mock_storage,
-        ):
-            loaded = load_eval_run_for_command(
-                dataset_path=tmp_path, fallback_to_storage=True
-            )
+        loaded = load_eval_run_for_command(
+            dataset_path=tmp_path, fallback_to_storage=True, storage=mock_storage
+        )
 
         assert loaded.run.id == "fallback-run"
         mock_storage.list_eval_runs.assert_called_once_with(limit=1)

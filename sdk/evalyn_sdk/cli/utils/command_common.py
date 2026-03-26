@@ -47,11 +47,14 @@ def load_eval_run_for_command(
     When *storage* is None, falls back to creating a default SQLiteStorage.
     """
     from ...models import EvalRun
-    from ...storage import SQLiteStorage
+    from ...decorators import get_default_tracer
     from ...analysis.core import find_eval_runs
 
     def _get_storage():
-        return storage if storage is not None else SQLiteStorage()
+        if storage is not None:
+            return storage
+        tracer = get_default_tracer()
+        return tracer.storage
 
     run = None
     run_file_path = None

@@ -748,10 +748,10 @@ def cmd_compare(args: argparse.Namespace) -> None:
 
     Shows per-metric pass rate changes and overall delta.
     """
-    from ...storage import SQLiteStorage
+    from ...decorators import get_default_tracer
     from ...models import EvalRun
 
-    storage = SQLiteStorage()
+    storage = get_default_tracer().storage
 
     # Validate args: need either (--run1 and --run2) or --latest
     use_latest = getattr(args, "latest", False)
@@ -948,10 +948,10 @@ def cmd_compare(args: argparse.Namespace) -> None:
 
 def cmd_trend(args: argparse.Namespace) -> None:
     """Show evaluation trends over time for a project."""
-    from ...storage import SQLiteStorage
+    from ...decorators import get_default_tracer
     from ...analysis import analyze_trends, generate_trend_text_report
 
-    storage = SQLiteStorage()
+    storage = get_default_tracer().storage
 
     # Resolve project name from --project or --latest
     project_name = args.project

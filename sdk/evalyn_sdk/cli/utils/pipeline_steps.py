@@ -80,7 +80,6 @@ class BuildDatasetStep(PipelineStep):
         from datetime import datetime as dt
 
         from ...datasets import build_dataset_from_storage, save_dataset_with_meta
-        from ...storage import SQLiteStorage
 
         dataset_dir = output_dir / self.name
         dataset_dir.mkdir(exist_ok=True)
@@ -89,7 +88,9 @@ class BuildDatasetStep(PipelineStep):
         since = dt.fromisoformat(self.args.since) if self.args.since else None
         until = dt.fromisoformat(self.args.until) if self.args.until else None
 
-        storage = SQLiteStorage()
+        from ...decorators import get_default_tracer
+
+        storage = get_default_tracer().storage
         items = build_dataset_from_storage(
             storage,
             project_name=self.args.project,
@@ -157,8 +158,6 @@ class SuggestMetricsStep(PipelineStep):
     def execute(
         self, output_dir: Path, context: Dict[str, Any]
     ) -> Tuple[StepResult, Dict[str, Any]]:
-        from ...storage import SQLiteStorage
-
         metrics_dir = output_dir / self.name
         metrics_dir.mkdir(exist_ok=True)
         metrics_path = metrics_dir / "metrics.json"
@@ -174,7 +173,9 @@ class SuggestMetricsStep(PipelineStep):
                 print("  -> Using trace-based suggestions only")
 
         # Get sample traces
-        storage = SQLiteStorage()
+        from ...decorators import get_default_tracer
+
+        storage = get_default_tracer().storage
         calls = storage.list_calls(limit=5)
 
         # Suggest metrics based on mode
