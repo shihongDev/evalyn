@@ -7,7 +7,7 @@ the estimate() method to calculate confidence from LLM outputs.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict
 
 
@@ -23,13 +23,11 @@ class ConfidenceResult:
 
     score: float
     method: str
-    details: Dict[str, Any] = None
+    details: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         # Clamp score to [0, 1]
         self.score = max(0.0, min(1.0, self.score))
-        if self.details is None:
-            self.details = {}
 
 
 class ConfidenceEstimator(ABC):
@@ -51,11 +49,15 @@ class ConfidenceEstimator(ABC):
     def estimate(self, **kwargs) -> ConfidenceResult:
         """Estimate confidence from provided data.
 
-        Args:
-            **kwargs: Method-specific arguments (logprobs, samples, etc.)
+        Each subclass requires specific keyword arguments:
+        - LogprobsConfidence: logprobs (list of floats), top_logprobs (optional)
+        - DeepConfConfidence: logprobs (list of floats)
+        - SelfConsistencyConfidence: samples (list of result dicts) OR generate_fn (callable)
+        - VerbalizedConfidence: response (str) OR parsed_response (dict)
+        - PerplexityConfidence: logprobs (list of floats)
 
         Returns:
-            ConfidenceResult with score and details.
+            ConfidenceResult with score in [0, 1] and method-specific details.
         """
         pass
 
