@@ -436,7 +436,7 @@ class AnnotationStep(PipelineStep):
     def execute(
         self, output_dir: Path, context: Dict[str, Any]
     ) -> Tuple[StepResult, Dict[str, Any]]:
-        from ..commands.annotation import cmd_annotate
+        from ..commands.annotation import run_annotation
 
         ann_dir = output_dir / "annotations"
         ann_dir.mkdir(exist_ok=True)
@@ -451,19 +451,11 @@ class AnnotationStep(PipelineStep):
         print("  -> Press Ctrl+C to skip this step\n")
 
         try:
-            ann_args = argparse.Namespace(
-                dataset=str(dataset_dir),
-                latest=False,
-                run_id=None,
+            run_annotation(
+                dataset_dir=str(dataset_dir),
                 output=str(ann_path),
-                annotator="human",
-                restart=False,
                 per_metric=per_metric,
-                only_disagreements=False,
-                spans=False,
-                span_type="all",
             )
-            cmd_annotate(ann_args)
 
             if ann_path.exists():
                 with open(ann_path, encoding="utf-8") as f:
@@ -708,27 +700,23 @@ class SimulationStep(PipelineStep):
     def execute(
         self, output_dir: Path, context: Dict[str, Any]
     ) -> Tuple[StepResult, Dict[str, Any]]:
-        from ..commands.simulate import cmd_simulate
+        from ..commands.simulate import run_simulation
 
         sim_dir = output_dir / "simulations"
         sim_dir.mkdir(exist_ok=True)
         dataset_dir = context.get("dataset_dir", output_dir / "dataset")
 
-        sim_args = argparse.Namespace(
-            dataset=str(dataset_dir),
-            target=self.args.target,
-            output=str(sim_dir),
-            modes=getattr(self.args, "simulation_modes", "similar"),
-            num_similar=getattr(self.args, "num_similar", 3),
-            num_outlier=getattr(self.args, "num_outlier", 2),
-            max_seeds=getattr(self.args, "max_sim_seeds", 10),
-            model=getattr(self.args, "model", "gemini-2.5-flash-lite"),
-            temp_similar=0.3,
-            temp_outlier=0.8,
-        )
-
         try:
-            cmd_simulate(sim_args)
+            run_simulation(
+                dataset=str(dataset_dir),
+                target=self.args.target,
+                output=str(sim_dir),
+                modes=getattr(self.args, "simulation_modes", "similar"),
+                num_similar=getattr(self.args, "num_similar", 3),
+                num_outlier=getattr(self.args, "num_outlier", 2),
+                max_seeds=getattr(self.args, "max_sim_seeds", 10),
+                model=getattr(self.args, "model", "gemini-2.5-flash-lite"),
+            )
             print("  Simulations generated")
             print(f"  Saved to: {sim_dir}/\n")
             return (

@@ -761,6 +761,32 @@ def _annotate_simple(
         )
 
 
+def run_annotation(
+    dataset_dir: str,
+    *,
+    output: Optional[str] = None,
+    per_metric: bool = False,
+    run_id: Optional[str] = None,
+    annotator: str = "human",
+    restart: bool = False,
+    only_disagreements: bool = False,
+) -> None:
+    """Run interactive annotation - typed API callable without argparse."""
+    args = argparse.Namespace(
+        dataset=dataset_dir,
+        latest=False,
+        run_id=run_id,
+        output=output,
+        annotator=annotator,
+        restart=restart,
+        per_metric=per_metric,
+        only_disagreements=only_disagreements,
+        spans=False,
+        span_type="all",
+    )
+    cmd_annotate(args)
+
+
 def cmd_annotate(args: argparse.Namespace) -> None:
     """Interactive CLI annotation interface with per-metric support."""
     # Check for span annotation mode

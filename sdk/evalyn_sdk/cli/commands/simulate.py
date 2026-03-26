@@ -43,6 +43,35 @@ from ..utils.loaders import _load_callable
 from ..utils.ui import Spinner
 
 
+def run_simulation(
+    dataset: str,
+    target: str,
+    output: str,
+    *,
+    modes: str = "similar",
+    num_similar: int = 3,
+    num_outlier: int = 2,
+    max_seeds: int = 10,
+    model: str = "gemini-2.5-flash-lite",
+    temp_similar: float = 0.3,
+    temp_outlier: float = 0.8,
+) -> None:
+    """Run simulation - typed API callable without argparse."""
+    args = argparse.Namespace(
+        dataset=dataset,
+        target=target,
+        output=output,
+        modes=modes,
+        num_similar=num_similar,
+        num_outlier=num_outlier,
+        max_seeds=max_seeds,
+        model=model,
+        temp_similar=temp_similar,
+        temp_outlier=temp_outlier,
+    )
+    cmd_simulate(args)
+
+
 def cmd_simulate(args: argparse.Namespace) -> None:
     """Generate synthetic test data using LLM-based user simulation."""
 
