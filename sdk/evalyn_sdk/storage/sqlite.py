@@ -383,6 +383,54 @@ class SQLiteStorage:
             model=row["model"],
         )
 
+    def _batch_load_runs(self, rows: list) -> List[EvalRun]:
+        """Convert rows to EvalRun objects, batch-loading metric results when needed."""
+        # Identify runs that need relational metric result loading
+        needs_load = [r["id"] for r in rows if not r["metric_results"]]
+        batch_results: dict = {}
+        if needs_load:
+            placeholders = ",".join("?" for _ in needs_load)
+            cur = self.conn.cursor()
+            cur.execute(
+                f"SELECT * FROM metric_results_rows WHERE run_id IN ({placeholders})",
+                needs_load,
+            )
+            for mr_row in cur.fetchall():
+                rid = mr_row["run_id"]
+                batch_results.setdefault(rid, []).append(mr_row)
+
+        results = []
+        for row in rows:
+            run_id = row["id"]
+            json_blob = row["metric_results"]
+            if json_blob:
+                metric_results_raw = json.loads(json_blob)
+            else:
+                mr_rows = batch_results.get(run_id, [])
+                metric_results_raw = [
+                    self._row_to_metric_result(r).as_dict() for r in mr_rows
+                ]
+
+            results.append(
+                EvalRun.from_dict(
+                    {
+                        "id": run_id,
+                        "dataset_name": row["dataset_name"],
+                        "created_at": row["created_at"],
+                        "metric_results": metric_results_raw,
+                        "metrics": json.loads(row["metrics"]) if row["metrics"] else [],
+                        "judge_configs": json.loads(row["judge_configs"])
+                        if row["judge_configs"]
+                        else [],
+                        "summary": json.loads(row["summary"]) if row["summary"] else {},
+                        "usage_summary": json.loads(row["usage_summary"])
+                        if row["usage_summary"]
+                        else {},
+                    }
+                )
+            )
+        return results
+
     def list_eval_runs(self, limit: int = 20) -> List[EvalRun]:
         cur = self.conn.cursor()
         cur.execute(
@@ -393,8 +441,7 @@ class SQLiteStorage:
             """,
             (limit,),
         )
-        rows = cur.fetchall()
-        return [self._row_to_eval_run(r) for r in rows]
+        return self._batch_load_runs(cur.fetchall())
 
     def list_eval_runs_by_project(
         self, dataset_name: str, limit: int = 20
@@ -410,8 +457,7 @@ class SQLiteStorage:
             """,
             (dataset_name, limit),
         )
-        rows = cur.fetchall()
-        return [self._row_to_eval_run(r) for r in rows]
+        return self._batch_load_runs(cur.fetchall())
 
     def get_eval_run(self, run_id: str) -> Optional[EvalRun]:
         cur = self.conn.cursor()
