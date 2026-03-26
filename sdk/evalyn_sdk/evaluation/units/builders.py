@@ -7,9 +7,9 @@ within a FunctionCall's span tree.
 
 from __future__ import annotations
 
+import hashlib
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Type
-import uuid
 
 from ...models import EvalUnit, FunctionCall, Span
 
@@ -162,7 +162,7 @@ class MultiTurnBuilder(EvalUnitBuilder):
                 sorted_spans = sorted(spans, key=lambda s: s.start_time)
                 units.append(
                     EvalUnit(
-                        id=f"multi_turn-{uuid.uuid4().hex[:8]}",
+                        id=f"multi_turn-{hashlib.sha1(':'.join(s.id for s in sorted_spans).encode()).hexdigest()[:12]}",
                         unit_type="multi_turn",
                         call_id=call.id,
                         span_ids=[s.id for s in sorted_spans],

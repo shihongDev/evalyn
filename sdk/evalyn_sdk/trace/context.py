@@ -177,7 +177,7 @@ def span(
     # Push onto stack
     stack = _span_stack.get()
     new_stack = stack + [span_id]
-    _token = _span_stack.set(new_stack)  # noqa: F841
+    token = _span_stack.set(new_stack)
 
     try:
         yield span_obj
@@ -186,8 +186,8 @@ def span(
         span_obj.finish(status="error", error=str(e))
         raise
     finally:
-        # Pop from stack
-        _span_stack.set(stack)
+        # Pop from stack using proper token reset (correct for async contexts)
+        _span_stack.reset(token)
         # Add to collector
         _add_span_to_collector(span_obj)
 

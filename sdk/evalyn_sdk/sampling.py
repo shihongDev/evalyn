@@ -87,6 +87,7 @@ def sample_random(
 def sample_diverse(
     items: List[DatasetItem],
     limit: int,
+    seed: int = 42,
 ) -> List[DatasetItem]:
     """Farthest-point sampling on input embeddings.
 
@@ -112,7 +113,7 @@ def sample_diverse(
     dist = 1.0 - sim
 
     # Start with a random seed
-    rng = _random.Random(42)
+    rng = _random.Random(seed)
     seed_idx = rng.randrange(n)
     selected: List[int] = [seed_idx]
 
@@ -295,7 +296,7 @@ def apply_sampling(
     if mode == "random":
         return sample_random(items, limit, seed=seed)
     if mode == "diverse":
-        return sample_diverse(items, limit)
+        return sample_diverse(items, limit, seed=seed)
     if mode == "stratified":
         return sample_stratified(items, limit, seed=seed)
     if mode == "clustered":
