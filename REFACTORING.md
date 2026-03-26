@@ -327,12 +327,12 @@ Any alternative backend implementing only the protocol is silently incompatible.
 - ~~Fix substring model matching (#23)~~ DONE
 - ~~Fix process-level cache (#16)~~ DONE
 
-### Phase 5 - Service Layer Extraction (future)
+### Phase 5 - Service Layer Extraction
 - Create `services/` directory with typed service classes
 - Migrate business logic from CLI commands to services
-- ~~Replace argparse.Namespace pipeline calls with service calls~~ DONE (CalibrationStep)
+- ~~Replace argparse.Namespace pipeline calls with service calls~~ DONE (all 3: Calibration, Annotation, Simulation)
 - Replace `fatal_error()` with exceptions in business logic
-- Replace direct `SQLiteStorage()` construction with injection
+- ~~Replace direct `SQLiteStorage()` construction with injection~~ DONE (7 sites eliminated)
 
 ### Phase 6 - Protocol and Type Completeness (future)
 - ~~Complete StorageBackend protocol (add 4 missing methods)~~ DONE
