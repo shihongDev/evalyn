@@ -14,7 +14,7 @@ from ..constants import DEFAULT_CONFIG_PATHS
 _project_root_cache: Optional[Path] = None
 
 
-def find_project_root() -> Path:
+def find_project_root(cwd: Optional[Path] = None) -> Path:
     """Find the project root directory.
 
     Searches upward from cwd for project markers:
@@ -22,27 +22,36 @@ def find_project_root() -> Path:
     2. pyproject.toml
     3. .git directory
 
+    Args:
+        cwd: Starting directory. If None, uses Path.cwd() and caches the result.
+
     Returns:
         Path to project root, or cwd if no markers found
     """
     global _project_root_cache
-    if _project_root_cache is not None:
-        return _project_root_cache
+    # Only use cache when called without explicit cwd (production path)
+    if cwd is None:
+        if _project_root_cache is not None:
+            return _project_root_cache
+        start = Path.cwd()
+    else:
+        start = cwd
 
-    cwd = Path.cwd()
     markers = DEFAULT_CONFIG_PATHS + ["pyproject.toml", ".git"]
 
-    current = cwd
+    current = start
     while current != current.parent:
         for marker in markers:
             if (current / marker).exists():
-                _project_root_cache = current
+                if cwd is None:
+                    _project_root_cache = current
                 return current
         current = current.parent
 
-    # No markers found, use cwd
-    _project_root_cache = cwd
-    return cwd
+    # No markers found, use start dir
+    if cwd is None:
+        _project_root_cache = start
+    return start
 
 
 def get_data_dir(subdir: str = "prod/datasets") -> Path:

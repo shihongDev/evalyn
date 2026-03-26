@@ -172,19 +172,28 @@ def get_model_context_window(model: str) -> Optional[int]:
 
 def is_model_pricing_known(model: str) -> bool:
     """Check if a model's pricing is in our registry."""
-    model_lower = model.lower()
-    return any(model_key in model_lower for model_key in COST_PER_1M_TOKENS)
+    return _match_model_costs(model.lower()) is not None
+
+
+def _match_model_costs(model_lower: str) -> Optional[dict]:
+    """Find cost entry for a model. Tries exact match first, then substring."""
+    # Exact match first (most reliable)
+    if model_lower in COST_PER_1M_TOKENS:
+        return COST_PER_1M_TOKENS[model_lower]
+    # Substring match (sorted longest-first to prefer specific matches)
+    for model_key, costs in COST_PER_1M_TOKENS.items():
+        if model_key in model_lower:
+            return costs
+    return None
 
 
 def calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
     """Calculate cost in USD for a given model and token counts."""
-    model_lower = model.lower()
-
-    for model_key, costs in COST_PER_1M_TOKENS.items():
-        if model_key in model_lower:
-            input_cost = (input_tokens / 1_000_000) * costs["input"]
-            output_cost = (output_tokens / 1_000_000) * costs["output"]
-            return input_cost + output_cost
+    costs = _match_model_costs(model.lower())
+    if costs:
+        input_cost = (input_tokens / 1_000_000) * costs["input"]
+        output_cost = (output_tokens / 1_000_000) * costs["output"]
+        return input_cost + output_cost
 
     # Default estimate if model not found: $1/1M tokens
     return (input_tokens + output_tokens) / 1_000_000 * 1.0
@@ -210,21 +219,19 @@ def calculate_cost_with_cache(
     Returns:
         Total cost in USD
     """
-    model_lower = model.lower()
+    costs = _match_model_costs(model.lower())
+    if costs:
+        input_cost = (input_tokens / 1_000_000) * costs["input"]
+        output_cost = (output_tokens / 1_000_000) * costs["output"]
 
-    for model_key, costs in COST_PER_1M_TOKENS.items():
-        if model_key in model_lower:
-            input_cost = (input_tokens / 1_000_000) * costs["input"]
-            output_cost = (output_tokens / 1_000_000) * costs["output"]
+        # Cache costs (use input rate as fallback if not specified)
+        cache_write_rate = costs.get("cache_write", costs["input"] * 1.25)
+        cache_read_rate = costs.get("cache_read", costs["input"] * 0.1)
 
-            # Cache costs (use input rate as fallback if not specified)
-            cache_write_rate = costs.get("cache_write", costs["input"] * 1.25)
-            cache_read_rate = costs.get("cache_read", costs["input"] * 0.1)
+        cache_write_cost = (cache_creation_tokens / 1_000_000) * cache_write_rate
+        cache_read_cost = (cache_read_tokens / 1_000_000) * cache_read_rate
 
-            cache_write_cost = (cache_creation_tokens / 1_000_000) * cache_write_rate
-            cache_read_cost = (cache_read_tokens / 1_000_000) * cache_read_rate
-
-            return input_cost + output_cost + cache_write_cost + cache_read_cost
+        return input_cost + output_cost + cache_write_cost + cache_read_cost
 
     # Default estimate if model not found
     total_tokens = (
