@@ -1161,6 +1161,511 @@ class EvalynConfig:
 
 ---
 
+## 26. Session Management Design
+
+### Design: Session-Level Analysis
+
+**Problem:** Traces are analyzed individually. No way to aggregate metrics across a user session.
+
+**Data model:**
+- `eval_session(session_id)` context manager already groups calls by `session_id`
+- New `SessionAnalysis` extending `RunAnalysis` with session-level aggregation
+- Per-session: pass rate, total cost, total latency, call count
+
+**Proposed analysis flow:**
+```
+EvalRun.metric_results
+  |-- group by item.metadata.session_id
+  |-- per-session MetricStats
+  |-- cross-session comparison table
+```
+
+### Design: Session Replay
+
+**Approach:**
+- Extract all inputs from session traces in chronological order
+- Replay with swapped model/provider while preserving conversation state
+- Session-level diff: turn-by-turn comparison of original vs replayed outputs
+
+---
+
+## 27. Reproducibility Design
+
+### Design: Deterministic Evaluation Mode
+
+**Problem:** LLM judge non-determinism makes runs non-reproducible.
+
+**Proposed approach:**
+- `--seed <int>` flag on `run-eval`
+- Seed controls: sampling order, metric evaluation order, random choices in evaluation
+- Force `temperature=0` for all judge LLM calls
+- Record seed in `EvalRun.metadata.seed`
+
+### Design: Run Manifest
+
+**Record everything that could affect results:**
+```json
+{
+  "evalyn_version": "0.15.0",
+  "python_version": "3.13.5",
+  "provider_versions": {"openai": "1.82.0", "anthropic": "0.49.0"},
+  "metric_hashes": {"helpfulness": "sha256:abc...", "toxicity": "sha256:def..."},
+  "config_hash": "sha256:ghi...",
+  "seed": 42,
+  "dataset_hash": "sha256:jkl..."
+}
+```
+
+- Saved alongside eval run results as `manifest.json`
+- `evalyn verify-manifest --run <id>` checks if current environment matches manifest
+
+### Design: Custom Cost Models
+
+**Problem:** Local/self-hosted models have unknown pricing.
+
+**Config in evalyn.yaml:**
+```yaml
+cost_models:
+  ollama/llama3.2:
+    input: 0.0    # free (local)
+    output: 0.0
+  my-custom-model:
+    input: 0.50   # per 1M tokens
+    output: 1.50
+```
+
+---
+
+## 28. Cost Intelligence Design
+
+### Design: Auto-Update Pricing Tables
+
+**Problem:** `COST_PER_1M_TOKENS` in `_shared.py` gets stale as providers change prices.
+
+**Proposed approach:**
+- `evalyn update-pricing` command fetching latest from provider pricing pages
+- Fallback: bundled pricing table with `last_updated` timestamp
+- Warning when using a model not in the pricing table
+
+### Design: Prompt Cache Savings Report
+
+**Data source:** Spans already capture `cache_creation_tokens` and `cache_read_tokens`.
+
+**Report format:**
+```
+Prompt Cache Savings:
+  Cache writes:    12,500 tokens ($0.016)
+  Cache reads:     87,300 tokens ($0.009)
+  Without cache:   99,800 tokens ($0.125)
+  Savings:         $0.100 (80% reduction)
+```
+
+### Design: Context Window Utilization Alerts
+
+- Track `context_utilization_pct` per LLM span (already in span attributes)
+- Alert when any span exceeds configurable threshold (default 80%)
+- Per-run summary: max utilization, mean utilization, models hitting limits
+
+---
+
+## 29. Rubric Engineering Design
+
+### Design: Multi-Language Rubrics
+
+**Problem:** Judge prompts are English-only. Evaluating non-English outputs with English rubrics may miss language-specific issues.
+
+**Proposed approach:**
+- `locale` field in JUDGE_TEMPLATES entries
+- Language-matched judging: route to rubric matching output language
+- Cross-language evaluation: compare English-rubric vs native-rubric scores
+- Implementation: `build_subjective_metric(..., locale="ja")` selects matching template variant
+
+### Design: Community Rubric Library
+
+**Format for portable rubric files:**
+```yaml
+# rubric_toxicity_v2.yaml
+id: toxicity_safety
+version: "2.0"
+author: "evalyn-community"
+locale: "en"
+prompt: "You are a safety evaluator..."
+rubric:
+  - "No harassment, hate speech, or demeaning content"
+  - "No instructions for self-harm or violence"
+config:
+  threshold: 0.5
+tested_on:
+  accuracy: 0.92
+  dataset_size: 500
+```
+
+- `evalyn rubric-export --metric toxicity_safety > rubric.yaml`
+- `evalyn rubric-import rubric.yaml` adds to local registry
+
+### Design: Domain-Specific Rubric Packs
+
+**Downloadable packs:**
+```
+evalyn install-rubric-pack medical
+  |-- medical_accuracy
+  |-- hipaa_compliance
+  |-- patient_safety
+  |-- drug_interaction_check
+  |-- clinical_accuracy
+```
+
+**Implementation:** Rubric packs are YAML bundles hosted as GitHub releases or PyPI extras.
+
+---
+
+## 30. Metrics Enhancements Design
+
+### Design: Metric Composition
+
+**Problem:** No way to create weighted composite scores from multiple metrics.
+
+**Proposed `CompositeMetric`:**
+```python
+CompositeMetric(
+    id="quality_score",
+    children=[
+        ("helpfulness", 0.4),
+        ("factual_accuracy", 0.3),
+        ("toxicity_safety", 0.3),
+    ],
+    aggregation="weighted_average",  # or: min, max, all_pass
+    threshold=0.7,
+)
+```
+
+- Pass/fail determined by composite score vs threshold
+- `show-run` shows composite + drill-down into children
+- Composites can nest (composite of composites)
+
+### Design: Metric Versioning
+
+**Problem:** Changing a metric's rubric silently invalidates historical comparisons.
+
+**Approach:**
+- Hash metric prompt + scoring logic as version identifier
+- Store metric version hash in `MetricResult.details.metric_hash`
+- Warning when comparing runs using different metric versions
+- `evalyn metric-history --id helpfulness` shows version changes over time
+
+### Design: Metric Dependencies
+
+**Problem:** Some metrics should only run if prerequisite metrics pass.
+
+**Proposed declaration:**
+```yaml
+metrics:
+  - id: helpfulness
+    depends_on: []
+  - id: detailed_analysis
+    depends_on: ["json_valid"]  # only run if json_valid passes
+```
+
+- Topological sort of metrics before evaluation
+- Skipped metrics produce `MetricResult(passed=None, details={"skipped": "dependency json_valid failed"})`
+
+### Design: Conditional Metric Chains
+
+**Diagnostic follow-up pattern:**
+```yaml
+chains:
+  - trigger: toxicity_safety
+    condition: "failed"
+    follow_up: toxicity_type_classifier
+```
+
+- If `toxicity_safety` fails, automatically run `toxicity_type_classifier` on that item
+- Chain results stored alongside primary results
+- Useful for failure diagnosis without running expensive diagnostics on all items
+
+---
+
+## 31. CLI Enhancements Design
+
+### Design: Interactive TUI Mode
+
+**Architecture:**
+```
+evalyn tui (launches Textual app)
+  |
+  v
+TUI Application (optional 'textual' dependency)
+  |-- TraceListView    -> j/k scroll, enter for detail, / to search
+  |-- RunListView      -> sort by date/pass_rate/cost
+  |-- MetricDashboard  -> bar charts, score distributions
+  |-- ItemDetailView   -> input/output/metrics side by side
+  |-- LiveEvalView     -> real-time progress during run-eval
+```
+
+**Data access:** All views call the same engine functions as CLI commands. TUI is a presentation layer only.
+
+### Design: Shell Completion
+
+**Using argcomplete:**
+- Command names: all registered commands
+- Flag names: per-command from argparse definitions
+- Dynamic values: run IDs (query storage), dataset paths (filesystem glob), metric IDs (from registry)
+- Install: `evalyn --install-completion` adding to `.bashrc`/`.zshrc`
+
+### Design: Watch Mode
+
+**`evalyn run-eval --watch`:**
+- File watcher on `dataset.jsonl` and `evalyn.yaml`
+- Debounce: wait 2s after last change before re-running
+- Diff output: only show changed metrics since last run
+- Hot-reload metrics from YAML (see Custom Metric DSL)
+
+### Design: Profile Command
+
+**`evalyn profile`:**
+```
+Evalyn Profile
+  Database:     data/prod/traces.sqlite (45.2 MB)
+  Traces:       1,234 calls across 5 projects
+  Eval runs:    23 runs (latest: 2h ago)
+  Annotations:  156 labels across 3 metrics
+  Python:       3.13.5
+  Providers:    gemini (key: valid), openai (key: missing)
+  Disk usage:   data/ = 128 MB
+```
+
+---
+
+## 32. Reporting & Analytics Design
+
+### Design: Custom Report Templates
+
+**Jinja2 template system:**
+```
+evalyn export --template executive_summary.html
+```
+
+**Template variables available:**
+```python
+{
+    "run": EvalRun,
+    "analysis": RunAnalysis,
+    "insights": InsightsReport,
+    "charts": {"pass_rates": base64_png, "distributions": base64_png},
+    "metadata": {"date": ..., "project": ..., "version": ...}
+}
+```
+
+**Built-in templates:** `executive_summary`, `technical_deep_dive`, `compliance_report`
+
+### Design: Trend Anomaly Detection
+
+**Approach:**
+- Z-score on metric pass rate time series (across last N runs)
+- Anomaly = pass rate more than 2 standard deviations from rolling mean
+- Configurable sensitivity threshold
+- Visual markers on trend charts (red dot for anomaly)
+- Auto-alert when anomaly detected during `evalyn trend`
+
+### Design: Regression Bisection
+
+**`evalyn bisect --baseline <run1> --current <run2>`:**
+1. Identify items that changed from pass to fail
+2. Cluster newly-failing items by input features
+3. Rank by regression severity (score delta)
+4. Output: "15 items regressed. Top cluster: 'long multi-step queries' (8 items, avg delta -0.4)"
+
+### Design: Failure Taxonomy
+
+**Auto-categorization via LLM:**
+```
+failure_taxonomy:
+  prompt_ambiguity: 12 items (24%)
+  model_limitation: 8 items (16%)
+  data_quality: 15 items (30%)
+  tool_error: 5 items (10%)
+  hallucination: 10 items (20%)
+```
+
+- Built-in categories or custom taxonomy in evalyn.yaml
+- Each failed item tagged with category in `MetricResult.details`
+- Distribution chart in analysis output
+
+---
+
+## 33. Interoperability Design
+
+### Design: OpenInference Full Compliance
+
+**Problem:** Current span attributes partially follow OpenInference. Some attributes are missing.
+
+**Gap list and plan:**
+- `DocumentAttributes` (retrieval.documents, document.content/score/metadata) - add to retrieval spans
+- `EmbeddingAttributes` (embedding.model_name, embedding.text, embedding.vector) - add to embedding spans
+- `SessionAttributes` (session.id) - already captured via `session_id`
+- `RerankerAttributes` (reranker.model_name, reranker.query, reranker.top_k) - add to reranker spans
+
+### Design: Eval Result Export to Observability Platforms
+
+**Bi-directional flow:**
+```
+Evalyn traces -> export to Phoenix/Langfuse (existing spans)
+Evalyn eval scores -> annotate Phoenix spans with metric results
+Phoenix/Langfuse traces -> import into Evalyn for evaluation
+```
+
+**Score push-back:** After evaluation, POST metric scores back to the source platform's annotation API.
+
+---
+
+## 34. Code Change Tracking Design
+
+### Design: Source Code Diff Correlation
+
+**Problem:** When metrics change between runs, hard to tell if it's due to code changes.
+
+**Approach:**
+- Store `source_hash` (SHA256 of agent source file) in each `EvalRun.metadata`
+- Already partially implemented: `_extract_code_meta` in tracer captures function source
+- `evalyn code-diff --run1 <id> --run2 <id>`:
+  1. Compare source_hash between runs
+  2. If different, show code diff alongside metric deltas
+  3. Correlate: "Source changed -> 3 metrics regressed"
+
+### Design: Prompt Version Tracking
+
+- Hash judge prompts (preamble + rubric) and store in `MetricResult.details.prompt_hash`
+- Warning when comparing runs with different prompt versions for the same metric
+- `evalyn prompt-changelog --metric helpfulness` showing prompt evolution over time
+
+---
+
+## 35. Packaging & Distribution Design
+
+### Design: Docker Image
+
+**Dockerfile strategy:**
+```dockerfile
+FROM python:3.13-slim
+RUN pip install evalyn-sdk[all]
+# Include all optional deps: sentence-transformers, spacy, gepa
+ENTRYPOINT ["evalyn"]
+```
+
+- `evalyn-sdk[core]` - minimal, no optional deps
+- `evalyn-sdk[all]` - everything including sentence-transformers
+- Docker Compose example with SQLite volume mount
+
+### Design: Standalone Binary
+
+**PyInstaller build:**
+- Single-file executable for Linux, macOS, Windows
+- GitHub Releases automation via GitHub Actions
+- Install script: `curl -sSL https://evalyn.dev/install | sh`
+- Tradeoff: large binary (~100MB) but zero Python dependency
+
+---
+
+## 36. Deprecation & Migration Design
+
+### Design: Deprecation Warnings
+
+**Registry approach:**
+```python
+DEPRECATIONS = {
+    "inputs": {"replacement": "input", "since": "0.12.0", "remove_in": "1.0.0"},
+    "expected": {"replacement": "output", "since": "0.12.0", "remove_in": "1.0.0"},
+}
+```
+
+- Yellow warning on first use per session
+- `evalyn migrate-config` auto-updates deprecated config keys
+- Grace period: 2 minor versions between deprecation and removal
+
+### Design: Breaking Change Detection
+
+- Compare metric version hashes between installed version and pinned run manifest
+- `evalyn check-compat --run <id>` warns before evaluation if metric behavior changed
+- Migration guide output for each detected breaking change
+
+---
+
+## 37. Run Management Design
+
+### Design: Run Naming
+
+**Problem:** Runs identified only by UUIDs.
+
+**Approach:**
+- `--name "prompt-v3-experiment"` flag on `run-eval`
+- Name stored in `EvalRun.metadata.name`
+- Resolve by name: `evalyn show-run --name "prompt-v3-experiment"`
+- Names must be unique within a project
+
+### Design: Run Pinning
+
+- `evalyn pin-run --id <id>` marks as project baseline
+- Subsequent `analyze` and `compare` auto-compare against pinned run
+- `list-runs` shows pinned run with `[*]` marker
+- Only one pinned run per project at a time
+
+### Design: Run Cleanup
+
+- `evalyn cleanup-runs --older-than 30d --keep-pinned`
+- `--below-pass-rate 0.3` for removing low-quality runs
+- `--dry-run` showing what would be deleted with storage savings
+
+---
+
+## 38. Dashboard Interactivity Design
+
+### Design: Embeddable Widget Mode
+
+**`evalyn dashboard --embed`:**
+- Produces minimal HTML without navigation chrome
+- Configurable widget size and chart selection
+- PostMessage API for parent page communication (filter events)
+- Use case: embed in Notion, Confluence, or internal tools
+
+### Design: Comparison Overlay Dashboard
+
+**`evalyn dashboard --compare <run1> <run2>`:**
+- Dual bar charts (run A vs run B per metric)
+- Overlaid radar plots
+- Side-by-side heatmaps
+- Toggle visibility of each run for clean comparison
+
+---
+
+## 39. Audit & Governance Design
+
+### Design: Data Governance Metadata
+
+**Dataset-level compliance tags:**
+```json
+{
+  "governance": {
+    "data_classification": "internal",
+    "pii_present": true,
+    "approved_for_eval": true,
+    "retention_policy": "90d"
+  }
+}
+```
+
+- Tags stored in `meta.json` of each dataset
+- Eval run compliance flag: was evaluation run on approved infrastructure?
+- `evalyn governance-report` producing exportable compliance audit
+
+### Design: Structured Logging
+
+- `--log-level` flag (debug, info, warning, error) on all commands
+- JSON log format: `{"timestamp": "...", "level": "INFO", "module": "runner", "message": "..."}`
+- `--log-file evalyn.log` for file output
+- Separate from CLI output: logs go to stderr/file, results go to stdout
+
+---
+
 ## Design Principles
 
 1. **Local-first:** SQLite by default, no cloud dependency for core functionality
