@@ -1841,6 +1841,118 @@ DEPRECATIONS = {
 
 ---
 
+## 41. Research-Driven Designs Round 2 (Security, CI/CD, Calibration)
+
+### Design: Prompt Injection Detection Metric
+
+**Research basis:** Garak has 150+ probes, Lakera Guard (now Check Point) is the leading API, PromptFoo tests 50+ vulnerability types.
+
+**Proposed objective metric:**
+```python
+def prompt_injection_metric(call, item) -> MetricResult:
+    """Detect prompt injection patterns in input/output."""
+    patterns = [
+        r"ignore\s+(all\s+)?previous\s+instructions",
+        r"system\s*prompt\s*:",
+        r"you\s+are\s+now\s+(a|an)\s+",
+        r"disregard\s+(your|all)\s+(rules|instructions)",
+        r"<\|.*\|>",  # special token injection
+        r"```.*system.*```",  # markdown system prompt leak
+    ]
+    # Score: 1.0 = clean, 0.0 = injection detected
+```
+
+**Levels:**
+- `basic`: regex patterns only (fast, no API)
+- `advanced`: LLM-based classification (more accurate, requires API)
+- Integration: add to `OBJECTIVE_REGISTRY` as `prompt_injection_check`
+
+### Design: GitHub Action for Evalyn
+
+**Research basis:** Braintrust's eval-action and PromptFoo's GitHub Action both post eval diffs as PR comments. DeepEval uses pytest plugin for CI integration.
+
+**Proposed action:**
+```yaml
+# .github/workflows/evalyn.yml
+- uses: evalyn/eval-action@v1
+  with:
+    dataset: data/golden/
+    metrics: metrics/production.json
+    baseline: latest  # compare against most recent run
+    threshold: 0.85   # fail PR if pass rate below
+    comment: true     # post results as PR comment
+```
+
+**Implementation:**
+- Composite action wrapping `uv pip install evalyn-sdk && evalyn run-eval && evalyn compare`
+- Uses GitHub Actions cache for previous run results
+- Posts markdown table as PR comment via `github-script`
+- Exit code 1 = regression, checked as PR status
+
+### Design: Specialized Judge Model Support
+
+**Research basis:** Patronus Lynx (fine-tuned Llama-3-70B) beats GPT-4o by 8.3% on hallucination detection. Specialized models consistently outperform general-purpose LLM-as-judge.
+
+**Proposed approach:**
+```yaml
+# evalyn.yaml
+judge_models:
+  safety_metrics:
+    provider: custom
+    endpoint: "https://my-lynx-deployment.com/v1/chat/completions"
+    model: "lynx-70b"
+  quality_metrics:
+    provider: gemini
+    model: "gemini-2.5-flash-lite"
+```
+
+**Implementation:**
+- Extend `create_llm_client()` with `provider: "custom"` for arbitrary OpenAI-compatible endpoints
+- Per-metric provider routing via `MetricSpec.config.provider` override
+- Track accuracy per judge model in calibration records
+
+### Design: EU AI Act Compliance Report
+
+**Research basis:** EU AI Act GPAI obligations (Aug 2025): models >10^23 FLOPs must document evaluation methodology. NIST AI RMF and ISO 42001 are complementary frameworks.
+
+**Proposed report structure:**
+```
+evalyn compliance-report --format pdf
+
+1. System Description
+   - Model(s) evaluated, provider, version
+   - Application domain and intended use
+
+2. Evaluation Methodology
+   - Metrics used (objective + subjective, with rubric text)
+   - Dataset description (size, source, PII classification)
+   - Judge model and calibration status
+
+3. Results Summary
+   - Per-metric pass rates with confidence intervals
+   - Failure analysis and known limitations
+   - Comparison against previous evaluation
+
+4. Governance
+   - Audit trail reference (hash-chain verification)
+   - Data governance tags
+   - Annotator information and agreement metrics
+```
+
+**Implementation:** Jinja2 template extending existing HTML report generator. Add `--compliance` flag to `evalyn export`.
+
+### Design: CAPO Optimizer
+
+**Research basis:** CAPO (Confidence-Aware Prompt Optimization) is the current SOTA optimizer, outperforming OPRO and EvoPrompt on standard benchmarks.
+
+**Integration approach:**
+- New `calibration/capo.py` implementing `BaseOptimizer`
+- Add `"capo"` entry to `OPTIMIZER_REGISTRY`
+- Configuration: `CAPOConfig(confidence_threshold, max_iterations, population_size)`
+- Benchmark: run against `basic`, `opro`, `evoprompt` on internal test suite
+
+---
+
 ## Design Principles
 
 1. **Local-first:** SQLite by default, no cloud dependency for core functionality

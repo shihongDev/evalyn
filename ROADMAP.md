@@ -731,6 +731,14 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Track judge accuracy on human-labeled items over time
   - [ ] Identify metrics where judge is now reliable enough to skip human review
   - [ ] Gradually reduce annotation requirement as calibration improves
+- [ ] **CAPO Optimizer** - Current SOTA prompt optimization algorithm
+  - [ ] Implement CAPO (Confidence-Aware Prompt Optimization) as new optimizer
+  - [ ] Add to OPTIMIZER_REGISTRY alongside existing 9 optimizers
+  - [ ] Benchmark against existing optimizers on standard calibration tasks
+- [ ] **Specialized Judge Model Support** - Fine-tuned evaluation models outperform general LLM-as-judge
+  - [ ] Support custom model endpoints as judge providers (Patronus Lynx pattern)
+  - [ ] Configurable per-metric: use specialized model for safety, general model for quality
+  - [ ] Track and compare judge model accuracy across calibration rounds
 
 ### Multi-Modal Evaluation
 
@@ -816,6 +824,10 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Regression gate: fail CI if metrics drop below threshold
   - [ ] Artifact upload of HTML reports and datasets
   - [ ] GitLab CI and Jenkins pipeline examples
+- [ ] **GitHub Action for Evalyn** - Dedicated reusable GitHub Action for PR evaluation
+  - [ ] braintrustdata/eval-action-style: run eval, post diff as PR comment
+  - [ ] Caching of previous run results for fast comparison
+  - [ ] Quality gate: configurable pass/fail threshold as PR check status
 - [x] **Regression Detection** - Automatic alerts when metrics drop below threshold
 - [ ] **Multi-model Comparison** - Compare same prompts across different LLM providers
   - [ ] --models flag to run same eval across multiple providers in one command
@@ -1469,6 +1481,14 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Policy definitions in evalyn.yaml: never store full messages, only store first/last N chars
   - [ ] Per-project redaction rules (strict for production, relaxed for test)
   - [ ] Redaction audit: report showing how much content was redacted per trace
+- [ ] **Prompt Injection Detection Metric** - Objective metric detecting prompt injection attempts in inputs/outputs
+  - [ ] Pattern-based detection for common injection patterns (ignore instructions, system prompt leak)
+  - [ ] Scoring: 0.0 (injection detected) to 1.0 (clean)
+  - [ ] Configurable sensitivity level
+- [ ] **EU AI Act Compliance Report** - Auto-generate evaluation documentation for regulatory compliance
+  - [ ] Document evaluation methodology, benchmarks used, and results
+  - [ ] Export as PDF/HTML for regulatory submission
+  - [ ] Cover NIST AI RMF and ISO 42001 reporting requirements
 
 ### Offline & Air-Gapped Mode
 
