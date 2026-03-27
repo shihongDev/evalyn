@@ -985,6 +985,10 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn storage-export --anonymous replacing PII-like content with placeholders
   - [ ] Preserve data structure, metadata, and statistics while removing content
   - [ ] Useful for sharing databases for debugging without exposing user data
+- [ ] **Denormalized Storage Optimization** - Flatten trace hierarchy for query performance
+  - [ ] Langfuse found 10x dashboard speedup by denormalizing trace attributes onto span rows
+  - [ ] Store trace-level metadata (project, session_id, user_id) on every span row
+  - [ ] Eliminate JOIN overhead for common query patterns (list spans with trace context)
 
 ### Data & Dataset
 
@@ -1396,6 +1400,22 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Fuzz _extract_json_object and extract_json_list with random strings
   - [ ] Fuzz _parse_passed with edge case values
   - [ ] Ensure no unhandled exceptions on any input
+- [ ] **Sandboxed Agent Evaluation** - Safe execution environment for agent evals where models run code
+  - [ ] Docker-based sandbox for executing agent tool calls safely (Inspect AI pattern)
+  - [ ] Configurable timeout and resource limits per sandbox
+  - [ ] Capture sandbox output as part of trace spans
+- [ ] **Composable Assertion Framework** - PromptFoo-style assertion primitives for evaluation
+  - [ ] Assertion types: contains, not_contains, regex_match, llm_rubric, similar, cost_below
+  - [ ] Composable with AND/OR logic for complex pass/fail criteria
+  - [ ] YAML-configurable assertions in metrics definition
+- [ ] **Evaluation Result Schema Standard** - Define a JSON schema for evaluation results
+  - [ ] Enable cross-platform evaluation result exchange
+  - [ ] Schema covers: items, metrics, scores, metadata, provenance
+  - [ ] No universal standard exists yet (industry gap evalyn could fill)
+- [ ] **Knowledge Graph Test Generation** - Generate evaluation questions from document knowledge graphs
+  - [ ] Extract entities and relationships from source documents (Ragas pattern)
+  - [ ] Generate questions that test understanding of specific relationships
+  - [ ] Configurable question types: factual, inferential, multi-hop
 
 ### Packaging & Distribution
 

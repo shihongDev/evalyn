@@ -2140,6 +2140,111 @@ CREATE TABLE eval_cache (
 
 ---
 
+## 43. Research-Driven Designs Round 4 (Deep Dive Findings)
+
+### Design: Sandboxed Agent Evaluation
+
+**Research basis:** Inspect AI has the most mature sandboxing (Docker, K8s, Proxmox, Modal). Critical for agent evals where models execute code.
+
+**Proposed approach:**
+```python
+# In evalyn.yaml:
+sandbox:
+  enabled: true
+  runtime: docker          # or "none" for no sandbox
+  image: "python:3.13-slim"
+  timeout: 30              # seconds per execution
+  memory_limit: "512m"
+  network: false           # disable network access in sandbox
+```
+
+**Implementation:**
+- New `SandboxExecutor` class wrapping Docker API (optional `docker` dependency)
+- Instrument target function to run inside container when sandbox enabled
+- Capture container stdout/stderr as span attributes
+- Fallback: when Docker unavailable, warn and run unsandboxed
+
+### Design: Composable Assertion Framework
+
+**Research basis:** PromptFoo's assertion types (contains, llm-rubric, similar, cost-below) are clean evaluation primitives.
+
+**Proposed assertion types:**
+```yaml
+# In metrics definition:
+assertions:
+  - type: contains
+    value: "Bonjour"
+  - type: not_contains
+    value: "I cannot"
+  - type: regex_match
+    pattern: "^\{.*\}$"
+  - type: cost_below
+    max_cost: 0.01
+  - type: latency_below
+    max_ms: 5000
+  - type: llm_rubric
+    criteria: "Response is factually accurate and helpful"
+  - type: similar_to
+    reference: "Expected output text"
+    threshold: 0.8
+```
+
+**Implementation:**
+- Each assertion type maps to an objective metric function
+- Composable with `all_of` (AND) and `any_of` (OR) combinators
+- Pass/fail determined by assertion results, score = fraction passing
+- Readable failure messages: "Assertion 'contains: Bonjour' failed on item 3"
+
+### Design: Evaluation Result Schema Standard
+
+**Research basis:** No universal standard for evaluation results exists (identified as industry gap). Every platform uses its own format.
+
+**Proposed schema (JSON):**
+```json
+{
+  "$schema": "https://evalyn.dev/schemas/eval-result-v1.json",
+  "version": "1.0",
+  "metadata": {
+    "tool": "evalyn",
+    "tool_version": "0.15.0",
+    "timestamp": "2026-03-27T12:00:00Z",
+    "dataset": {"name": "...", "hash": "sha256:...", "item_count": 100}
+  },
+  "metrics": [
+    {"id": "helpfulness", "type": "subjective", "pass_rate": 0.85, "avg_score": 0.82}
+  ],
+  "items": [
+    {
+      "id": "item-1",
+      "results": [
+        {"metric_id": "helpfulness", "score": 0.9, "passed": true, "details": {}}
+      ]
+    }
+  ],
+  "summary": {
+    "overall_pass_rate": 0.85,
+    "total_cost_usd": 1.23,
+    "total_items": 100
+  }
+}
+```
+
+**Goal:** Publish as open spec that other tools can adopt for interoperability.
+
+### Design: Denormalized Storage for Query Performance
+
+**Research basis:** Langfuse found 10x dashboard speedup by denormalizing trace attributes onto every observation row (March 2026 architecture shift).
+
+**Proposed migration for evalyn:**
+- Add trace-level columns to `otel_spans` table: `project_name`, `session_id`, `function_name`, `call_started_at`
+- Populate via additive migration (backfill from function_calls table)
+- Enable direct span queries without JOIN to function_calls
+- Key queries that benefit: "list spans for project X", "spans slower than Y ms in session Z"
+
+**Risk:** Increases storage size by ~20% due to denormalization. Acceptable for query performance gains on large databases.
+
+---
+
 ## Design Principles
 
 1. **Local-first:** SQLite by default, no cloud dependency for core functionality
