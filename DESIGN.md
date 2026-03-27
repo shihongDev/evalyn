@@ -1161,6 +1161,181 @@ class EvalynConfig:
 
 ---
 
+## 40. Research-Driven Designs (from Landscape Analysis)
+
+### Design: Judge Debiasing Pipeline
+
+**Research basis:** CALM framework identifies 12 judge biases. AlpacaEval's length-controlled win rates improve correlation with human preference from 0.94 to 0.98. Regression-based bias correction halves residual error.
+
+**Proposed pipeline:**
+```
+Raw judge scores
+  |
+  v
+Position-bias correction (for pairwise only)
+  |-- Evaluate A vs B, then B vs A
+  |-- Average scores; flag if results flip
+  |
+  v
+Length-bias correction
+  |-- Fit GLM: preference ~ length_difference + true_quality
+  |-- Condition on zero length difference
+  |
+  v
+Calibration correction (from human-labeled subset)
+  |-- Fit regression: human_score ~ judge_score + item_features
+  |-- Apply correction to all scores
+  |
+  v
+Debiased scores with uncertainty estimates
+```
+
+**Implementation:**
+- New `JudgeDebiasingPipeline` class in `judges/debiasing.py`
+- Called optionally via `--debias` flag on `run-eval`
+- Requires a small calibration set (50-100 human-labeled items)
+- Outputs bias report: "Position bias: 0.12, Length bias: 0.08"
+
+### Design: Agent Evaluation Metrics (Ragas-Inspired)
+
+**Research basis:** Ragas defines ToolCallAccuracy (sequence + arguments), ToolCallF1 (unordered), AgentGoalAccuracy. DeepEval adds trace-based agent evaluation.
+
+**Proposed metrics for evalyn:**
+```
+agent_tool_accuracy:
+  type: objective
+  scope: trace
+  evaluates:
+    - Were the right tools called? (tool names match expected)
+    - Were arguments correct? (parameter values match expected)
+    - Was the sequence correct? (order matches expected)
+  score: fraction of correct tool calls
+
+agent_goal_completion:
+  type: subjective
+  scope: outcome
+  evaluates:
+    - Did the agent achieve the stated objective?
+    - Was the final output correct?
+  prompt: "Given the user's goal and the agent's trace, did the agent succeed?"
+
+agent_topic_adherence:
+  type: subjective
+  scope: conversation
+  evaluates:
+    - Did the agent stay within its defined domain?
+    - Did it refuse out-of-scope requests appropriately?
+```
+
+**Implementation:** Leverage existing `ToolUseBuilder` and `MultiTurnBuilder` for span discovery. Tool accuracy is an objective metric comparing `tool_call` span attributes against expected tool definitions.
+
+### Design: Bloom-Style Test Case Generation
+
+**Research basis:** Anthropic's Bloom uses a four-agent pipeline achieving 0.86 Spearman correlation with human scores on generated test cases.
+
+**Proposed pipeline for evalyn:**
+```
+Step 1: Understand
+  |-- LLM analyzes the agent's system prompt and capabilities
+  |-- Extracts: domain, intended behaviors, constraints, tools
+
+Step 2: Ideate
+  |-- Generate diverse scenario categories (edge cases, adversarial, typical)
+  |-- Ensure coverage across identified capability dimensions
+
+Step 3: Generate
+  |-- For each scenario: generate specific user input
+  |-- Apply persona diversity (novice, expert, adversarial)
+  |-- Optional: include expected behavior description
+
+Step 4: Score
+  |-- Run generated inputs through the agent
+  |-- Score quality: naturalness, diversity, difficulty balance
+  |-- Filter: remove duplicates and low-quality items
+```
+
+**CLI:** `evalyn generate-tests --behavior "customer support agent" --count 50`
+
+### Design: DAG-Based Deterministic Evaluation (DeepEval-Inspired)
+
+**Research basis:** DeepEval's DAGMetric uses LLM-powered decision trees for structured scoring - cheaper than full LLM-as-judge, more flexible than regex rules.
+
+**Proposed design:**
+```yaml
+# In evalyn.yaml or metrics definition:
+dag_metrics:
+  - id: response_quality
+    tree:
+      - question: "Is the response relevant to the input?"
+        yes: next
+        no: {score: 0.0, reason: "Off-topic response"}
+      - question: "Does it contain factual errors?"
+        yes: {score: 0.3, reason: "Factual errors detected"}
+        no: next
+      - question: "Is it complete and helpful?"
+        yes: {score: 1.0, reason: "Good response"}
+        no: {score: 0.6, reason: "Incomplete but relevant"}
+```
+
+**Implementation:** Each decision node is an LLM call with a yes/no question. Total cost: N calls (depth of tree) vs 1 expensive call for full judge. Deterministic path through the tree for reproducibility.
+
+### Design: Statistical Evaluation Reporting (Anthropic-Inspired)
+
+**Research basis:** Anthropic's "Statistical Approach to Model Evaluations" recommends confidence intervals, sample size planning, and bootstrap methods.
+
+**Proposed additions to RunAnalysis:**
+```python
+@dataclass
+class StatisticalMetricStats:
+    pass_rate: float
+    confidence_interval_95: tuple[float, float]  # bootstrap CI
+    sample_size: int
+    minimum_detectable_effect: float  # given current sample
+    power_at_5pct_change: float  # statistical power
+
+    @property
+    def is_sufficient_sample(self) -> bool:
+        return self.power_at_5pct_change >= 0.8
+```
+
+**CLI output:**
+```
+Metric: helpfulness
+  Pass rate:  85.0% [80.2%, 89.1%] (95% CI, n=100)
+  Power:      72% to detect 5% change (need n=150 for 80% power)
+  Significance vs baseline: p=0.023 (significant at alpha=0.05)
+```
+
+### Design: Annotation Queue Flywheel
+
+**Research basis:** LangSmith's annotation queues feed back into automated evaluation. Active learning reduces labeling effort 30-70%.
+
+**Proposed flywheel:**
+```
+Round 1: Human annotates 100 items
+  |
+  v
+Calibrate judge on annotations -> F1 = 0.75
+  |
+  v
+Round 2: Judge pre-labels all items
+  |-- High confidence (>0.9): auto-accept (skip human review)
+  |-- Low confidence (<0.7): route to human annotation queue
+  |-- Medium: sample 20% for human review
+  |
+  v
+Track: judge accuracy on human-reviewed items
+  |-- If accuracy > 0.9 for a metric: reduce human review to 10%
+  |-- If accuracy < 0.8: increase human review, trigger re-calibration
+```
+
+**Implementation:**
+- New `AnnotationStrategy` in calibration engine
+- `evalyn annotate --active-learning --confidence-threshold 0.8`
+- Flywheel metrics tracked in `.evalyn/flywheel_state.json`
+
+---
+
 ## 26. Session Management Design
 
 ### Design: Session-Level Analysis

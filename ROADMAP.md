@@ -560,6 +560,28 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn diff-outputs --run <id> showing per-item expected vs actual text diff
   - [ ] Highlight added/removed/changed text with color coding
   - [ ] Filter to only items where expected reference is available
+- [ ] **Judge Debiasing** - Mitigate known LLM judge biases (position, length, verbosity)
+  - [ ] Position-bias mitigation: swap answer order in pairwise comparisons and average
+  - [ ] Length-controlled scoring: GLM correction for length preference (AlpacaEval approach)
+  - [ ] Regression-based bias correction from small human-annotated calibration set
+  - [ ] Report bias metrics per judge model in calibration output
+- [ ] **Agent Goal Completion Metrics** - Evaluate whether agents achieve stated objectives
+  - [ ] ToolCallAccuracy: sequence + argument correctness (Ragas-inspired)
+  - [ ] ToolCallF1: unordered tool call matching
+  - [ ] AgentGoalAccuracy: end-state vs expected outcome assessment
+  - [ ] TopicAdherence: domain boundary enforcement for conversational agents
+- [ ] **Automatic Test Case Generation from Behaviors** - Generate diverse scenarios from behavior descriptions
+  - [ ] Bloom-style pipeline: understand behavior -> generate scenarios -> execute -> score
+  - [ ] Mine production traces for challenging evaluation cases (Arena-Hard BenchBuilder pattern)
+  - [ ] Synthesize adversarial variants of existing test cases
+- [ ] **DAG-Based Deterministic Evaluation** - Decision-tree scoring as middle ground between rules and LLM judge
+  - [ ] DAGMetric: LLM-powered decision trees for structured scoring (DeepEval-inspired)
+  - [ ] Deterministic evaluation paths based on input characteristics
+  - [ ] Lower cost than full LLM judge, more flexible than regex rules
+- [ ] **Statistical Evaluation Reporting** - Confidence intervals and power analysis for all metrics
+  - [ ] Bootstrap confidence intervals (1000 resamples) on metric scores
+  - [ ] Power analysis: recommend minimum sample size for target precision
+  - [ ] Significance testing for run-to-run comparisons
 
 ### Calibration & Optimization
 
@@ -701,6 +723,14 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn calibrate --metrics all calibrating every metric with annotations
   - [ ] Parallel calibration of independent metrics for speed
   - [ ] Combined calibration report showing per-metric alignment improvements
+- [ ] **SAMMO-Style Structural Optimization** - Treat prompts as symbolic DAGs with structural mutations
+  - [ ] Represent prompt as sections (instruction, context, examples, rubric) with structural operators
+  - [ ] Mutations: paraphrase section, drop section, reformat, reorder examples
+  - [ ] Multi-objective search: accuracy vs prompt length vs cost
+- [ ] **Annotation Queue Flywheel** - Closed loop where human labels improve judge, reducing future annotation needs
+  - [ ] Track judge accuracy on human-labeled items over time
+  - [ ] Identify metrics where judge is now reliable enough to skip human review
+  - [ ] Gradually reduce annotation requirement as calibration improves
 
 ### Multi-Modal Evaluation
 
