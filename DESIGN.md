@@ -652,14 +652,525 @@ run = await evalyn.run_async(dataset, metrics)
 
 ---
 
+## 15. Trace Lifecycle & Advanced Tracing Design
+
+### Design: Trace Search Query Language
+
+**Problem:** No way to filter traces by span attributes, duration, cost, or error status beyond basic list-calls flags.
+
+**Proposed syntax:**
+```
+spans where type=llm_call and duration_ms > 5000
+traces with total_cost > 0.10
+spans where model contains "gpt-4" and error is not null
+```
+
+**Implementation approach:**
+- Parser: simple recursive descent for `field op value [and/or field op value]`
+- Operators: `=`, `!=`, `>`, `<`, `>=`, `<=`, `contains`, `matches` (regex), `is null`, `is not null`
+- Fields: span attributes (`type`, `model`, `duration_ms`, `input_tokens`), call fields (`function_name`, `cost`, `error`)
+- Backend: translate to SQL WHERE clauses for SQLite; fallback to Python filtering for complex attribute queries
+- CLI: `--query` flag on `list-calls`
+
+### Design: Trace Replay
+
+**Problem:** Can't re-run a captured trace against a different model to compare outputs.
+
+**Data flow:**
+```
+Trace (stored) -> extract LLM span inputs -> swap model config -> re-execute -> new Trace
+  |                                                                                |
+  +--- original_trace_id linked via metadata ----------------------- diff report --+
+```
+
+**Key decisions:**
+- Extract `llm.input_messages` from each LLM span for replay
+- Create new `FunctionCall` with `metadata.replay_source = original_call_id`
+- Side-by-side diff: text diff of outputs per span position
+- Cost comparison: sum costs of original vs replay
+
+### Design: Trace Archival & Lifecycle
+
+**Archive strategy:**
+```
+Active DB (traces.sqlite)
+  |-- traces < retention_days old
+
+Archive DB (archive.sqlite)
+  |-- traces > retention_days old
+  |-- read-only, queryable via --db archive
+```
+
+**Commands:**
+- `evalyn archive-traces --older-than 90d` - move to archive
+- `evalyn restore-traces --from archive --id <id>` - move back
+- `evalyn purge --older-than 365d --include-archive` - permanent delete
+
+### Design: Experiment Tracking
+
+**Problem:** No way to group traces by experiment for A/B comparisons.
+
+**Proposed approach:**
+- New `experiment_id` field on `FunctionCall.metadata`
+- Set via decorator: `@decorated_fn(experiment="prompt-v2")`
+- Filter in `list-calls --experiment prompt-v2`
+- Cross-experiment comparison: `evalyn compare-experiments --exp1 prompt-v1 --exp2 prompt-v2`
+
+### Design: Conditional Tracing
+
+**Problem:** Tracing everything in production is expensive.
+
+**Proposed approach:**
+- Sample-based: `@trace_decorator(sample_rate=0.1)` traces 10% of calls
+- Predicate-based: `@trace_decorator(trace_if=lambda args: args.get("user_id") in sample_set)`
+- Environment-based: `EVALYN_TRACE_ENV=production` - only trace in matching environment
+- Implementation: check condition in `EvalTracer.instrument()` wrapper before `start_call()`
+
+---
+
+## 16. Dataset Engineering Design
+
+### Design: Dataset Versioning
+
+**Problem:** No way to track dataset changes or roll back.
+
+**Data model:**
+```
+data/prod/datasets/my_project/
+  |-- dataset.jsonl           # current version
+  |-- meta.json               # includes version_hash
+  |-- .versions/
+      |-- v1_abc123.jsonl     # snapshot
+      |-- v2_def456.jsonl     # snapshot
+      |-- changelog.json      # [{version, timestamp, item_count, hash, filters_used}]
+```
+
+**Key decisions:**
+- Version = SHA256 of sorted dataset content
+- On each `build-dataset`, auto-snapshot previous version to `.versions/`
+- `evalyn dataset-diff --v1 v1_abc123 --v2 v2_def456` shows added/removed/changed items
+- `evalyn dataset-rollback --to v1_abc123` restores previous version
+
+### Design: Dataset Filtering DSL
+
+**Proposed syntax:**
+```
+items where output_length > 500 and metadata.tag = "production"
+items where input contains "refund" or input contains "return"
+```
+
+**Implementation:** Reuse the same parser as Trace Search Query Language (shared `QueryParser` module). Different field namespace (item fields vs span fields).
+
+### Design: Golden Set Management
+
+**Problem:** No way to maintain curated evaluation benchmarks.
+
+**Data model:**
+```
+data/golden/
+  |-- golden_set.jsonl    # locked items
+  |-- golden_meta.json    # {locked: true, coverage: {metric_id: count}}
+```
+
+**Commands:**
+- `evalyn golden-set create --from-dataset <path> --items <ids>`
+- `evalyn golden-set add --id <item_id>`
+- `evalyn golden-set validate` - re-evaluate golden set to detect model drift
+
+### Design: External Format Import
+
+**Format mapping:**
+```
+HuggingFace datasets -> DatasetItem:
+  - "question" -> input
+  - "answer" or "response" -> output
+  - remaining fields -> metadata
+
+LMSYS Arena -> PairwiseDatasetItem:
+  - "conversation_a" -> output_a
+  - "conversation_b" -> output_b
+  - "winner" -> human_label
+
+CSV -> DatasetItem:
+  - Column mapping configurable: --input-col question --output-col answer
+```
+
+**Auto-detection:** Sniff first 5 lines; check for JSONL (starts with `{`), JSON array (starts with `[`), CSV (has header with commas), TSV (has header with tabs).
+
+---
+
+## 17. Advanced Calibration Design
+
+### Design: Active Learning for Annotation
+
+**Problem:** Random annotation is inefficient; some items are more informative.
+
+**Proposed approach:**
+```
+Pool of unannotated items
+  |
+  v
+Uncertainty Sampling: items where judge confidence is lowest
+  +
+Disagreement Sampling: items where judge and heuristics disagree
+  +
+Diversity Sampling: items that cover unexplored embedding regions
+  |
+  v
+Ranked annotation queue (highest priority first)
+```
+
+**Implementation:**
+- `evalyn annotate --active-learning` flag
+- Score each item: `info_score = (1 - confidence) * diversity_weight`
+- Present highest-scoring items first
+- Batch mode: select top-K for each annotation session
+
+### Design: Calibration Staleness Detection
+
+**Problem:** Calibrated prompts may become stale as the dataset evolves.
+
+**Detection strategy:**
+- Store `dataset_hash` and `calibration_date` in `CalibrationRecord`
+- On `run-eval --use-calibrated`, compare current dataset hash to calibration hash
+- If hash differs, compute drift score: `|new_items / total_items|`
+- Warning levels: >10% new items = "consider re-calibrating", >30% = "calibration likely stale"
+
+### Design: Multi-Objective Calibration
+
+**Problem:** Optimizing only for alignment may produce verbose prompts that cost more.
+
+**Proposed Pareto approach:**
+- Objective 1: alignment F1 (maximize)
+- Objective 2: prompt token count (minimize)
+- Generate N candidate prompts, plot on Pareto front
+- User selects preferred trade-off via `--cost-weight 0.3` (0=accuracy only, 1=cost only)
+
+---
+
+## 18. Resilience & Error Handling Design
+
+### Design: Circuit Breaker for Providers
+
+**Problem:** Provider outages cause cascading failures across all metrics.
+
+**State machine:**
+```
+CLOSED (normal) --[N consecutive failures]--> OPEN (reject all)
+OPEN --[cool-down period elapsed]--> HALF_OPEN (try one request)
+HALF_OPEN --[success]--> CLOSED
+HALF_OPEN --[failure]--> OPEN (reset cool-down)
+```
+
+**Configuration:**
+```yaml
+providers:
+  gemini:
+    circuit_breaker:
+      failure_threshold: 5
+      cool_down_seconds: 60
+```
+
+**Integration:** Wrap `create_llm_client()` with circuit breaker state check.
+
+### Design: Provider Fallback Chain
+
+**Problem:** Single provider failure blocks evaluation.
+
+**Proposed approach:**
+```yaml
+providers:
+  fallback_chain: [gemini, openai, ollama]
+```
+
+- On timeout/rate-limit/API-error, try next provider in chain
+- Log which provider was actually used per item in `MetricResult.model`
+- Cost tracking accounts for actual provider used, not configured default
+
+### Design: Graceful Item-Level Failure
+
+**Proposed standardization:**
+- All errors produce `MetricResult(passed=None, score=None, details={"error": str(e)})`
+- Error categorization: `timeout`, `api_error`, `parse_error`, `internal_error`
+- Summary at end of run: "3 items failed: 2 timeouts, 1 parse error"
+- `--fail-fast` flag to override and stop on first error
+
+---
+
+## 19. Reporting & Visualization Design
+
+### Design: Jupyter Notebook Export
+
+**Output structure:**
+```python
+# Cell 1: Data loading
+import json
+run = json.load(open("results.json"))
+
+# Cell 2: Metric summary (pandas DataFrame)
+# Cell 3: Pass rate charts (matplotlib)
+# Cell 4: Score distributions (per-metric histogram)
+# Cell 5: Failed item analysis (filterable table)
+```
+
+**Implementation:** Generate `.ipynb` via `nbformat` (no Jupyter dependency at SDK level).
+
+### Design: Comparative Heatmap
+
+**Visualization:**
+```
+         metric1  metric2  metric3  metric4
+item_1   [0.9]    [0.3]    [0.8]    [1.0]
+item_2   [0.1]    [0.9]    [0.7]    [0.5]
+item_3   [0.8]    [0.8]    [0.2]    [0.9]
+```
+- Color scale: red (0) -> yellow (0.5) -> green (1.0)
+- Sort by: worst items, worst metrics, or custom
+- Multi-run overlay: show delta as +/- annotations
+
+### Design: Web Dashboard Architecture
+
+**Components:**
+```
+evalyn dashboard (CLI command)
+  |
+  v
+FastAPI Server (localhost:8501)
+  |-- GET /api/traces          -> list_calls()
+  |-- GET /api/runs            -> list_eval_runs()
+  |-- GET /api/runs/:id        -> get_eval_run() + RunAnalysis
+  |-- GET /api/datasets        -> list_datasets()
+  |-- GET /api/compare/:a/:b   -> compare two runs
+  |-- WS  /ws/progress         -> live progress updates
+  |
+  v
+Jinja2 Templates + Chart.js (no heavy JS framework)
+```
+
+---
+
+## 20. Plugin System Design
+
+### Design: Entry-Point Plugin Discovery
+
+**Problem:** Adding custom metrics, instrumentors, or storage requires editing SDK source.
+
+**Proposed approach:**
+```toml
+# In user's pyproject.toml:
+[project.entry-points."evalyn.metrics"]
+my_metric = "my_package.metrics:register"
+
+[project.entry-points."evalyn.instrumentors"]
+my_provider = "my_package.instrumentors:MyInstrumentor"
+
+[project.entry-points."evalyn.storage"]
+postgres = "my_package.storage:PostgresStorage"
+```
+
+**Discovery at startup:**
+```python
+from importlib.metadata import entry_points
+
+for ep in entry_points(group="evalyn.metrics"):
+    register_fn = ep.load()
+    register_fn(metric_registry)
+```
+
+**Plugin categories:**
+- `evalyn.metrics` - custom objective/subjective metrics
+- `evalyn.instrumentors` - new LLM provider instrumentors
+- `evalyn.storage` - alternative storage backends
+- `evalyn.optimizers` - calibration optimizers
+- `evalyn.exporters` - new export formats
+
+---
+
+## 21. Offline & Air-Gapped Mode Design
+
+### Design: Fully Offline Evaluation
+
+**Tiered offline support:**
+```
+Tier 1: Objective-only (no internet, no optional deps)
+  |-- All 73 objective metrics work out of the box
+
+Tier 2: Local LLM (Ollama, no internet after model download)
+  |-- provider: ollama in evalyn.yaml
+
+Tier 3: Full offline (pre-cached embeddings + local models)
+  |-- sentence-transformers model cached locally
+  |-- Sampling modes (diverse, clustered) work offline
+```
+
+**`--offline` flag:** Validates before execution that no metric/step would require internet. Fails fast with clear message listing which metrics need network access.
+
+---
+
+## 22. CI/CD Integration Design
+
+### Design: GitHub Actions Integration
+
+**Workflow template:**
+```yaml
+name: Evalyn Evaluation
+on: [pull_request]
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install evalyn-sdk
+      - run: evalyn run-eval --dataset data/golden/ --format json > results.json
+      - run: evalyn compare --latest --format json > comparison.json
+```
+
+**Exit codes:** 0 = pass, 1 = regression detected, 2 = execution error
+
+**Regression gate in evalyn.yaml:**
+```yaml
+ci:
+  pass_rate_threshold: 0.85
+  fail_on_regression: true
+  regression_threshold: 0.05  # 5% drop triggers failure
+```
+
+---
+
+## 23. Graph & Multi-Agent Evaluation Design
+
+### Design: Graph Topology Extraction
+
+**Problem:** LangGraph execution paths are captured as flat span lists. No way to visualize the graph structure.
+
+**Proposed approach:**
+- Build DAG from `graph`/`node` spans captured by `LangGraphInstrumentor`
+- Identify critical path (longest execution chain)
+- Detect cycles and redundant node executions
+- `evalyn show-graph --call <id>` rendering Mermaid or ASCII diagram
+
+**Data model:**
+```
+GraphTopology:
+  nodes: List[{id, name, span_id, duration_ms, cost}]
+  edges: List[{source, target, data_flow: bool}]
+  critical_path: List[node_id]
+  cycle_detected: bool
+```
+
+### Design: Node-Level Metric Attribution
+
+- Map `MetricResult` failures back to the node span that produced the failing output
+- Per-node pass rate aggregation: "Node X fails 40% of the time"
+- Bottleneck identification: nodes causing the most downstream failures
+
+### Design: Subagent Cost Allocation
+
+- Aggregate token/cost from Claude Agent SDK's SubagentContext hierarchy
+- Per-subagent cost breakdown in `show-trace` and `analyze` output
+- Tree view: main agent -> subagent_a ($0.05) -> subagent_b ($0.12)
+
+---
+
+## 24. Advanced Evaluation Modes Design
+
+### Design: Differential Evaluation
+
+**Problem:** Re-evaluating unchanged items wastes tokens.
+
+**Approach:**
+- Hash-based change detection using `hash_inputs(item)`
+- `--diff-from <baseline_run_id>` flag on `run-eval`
+- Changed items: evaluate normally
+- Unchanged items: carry forward `MetricResult` from baseline run
+- Report: "Evaluated 15/100 items (85 carried forward from baseline)"
+
+### Design: Distributed Evaluation
+
+**Problem:** Large datasets are slow on a single machine.
+
+**Architecture:**
+```
+Coordinator (evalyn run-eval --distributed)
+  |
+  v
+Task Queue (Redis or RabbitMQ)
+  |-- task: {item_id, metric_id, item_data, metric_config}
+  |
+  v
+Worker Pool (N machines)
+  |-- each pulls tasks, evaluates, pushes results
+  |
+  v
+Result Collector
+  |-- merge results into EvalRun
+  |-- checkpoint: persist partial results
+```
+
+**Worker:** `evalyn worker --queue redis://localhost:6379` process
+
+### Design: Async Evaluation Strategy
+
+**Problem:** `ThreadPoolExecutor` has GIL limitations for I/O-heavy LLM calls.
+
+**Proposed `AsyncStrategy`:**
+- `asyncio.gather()` for concurrent metric calls
+- `asyncio.Semaphore(max_workers)` for concurrency control
+- Compatible with async LLM clients (httpx, aiohttp)
+- `--strategy async` flag on `run-eval`
+
+---
+
+## 25. Config Architecture Design
+
+### Design: Typed Configuration
+
+**Problem:** Config is `Dict[str, Any]` with no schema, no validation, no documentation.
+
+**Proposed `EvalynConfig` dataclass:**
+```python
+@dataclass
+class EvalynConfig:
+    # Provider settings
+    default_provider: str = "gemini"
+    api_keys: Dict[str, str] = field(default_factory=dict)
+
+    # Evaluation defaults
+    max_workers: int = 1
+    checkpoint_interval: int = 5
+
+    # Calibration defaults
+    default_optimizer: str = "basic"
+
+    # Storage
+    db_path: Optional[str] = None
+    retention_days: Optional[int] = None
+
+    # CI/CD
+    pass_rate_threshold: float = 0.0
+    fail_on_regression: bool = False
+
+    @classmethod
+    def from_yaml(cls, path: Path) -> "EvalynConfig": ...
+    @classmethod
+    def from_env(cls) -> "EvalynConfig": ...
+    def merge(self, override: "EvalynConfig") -> "EvalynConfig": ...
+```
+
+**Resolution order:** defaults -> global `~/.evalyn/config.yaml` -> project `evalyn.yaml` -> env vars -> CLI flags
+
+---
+
 ## Design Principles
 
 1. **Local-first:** SQLite by default, no cloud dependency for core functionality
-2. **Incremental adoption:** `@eval` decorator is the only required entry point; everything else is optional
+2. **Incremental adoption:** The tracing decorator is the only required entry point; everything else is optional
 3. **Provider-agnostic:** Judge model is configurable; defaults to cheapest (Gemini Flash Lite)
 4. **Backward-compatible:** Old datasets, old APIs, old configs continue to work via aliases and migration
 5. **Lazy loading:** Heavy dependencies (sentence-transformers, spacy, gepa) imported only when needed
 6. **Pure analysis:** Analysis functions are stateless and testable; no side effects
 7. **Extension over modification:** New metrics, providers, optimizers added via registries, not by editing core
+8. **Fail-open for optional features:** Missing optional dependencies degrade gracefully with warnings, never crash
+9. **Schema stability:** Additive-only migrations; existing data always readable by newer versions
 
 *Last updated: 2026-03-27*
