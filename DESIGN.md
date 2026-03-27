@@ -1953,6 +1953,193 @@ evalyn compliance-report --format pdf
 
 ---
 
+## 42. Research-Driven Designs Round 3 (Multi-Agent, Simulation, SDK, Cost)
+
+### Design: Multi-Agent Communication Scoring
+
+**Research basis:** MARBLE (ACL 2025) milestone-based KPIs, CLEAR framework (cost/latency/efficiency/assurance/reliability), finding that 60% single-run success drops to 25% at 8-run consistency.
+
+**Proposed metrics:**
+```python
+# New objective metrics in metrics/objective.py:
+
+agent_communication_score:
+  # Per-message scoring (1-5): relevance, clarity, information density
+  # Aggregate: mean score across all inter-agent messages in trace
+
+agent_consistency:
+  # Run N times, measure: tool call sequence similarity, output similarity
+  # Score: fraction of runs producing equivalent results
+
+milestone_completion:
+  # User defines milestones as span name patterns
+  # Score: fraction of milestones achieved
+  # Config: milestones: ["data_retrieved", "analysis_complete", "response_sent"]
+```
+
+**Implementation:** These require multi-run evaluation support. Add `--repeat N` flag to `run-eval` that runs each item N times and computes consistency metrics across runs.
+
+### Design: Evol-Instruct Data Evolution
+
+**Research basis:** WizardLM's Evol-Instruct methodology, DeepEval's Synthesizer with quality scoring, Auto Evol-Instruct that meta-optimizes the evolution process.
+
+**Proposed pipeline:**
+```
+Seed items
+  |
+  v
+Evolution (LLM-powered, configurable depth)
+  |-- In-depth: add constraints ("must use only public data"), increase reasoning steps
+  |-- In-breadth: domain transfer ("same question but for healthcare"), format change
+  |
+  v
+Quality Filter
+  |-- Score: clarity (1-5), depth (1-5), structure (1-5), relevance (1-5)
+  |-- Reject items below configurable threshold (default: 3.0 average)
+  |
+  v
+Deduplication
+  |-- Embedding-based dedup against seed + previously evolved items
+  |
+  v
+Evolved dataset
+```
+
+**CLI:** `evalyn simulate --mode evolve --depth 3 --breadth 2`
+
+### Design: IRT-Based Tiny Benchmarks
+
+**Research basis:** tinyBenchmarks (NeurIPS 2024) - Item Response Theory from psychometrics reduces 14K items to 100 (140x) within 2% error. SubLIME achieves 0.85-0.95 correlation at 10% sampling rate.
+
+**Proposed approach:**
+```python
+@dataclass
+class IRTItemParams:
+    item_id: str
+    difficulty: float      # how hard the item is (theta)
+    discrimination: float  # how well it separates good from bad models (alpha)
+    information: float     # Fisher information at target ability
+
+def optimize_dataset_irt(
+    items: List[DatasetItem],
+    eval_history: List[EvalRun],  # historical runs for parameter estimation
+    target_size: int = 100,
+) -> List[DatasetItem]:
+    """Select items maximizing total information."""
+    # 1. Estimate IRT parameters from historical pass/fail data
+    # 2. Compute Fisher information per item at target ability level
+    # 3. Greedy selection: pick items with highest information
+    # 4. Ensure coverage: at least 1 item per difficulty quintile
+```
+
+**CLI:** `evalyn dataset-optimize --method irt --target-size 100 --history last-10-runs`
+
+### Design: Cascade Model Routing for Evaluation
+
+**Research basis:** ETH Zurich's unified framework achieves 87% cost reduction. Gatekeeper reduces expensive calls by 40% without quality loss. Key: quality estimators determine when to escalate.
+
+**Proposed design:**
+```yaml
+# evalyn.yaml:
+model_routing:
+  strategy: cascade
+  models:
+    - provider: gemini
+      model: gemini-2.5-flash-lite  # tier 1: cheapest
+      max_input_tokens: 2000        # only for short inputs
+    - provider: gemini
+      model: gemini-2.5-flash       # tier 2: capable
+      # default for everything tier 1 can't handle
+    - provider: openai
+      model: gpt-4o                  # tier 3: most capable
+      only_when: confidence < 0.7    # escalate uncertain items
+```
+
+**Implementation:**
+- New `CascadeJudge` wrapping multiple `LLMJudge` instances
+- Tier 1 evaluates all items. If confidence < threshold, escalate to tier 2.
+- Track: actual cost vs estimated full-price cost (savings report)
+- Compatible with existing `--provider` flag as single-tier fallback
+
+### Design: Declarative Evaluation API
+
+**Research basis:** All major frameworks converge on a declarative pattern: data + task + scorers in a single call.
+
+**Proposed evalyn Python API:**
+```python
+import evalyn
+
+# Pattern 1: Braintrust-style declarative
+results = evalyn.evaluate(
+    name="helpfulness-test",
+    dataset="data/prod/datasets/my_project/",
+    metrics=["helpfulness_accuracy", "toxicity_safety", "json_valid"],
+    provider="gemini",
+)
+print(results.overall_pass_rate)  # 0.85
+print(results.to_pandas())        # DataFrame with per-item scores
+
+# Pattern 2: Weave-style with model
+results = evalyn.evaluate(
+    dataset=[{"input": "...", "expected": "..."}],
+    model=my_agent_function,
+    metrics=["helpfulness_accuracy"],
+)
+
+# Pattern 3: Existing CLI-compatible
+run = evalyn.run_eval(
+    dataset_path="data/prod/datasets/my_project/",
+    metrics_path="metrics/production.json",
+    max_workers=4,
+)
+analysis = evalyn.analyze(run)
+```
+
+**Key decisions:**
+- Return typed `EvalResult` object with `.to_pandas()`, `.to_dict()`, `.summary`
+- No `sys.exit` or `print` in the API path - raise exceptions, return objects
+- Async variant: `await evalyn.evaluate_async(...)`
+- Metrics can be specified as strings (lookup registry) or `Metric` objects
+
+### Design: Semantic Caching for Judge Calls
+
+**Research basis:** GPTCache achieves 68.8% API call reduction with 97% positive hit accuracy. Architecture: embedding -> vector similarity -> threshold matching.
+
+**Proposed design:**
+```
+Judge call (prompt, input, output, model)
+  |
+  v
+Cache lookup: sha256(prompt + input + output + model)
+  |-- Exact hit: return cached MetricResult
+  |-- Miss: continue to LLM call
+  |
+  v
+(Optional) Fuzzy lookup: embed(input + output), cosine search in cache
+  |-- Similarity > 0.98: return cached result (with cache_hit=fuzzy flag)
+  |-- Miss: continue to LLM call
+  |
+  v
+LLM judge call -> MetricResult
+  |
+  v
+Store in cache: eval_cache table in SQLiteStorage
+```
+
+**Cache table schema:**
+```sql
+CREATE TABLE eval_cache (
+    cache_key TEXT PRIMARY KEY,    -- sha256 hash
+    metric_id TEXT,
+    result_json TEXT,              -- serialized MetricResult
+    created_at TEXT,
+    hit_count INTEGER DEFAULT 0,
+    embedding BLOB                 -- optional, for fuzzy matching
+);
+```
+
+---
+
 ## Design Principles
 
 1. **Local-first:** SQLite by default, no cloud dependency for core functionality

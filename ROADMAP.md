@@ -773,6 +773,19 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Logical consistency
   - [ ] Evidence usage
   - [ ] Conclusion validity
+- [ ] **Multi-Agent Communication Scoring** - Evaluate quality of inter-agent communication
+  - [ ] Communication Score (1-5 per utterance): relevance, clarity, information density
+  - [ ] Collaborative efficiency: ratio of useful exchanges to total messages
+  - [ ] Milestone-based KPIs: track which coordination milestones are achieved (MARBLE approach)
+- [ ] **Agent Consistency Testing** - Measure reliability across repeated runs
+  - [ ] Run agent N times on same input, measure consistency of tool calls and outputs
+  - [ ] Research finding: 60% single-run success drops to 25% at 8-run consistency
+  - [ ] Report consistency score alongside pass rate
+- [ ] **Agentic Benchmark Integration** - Run standard agent benchmarks within evalyn
+  - [ ] SWE-bench integration for coding agent evaluation
+  - [ ] WebArena integration for web agent evaluation
+  - [ ] GAIA integration for general agent evaluation
+  - [ ] Unified reporting across benchmarks
 
 ### Graph & Multi-Agent Evaluation
 
@@ -1360,6 +1373,14 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] pytest plugin: @pytest.mark.evalyn(metrics=["helpfulness"])
   - [ ] Assert on metric scores: assert result.metrics["helpfulness"].passed
   - [ ] Integration with pytest-xdist for parallel testing
+- [ ] **Declarative Evaluation API** - Single-call evaluation matching industry patterns
+  - [ ] Braintrust-style: evalyn.Eval("project", data=fn, task=fn, scores=[...])
+  - [ ] Weave-style: evalyn.Evaluation(dataset=..., scorers=[...]).run(model)
+  - [ ] Both patterns return structured results with .to_pandas() support
+- [ ] **Semantic Caching for Judge Calls** - Cache identical LLM judge calls to reduce cost
+  - [ ] Content-addressable cache keyed by hash(prompt + input + output + model)
+  - [ ] Research finding: up to 68.8% API call reduction (GPTCache benchmark)
+  - [ ] Optional embedding-based fuzzy matching for similar-but-not-identical inputs
 
 ### Testing & Quality Enhancements
 
@@ -1825,6 +1846,20 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Accept failure cluster labels from cluster-failures as simulation targets
   - [ ] Generate items specifically designed to trigger each failure mode
   - [ ] Coverage tracking: % of known failure patterns with generated test cases
+- [ ] **Evol-Instruct Data Evolution** - Evolve evaluation items through iterative complexity increases
+  - [ ] In-depth evolution: add constraints, reasoning steps, edge cases to existing items
+  - [ ] In-breadth evolution: generate topic variations and domain transfers
+  - [ ] Quality scoring: rate evolved items on clarity, depth, structure, relevance
+  - [ ] Auto-filtering: reject evolved items that degrade below quality threshold
+- [ ] **Persona Hub Integration** - Generate diverse user personas for simulation
+  - [ ] Large-scale persona generation from behavior descriptions
+  - [ ] Persona-to-Persona expansion for combinatorial diversity
+  - [ ] Structured diversity controls: ensure coverage across demographics, expertise, intent
+- [ ] **Cascade Model Routing for Evaluation** - Use cheap models for easy items, expensive for hard
+  - [ ] Difficulty estimation from input complexity heuristics
+  - [ ] Route easy items to flash-lite, hard items to flash/pro
+  - [ ] 87% cost reduction benchmark (ETH Zurich finding)
+  - [ ] Quality estimator to determine when to escalate
 
 ### Sampling
 
@@ -1924,6 +1959,16 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Greedy coreset construction minimizing maximum approximation error
   - [ ] Guarantee that statistics computed on coreset approximate full dataset within bounds
   - [ ] --coreset N flag on build-dataset for maximum compression with minimal information loss
+- [ ] **IRT-Based Tiny Benchmarks** - Use Item Response Theory to find minimal representative subset
+  - [ ] Psychometrics-inspired: 100 items can replace 14K (140x reduction) within 2% error
+  - [ ] Estimate item difficulty and discrimination from historical eval data
+  - [ ] Select items maximizing information at target ability level
+  - [ ] evalyn dataset-optimize --method irt --target-size 100
+- [ ] **BenchBuilder Auto-Curation** - Automatically curate evaluation prompts from production traces
+  - [ ] Cluster production traces by topic (Arena-Hard pattern)
+  - [ ] Score each trace for quality and difficulty
+  - [ ] Select diverse, high-quality traces as evaluation dataset
+  - [ ] 98.6% human correlation at $20 cost (Arena-Hard benchmark)
 
 ### Export & Reporting
 
