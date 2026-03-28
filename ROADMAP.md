@@ -120,7 +120,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Hour-of-day x day-of-week grid showing trace counts
   - [ ] Overlay cost or error rate on the heatmap
   - [ ] ASCII heatmap for terminal, HTML for reports
-- [ ] **Provider SDK Version Tracking** - Capture installed SDK versions of instrumented providers in span metadata
+- [x] **Provider SDK Version Tracking** - Capture installed SDK versions of instrumented providers in span metadata
   - [ ] Record openai, anthropic, google-generativeai package versions at instrumentation time
   - [ ] Store as span attributes (evalyn.provider_sdk_version)
   - [ ] Surface version mismatches across traces in show-trace output
@@ -193,7 +193,7 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Trace Lifecycle Management
 
-- [ ] **Trace Archival** - Move old traces to cold storage instead of deleting
+- [x] **Trace Archival** - Move old traces to cold storage instead of deleting
   - [ ] evalyn archive-traces --older-than 90d moving traces to archive.sqlite
   - [ ] Archive is read-only and queryable via --db archive flag
   - [ ] Restore from archive: evalyn restore-traces --from archive --id <id>
@@ -236,11 +236,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Allowlist/blocklist of method names to instrument per provider
   - [ ] Config in evalyn.yaml: instrument.openai.methods: ["chat.completions.create"]
   - [ ] Reduce overhead by skipping low-value calls (e.g. embeddings, moderation)
-- [ ] **Instrumentation Health Check** - Verify instrumentation is capturing spans correctly
+- [x] **Instrumentation Health Check** - Verify instrumentation is capturing spans correctly
   - [ ] evalyn check-instrumentation that runs a test call and verifies span capture
   - [ ] Report which providers are instrumented, which failed, and why
   - [ ] Warning when instrumented SDK is imported before evalyn_sdk
-- [ ] **Instrumentation Overhead Measurement** - Measure performance impact of tracing
+- [x] **Instrumentation Overhead Measurement** - Measure performance impact of tracing
   - [ ] Benchmark: instrumented vs uninstrumented call latency
   - [ ] Report added overhead in ms and % per provider
   - [ ] Auto-disable instrumentation if overhead exceeds threshold
