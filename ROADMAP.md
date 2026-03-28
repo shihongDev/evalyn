@@ -366,7 +366,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Store: evalyn version, Python version, provider versions, metric hashes, config hash
   - [ ] Manifest file alongside eval run results
   - [ ] evalyn verify-manifest to check reproducibility of a past run
-- [ ] **Custom Cost Models** - User-defined pricing for custom or self-hosted models
+- [x] **Custom Cost Models** - User-defined pricing for custom or self-hosted models
   - [ ] Per-model cost-per-token config in evalyn.yaml
   - [ ] Override default pricing for Ollama and other local models
   - [ ] Cost model versioning for tracking price changes over time
@@ -1332,7 +1332,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Green for pass, red for fail, yellow for warning across all commands
   - [ ] Respect NO_COLOR env var and --no-color flag for CI environments
   - [ ] Color-coded score ranges in analyze and compare output
-- [ ] **Compact Output Mode** - Minimal output for CI logs and scripting
+- [x] **Compact Output Mode** - Minimal output for CI logs and scripting
   - [ ] --compact flag producing single-line summaries per command
   - [ ] Summary format: "RUN <id> PASS 85% (17/20) COST $0.12 TIME 45s"
   - [ ] Pair with exit codes for CI gate integration (exit 1 if pass rate < threshold)
