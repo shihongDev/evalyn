@@ -505,6 +505,102 @@ class Metric:
         return unit_type in self.spec.unit_types
 
 
+class CompositeMetric(Metric):
+    """A metric that combines multiple child metrics into a weighted score.
+
+    Aggregation strategies:
+    - weighted_average: weighted mean of child scores
+    - min: minimum child score (strictest)
+    - max: maximum child score (most lenient)
+    - all_pass: 1.0 if all children pass, 0.0 otherwise
+
+    Example:
+        composite = CompositeMetric(
+            metric_id="quality_score",
+            children=[(helpfulness_metric, 0.4), (safety_metric, 0.3), (accuracy_metric, 0.3)],
+            aggregation="weighted_average",
+            threshold=0.7,
+        )
+    """
+
+    def __init__(
+        self,
+        metric_id: str,
+        children: List[tuple],  # [(Metric, weight), ...]
+        aggregation: str = "weighted_average",
+        threshold: float = 0.5,
+        description: str = "",
+    ):
+        valid_aggregations = {"weighted_average", "min", "max", "all_pass"}
+        if aggregation not in valid_aggregations:
+            raise ValueError(f"aggregation must be one of {valid_aggregations}, got {aggregation!r}")
+
+        self.children = children
+        self.aggregation = aggregation
+        self.threshold = threshold
+
+        spec = MetricSpec(
+            id=metric_id,
+            name=f"Composite: {metric_id}",
+            type="objective",
+            description=description or f"Composite metric ({aggregation}) of {len(children)} children",
+        )
+
+        def composite_handler(call: "FunctionCall", item: "DatasetItem") -> MetricResult:
+            child_results = []
+            for child_metric, weight in self.children:
+                result = child_metric.evaluate(call, item)
+                child_results.append((result, weight))
+
+            score = self._aggregate(child_results)
+            passed = score >= self.threshold
+
+            return MetricResult(
+                metric_id=spec.id,
+                item_id=item.id,
+                call_id=call.id,
+                score=score,
+                passed=passed,
+                details={
+                    "aggregation": self.aggregation,
+                    "threshold": self.threshold,
+                    "children": [
+                        {
+                            "metric_id": r.metric_id,
+                            "score": r.score,
+                            "passed": r.passed,
+                            "weight": w,
+                        }
+                        for r, w in child_results
+                    ],
+                },
+            )
+
+        super().__init__(spec, composite_handler)
+
+    def _aggregate(self, child_results: List[tuple]) -> float:
+        """Compute aggregate score from child results."""
+        scores = [(r.score or 0.0, w) for r, w in child_results]
+
+        if self.aggregation == "weighted_average":
+            total_weight = sum(w for _, w in scores)
+            if total_weight == 0:
+                return 0.0
+            return sum(s * w for s, w in scores) / total_weight
+
+        elif self.aggregation == "min":
+            return min(s for s, _ in scores) if scores else 0.0
+
+        elif self.aggregation == "max":
+            return max(s for s, _ in scores) if scores else 0.0
+
+        elif self.aggregation == "all_pass":
+            all_passed = all(r.passed for r, _ in child_results)
+            return 1.0 if all_passed else 0.0
+
+        return 0.0
+
+
 class MetricRegistry:
     """Registry for managing multiple metrics."""
 
