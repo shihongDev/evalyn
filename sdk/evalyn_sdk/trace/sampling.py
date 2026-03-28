@@ -72,9 +72,8 @@ def should_sample(
         if duration is not None and duration >= config.slow_threshold_ms:
             return SamplingDecision(should_capture=True, reason="slow_priority")
 
-    # Rate-based sampling
-    rng = random.Random(config.seed)
-    if rng.random() < config.rate:
+    # Rate-based sampling (stateless - use create_sampler for seeded determinism)
+    if random.random() < config.rate:
         return SamplingDecision(should_capture=True, reason="sampled")
 
     return SamplingDecision(should_capture=False, reason="rate_excluded")

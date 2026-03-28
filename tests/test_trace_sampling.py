@@ -149,11 +149,14 @@ class TestShouldSample:
         assert result.should_capture is True
         assert result.reason == "error_priority"
 
-    def test_deterministic_with_seed(self):
+    def test_deterministic_via_create_sampler(self):
+        # Deterministic sampling requires create_sampler (stateful RNG)
+        # should_sample is stateless and uses global RNG
         cfg = SamplingConfig(rate=0.5, seed=12345)
-        results_a = [should_sample(cfg).should_capture for _ in range(10)]
-        results_b = [should_sample(cfg).should_capture for _ in range(10)]
-        # Same seed, same calls - should_sample creates a new RNG each call
+        sampler_a = create_sampler(cfg)
+        sampler_b = create_sampler(cfg)
+        results_a = [sampler_a(None).should_capture for _ in range(10)]
+        results_b = [sampler_b(None).should_capture for _ in range(10)]
         assert results_a == results_b
 
     def test_no_span_uses_rate(self):
