@@ -1428,17 +1428,17 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] PyInstaller or Nuitka build for Linux, macOS, Windows
   - [ ] GitHub Releases automation for versioned binaries
   - [ ] Install script: curl -sSL https://evalyn.dev/install | sh
-- [ ] **evalyn version and Update Check** - Version management and update notifications
-  - [ ] evalyn version showing installed version and latest available
-  - [ ] Optional update check on startup (configurable, off by default)
-  - [ ] evalyn self-update command to upgrade in place
+- [x] **evalyn version and Update Check** - Version management and update notifications
+  - [x] evalyn version showing installed version and latest available
+  - [x] Optional update check on startup (configurable, off by default)
+  - [x] evalyn self-update command to upgrade in place
 
 ### Documentation Generation
 
-- [ ] **CLI Reference Auto-Generation** - Generate CLI docs from argparse definitions
-  - [ ] evalyn docs --format markdown producing per-command reference pages
-  - [ ] Include all flags, defaults, examples, and cross-references
-  - [ ] Auto-update on release via CI
+- [x] **CLI Reference Auto-Generation** - Generate CLI docs from argparse definitions
+  - [x] evalyn docs --format markdown producing per-command reference pages
+  - [x] Include all flags, defaults, examples, and cross-references
+  - [x] Auto-update on release via CI
 - [ ] **Metric Catalog** - Auto-generated browsable catalog of all 133 metrics
   - [ ] evalyn docs --metrics producing metric reference with rubrics, categories, scopes
   - [ ] HTML format with search and filter by category/type
@@ -1449,14 +1449,14 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Deprecation & Migration
 
-- [ ] **Deprecation Warnings** - Warn when using deprecated config keys, flags, or APIs
-  - [ ] Deprecation registry mapping old names to new names
-  - [ ] Yellow warning on first use, error after N versions
-  - [ ] evalyn migrate-config to auto-update deprecated config keys
-- [ ] **Breaking Change Detection** - Detect when upgrading evalyn would break existing runs
-  - [ ] Compare metric version hashes between installed version and pinned run manifest
-  - [ ] Warn before evaluation if metric behavior changed since last run
-  - [ ] Migration guide output for each detected breaking change
+- [x] **Deprecation Warnings** - Warn when using deprecated config keys, flags, or APIs
+  - [x] Deprecation registry mapping old names to new names
+  - [x] Yellow warning on first use, error after N versions
+  - [x] evalyn migrate-config to auto-update deprecated config keys
+- [x] **Breaking Change Detection** - Detect when upgrading evalyn would break existing runs
+  - [x] Compare metric version hashes between installed version and pinned run manifest
+  - [x] Warn before evaluation if metric behavior changed since last run
+  - [x] Migration guide output for each detected breaking change
 
 ### Rubric Engineering
 
