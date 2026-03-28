@@ -496,7 +496,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Language detection via character set and n-gram analysis (no external API)
   - [ ] Route to language-matched rubric variant when available
   - [ ] Report language distribution across dataset items
-- [ ] **Metric Score Normalization** - Normalize scores across metrics to a common scale for fair cross-metric comparison
+- [x] **Metric Score Normalization** - Normalize scores across metrics to a common scale for fair cross-metric comparison
   - [ ] Z-score normalization using historical score distributions per metric
   - [ ] Min-max normalization to [0, 1] range
   - [ ] --normalize flag on analyze and compare for normalized views
@@ -532,7 +532,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Reduce workers when latency exceeds threshold (provider overloaded)
   - [ ] Increase workers when latency is low (headroom available)
   - [ ] Adaptive mode: --workers auto on run-eval
-- [ ] **Evaluation Split-Model Routing** - Route objective metrics to local compute, subjective to API
+- [x] **Evaluation Split-Model Routing** - Route objective metrics to local compute, subjective to API
   - [ ] Automatic: objective metrics skip API entirely, subjective use configured provider
   - [ ] Cost savings report showing how much was saved by local objective evaluation
   - [ ] --local-objectives flag (default: true) on run-eval
