@@ -1317,11 +1317,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Record failure reason in MetricResult.details
   - [ ] Summary of failed items at end of run with error categories
   - [ ] --fail-fast flag to override and stop on first error
-- [ ] **Provider Fallback Chain** - Automatically try alternative providers on failure
+- [x] **Provider Fallback Chain** - Automatically try alternative providers on failure
   - [ ] Ordered provider list: [gemini, openai, ollama]
   - [ ] Fall back to next provider on timeout, rate limit, or API error
   - [ ] Log which provider was actually used per item
-- [ ] **Evaluation Timeout Per Item** - Prevent single slow items from blocking the entire run
+- [x] **Evaluation Timeout Per Item** - Prevent single slow items from blocking the entire run
   - [ ] --item-timeout flag (default: 120s per item)
   - [ ] Timeout recorded as failure with reason "timeout"
   - [ ] Separate timeout for objective vs subjective metrics
@@ -1336,11 +1336,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] --compact flag producing single-line summaries per command
   - [ ] Summary format: "RUN <id> PASS 85% (17/20) COST $0.12 TIME 45s"
   - [ ] Pair with exit codes for CI gate integration (exit 1 if pass rate < threshold)
-- [ ] **PDF Report Export** - Generate PDF reports from HTML dashboards
+- [x] **PDF Report Export** - Generate PDF reports from HTML dashboards
   - [ ] evalyn export --format pdf using headless browser or weasyprint
   - [ ] Page breaks between sections, print-friendly layout
   - [ ] Cover page with run metadata, date, project name
-- [ ] **HTML Report Dark Mode** - Dark theme option for HTML dashboards and insights
+- [x] **HTML Report Dark Mode** - Dark theme option for HTML dashboards and insights
   - [ ] CSS dark mode support via prefers-color-scheme media query
   - [ ] Manual toggle button in report header
   - [ ] Dark-friendly Chart.js color palette
