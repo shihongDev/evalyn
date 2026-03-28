@@ -1023,7 +1023,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Metadata field value distributions
   - [ ] Expected reference coverage (% items with ground truth)
   - [ ] Duplicate detection report
-- [ ] **Dataset Merge and Diff** - Combine two datasets or show item-level differences between them
+- [x] **Dataset Merge and Diff** - Combine two datasets or show item-level differences between them
   - [ ] evalyn dataset-merge --deduplicate
   - [ ] evalyn dataset-diff showing added/removed/changed items
   - [ ] Conflict resolution for items with same ID but different content
@@ -2203,7 +2203,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Perturb inputs (typos, rephrasing) and measure score variance
   - [ ] Flag metrics with high sensitivity to minor input changes
   - [ ] Robustness score per metric
-- [ ] **Metric Correlation Pruning** - Auto-suggest removing redundant metrics that track the same signal
+- [x] **Metric Correlation Pruning** - Auto-suggest removing redundant metrics that track the same signal
   - [ ] Pearson/Spearman correlation matrix across all metrics
   - [ ] Flag pairs with r > 0.95 as candidates for pruning
   - [ ] Recommend minimal metric set preserving signal coverage
