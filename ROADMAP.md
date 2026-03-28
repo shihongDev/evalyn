@@ -1248,7 +1248,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Weighted combination: pass rate, cost efficiency, coverage, judge confidence
   - [ ] Single 0-100 score for quick run quality assessment
   - [ ] Configurable weights in evalyn.yaml
-- [ ] **Trend Forecasting** - Predict future metric values using time series extrapolation
+- [x] **Trend Forecasting** - Predict future metric values using time series extrapolation
   - [ ] Linear regression and exponential smoothing on metric pass rates over runs
   - [ ] Forecast next N runs with confidence bands
   - [ ] Alert when forecast predicts metric dropping below threshold
@@ -1276,7 +1276,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Theme definitions in evalyn.yaml: primary color, accent, chart palette
   - [ ] Built-in themes: corporate, academic, dark-mode, print-friendly
   - [ ] Custom CSS injection for branded reports
-- [ ] **Analysis Data Export API** - Export analysis data as structured Python objects for custom analysis
+- [x] **Analysis Data Export API** - Export analysis data as structured Python objects for custom analysis
   - [ ] evalyn.analyze_to_dict(run) returning dict-of-lists for pandas DataFrame construction
   - [ ] evalyn export --format feather producing columnar format for direct notebook loading
   - [ ] Enable custom statistical analysis beyond built-in insights
