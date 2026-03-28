@@ -1236,7 +1236,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Rank items by number of failed metrics (cross-metric failure count)
   - [ ] Highlight items that are "universally bad" vs "edge case failures"
   - [ ] Useful for prioritizing which agent behaviors to fix first
-- [ ] **Time-to-Fix Tracking** - Track how many runs it takes for failing items to start passing
+- [x] **Time-to-Fix Tracking** - Track how many runs it takes for failing items to start passing
   - [ ] Per-item pass/fail history across consecutive runs
   - [ ] Average time-to-fix per metric and per failure category
   - [ ] Identify persistently failing items that resist fixes
@@ -1244,7 +1244,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn analysis-diff --run1 <id> --run2 <id>
   - [ ] Delta per metric: pass rate change, score mean change, new/resolved failures
   - [ ] ASCII table with color-coded improvements/regressions
-- [ ] **Run Quality Score** - Composite score summarizing overall run health
+- [x] **Run Quality Score** - Composite score summarizing overall run health
   - [ ] Weighted combination: pass rate, cost efficiency, coverage, judge confidence
   - [ ] Single 0-100 score for quick run quality assessment
   - [ ] Configurable weights in evalyn.yaml
@@ -1256,11 +1256,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Summarize key findings, regressions, and recommendations in 3-5 paragraphs
   - [ ] evalyn analyze --summary producing human-readable narrative
   - [ ] Useful for sharing results with non-technical stakeholders
-- [ ] **Metric Volatility Index** - Measure historical stability of each metric across runs
+- [x] **Metric Volatility Index** - Measure historical stability of each metric across runs
   - [ ] Coefficient of variation across last N runs per metric
   - [ ] Classify metrics as stable, moderate, or volatile
   - [ ] Recommend increasing judge samples or switching models for volatile metrics
-- [ ] **Analysis Change Attribution** - Attribute metric changes to dataset, model, or prompt factors
+- [x] **Analysis Change Attribution** - Attribute metric changes to dataset, model, or prompt factors
   - [ ] Detect which factor changed between compared runs (dataset hash, source hash, prompt hash)
   - [ ] Attribute score deltas to the changed factor
   - [ ] "Pass rate dropped 15%, likely due to dataset change (12 new items added)"
