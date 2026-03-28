@@ -433,7 +433,7 @@ This document tracks planned features and completed work. Future roadmap items a
 - [ ] **Reference-Free Evaluation** - Metrics that don't need ground truth
   - [x] Self-consistency checking (via --confidence consistency)
   - [x] Uncertainty quantification (via confidence module)
-- [ ] **Evaluation Budget Control** - Stop early if token or cost budget is exceeded mid-run
+- [x] **Evaluation Budget Control** - Stop early if token or cost budget is exceeded mid-run
   - [ ] --max-tokens and --max-cost flags on run-eval
   - [ ] Real-time budget tracking in ProgressCallback
   - [ ] Graceful stop: finish current item, checkpoint, report partial results
