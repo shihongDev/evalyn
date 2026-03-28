@@ -102,7 +102,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Plugin interface for extracting custom attributes from OTEL spans
   - [ ] Provider-specific extractors (e.g. extract function_call from OpenAI tool use spans)
   - [ ] Configurable truncation limits per attribute (currently hardcoded 1000 chars)
-- [ ] **Trace Compression** - Compress span payloads before SQLite storage to reduce database size
+- [x] **Trace Compression** - Compress span payloads before SQLite storage to reduce database size
   - [ ] gzip or zstd compression for input/output fields exceeding size threshold
   - [ ] Transparent decompression on read in SQLiteStorage
   - [ ] Compression ratio reporting in storage-stats command
@@ -170,7 +170,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Detect session-level chaining where output of call A is input to call B
   - [ ] Render as directed graph showing data flow across function calls
   - [ ] evalyn show-lineage --session <id> producing Mermaid or ASCII graph
-- [ ] **Orphan Span Recovery** - Detect and attach spans captured outside an active trace context
+- [x] **Orphan Span Recovery** - Detect and attach spans captured outside an active trace context
   - [ ] Orphan spans collected in _orphan_spans list (context.py) are currently lost
   - [ ] Match orphans to the nearest active FunctionCall by timestamp proximity
   - [ ] Report recovered vs truly lost orphan spans in show-trace
@@ -763,12 +763,12 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Parameter correctness
   - [ ] Error recovery patterns
   - [ ] Tool chain efficiency
-- [ ] **Planning Evaluation**
+- [x] **Planning Evaluation**
   - [ ] Plan completeness
   - [ ] Step ordering correctness
   - [ ] Resource efficiency
   - [ ] Replanning quality
-- [ ] **Reasoning Evaluation**
+- [x] **Reasoning Evaluation**
   - [ ] Chain-of-thought faithfulness
   - [ ] Logical consistency
   - [ ] Evidence usage
