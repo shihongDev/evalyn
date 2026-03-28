@@ -85,11 +85,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Max input/output size in bytes with tail truncation
   - [ ] Configurable per span type (larger limit for llm_call, smaller for tool_call)
   - [ ] Truncation marker in span metadata when content is clipped
-- [ ] **Custom Span Types** - Register user-defined span types beyond the built-in set (llm_call, tool_call, etc.)
+- [x] **Custom Span Types** - Register user-defined span types beyond the built-in set (llm_call, tool_call, etc.)
   - [ ] Registration API: register_span_type(name, icon, color)
   - [ ] Custom span type validation in span creation
   - [ ] Custom types rendered in show-trace with user-defined icons
-- [ ] **Span Tagging at Trace Time** - Add custom key-value tags to spans during execution for later filtering
+- [x] **Span Tagging at Trace Time** - Add custom key-value tags to spans during execution for later filtering
   - [ ] API: tag_current_span(key, value) callable inside traced functions
   - [ ] Tags stored in span metadata and queryable via list-calls
   - [ ] Standard tags: environment, user_id, experiment_id, variant
@@ -137,7 +137,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Summarize what the agent did: tools called, decisions made, output produced
   - [ ] evalyn summarize-trace --id <id> producing 2-3 sentence summary
   - [ ] Batch summaries for dataset items to understand coverage
-- [ ] **Trace Metadata Inheritance** - Child spans automatically inherit parent's custom tags
+- [x] **Trace Metadata Inheritance** - Child spans automatically inherit parent's custom tags
   - [ ] Inheritance rules configurable: inherit-all, inherit-listed, no-inherit
   - [ ] Override inherited tags at child level
   - [ ] Useful for propagating environment, user_id, experiment_id down the span tree
@@ -158,7 +158,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Custom pattern definitions in evalyn.yaml as span-type sequences
   - [ ] evalyn classify-traces showing which pattern each trace matches
   - [ ] Pattern coverage report: what % of traces match known patterns vs are novel
-- [ ] **Span Type Distribution** - Per-project statistics on span type frequencies over time
+- [x] **Span Type Distribution** - Per-project statistics on span type frequencies over time
   - [ ] Count and percentage of each span type (llm_call, tool_call, node, agent, etc.)
   - [ ] Trend: how span type distribution shifts across weeks
   - [ ] Useful for detecting architectural changes (e.g. suddenly more tool calls)
