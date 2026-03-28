@@ -1272,7 +1272,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn what-if --metric helpfulness --improve 20% showing projected overall pass rate
   - [ ] Model multiple simultaneous improvements
   - [ ] Identify the minimum improvement per metric needed to reach a target pass rate
-- [ ] **Analysis Dashboard Theming** - Configurable chart colors and styles for HTML reports
+- [x] **Analysis Dashboard Theming** - Configurable chart colors and styles for HTML reports
   - [ ] Theme definitions in evalyn.yaml: primary color, accent, chart palette
   - [ ] Built-in themes: corporate, academic, dark-mode, print-friendly
   - [ ] Custom CSS injection for branded reports
@@ -1280,7 +1280,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn.analyze_to_dict(run) returning dict-of-lists for pandas DataFrame construction
   - [ ] evalyn export --format feather producing columnar format for direct notebook loading
   - [ ] Enable custom statistical analysis beyond built-in insights
-- [ ] **Analysis Time Series Decomposition** - Separate trend, seasonality, and noise in metric time series
+- [x] **Analysis Time Series Decomposition** - Separate trend, seasonality, and noise in metric time series
   - [ ] Decompose metric pass rates across runs into systematic trend and random variation
   - [ ] Distinguish genuine improvement from normal score fluctuation
   - [ ] Visualize decomposed components in trend analysis output
