@@ -548,11 +548,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] --isolate flag spawning each metric evaluation in a child process
   - [ ] Crash in one metric produces error result without killing the run
   - [ ] Useful for untested custom metrics or unstable provider connections
-- [ ] **Evaluation Result Signing** - Cryptographic hash of results for tamper detection
+- [x] **Evaluation Result Signing** - Cryptographic hash of results for tamper detection
   - [ ] SHA-256 hash of all MetricResults stored in EvalRun metadata
   - [ ] evalyn verify-run --id <id> checking result integrity against stored hash
   - [ ] Detect if results were manually edited after evaluation
-- [ ] **Evaluation Item-Level Cost Attribution** - Track exact LLM cost per dataset item
+- [x] **Evaluation Item-Level Cost Attribution** - Track exact LLM cost per dataset item
   - [ ] Sum input/output tokens across all metrics for each item
   - [ ] Per-item cost in show-run output and export formats
   - [ ] Identify most expensive items for cost optimization
