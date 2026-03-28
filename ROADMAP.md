@@ -544,7 +544,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] When a baseline run is pinned, run-eval auto-runs compare at the end
   - [ ] Regression summary appended to run-eval output
   - [ ] --no-auto-compare flag to disable
-- [ ] **Evaluation Isolation Mode** - Run each metric in a subprocess to prevent crashes from affecting other metrics
+- [x] **Evaluation Isolation Mode** - Run each metric in a subprocess to prevent crashes from affecting other metrics
   - [ ] --isolate flag spawning each metric evaluation in a child process
   - [ ] Crash in one metric produces error result without killing the run
   - [ ] Useful for untested custom metrics or unstable provider connections
@@ -667,7 +667,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Run 2-3 optimizers in parallel on same calibration data
   - [ ] Tournament: evaluate each optimizer's prompt on held-out set
   - [ ] Select best-performing prompt or blend top-K prompts
-- [ ] **Calibration Sensitivity Analysis** - Measure alignment sensitivity to small prompt perturbations
+- [x] **Calibration Sensitivity Analysis** - Measure alignment sensitivity to small prompt perturbations
   - [ ] Perturb calibrated prompt (word swaps, paraphrase, reorder)
   - [ ] Measure alignment variance across perturbations
   - [ ] Flag calibrations that are fragile (small change causes large alignment drop)
@@ -679,11 +679,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Per-item breakdown: which items flipped from wrong to right (and vice versa)
   - [ ] Prompt diff showing exactly what changed in the preamble
   - [ ] Categorize improvements by item type (false positive fixes vs false negative fixes)
-- [ ] **Calibration Freeze** - Lock a calibration record to prevent accidental overwriting
+- [x] **Calibration Freeze** - Lock a calibration record to prevent accidental overwriting
   - [ ] evalyn freeze-calibration --id <id> marking calibration as immutable
   - [ ] Prevent calibrate command from overwriting frozen records
   - [ ] evalyn unfreeze-calibration to unlock when intentional re-calibration is needed
-- [ ] **Calibration Comparison Dashboard** - Side-by-side view of multiple calibration attempts
+- [x] **Calibration Comparison Dashboard** - Side-by-side view of multiple calibration attempts
   - [ ] evalyn compare-calibrations --ids <id1> <id2> showing alignment metrics
   - [ ] Prompt diff between calibration versions
   - [ ] Per-item score change matrix across calibrations
