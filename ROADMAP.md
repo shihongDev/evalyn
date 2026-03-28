@@ -462,7 +462,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] --replay-run flag to reuse items/metrics from a previous run
   - [ ] Override provider, model, or calibrated prompts
   - [ ] Automatic comparison report between original and replayed run
-- [ ] **Conditional Metrics** - Run expensive subjective metrics only if cheap objective metrics pass first
+- [x] **Conditional Metrics** - Run expensive subjective metrics only if cheap objective metrics pass first
   - [ ] Metric dependency declaration: "run helpfulness only if json_valid passes"
   - [ ] Gate conditions: pass/fail, score threshold, or custom predicate
   - [ ] Skip tracking: report which items had metrics skipped and why
@@ -1048,7 +1048,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Source trace ID and function_call ID in item metadata
   - [ ] Lineage query: "which traces contributed to this dataset?"
   - [ ] Reverse lineage: "which datasets use this trace?"
-- [ ] **Dataset Filtering DSL** - Query-based item filtering (e.g. "items where output_length > 500 and tag=production")
+- [x] **Dataset Filtering DSL** - Query-based item filtering (e.g. "items where output_length > 500 and tag=production")
   - [ ] --filter flag on build-dataset and run-eval
   - [ ] Operators: =, !=, >, <, contains, matches (regex)
   - [ ] Compound filters with AND/OR
@@ -2211,7 +2211,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Dependency declaration in MetricSpec
   - [ ] Topological sort of metrics before evaluation
   - [ ] Pass metric A results as context to metric B prompt
-- [ ] **Conditional Metric Chains** - If metric A fails, automatically run a diagnostic follow-up metric B
+- [x] **Conditional Metric Chains** - If metric A fails, automatically run a diagnostic follow-up metric B
   - [ ] Chain definition: "if toxicity_safety fails, run toxicity_type_classifier"
   - [ ] Diagnostic metrics produce detailed failure categorization
   - [ ] Chain results stored alongside primary metric results
