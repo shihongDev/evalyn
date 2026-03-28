@@ -618,7 +618,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Track calibration date and dataset hash at calibration time
   - [ ] Alert when dataset changes exceed drift threshold (new items, distribution shift)
   - [ ] Re-calibration recommendation with estimated alignment degradation
-- [ ] **Cross-Provider Calibration** - Calibrate for consistency when switching judge providers
+- [x] **Cross-Provider Calibration** - Calibrate for consistency when switching judge providers
   - [ ] Run same calibration set across providers (Gemini, OpenAI, Ollama)
   - [ ] Provider-specific preamble adjustments
   - [ ] Cross-provider agreement metrics
@@ -630,7 +630,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Calibration history stored in CalibrationRecord
   - [ ] --rollback flag on calibrate command
   - [ ] Automatic rollback suggestion when validation metrics drop
-- [ ] **Multi-Objective Calibration** - Optimize jointly for accuracy and cost (fewer tokens per judgment)
+- [x] **Multi-Objective Calibration** - Optimize jointly for accuracy and cost (fewer tokens per judgment)
   - [ ] Pareto front of accuracy vs token count
   - [ ] Prompt compression as optimization objective
   - [ ] Configurable accuracy/cost trade-off weight
@@ -638,7 +638,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Per-optimizer token usage tracking (extend TokenAccumulator)
   - [ ] Cost breakdown by calibration phase (alignment, optimization, validation)
   - [ ] Historical cost trends across calibration runs
-- [ ] **Calibration Curriculum** - Start optimization on easy examples, progressively add harder ones
+- [x] **Calibration Curriculum** - Start optimization on easy examples, progressively add harder ones
   - [ ] Sort calibration examples by judge confidence (easy = high confidence)
   - [ ] Progressive expansion: start with top-50% easiest, add harder items
   - [ ] Early stopping if optimizer plateaus before reaching hard examples
@@ -647,7 +647,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Detect plateau, oscillation, and divergence patterns
   - [ ] ASCII convergence chart in terminal, SVG in HTML reports
   - [ ] Recommend optimizer parameter changes based on convergence shape
-- [ ] **Prompt Length Regularization** - Penalize prompt length during calibration to keep judge prompts concise
+- [x] **Prompt Length Regularization** - Penalize prompt length during calibration to keep judge prompts concise
   - [ ] Add token count penalty term to optimizer objective function
   - [ ] Configurable weight: --length-penalty 0.1 (default 0, no penalty)
   - [ ] Report prompt token savings vs alignment trade-off
