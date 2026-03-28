@@ -500,7 +500,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Z-score normalization using historical score distributions per metric
   - [ ] Min-max normalization to [0, 1] range
   - [ ] --normalize flag on analyze and compare for normalized views
-- [ ] **Evaluation Resource Monitoring** - Track memory and CPU usage during evaluation to detect resource issues
+- [x] **Evaluation Resource Monitoring** - Track memory and CPU usage during evaluation to detect resource issues
   - [ ] Per-worker memory tracking via psutil (optional dependency)
   - [ ] Warning when memory exceeds configurable threshold
   - [ ] Resource usage summary in eval run metadata
@@ -528,7 +528,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Emit JSON events to a file or socket: item_started, item_complete, metric_scored
   - [ ] Enable integration with CI dashboards, Slack bots, and custom UIs
   - [ ] --progress-file flag on run-eval writing JSONL progress events
-- [ ] **Evaluation Throttle Control** - Dynamically adjust concurrency based on API response times
+- [x] **Evaluation Throttle Control** - Dynamically adjust concurrency based on API response times
   - [ ] Reduce workers when latency exceeds threshold (provider overloaded)
   - [ ] Increase workers when latency is low (headroom available)
   - [ ] Adaptive mode: --workers auto on run-eval
