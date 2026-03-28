@@ -28,6 +28,15 @@ class ForecastPoint:
             "upper": round(self.upper, 6),
         }
 
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ForecastPoint":
+        return cls(
+            step=data["step"],
+            value=data["value"],
+            lower=data["lower"],
+            upper=data["upper"],
+        )
+
 
 @dataclass
 class MetricForecast:
@@ -52,11 +61,7 @@ class MetricForecast:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "MetricForecast":
         forecasted = [
-            ForecastPoint(
-                step=f["step"], value=f["value"],
-                lower=f["lower"], upper=f["upper"],
-            )
-            for f in data.get("forecasted", [])
+            ForecastPoint.from_dict(f) for f in data.get("forecasted", [])
         ]
         return cls(
             metric_id=data["metric_id"],
@@ -108,7 +113,8 @@ class ForecastReport:
     def format_text(self) -> str:
         lines = ["Trend Forecast:"]
         for r in self.results:
-            lines.append(f"  {r.format_text()}")
+            for line in r.format_text().splitlines():
+                lines.append(f"  {line}")
         if self.metrics_at_risk:
             lines.append(f"\n  At risk: {', '.join(self.metrics_at_risk)}")
         return "\n".join(lines)
@@ -171,6 +177,7 @@ def forecast_all(
     series_by_metric: Dict[str, List[float]],
     horizon: int = 3,
     method: str = "linear",
+    confidence: float = 0.9,
     threshold: Optional[float] = None,
 ) -> ForecastReport:
     """Forecast all metric time series.
@@ -179,6 +186,7 @@ def forecast_all(
         series_by_metric: Dict of metric_id -> values over time.
         horizon: Steps to forecast.
         method: Forecasting method.
+        confidence: Confidence level for bands (0 to 1).
         threshold: Alert threshold.
 
     Returns:
@@ -186,7 +194,10 @@ def forecast_all(
     """
     results = []
     for mid, values in sorted(series_by_metric.items()):
-        results.append(forecast_metric(mid, values, horizon, method, threshold=threshold))
+        results.append(forecast_metric(
+            mid, values, horizon, method,
+            confidence=confidence, threshold=threshold,
+        ))
     return ForecastReport(results=results)
 
 
@@ -279,7 +290,7 @@ def _exponential_smoothing_forecast(
     # Residual std for confidence bands
     if len(residuals) >= 2:
         r_mean = sum(residuals) / len(residuals)
-        se = math.sqrt(sum((r - r_mean) ** 2 for r in residuals) / len(residuals))
+        se = math.sqrt(sum((r - r_mean) ** 2 for r in residuals) / (len(residuals) - 1))
     else:
         se = 0.0
 
