@@ -813,12 +813,12 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Pipeline definition in evalyn.yaml with ordered step list
   - [ ] Skip/include steps declaratively (instead of --skip-annotation flags)
   - [ ] Custom step plugins: user-defined Python functions as pipeline steps
-- [ ] **Pipeline Templates** - Preset pipelines for different evaluation goals
+- [x] **Pipeline Templates** - Preset pipelines for different evaluation goals
   - [ ] "quick-check" template: build-dataset -> objective metrics only -> analyze
   - [ ] "full-audit" template: all 7 steps + simulation + deep insights
   - [ ] "ci-gate" template: objective metrics + threshold check + exit code
   - [ ] evalyn one-click --template quick-check
-- [ ] **Pipeline Comparison** - Compare results of two one-click pipeline runs
+- [x] **Pipeline Comparison** - Compare results of two one-click pipeline runs
   - [ ] evalyn compare-pipelines <dir1> <dir2>
   - [ ] Step-by-step comparison: dataset size, metric count, scores, cost
   - [ ] Identify which pipeline changes improved or degraded results
@@ -842,12 +842,12 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Caching of previous run results for fast comparison
   - [ ] Quality gate: configurable pass/fail threshold as PR check status
 - [x] **Regression Detection** - Automatic alerts when metrics drop below threshold
-- [ ] **Multi-model Comparison** - Compare same prompts across different LLM providers
+- [x] **Multi-model Comparison** - Compare same prompts across different LLM providers
   - [ ] --models flag to run same eval across multiple providers in one command
   - [ ] Cross-model comparison table (rows=items, columns=models)
   - [ ] Cost/latency/quality trade-off analysis per model
   - [ ] Best-model-per-item analysis
-- [ ] **Cost Tracking Dashboard** - Visualize LLM API costs over time
+- [x] **Cost Tracking Dashboard** - Visualize LLM API costs over time
   - [ ] Per-run cost breakdown by metric and provider
   - [ ] Cumulative cost chart across all runs
   - [ ] Cost-per-item and cost-per-metric averages
