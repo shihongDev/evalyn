@@ -1295,24 +1295,24 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn import-traces --format phoenix/langfuse/otel
   - [ ] Map external span types to Evalyn span types via conventions.py
   - [ ] Deduplicate against existing traces by span ID
-- [ ] **OpenInference Full Compliance** - Complete implementation of OpenInference semantic conventions
+- [x] **OpenInference Full Compliance** - Complete implementation of OpenInference semantic conventions
   - [ ] Full document/retrieval attribute capture (DocumentAttributes, RetrievalAttributes)
   - [ ] Embedding attribute capture (EmbeddingAttributes.EMBEDDINGS, TEXT)
   - [ ] Session and user attribute propagation (SessionAttributes)
   - [ ] Reranker score capture and display in show-trace
-- [ ] **Eval Result Export to Observability Platforms** - Push evaluation scores back to trace viewers
+- [x] **Eval Result Export to Observability Platforms** - Push evaluation scores back to trace viewers
   - [ ] Annotate Phoenix spans with evalyn metric scores
   - [ ] Push eval results as Langfuse scores
   - [ ] Bi-directional sync: traces in, scores out
 
 ### Resilience & Error Handling
 
-- [ ] **Circuit Breaker for Providers** - Stop calling a provider after N consecutive failures
+- [x] **Circuit Breaker for Providers** - Stop calling a provider after N consecutive failures
   - [ ] Configurable failure threshold (default: 5 consecutive errors)
   - [ ] Cool-down period before retrying (exponential backoff)
   - [ ] Automatic fallback to alternative provider when circuit opens
   - [ ] Circuit state visible in progress output
-- [ ] **Graceful Item-Level Failure** - Continue evaluation when individual items fail
+- [x] **Graceful Item-Level Failure** - Continue evaluation when individual items fail
   - [ ] Catch and log per-item errors without stopping the run
   - [ ] Record failure reason in MetricResult.details
   - [ ] Summary of failed items at end of run with error categories
