@@ -2227,11 +2227,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] --metric-samples N flag on run-eval (default 1)
   - [ ] Report per-metric score variance across samples
   - [ ] Flag items where samples disagree (high variance) for review
-- [ ] **Metric Runtime Estimation** - Predict eval duration per metric based on historical timing data
+- [x] **Metric Runtime Estimation** - Predict eval duration per metric based on historical timing data
   - [ ] Store per-metric median execution time from past runs
   - [ ] Estimate total run time before execution starts
   - [ ] Surface slow metrics in dry-run output with time contribution
-- [ ] **Metric Compatibility Matrix** - Show which metrics work with which evaluation unit types
+- [x] **Metric Compatibility Matrix** - Show which metrics work with which evaluation unit types
   - [ ] Matrix: metrics on Y-axis, unit types (outcome, single_turn, tool_use, multi_turn) on X-axis
   - [ ] evalyn list-metrics --compatibility showing supported unit types per metric
   - [ ] Warn when user selects metrics incompatible with their trace structure
