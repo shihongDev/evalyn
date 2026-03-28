@@ -174,7 +174,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Orphan spans collected in _orphan_spans list (context.py) are currently lost
   - [ ] Match orphans to the nearest active FunctionCall by timestamp proximity
   - [ ] Report recovered vs truly lost orphan spans in show-trace
-- [ ] **Context Propagation Diagnostics** - Verify ContextVar propagation across async and thread boundaries
+- [x] **Context Propagation Diagnostics** - Verify ContextVar propagation across async and thread boundaries
   - [ ] evalyn check-context that spawns test async tasks and threads to verify span hierarchy
   - [ ] Detect when ThreadPoolExecutor breaks ContextVar inheritance
   - [ ] Recommend workarounds when propagation failures are detected
@@ -186,7 +186,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Track spans collected vs expected (from OTEL SpanProcessor callbacks)
   - [ ] Warning when span loss exceeds threshold (e.g. >5% lost)
   - [ ] Statistics available via evalyn show-call --stats flag
-- [ ] **Instrumentation Dry-Run** - Show what would be patched without actually applying instrumentation
+- [x] **Instrumentation Dry-Run** - Show what would be patched without actually applying instrumentation
   - [ ] evalyn check-instrumentation --dry-run listing SDK methods that would be wrapped
   - [ ] Report detected SDK versions and instrumentation strategy per provider
   - [ ] Useful for verifying compatibility before enabling auto-instrumentation
@@ -340,7 +340,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Route N% of items to gemini, M% to openai for cost/latency comparison
   - [ ] Provider-aware retry: re-route failed items to alternate provider
   - [ ] Unified result merging regardless of which provider evaluated each item
-- [ ] **Streaming Partial Results** - Start analyzing results before the full batch completes
+- [x] **Streaming Partial Results** - Start analyzing results before the full batch completes
   - [ ] Process completed items as they arrive from batch polling
   - [ ] Live-updating analysis dashboard during batch wait
   - [ ] Early termination: stop batch if enough results show clear pass/fail
@@ -373,7 +373,7 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Cost Intelligence
 
-- [ ] **Auto-Update Pricing Tables** - Fetch latest model pricing from provider APIs
+- [x] **Auto-Update Pricing Tables** - Fetch latest model pricing from provider APIs
   - [ ] Scrape/fetch pricing from OpenAI, Anthropic, Google pricing pages
   - [ ] evalyn update-pricing command to refresh COST_PER_1M_TOKENS in _shared.py
   - [ ] Warn when using a model not in the pricing table
