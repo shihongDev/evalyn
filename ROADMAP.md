@@ -197,7 +197,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn archive-traces --older-than 90d moving traces to archive.sqlite
   - [ ] Archive is read-only and queryable via --db archive flag
   - [ ] Restore from archive: evalyn restore-traces --from archive --id <id>
-- [ ] **Post-Hoc Trace Annotation** - Add notes and tags to existing traces after capture
+- [x] **Post-Hoc Trace Annotation** - Add notes and tags to existing traces after capture
   - [ ] evalyn tag-trace --id <id> --tag "regression-candidate"
   - [ ] evalyn annotate-trace --id <id> --note "Root cause: stale prompt cache"
   - [ ] Tags and notes queryable in list-calls and build-dataset filters
@@ -248,7 +248,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] @eval(experiment="prompt-v2") decorator parameter
   - [ ] Filter traces by experiment in list-calls and build-dataset
   - [ ] Cross-experiment metric comparison in analyze command
-- [ ] **Conditional Tracing** - Only trace when runtime conditions are met
+- [x] **Conditional Tracing** - Only trace when runtime conditions are met
   - [ ] Sample-based: trace 10% of calls via @eval(sample_rate=0.1)
   - [ ] Predicate-based: @eval(trace_if=lambda args: args["user_id"] in sample_set)
   - [ ] Environment-based: only trace in production, skip in unit tests
@@ -271,7 +271,7 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Config & Project Management
 
-- [ ] **Config Inheritance** - Base config with per-project overrides
+- [x] **Config Inheritance** - Base config with per-project overrides
   - [ ] Global ~/.evalyn/config.yaml for shared settings (API keys, provider defaults)
   - [ ] Project-level evalyn.yaml inherits and overrides global config
   - [ ] Per-dataset config override via meta.json
@@ -347,7 +347,7 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Session Management
 
-- [ ] **Session-Level Analysis** - Aggregate metrics across all calls within an eval_session
+- [x] **Session-Level Analysis** - Aggregate metrics across all calls within an eval_session
   - [ ] Group traces by session_id in analysis output
   - [ ] Per-session pass rate, cost, and latency summaries
   - [ ] Cross-session comparison for the same user journey
