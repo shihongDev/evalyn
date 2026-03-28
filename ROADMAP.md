@@ -1523,9 +1523,14 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Per-project redaction rules (strict for production, relaxed for test)
   - [ ] Redaction audit: report showing how much content was redacted per trace
 - [ ] **Prompt Injection Detection Metric** - Objective metric detecting prompt injection attempts in inputs/outputs
-  - [ ] Pattern-based detection for common injection patterns (ignore instructions, system prompt leak)
-  - [ ] Scoring: 0.0 (injection detected) to 1.0 (clean)
-  - [ ] Configurable sensitivity level
+  - [ ] Tier 1: 4-category regex patterns (instruction override, role injection, prompt extraction, encoding signals)
+  - [ ] Tier 2: optional LLM-based classification for higher accuracy
+  - [ ] Tier 3: optional vector similarity against known attack embeddings (self-hardening via Rebuff pattern)
+  - [ ] Scoring: 0.0 (injection detected) to 1.0 (clean), configurable sensitivity
+- [ ] **Embedding PII Safety Check** - Detect whether stored embeddings could leak PII via inversion attacks
+  - [ ] Warn when embedding vectors are stored alongside PII-containing text
+  - [ ] Research finding: 93-98% text recovery from ada-002 embeddings via inversion
+  - [ ] Recommend PII stripping before embedding or Eguard-style defense
 - [ ] **EU AI Act Compliance Report** - Auto-generate evaluation documentation for regulatory compliance
   - [ ] Document evaluation methodology, benchmarks used, and results
   - [ ] Export as PDF/HTML for regulatory submission

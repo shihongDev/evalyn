@@ -2245,6 +2245,73 @@ assertions:
 
 ---
 
+## 44. Technical Deep Dive Findings (Round 5)
+
+### Design: Multi-Tier Prompt Injection Detection
+
+**Research basis:** Rebuff's 4-layer pipeline, Lakera Guard's purpose-built classifiers (<50ms), sibylline-clean's fuzzy motif matching. Key finding: LLM-as-judge fails for injection defense because the judge is vulnerable to the same attacks.
+
+**Proposed 3-tier architecture:**
+```
+Tier 1: Regex (0.1ms, catches 80% of simple injections)
+  |-- 4 pattern categories: instruction override, role injection, prompt extraction, encoding
+  |-- Fast, deterministic, no false positives on clean data
+  |
+  v (if Tier 1 clean)
+Tier 2: Fuzzy motif matching (1ms, catches obfuscated variants)
+  |-- RapidFuzz partial ratio scoring against sliding windows
+  |-- Catches: "ignroe all prevoius systme instructions"
+  |
+  v (optional, for highest accuracy)
+Tier 3: Vector similarity (50ms, self-hardening)
+  |-- Embed input, cosine similarity against known attack embeddings
+  |-- New detected attacks stored for future matching (Rebuff pattern)
+```
+
+**NOT recommended:** LLM-based injection detection as primary defense (Lakera's finding).
+
+### Design: Embedding PII Safety Check
+
+**Research basis:** Embedding inversion attacks recover 93-98% of text from ada-002. Clinical data extraction: sex 88%, diseases 70%, symptoms 82%. Best defense: Eguard (3.5-5.6% inversion F1 while maintaining 93-97% task accuracy).
+
+**Proposed approach:**
+- New `embedding_pii_check` command that scans existing embedding stores
+- Warning when `sample_diverse` or `sample_clustered` stores embeddings alongside PII-tagged datasets
+- Recommendation engine: "This dataset has PII tags. Consider stripping PII before computing embeddings."
+
+### Design: Judge Calibration Minimum Sample Size
+
+**Research basis:** Formula from LLM-as-judge calibration research: `m >= 2q / (2q - 1)^2` where q = judge accuracy rate.
+
+**Practical sample sizes:**
+| Judge Accuracy | Minimum Samples |
+|---|---|
+| 90% | ~20 |
+| 80% | ~55 |
+| 70% | ~245 |
+
+**Implementation:** When running `evalyn calibrate`, compute judge accuracy on available annotations and warn if sample size is below minimum: "Judge accuracy is 75%. Need at least 125 annotations for reliable calibration (have 30)."
+
+### Design: Production Trace Auto-Curation (BenchBuilder Pattern)
+
+**Research basis:** Arena-Hard's BenchBuilder achieves 98.6% human correlation at $20 cost. Pipeline: 200K prompts -> 4K topic clusters -> quality scoring -> 500 curated prompts.
+
+**Proposed evalyn pipeline:**
+```
+evalyn build-dataset --mode auto-curate --source production --target-size 100
+
+1. Fetch all production traces (last 30 days)
+2. Embed inputs using sentence-transformers
+3. Cluster into K topic groups (K = target_size / 5)
+4. Per cluster: score items on quality + difficulty
+5. Select top items per cluster for diversity
+6. Output: curated evaluation dataset with cluster labels in metadata
+```
+
+**Key advantage over random sampling:** Auto-curation produces datasets that are both diverse (coverage) and hard (discrimination) - the two properties that make evaluation meaningful.
+
+---
+
 ## Design Principles
 
 1. **Local-first:** SQLite by default, no cloud dependency for core functionality
