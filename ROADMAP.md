@@ -1040,7 +1040,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] --preview flag on build-dataset showing 5 sample items
   - [ ] Summary: item count, avg input/output length, metadata distribution
   - [ ] Confirmation prompt before writing full dataset
-- [ ] **Dataset Pinning** - Lock a dataset version hash for reproducible evaluations across environments
+- [x] **Dataset Pinning** - Lock a dataset version hash for reproducible evaluations across environments
   - [ ] SHA-256 hash stored in dataset metadata
   - [ ] --pinned flag on run-eval to verify hash before evaluation
   - [ ] Pin file (.evalyn-pin) for CI/CD reproducibility
@@ -1328,7 +1328,7 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Output & Formatting
 
-- [ ] **Color-Coded Terminal Output** - ANSI colors for pass/fail/warning states
+- [x] **Color-Coded Terminal Output** - ANSI colors for pass/fail/warning states
   - [ ] Green for pass, red for fail, yellow for warning across all commands
   - [ ] Respect NO_COLOR env var and --no-color flag for CI environments
   - [ ] Color-coded score ranges in analyze and compare output
