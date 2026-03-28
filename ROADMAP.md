@@ -1347,12 +1347,12 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Code Change Tracking
 
-- [ ] **Source Code Diff Correlation** - Track agent code changes alongside metric changes
+- [x] **Source Code Diff Correlation** - Track agent code changes alongside metric changes
   - [ ] Store source_hash from _extract_code_meta in each eval run
   - [ ] Detect when source code changed between consecutive runs
   - [ ] Correlate code diffs with metric deltas in compare output
   - [ ] evalyn code-diff --run1 <id> --run2 <id> showing code changes alongside score changes
-- [ ] **Prompt Version Tracking** - Track judge prompt changes across calibration rounds
+- [x] **Prompt Version Tracking** - Track judge prompt changes across calibration rounds
   - [ ] Hash judge prompts and store in MetricResult metadata
   - [ ] Warn when comparing runs that used different prompt versions
   - [ ] Prompt changelog: show how each metric's prompt evolved over time
@@ -1388,11 +1388,11 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Testing & Quality Enhancements
 
-- [ ] **Snapshot Testing for Metrics** - Detect unintended changes to metric scoring behavior
+- [x] **Snapshot Testing for Metrics** - Detect unintended changes to metric scoring behavior
   - [ ] Record expected scores for a golden dataset
   - [ ] Flag when metric output changes (new code, model update)
   - [ ] evalyn test-metrics --update-snapshots to accept changes
-- [ ] **Performance Benchmark Suite** - Track and prevent performance regressions in evalyn itself
+- [x] **Performance Benchmark Suite** - Track and prevent performance regressions in evalyn itself
   - [ ] Benchmarks for: dataset loading, metric scoring, analysis, export
   - [ ] Baseline timings stored in repo
   - [ ] CI check: fail if any benchmark regresses > 20%
