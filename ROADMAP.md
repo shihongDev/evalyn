@@ -145,7 +145,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Classify spans into phases based on span type and position in tree
   - [ ] Per-phase cost aggregation in show-trace and analyze output
   - [ ] Identify which phase consumes the most tokens/cost
-- [ ] **Trace Correlation with External Events** - Link traces to deployments, incidents, or config changes
+- [x] **Trace Correlation with External Events** - Link traces to deployments, incidents, or config changes
   - [ ] evalyn mark-event --type deploy --label "v2.1 rollout" recording event timestamp
   - [ ] Overlay events on trend charts to correlate metric changes with deploys
   - [ ] Query traces around an event: evalyn list-calls --around-event <event-id>
@@ -166,7 +166,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Record provider package version on first instrumentation in session
   - [ ] evalyn check-compat showing tested vs current SDK versions
   - [ ] Warning when using an untested SDK version
-- [ ] **Trace Lineage Graph** - Visualize how one trace's output becomes another trace's input
+- [x] **Trace Lineage Graph** - Visualize how one trace's output becomes another trace's input
   - [ ] Detect session-level chaining where output of call A is input to call B
   - [ ] Render as directed graph showing data flow across function calls
   - [ ] evalyn show-lineage --session <id> producing Mermaid or ASCII graph
@@ -671,7 +671,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Perturb calibrated prompt (word swaps, paraphrase, reorder)
   - [ ] Measure alignment variance across perturbations
   - [ ] Flag calibrations that are fragile (small change causes large alignment drop)
-- [ ] **Few-Shot Example Ordering** - Optimize the order of examples in few-shot judge prompts
+- [x] **Few-Shot Example Ordering** - Optimize the order of examples in few-shot judge prompts
   - [ ] Test permutations of example order and measure alignment impact
   - [ ] Heuristics: put hardest examples last, group by failure type
   - [ ] Store optimal order in CalibrationRecord
@@ -691,7 +691,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Atomic checkpoint writes at configurable intervals during optimization
   - [ ] evalyn calibrate --resume to continue from last checkpoint
   - [ ] Prevent wasted compute on interrupted calibration runs
-- [ ] **Calibration Human Validation** - Present calibrated prompt to human for approval before committing
+- [x] **Calibration Human Validation** - Present calibrated prompt to human for approval before committing
   - [ ] Show before/after prompt diff and alignment metrics change
   - [ ] Interactive confirm/reject/edit before writing CalibrationRecord
   - [ ] --auto-accept flag to skip validation in CI
