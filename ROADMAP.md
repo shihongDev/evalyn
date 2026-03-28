@@ -178,7 +178,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn check-context that spawns test async tasks and threads to verify span hierarchy
   - [ ] Detect when ThreadPoolExecutor breaks ContextVar inheritance
   - [ ] Recommend workarounds when propagation failures are detected
-- [ ] **Instrumentation Toggle API** - Hot-toggle instrumentation on/off at runtime without restart
+- [x] **Instrumentation Toggle API** - Hot-toggle instrumentation on/off at runtime without restart
   - [ ] evalyn_sdk.toggle_instrumentation(enabled=False) to pause tracing
   - [ ] Useful for excluding specific code sections from tracing overhead
   - [ ] Toggle state visible in show-projects output
@@ -317,7 +317,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Detect multi-turn patterns from sequential LLM spans
   - [ ] Detect tool-use patterns from tool_call/tool_result span pairs
   - [ ] Default to outcome when trace structure is flat
-- [ ] **Unit-Level Reporting** - Per-unit-type metric breakdowns in analysis
+- [x] **Unit-Level Reporting** - Per-unit-type metric breakdowns in analysis
   - [ ] Separate pass rates for outcome vs single_turn vs tool_use units
   - [ ] Unit type distribution chart in analysis output
   - [ ] Filter analysis by unit type: --unit-type single_turn
@@ -773,11 +773,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Logical consistency
   - [ ] Evidence usage
   - [ ] Conclusion validity
-- [ ] **Multi-Agent Communication Scoring** - Evaluate quality of inter-agent communication
+- [x] **Multi-Agent Communication Scoring** - Evaluate quality of inter-agent communication
   - [ ] Communication Score (1-5 per utterance): relevance, clarity, information density
   - [ ] Collaborative efficiency: ratio of useful exchanges to total messages
   - [ ] Milestone-based KPIs: track which coordination milestones are achieved (MARBLE approach)
-- [ ] **Agent Consistency Testing** - Measure reliability across repeated runs
+- [x] **Agent Consistency Testing** - Measure reliability across repeated runs
   - [ ] Run agent N times on same input, measure consistency of tool calls and outputs
   - [ ] Research finding: 60% single-run success drops to 25% at 8-run consistency
   - [ ] Report consistency score alongside pass rate
