@@ -730,6 +730,25 @@ OBJECTIVE_REGISTRY = [
         "scope": "overall",
         "requires_reference": False,
     },
+    # Agent evaluation
+    {
+        "id": "tool_call_accuracy",
+        "type": "objective",
+        "description": "Fraction of expected tool calls correctly made (name + args matching).",
+        "config": {},
+        "category": "agent",
+        "scope": "overall",
+        "requires_reference": False,
+    },
+    {
+        "id": "tool_call_sequence",
+        "type": "objective",
+        "description": "Correctness of tool call ordering (LCS-based).",
+        "config": {},
+        "category": "agent",
+        "scope": "overall",
+        "requires_reference": False,
+    },
 ]
 
 
@@ -3813,3 +3832,175 @@ def prompt_injection_metric(
         )
 
     return Metric(spec, handler)
+
+
+# =============================================================================
+# Agent evaluation metrics
+# =============================================================================
+
+
+def _get_tool_spans(call: FunctionCall) -> List:
+    """Extract tool call spans from a FunctionCall."""
+    return [
+        s for s in (call.spans or [])
+        if s.span_type in ("tool_call", "tool_use")
+    ]
+
+
+def _get_tool_name(span) -> str:
+    """Extract tool name from a span's attributes."""
+    attrs = span.attributes or {}
+    return (
+        attrs.get("tool.name")
+        or attrs.get("name")
+        or attrs.get("function_name")
+        or span.name
+        or "unknown"
+    )
+
+
+def _get_tool_args(span) -> Any:
+    """Extract tool arguments from a span's attributes."""
+    attrs = span.attributes or {}
+    return (
+        attrs.get("tool.parameters")
+        or attrs.get("arguments")
+        or attrs.get("input")
+        or {}
+    )
+
+
+def tool_call_accuracy_metric(
+    metric_id: str = "tool_call_accuracy",
+) -> Metric:
+    """Evaluate whether the agent called the correct tools in the correct order.
+
+    Compares the actual tool calls in the trace against expected tool calls
+    defined in item.metadata["expected_tools"]. Expected format:
+    [{"name": "search", "args": {"query": "..."}}]
+
+    If no expected_tools defined, returns None score (not applicable).
+
+    Score = fraction of expected tools matched (name + optional args).
+    """
+    spec = MetricSpec(
+        id=metric_id,
+        name="Tool Call Accuracy",
+        type="objective",
+        description="Fraction of expected tool calls that were correctly made.",
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        expected_tools = (item.metadata or {}).get("expected_tools")
+        if not expected_tools:
+            return _make_result(spec, item, call, None, None, {
+                "reason": "No expected_tools in metadata",
+            })
+
+        actual_spans = _get_tool_spans(call)
+        actual_tools = [
+            {"name": _get_tool_name(s), "args": _get_tool_args(s)}
+            for s in actual_spans
+        ]
+
+        matched = 0
+        details_list = []
+        for i, expected in enumerate(expected_tools):
+            exp_name = expected.get("name", "")
+            exp_args = expected.get("args")
+
+            # Find matching actual tool call
+            found = False
+            for actual in actual_tools:
+                if actual["name"] == exp_name:
+                    if exp_args is None:
+                        # Name-only matching
+                        found = True
+                        break
+                    elif actual["args"] == exp_args:
+                        # Name + args matching
+                        found = True
+                        break
+
+            if found:
+                matched += 1
+            details_list.append({
+                "expected": exp_name,
+                "found": found,
+                "position": i,
+            })
+
+        total = len(expected_tools)
+        score = matched / total if total > 0 else 0.0
+        passed = score >= 0.5  # at least half the tools were correct
+
+        return _make_result(spec, item, call, score, passed, {
+            "matched": matched,
+            "total_expected": total,
+            "total_actual": len(actual_tools),
+            "per_tool": details_list,
+        })
+
+    return Metric(spec, handler)
+
+
+def tool_call_sequence_metric(
+    metric_id: str = "tool_call_sequence",
+) -> Metric:
+    """Evaluate whether tools were called in the correct order.
+
+    Compares the sequence of tool names in the trace against the expected
+    sequence in item.metadata["expected_tool_sequence"]. Expected format:
+    ["search", "summarize", "respond"]
+
+    Score = length of longest common subsequence / length of expected sequence.
+    """
+    spec = MetricSpec(
+        id=metric_id,
+        name="Tool Call Sequence",
+        type="objective",
+        description="Correctness of tool call ordering (LCS-based).",
+    )
+
+    def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
+        expected_seq = (item.metadata or {}).get("expected_tool_sequence")
+        if not expected_seq:
+            return _make_result(spec, item, call, None, None, {
+                "reason": "No expected_tool_sequence in metadata",
+            })
+
+        actual_spans = _get_tool_spans(call)
+        # Sort by start_time for correct ordering
+        actual_spans.sort(key=lambda s: s.start_time)
+        actual_seq = [_get_tool_name(s) for s in actual_spans]
+
+        # Longest Common Subsequence
+        lcs_len = _lcs_length(expected_seq, actual_seq)
+        score = lcs_len / len(expected_seq) if expected_seq else 0.0
+        passed = score >= 0.5
+
+        return _make_result(spec, item, call, score, passed, {
+            "expected_sequence": expected_seq,
+            "actual_sequence": actual_seq,
+            "lcs_length": lcs_len,
+        })
+
+    return Metric(spec, handler)
+
+
+def _lcs_length(a: List[str], b: List[str]) -> int:
+    """Compute length of longest common subsequence."""
+    m, n = len(a), len(b)
+    if m == 0 or n == 0:
+        return 0
+    # Space-optimized DP
+    prev = [0] * (n + 1)
+    for i in range(1, m + 1):
+        curr = [0] * (n + 1)
+        for j in range(1, n + 1):
+            if a[i - 1] == b[j - 1]:
+                curr[j] = prev[j - 1] + 1
+            else:
+                curr[j] = max(prev[j], curr[j - 1])
+        prev = curr
+    return prev[n]
