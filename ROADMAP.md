@@ -857,7 +857,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Trigger eval runs via POST /runs with JSON config
   - [ ] WebSocket endpoint for real-time run progress
   - [ ] API key authentication for multi-user access
-- [ ] **Team Collaboration** - Multi-user annotation with conflict resolution
+- [x] **Team Collaboration** - Multi-user annotation with conflict resolution
   - [ ] User identity tracking on annotations
   - [ ] Assignment queue: distribute items across annotators
   - [ ] Conflict detection when multiple users annotate same item
@@ -890,7 +890,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Row counts per table (function_calls, eval_runs, annotations, otel_spans)
   - [ ] Size breakdown: data vs index vs free space
   - [ ] Growth rate: new rows per day/week
-- [ ] **Plugin System** - Third-party metric, instrumentor, and storage backend plugins via entry points
+- [x] **Plugin System** - Third-party metric, instrumentor, and storage backend plugins via entry points
   - [ ] Python entry_points discovery for evalyn.metrics, evalyn.instrumentors, evalyn.storage
   - [ ] Plugin manifest with version compatibility declaration
   - [ ] evalyn list-plugins command
@@ -900,12 +900,12 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Event types: run_complete, regression_detected, annotation_needed
   - [ ] Payload includes run summary, metric scores, and delta from previous
   - [ ] Retry with exponential backoff on delivery failure
-- [ ] **Rate Limit Awareness** - Respect LLM provider rate limits with automatic throttling during evaluation
+- [x] **Rate Limit Awareness** - Respect LLM provider rate limits with automatic throttling during evaluation
   - [ ] Per-provider rate limit config (RPM, TPM) in evalyn.yaml
   - [ ] Adaptive backoff when 429 errors received
   - [ ] Token bucket rate limiter shared across parallel workers
   - [ ] Rate limit status in progress callback output
-- [ ] **Connection Pooling** - Reuse SQLite connections for high-throughput multi-threaded evaluation
+- [x] **Connection Pooling** - Reuse SQLite connections for high-throughput multi-threaded evaluation
   - [ ] Thread-local connection pool with configurable max size
   - [ ] Connection health checking and recycling
   - [ ] WAL mode auto-enable for concurrent readers
