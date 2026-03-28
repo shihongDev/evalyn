@@ -504,7 +504,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Per-worker memory tracking via psutil (optional dependency)
   - [ ] Warning when memory exceeds configurable threshold
   - [ ] Resource usage summary in eval run metadata
-- [ ] **Evaluation Abort Conditions** - Compound abort rules beyond simple pass rate threshold
+- [x] **Evaluation Abort Conditions** - Compound abort rules beyond simple pass rate threshold
   - [ ] Rule syntax: "abort if any safety metric < 50% on any item"
   - [ ] Multiple abort conditions combinable with AND/OR logic
   - [ ] --abort-on flag on run-eval with condition expression
@@ -556,7 +556,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Sum input/output tokens across all metrics for each item
   - [ ] Per-item cost in show-run output and export formats
   - [ ] Identify most expensive items for cost optimization
-- [ ] **Evaluation Output Diff** - Show exact text differences between expected and actual output per item
+- [x] **Evaluation Output Diff** - Show exact text differences between expected and actual output per item
   - [ ] evalyn diff-outputs --run <id> showing per-item expected vs actual text diff
   - [ ] Highlight added/removed/changed text with color coding
   - [ ] Filter to only items where expected reference is available
