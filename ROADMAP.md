@@ -508,7 +508,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Rule syntax: "abort if any safety metric < 50% on any item"
   - [ ] Multiple abort conditions combinable with AND/OR logic
   - [ ] --abort-on flag on run-eval with condition expression
-- [ ] **Human-AI Hybrid Scoring** - Route uncertain items to human annotator during evaluation
+- [x] **Human-AI Hybrid Scoring** - Route uncertain items to human annotator during evaluation
   - [ ] Confidence threshold below which items are queued for human review
   - [ ] Interactive prompt during eval for human labels on flagged items
   - [ ] Merge human and judge scores in final EvalRun results
@@ -727,7 +727,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Represent prompt as sections (instruction, context, examples, rubric) with structural operators
   - [ ] Mutations: paraphrase section, drop section, reformat, reorder examples
   - [ ] Multi-objective search: accuracy vs prompt length vs cost
-- [ ] **Annotation Queue Flywheel** - Closed loop where human labels improve judge, reducing future annotation needs
+- [x] **Annotation Queue Flywheel** - Closed loop where human labels improve judge, reducing future annotation needs
   - [ ] Track judge accuracy on human-labeled items over time
   - [ ] Identify metrics where judge is now reliable enough to skip human review
   - [ ] Gradually reduce annotation requirement as calibration improves
@@ -798,11 +798,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Map MetricResult failures back to the node span that produced the failing output
   - [ ] Per-node pass rate aggregation across dataset items
   - [ ] Identify "bottleneck nodes" that cause the most failures
-- [ ] **Subagent Cost Allocation** - Track cost per subagent in multi-agent traces
+- [x] **Subagent Cost Allocation** - Track cost per subagent in multi-agent traces
   - [ ] Aggregate token/cost from Claude Agent SDK's SubagentContext hierarchy
   - [ ] Per-subagent cost breakdown in show-trace and analyze output
   - [ ] Identify most expensive subagent paths for optimization
-- [ ] **Agent Decision Tree Visualization** - Render agent's tool selection choices as a tree
+- [x] **Agent Decision Tree Visualization** - Render agent's tool selection choices as a tree
   - [ ] Build decision tree from tool_call/tool_result span sequences
   - [ ] Highlight decision points where agent chose between tools
   - [ ] Compare decision trees across different runs or models
