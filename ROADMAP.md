@@ -358,11 +358,11 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Reproducibility
 
-- [ ] **Deterministic Evaluation Mode** - Ensure runs produce identical results given identical inputs
+- [x] **Deterministic Evaluation Mode** - Ensure runs produce identical results given identical inputs
   - [ ] Fixed random seed for all sampling operations
   - [ ] Temperature 0 enforcement for judge LLM calls
   - [ ] --seed flag on run-eval for reproducible runs
-- [ ] **Run Manifest** - Record every parameter that could affect evaluation results
+- [x] **Run Manifest** - Record every parameter that could affect evaluation results
   - [ ] Store: evalyn version, Python version, provider versions, metric hashes, config hash
   - [ ] Manifest file alongside eval run results
   - [ ] evalyn verify-manifest to check reproducibility of a past run
@@ -470,7 +470,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Profile definitions in evalyn.yaml (fast: 8 workers, objective only; thorough: all metrics, 2 workers)
   - [ ] --profile flag on run-eval
   - [ ] Built-in profiles: smoke-test, standard, comprehensive
-- [ ] **Evaluation Tagging** - Tag runs with custom labels for filtering and organization
+- [x] **Evaluation Tagging** - Tag runs with custom labels for filtering and organization
   - [ ] --tag flag on run-eval (multiple tags allowed)
   - [ ] Tags stored in EvalRun metadata and queryable via list-runs
   - [ ] Filter list-runs by tag: --filter-tag experiment-v2
@@ -2163,7 +2163,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn pin-run --id <id> marking a run as the project baseline
   - [ ] Subsequent analyze and compare commands auto-compare against pinned run
   - [ ] evalyn list-runs showing pinned run with a marker
-- [ ] **Run Cleanup** - Bulk delete runs matching criteria
+- [x] **Run Cleanup** - Bulk delete runs matching criteria
   - [ ] evalyn cleanup-runs --older-than 30d --keep-pinned
   - [ ] evalyn cleanup-runs --below-pass-rate 0.3 for removing low-quality runs
   - [ ] --dry-run mode showing what would be deleted with total storage savings
