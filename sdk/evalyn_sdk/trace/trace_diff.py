@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import difflib
+import html as _html
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -171,7 +172,8 @@ def diff_traces(left: List[Span], right: List[Span]) -> TraceDiff:
             added += 1
         else:
             # Both present - compare
-            assert l_span is not None and r_span is not None
+            if l_span is None or r_span is None:
+                continue  # defensive: should not happen given prior branches
 
             l_dur = l_span.duration_ms
             r_dur = r_span.duration_ms
@@ -283,11 +285,11 @@ def format_diff_html(diff: TraceDiff) -> str:
 
         rows.append(
             f"<tr style='background-color:{bg}'>"
-            f"<td>{d.status}</td>"
-            f"<td>{d.span_name}</td>"
-            f"<td>{d.span_type}</td>"
-            f"<td>{dur_str}</td>"
-            f"<td>{cost_str}</td>"
+            f"<td>{_html.escape(d.status)}</td>"
+            f"<td>{_html.escape(d.span_name)}</td>"
+            f"<td>{_html.escape(d.span_type)}</td>"
+            f"<td>{_html.escape(dur_str)}</td>"
+            f"<td>{_html.escape(cost_str)}</td>"
             f"</tr>"
         )
 
