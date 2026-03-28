@@ -837,7 +837,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Regression gate: fail CI if metrics drop below threshold
   - [ ] Artifact upload of HTML reports and datasets
   - [ ] GitLab CI and Jenkins pipeline examples
-- [ ] **GitHub Action for Evalyn** - Dedicated reusable GitHub Action for PR evaluation
+- [x] **GitHub Action for Evalyn** - Dedicated reusable GitHub Action for PR evaluation
   - [ ] braintrustdata/eval-action-style: run eval, post diff as PR comment
   - [ ] Caching of previous run results for fast comparison
   - [ ] Quality gate: configurable pass/fail threshold as PR check status
@@ -867,11 +867,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] GCS backend with service account authentication
   - [ ] Hybrid mode: SQLite for metadata, cloud for large payloads
   - [ ] Configurable via evalyn.yaml storage section
-- [ ] **Storage Compaction** - Vacuum and optimize SQLite database on demand
+- [x] **Storage Compaction** - Vacuum and optimize SQLite database on demand
   - [ ] evalyn compact command to VACUUM and ANALYZE
   - [ ] Auto-compaction trigger when DB exceeds size threshold
   - [ ] Orphan cleanup: remove spans not linked to any function_call
-- [ ] **Data Retention Policies** - Auto-delete traces and runs older than a configurable threshold
+- [x] **Data Retention Policies** - Auto-delete traces and runs older than a configurable threshold
   - [ ] retention_days setting in evalyn.yaml
   - [ ] evalyn purge --older-than 30d command
   - [ ] Exempt pinned/starred runs from auto-deletion
@@ -885,7 +885,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] SQLCipher integration for encrypted SQLite
   - [ ] Key management via environment variable or keyring
   - [ ] Selective encryption: encrypt input/output payloads, keep metadata queryable
-- [ ] **Storage Statistics** - Show database size, row counts, and growth rate over time
+- [x] **Storage Statistics** - Show database size, row counts, and growth rate over time
   - [ ] evalyn storage-stats command
   - [ ] Row counts per table (function_calls, eval_runs, annotations, otel_spans)
   - [ ] Size breakdown: data vs index vs free space
