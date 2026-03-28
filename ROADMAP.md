@@ -651,19 +651,19 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Add token count penalty term to optimizer objective function
   - [ ] Configurable weight: --length-penalty 0.1 (default 0, no penalty)
   - [ ] Report prompt token savings vs alignment trade-off
-- [ ] **Calibration Data Augmentation** - Augment calibration examples by paraphrasing to improve optimizer generalization
+- [x] **Calibration Data Augmentation** - Augment calibration examples by paraphrasing to improve optimizer generalization
   - [ ] LLM-powered paraphrase of calibration inputs preserving semantics
   - [ ] Expand calibration set 2-5x without additional human annotation
   - [ ] Validate paraphrased items preserve original labels
-- [ ] **Calibration Difficulty Weighting** - Weight alignment errors by item difficulty so hard items count more
+- [x] **Calibration Difficulty Weighting** - Weight alignment errors by item difficulty so hard items count more
   - [ ] Difficulty estimate from cross-annotator disagreement or judge confidence
   - [ ] Weighted accuracy metric in optimizer objective
   - [ ] Prevent optimizer from gaming easy items while ignoring hard ones
-- [ ] **Per-Score-Level Calibration** - Calibrate separately for each score level to reduce systematic bias
+- [x] **Per-Score-Level Calibration** - Calibrate separately for each score level to reduce systematic bias
   - [ ] Detect if judge systematically over/under-scores at specific levels
   - [ ] Score-level-specific preamble adjustments
   - [ ] Confusion matrix per score level showing calibration effectiveness
-- [ ] **Calibration Ensemble Fusion** - Run multiple optimizers and fuse outputs via tournament selection
+- [x] **Calibration Ensemble Fusion** - Run multiple optimizers and fuse outputs via tournament selection
   - [ ] Run 2-3 optimizers in parallel on same calibration data
   - [ ] Tournament: evaluate each optimizer's prompt on held-out set
   - [ ] Select best-performing prompt or blend top-K prompts
