@@ -443,7 +443,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Carry forward unchanged MetricResults from previous run
   - [ ] --diff-from flag to specify baseline run ID
   - [ ] Report showing only changed items and their score deltas
-- [ ] **Evaluation Caching** - Skip re-computing unchanged metric/item pairs across runs
+- [x] **Evaluation Caching** - Skip re-computing unchanged metric/item pairs across runs
   - [ ] Content-addressable cache keyed by (item_hash, metric_id, prompt_hash)
   - [ ] Cache stored in SQLite alongside eval runs
   - [ ] --no-cache flag to force re-evaluation
