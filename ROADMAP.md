@@ -208,19 +208,19 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Provider-Specific Feature Capture
 
-- [ ] **Gemini Safety Rating Capture** - Capture safety ratings from Gemini responses
+- [x] **Gemini Safety Rating Capture** - Capture safety ratings from Gemini responses
   - [ ] Extract safetyRatings array from GenerateContent responses
   - [ ] Store per-category ratings (harassment, hate, dangerous, sexual) in span attributes
   - [ ] Surface safety blocks in show-trace output
-- [ ] **Gemini Grounding Metadata Capture** - Capture search grounding results from Gemini
+- [x] **Gemini Grounding Metadata Capture** - Capture search grounding results from Gemini
   - [ ] Extract groundingMetadata and searchEntryPoint from grounded responses
   - [ ] Store grounding sources and confidence in span attributes
   - [ ] Link grounding data to grounding metrics (source_attribution, claim_verification)
-- [ ] **@trace Decorator Span Upgrade** - Upgrade @trace from event-based to span-based tracing
+- [x] **@trace Decorator Span Upgrade** - Upgrade @trace from event-based to span-based tracing
   - [ ] Create proper Span objects instead of TraceEvent pairs (start/end)
   - [ ] Automatic parent-child hierarchy via span_context stack
   - [ ] Visible in show-trace as child spans alongside LLM and tool spans
-- [ ] **Anthropic Thinking Block Capture** - Capture extended thinking/reasoning from Claude responses
+- [x] **Anthropic Thinking Block Capture** - Capture extended thinking/reasoning from Claude responses
   - [ ] Extract thinking content blocks from Anthropic Messages API responses
   - [ ] Store thinking text in span attributes alongside output content
   - [ ] Display thinking blocks in show-trace with distinct styling
