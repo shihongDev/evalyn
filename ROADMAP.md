@@ -687,7 +687,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn compare-calibrations --ids <id1> <id2> showing alignment metrics
   - [ ] Prompt diff between calibration versions
   - [ ] Per-item score change matrix across calibrations
-- [ ] **Calibration Checkpoint** - Save optimizer state mid-run for resuming long calibrations
+- [x] **Calibration Checkpoint** - Save optimizer state mid-run for resuming long calibrations
   - [ ] Atomic checkpoint writes at configurable intervals during optimization
   - [ ] evalyn calibrate --resume to continue from last checkpoint
   - [ ] Prevent wasted compute on interrupted calibration runs
@@ -781,7 +781,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Run agent N times on same input, measure consistency of tool calls and outputs
   - [ ] Research finding: 60% single-run success drops to 25% at 8-run consistency
   - [ ] Report consistency score alongside pass rate
-- [ ] **Agentic Benchmark Integration** - Run standard agent benchmarks within evalyn
+- [x] **Agentic Benchmark Integration** - Run standard agent benchmarks within evalyn
   - [ ] SWE-bench integration for coding agent evaluation
   - [ ] WebArena integration for web agent evaluation
   - [ ] GAIA integration for general agent evaluation
@@ -789,12 +789,12 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Graph & Multi-Agent Evaluation
 
-- [ ] **Graph Topology Extraction** - Extract and visualize LangGraph execution topology from traces
+- [x] **Graph Topology Extraction** - Extract and visualize LangGraph execution topology from traces
   - [ ] Build DAG from graph/node spans captured by LangGraphInstrumentor
   - [ ] Identify critical path (longest execution chain through nodes)
   - [ ] Detect cycles and redundant node executions
   - [ ] evalyn show-graph --call <id> rendering ASCII or Mermaid diagram
-- [ ] **Node-Level Metric Attribution** - Attribute eval failures to specific graph nodes
+- [x] **Node-Level Metric Attribution** - Attribute eval failures to specific graph nodes
   - [ ] Map MetricResult failures back to the node span that produced the failing output
   - [ ] Per-node pass rate aggregation across dataset items
   - [ ] Identify "bottleneck nodes" that cause the most failures
