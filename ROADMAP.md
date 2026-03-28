@@ -407,7 +407,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] profiles: section with per-profile overrides
   - [ ] --profile flag on all commands to select active profile
   - [ ] Profiles inherit from base config, override specific keys
-- [ ] **Environment Variable Validation** - Check all required env vars at command startup
+- [x] **Environment Variable Validation** - Check all required env vars at command startup
   - [ ] Required vars per command (e.g. run-eval needs GEMINI_API_KEY)
   - [ ] Validate key format and basic connectivity before starting long operations
   - [ ] Clear error messages: "GEMINI_API_KEY is set but invalid (HTTP 401)"
@@ -1053,7 +1053,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Operators: =, !=, >, <, contains, matches (regex)
   - [ ] Compound filters with AND/OR
   - [ ] Filter on metadata fields, input/output length, and item ID patterns
-- [ ] **Incremental Dataset Build** - Append new traces to an existing dataset without full rebuild
+- [x] **Incremental Dataset Build** - Append new traces to an existing dataset without full rebuild
   - [ ] --append flag on build-dataset
   - [ ] Track last-build timestamp to only process new traces
   - [ ] Deduplication against existing items using hash_inputs
