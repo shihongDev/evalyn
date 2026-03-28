@@ -353,6 +353,24 @@ class MetricSpec:
     # Unit types this metric can evaluate (default: ["outcome"] for backward compat)
     unit_types: List[str] = field(default_factory=lambda: ["outcome"])
 
+    @property
+    def version_hash(self) -> str:
+        """Deterministic hash of the metric's identity-defining fields.
+
+        Changes when the metric's prompt, rubric, threshold, or type changes.
+        Used for detecting metric version drift between evaluation runs.
+        """
+        import hashlib
+        import json
+        # Include fields that affect evaluation behavior
+        identity = {
+            "id": self.id,
+            "type": self.type,
+            "config": self.config or {},
+        }
+        content = json.dumps(identity, sort_keys=True, ensure_ascii=True)
+        return hashlib.sha256(content.encode()).hexdigest()[:16]
+
     def as_dict(self) -> Dict[str, Any]:
         return {
             "id": self.id,
@@ -362,6 +380,7 @@ class MetricSpec:
             "config": dict(self.config or {}),
             "why": self.why,
             "unit_types": list(self.unit_types or ["outcome"]),
+            "version_hash": self.version_hash,
         }
 
     @classmethod
@@ -394,6 +413,8 @@ class MetricResult:
     unit_id: Optional[str] = None
     unit_type: Optional[str] = None  # EvalUnitType
     span_ids: Optional[List[str]] = None
+    # Metric version tracking
+    config_hash: Optional[str] = None  # MetricSpec.version_hash at evaluation time
 
     def as_dict(self) -> Dict[str, Any]:
         return {
@@ -410,6 +431,7 @@ class MetricResult:
             "unit_id": self.unit_id,
             "unit_type": self.unit_type,
             "span_ids": self.span_ids,
+            "config_hash": self.config_hash,
         }
 
     @classmethod
@@ -428,6 +450,7 @@ class MetricResult:
             unit_id=data.get("unit_id"),
             unit_type=data.get("unit_type"),
             span_ids=data.get("span_ids"),
+            config_hash=data.get("config_hash"),
         )
 
 
