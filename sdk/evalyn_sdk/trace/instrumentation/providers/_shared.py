@@ -175,13 +175,59 @@ def is_model_pricing_known(model: str) -> bool:
     return _match_model_costs(model.lower()) is not None
 
 
+# User-defined cost models (override built-in pricing)
+_custom_cost_models: Dict[str, Dict[str, float]] = {}
+
+
+def register_cost_model(model_name: str, input_cost: float, output_cost: float,
+                        cache_write: Optional[float] = None,
+                        cache_read: Optional[float] = None) -> None:
+    """Register a custom cost model (per 1M tokens).
+
+    Custom models take precedence over built-in pricing. Useful for:
+    - Local models (Ollama) with zero cost
+    - Self-hosted models with custom pricing
+    - New models not yet in the built-in table
+
+    Args:
+        model_name: Model name/ID (case-insensitive).
+        input_cost: Cost per 1M input tokens in USD.
+        output_cost: Cost per 1M output tokens in USD.
+        cache_write: Optional cache write cost per 1M tokens.
+        cache_read: Optional cache read cost per 1M tokens.
+    """
+    entry: Dict[str, float] = {"input": input_cost, "output": output_cost}
+    if cache_write is not None:
+        entry["cache_write"] = cache_write
+    if cache_read is not None:
+        entry["cache_read"] = cache_read
+    _custom_cost_models[model_name.lower()] = entry
+
+
+def clear_custom_cost_models() -> None:
+    """Remove all custom cost models."""
+    _custom_cost_models.clear()
+
+
+def list_custom_cost_models() -> Dict[str, Dict[str, float]]:
+    """Return a copy of all registered custom cost models."""
+    return dict(_custom_cost_models)
+
+
 def _match_model_costs(model_lower: str) -> Optional[dict]:
-    """Find cost entry for a model. Tries exact match first, then substring."""
-    # Exact match first (most reliable)
+    """Find cost entry for a model. Checks custom models first, then built-in."""
+    # Custom models take precedence (exact match)
+    if model_lower in _custom_cost_models:
+        return _custom_cost_models[model_lower]
+    # Built-in: exact match first
     if model_lower in COST_PER_1M_TOKENS:
         return COST_PER_1M_TOKENS[model_lower]
-    # Substring match (sorted longest-first to prefer specific matches)
+    # Built-in: substring match (sorted longest-first to prefer specific matches)
     for model_key, costs in COST_PER_1M_TOKENS.items():
+        if model_key in model_lower:
+            return costs
+    # Custom: substring match
+    for model_key, costs in _custom_cost_models.items():
         if model_key in model_lower:
             return costs
     return None
