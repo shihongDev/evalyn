@@ -313,7 +313,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Register custom EvalUnitBuilder subclasses via entry points
   - [ ] Builder configuration in evalyn.yaml per metric
   - [ ] Example builders: per-paragraph, per-code-block, per-citation
-- [ ] **Unit Type Auto-Detection** - Infer best EvalUnit type from trace structure
+- [x] **Unit Type Auto-Detection** - Infer best EvalUnit type from trace structure
   - [ ] Detect multi-turn patterns from sequential LLM spans
   - [ ] Detect tool-use patterns from tool_call/tool_result span pairs
   - [ ] Default to outcome when trace structure is flat
@@ -414,12 +414,12 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Evaluation Enhancements
 
-- [ ] **Span-Level Evaluation** - Evaluate individual spans within a trace
+- [x] **Span-Level Evaluation** - Evaluate individual spans within a trace
   - [ ] Per-LLM-call quality metrics
   - [ ] Tool call success/failure analysis
   - [ ] Node-level evaluation for graph agents
   - [ ] Span-specific rubrics
-- [ ] **Multi-Turn Evaluation** - Specialized evaluation for conversations
+- [x] **Multi-Turn Evaluation** - Specialized evaluation for conversations
   - [ ] Turn-by-turn quality assessment
   - [ ] Conversation flow metrics
   - [ ] Context carryover evaluation
@@ -458,7 +458,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Stratified splitting by metadata or score
   - [ ] Per-fold and aggregate metric statistics with std deviation
   - [ ] Identify items with high variance across folds
-- [ ] **Evaluation Replay** - Re-run a past evaluation with different judge prompts or providers
+- [x] **Evaluation Replay** - Re-run a past evaluation with different judge prompts or providers
   - [ ] --replay-run flag to reuse items/metrics from a previous run
   - [ ] Override provider, model, or calibrated prompts
   - [ ] Automatic comparison report between original and replayed run
