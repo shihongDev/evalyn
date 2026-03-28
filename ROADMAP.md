@@ -917,7 +917,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Complexity heuristic based on input length, output length, and metric type
   - [ ] Model routing: flash-lite for simple items, flash for complex items
   - [ ] Cost savings report showing how much auto-selection saved vs always-smart
-- [ ] **Storage Partitioning** - Partition SQLite databases by time period for better performance at scale
+- [x] **Storage Partitioning** - Partition SQLite databases by time period for better performance at scale
   - [ ] Monthly or weekly database files (evalyn_2026_03.sqlite)
   - [ ] Transparent cross-partition queries via ATTACH DATABASE
   - [ ] Auto-archive old partitions to reduce active DB size
@@ -925,15 +925,15 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Check function_calls referenced by eval_runs still exist
   - [ ] Check otel_spans have valid parent span references
   - [ ] evalyn storage-check producing integrity report with fixable/unfixable issues
-- [ ] **Storage Schema Introspection** - Show current database schema and statistics
+- [x] **Storage Schema Introspection** - Show current database schema and statistics
   - [ ] evalyn storage-schema listing table schemas, column types, index definitions
   - [ ] Schema version and migration history
   - [ ] Useful for debugging and plugin development
-- [ ] **Storage Merge** - Merge two SQLite databases from different machines with conflict resolution
+- [x] **Storage Merge** - Merge two SQLite databases from different machines with conflict resolution
   - [ ] evalyn storage-merge --source <db2> --into <db1>
   - [ ] Deduplication by primary key (function call ID, span ID, run ID)
   - [ ] Conflict strategy: skip, overwrite, or rename
-- [ ] **Storage Index Tuning** - Auto-create indexes based on common query patterns
+- [x] **Storage Index Tuning** - Auto-create indexes based on common query patterns
   - [ ] Profile slow queries in list-calls, list-runs, build-dataset
   - [ ] evalyn storage-tune creating recommended indexes
   - [ ] Report query speedup after index creation
