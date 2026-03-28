@@ -123,3 +123,70 @@ def resolve_skips(
             if not dep.check(dep_result):
                 return f"dependency '{dep.depends_on}' condition '{dep.condition}' not met"
     return None
+
+
+@dataclass
+class ConditionalMetricChain:
+    """A chain where a follow-up metric runs only when a trigger metric fails.
+
+    Example: if toxicity_safety fails, run toxicity_type_classifier to diagnose.
+
+    Usage:
+        chain = ConditionalMetricChain(
+            trigger_metric_id="toxicity_safety",
+            condition="failed",
+            follow_up_metric=toxicity_type_classifier_metric,
+        )
+    """
+
+    trigger_metric_id: str
+    condition: str  # "failed", "passed", "score_below:0.5"
+    follow_up_metric: object  # Metric instance
+
+    def should_run(self, trigger_result) -> bool:
+        """Check if the follow-up should run based on the trigger result."""
+        if trigger_result is None:
+            return False
+
+        if self.condition == "failed":
+            return trigger_result.passed is False
+        if self.condition == "passed":
+            return trigger_result.passed is True
+
+        if self.condition.startswith("score_below:"):
+            try:
+                threshold = float(self.condition.split(":")[1])
+                return (trigger_result.score or 0.0) < threshold
+            except (ValueError, IndexError):
+                return False
+
+        return False
+
+
+def evaluate_chains(
+    chains: List[ConditionalMetricChain],
+    results: Dict[str, object],
+    call: object,
+    item: object,
+) -> List:
+    """Evaluate conditional metric chains based on existing results.
+
+    Args:
+        chains: List of ConditionalMetricChain definitions.
+        results: Dict of metric_id -> MetricResult from primary evaluation.
+        call: FunctionCall for evaluation.
+        item: DatasetItem for evaluation.
+
+    Returns:
+        List of MetricResult from triggered follow-up metrics.
+    """
+    follow_up_results = []
+    for chain in chains:
+        trigger_result = results.get(chain.trigger_metric_id)
+        if chain.should_run(trigger_result):
+            try:
+                result = chain.follow_up_metric.evaluate(call, item)
+                follow_up_results.append(result)
+            except Exception:
+                pass  # follow-up failure is non-fatal
+    return follow_up_results
