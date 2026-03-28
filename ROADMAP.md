@@ -862,7 +862,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Assignment queue: distribute items across annotators
   - [ ] Conflict detection when multiple users annotate same item
   - [ ] Resolution strategies: majority vote, senior override, discussion
-- [ ] **Cloud Storage Backend** - Optional S3/GCS storage for large datasets
+- [x] **Cloud Storage Backend** - Optional S3/GCS storage for large datasets
   - [ ] S3-compatible backend implementing StorageBackend protocol
   - [ ] GCS backend with service account authentication
   - [ ] Hybrid mode: SQLite for metadata, cloud for large payloads
@@ -909,11 +909,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Thread-local connection pool with configurable max size
   - [ ] Connection health checking and recycling
   - [ ] WAL mode auto-enable for concurrent readers
-- [ ] **Incremental Backup** - Periodic automatic backup of database to a secondary location
+- [x] **Incremental Backup** - Periodic automatic backup of database to a secondary location
   - [ ] SQLite online backup API integration
   - [ ] Configurable backup schedule and destination path
   - [ ] Backup rotation: keep last N backups
-- [ ] **Auto Model Selection** - Choose judge model based on task complexity (fast model for easy items, smart model for hard ones)
+- [x] **Auto Model Selection** - Choose judge model based on task complexity (fast model for easy items, smart model for hard ones)
   - [ ] Complexity heuristic based on input length, output length, and metric type
   - [ ] Model routing: flash-lite for simple items, flash for complex items
   - [ ] Cost savings report showing how much auto-selection saved vs always-smart
@@ -921,7 +921,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Monthly or weekly database files (evalyn_2026_03.sqlite)
   - [ ] Transparent cross-partition queries via ATTACH DATABASE
   - [ ] Auto-archive old partitions to reduce active DB size
-- [ ] **Storage Integrity Checks** - Verify referential integrity between tables
+- [x] **Storage Integrity Checks** - Verify referential integrity between tables
   - [ ] Check function_calls referenced by eval_runs still exist
   - [ ] Check otel_spans have valid parent span references
   - [ ] evalyn storage-check producing integrity report with fixable/unfixable issues
