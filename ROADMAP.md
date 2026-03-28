@@ -1076,7 +1076,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Per-metric coverage percentage across dataset items
   - [ ] ASCII heatmap: items on Y-axis, metrics on X-axis, filled/empty cells
   - [ ] Prioritize unannotated items in items with lowest judge confidence
-- [ ] **Dataset from Production Logs** - Import HTTP request/response logs as trace-like dataset items
+- [x] **Dataset from Production Logs** - Import HTTP request/response logs as trace-like dataset items
   - [ ] Parse common log formats (JSON, Apache, nginx) into DatasetItem input/output
   - [ ] evalyn import-logs --format json --input-field request --output-field response
   - [ ] Auto-deduplicate against existing traces in storage
@@ -1100,7 +1100,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Stratified pairing by complexity, topic, and metadata fields
   - [ ] Ensure balanced splits for statistical validity
   - [ ] evalyn dataset-ab-split --dataset <path> producing split_a.jsonl and split_b.jsonl
-- [ ] **Dataset Subset Extraction** - Extract semantically meaningful subsets via clustering
+- [x] **Dataset Subset Extraction** - Extract semantically meaningful subsets via clustering
   - [ ] Cluster items by embedding similarity into N groups
   - [ ] evalyn dataset-subset --clusters N --dataset <path> extracting per-cluster subsets
   - [ ] Useful for focused evaluation on specific input categories
@@ -1108,11 +1108,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Build embedding index on build-dataset using SentenceTransformer
   - [ ] Store embeddings alongside dataset.jsonl as embeddings.npy
   - [ ] Enable fast nearest-neighbor queries for sampling, dedup, and clustering
-- [ ] **Dataset Interleaving** - Round-robin merge from multiple datasets for balanced evaluation
+- [x] **Dataset Interleaving** - Round-robin merge from multiple datasets for balanced evaluation
   - [ ] evalyn dataset-interleave --datasets d1/ d2/ d3/ producing merged dataset
   - [ ] Interleave by metadata field (e.g. alternate "production" and "synthetic" items)
   - [ ] Source tracking: tag each item with originating dataset
-- [ ] **Dataset Quality Gate** - Block evaluation start if dataset fails quality checks
+- [x] **Dataset Quality Gate** - Block evaluation start if dataset fails quality checks
   - [ ] Configurable rules in evalyn.yaml: min_items, max_duplicate_rate, required_metadata_fields
   - [ ] run-eval refuses to start unless gate passes (--skip-quality-gate to override)
   - [ ] Gate report showing which checks passed and failed
