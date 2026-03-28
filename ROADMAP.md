@@ -1439,13 +1439,13 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] evalyn docs --format markdown producing per-command reference pages
   - [x] Include all flags, defaults, examples, and cross-references
   - [x] Auto-update on release via CI
-- [ ] **Metric Catalog** - Auto-generated browsable catalog of all 133 metrics
-  - [ ] evalyn docs --metrics producing metric reference with rubrics, categories, scopes
-  - [ ] HTML format with search and filter by category/type
-  - [ ] Include metric bundle membership and recommended use cases
-- [ ] **Config Reference** - Auto-generated documentation for evalyn.yaml options
-  - [ ] Generate from evalyn.yaml.example with type annotations and valid values
-  - [ ] Show default values, environment variable overrides, and CLI flag mappings
+- [x] **Metric Catalog** - Auto-generated browsable catalog of all 133 metrics
+  - [x] evalyn docs --metrics producing metric reference with rubrics, categories, scopes
+  - [x] HTML format with search and filter by category/type
+  - [x] Include metric bundle membership and recommended use cases
+- [x] **Config Reference** - Auto-generated documentation for evalyn.yaml options
+  - [x] Generate from evalyn.yaml.example with type annotations and valid values
+  - [x] Show default values, environment variable overrides, and CLI flag mappings
 
 ### Deprecation & Migration
 
@@ -1468,10 +1468,10 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn rubric-export --metric <id> producing a portable YAML rubric file
   - [ ] evalyn rubric-import from URL or local file
   - [ ] Rubric metadata: author, version, tested-on, accuracy stats
-- [ ] **Rubric Testing** - Validate that a rubric produces consistent scores on test cases
-  - [ ] evalyn test-rubric --metric <id> running rubric against a set of known pass/fail items
-  - [ ] Consistency score: same rubric, same item, N runs, measure agreement
-  - [ ] Edge case detection: find items where rubric is ambiguous (close to threshold)
+- [x] **Rubric Testing** - Validate that a rubric produces consistent scores on test cases
+  - [x] evalyn test-rubric --metric <id> running rubric against a set of known pass/fail items
+  - [x] Consistency score: same rubric, same item, N runs, measure agreement
+  - [x] Edge case detection: find items where rubric is ambiguous (close to threshold)
 - [ ] **Domain-Specific Rubric Packs** - Downloadable rubric sets for specialized domains
   - [ ] Medical: HIPAA compliance, clinical accuracy, patient safety, drug interaction checks
   - [ ] Legal: jurisdictional accuracy, precedent citation, privilege preservation
@@ -1480,10 +1480,10 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Dashboard Interactivity
 
-- [ ] **Embeddable Widget Mode** - Iframe-friendly dashboard for embedding in other tools
-  - [ ] evalyn dashboard --embed producing minimal HTML without navigation chrome
-  - [ ] Configurable widget size and chart selection
-  - [ ] PostMessage API for parent page communication (filter events, score updates)
+- [x] **Embeddable Widget Mode** - Iframe-friendly dashboard for embedding in other tools
+  - [x] evalyn dashboard --embed producing minimal HTML without navigation chrome
+  - [x] Configurable widget size and chart selection
+  - [x] PostMessage API for parent page communication (filter events, score updates)
 - [ ] **In-Dashboard Data Export** - CSV/JSON export buttons on each chart in HTML reports
   - [ ] Download button per chart exporting underlying data as CSV
   - [ ] Full dataset export button in failed items section
