@@ -112,7 +112,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Build directed dependency graph from data flow analysis
   - [ ] Visualize as Mermaid or ASCII DAG in show-trace
   - [ ] Identify bottleneck spans that block the most downstream work
-- [ ] **Hot Path Detection** - Identify the most frequently executed span sequences across traces
+- [x] **Hot Path Detection** - Identify the most frequently executed span sequences across traces
   - [ ] Extract sequential span-type patterns (e.g. llm_call->tool_call->llm_call)
   - [ ] Rank patterns by frequency and cumulative cost
   - [ ] Highlight optimization opportunities for repeated expensive patterns
@@ -153,7 +153,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Weighted combination of span depth, breadth, total span count, and tool call count
   - [ ] Score stored in FunctionCall metadata for filtering in list-calls --sort complexity
   - [ ] Threshold alerts: flag traces exceeding expected complexity for the project
-- [ ] **Trace Template Matching** - Detect if a trace matches known execution patterns
+- [x] **Trace Template Matching** - Detect if a trace matches known execution patterns
   - [ ] Built-in templates: "RAG pattern" (retrieve->generate), "retry loop", "fan-out/fan-in"
   - [ ] Custom pattern definitions in evalyn.yaml as span-type sequences
   - [ ] evalyn classify-traces showing which pattern each trace matches
