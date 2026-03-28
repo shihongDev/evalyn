@@ -1179,7 +1179,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] ASCII table and HTML heatmap renderers
   - [ ] Per-metric confusion matrix in annotation-stats
   - [ ] Aggregate confusion matrix across all metrics
-- [ ] **Jupyter Notebook Export** - Generate .ipynb with pre-built charts and analysis from eval runs
+- [x] **Jupyter Notebook Export** - Generate .ipynb with pre-built charts and analysis from eval runs
   - [ ] evalyn export --format notebook
   - [ ] Pre-built cells: data loading, metric charts, distribution plots, correlations
   - [ ] Interactive widgets for filtering by metric, item, or cohort
@@ -1193,12 +1193,12 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Identify items that changed from pass to fail
   - [ ] Cluster newly-failing items by input features
   - [ ] Rank items by regression severity (score delta)
-- [ ] **Comparative Heatmap** - Visual heatmap of metric scores across items and runs
+- [x] **Comparative Heatmap** - Visual heatmap of metric scores across items and runs
   - [ ] Items on Y-axis, metrics on X-axis, color = score
   - [ ] Multi-run heatmap: side-by-side comparison
   - [ ] ASCII heatmap for terminal, HTML/SVG for reports
   - [ ] Sort by worst-performing items or metrics
-- [ ] **Failure Taxonomy** - Auto-categorize failures into a structured taxonomy (prompt, model, data, tool)
+- [x] **Failure Taxonomy** - Auto-categorize failures into a structured taxonomy (prompt, model, data, tool)
   - [ ] LLM-powered categorization of failure reasons
   - [ ] Built-in taxonomy: prompt_ambiguity, model_limitation, data_quality, tool_error, hallucination
   - [ ] Custom taxonomy definition in evalyn.yaml
@@ -1207,7 +1207,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn snapshot --name "pre-refactor" saves RunAnalysis + InsightsReport
   - [ ] evalyn compare-snapshots for before/after comparison
   - [ ] Snapshots stored in .evalyn/ directory as JSON
-- [ ] **Item Difficulty Estimation** - Compute per-item difficulty scores based on cross-run fail rates
+- [x] **Item Difficulty Estimation** - Compute per-item difficulty scores based on cross-run fail rates
   - [ ] Aggregate pass/fail across multiple eval runs per item
   - [ ] Difficulty score: inverse of average pass rate across runs
   - [ ] Rank items by difficulty in analysis output
