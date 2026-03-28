@@ -8,12 +8,12 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Tracing & Instrumentation
 
-- [ ] **Multi-modal Tracing** - Capture images, audio, video in traces
+- [x] **Multi-modal Tracing** - Capture images, audio, video in traces
   - [ ] Image input/output capture with thumbnails
   - [ ] Audio transcription logging
   - [ ] Video frame sampling
   - [ ] Base64/URL reference storage options
-- [ ] **Streaming Support** - Capture streaming LLM responses
+- [x] **Streaming Support** - Capture streaming LLM responses
   - [x] Streaming response capture (OpenAI, Anthropic, Gemini via StreamingSpanWrapper)
   - [ ] Token-by-token capture with timing
   - [ ] First-token latency (TTFT) metric
@@ -43,7 +43,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Measure total wall-clock vs sum of individual span durations
   - [ ] asyncio-native context propagation (ContextVar across await boundaries)
   - [ ] Thread-pool executor span grouping
-- [ ] **Trace Export to OTel Backends** - Export traces to Jaeger, Zipkin, or any OpenTelemetry collector
+- [x] **Trace Export to OTel Backends** - Export traces to Jaeger, Zipkin, or any OpenTelemetry collector
   - [ ] OTLP gRPC exporter alongside existing SQLiteSpanExporter
   - [ ] OTLP HTTP/JSON exporter for firewall-friendly environments
   - [ ] Configurable export filters (only export errors, only export slow spans)
@@ -275,7 +275,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Global ~/.evalyn/config.yaml for shared settings (API keys, provider defaults)
   - [ ] Project-level evalyn.yaml inherits and overrides global config
   - [ ] Per-dataset config override via meta.json
-- [ ] **Project Scaffolding** - evalyn new-project to create standard project structure
+- [x] **Project Scaffolding** - evalyn new-project to create standard project structure
   - [ ] Create data/ directory, evalyn.yaml, and .gitignore entries
   - [ ] Optional: create example agent file for chosen framework
   - [ ] Optional: create GitHub Actions workflow for CI evaluation
