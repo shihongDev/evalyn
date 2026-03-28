@@ -536,7 +536,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Automatic: objective metrics skip API entirely, subjective use configured provider
   - [ ] Cost savings report showing how much was saved by local objective evaluation
   - [ ] --local-objectives flag (default: true) on run-eval
-- [ ] **Evaluation Partial Result Access** - Query in-progress evaluation results before run completes
+- [x] **Evaluation Partial Result Access** - Query in-progress evaluation results before run completes
   - [ ] evalyn show-run --id <id> works on actively running evaluations via checkpoint data
   - [ ] Live pass rate estimate from completed items
   - [ ] Useful for monitoring long-running evaluations without waiting for completion
@@ -2287,7 +2287,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Define variant rubrics in evalyn.yaml: helpfulness_v1 vs helpfulness_v2
   - [ ] Run both variants in a single eval, compare scores and agreement
   - [ ] Select the variant with better alignment to human annotations
-- [ ] **Metric Cold Start Detection** - Detect when a metric's first N items score differently than the rest
+- [x] **Metric Cold Start Detection** - Detect when a metric's first N items score differently than the rest
   - [ ] Compare score distribution of first K items vs remaining items per metric
   - [ ] Statistical test (KS or Mann-Whitney) for distribution shift
   - [ ] Recommend warm-up if cold start effect is significant
