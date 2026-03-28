@@ -969,7 +969,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn list-calls --db all searching both prod.sqlite and test.sqlite
   - [ ] Cross-database comparison: production traces vs test traces
   - [ ] ATTACH DATABASE under the hood with transparent result merging
-- [ ] **Storage WAL Monitoring** - Monitor Write-Ahead Log size and checkpoint frequency
+- [x] **Storage WAL Monitoring** - Monitor Write-Ahead Log size and checkpoint frequency
   - [ ] evalyn storage-wal showing WAL file size, checkpoint status
   - [ ] Warning when WAL exceeds configurable size threshold
   - [ ] Auto-checkpoint recommendation based on write patterns
@@ -981,7 +981,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Store SHA-256 hash of critical fields (input, output, spans) alongside rows
   - [ ] evalyn storage-verify checking all rows against stored checksums
   - [ ] Detect corruption from concurrent writes or filesystem errors
-- [ ] **Storage Anonymous Export** - Strip identifying information when sharing databases
+- [x] **Storage Anonymous Export** - Strip identifying information when sharing databases
   - [ ] evalyn storage-export --anonymous replacing PII-like content with placeholders
   - [ ] Preserve data structure, metadata, and statistics while removing content
   - [ ] Useful for sharing databases for debugging without exposing user data
@@ -997,7 +997,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Diff view: items added, removed, and modified between versions
   - [ ] Version log stored alongside dataset.jsonl
   - [ ] Rollback to previous version via evalyn dataset-rollback
-- [ ] **Synthetic Data Generation**
+- [x] **Synthetic Data Generation**
   - [ ] Adversarial example generation
   - [ ] Edge case mining
   - [ ] Demographic variation
@@ -1007,7 +1007,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Input perturbation: typos, casing, formatting variations
   - [ ] Language translation: generate multilingual variants
   - [ ] Context expansion: add/remove context to test robustness
-- [ ] **Golden Set Management** - Curate and maintain evaluation benchmarks
+- [x] **Golden Set Management** - Curate and maintain evaluation benchmarks
   - [ ] evalyn golden-set create/add/remove commands
   - [ ] Lock golden set items from modification
   - [ ] Track golden set coverage: % of metrics with golden examples
