@@ -1268,7 +1268,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Executive template: overall pass rate, top regressions, cost summary
   - [ ] Engineering template: per-metric details, failed item list, prompt diffs
   - [ ] --template flag on compare command
-- [ ] **Analysis What-If Simulator** - Interactively model "what if metric X improved by N%"
+- [x] **Analysis What-If Simulator** - Interactively model "what if metric X improved by N%"
   - [ ] evalyn what-if --metric helpfulness --improve 20% showing projected overall pass rate
   - [ ] Model multiple simultaneous improvements
   - [ ] Identify the minimum improvement per metric needed to reach a target pass rate
@@ -1396,7 +1396,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Benchmarks for: dataset loading, metric scoring, analysis, export
   - [ ] Baseline timings stored in repo
   - [ ] CI check: fail if any benchmark regresses > 20%
-- [ ] **Fuzz Testing for Parsers** - Stress-test JSON/judge output parsing with malformed inputs
+- [x] **Fuzz Testing for Parsers** - Stress-test JSON/judge output parsing with malformed inputs
   - [ ] Fuzz _extract_json_object and extract_json_list with random strings
   - [ ] Fuzz _parse_passed with edge case values
   - [ ] Ensure no unhandled exceptions on any input
@@ -1404,11 +1404,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Docker-based sandbox for executing agent tool calls safely (Inspect AI pattern)
   - [ ] Configurable timeout and resource limits per sandbox
   - [ ] Capture sandbox output as part of trace spans
-- [ ] **Composable Assertion Framework** - PromptFoo-style assertion primitives for evaluation
+- [x] **Composable Assertion Framework** - PromptFoo-style assertion primitives for evaluation
   - [ ] Assertion types: contains, not_contains, regex_match, llm_rubric, similar, cost_below
   - [ ] Composable with AND/OR logic for complex pass/fail criteria
   - [ ] YAML-configurable assertions in metrics definition
-- [ ] **Evaluation Result Schema Standard** - Define a JSON schema for evaluation results
+- [x] **Evaluation Result Schema Standard** - Define a JSON schema for evaluation results
   - [ ] Enable cross-platform evaluation result exchange
   - [ ] Schema covers: items, metrics, scores, metadata, provenance
   - [ ] No universal standard exists yet (industry gap evalyn could fill)
