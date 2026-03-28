@@ -2263,11 +2263,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Deprecation metadata on MetricSpec: deprecated_since, replacement, sunset_date
   - [ ] Warning when using deprecated metrics in run-eval
   - [ ] evalyn list-metrics --deprecated showing deprecated metrics with migration hints
-- [ ] **Metric Category Pass Rates** - Aggregate reporting by subjective category (safety, correctness, style, etc.)
+- [x] **Metric Category Pass Rates** - Aggregate reporting by subjective category (safety, correctness, style, etc.)
   - [ ] Group metrics by CATEGORIES mapping in analyze output
   - [ ] Per-category pass rate bar charts
   - [ ] Identify weakest category for targeted improvement
-- [ ] **Metric Rubric Preview** - Show exact judge prompt before evaluation starts
+- [x] **Metric Rubric Preview** - Show exact judge prompt before evaluation starts
   - [ ] evalyn preview-metric --id helpfulness_accuracy showing full prompt with rubric
   - [ ] Include template variable substitution with sample input/output
   - [ ] Verify rubric looks correct before committing to expensive evaluation
