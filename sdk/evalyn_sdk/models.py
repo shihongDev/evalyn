@@ -740,9 +740,12 @@ class EvalRun:
     summary: Dict[str, Any] = field(default_factory=dict)
     # Token usage summary for LLM judge evaluations
     usage_summary: Dict[str, Any] = field(default_factory=dict)
+    # Run management
+    name: Optional[str] = None
+    pinned: bool = False
 
     def as_dict(self) -> Dict[str, Any]:
-        return {
+        d = {
             "id": self.id,
             "dataset_name": self.dataset_name,
             "created_at": _iso(self.created_at),
@@ -752,6 +755,11 @@ class EvalRun:
             "summary": self.summary,
             "usage_summary": self.usage_summary,
         }
+        if self.name:
+            d["name"] = self.name
+        if self.pinned:
+            d["pinned"] = self.pinned
+        return d
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "EvalRun":
@@ -766,6 +774,8 @@ class EvalRun:
             judge_configs=[JudgeConfig.from_dict(j) for j in data.get("judge_configs", [])],
             summary=data.get("summary", {}),
             usage_summary=data.get("usage_summary", {}),
+            name=data.get("name"),
+            pinned=data.get("pinned", False),
         )
 
 

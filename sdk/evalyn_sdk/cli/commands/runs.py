@@ -51,22 +51,25 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
     if output_format == "json":
         result = []
         for run in runs:
-            result.append(
-                {
-                    "id": run.id,
-                    "dataset_name": run.dataset_name,
-                    "created_at": run.created_at.isoformat()
-                    if run.created_at
-                    else None,
-                    "metrics_count": len(run.metrics),
-                    "results_count": len(run.metric_results),
-                    "summary": run.summary,
-                }
-            )
+            entry = {
+                "id": run.id,
+                "dataset_name": run.dataset_name,
+                "created_at": run.created_at.isoformat()
+                if run.created_at
+                else None,
+                "metrics_count": len(run.metrics),
+                "results_count": len(run.metric_results),
+                "summary": run.summary,
+            }
+            if run.name:
+                entry["name"] = run.name
+            if run.pinned:
+                entry["pinned"] = True
+            result.append(entry)
         print(json.dumps(result, indent=2))
         return
 
-    headers = ["id", "dataset", "created_at", "metrics", "results"]
+    headers = ["id", "dataset", "created_at", "metrics", "results", "name"]
     print(" | ".join(headers))
     print("-" * 120)
     first_run_id = None
@@ -75,12 +78,15 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
             first_run_id = run.id[:8]  # Use short ID for hint
         # Use short ID (first 8 chars) for easier copy-paste
         short_id = run.id[:8]
+        pin_marker = "[*] " if run.pinned else ""
+        name_display = run.name or ""
         row = [
-            short_id,
+            pin_marker + short_id,
             run.dataset_name,
             str(run.created_at),
             str(len(run.metrics)),
             str(len(run.metric_results)),
+            name_display,
         ]
         print(" | ".join(row))
 
