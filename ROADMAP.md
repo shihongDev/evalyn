@@ -474,7 +474,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] --tag flag on run-eval (multiple tags allowed)
   - [ ] Tags stored in EvalRun metadata and queryable via list-runs
   - [ ] Filter list-runs by tag: --filter-tag experiment-v2
-- [ ] **Async Evaluation Strategy** - Native asyncio execution strategy alongside sequential and parallel
+- [x] **Async Evaluation Strategy** - Native asyncio execution strategy alongside sequential and parallel
   - [ ] AsyncStrategy using asyncio.gather for concurrent metric calls
   - [ ] Semaphore-based concurrency control (replaces ThreadPoolExecutor)
   - [ ] Compatible with async LLM client libraries (httpx, aiohttp)
@@ -590,7 +590,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] TextGrad - Gradient-based prompt optimization
   - [x] EvoPrompt - Evolutionary prompt optimization
   - [x] PromptBreeder - Self-referential prompt evolution
-- [ ] **Rubric Optimization** - Auto-generate and refine evaluation rubrics
+- [x] **Rubric Optimization** - Auto-generate and refine evaluation rubrics
   - [ ] LLM-generated rubric from example pass/fail items
   - [ ] Iterative rubric refinement based on disagreement analysis
   - [ ] Rubric clarity scoring (can a different LLM interpret it consistently?)
@@ -742,7 +742,7 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Multi-Modal Evaluation
 
-- [ ] **Image Evaluation Metrics**
+- [x] **Image Evaluation Metrics**
   - [ ] Image-text alignment (CLIP score)
   - [ ] Visual quality assessment
   - [ ] OCR accuracy for generated images
@@ -809,7 +809,7 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Pipeline Customization
 
-- [ ] **Custom Pipeline Definitions** - User-defined step sequences beyond the fixed 7-step pipeline
+- [x] **Custom Pipeline Definitions** - User-defined step sequences beyond the fixed 7-step pipeline
   - [ ] Pipeline definition in evalyn.yaml with ordered step list
   - [ ] Skip/include steps declaratively (instead of --skip-annotation flags)
   - [ ] Custom step plugins: user-defined Python functions as pipeline steps
