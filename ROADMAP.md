@@ -484,7 +484,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Worker process that pulls and evaluates metric tasks
   - [ ] Centralized result collection and checkpoint merging
   - [ ] --distributed flag with queue URL configuration
-- [ ] **Canary Evaluation** - Run eval on a small random subset first; abort full run if pass rate is below threshold
+- [x] **Canary Evaluation** - Run eval on a small random subset first; abort full run if pass rate is below threshold
   - [ ] --canary N flag to evaluate N items before committing to full run
   - [ ] Configurable abort threshold (default: 20% pass rate on canary)
   - [ ] Cost savings report: how much was saved by aborting early
@@ -2194,7 +2194,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Token usage and cost per metric type
   - [ ] Benchmark report: slowest metrics, most expensive metrics
   - [ ] Optimization suggestions for costly metrics
-- [ ] **Inter-Rater Reliability** - Compute agreement stats when multiple judges score the same items
+- [x] **Inter-Rater Reliability** - Compute agreement stats when multiple judges score the same items
   - [ ] Run same metric with N different judges (models or prompts)
   - [ ] Fleiss' Kappa for multi-rater agreement
   - [ ] Identify items with lowest agreement for human review
