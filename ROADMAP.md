@@ -953,15 +953,15 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn storage-snapshot --name "before-cleanup" creating named copy
   - [ ] evalyn storage-restore --name "before-cleanup" reverting to snapshot
   - [ ] Snapshot list with timestamps and sizes
-- [ ] **Storage Usage Forecast** - Predict storage growth based on current usage rate
+- [x] **Storage Usage Forecast** - Predict storage growth based on current usage rate
   - [ ] Compute growth rate from last 7/30/90 days
   - [ ] Estimate when storage will reach configurable size threshold
   - [ ] evalyn storage-forecast showing projected growth chart
-- [ ] **Storage Migration Versioning** - Formal migration version tracking with up/down support
+- [x] **Storage Migration Versioning** - Formal migration version tracking with up/down support
   - [ ] Version table tracking which migrations have been applied
   - [ ] Down-migration support for rolling back schema changes
   - [ ] evalyn storage-migrate --status showing current schema version
-- [ ] **Storage Read-Only Mode** - Prevent accidental writes during analysis
+- [x] **Storage Read-Only Mode** - Prevent accidental writes during analysis
   - [ ] EVALYN_DB_READONLY=1 env var opening database in read-only mode
   - [ ] Useful when sharing databases or running analysis on production data
   - [ ] Clear error message when write is attempted in read-only mode
@@ -977,7 +977,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] auto_vacuum_threshold setting in evalyn.yaml (e.g. 500MB)
   - [ ] Run VACUUM automatically when DB crosses threshold during write operations
   - [ ] Log vacuum events with space reclaimed
-- [ ] **Storage Data Checksums** - Verify data integrity with per-row checksums
+- [x] **Storage Data Checksums** - Verify data integrity with per-row checksums
   - [ ] Store SHA-256 hash of critical fields (input, output, spans) alongside rows
   - [ ] evalyn storage-verify checking all rows against stored checksums
   - [ ] Detect corruption from concurrent writes or filesystem errors
