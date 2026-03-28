@@ -1377,7 +1377,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] pytest plugin: @pytest.mark.evalyn(metrics=["helpfulness"])
   - [ ] Assert on metric scores: assert result.metrics["helpfulness"].passed
   - [ ] Integration with pytest-xdist for parallel testing
-- [ ] **Declarative Evaluation API** - Single-call evaluation matching industry patterns
+- [x] **Declarative Evaluation API** - Single-call evaluation matching industry patterns
   - [ ] Braintrust-style: evalyn.Eval("project", data=fn, task=fn, scores=[...])
   - [ ] Weave-style: evalyn.Evaluation(dataset=..., scorers=[...]).run(model)
   - [ ] Both patterns return structured results with .to_pandas() support
@@ -2279,7 +2279,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Fit beta/normal/bimodal distributions to score history per metric
   - [ ] Detect distribution changes between runs (shift, spread, shape)
   - [ ] Use fitted distribution for anomaly detection on new scores
-- [ ] **Metric Prompt Token Count** - Show estimated prompt token count per metric before evaluation
+- [x] **Metric Prompt Token Count** - Show estimated prompt token count per metric before evaluation
   - [ ] Estimate tokens from metric prompt template + average input/output sizes
   - [ ] evalyn list-metrics --show-tokens displaying per-metric token cost
   - [ ] Factor into cost estimation in dry-run mode
