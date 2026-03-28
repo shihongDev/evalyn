@@ -403,7 +403,7 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Config Enhancements
 
-- [ ] **Config Profiles** - Named environment profiles (dev/staging/prod) in evalyn.yaml
+- [x] **Config Profiles** - Named environment profiles (dev/staging/prod) in evalyn.yaml
   - [ ] profiles: section with per-profile overrides
   - [ ] --profile flag on all commands to select active profile
   - [ ] Profiles inherit from base config, override specific keys
@@ -520,7 +520,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Priority based on historical failure rate per metric
   - [ ] Surface failing metrics early in progress output
   - [ ] Combine with abort conditions for fast-fail workflows
-- [ ] **Evaluation Retry Budget** - Bound total retries across all items with a per-run budget
+- [x] **Evaluation Retry Budget** - Bound total retries across all items with a per-run budget
   - [ ] --max-retries-total flag (default: unlimited)
   - [ ] Track retries consumed vs budget in progress output
   - [ ] Prevent retry storms from consuming excessive tokens
