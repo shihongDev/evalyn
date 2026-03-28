@@ -53,7 +53,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Swap model name and re-execute captured prompts
   - [ ] Generate side-by-side diff of original vs replayed outputs
   - [ ] Cost comparison report between original and replayed model
-- [ ] **Cost Budget Alerts** - Warn or stop when cumulative LLM cost exceeds a configurable threshold
+- [x] **Cost Budget Alerts** - Warn or stop when cumulative LLM cost exceeds a configurable threshold
   - [ ] Per-session budget limit in evalyn.yaml
   - [ ] Per-run budget limit as --max-cost flag
   - [ ] Warning at 80% threshold, hard stop at 100%
@@ -128,7 +128,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Replace input/output text with length-preserving placeholder content
   - [ ] Preserve span structure, timing, token counts, and cost data
   - [ ] evalyn export-traces --anonymize for safe sharing and bug reports
-- [ ] **Trace Flame Graph** - Flame graph rendering for span durations within a trace
+- [x] **Trace Flame Graph** - Flame graph rendering for span durations within a trace
   - [ ] Stacked bar visualization where width represents wall-clock time per span
   - [ ] Color-code by span type (llm_call, tool_call, node, etc.)
   - [ ] ASCII flame graph for terminal, SVG for HTML reports
@@ -141,7 +141,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Inheritance rules configurable: inherit-all, inherit-listed, no-inherit
   - [ ] Override inherited tags at child level
   - [ ] Useful for propagating environment, user_id, experiment_id down the span tree
-- [ ] **Trace Cost Breakdown by Phase** - Attribute cost to trace phases (reasoning, tool use, output)
+- [x] **Trace Cost Breakdown by Phase** - Attribute cost to trace phases (reasoning, tool use, output)
   - [ ] Classify spans into phases based on span type and position in tree
   - [ ] Per-phase cost aggregation in show-trace and analyze output
   - [ ] Identify which phase consumes the most tokens/cost
@@ -182,7 +182,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn_sdk.toggle_instrumentation(enabled=False) to pause tracing
   - [ ] Useful for excluding specific code sections from tracing overhead
   - [ ] Toggle state visible in show-projects output
-- [ ] **Span Collector Statistics** - Report collected, orphaned, and lost spans per session
+- [x] **Span Collector Statistics** - Report collected, orphaned, and lost spans per session
   - [ ] Track spans collected vs expected (from OTEL SpanProcessor callbacks)
   - [ ] Warning when span loss exceeds threshold (e.g. >5% lost)
   - [ ] Statistics available via evalyn show-call --stats flag
