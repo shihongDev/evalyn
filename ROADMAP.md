@@ -324,19 +324,19 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Batch Evaluation Enhancements
 
-- [ ] **Batch Job Persistence** - Save batch job state to disk for recovery after crash or restart
+- [x] **Batch Job Persistence** - Save batch job state to disk for recovery after crash or restart
   - [ ] Write BatchJob to .evalyn/batch_jobs/ as JSON on submit
   - [ ] evalyn batch-status to list pending/completed batch jobs
   - [ ] evalyn batch-resume to collect results from a previously submitted batch
-- [ ] **Mixed-Mode Evaluation** - Use batch API for large runs, real-time for small runs
+- [x] **Mixed-Mode Evaluation** - Use batch API for large runs, real-time for small runs
   - [ ] Auto-select mode based on item count threshold (e.g. batch if > 50 items)
   - [ ] --mode auto/batch/realtime flag on run-eval
   - [ ] Cost/speed comparison in dry-run output
-- [ ] **Batch Progress Polling** - Live progress updates while batch job is processing
+- [x] **Batch Progress Polling** - Live progress updates while batch job is processing
   - [ ] Poll provider API for completion percentage
   - [ ] Display progress bar with ETA during batch wait
   - [ ] Configurable poll interval (default 30s)
-- [ ] **Multi-Provider Batch Splitting** - Split a single evaluation batch across multiple providers
+- [x] **Multi-Provider Batch Splitting** - Split a single evaluation batch across multiple providers
   - [ ] Route N% of items to gemini, M% to openai for cost/latency comparison
   - [ ] Provider-aware retry: re-route failed items to alternate provider
   - [ ] Unified result merging regardless of which provider evaluated each item
