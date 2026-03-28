@@ -244,7 +244,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Benchmark: instrumented vs uninstrumented call latency
   - [ ] Report added overhead in ms and % per provider
   - [ ] Auto-disable instrumentation if overhead exceeds threshold
-- [ ] **Experiment Tracking** - Group traces by experiment ID for A/B comparisons
+- [x] **Experiment Tracking** - Group traces by experiment ID for A/B comparisons
   - [ ] @eval(experiment="prompt-v2") decorator parameter
   - [ ] Filter traces by experiment in list-calls and build-dataset
   - [ ] Cross-experiment metric comparison in analyze command
@@ -2219,7 +2219,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Namespace prefix: "team-safety/toxicity" vs "team-quality/toxicity"
   - [ ] Namespace-scoped metric search in list-metrics
   - [ ] Cross-namespace metric comparison
-- [ ] **Metric Score Explanations** - Return human-readable explanations for objective metric scores
+- [x] **Metric Score Explanations** - Return human-readable explanations for objective metric scores
   - [ ] Per-metric explain() function describing why the score is what it is
   - [ ] Example: "json_valid: FAIL - parse error at line 3, column 12: unexpected token"
   - [ ] Include explanations in show-run and failed item breakdown output
