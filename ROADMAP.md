@@ -2170,7 +2170,7 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Metrics Enhancements
 
-- [ ] **Custom Metric DSL** - Define metrics via YAML config without writing Python code
+- [x] **Custom Metric DSL** - Define metrics via YAML config without writing Python code
   - [ ] YAML metric definition: name, type, prompt template, threshold, scoring rubric
   - [ ] Variable interpolation: {{input}}, {{output}}, {{expected}} in prompt templates
   - [ ] Custom objective metrics via Python expressions (e.g. "len(output) < 500")
@@ -2180,7 +2180,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Min/max/mean aggregation strategies
   - [ ] Pass threshold on composite score
   - [ ] Drill-down: see child metric contributions to composite
-- [ ] **Metric Weighting Profiles** - Named weight sets for different evaluation use cases
+- [x] **Metric Weighting Profiles** - Named weight sets for different evaluation use cases
   - [ ] Profile definitions in evalyn.yaml (e.g. "safety-first": safety=3x, quality=1x)
   - [ ] --weight-profile flag on analyze and compare commands
   - [ ] Weighted pass rate and weighted overall score
