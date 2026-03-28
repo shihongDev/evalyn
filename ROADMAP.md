@@ -937,19 +937,19 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Profile slow queries in list-calls, list-runs, build-dataset
   - [ ] evalyn storage-tune creating recommended indexes
   - [ ] Report query speedup after index creation
-- [ ] **Storage Query Logging** - Log SQL queries for performance debugging and optimization
+- [x] **Storage Query Logging** - Log SQL queries for performance debugging and optimization
   - [ ] EVALYN_QUERY_LOG=1 env var enabling query logging to .evalyn/queries.log
   - [ ] Log query text, execution time, rows returned
   - [ ] Identify slowest queries for index tuning
-- [ ] **Storage Cross-Reference Report** - Show relationships between stored entities
+- [x] **Storage Cross-Reference Report** - Show relationships between stored entities
   - [ ] evalyn storage-xref showing: traces -> datasets -> runs -> annotations linkage
   - [ ] Identify orphaned entities (runs referencing deleted datasets, etc.)
   - [ ] Entity count summary per relationship type
-- [ ] **Storage Connection Diagnostics** - Report SQLite configuration and health
+- [x] **Storage Connection Diagnostics** - Report SQLite configuration and health
   - [ ] evalyn storage-diag showing WAL mode, journal mode, page size, cache size
   - [ ] File lock status and concurrent access warnings
   - [ ] Recommend optimal SQLite pragmas for current workload
-- [ ] **Storage Snapshot/Restore** - Point-in-time snapshots for safe experimentation
+- [x] **Storage Snapshot/Restore** - Point-in-time snapshots for safe experimentation
   - [ ] evalyn storage-snapshot --name "before-cleanup" creating named copy
   - [ ] evalyn storage-restore --name "before-cleanup" reverting to snapshot
   - [ ] Snapshot list with timestamps and sizes
