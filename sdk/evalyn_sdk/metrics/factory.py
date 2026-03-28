@@ -95,6 +95,7 @@ from .objective import (
     # Response quality
     emoji_count_metric,
     link_density_metric,
+    prompt_injection_metric,
 )
 from ..models import Metric
 from .objective import OBJECTIVE_REGISTRY
@@ -510,6 +511,10 @@ def build_objective_metric(
         # Response quality
         "emoji_count": lambda c: emoji_count_metric(max_count=c.get("max_count")),
         "link_density": lambda c: link_density_metric(max_ratio=c.get("max_ratio")),
+        # Security
+        "prompt_injection_check": lambda c: prompt_injection_metric(
+            sensitivity=c.get("sensitivity", "standard"),
+        ),
     }
 
     if metric_id not in builders:
