@@ -162,7 +162,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Count and percentage of each span type (llm_call, tool_call, node, agent, etc.)
   - [ ] Trend: how span type distribution shifts across weeks
   - [ ] Useful for detecting architectural changes (e.g. suddenly more tool calls)
-- [ ] **Instrumentation Compatibility Report** - Track which provider SDK versions have been tested
+- [x] **Instrumentation Compatibility Report** - Track which provider SDK versions have been tested
   - [ ] Record provider package version on first instrumentation in session
   - [ ] evalyn check-compat showing tested vs current SDK versions
   - [ ] Warning when using an untested SDK version
@@ -225,7 +225,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Store thinking text in span attributes alongside output content
   - [ ] Display thinking blocks in show-trace with distinct styling
   - [ ] Enable reasoning quality evaluation on captured thinking content
-- [ ] **Metric-Specific Provider Routing** - Use different judge providers for different metric categories
+- [x] **Metric-Specific Provider Routing** - Use different judge providers for different metric categories
   - [ ] Route safety metrics to Gemini, quality metrics to OpenAI, etc.
   - [ ] Provider routing config per metric in evalyn.yaml
   - [ ] Cost optimization: use cheap models for simple metrics, expensive for nuanced ones
@@ -279,7 +279,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Create data/ directory, evalyn.yaml, and .gitignore entries
   - [ ] Optional: create example agent file for chosen framework
   - [ ] Optional: create GitHub Actions workflow for CI evaluation
-- [ ] **Multi-Project Dashboard** - View and compare metrics across multiple projects
+- [x] **Multi-Project Dashboard** - View and compare metrics across multiple projects
   - [ ] evalyn projects showing all projects with latest run status
   - [ ] Cross-project regression detection
   - [ ] Unified cost tracking across projects
@@ -392,7 +392,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Sequential sampling: stop after 3 samples if all agree (skip remaining 2)
   - [ ] Configurable early-stop threshold (e.g. 100% agreement after 3 of 5 samples)
   - [ ] Cost savings report: samples skipped vs full sampling
-- [ ] **Confidence-Based Re-Evaluation** - Re-evaluate uncertain items with a stronger model
+- [x] **Confidence-Based Re-Evaluation** - Re-evaluate uncertain items with a stronger model
   - [ ] Identify items where confidence score < threshold after initial eval
   - [ ] Automatically re-run those items with a more capable model (e.g. flash -> pro)
   - [ ] Merge re-evaluated scores back into the run results
