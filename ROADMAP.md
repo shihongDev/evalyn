@@ -1203,7 +1203,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Built-in taxonomy: prompt_ambiguity, model_limitation, data_quality, tool_error, hallucination
   - [ ] Custom taxonomy definition in evalyn.yaml
   - [ ] Taxonomy distribution chart in analysis output
-- [ ] **Analysis Snapshots** - Save analysis state at a point in time for later comparison
+- [x] **Analysis Snapshots** - Save analysis state at a point in time for later comparison
   - [ ] evalyn snapshot --name "pre-refactor" saves RunAnalysis + InsightsReport
   - [ ] evalyn compare-snapshots for before/after comparison
   - [ ] Snapshots stored in .evalyn/ directory as JSON
@@ -1212,11 +1212,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Difficulty score: inverse of average pass rate across runs
   - [ ] Rank items by difficulty in analysis output
   - [ ] Use difficulty scores to weight calibration and sampling
-- [ ] **Metric Interaction Effects** - Detect non-linear interactions between metrics beyond pairwise correlation
+- [x] **Metric Interaction Effects** - Detect non-linear interactions between metrics beyond pairwise correlation
   - [ ] Chi-square test for co-failure: items failing both A and B more than expected by chance
   - [ ] Interaction strength score per metric pair
   - [ ] Surface metric pairs with strong interactions in insights report
-- [ ] **Improvement Priority Ranking** - Rank metrics by expected ROI: which improvement would raise overall pass rate most
+- [x] **Improvement Priority Ranking** - Rank metrics by expected ROI: which improvement would raise overall pass rate most
   - [ ] Compute marginal gain: if metric M improved by 10%, how much does overall pass rate increase
   - [ ] Factor in metric weight from weighting profiles
   - [ ] Actionable ranking in insights output: "Fix metric X first for maximum impact"
@@ -1224,7 +1224,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Shapiro-Wilk test per metric score distribution
   - [ ] Flag metrics with non-normal distributions (bimodal, heavy-tailed)
   - [ ] Recommend appropriate statistical tests based on distribution shape
-- [ ] **Cross-Run Stability Analysis** - Measure how stable metric scores are across repeated runs of same data
+- [x] **Cross-Run Stability Analysis** - Measure how stable metric scores are across repeated runs of same data
   - [ ] Run same eval N times and compute per-metric coefficient of variation
   - [ ] Flag metrics with high variance as unreliable
   - [ ] Recommend increasing samples or switching judge model for unstable metrics
