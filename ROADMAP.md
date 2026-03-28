@@ -758,9 +758,9 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Agent-Specific Evaluation
 
-- [ ] **Tool Use Evaluation**
-  - [ ] Tool selection appropriateness
-  - [ ] Parameter correctness
+- [x] **Tool Use Evaluation**
+  - [x] Tool selection appropriateness
+  - [x] Parameter correctness
   - [ ] Error recovery patterns
   - [ ] Tool chain efficiency
 - [ ] **Planning Evaluation**
