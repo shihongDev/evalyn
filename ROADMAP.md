@@ -1148,23 +1148,23 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Template variables: run data, analysis, insights, charts
   - [ ] Built-in templates: executive summary, technical deep-dive, compliance
   - [ ] evalyn export --template custom_template.html
-- [ ] **Slack/Discord Notifications** - Alert on evaluation completion or failures
+- [x] **Slack/Discord Notifications** - Alert on evaluation completion or failures
   - [ ] Slack webhook integration with rich message formatting
   - [ ] Discord webhook with embedded metric summary
   - [ ] Configurable alert thresholds: only notify on regression or failure
   - [ ] Channel routing: different alerts to different channels
 - [x] **Metric Correlation Analysis** - Understand relationships between metrics
-- [ ] **Failure Root Cause Analysis** - Automated diagnosis of failures
+- [x] **Failure Root Cause Analysis** - Automated diagnosis of failures
   - [ ] LLM-powered analysis of common patterns in failed items
   - [ ] Feature attribution: which input features correlate with failure
   - [ ] Failure clustering by root cause category (prompt, data, model, tool)
   - [ ] Actionable fix suggestions per failure cluster
-- [ ] **Trend Anomaly Detection** - Alert on unusual metric patterns
+- [x] **Trend Anomaly Detection** - Alert on unusual metric patterns
   - [ ] Z-score based anomaly detection on metric time series
   - [ ] Configurable sensitivity threshold
   - [ ] Automatic alert when anomaly detected during trend analysis
   - [ ] Visual anomaly markers in trend charts
-- [ ] **Cohort Analysis** - Compare metrics across user-defined item groups (by metadata, input length, etc.)
+- [x] **Cohort Analysis** - Compare metrics across user-defined item groups (by metadata, input length, etc.)
   - [ ] --cohort-by flag on analyze command (split by metadata field)
   - [ ] Per-cohort metric statistics and pass rates
   - [ ] Cross-cohort comparison table
