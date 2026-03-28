@@ -2247,7 +2247,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] --debug-metrics flag showing: prompt sent, raw response, parsed result per item
   - [ ] Log to .evalyn/metric_debug.jsonl for post-hoc analysis
   - [ ] Useful for diagnosing why a metric scores differently than expected
-- [ ] **Metric Template Variables** - Custom variables in judge prompt templates beyond standard input/output/expected
+- [x] **Metric Template Variables** - Custom variables in judge prompt templates beyond standard input/output/expected
   - [ ] User-defined variables in evalyn.yaml: template_vars: {domain: "healthcare", persona: "clinician"}
   - [ ] Variable interpolation in judge prompts: "Evaluate from the perspective of a {{persona}}"
   - [ ] Per-dataset variable overrides in meta.json
