@@ -448,7 +448,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Cache stored in SQLite alongside eval runs
   - [ ] --no-cache flag to force re-evaluation
   - [ ] Cache hit/miss statistics in run summary
-- [ ] **Evaluation Dry-Run** - Estimate token cost and wall-clock time before executing
+- [x] **Evaluation Dry-Run** - Estimate token cost and wall-clock time before executing
   - [ ] Count items x metrics, estimate tokens per metric type
   - [ ] Cost estimate by provider (Gemini, OpenAI pricing)
   - [ ] --dry-run flag that prints estimate and exits
@@ -2184,7 +2184,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Profile definitions in evalyn.yaml (e.g. "safety-first": safety=3x, quality=1x)
   - [ ] --weight-profile flag on analyze and compare commands
   - [ ] Weighted pass rate and weighted overall score
-- [ ] **Metric Versioning** - Track when metric implementations change and flag affected runs
+- [x] **Metric Versioning** - Track when metric implementations change and flag affected runs
   - [ ] Hash metric prompt + scoring logic as version identifier
   - [ ] Store metric version in MetricResult metadata
   - [ ] Warn when comparing runs with different metric versions
