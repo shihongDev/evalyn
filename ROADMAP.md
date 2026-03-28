@@ -294,22 +294,22 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Weighted ensemble of available methods
   - [ ] Fall back gracefully when a method is unavailable (e.g. no logprobs)
   - [ ] Bayesian combination with learned weights
-- [ ] **Structured Output Enforcement** - Force JSON mode on judge LLM calls for reliable parsing
+- [x] **Structured Output Enforcement** - Force JSON mode on judge LLM calls for reliable parsing
   - [ ] Use provider-native JSON mode (Gemini response_mime_type, OpenAI response_format)
   - [ ] Schema enforcement via provider-specific structured output features
   - [ ] Fallback to regex extraction when JSON mode unavailable
-- [ ] **Judge Output Retry** - Automatically retry judge calls when output fails to parse
+- [x] **Judge Output Retry** - Automatically retry judge calls when output fails to parse
   - [ ] Configurable max retries (default 2)
   - [ ] Append "respond with valid JSON" on retry attempts
   - [ ] Track parse failure rate per metric for diagnostics
-- [ ] **Judge Latency Optimization** - Reduce judge call overhead for large-scale evaluation
+- [x] **Judge Latency Optimization** - Reduce judge call overhead for large-scale evaluation
   - [ ] Prompt caching: reuse system prompt prefix across items
   - [ ] Batch multiple items into single judge call where possible
   - [ ] Model-specific prompt length optimization
 
 ### Evaluation Units & Views
 
-- [ ] **Custom Unit Builder Plugins** - User-defined evaluation boundaries via pluggable builders
+- [x] **Custom Unit Builder Plugins** - User-defined evaluation boundaries via pluggable builders
   - [ ] Register custom EvalUnitBuilder subclasses via entry points
   - [ ] Builder configuration in evalyn.yaml per metric
   - [ ] Example builders: per-paragraph, per-code-block, per-citation
