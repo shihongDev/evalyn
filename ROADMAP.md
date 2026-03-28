@@ -1002,7 +1002,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Edge case mining
   - [ ] Demographic variation
   - [ ] Domain-specific generators
-- [ ] **Data Augmentation** - Automatically expand datasets
+- [x] **Data Augmentation** - Automatically expand datasets
   - [ ] Paraphrase generation: rephrase inputs preserving semantics
   - [ ] Input perturbation: typos, casing, formatting variations
   - [ ] Language translation: generate multilingual variants
@@ -1027,7 +1027,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn dataset-merge --deduplicate
   - [ ] evalyn dataset-diff showing added/removed/changed items
   - [ ] Conflict resolution for items with same ID but different content
-- [ ] **External Format Import** - Import from HuggingFace datasets, LMSYS Arena, or custom CSV schemas
+- [x] **External Format Import** - Import from HuggingFace datasets, LMSYS Arena, or custom CSV schemas
   - [ ] evalyn import --format huggingface --dataset-name <name>
   - [ ] CSV import with column mapping config
   - [ ] LMSYS Arena format (conversation pairs with human preference)
@@ -1036,7 +1036,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Version field in dataset header line
   - [ ] Automatic migration on load (old format to current)
   - [ ] Migration log showing which transformations were applied
-- [ ] **Dataset Sampling Preview** - Show sample items and summary stats before building full dataset
+- [x] **Dataset Sampling Preview** - Show sample items and summary stats before building full dataset
   - [ ] --preview flag on build-dataset showing 5 sample items
   - [ ] Summary: item count, avg input/output length, metadata distribution
   - [ ] Confirmation prompt before writing full dataset
@@ -1044,7 +1044,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] SHA-256 hash stored in dataset metadata
   - [ ] --pinned flag on run-eval to verify hash before evaluation
   - [ ] Pin file (.evalyn-pin) for CI/CD reproducibility
-- [ ] **Dataset Lineage** - Track which traces and runs produced each dataset item
+- [x] **Dataset Lineage** - Track which traces and runs produced each dataset item
   - [ ] Source trace ID and function_call ID in item metadata
   - [ ] Lineage query: "which traces contributed to this dataset?"
   - [ ] Reverse lineage: "which datasets use this trace?"
