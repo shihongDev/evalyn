@@ -1369,7 +1369,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] on_metric_complete(callback) for per-metric processing
   - [ ] on_run_complete(callback) for post-run triggers
   - [ ] Hook registration via evalyn.yaml or Python API
-- [ ] **Context Manager Tracing** - Manual span creation with `with` syntax
+- [x] **Context Manager Tracing** - Manual span creation with `with` syntax
   - [ ] with evalyn.span("name", "type") as s: for explicit span boundaries
   - [ ] Automatic parent-child linking via context propagation
   - [ ] Span attribute setting: s.set_attribute("key", "value")
@@ -2189,7 +2189,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Store metric version in MetricResult metadata
   - [ ] Warn when comparing runs with different metric versions
   - [ ] evalyn metric-history showing version changes over time
-- [ ] **Metric Benchmarking** - Measure computation cost and latency per metric
+- [x] **Metric Benchmarking** - Measure computation cost and latency per metric
   - [ ] Per-metric timing in evaluation runner
   - [ ] Token usage and cost per metric type
   - [ ] Benchmark report: slowest metrics, most expensive metrics
