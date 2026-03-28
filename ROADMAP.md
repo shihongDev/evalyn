@@ -524,7 +524,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] --max-retries-total flag (default: unlimited)
   - [ ] Track retries consumed vs budget in progress output
   - [ ] Prevent retry storms from consuming excessive tokens
-- [ ] **Evaluation Progress API** - Structured progress events for external monitoring tools
+- [x] **Evaluation Progress API** - Structured progress events for external monitoring tools
   - [ ] Emit JSON events to a file or socket: item_started, item_complete, metric_scored
   - [ ] Enable integration with CI dashboards, Slack bots, and custom UIs
   - [ ] --progress-file flag on run-eval writing JSONL progress events
@@ -2199,7 +2199,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Fleiss' Kappa for multi-rater agreement
   - [ ] Identify items with lowest agreement for human review
   - [ ] Recommend judge selection based on reliability
-- [ ] **Metric Sensitivity Analysis** - Measure score stability across small input perturbations
+- [x] **Metric Sensitivity Analysis** - Measure score stability across small input perturbations
   - [ ] Perturb inputs (typos, rephrasing) and measure score variance
   - [ ] Flag metrics with high sensitivity to minor input changes
   - [ ] Robustness score per metric
