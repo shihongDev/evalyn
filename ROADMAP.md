@@ -1169,12 +1169,12 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Per-cohort metric statistics and pass rates
   - [ ] Cross-cohort comparison table
   - [ ] Identify worst-performing cohort with improvement suggestions
-- [ ] **Statistical Significance Testing** - P-values and confidence intervals for run-to-run comparisons
+- [x] **Statistical Significance Testing** - P-values and confidence intervals for run-to-run comparisons
   - [ ] Two-proportion z-test for pass rate differences
   - [ ] Bootstrap confidence intervals for score means
   - [ ] Effect size (Cohen's d) alongside p-values
   - [ ] Automatic significance flag in compare output
-- [ ] **Judge Confusion Matrix** - Visualize agreement/disagreement patterns between judge and human
+- [x] **Judge Confusion Matrix** - Visualize agreement/disagreement patterns between judge and human
   - [ ] 2x2 matrix: TP/FP/TN/FN per metric
   - [ ] ASCII table and HTML heatmap renderers
   - [ ] Per-metric confusion matrix in annotation-stats
@@ -1184,11 +1184,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Pre-built cells: data loading, metric charts, distribution plots, correlations
   - [ ] Interactive widgets for filtering by metric, item, or cohort
   - [ ] nbformat-based generation (no Jupyter dependency required)
-- [ ] **Metric Budget Analysis** - Estimate cost savings from dropping low-signal metrics
+- [x] **Metric Budget Analysis** - Estimate cost savings from dropping low-signal metrics
   - [ ] Compute information gain of each metric (redundancy with others)
   - [ ] Cost attribution: how much each metric costs per run
   - [ ] Recommended metric subset that preserves N% of signal at minimum cost
-- [ ] **Regression Bisection** - Binary search across dataset items to pinpoint exact cause of a regression
+- [x] **Regression Bisection** - Binary search across dataset items to pinpoint exact cause of a regression
   - [ ] evalyn bisect --baseline <run1> --current <run2>
   - [ ] Identify items that changed from pass to fail
   - [ ] Cluster newly-failing items by input features
