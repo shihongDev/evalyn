@@ -2155,11 +2155,11 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Run Management
 
-- [ ] **Run Naming** - Give eval runs human-readable names instead of only UUIDs
+- [x] **Run Naming** - Give eval runs human-readable names instead of only UUIDs
   - [ ] --name flag on run-eval: evalyn run-eval --name "prompt-v3-experiment"
   - [ ] Name stored in EvalRun metadata, displayed in list-runs
   - [ ] Resolve runs by name: evalyn show-run --name "prompt-v3-experiment"
-- [ ] **Run Pinning** - Mark a run as baseline for automatic comparison
+- [x] **Run Pinning** - Mark a run as baseline for automatic comparison
   - [ ] evalyn pin-run --id <id> marking a run as the project baseline
   - [ ] Subsequent analyze and compare commands auto-compare against pinned run
   - [ ] evalyn list-runs showing pinned run with a marker
@@ -2175,7 +2175,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Variable interpolation: {{input}}, {{output}}, {{expected}} in prompt templates
   - [ ] Custom objective metrics via Python expressions (e.g. "len(output) < 500")
   - [ ] Hot-reload: modify YAML, re-run eval without code changes
-- [ ] **Metric Composition** - Combine multiple metrics into weighted composite scores
+- [x] **Metric Composition** - Combine multiple metrics into weighted composite scores
   - [ ] Composite metric definition: weighted average of child metrics
   - [ ] Min/max/mean aggregation strategies
   - [ ] Pass threshold on composite score
