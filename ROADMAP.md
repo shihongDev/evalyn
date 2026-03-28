@@ -33,12 +33,12 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Haystack
   - [x] LlamaIndex
   - [x] Semantic Kernel
-- [ ] **Memory/RAG Tracing** - Capture retrieval context and memory operations
+- [x] **Memory/RAG Tracing** - Capture retrieval context and memory operations
   - [ ] Capture retrieved documents with relevance scores per query
   - [ ] Track vector store lookup latency and result count
   - [ ] Link retrieval spans to downstream LLM calls that consume them
   - [ ] Memory read/write operation logging for stateful agents
-- [ ] **Async/Parallel Call Tracking** - Better support for concurrent LLM calls
+- [x] **Async/Parallel Call Tracking** - Better support for concurrent LLM calls
   - [ ] Detect concurrent spans and render as parallel branches in show-trace
   - [ ] Measure total wall-clock vs sum of individual span durations
   - [ ] asyncio-native context propagation (ContextVar across await boundaries)
@@ -48,7 +48,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] OTLP HTTP/JSON exporter for firewall-friendly environments
   - [ ] Configurable export filters (only export errors, only export slow spans)
   - [ ] Dual-write mode: SQLite for evalyn + OTLP for observability platform
-- [ ] **Trace Replay** - Re-run a captured trace against a different model to compare outputs
+- [x] **Trace Replay** - Re-run a captured trace against a different model to compare outputs
   - [ ] Extract input messages from each LLM span for replay
   - [ ] Swap model name and re-execute captured prompts
   - [ ] Generate side-by-side diff of original vs replayed outputs
@@ -351,7 +351,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Group traces by session_id in analysis output
   - [ ] Per-session pass rate, cost, and latency summaries
   - [ ] Cross-session comparison for the same user journey
-- [ ] **Session Replay** - Re-execute a full session against a different model or prompt version
+- [x] **Session Replay** - Re-execute a full session against a different model or prompt version
   - [ ] Extract all inputs from session traces in order
   - [ ] Replay with swapped model/provider
   - [ ] Session-level diff: compare original vs replayed outputs turn by turn
