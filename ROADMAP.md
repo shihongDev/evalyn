@@ -2271,11 +2271,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn preview-metric --id helpfulness_accuracy showing full prompt with rubric
   - [ ] Include template variable substitution with sample input/output
   - [ ] Verify rubric looks correct before committing to expensive evaluation
-- [ ] **Metric Cross-Reference View** - Show which bundles include each metric
+- [x] **Metric Cross-Reference View** - Show which bundles include each metric
   - [ ] evalyn list-metrics --show-bundles displaying bundle membership per metric
   - [ ] Inverse view: evalyn list-bundles --show-metrics for bundle contents
   - [ ] Useful for understanding metric coverage across different evaluation profiles
-- [ ] **Metric Score Curve Fitting** - Fit parametric distributions to historical metric scores
+- [x] **Metric Score Curve Fitting** - Fit parametric distributions to historical metric scores
   - [ ] Fit beta/normal/bimodal distributions to score history per metric
   - [ ] Detect distribution changes between runs (shift, spread, shape)
   - [ ] Use fitted distribution for anomaly detection on new scores
