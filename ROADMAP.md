@@ -1381,7 +1381,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Braintrust-style: evalyn.Eval("project", data=fn, task=fn, scores=[...])
   - [ ] Weave-style: evalyn.Evaluation(dataset=..., scorers=[...]).run(model)
   - [ ] Both patterns return structured results with .to_pandas() support
-- [ ] **Semantic Caching for Judge Calls** - Cache identical LLM judge calls to reduce cost
+- [x] **Semantic Caching for Judge Calls** - Cache identical LLM judge calls to reduce cost
   - [ ] Content-addressable cache keyed by hash(prompt + input + output + model)
   - [ ] Research finding: up to 68.8% API call reduction (GPTCache benchmark)
   - [ ] Optional embedding-based fuzzy matching for similar-but-not-identical inputs
@@ -2223,7 +2223,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Per-metric explain() function describing why the score is what it is
   - [ ] Example: "json_valid: FAIL - parse error at line 3, column 12: unexpected token"
   - [ ] Include explanations in show-run and failed item breakdown output
-- [ ] **Metric Warmup Averaging** - Run each subjective metric N times and average to reduce LLM variance
+- [x] **Metric Warmup Averaging** - Run each subjective metric N times and average to reduce LLM variance
   - [ ] --metric-samples N flag on run-eval (default 1)
   - [ ] Report per-metric score variance across samples
   - [ ] Flag items where samples disagree (high variance) for review
