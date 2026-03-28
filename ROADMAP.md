@@ -63,7 +63,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Show output text diff for matching spans
   - [ ] Cost and latency delta per span
   - [ ] ASCII and HTML diff output formats
-- [ ] **Trace Search Query Language** - Filter traces by span attributes, duration, cost, or error status
+- [x] **Trace Search Query Language** - Filter traces by span attributes, duration, cost, or error status
   - [ ] SQL-like syntax: "spans where type=llm_call and duration_ms > 5000"
   - [ ] Attribute filtering: model name, token count, error status
   - [ ] Aggregate queries: "traces with total_cost > $0.10"
@@ -116,7 +116,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Extract sequential span-type patterns (e.g. llm_call->tool_call->llm_call)
   - [ ] Rank patterns by frequency and cumulative cost
   - [ ] Highlight optimization opportunities for repeated expensive patterns
-- [ ] **Trace Density Heatmap** - Time-based visualization showing trace volume across hours and days
+- [x] **Trace Density Heatmap** - Time-based visualization showing trace volume across hours and days
   - [ ] Hour-of-day x day-of-week grid showing trace counts
   - [ ] Overlay cost or error rate on the heatmap
   - [ ] ASCII heatmap for terminal, HTML for reports
@@ -124,7 +124,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Record openai, anthropic, google-generativeai package versions at instrumentation time
   - [ ] Store as span attributes (evalyn.provider_sdk_version)
   - [ ] Surface version mismatches across traces in show-trace output
-- [ ] **Trace Anonymization Export** - Export traces with user content replaced by synthetic equivalents for sharing
+- [x] **Trace Anonymization Export** - Export traces with user content replaced by synthetic equivalents for sharing
   - [ ] Replace input/output text with length-preserving placeholder content
   - [ ] Preserve span structure, timing, token counts, and cost data
   - [ ] evalyn export-traces --anonymize for safe sharing and bug reports
@@ -201,7 +201,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn tag-trace --id <id> --tag "regression-candidate"
   - [ ] evalyn annotate-trace --id <id> --note "Root cause: stale prompt cache"
   - [ ] Tags and notes queryable in list-calls and build-dataset filters
-- [ ] **Trace Bookmarking** - Mark interesting traces for later review or inclusion in datasets
+- [x] **Trace Bookmarking** - Mark interesting traces for later review or inclusion in datasets
   - [ ] evalyn bookmark --id <id> --reason "edge case: empty input"
   - [ ] evalyn list-bookmarks showing all bookmarked traces
   - [ ] --bookmarked-only flag on build-dataset to create datasets from bookmarks
