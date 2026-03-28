@@ -1017,7 +1017,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Stratification by metadata keys (tag, source, difficulty)
   - [ ] Deterministic splitting with configurable random seed
   - [ ] Output as separate JSONL files in split/ subdirectory
-- [ ] **Dataset Statistics** - Auto-compute input/output length distributions, token counts, label balance
+- [x] **Dataset Statistics** - Auto-compute input/output length distributions, token counts, label balance
   - [ ] evalyn dataset-stats command
   - [ ] Input/output token count histograms
   - [ ] Metadata field value distributions
@@ -1057,7 +1057,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] --append flag on build-dataset
   - [ ] Track last-build timestamp to only process new traces
   - [ ] Deduplication against existing items using hash_inputs
-- [ ] **Dataset Health Check** - Validate dataset quality before evaluation
+- [x] **Dataset Health Check** - Validate dataset quality before evaluation
   - [ ] Reference coverage: % of items with ground truth (uses _dataset_has_reference logic)
   - [ ] Empty/null field detection in input, output, and metadata
   - [ ] Duplicate input detection via hash_inputs
@@ -2207,7 +2207,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Pearson/Spearman correlation matrix across all metrics
   - [ ] Flag pairs with r > 0.95 as candidates for pruning
   - [ ] Recommend minimal metric set preserving signal coverage
-- [ ] **Metric Dependencies** - Declare that metric B requires metric A to run first (dependency graph)
+- [x] **Metric Dependencies** - Declare that metric B requires metric A to run first (dependency graph)
   - [ ] Dependency declaration in MetricSpec
   - [ ] Topological sort of metrics before evaluation
   - [ ] Pass metric A results as context to metric B prompt
