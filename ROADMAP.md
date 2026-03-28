@@ -852,7 +852,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Cumulative cost chart across all runs
   - [ ] Cost-per-item and cost-per-metric averages
   - [ ] Budget forecast based on historical usage
-- [ ] **API Server Mode** - REST API for programmatic access
+- [x] **API Server Mode** - REST API for programmatic access
   - [ ] REST endpoints: /runs, /traces, /datasets, /metrics
   - [ ] Trigger eval runs via POST /runs with JSON config
   - [ ] WebSocket endpoint for real-time run progress
@@ -876,12 +876,12 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn purge --older-than 30d command
   - [ ] Exempt pinned/starred runs from auto-deletion
   - [ ] Dry-run mode showing what would be deleted
-- [ ] **Storage Migration** - Export/import data between different storage backends
+- [x] **Storage Migration** - Export/import data between different storage backends
   - [ ] evalyn export-db --format sqlite/json/parquet
   - [ ] evalyn import-db to load from another backend
   - [ ] Schema version validation on import
   - [ ] Incremental export: only new data since last export
-- [ ] **Encrypted Storage** - At-rest encryption for sensitive trace and evaluation data
+- [x] **Encrypted Storage** - At-rest encryption for sensitive trace and evaluation data
   - [ ] SQLCipher integration for encrypted SQLite
   - [ ] Key management via environment variable or keyring
   - [ ] Selective encryption: encrypt input/output payloads, keep metadata queryable
@@ -895,7 +895,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Plugin manifest with version compatibility declaration
   - [ ] evalyn list-plugins command
   - [ ] Plugin isolation: plugins cannot modify core behavior
-- [ ] **Webhook Notifications** - Trigger HTTP webhooks on eval completion, failure, or regression
+- [x] **Webhook Notifications** - Trigger HTTP webhooks on eval completion, failure, or regression
   - [ ] Configurable webhook URLs in evalyn.yaml
   - [ ] Event types: run_complete, regression_detected, annotation_needed
   - [ ] Payload includes run summary, metric scores, and delta from previous
