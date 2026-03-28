@@ -488,7 +488,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] --canary N flag to evaluate N items before committing to full run
   - [ ] Configurable abort threshold (default: 20% pass rate on canary)
   - [ ] Cost savings report: how much was saved by aborting early
-- [ ] **Evaluation Warm-Up** - Discard first K results to reduce cold-start score variance from judge LLM
+- [x] **Evaluation Warm-Up** - Discard first K results to reduce cold-start score variance from judge LLM
   - [ ] --warmup K flag discarding first K item scores
   - [ ] Re-evaluate warm-up items after LLM cache is primed
   - [ ] Measure score variance reduction from warm-up vs no warm-up
@@ -2283,7 +2283,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Estimate tokens from metric prompt template + average input/output sizes
   - [ ] evalyn list-metrics --show-tokens displaying per-metric token cost
   - [ ] Factor into cost estimation in dry-run mode
-- [ ] **Metric A/B Variant Testing** - Evaluate same items with two rubric variants of the same metric
+- [x] **Metric A/B Variant Testing** - Evaluate same items with two rubric variants of the same metric
   - [ ] Define variant rubrics in evalyn.yaml: helpfulness_v1 vs helpfulness_v2
   - [ ] Run both variants in a single eval, compare scores and agreement
   - [ ] Select the variant with better alignment to human annotations
