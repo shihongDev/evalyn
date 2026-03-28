@@ -255,7 +255,7 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Onboarding & Templates
 
-- [ ] **Quickstart Templates** - Framework-specific guided templates beyond generic quickstart
+- [x] **Quickstart Templates** - Framework-specific guided templates beyond generic quickstart
   - [ ] evalyn quickstart --template rag for RAG pipeline setup
   - [ ] evalyn quickstart --template chatbot for conversational agent setup
   - [ ] evalyn quickstart --template multi-agent for multi-agent orchestration
@@ -1264,7 +1264,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Detect which factor changed between compared runs (dataset hash, source hash, prompt hash)
   - [ ] Attribute score deltas to the changed factor
   - [ ] "Pass rate dropped 15%, likely due to dataset change (12 new items added)"
-- [ ] **Analysis Comparison Template** - Configurable comparison layouts for different audiences
+- [x] **Analysis Comparison Template** - Configurable comparison layouts for different audiences
   - [ ] Executive template: overall pass rate, top regressions, cost summary
   - [ ] Engineering template: per-metric details, failed item list, prompt diffs
   - [ ] --template flag on compare command
@@ -1287,11 +1287,11 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Interoperability
 
-- [ ] **Phoenix/Langfuse Trace Export** - Native export to popular LLM observability platforms
+- [x] **Phoenix/Langfuse Trace Export** - Native export to popular LLM observability platforms
   - [ ] evalyn export-traces --format phoenix to produce Phoenix-compatible JSONL
   - [ ] evalyn export-traces --format langfuse for Langfuse import format
   - [ ] Preserve span hierarchy and OpenInference attributes in export
-- [ ] **Trace Import from External Platforms** - Bring existing traces into evalyn for evaluation
+- [x] **Trace Import from External Platforms** - Bring existing traces into evalyn for evaluation
   - [ ] evalyn import-traces --format phoenix/langfuse/otel
   - [ ] Map external span types to Evalyn span types via conventions.py
   - [ ] Deduplicate against existing traces by span ID
