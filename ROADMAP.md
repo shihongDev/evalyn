@@ -2251,11 +2251,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] User-defined variables in evalyn.yaml: template_vars: {domain: "healthcare", persona: "clinician"}
   - [ ] Variable interpolation in judge prompts: "Evaluate from the perspective of a {{persona}}"
   - [ ] Per-dataset variable overrides in meta.json
-- [ ] **Metric Registry Freeze** - Lock the metric set for a project to prevent accidental changes
+- [x] **Metric Registry Freeze** - Lock the metric set for a project to prevent accidental changes
   - [ ] evalyn freeze-metrics --project <name> locking current metrics.json
   - [ ] Warn when attempting to modify frozen metric set
   - [ ] evalyn unfreeze-metrics to unlock for intentional changes
-- [ ] **Metric Output Post-Processing** - Pluggable post-processors on raw judge output before scoring
+- [x] **Metric Output Post-Processing** - Pluggable post-processors on raw judge output before scoring
   - [ ] Post-processor chain in evalyn.yaml per metric (e.g. normalize, clamp, round)
   - [ ] Built-in processors: score_clamp(0,1), binary_threshold(0.5), invert_score
   - [ ] Custom Python post-processor functions via entry points
