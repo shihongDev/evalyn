@@ -1359,7 +1359,7 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Programmatic SDK
 
-- [ ] **Python API for Running Evaluations** - Run evaluations from Python code without CLI
+- [x] **Python API for Running Evaluations** - Run evaluations from Python code without CLI
   - [ ] evalyn.run(dataset, metrics, provider) returning EvalRun object
   - [ ] evalyn.analyze(run) returning RunAnalysis directly
   - [ ] evalyn.compare(run_a, run_b) returning comparison dict
@@ -1503,7 +1503,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Dataset-level tags: PII-present, internal-only, customer-data, synthetic
   - [ ] Eval run compliance flag: was evaluation run on approved infrastructure?
   - [ ] Exportable governance report for compliance audits
-- [ ] **Structured Logging** - JSON-formatted logs with configurable verbosity
+- [x] **Structured Logging** - JSON-formatted logs with configurable verbosity
   - [ ] --log-level flag (debug, info, warning, error) on all commands
   - [ ] JSON log format for machine parsing in production environments
   - [ ] Log file output: --log-file evalyn.log
