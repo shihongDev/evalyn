@@ -58,7 +58,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Per-run budget limit as --max-cost flag
   - [ ] Warning at 80% threshold, hard stop at 100%
   - [ ] Budget tracking across multiple eval runs in a session
-- [ ] **Trace Diff** - Side-by-side comparison of two traces showing divergent spans
+- [x] **Trace Diff** - Side-by-side comparison of two traces showing divergent spans
   - [ ] Align spans by name/type and highlight added/removed/changed spans
   - [ ] Show output text diff for matching spans
   - [ ] Cost and latency delta per span
@@ -68,12 +68,12 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Attribute filtering: model name, token count, error status
   - [ ] Aggregate queries: "traces with total_cost > $0.10"
   - [ ] Integration with list-calls command via --query flag
-- [ ] **PII Redaction** - Scrub sensitive data from inputs/outputs before storage
+- [x] **PII Redaction** - Scrub sensitive data from inputs/outputs before storage
   - [ ] Regex-based patterns for emails, phone numbers, SSNs, credit cards
   - [ ] Named entity recognition for names and addresses
   - [ ] Configurable redaction strategy: mask, hash, or remove
   - [ ] Pre-storage hook in SQLiteSpanExporter and SQLiteStorage
-- [ ] **Trace Sampling Rate** - Capture only N% of traces in production to reduce storage overhead
+- [x] **Trace Sampling Rate** - Capture only N% of traces in production to reduce storage overhead
   - [ ] Configurable sample rate in evalyn.yaml (0.0 to 1.0)
   - [ ] Priority-based sampling: always capture errors and slow traces
   - [ ] Per-project sampling rate override
@@ -81,7 +81,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] W3C Trace Context (traceparent/tracestate) header injection
   - [ ] HTTP client instrumentation to propagate headers on outbound calls
   - [ ] Incoming header extraction to attach child spans to external parent
-- [ ] **Trace Size Limits** - Cap span payload size with configurable truncation for large inputs/outputs
+- [x] **Trace Size Limits** - Cap span payload size with configurable truncation for large inputs/outputs
   - [ ] Max input/output size in bytes with tail truncation
   - [ ] Configurable per span type (larger limit for llm_call, smaller for tool_call)
   - [ ] Truncation marker in span metadata when content is clipped
