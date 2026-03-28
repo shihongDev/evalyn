@@ -1220,7 +1220,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Compute marginal gain: if metric M improved by 10%, how much does overall pass rate increase
   - [ ] Factor in metric weight from weighting profiles
   - [ ] Actionable ranking in insights output: "Fix metric X first for maximum impact"
-- [ ] **Score Distribution Normality Testing** - Verify if metric scores follow expected distributions
+- [x] **Score Distribution Normality Testing** - Verify if metric scores follow expected distributions
   - [ ] Shapiro-Wilk test per metric score distribution
   - [ ] Flag metrics with non-normal distributions (bimodal, heavy-tailed)
   - [ ] Recommend appropriate statistical tests based on distribution shape
@@ -1228,11 +1228,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Run same eval N times and compute per-metric coefficient of variation
   - [ ] Flag metrics with high variance as unreliable
   - [ ] Recommend increasing samples or switching judge model for unstable metrics
-- [ ] **Metric Contribution Analysis** - SHAP-style attribution of each metric's contribution to overall pass/fail
+- [x] **Metric Contribution Analysis** - SHAP-style attribution of each metric's contribution to overall pass/fail
   - [ ] Compute marginal contribution of each metric to overall item pass rate
   - [ ] Identify metrics that are decisive (flip overall pass/fail) vs redundant
   - [ ] Visualization: waterfall chart showing per-metric contribution
-- [ ] **Worst-Case Item Identification** - Surface items that fail across the most metrics simultaneously
+- [x] **Worst-Case Item Identification** - Surface items that fail across the most metrics simultaneously
   - [ ] Rank items by number of failed metrics (cross-metric failure count)
   - [ ] Highlight items that are "universally bad" vs "edge case failures"
   - [ ] Useful for prioritizing which agent behaviors to fix first
@@ -1240,7 +1240,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Per-item pass/fail history across consecutive runs
   - [ ] Average time-to-fix per metric and per failure category
   - [ ] Identify persistently failing items that resist fixes
-- [ ] **Analysis Report Diff** - Diff two RunAnalysis outputs showing what changed
+- [x] **Analysis Report Diff** - Diff two RunAnalysis outputs showing what changed
   - [ ] evalyn analysis-diff --run1 <id> --run2 <id>
   - [ ] Delta per metric: pass rate change, score mean change, new/resolved failures
   - [ ] ASCII table with color-coded improvements/regressions
