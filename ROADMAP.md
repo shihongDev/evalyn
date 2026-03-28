@@ -540,7 +540,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn show-run --id <id> works on actively running evaluations via checkpoint data
   - [ ] Live pass rate estimate from completed items
   - [ ] Useful for monitoring long-running evaluations without waiting for completion
-- [ ] **Evaluation Comparison Auto-Trigger** - Automatically compare against pinned baseline after each run
+- [x] **Evaluation Comparison Auto-Trigger** - Automatically compare against pinned baseline after each run
   - [ ] When a baseline run is pinned, run-eval auto-runs compare at the end
   - [ ] Regression summary appended to run-eval output
   - [ ] --no-auto-compare flag to disable
@@ -1373,7 +1373,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] with evalyn.span("name", "type") as s: for explicit span boundaries
   - [ ] Automatic parent-child linking via context propagation
   - [ ] Span attribute setting: s.set_attribute("key", "value")
-- [ ] **Embedding as Library** - Use evalyn as imported library in test suites
+- [x] **Embedding as Library** - Use evalyn as imported library in test suites
   - [ ] pytest plugin: @pytest.mark.evalyn(metrics=["helpfulness"])
   - [ ] Assert on metric scores: assert result.metrics["helpfulness"].passed
   - [ ] Integration with pytest-xdist for parallel testing
