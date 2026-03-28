@@ -1080,15 +1080,15 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Parse common log formats (JSON, Apache, nginx) into DatasetItem input/output
   - [ ] evalyn import-logs --format json --input-field request --output-field response
   - [ ] Auto-deduplicate against existing traces in storage
-- [ ] **Dataset Snapshot Comparison** - Compare two dataset versions showing item-level content diffs
+- [x] **Dataset Snapshot Comparison** - Compare two dataset versions showing item-level content diffs
   - [ ] Side-by-side text diff for modified items (input or output changed)
   - [ ] Summary: items added, removed, modified, unchanged
   - [ ] evalyn dataset-snapshot-diff --before <v1> --after <v2>
-- [ ] **Dataset Complexity Scoring** - Auto-compute per-item difficulty from input features
+- [x] **Dataset Complexity Scoring** - Auto-compute per-item difficulty from input features
   - [ ] Heuristics: input length, vocabulary diversity, question complexity indicators
   - [ ] Store complexity_score in item metadata for filtering and stratification
   - [ ] evalyn dataset-stats --complexity showing difficulty distribution
-- [ ] **Dataset Bias Auditing** - Detect systematic biases in input distribution
+- [x] **Dataset Bias Auditing** - Detect systematic biases in input distribution
   - [ ] Topic distribution analysis via LLM classification
   - [ ] Length and vocabulary skew detection
   - [ ] evalyn dataset-audit producing bias report with recommendations
@@ -1096,7 +1096,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Analyze current dataset coverage against metric requirements
   - [ ] Suggest input types, edge cases, and scenarios not yet represented
   - [ ] evalyn dataset-suggest --dataset <path> producing curation plan
-- [ ] **Dataset A/B Split Generator** - Create matched pairs for controlled model comparison
+- [x] **Dataset A/B Split Generator** - Create matched pairs for controlled model comparison
   - [ ] Stratified pairing by complexity, topic, and metadata fields
   - [ ] Ensure balanced splits for statistical validity
   - [ ] evalyn dataset-ab-split --dataset <path> producing split_a.jsonl and split_b.jsonl
