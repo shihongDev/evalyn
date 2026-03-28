@@ -479,7 +479,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Semaphore-based concurrency control (replaces ThreadPoolExecutor)
   - [ ] Compatible with async LLM client libraries (httpx, aiohttp)
   - [ ] --strategy flag: sequential, parallel, async
-- [ ] **Distributed Evaluation** - Fan out metric evaluation across multiple machines via task queue
+- [x] **Distributed Evaluation** - Fan out metric evaluation across multiple machines via task queue
   - [ ] Redis/RabbitMQ task queue for distributing metric evaluations
   - [ ] Worker process that pulls and evaluates metric tasks
   - [ ] Centralized result collection and checkpoint merging
@@ -747,11 +747,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Visual quality assessment
   - [ ] OCR accuracy for generated images
   - [ ] Style consistency
-- [ ] **Audio Evaluation Metrics**
+- [x] **Audio Evaluation Metrics**
   - [ ] Speech clarity
   - [ ] Transcription accuracy (WER)
   - [ ] Prosody and tone
-- [ ] **Video Evaluation Metrics**
+- [x] **Video Evaluation Metrics**
   - [ ] Frame consistency
   - [ ] Temporal coherence
   - [ ] Action recognition accuracy
@@ -831,7 +831,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Eval run comparison view with metric charts
   - [ ] Real-time run progress monitoring
   - [ ] Lightweight server (Flask/FastAPI) bundled with evalyn
-- [ ] **CI/CD Integration** - GitHub Actions for automated testing and evaluation on PR
+- [x] **CI/CD Integration** - GitHub Actions for automated testing and evaluation on PR
   - [ ] GitHub Action YAML template for evalyn run-eval
   - [ ] PR comment bot posting eval results as markdown table
   - [ ] Regression gate: fail CI if metrics drop below threshold
