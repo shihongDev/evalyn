@@ -985,7 +985,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn storage-export --anonymous replacing PII-like content with placeholders
   - [ ] Preserve data structure, metadata, and statistics while removing content
   - [ ] Useful for sharing databases for debugging without exposing user data
-- [ ] **Denormalized Storage Optimization** - Flatten trace hierarchy for query performance
+- [x] **Denormalized Storage Optimization** - Flatten trace hierarchy for query performance
   - [ ] Langfuse found 10x dashboard speedup by denormalizing trace attributes onto span rows
   - [ ] Store trace-level metadata (project, session_id, user_id) on every span row
   - [ ] Eliminate JOIN overhead for common query patterns (list spans with trace context)
@@ -1132,18 +1132,18 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn dataset-search --query "user asks about refund policy" finding nearest items
   - [ ] Uses pre-built embedding index (from Dataset Embedding Index feature)
   - [ ] Return top-K matches with similarity scores
-- [ ] **Dataset Format Autodetect** - Auto-detect and load from multiple formats without explicit --format flag
+- [x] **Dataset Format Autodetect** - Auto-detect and load from multiple formats without explicit --format flag
   - [ ] Detect JSONL, JSON array, CSV, and TSV from file content and extension
   - [ ] Auto-map columns to input/output/metadata fields using heuristics
   - [ ] Warn when auto-detection is ambiguous and suggest explicit format
-- [ ] **Dataset Metadata Schema Enforcement** - Validate item metadata against a defined schema
+- [x] **Dataset Metadata Schema Enforcement** - Validate item metadata against a defined schema
   - [ ] Schema definition in meta.json: required_fields, field_types, allowed_values
   - [ ] Validation on build-dataset and import, rejecting non-conforming items
   - [ ] evalyn dataset-validate --schema showing validation results
 
 ### Reporting & Analytics
 
-- [ ] **Custom Report Templates** - User-defined HTML report layouts
+- [x] **Custom Report Templates** - User-defined HTML report layouts
   - [ ] Jinja2 template engine for HTML report customization
   - [ ] Template variables: run data, analysis, insights, charts
   - [ ] Built-in templates: executive summary, technical deep-dive, compliance
