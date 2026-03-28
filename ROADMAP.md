@@ -107,7 +107,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Transparent decompression on read in SQLiteStorage
   - [ ] Compression ratio reporting in storage-stats command
   - [ ] Configurable compression level and minimum payload size for compression
-- [ ] **Span Dependency Graph** - Auto-detect causal data flow between spans within a trace
+- [x] **Span Dependency Graph** - Auto-detect causal data flow between spans within a trace
   - [ ] Detect when output of span A appears as input to span B (content overlap heuristic)
   - [ ] Build directed dependency graph from data flow analysis
   - [ ] Visualize as Mermaid or ASCII DAG in show-trace
@@ -149,7 +149,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn mark-event --type deploy --label "v2.1 rollout" recording event timestamp
   - [ ] Overlay events on trend charts to correlate metric changes with deploys
   - [ ] Query traces around an event: evalyn list-calls --around-event <event-id>
-- [ ] **Trace Complexity Score** - Single numeric score summarizing trace complexity for quick triage
+- [x] **Trace Complexity Score** - Single numeric score summarizing trace complexity for quick triage
   - [ ] Weighted combination of span depth, breadth, total span count, and tool call count
   - [ ] Score stored in FunctionCall metadata for filtering in list-calls --sort complexity
   - [ ] Threshold alerts: flag traces exceeding expected complexity for the project
