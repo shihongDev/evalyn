@@ -77,7 +77,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Configurable sample rate in evalyn.yaml (0.0 to 1.0)
   - [ ] Priority-based sampling: always capture errors and slow traces
   - [ ] Per-project sampling rate override
-- [ ] **Distributed Trace Propagation** - Pass trace context across service boundaries via HTTP headers
+- [x] **Distributed Trace Propagation** - Pass trace context across service boundaries via HTTP headers
   - [ ] W3C Trace Context (traceparent/tracestate) header injection
   - [ ] HTTP client instrumentation to propagate headers on outbound calls
   - [ ] Incoming header extraction to attach child spans to external parent
@@ -93,12 +93,12 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] API: tag_current_span(key, value) callable inside traced functions
   - [ ] Tags stored in span metadata and queryable via list-calls
   - [ ] Standard tags: environment, user_id, experiment_id, variant
-- [ ] **Native Embedding and Reranker Span Types** - First-class span types for embedding and reranking operations
+- [x] **Native Embedding and Reranker Span Types** - First-class span types for embedding and reranking operations
   - [ ] "embedding" span type capturing model name, input text, vector dimensions
   - [ ] "reranker" span type capturing query, documents, and re-ranked scores
   - [ ] "guardrail" span type capturing check name, pass/fail, and blocked content
   - [ ] Update SPAN_KIND_TO_TYPE mapping in conventions.py (currently mapped to "custom")
-- [ ] **Span Attribute Extraction Plugins** - Pluggable attribute extractors for SpanConverter
+- [x] **Span Attribute Extraction Plugins** - Pluggable attribute extractors for SpanConverter
   - [ ] Plugin interface for extracting custom attributes from OTEL spans
   - [ ] Provider-specific extractors (e.g. extract function_call from OpenAI tool use spans)
   - [ ] Configurable truncation limits per attribute (currently hardcoded 1000 chars)
@@ -232,7 +232,7 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Instrumentation & Decorator Enhancements
 
-- [ ] **Selective Instrumentation** - Only instrument specific methods or classes, not entire SDK
+- [x] **Selective Instrumentation** - Only instrument specific methods or classes, not entire SDK
   - [ ] Allowlist/blocklist of method names to instrument per provider
   - [ ] Config in evalyn.yaml: instrument.openai.methods: ["chat.completions.create"]
   - [ ] Reduce overhead by skipping low-value calls (e.g. embeddings, moderation)
