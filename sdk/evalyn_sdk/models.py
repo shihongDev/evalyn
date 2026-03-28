@@ -766,6 +766,7 @@ class EvalRun:
     # Run management
     name: Optional[str] = None
     pinned: bool = False
+    tags: List[str] = field(default_factory=list)
 
     def as_dict(self) -> Dict[str, Any]:
         d = {
@@ -782,7 +783,13 @@ class EvalRun:
             d["name"] = self.name
         if self.pinned:
             d["pinned"] = self.pinned
+        if self.tags:
+            d["tags"] = list(self.tags)
         return d
+
+    def has_tag(self, tag: str) -> bool:
+        """Check if this run has a specific tag."""
+        return tag in self.tags
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "EvalRun":
@@ -799,6 +806,7 @@ class EvalRun:
             usage_summary=data.get("usage_summary", {}),
             name=data.get("name"),
             pinned=data.get("pinned", False),
+            tags=data.get("tags", []),
         )
 
 
