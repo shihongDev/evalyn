@@ -610,7 +610,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Disagreement sampling: prioritize items where judge and heuristics disagree
   - [ ] Diversity sampling: ensure coverage of input space
   - [ ] Batch-mode active learning with configurable batch size
-- [ ] **Transfer Calibration** - Apply calibration learned on one metric to similar metrics
+- [x] **Transfer Calibration** - Apply calibration learned on one metric to similar metrics
   - [ ] Metric similarity detection based on rubric text embedding
   - [ ] Shared preamble transfer with metric-specific rubric
   - [ ] Transfer effectiveness validation on held-out samples
@@ -622,11 +622,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Run same calibration set across providers (Gemini, OpenAI, Ollama)
   - [ ] Provider-specific preamble adjustments
   - [ ] Cross-provider agreement metrics
-- [ ] **Calibration A/B Testing** - Compare calibrated vs uncalibrated prompts on the same dataset
+- [x] **Calibration A/B Testing** - Compare calibrated vs uncalibrated prompts on the same dataset
   - [ ] Side-by-side evaluation run with original and calibrated prompts
   - [ ] Per-item comparison showing score changes
   - [ ] Statistical significance test for improvement
-- [ ] **Calibration Rollback** - Revert to a previous calibration if the new one degrades alignment
+- [x] **Calibration Rollback** - Revert to a previous calibration if the new one degrades alignment
   - [ ] Calibration history stored in CalibrationRecord
   - [ ] --rollback flag on calibrate command
   - [ ] Automatic rollback suggestion when validation metrics drop
@@ -642,7 +642,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Sort calibration examples by judge confidence (easy = high confidence)
   - [ ] Progressive expansion: start with top-50% easiest, add harder items
   - [ ] Early stopping if optimizer plateaus before reaching hard examples
-- [ ] **Calibration Convergence Visualization** - Plot alignment score vs optimization step to diagnose optimizer behavior
+- [x] **Calibration Convergence Visualization** - Plot alignment score vs optimization step to diagnose optimizer behavior
   - [ ] Record per-step alignment scores during optimization
   - [ ] Detect plateau, oscillation, and divergence patterns
   - [ ] ASCII convergence chart in terminal, SVG in HTML reports
