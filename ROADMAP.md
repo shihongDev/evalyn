@@ -260,14 +260,14 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn quickstart --template chatbot for conversational agent setup
   - [ ] evalyn quickstart --template multi-agent for multi-agent orchestration
   - [ ] Each template pre-selects relevant metric bundles
-- [ ] **Interactive Tutorial Mode** - Step-by-step in-terminal tutorial for learning evalyn
-  - [ ] evalyn tutorial that walks through trace/build/eval/analyze cycle
-  - [ ] Bundled sample traces so tutorial works without API keys
-  - [ ] Progressive disclosure: each step explains what happened and why
-- [ ] **Example Agent Gallery** - Bundled working example agents for each supported framework
-  - [ ] example_agents/ directory with one example per framework
-  - [ ] Each example includes: agent code, pre-built dataset, expected results
-  - [ ] evalyn example --framework openai to scaffold from template
+- [x] **Interactive Tutorial Mode** - Step-by-step in-terminal tutorial for learning evalyn
+  - [x] evalyn tutorial that walks through trace/build/eval/analyze cycle
+  - [x] Bundled sample traces so tutorial works without API keys
+  - [x] Progressive disclosure: each step explains what happened and why
+- [x] **Example Agent Gallery** - Bundled working example agents for each supported framework
+  - [x] example_agents/ directory with one example per framework
+  - [x] Each example includes: agent code, pre-built dataset, expected results
+  - [x] evalyn example --framework openai to scaffold from template
 
 ### Config & Project Management
 
@@ -1460,10 +1460,10 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Rubric Engineering
 
-- [ ] **Multi-Language Rubrics** - Judge prompts and rubrics in languages other than English
-  - [ ] Rubric translation support in JUDGE_TEMPLATES (locale field per template)
-  - [ ] Language-matched judging: use rubric language matching the output language
-  - [ ] Cross-language evaluation: judge non-English outputs with English rubrics vs native rubrics
+- [x] **Multi-Language Rubrics** - Judge prompts and rubrics in languages other than English
+  - [x] Rubric translation support in JUDGE_TEMPLATES (locale field per template)
+  - [x] Language-matched judging: use rubric language matching the output language
+  - [x] Cross-language evaluation: judge non-English outputs with English rubrics vs native rubrics
 - [ ] **Community Rubric Library** - Import and export rubrics from a shared repository
   - [ ] evalyn rubric-export --metric <id> producing a portable YAML rubric file
   - [ ] evalyn rubric-import from URL or local file
@@ -1472,11 +1472,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] evalyn test-rubric --metric <id> running rubric against a set of known pass/fail items
   - [x] Consistency score: same rubric, same item, N runs, measure agreement
   - [x] Edge case detection: find items where rubric is ambiguous (close to threshold)
-- [ ] **Domain-Specific Rubric Packs** - Downloadable rubric sets for specialized domains
-  - [ ] Medical: HIPAA compliance, clinical accuracy, patient safety, drug interaction checks
-  - [ ] Legal: jurisdictional accuracy, precedent citation, privilege preservation
-  - [ ] Finance: SEC compliance, fiduciary duty, risk disclosure completeness
-  - [ ] evalyn install-rubric-pack medical
+- [x] **Domain-Specific Rubric Packs** - Downloadable rubric sets for specialized domains
+  - [x] Medical: HIPAA compliance, clinical accuracy, patient safety, drug interaction checks
+  - [x] Legal: jurisdictional accuracy, precedent citation, privilege preservation
+  - [x] Finance: SEC compliance, fiduciary duty, risk disclosure completeness
+  - [x] evalyn install-rubric-pack medical
 
 ### Dashboard Interactivity
 
