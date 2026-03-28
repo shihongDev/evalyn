@@ -512,7 +512,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Confidence threshold below which items are queued for human review
   - [ ] Interactive prompt during eval for human labels on flagged items
   - [ ] Merge human and judge scores in final EvalRun results
-- [ ] **Evaluation Result Changelog** - LLM-generated summary of differences between two runs
+- [x] **Evaluation Result Changelog** - LLM-generated summary of differences between two runs
   - [ ] Natural language description: "3 items regressed on helpfulness, all related to multi-step queries"
   - [ ] evalyn changelog --run1 <id> --run2 <id> producing human-readable diff
   - [ ] Highlight most impactful changes
@@ -2259,7 +2259,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Post-processor chain in evalyn.yaml per metric (e.g. normalize, clamp, round)
   - [ ] Built-in processors: score_clamp(0,1), binary_threshold(0.5), invert_score
   - [ ] Custom Python post-processor functions via entry points
-- [ ] **Metric Deprecation Lifecycle** - Formal deprecation with migration path and sunset date
+- [x] **Metric Deprecation Lifecycle** - Formal deprecation with migration path and sunset date
   - [ ] Deprecation metadata on MetricSpec: deprecated_since, replacement, sunset_date
   - [ ] Warning when using deprecated metrics in run-eval
   - [ ] evalyn list-metrics --deprecated showing deprecated metrics with migration hints
