@@ -965,7 +965,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] EVALYN_DB_READONLY=1 env var opening database in read-only mode
   - [ ] Useful when sharing databases or running analysis on production data
   - [ ] Clear error message when write is attempted in read-only mode
-- [ ] **Storage Multi-DB Queries** - Query across prod and test databases simultaneously
+- [x] **Storage Multi-DB Queries** - Query across prod and test databases simultaneously
   - [ ] evalyn list-calls --db all searching both prod.sqlite and test.sqlite
   - [ ] Cross-database comparison: production traces vs test traces
   - [ ] ATTACH DATABASE under the hood with transparent result merging
@@ -973,7 +973,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn storage-wal showing WAL file size, checkpoint status
   - [ ] Warning when WAL exceeds configurable size threshold
   - [ ] Auto-checkpoint recommendation based on write patterns
-- [ ] **Storage Auto-Vacuum Scheduling** - Schedule automatic vacuum based on database growth
+- [x] **Storage Auto-Vacuum Scheduling** - Schedule automatic vacuum based on database growth
   - [ ] auto_vacuum_threshold setting in evalyn.yaml (e.g. 500MB)
   - [ ] Run VACUUM automatically when DB crosses threshold during write operations
   - [ ] Log vacuum events with space reclaimed
@@ -1120,11 +1120,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Auto-cluster items by embedding similarity into K groups
   - [ ] LLM-generated label per cluster describing what the items have in common
   - [ ] evalyn dataset-clusters --k 5 showing cluster summary with example items
-- [ ] **Dataset Changelog** - Automatic log of all build-dataset operations and parameters
+- [x] **Dataset Changelog** - Automatic log of all build-dataset operations and parameters
   - [ ] Append entry to data/changelog.jsonl on each build-dataset invocation
   - [ ] Record: timestamp, filters used, item count, sampling mode, hash
   - [ ] evalyn dataset-changelog showing chronological build history
-- [ ] **Dataset Cross-Contamination Check** - Verify no item leakage between train/test/calibration splits
+- [x] **Dataset Cross-Contamination Check** - Verify no item leakage between train/test/calibration splits
   - [ ] Hash-based check that no item appears in both train and test splits
   - [ ] Embedding-based check for near-duplicate items across splits
   - [ ] evalyn dataset-xcontam --train <path1> --test <path2> reporting contamination
