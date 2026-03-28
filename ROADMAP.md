@@ -377,11 +377,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Scrape/fetch pricing from OpenAI, Anthropic, Google pricing pages
   - [ ] evalyn update-pricing command to refresh COST_PER_1M_TOKENS in _shared.py
   - [ ] Warn when using a model not in the pricing table
-- [ ] **Prompt Cache Savings Report** - Show how much prompt caching saved per run
+- [x] **Prompt Cache Savings Report** - Show how much prompt caching saved per run
   - [ ] Aggregate cache_creation_tokens and cache_read_tokens from spans
   - [ ] Calculate: actual cost vs hypothetical cost without caching
   - [ ] Recommend caching strategy based on prompt repetition patterns
-- [ ] **Context Window Utilization Alerts** - Warn when spans approach context limits
+- [x] **Context Window Utilization Alerts** - Warn when spans approach context limits
   - [ ] Alert when context_utilization_pct exceeds configurable threshold (default 80%)
   - [ ] Per-run summary: max utilization, mean utilization, models hitting limits
   - [ ] Suggest model upgrade when context is consistently near capacity
@@ -430,7 +430,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Side-by-side LLM judge comparison
   - [ ] Elo rating system for models
   - [ ] Win/loss/tie statistics
-- [ ] **Reference-Free Evaluation** - Metrics that don't need ground truth
+- [x] **Reference-Free Evaluation** - Metrics that don't need ground truth
   - [x] Self-consistency checking (via --confidence consistency)
   - [x] Uncertainty quantification (via confidence module)
 - [x] **Evaluation Budget Control** - Stop early if token or cost budget is exceeded mid-run
@@ -600,7 +600,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Diversity-based selection: cover different failure modes
   - [ ] Leave-one-out evaluation to measure example contribution
   - [ ] Dynamic example count optimization (find optimal k)
-- [ ] **Judge Ensemble** - Combine multiple judges for robust evaluation
+- [x] **Judge Ensemble** - Combine multiple judges for robust evaluation
   - [ ] Majority vote across N judges (same or different models)
   - [ ] Weighted ensemble based on per-judge calibration accuracy
   - [ ] Disagreement flagging: items where judges disagree go to human review
