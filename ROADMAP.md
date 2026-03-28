@@ -695,19 +695,19 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Show before/after prompt diff and alignment metrics change
   - [ ] Interactive confirm/reject/edit before writing CalibrationRecord
   - [ ] --auto-accept flag to skip validation in CI
-- [ ] **Calibration Memory** - Remember what approaches failed in past calibration runs
+- [x] **Calibration Memory** - Remember what approaches failed in past calibration runs
   - [ ] Store failed prompt variants and their alignment scores
   - [ ] Optimizer avoids re-exploring previously failed regions of prompt space
   - [ ] Accumulated across calibration runs for the same metric
-- [ ] **Calibration Scope Control** - Calibrate only for specific item subsets
+- [x] **Calibration Scope Control** - Calibrate only for specific item subsets
   - [ ] --scope flag: calibrate for long inputs only, or specific metadata values
   - [ ] Scope-specific preambles stored separately in CalibrationRecord
   - [ ] Apply scope-matched calibration at eval time based on item characteristics
-- [ ] **Calibration Time Budget** - Stop optimization after N minutes regardless of convergence
+- [x] **Calibration Time Budget** - Stop optimization after N minutes regardless of convergence
   - [ ] --max-time flag on calibrate command (e.g. --max-time 10m)
   - [ ] Return best prompt found within time budget
   - [ ] Report whether optimizer converged or was time-limited
-- [ ] **Calibration Alignment Curve** - Plot alignment vs annotation count to find diminishing returns
+- [x] **Calibration Alignment Curve** - Plot alignment vs annotation count to find diminishing returns
   - [ ] Re-calibrate with increasing annotation subsets (10%, 25%, 50%, 75%, 100%)
   - [ ] Plot alignment improvement vs annotation count
   - [ ] Recommend minimum annotation count for acceptable calibration quality
