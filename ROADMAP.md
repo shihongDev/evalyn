@@ -1032,7 +1032,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] CSV import with column mapping config
   - [ ] LMSYS Arena format (conversation pairs with human preference)
   - [ ] Auto-detect format from file extension and content
-- [ ] **Schema Evolution** - Handle format changes across dataset versions with automatic migration
+- [x] **Schema Evolution** - Handle format changes across dataset versions with automatic migration
   - [ ] Version field in dataset header line
   - [ ] Automatic migration on load (old format to current)
   - [ ] Migration log showing which transformations were applied
@@ -1062,17 +1062,17 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Empty/null field detection in input, output, and metadata
   - [ ] Duplicate input detection via hash_inputs
   - [ ] evalyn dataset-health command with pass/warn/fail summary
-- [ ] **Dataset Decontamination** - Detect items that overlap with known LLM benchmark/training data
+- [x] **Dataset Decontamination** - Detect items that overlap with known LLM benchmark/training data
   - [ ] N-gram overlap check against common benchmarks (MMLU, HumanEval, GSM8K)
   - [ ] Configurable contamination threshold (default: 13-gram exact match)
   - [ ] evalyn dataset-decontaminate --report showing contaminated items
   - [ ] Auto-exclude contaminated items from evaluation datasets
-- [ ] **Dataset Drift Detection** - Statistical tests comparing input distributions between dataset versions
+- [x] **Dataset Drift Detection** - Statistical tests comparing input distributions between dataset versions
   - [ ] Kolmogorov-Smirnov test on input length, token count distributions
   - [ ] Chi-square test on categorical metadata field distributions
   - [ ] Embedding centroid shift measurement between versions
   - [ ] evalyn dataset-drift --v1 <path1> --v2 <path2> with drift severity score
-- [ ] **Dataset Annotation Coverage Map** - Visualize which items have annotations and which need them
+- [x] **Dataset Annotation Coverage Map** - Visualize which items have annotations and which need them
   - [ ] Per-metric coverage percentage across dataset items
   - [ ] ASCII heatmap: items on Y-axis, metrics on X-axis, filled/empty cells
   - [ ] Prioritize unannotated items in items with lowest judge confidence
