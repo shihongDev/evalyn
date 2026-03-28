@@ -492,7 +492,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] --warmup K flag discarding first K item scores
   - [ ] Re-evaluate warm-up items after LLM cache is primed
   - [ ] Measure score variance reduction from warm-up vs no warm-up
-- [ ] **Multi-Language Auto-Detection** - Detect output language and apply language-appropriate metric rubrics automatically
+- [x] **Multi-Language Auto-Detection** - Detect output language and apply language-appropriate metric rubrics automatically
   - [ ] Language detection via character set and n-gram analysis (no external API)
   - [ ] Route to language-matched rubric variant when available
   - [ ] Report language distribution across dataset items
@@ -516,7 +516,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Natural language description: "3 items regressed on helpfulness, all related to multi-step queries"
   - [ ] evalyn changelog --run1 <id> --run2 <id> producing human-readable diff
   - [ ] Highlight most impactful changes
-- [ ] **Metric Execution Priority Queue** - Run most-likely-to-fail metrics first for faster feedback
+- [x] **Metric Execution Priority Queue** - Run most-likely-to-fail metrics first for faster feedback
   - [ ] Priority based on historical failure rate per metric
   - [ ] Surface failing metrics early in progress output
   - [ ] Combine with abort conditions for fast-fail workflows
