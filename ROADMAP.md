@@ -466,7 +466,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Metric dependency declaration: "run helpfulness only if json_valid passes"
   - [ ] Gate conditions: pass/fail, score threshold, or custom predicate
   - [ ] Skip tracking: report which items had metrics skipped and why
-- [ ] **Evaluation Profiles** - Named configs (fast/thorough/cost-optimized) bundling workers, providers, and metric sets
+- [x] **Evaluation Profiles** - Named configs (fast/thorough/cost-optimized) bundling workers, providers, and metric sets
   - [ ] Profile definitions in evalyn.yaml (fast: 8 workers, objective only; thorough: all metrics, 2 workers)
   - [ ] --profile flag on run-eval
   - [ ] Built-in profiles: smoke-test, standard, comprehensive
@@ -1012,7 +1012,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Lock golden set items from modification
   - [ ] Track golden set coverage: % of metrics with golden examples
   - [ ] Periodic validation: re-evaluate golden set to detect model drift
-- [ ] **Dataset Splitting** - Train/test/validation splits with stratification by metadata fields
+- [x] **Dataset Splitting** - Train/test/validation splits with stratification by metadata fields
   - [ ] evalyn split-dataset --ratio 0.7/0.15/0.15
   - [ ] Stratification by metadata keys (tag, source, difficulty)
   - [ ] Deterministic splitting with configurable random seed
