@@ -675,7 +675,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Test permutations of example order and measure alignment impact
   - [ ] Heuristics: put hardest examples last, group by failure type
   - [ ] Store optimal order in CalibrationRecord
-- [ ] **Calibration Diagnostic Report** - Detailed analysis of why calibration improved or degraded alignment
+- [x] **Calibration Diagnostic Report** - Detailed analysis of why calibration improved or degraded alignment
   - [ ] Per-item breakdown: which items flipped from wrong to right (and vice versa)
   - [ ] Prompt diff showing exactly what changed in the preamble
   - [ ] Categorize improvements by item type (false positive fixes vs false negative fixes)
@@ -711,15 +711,15 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Re-calibrate with increasing annotation subsets (10%, 25%, 50%, 75%, 100%)
   - [ ] Plot alignment improvement vs annotation count
   - [ ] Recommend minimum annotation count for acceptable calibration quality
-- [ ] **Calibration Negative Example Mining** - Find the hardest examples where calibrated prompt still fails
+- [x] **Calibration Negative Example Mining** - Find the hardest examples where calibrated prompt still fails
   - [ ] After calibration, identify items where the calibrated judge still disagrees with humans
   - [ ] Cluster these remaining failures by pattern
   - [ ] Use as targeted additions to calibration set for next round
-- [ ] **Calibration Prompt Templates** - Reusable preamble templates for common calibration patterns
+- [x] **Calibration Prompt Templates** - Reusable preamble templates for common calibration patterns
   - [ ] Built-in templates: "strict evaluator", "lenient evaluator", "domain expert"
   - [ ] --template flag on calibrate to start from a template instead of blank
   - [ ] Save successful calibration preambles as custom templates
-- [ ] **Calibration Batch Processing** - Calibrate multiple metrics in one command
+- [x] **Calibration Batch Processing** - Calibrate multiple metrics in one command
   - [ ] evalyn calibrate --metrics all calibrating every metric with annotations
   - [ ] Parallel calibration of independent metrics for speed
   - [ ] Combined calibration report showing per-metric alignment improvements
