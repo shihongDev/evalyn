@@ -992,7 +992,7 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Data & Dataset
 
-- [ ] **Dataset Versioning** - Track dataset changes over time with diff view
+- [x] **Dataset Versioning** - Track dataset changes over time with diff view
   - [ ] Content-hash versioning on each build-dataset invocation
   - [ ] Diff view: items added, removed, and modified between versions
   - [ ] Version log stored alongside dataset.jsonl
@@ -1364,7 +1364,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn.analyze(run) returning RunAnalysis directly
   - [ ] evalyn.compare(run_a, run_b) returning comparison dict
   - [ ] Async variants: await evalyn.run_async(...)
-- [ ] **Event Callback Hooks** - Register functions that fire on evaluation events
+- [x] **Event Callback Hooks** - Register functions that fire on evaluation events
   - [ ] on_item_complete(callback) for per-item processing
   - [ ] on_metric_complete(callback) for per-metric processing
   - [ ] on_run_complete(callback) for post-run triggers
