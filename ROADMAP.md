@@ -396,7 +396,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Identify items where confidence score < threshold after initial eval
   - [ ] Automatically re-run those items with a more capable model (e.g. flash -> pro)
   - [ ] Merge re-evaluated scores back into the run results
-- [ ] **Confidence Threshold Tuning** - Find optimal confidence cutoff per metric
+- [x] **Confidence Threshold Tuning** - Find optimal confidence cutoff per metric
   - [ ] Binary search for threshold that maximizes alignment with human annotations
   - [ ] Per-metric optimal threshold stored in calibration record
   - [ ] evalyn tune-confidence command
@@ -438,7 +438,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Real-time budget tracking in ProgressCallback
   - [ ] Graceful stop: finish current item, checkpoint, report partial results
   - [ ] Budget summary in EvalRun metadata
-- [ ] **Differential Evaluation** - Only re-evaluate items that changed between dataset versions
+- [x] **Differential Evaluation** - Only re-evaluate items that changed between dataset versions
   - [ ] Hash-based change detection using datasets.hash_inputs
   - [ ] Carry forward unchanged MetricResults from previous run
   - [ ] --diff-from flag to specify baseline run ID
@@ -565,7 +565,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Length-controlled scoring: GLM correction for length preference (AlpacaEval approach)
   - [ ] Regression-based bias correction from small human-annotated calibration set
   - [ ] Report bias metrics per judge model in calibration output
-- [ ] **Agent Goal Completion Metrics** - Evaluate whether agents achieve stated objectives
+- [x] **Agent Goal Completion Metrics** - Evaluate whether agents achieve stated objectives
   - [ ] ToolCallAccuracy: sequence + argument correctness (Ragas-inspired)
   - [ ] ToolCallF1: unordered tool call matching
   - [ ] AgentGoalAccuracy: end-state vs expected outcome assessment
@@ -574,7 +574,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Bloom-style pipeline: understand behavior -> generate scenarios -> execute -> score
   - [ ] Mine production traces for challenging evaluation cases (Arena-Hard BenchBuilder pattern)
   - [ ] Synthesize adversarial variants of existing test cases
-- [ ] **DAG-Based Deterministic Evaluation** - Decision-tree scoring as middle ground between rules and LLM judge
+- [x] **DAG-Based Deterministic Evaluation** - Decision-tree scoring as middle ground between rules and LLM judge
   - [ ] DAGMetric: LLM-powered decision trees for structured scoring (DeepEval-inspired)
   - [ ] Deterministic evaluation paths based on input characteristics
   - [ ] Lower cost than full LLM judge, more flexible than regex rules
