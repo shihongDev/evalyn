@@ -388,7 +388,7 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Confidence Enhancements
 
-- [ ] **Adaptive Consistency Sampling** - Stop early when judge agreement is already clear
+- [x] **Adaptive Consistency Sampling** - Stop early when judge agreement is already clear
   - [ ] Sequential sampling: stop after 3 samples if all agree (skip remaining 2)
   - [ ] Configurable early-stop threshold (e.g. 100% agreement after 3 of 5 samples)
   - [ ] Cost savings report: samples skipped vs full sampling
@@ -426,7 +426,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Memory consistency across turns
   - [ ] Topic drift detection
   - [ ] Response latency patterns
-- [ ] **Pairwise Comparison** - A vs B evaluation mode
+- [x] **Pairwise Comparison** - A vs B evaluation mode
   - [ ] Side-by-side LLM judge comparison
   - [ ] Elo rating system for models
   - [ ] Win/loss/tie statistics
@@ -453,7 +453,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Cost estimate by provider (Gemini, OpenAI pricing)
   - [ ] --dry-run flag that prints estimate and exits
   - [ ] Wall-clock estimate based on historical run data
-- [ ] **Cross-Validation Evaluation** - K-fold scoring for statistically robust metric estimates
+- [x] **Cross-Validation Evaluation** - K-fold scoring for statistically robust metric estimates
   - [ ] --cv-folds N flag to split dataset into N folds
   - [ ] Stratified splitting by metadata or score
   - [ ] Per-fold and aggregate metric statistics with std deviation
@@ -560,7 +560,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn diff-outputs --run <id> showing per-item expected vs actual text diff
   - [ ] Highlight added/removed/changed text with color coding
   - [ ] Filter to only items where expected reference is available
-- [ ] **Judge Debiasing** - Mitigate known LLM judge biases (position, length, verbosity)
+- [x] **Judge Debiasing** - Mitigate known LLM judge biases (position, length, verbosity)
   - [ ] Position-bias mitigation: swap answer order in pairwise comparisons and average
   - [ ] Length-controlled scoring: GLM correction for length preference (AlpacaEval approach)
   - [ ] Regression-based bias correction from small human-annotated calibration set
