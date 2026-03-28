@@ -578,10 +578,10 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] DAGMetric: LLM-powered decision trees for structured scoring (DeepEval-inspired)
   - [ ] Deterministic evaluation paths based on input characteristics
   - [ ] Lower cost than full LLM judge, more flexible than regex rules
-- [ ] **Statistical Evaluation Reporting** - Confidence intervals and power analysis for all metrics
-  - [ ] Bootstrap confidence intervals (1000 resamples) on metric scores
-  - [ ] Power analysis: recommend minimum sample size for target precision
-  - [ ] Significance testing for run-to-run comparisons
+- [x] **Statistical Evaluation Reporting** - Confidence intervals and power analysis for all metrics
+  - [x] Bootstrap confidence intervals (1000 resamples) on metric scores
+  - [x] Power analysis: recommend minimum sample size for target precision
+  - [x] Significance testing for run-to-run comparisons (two-proportion z-test)
 
 ### Calibration & Optimization
 
@@ -1522,11 +1522,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Policy definitions in evalyn.yaml: never store full messages, only store first/last N chars
   - [ ] Per-project redaction rules (strict for production, relaxed for test)
   - [ ] Redaction audit: report showing how much content was redacted per trace
-- [ ] **Prompt Injection Detection Metric** - Objective metric detecting prompt injection attempts in inputs/outputs
-  - [ ] Tier 1: 4-category regex patterns (instruction override, role injection, prompt extraction, encoding signals)
+- [x] **Prompt Injection Detection Metric** - Objective metric detecting prompt injection attempts in inputs/outputs
+  - [x] Tier 1: 4-category regex patterns (instruction override, role injection, prompt extraction, encoding signals)
   - [ ] Tier 2: optional LLM-based classification for higher accuracy
   - [ ] Tier 3: optional vector similarity against known attack embeddings (self-hardening via Rebuff pattern)
-  - [ ] Scoring: 0.0 (injection detected) to 1.0 (clean), configurable sensitivity
+  - [x] Scoring: 0.0 (injection detected) to 1.0 (clean), configurable sensitivity
 - [ ] **Embedding PII Safety Check** - Detect whether stored embeddings could leak PII via inversion attacks
   - [ ] Warn when embedding vectors are stored alongside PII-containing text
   - [ ] Research finding: 93-98% text recovery from ada-002 embeddings via inversion
