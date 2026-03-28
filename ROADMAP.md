@@ -595,7 +595,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Iterative rubric refinement based on disagreement analysis
   - [ ] Rubric clarity scoring (can a different LLM interpret it consistently?)
   - [ ] A/B test rubric variants for inter-judge agreement
-- [ ] **Few-Shot Example Selection** - Optimize which examples to include in prompts
+- [x] **Few-Shot Example Selection** - Optimize which examples to include in prompts
   - [ ] Select maximally informative examples from annotation pool
   - [ ] Diversity-based selection: cover different failure modes
   - [ ] Leave-one-out evaluation to measure example contribution
@@ -605,7 +605,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Weighted ensemble based on per-judge calibration accuracy
   - [ ] Disagreement flagging: items where judges disagree go to human review
   - [ ] Cost-aware ensemble: use cheap judge first, expensive only on uncertain items
-- [ ] **Active Learning** - Smart sample selection for annotation
+- [x] **Active Learning** - Smart sample selection for annotation
   - [ ] Uncertainty sampling: prioritize items where judge confidence is lowest
   - [ ] Disagreement sampling: prioritize items where judge and heuristics disagree
   - [ ] Diversity sampling: ensure coverage of input space
@@ -614,7 +614,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Metric similarity detection based on rubric text embedding
   - [ ] Shared preamble transfer with metric-specific rubric
   - [ ] Transfer effectiveness validation on held-out samples
-- [ ] **Calibration Staleness Detection** - Warn when calibration age or dataset drift exceeds threshold
+- [x] **Calibration Staleness Detection** - Warn when calibration age or dataset drift exceeds threshold
   - [ ] Track calibration date and dataset hash at calibration time
   - [ ] Alert when dataset changes exceed drift threshold (new items, distribution shift)
   - [ ] Re-calibration recommendation with estimated alignment degradation
@@ -634,7 +634,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Pareto front of accuracy vs token count
   - [ ] Prompt compression as optimization objective
   - [ ] Configurable accuracy/cost trade-off weight
-- [ ] **Calibration Cost Tracking** - Report total LLM cost of the calibration process itself
+- [x] **Calibration Cost Tracking** - Report total LLM cost of the calibration process itself
   - [ ] Per-optimizer token usage tracking (extend TokenAccumulator)
   - [ ] Cost breakdown by calibration phase (alignment, optimization, validation)
   - [ ] Historical cost trends across calibration runs
