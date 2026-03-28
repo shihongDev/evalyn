@@ -286,11 +286,11 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Confidence & Judge Robustness
 
-- [ ] **Confidence Method Comparison** - Run all confidence methods on same data and compare calibration
+- [x] **Confidence Method Comparison** - Run all confidence methods on same data and compare calibration
   - [ ] Side-by-side comparison of logprobs, deepconf, consistency, verbalized methods
   - [ ] Calibration curve: confidence score vs actual correctness
   - [ ] Recommend best method per metric/provider combination
-- [ ] **Hybrid Confidence** - Combine multiple confidence methods into a single robust score
+- [x] **Hybrid Confidence** - Combine multiple confidence methods into a single robust score
   - [ ] Weighted ensemble of available methods
   - [ ] Fall back gracefully when a method is unavailable (e.g. no logprobs)
   - [ ] Bayesian combination with learned weights
