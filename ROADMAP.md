@@ -825,7 +825,7 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Infrastructure & Platform
 
-- [ ] **Web Dashboard** - Browser-based UI for viewing traces, datasets, and results
+- [x] **Web Dashboard** - Browser-based UI for viewing traces, datasets, and results
   - [ ] Trace viewer with span tree navigation (like Phoenix/LangSmith)
   - [ ] Dataset browser with item search, sort, and filter
   - [ ] Eval run comparison view with metric charts
@@ -1419,12 +1419,12 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Packaging & Distribution
 
-- [ ] **Docker Image** - Official Docker image for CI/CD and isolated evaluation environments
+- [x] **Docker Image** - Official Docker image for CI/CD and isolated evaluation environments
   - [ ] Dockerfile with evalyn pre-installed and all optional dependencies
   - [ ] Configurable via environment variables (API keys, config path)
   - [ ] Docker Compose example with SQLite volume mount for data persistence
   - [ ] GitHub Actions example using the Docker image for eval-on-PR
-- [ ] **Standalone Binary** - Single-file executable without Python dependency
+- [x] **Standalone Binary** - Single-file executable without Python dependency
   - [ ] PyInstaller or Nuitka build for Linux, macOS, Windows
   - [ ] GitHub Releases automation for versioned binaries
   - [ ] Install script: curl -sSL https://evalyn.dev/install | sh
@@ -2030,7 +2030,7 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### CLI Enhancements
 
-- [ ] **Interactive TUI Mode** - Rich terminal UI with navigation, filtering, and drill-down
+- [x] **Interactive TUI Mode** - Rich terminal UI with navigation, filtering, and drill-down
   - [ ] Textual or Rich-based TUI framework
   - [ ] Views: trace list, run list, metric dashboard, item detail
   - [ ] Keyboard navigation: j/k scroll, enter drill-down, q quit
@@ -2060,7 +2060,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Check disk space and write permissions
   - [x] Verify Python dependencies are installed (sentence-transformers, etc.)
   - [x] Generate diagnostic report for bug reports
-- [ ] **evalyn playground** - Interactive prompt testing with live metric scoring in the terminal
+- [x] **evalyn playground** - Interactive prompt testing with live metric scoring in the terminal
   - [ ] Enter input, see agent output, instantly score with selected metrics
   - [ ] Side-by-side: original prompt vs modified prompt
   - [ ] Score history across playground iterations
