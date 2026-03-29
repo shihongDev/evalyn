@@ -2010,10 +2010,10 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn export --format parquet using pyarrow (optional dependency)
   - [ ] Schema: one row per (item, metric) pair with score, passed, details columns
   - [ ] Efficient for loading into pandas, DuckDB, or Spark
-- [ ] **OpenAI Evals Format Export** - Compatibility with OpenAI's evaluation framework
-  - [ ] evalyn export --format openai-evals producing JSONL in OpenAI evals schema
-  - [ ] Map evalyn MetricResult to OpenAI eval sample format
-  - [ ] Include system prompt and messages for replay in OpenAI's eval harness
+- [x] **OpenAI Evals Format Export** - Compatibility with OpenAI's evaluation framework
+  - [x] evalyn export --format openai-evals producing JSONL in OpenAI evals schema
+  - [x] Map evalyn MetricResult to OpenAI eval sample format
+  - [x] Include system prompt and messages for replay in OpenAI's eval harness
 - [ ] **Experiment Tracker Integration** - Push eval results to W&B, MLflow, or Neptune
   - [ ] evalyn export --format wandb logging metrics as W&B runs
   - [ ] evalyn export --format mlflow logging as MLflow experiments
@@ -2054,258 +2054,258 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Warn on unknown keys, deprecated fields, and type mismatches
   - [ ] Suggest fixes for common misconfigurations
   - [ ] evalyn config-check command
-- [ ] **evalyn doctor** - Diagnose common setup issues (missing API keys, stale data, broken config)
-  - [ ] Check API key validity for each configured provider
-  - [ ] Verify database accessibility and schema version
-  - [ ] Check disk space and write permissions
-  - [ ] Verify Python dependencies are installed (sentence-transformers, etc.)
-  - [ ] Generate diagnostic report for bug reports
+- [x] **evalyn doctor** - Diagnose common setup issues (missing API keys, stale data, broken config)
+  - [x] Check API key validity for each configured provider
+  - [x] Verify database accessibility and schema version
+  - [x] Check disk space and write permissions
+  - [x] Verify Python dependencies are installed (sentence-transformers, etc.)
+  - [x] Generate diagnostic report for bug reports
 - [ ] **evalyn playground** - Interactive prompt testing with live metric scoring in the terminal
   - [ ] Enter input, see agent output, instantly score with selected metrics
   - [ ] Side-by-side: original prompt vs modified prompt
   - [ ] Score history across playground iterations
   - [ ] Save good examples to dataset
-- [ ] **evalyn diff** - Diff two evaluation runs showing changed scores per item
-  - [ ] Per-item score delta table sorted by largest regression
-  - [ ] Metric-level summary: improved/regressed/unchanged counts
-  - [ ] --threshold flag to only show items with delta > N
-  - [ ] ASCII color coding: green for improvement, red for regression
+- [x] **evalyn diff** - Diff two evaluation runs showing changed scores per item
+  - [x] Per-item score delta table sorted by largest regression
+  - [x] Metric-level summary: improved/regressed/unchanged counts
+  - [x] --threshold flag to only show items with delta > N
+  - [x] ASCII color coding: green for improvement, red for regression
 - [ ] **evalyn gc** - Garbage collect orphaned data (stale checkpoints, runs without datasets)
-  - [ ] Identify orphaned checkpoint files without matching runs
-  - [ ] Find runs referencing deleted datasets
-  - [ ] Remove temporary files in .evalyn/ directory
-  - [ ] --dry-run mode showing what would be cleaned
-- [ ] **Piped JSON Mode** - Machine-readable JSON output for scripting and CI pipeline integration
-  - [ ] --output json on all commands producing structured JSON to stdout
-  - [ ] JSONL streaming for long-running operations (progress events)
-  - [ ] Exit codes: 0=pass, 1=fail, 2=error for CI gate integration
-  - [ ] jq-friendly output structure
+  - [x] Identify orphaned checkpoint files without matching runs
+  - [x] Find runs referencing deleted datasets
+  - [x] Remove temporary files in .evalyn/ directory
+  - [x] --dry-run mode showing what would be cleaned
+- [x] **Piped JSON Mode** - Machine-readable JSON output for scripting and CI pipeline integration
+  - [x] --output json on all commands producing structured JSON to stdout
+  - [x] JSONL streaming for long-running operations (progress events)
+  - [x] Exit codes: 0=pass, 1=fail, 2=error for CI gate integration
+  - [x] jq-friendly output structure
 - [ ] **CLI Plugin System** - Register custom commands via Python entry points
-  - [ ] evalyn.commands entry point group for third-party command modules
-  - [ ] Auto-discovery and registration at startup
-  - [ ] evalyn list-plugins showing installed command plugins
+  - [x] evalyn.commands entry point group for third-party command modules
+  - [x] Auto-discovery and registration at startup
+  - [x] evalyn list-plugins showing installed command plugins
 - [ ] **CLI Alias Support** - User-defined command aliases in evalyn.yaml
-  - [ ] aliases: section mapping short names to full commands (e.g. "q" -> "quickstart")
-  - [ ] Aliases can include default flags (e.g. "fast-eval" -> "run-eval --workers 8 --provider ollama")
-  - [ ] evalyn alias list showing configured aliases
+  - [x] aliases: section mapping short names to full commands (e.g. "q" -> "quickstart")
+  - [x] Aliases can include default flags (e.g. "fast-eval" -> "run-eval --workers 8 --provider ollama")
+  - [x] evalyn alias list showing configured aliases
 - [ ] **CLI Command History** - Record and replay command sequences for reproducible workflows
-  - [ ] Auto-log commands to .evalyn/history.jsonl with timestamps and exit codes
-  - [ ] evalyn history showing recent commands
-  - [ ] evalyn replay --from <timestamp> to re-run a sequence of commands
+  - [x] Auto-log commands to .evalyn/history.jsonl with timestamps and exit codes
+  - [x] evalyn history showing recent commands
+  - [x] evalyn replay --from <timestamp> to re-run a sequence of commands
 - [ ] **CLI Batch Script** - Run multiple commands from a script file
-  - [ ] evalyn batch commands.txt executing one command per line
-  - [ ] Stop-on-error vs continue-on-error modes
-  - [ ] Variable substitution: $DATE, $LATEST_RUN, $LATEST_DATASET
+  - [x] evalyn batch commands.txt executing one command per line
+  - [x] Stop-on-error vs continue-on-error modes
+  - [x] Variable substitution: $DATE, $LATEST_RUN, $LATEST_DATASET
 - [ ] **CLI Output Pagination** - Built-in pager for long terminal outputs
-  - [ ] Auto-page when output exceeds terminal height
-  - [ ] Respect PAGER env var, default to less
-  - [ ] --no-pager flag to disable for piping
+  - [x] Auto-page when output exceeds terminal height
+  - [x] Respect PAGER env var, default to less
+  - [x] --no-pager flag to disable for piping
 - [ ] **CLI Notification on Completion** - System notification when long-running commands finish
-  - [ ] Desktop notification via notify-send (Linux), osascript (macOS), or toast (Windows)
-  - [ ] --notify flag on run-eval, calibrate, and one-click commands
-  - [ ] Include pass/fail summary in notification body
+  - [x] Desktop notification via notify-send (Linux), osascript (macOS), or toast (Windows)
+  - [x] --notify flag on run-eval, calibrate, and one-click commands
+  - [x] Include pass/fail summary in notification body
 - [ ] **CLI Config Show** - Display effective merged configuration from all sources
-  - [ ] evalyn config-show displaying global + project + env var + flag overrides
-  - [ ] Highlight which source each setting comes from
-  - [ ] Useful for debugging "why is this provider being used?"
+  - [x] evalyn config-show displaying global + project + env var + flag overrides
+  - [x] Highlight which source each setting comes from
+  - [x] Useful for debugging "why is this provider being used?"
 - [ ] **CLI Compare Shorthand** - Quick comparison shortcuts for common comparison patterns
-  - [ ] evalyn compare --last-2 comparing two most recent runs
-  - [ ] evalyn compare --latest-vs-pinned comparing latest against pinned baseline
-  - [ ] evalyn compare --latest-vs-previous for sequential regression checking
+  - [x] evalyn compare --last-2 comparing two most recent runs
+  - [x] evalyn compare --latest-vs-pinned comparing latest against pinned baseline
+  - [x] evalyn compare --latest-vs-previous for sequential regression checking
 - [ ] **CLI Checkpoint Inspection** - View and manage evaluation checkpoints
-  - [ ] evalyn checkpoints listing all saved checkpoints with item counts and timestamps
-  - [ ] evalyn checkpoint-info <id> showing checkpoint details
-  - [ ] evalyn checkpoint-delete <id> cleaning up stale checkpoints
+  - [x] evalyn checkpoints listing all saved checkpoints with item counts and timestamps
+  - [x] evalyn checkpoint-info <id> showing checkpoint details
+  - [x] evalyn checkpoint-delete <id> cleaning up stale checkpoints
 - [ ] **CLI Pipeline Visualization** - Show pipeline steps as ASCII flowchart before execution
-  - [ ] evalyn one-click --show-plan displaying step sequence with estimated times
-  - [ ] Indicate which steps will be skipped based on flags
-  - [ ] Confirm before executing the visualized plan
+  - [x] evalyn one-click --show-plan displaying step sequence with estimated times
+  - [x] Indicate which steps will be skipped based on flags
+  - [x] Confirm before executing the visualized plan
 - [ ] **CLI Side-by-Side View** - Display two outputs side by side in terminal
-  - [ ] evalyn compare --side-by-side rendering left/right columns for two runs
-  - [ ] Per-item comparison with visual diff markers
-  - [ ] Automatic column width adjustment based on terminal size
+  - [x] evalyn compare --side-by-side rendering left/right columns for two runs
+  - [x] Per-item comparison with visual diff markers
+  - [x] Automatic column width adjustment based on terminal size
 - [ ] **CLI Progress Dashboard** - Unified progress view for all concurrent operations
-  - [ ] Multi-bar display: per-metric progress within a run
-  - [ ] ETA estimation based on completed items and average per-item time
-  - [ ] Rich-based dashboard with live updates (optional dependency)
+  - [x] Multi-bar display: per-metric progress within a run
+  - [x] ETA estimation based on completed items and average per-item time
+  - [x] Rich-based dashboard with live updates (optional dependency)
 - [ ] **CLI Command Chaining** - Pipe output of one command as input to another
-  - [ ] evalyn build-dataset | evalyn run-eval passing dataset path automatically
-  - [ ] --stdin flag reading dataset path or run ID from standard input
-  - [ ] Useful for scripting multi-step workflows without temp variables
+  - [x] evalyn build-dataset | evalyn run-eval passing dataset path automatically
+  - [x] --stdin flag reading dataset path or run ID from standard input
+  - [x] Useful for scripting multi-step workflows without temp variables
 - [ ] **CLI Time Tracking** - Track total time spent per command type for operational analytics
-  - [ ] Auto-log command name and duration to .evalyn/timing.jsonl
-  - [ ] evalyn timing-stats showing per-command average/total time
-  - [ ] Identify slowest commands for optimization opportunities
+  - [x] Auto-log command name and duration to .evalyn/timing.jsonl
+  - [x] evalyn timing-stats showing per-command average/total time
+  - [x] Identify slowest commands for optimization opportunities
 - [ ] **CLI Quick Rerun** - Rerun last command with modified flags
-  - [ ] evalyn !! repeating last command exactly
-  - [ ] evalyn !! --workers 8 repeating with flag override
-  - [ ] Command history stored in .evalyn/history.jsonl
+  - [x] evalyn !! repeating last command exactly
+  - [x] evalyn !! --workers 8 repeating with flag override
+  - [x] Command history stored in .evalyn/history.jsonl
 - [ ] **CLI Color Theme Configuration** - User-configurable terminal color scheme
-  - [ ] theme setting in evalyn.yaml: default, solarized, monokai, high-contrast
-  - [ ] EVALYN_THEME env var for quick switching
-  - [ ] Separate from NO_COLOR which disables all colors entirely
+  - [x] theme setting in evalyn.yaml: default, solarized, monokai, high-contrast
+  - [x] EVALYN_THEME env var for quick switching
+  - [x] Separate from NO_COLOR which disables all colors entirely
 - [ ] **CLI Output Width Control** - Respect terminal width for table and chart formatting
-  - [ ] Auto-detect terminal width and adjust table column widths accordingly
-  - [ ] --width N flag to override detected width (useful for piping to files)
-  - [ ] Truncate long cell values to fit within available space
+  - [x] Auto-detect terminal width and adjust table column widths accordingly
+  - [x] --width N flag to override detected width (useful for piping to files)
+  - [x] Truncate long cell values to fit within available space
 - [ ] **CLI Execution Audit Log** - Log every CLI command with full arguments for reproducibility
-  - [ ] Auto-append to .evalyn/command_log.jsonl: timestamp, command, args, exit code, duration
-  - [ ] evalyn audit-log showing chronological command history
-  - [ ] Distinct from evaluation audit trail (covers all commands, not just eval runs)
+  - [x] Auto-append to .evalyn/command_log.jsonl: timestamp, command, args, exit code, duration
+  - [x] evalyn audit-log showing chronological command history
+  - [x] Distinct from evaluation audit trail (covers all commands, not just eval runs)
 
 ### Run Management
 
 - [x] **Run Naming** - Give eval runs human-readable names instead of only UUIDs
-  - [ ] --name flag on run-eval: evalyn run-eval --name "prompt-v3-experiment"
-  - [ ] Name stored in EvalRun metadata, displayed in list-runs
-  - [ ] Resolve runs by name: evalyn show-run --name "prompt-v3-experiment"
+  - [x] --name flag on run-eval: evalyn run-eval --name "prompt-v3-experiment"
+  - [x] Name stored in EvalRun metadata, displayed in list-runs
+  - [x] Resolve runs by name: evalyn show-run --name "prompt-v3-experiment"
 - [x] **Run Pinning** - Mark a run as baseline for automatic comparison
-  - [ ] evalyn pin-run --id <id> marking a run as the project baseline
-  - [ ] Subsequent analyze and compare commands auto-compare against pinned run
-  - [ ] evalyn list-runs showing pinned run with a marker
+  - [x] evalyn pin-run --id <id> marking a run as the project baseline
+  - [x] Subsequent analyze and compare commands auto-compare against pinned run
+  - [x] evalyn list-runs showing pinned run with a marker
 - [x] **Run Cleanup** - Bulk delete runs matching criteria
-  - [ ] evalyn cleanup-runs --older-than 30d --keep-pinned
-  - [ ] evalyn cleanup-runs --below-pass-rate 0.3 for removing low-quality runs
-  - [ ] --dry-run mode showing what would be deleted with total storage savings
+  - [x] evalyn cleanup-runs --older-than 30d --keep-pinned
+  - [x] evalyn cleanup-runs --below-pass-rate 0.3 for removing low-quality runs
+  - [x] --dry-run mode showing what would be deleted with total storage savings
 
 ### Metrics Enhancements
 
 - [x] **Custom Metric DSL** - Define metrics via YAML config without writing Python code
-  - [ ] YAML metric definition: name, type, prompt template, threshold, scoring rubric
-  - [ ] Variable interpolation: {{input}}, {{output}}, {{expected}} in prompt templates
-  - [ ] Custom objective metrics via Python expressions (e.g. "len(output) < 500")
-  - [ ] Hot-reload: modify YAML, re-run eval without code changes
+  - [x] YAML metric definition: name, type, prompt template, threshold, scoring rubric
+  - [x] Variable interpolation: {{input}}, {{output}}, {{expected}} in prompt templates
+  - [x] Custom objective metrics via Python expressions (e.g. "len(output) < 500")
+  - [x] Hot-reload: modify YAML, re-run eval without code changes
 - [x] **Metric Composition** - Combine multiple metrics into weighted composite scores
-  - [ ] Composite metric definition: weighted average of child metrics
-  - [ ] Min/max/mean aggregation strategies
-  - [ ] Pass threshold on composite score
-  - [ ] Drill-down: see child metric contributions to composite
+  - [x] Composite metric definition: weighted average of child metrics
+  - [x] Min/max/mean aggregation strategies
+  - [x] Pass threshold on composite score
+  - [x] Drill-down: see child metric contributions to composite
 - [x] **Metric Weighting Profiles** - Named weight sets for different evaluation use cases
-  - [ ] Profile definitions in evalyn.yaml (e.g. "safety-first": safety=3x, quality=1x)
-  - [ ] --weight-profile flag on analyze and compare commands
-  - [ ] Weighted pass rate and weighted overall score
+  - [x] Profile definitions in evalyn.yaml (e.g. "safety-first": safety=3x, quality=1x)
+  - [x] --weight-profile flag on analyze and compare commands
+  - [x] Weighted pass rate and weighted overall score
 - [x] **Metric Versioning** - Track when metric implementations change and flag affected runs
-  - [ ] Hash metric prompt + scoring logic as version identifier
-  - [ ] Store metric version in MetricResult metadata
-  - [ ] Warn when comparing runs with different metric versions
-  - [ ] evalyn metric-history showing version changes over time
+  - [x] Hash metric prompt + scoring logic as version identifier
+  - [x] Store metric version in MetricResult metadata
+  - [x] Warn when comparing runs with different metric versions
+  - [x] evalyn metric-history showing version changes over time
 - [x] **Metric Benchmarking** - Measure computation cost and latency per metric
-  - [ ] Per-metric timing in evaluation runner
-  - [ ] Token usage and cost per metric type
-  - [ ] Benchmark report: slowest metrics, most expensive metrics
-  - [ ] Optimization suggestions for costly metrics
+  - [x] Per-metric timing in evaluation runner
+  - [x] Token usage and cost per metric type
+  - [x] Benchmark report: slowest metrics, most expensive metrics
+  - [x] Optimization suggestions for costly metrics
 - [x] **Inter-Rater Reliability** - Compute agreement stats when multiple judges score the same items
-  - [ ] Run same metric with N different judges (models or prompts)
-  - [ ] Fleiss' Kappa for multi-rater agreement
-  - [ ] Identify items with lowest agreement for human review
-  - [ ] Recommend judge selection based on reliability
+  - [x] Run same metric with N different judges (models or prompts)
+  - [x] Fleiss' Kappa for multi-rater agreement
+  - [x] Identify items with lowest agreement for human review
+  - [x] Recommend judge selection based on reliability
 - [x] **Metric Sensitivity Analysis** - Measure score stability across small input perturbations
-  - [ ] Perturb inputs (typos, rephrasing) and measure score variance
-  - [ ] Flag metrics with high sensitivity to minor input changes
-  - [ ] Robustness score per metric
+  - [x] Perturb inputs (typos, rephrasing) and measure score variance
+  - [x] Flag metrics with high sensitivity to minor input changes
+  - [x] Robustness score per metric
 - [x] **Metric Correlation Pruning** - Auto-suggest removing redundant metrics that track the same signal
-  - [ ] Pearson/Spearman correlation matrix across all metrics
-  - [ ] Flag pairs with r > 0.95 as candidates for pruning
-  - [ ] Recommend minimal metric set preserving signal coverage
+  - [x] Pearson/Spearman correlation matrix across all metrics
+  - [x] Flag pairs with r > 0.95 as candidates for pruning
+  - [x] Recommend minimal metric set preserving signal coverage
 - [x] **Metric Dependencies** - Declare that metric B requires metric A to run first (dependency graph)
-  - [ ] Dependency declaration in MetricSpec
-  - [ ] Topological sort of metrics before evaluation
-  - [ ] Pass metric A results as context to metric B prompt
+  - [x] Dependency declaration in MetricSpec
+  - [x] Topological sort of metrics before evaluation
+  - [x] Pass metric A results as context to metric B prompt
 - [x] **Conditional Metric Chains** - If metric A fails, automatically run a diagnostic follow-up metric B
-  - [ ] Chain definition: "if toxicity_safety fails, run toxicity_type_classifier"
-  - [ ] Diagnostic metrics produce detailed failure categorization
-  - [ ] Chain results stored alongside primary metric results
+  - [x] Chain definition: "if toxicity_safety fails, run toxicity_type_classifier"
+  - [x] Diagnostic metrics produce detailed failure categorization
+  - [x] Chain results stored alongside primary metric results
 - [ ] **Metric Namespacing** - Organize metrics by project/team namespace to avoid collisions
-  - [ ] Namespace prefix: "team-safety/toxicity" vs "team-quality/toxicity"
-  - [ ] Namespace-scoped metric search in list-metrics
-  - [ ] Cross-namespace metric comparison
+  - [x] Namespace prefix: "team-safety/toxicity" vs "team-quality/toxicity"
+  - [x] Namespace-scoped metric search in list-metrics
+  - [x] Cross-namespace metric comparison
 - [x] **Metric Score Explanations** - Return human-readable explanations for objective metric scores
-  - [ ] Per-metric explain() function describing why the score is what it is
-  - [ ] Example: "json_valid: FAIL - parse error at line 3, column 12: unexpected token"
-  - [ ] Include explanations in show-run and failed item breakdown output
+  - [x] Per-metric explain() function describing why the score is what it is
+  - [x] Example: "json_valid: FAIL - parse error at line 3, column 12: unexpected token"
+  - [x] Include explanations in show-run and failed item breakdown output
 - [x] **Metric Warmup Averaging** - Run each subjective metric N times and average to reduce LLM variance
-  - [ ] --metric-samples N flag on run-eval (default 1)
-  - [ ] Report per-metric score variance across samples
-  - [ ] Flag items where samples disagree (high variance) for review
+  - [x] --metric-samples N flag on run-eval (default 1)
+  - [x] Report per-metric score variance across samples
+  - [x] Flag items where samples disagree (high variance) for review
 - [x] **Metric Runtime Estimation** - Predict eval duration per metric based on historical timing data
-  - [ ] Store per-metric median execution time from past runs
-  - [ ] Estimate total run time before execution starts
-  - [ ] Surface slow metrics in dry-run output with time contribution
+  - [x] Store per-metric median execution time from past runs
+  - [x] Estimate total run time before execution starts
+  - [x] Surface slow metrics in dry-run output with time contribution
 - [x] **Metric Compatibility Matrix** - Show which metrics work with which evaluation unit types
-  - [ ] Matrix: metrics on Y-axis, unit types (outcome, single_turn, tool_use, multi_turn) on X-axis
-  - [ ] evalyn list-metrics --compatibility showing supported unit types per metric
-  - [ ] Warn when user selects metrics incompatible with their trace structure
+  - [x] Matrix: metrics on Y-axis, unit types (outcome, single_turn, tool_use, multi_turn) on X-axis
+  - [x] evalyn list-metrics --compatibility showing supported unit types per metric
+  - [x] Warn when user selects metrics incompatible with their trace structure
 - [ ] **Metric Score Binning** - Configurable score-to-grade mapping for human-friendly reporting
-  - [ ] Grade definitions in evalyn.yaml (e.g. A=0.8-1.0, B=0.6-0.8, C=0.4-0.6, F=0-0.4)
-  - [ ] Grade distribution chart in analyze output
-  - [ ] Custom grade labels and thresholds per project
+  - [x] Grade definitions in evalyn.yaml (e.g. A=0.8-1.0, B=0.6-0.8, C=0.4-0.6, F=0-0.4)
+  - [x] Grade distribution chart in analyze output
+  - [x] Custom grade labels and thresholds per project
 - [ ] **Reference-Adaptive Metrics** - Auto-switch metric rubric based on whether expected reference is present
-  - [ ] Detect reference availability per item via _dataset_has_reference
-  - [ ] Use reference-based rubric when available, reference-free rubric otherwise
-  - [ ] Report which rubric variant was used per item in MetricResult details
+  - [x] Detect reference availability per item via _dataset_has_reference
+  - [x] Use reference-based rubric when available, reference-free rubric otherwise
+  - [x] Report which rubric variant was used per item in MetricResult details
 - [ ] **Metric Debug Mode** - Verbose logging of the complete judge interaction per item
-  - [ ] --debug-metrics flag showing: prompt sent, raw response, parsed result per item
-  - [ ] Log to .evalyn/metric_debug.jsonl for post-hoc analysis
-  - [ ] Useful for diagnosing why a metric scores differently than expected
+  - [x] --debug-metrics flag showing: prompt sent, raw response, parsed result per item
+  - [x] Log to .evalyn/metric_debug.jsonl for post-hoc analysis
+  - [x] Useful for diagnosing why a metric scores differently than expected
 - [x] **Metric Template Variables** - Custom variables in judge prompt templates beyond standard input/output/expected
-  - [ ] User-defined variables in evalyn.yaml: template_vars: {domain: "healthcare", persona: "clinician"}
-  - [ ] Variable interpolation in judge prompts: "Evaluate from the perspective of a {{persona}}"
-  - [ ] Per-dataset variable overrides in meta.json
+  - [x] User-defined variables in evalyn.yaml: template_vars: {domain: "healthcare", persona: "clinician"}
+  - [x] Variable interpolation in judge prompts: "Evaluate from the perspective of a {{persona}}"
+  - [x] Per-dataset variable overrides in meta.json
 - [x] **Metric Registry Freeze** - Lock the metric set for a project to prevent accidental changes
-  - [ ] evalyn freeze-metrics --project <name> locking current metrics.json
-  - [ ] Warn when attempting to modify frozen metric set
-  - [ ] evalyn unfreeze-metrics to unlock for intentional changes
+  - [x] evalyn freeze-metrics --project <name> locking current metrics.json
+  - [x] Warn when attempting to modify frozen metric set
+  - [x] evalyn unfreeze-metrics to unlock for intentional changes
 - [x] **Metric Output Post-Processing** - Pluggable post-processors on raw judge output before scoring
-  - [ ] Post-processor chain in evalyn.yaml per metric (e.g. normalize, clamp, round)
-  - [ ] Built-in processors: score_clamp(0,1), binary_threshold(0.5), invert_score
-  - [ ] Custom Python post-processor functions via entry points
+  - [x] Post-processor chain in evalyn.yaml per metric (e.g. normalize, clamp, round)
+  - [x] Built-in processors: score_clamp(0,1), binary_threshold(0.5), invert_score
+  - [x] Custom Python post-processor functions via entry points
 - [x] **Metric Deprecation Lifecycle** - Formal deprecation with migration path and sunset date
-  - [ ] Deprecation metadata on MetricSpec: deprecated_since, replacement, sunset_date
-  - [ ] Warning when using deprecated metrics in run-eval
-  - [ ] evalyn list-metrics --deprecated showing deprecated metrics with migration hints
+  - [x] Deprecation metadata on MetricSpec: deprecated_since, replacement, sunset_date
+  - [x] Warning when using deprecated metrics in run-eval
+  - [x] evalyn list-metrics --deprecated showing deprecated metrics with migration hints
 - [x] **Metric Category Pass Rates** - Aggregate reporting by subjective category (safety, correctness, style, etc.)
-  - [ ] Group metrics by CATEGORIES mapping in analyze output
-  - [ ] Per-category pass rate bar charts
-  - [ ] Identify weakest category for targeted improvement
+  - [x] Group metrics by CATEGORIES mapping in analyze output
+  - [x] Per-category pass rate bar charts
+  - [x] Identify weakest category for targeted improvement
 - [x] **Metric Rubric Preview** - Show exact judge prompt before evaluation starts
-  - [ ] evalyn preview-metric --id helpfulness_accuracy showing full prompt with rubric
-  - [ ] Include template variable substitution with sample input/output
-  - [ ] Verify rubric looks correct before committing to expensive evaluation
+  - [x] evalyn preview-metric --id helpfulness_accuracy showing full prompt with rubric
+  - [x] Include template variable substitution with sample input/output
+  - [x] Verify rubric looks correct before committing to expensive evaluation
 - [x] **Metric Cross-Reference View** - Show which bundles include each metric
-  - [ ] evalyn list-metrics --show-bundles displaying bundle membership per metric
-  - [ ] Inverse view: evalyn list-bundles --show-metrics for bundle contents
-  - [ ] Useful for understanding metric coverage across different evaluation profiles
+  - [x] evalyn list-metrics --show-bundles displaying bundle membership per metric
+  - [x] Inverse view: evalyn list-bundles --show-metrics for bundle contents
+  - [x] Useful for understanding metric coverage across different evaluation profiles
 - [x] **Metric Score Curve Fitting** - Fit parametric distributions to historical metric scores
-  - [ ] Fit beta/normal/bimodal distributions to score history per metric
-  - [ ] Detect distribution changes between runs (shift, spread, shape)
-  - [ ] Use fitted distribution for anomaly detection on new scores
+  - [x] Fit beta/normal/bimodal distributions to score history per metric
+  - [x] Detect distribution changes between runs (shift, spread, shape)
+  - [x] Use fitted distribution for anomaly detection on new scores
 - [x] **Metric Prompt Token Count** - Show estimated prompt token count per metric before evaluation
-  - [ ] Estimate tokens from metric prompt template + average input/output sizes
-  - [ ] evalyn list-metrics --show-tokens displaying per-metric token cost
-  - [ ] Factor into cost estimation in dry-run mode
+  - [x] Estimate tokens from metric prompt template + average input/output sizes
+  - [x] evalyn list-metrics --show-tokens displaying per-metric token cost
+  - [x] Factor into cost estimation in dry-run mode
 - [x] **Metric A/B Variant Testing** - Evaluate same items with two rubric variants of the same metric
-  - [ ] Define variant rubrics in evalyn.yaml: helpfulness_v1 vs helpfulness_v2
-  - [ ] Run both variants in a single eval, compare scores and agreement
-  - [ ] Select the variant with better alignment to human annotations
+  - [x] Define variant rubrics in evalyn.yaml: helpfulness_v1 vs helpfulness_v2
+  - [x] Run both variants in a single eval, compare scores and agreement
+  - [x] Select the variant with better alignment to human annotations
 - [x] **Metric Cold Start Detection** - Detect when a metric's first N items score differently than the rest
-  - [ ] Compare score distribution of first K items vs remaining items per metric
-  - [ ] Statistical test (KS or Mann-Whitney) for distribution shift
-  - [ ] Recommend warm-up if cold start effect is significant
+  - [x] Compare score distribution of first K items vs remaining items per metric
+  - [x] Statistical test (KS or Mann-Whitney) for distribution shift
+  - [x] Recommend warm-up if cold start effect is significant
 
 ### Metric Bundle Customization
 
 - [ ] **User-Defined Bundles** - Define custom metric bundles in evalyn.yaml
-  - [ ] bundles: section in evalyn.yaml with named metric lists
-  - [ ] evalyn suggest-metrics --mode bundle --bundle my-custom-bundle
-  - [ ] Inherit from built-in bundles and override (e.g. extend "chatbot" with custom metrics)
+  - [x] bundles: section in evalyn.yaml with named metric lists
+  - [x] evalyn suggest-metrics --mode bundle --bundle my-custom-bundle
+  - [x] Inherit from built-in bundles and override (e.g. extend "chatbot" with custom metrics)
 - [ ] **Bundle Composition** - Combine multiple bundles into one with deduplication
-  - [ ] evalyn suggest-metrics --bundle chatbot+safety merging two bundles
-  - [ ] Automatic deduplication when combining overlapping bundles
-  - [ ] Conflict resolution when same metric appears with different configs
+  - [x] evalyn suggest-metrics --bundle chatbot+safety merging two bundles
+  - [x] Automatic deduplication when combining overlapping bundles
+  - [x] Conflict resolution when same metric appears with different configs
 - [ ] **Bundle Recommendation** - Auto-suggest bundle based on captured trace patterns
-  - [ ] Analyze trace spans to detect agent type (RAG, orchestrator, chatbot, etc.)
-  - [ ] Match detected patterns to best-fit built-in bundle
-  - [ ] evalyn suggest-metrics --mode auto-bundle choosing bundle without user input
+  - [x] Analyze trace spans to detect agent type (RAG, orchestrator, chatbot, etc.)
+  - [x] Match detected patterns to best-fit built-in bundle
+  - [x] evalyn suggest-metrics --mode auto-bundle choosing bundle without user input
 
 ### LLM Provider Support
 
