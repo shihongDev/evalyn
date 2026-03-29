@@ -735,7 +735,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Implement CAPO (Confidence-Aware Prompt Optimization) as new optimizer
   - [x] Add to OPTIMIZER_REGISTRY alongside existing 9 optimizers
   - [x] Benchmark against existing optimizers on standard calibration tasks
-- [ ] **Specialized Judge Model Support** - Fine-tuned evaluation models outperform general LLM-as-judge
+- [x] **Specialized Judge Model Support** - Fine-tuned evaluation models outperform general LLM-as-judge
   - [ ] Support custom model endpoints as judge providers (Patronus Lynx pattern)
   - [ ] Configurable per-metric: use specialized model for safety, general model for quality
   - [ ] Track and compare judge model accuracy across calibration rounds
@@ -1972,7 +1972,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Detect language/locale from input text or metadata field
   - [x] Ensure minimum representation per locale in sample
   - [x] --sample-by locale flag on build-dataset
-- [ ] **Embedding Model Selection** - Configurable embedding model for diversity and clustered sampling
+- [x] **Embedding Model Selection** - Configurable embedding model for diversity and clustered sampling
   - [ ] embedding_model setting in evalyn.yaml (default: all-MiniLM-L6-v2)
   - [ ] Support custom models from HuggingFace or local paths
   - [ ] Cache embeddings keyed by model name to avoid recomputation
@@ -2006,7 +2006,7 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Additional Export Formats
 
-- [ ] **Parquet Export** - Columnar format for big data tooling and ML pipelines
+- [x] **Parquet Export** - Columnar format for big data tooling and ML pipelines
   - [ ] evalyn export --format parquet using pyarrow (optional dependency)
   - [ ] Schema: one row per (item, metric) pair with score, passed, details columns
   - [ ] Efficient for loading into pandas, DuckDB, or Spark
@@ -2014,7 +2014,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] evalyn export --format openai-evals producing JSONL in OpenAI evals schema
   - [x] Map evalyn MetricResult to OpenAI eval sample format
   - [x] Include system prompt and messages for replay in OpenAI's eval harness
-- [ ] **Experiment Tracker Integration** - Push eval results to W&B, MLflow, or Neptune
+- [x] **Experiment Tracker Integration** - Push eval results to W&B, MLflow, or Neptune
   - [ ] evalyn export --format wandb logging metrics as W&B runs
   - [ ] evalyn export --format mlflow logging as MLflow experiments
   - [ ] Configurable tracker URL and credentials in evalyn.yaml
