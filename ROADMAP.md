@@ -1855,22 +1855,22 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] LLM-based naturalness rating: does this look like a real user query?
   - [x] Statistical comparison: generated vs seed item length/vocabulary distributions
   - [x] Auto-reject generated items scoring below quality threshold
-- [ ] **Simulation Provider Diversity** - Use multiple LLM providers to increase variety in generated items
-  - [ ] Round-robin across configured providers (Gemini, OpenAI, Ollama)
-  - [ ] Merge results with provider tag in metadata
-  - [ ] Compare generation quality per provider
-- [ ] **Simulation Cost Estimation** - Estimate token cost before running simulation
-  - [ ] --dry-run flag on simulate showing estimated tokens and cost
-  - [ ] Cost breakdown: similar mode vs outlier mode estimates
-  - [ ] Useful for budgeting large-scale simulation runs
-- [ ] **Simulation Reproducibility Seed** - Deterministic seed for exact reproduction of generated items
-  - [ ] --seed flag on simulate command for reproducible LLM outputs (temperature + seed)
-  - [ ] Record seed in simulation metadata for audit trail
-  - [ ] Verify reproducibility: re-run with same seed produces identical items
-- [ ] **Simulation Feedback Injection** - Inject specific failure patterns into simulation prompts
-  - [ ] Accept failure cluster labels from cluster-failures as simulation targets
-  - [ ] Generate items specifically designed to trigger each failure mode
-  - [ ] Coverage tracking: % of known failure patterns with generated test cases
+- [x] **Simulation Provider Diversity** - Use multiple LLM providers to increase variety in generated items
+  - [x] Round-robin across configured providers (Gemini, OpenAI, Ollama)
+  - [x] Merge results with provider tag in metadata
+  - [x] Compare generation quality per provider
+- [x] **Simulation Cost Estimation** - Estimate token cost before running simulation
+  - [x] --dry-run flag on simulate showing estimated tokens and cost
+  - [x] Cost breakdown: similar mode vs outlier mode estimates
+  - [x] Useful for budgeting large-scale simulation runs
+- [x] **Simulation Reproducibility Seed** - Deterministic seed for exact reproduction of generated items
+  - [x] --seed flag on simulate command for reproducible LLM outputs (temperature + seed)
+  - [x] Record seed in simulation metadata for audit trail
+  - [x] Verify reproducibility: re-run with same seed produces identical items
+- [x] **Simulation Feedback Injection** - Inject specific failure patterns into simulation prompts
+  - [x] Accept failure cluster labels from cluster-failures as simulation targets
+  - [x] Generate items specifically designed to trigger each failure mode
+  - [x] Coverage tracking: % of known failure patterns with generated test cases
 - [ ] **Evol-Instruct Data Evolution** - Evolve evaluation items through iterative complexity increases
   - [ ] In-depth evolution: add constraints, reasoning steps, edge cases to existing items
   - [ ] In-breadth evolution: generate topic variations and domain transfers
