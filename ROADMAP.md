@@ -731,10 +731,10 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Track judge accuracy on human-labeled items over time
   - [ ] Identify metrics where judge is now reliable enough to skip human review
   - [ ] Gradually reduce annotation requirement as calibration improves
-- [ ] **CAPO Optimizer** - Current SOTA prompt optimization algorithm
-  - [ ] Implement CAPO (Confidence-Aware Prompt Optimization) as new optimizer
-  - [ ] Add to OPTIMIZER_REGISTRY alongside existing 9 optimizers
-  - [ ] Benchmark against existing optimizers on standard calibration tasks
+- [x] **CAPO Optimizer** - Current SOTA prompt optimization algorithm
+  - [x] Implement CAPO (Confidence-Aware Prompt Optimization) as new optimizer
+  - [x] Add to OPTIMIZER_REGISTRY alongside existing 9 optimizers
+  - [x] Benchmark against existing optimizers on standard calibration tasks
 - [ ] **Specialized Judge Model Support** - Fine-tuned evaluation models outperform general LLM-as-judge
   - [ ] Support custom model endpoints as judge providers (Patronus Lynx pattern)
   - [ ] Configurable per-metric: use specialized model for safety, general model for quality
@@ -1518,10 +1518,10 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Support AWS Secrets Manager, GCP Secret Manager, HashiCorp Vault
   - [x] evalyn.yaml secrets_backend: "aws" with ARN references
   - [x] Environment variable passthrough as default (no config change needed)
-- [ ] **Trace Content Redaction Policies** - Configurable rules for what gets stored in trace payloads
-  - [ ] Policy definitions in evalyn.yaml: never store full messages, only store first/last N chars
-  - [ ] Per-project redaction rules (strict for production, relaxed for test)
-  - [ ] Redaction audit: report showing how much content was redacted per trace
+- [x] **Trace Content Redaction Policies** - Configurable rules for what gets stored in trace payloads
+  - [x] Policy definitions in evalyn.yaml: never store full messages, only store first/last N chars
+  - [x] Per-project redaction rules (strict for production, relaxed for test)
+  - [x] Redaction audit: report showing how much content was redacted per trace
 - [x] **Prompt Injection Detection Metric** - Objective metric detecting prompt injection attempts in inputs/outputs
   - [x] Tier 1: 4-category regex patterns (instruction override, role injection, prompt extraction, encoding signals)
   - [ ] Tier 2: optional LLM-based classification for higher accuracy
@@ -1531,18 +1531,18 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Warn when embedding vectors are stored alongside PII-containing text
   - [ ] Research finding: 93-98% text recovery from ada-002 embeddings via inversion
   - [ ] Recommend PII stripping before embedding or Eguard-style defense
-- [ ] **EU AI Act Compliance Report** - Auto-generate evaluation documentation for regulatory compliance
-  - [ ] Document evaluation methodology, benchmarks used, and results
-  - [ ] Export as PDF/HTML for regulatory submission
-  - [ ] Cover NIST AI RMF and ISO 42001 reporting requirements
+- [x] **EU AI Act Compliance Report** - Auto-generate evaluation documentation for regulatory compliance
+  - [x] Document evaluation methodology, benchmarks used, and results
+  - [x] Export as PDF/HTML for regulatory submission
+  - [x] Cover NIST AI RMF and ISO 42001 reporting requirements
 
 ### Offline & Air-Gapped Mode
 
-- [ ] **Fully Offline Evaluation** - Run complete evaluation pipeline without internet access
-  - [ ] Objective-only mode: all 73 objective metrics work offline with no API calls
-  - [ ] Ollama provider for subjective metrics using local models
-  - [ ] Pre-download and cache model artifacts for sentence-transformers embeddings
-  - [ ] evalyn run-eval --offline flag that errors if any metric would require internet
+- [x] **Fully Offline Evaluation** - Run complete evaluation pipeline without internet access
+  - [x] Objective-only mode: all 73 objective metrics work offline with no API calls
+  - [x] Ollama provider for subjective metrics using local models
+  - [x] Pre-download and cache model artifacts for sentence-transformers embeddings
+  - [x] evalyn run-eval --offline flag that errors if any metric would require internet
 - [ ] **Local Model Performance Baselines** - Benchmark local models against API models for judge quality
   - [ ] evalyn benchmark-judges --local ollama:llama3 --api gemini comparing alignment
   - [ ] Per-metric local vs API agreement scores
