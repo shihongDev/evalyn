@@ -1807,22 +1807,22 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Infer input schema from seed dataset items (detect keys, types, value ranges)
   - [x] Generate valid structured inputs conforming to detected schema
   - [x] Configurable field-level variation (mutate one field at a time for targeted testing)
-- [ ] **Seed Selection Optimization** - Choose which seed items produce the most diverse simulations
-  - [ ] Score seeds by diversity of generated outputs
-  - [ ] Greedy selection: pick seeds that maximize coverage of unexplored input space
-  - [ ] Drop seeds that produce near-duplicate simulations
-- [ ] **Simulation with Reference Answers** - Generate both inputs and expected outputs for automatic golden set creation
-  - [ ] LLM generates input-output pairs where the output serves as ground truth
-  - [ ] Configurable quality threshold: only keep pairs where LLM confidence is high
-  - [ ] Useful for bootstrapping evaluation datasets with expected references
-- [ ] **Simulation Coverage Report** - Compare embedding space coverage of simulated vs production traces
-  - [ ] Compute coverage overlap between simulated and real item embeddings
-  - [ ] Identify production input regions not represented in simulated data
-  - [ ] Recommend additional simulation targets to fill coverage gaps
-- [ ] **Simulation Budget Optimizer** - Given a token budget, optimize the mix of similar/outlier/adversarial items
-  - [ ] Estimate token cost per simulation mode based on prompt complexity
-  - [ ] Maximize diversity under budget constraint via greedy allocation
-  - [ ] Report actual vs budgeted cost after generation
+- [x] **Seed Selection Optimization** - Choose which seed items produce the most diverse simulations
+  - [x] Score seeds by diversity of generated outputs
+  - [x] Greedy selection: pick seeds that maximize coverage of unexplored input space
+  - [x] Drop seeds that produce near-duplicate simulations
+- [x] **Simulation with Reference Answers** - Generate both inputs and expected outputs for automatic golden set creation
+  - [x] LLM generates input-output pairs where the output serves as ground truth
+  - [x] Configurable quality threshold: only keep pairs where LLM confidence is high
+  - [x] Useful for bootstrapping evaluation datasets with expected references
+- [x] **Simulation Coverage Report** - Compare embedding space coverage of simulated vs production traces
+  - [x] Compute coverage overlap between simulated and real item embeddings
+  - [x] Identify production input regions not represented in simulated data
+  - [x] Recommend additional simulation targets to fill coverage gaps
+- [x] **Simulation Budget Optimizer** - Given a token budget, optimize the mix of similar/outlier/adversarial items
+  - [x] Estimate token cost per simulation mode based on prompt complexity
+  - [x] Maximize diversity under budget constraint via greedy allocation
+  - [x] Report actual vs budgeted cost after generation
 - [ ] **Constraint-Guided Simulation** - Generate inputs satisfying specific constraints
   - [ ] --constraint "topic=refunds AND length>200" flag on simulate command
   - [ ] LLM-guided generation with constraint verification loop
