@@ -1956,14 +1956,14 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Compute embedding distance from each unlabeled item to nearest labeled item
   - [x] Sample items with maximum novelty for annotation or calibration
   - [x] Expand labeled set coverage efficiently
-- [ ] **Sampling Reproducibility Report** - Log exactly which items were selected and why
-  - [ ] Record sampling mode, seed, parameters, and selected item IDs in meta.json
-  - [ ] Verify reproducibility: re-run with same params produces identical selection
-  - [ ] Audit trail for dataset construction decisions
-- [ ] **Multi-Stage Sampling Pipeline** - Chain arbitrary sampling strategies in sequence
-  - [ ] Config: sampling_pipeline: [deduplicate, stratified, diverse] in evalyn.yaml
-  - [ ] Each stage feeds its output as input to the next
-  - [ ] Per-stage statistics showing how many items survived each filter
+- [x] **Sampling Reproducibility Report** - Log exactly which items were selected and why
+  - [x] Record sampling mode, seed, parameters, and selected item IDs in meta.json
+  - [x] Verify reproducibility: re-run with same params produces identical selection
+  - [x] Audit trail for dataset construction decisions
+- [x] **Multi-Stage Sampling Pipeline** - Chain arbitrary sampling strategies in sequence
+  - [x] Config: sampling_pipeline: [deduplicate, stratified, diverse] in evalyn.yaml
+  - [x] Each stage feeds its output as input to the next
+  - [x] Per-stage statistics showing how many items survived each filter
 - [ ] **Sampling Impact Analysis** - Estimate how sample size affects metric confidence intervals
   - [ ] Given historical run data, compute expected CI width for different sample sizes
   - [ ] evalyn sample-impact --dataset <path> --sizes 50,100,200 showing precision vs cost
@@ -1976,14 +1976,14 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] embedding_model setting in evalyn.yaml (default: all-MiniLM-L6-v2)
   - [ ] Support custom models from HuggingFace or local paths
   - [ ] Cache embeddings keyed by model name to avoid recomputation
-- [ ] **Reservoir Sampling** - Online sampling for streaming dataset construction
-  - [ ] Build dataset from continuous trace stream without knowing total count upfront
-  - [ ] Maintain fixed-size sample with uniform probability guarantees
-  - [ ] Useful for production monitoring: always keep a representative sample of recent traces
-- [ ] **Coreset Sampling** - Find minimal representative subset preserving distribution properties
-  - [ ] Greedy coreset construction minimizing maximum approximation error
-  - [ ] Guarantee that statistics computed on coreset approximate full dataset within bounds
-  - [ ] --coreset N flag on build-dataset for maximum compression with minimal information loss
+- [x] **Reservoir Sampling** - Online sampling for streaming dataset construction
+  - [x] Build dataset from continuous trace stream without knowing total count upfront
+  - [x] Maintain fixed-size sample with uniform probability guarantees
+  - [x] Useful for production monitoring: always keep a representative sample of recent traces
+- [x] **Coreset Sampling** - Find minimal representative subset preserving distribution properties
+  - [x] Greedy coreset construction minimizing maximum approximation error
+  - [x] Guarantee that statistics computed on coreset approximate full dataset within bounds
+  - [x] --coreset N flag on build-dataset for maximum compression with minimal information loss
 - [ ] **IRT-Based Tiny Benchmarks** - Use Item Response Theory to find minimal representative subset
   - [ ] Psychometrics-inspired: 100 items can replace 14K (140x reduction) within 2% error
   - [ ] Estimate item difficulty and discrimination from historical eval data
