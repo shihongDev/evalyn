@@ -1940,22 +1940,22 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] --similar-to <item-id> flag selecting nearest neighbors by embedding distance
   - [x] --dissimilar-to <item-id> for maximum diversity from a reference
   - [x] Useful for focused investigation around a specific failure or success case
-- [ ] **Error-Pattern Sampling** - Preferentially sample items matching known failure patterns
-  - [ ] Extract failure patterns from cluster-failures output
-  - [ ] Match new items against known patterns via embedding similarity
-  - [ ] Ensures calibration and evaluation sets include known-hard cases
-- [ ] **Progressive Sampling** - Start with small sample, expand if metrics are statistically inconclusive
-  - [ ] Initial sample of N items, evaluate, check confidence intervals
-  - [ ] Expand sample size if CI width exceeds threshold
-  - [ ] Stop when statistical power is sufficient or budget exhausted
-- [ ] **Metadata-Conditional Sampling** - Variable sample rates by metadata field values
-  - [ ] Config: sample 100% of "production" items, 20% of "test" items
-  - [ ] Per-field rate definitions in evalyn.yaml or --sample-by flag
-  - [ ] Report actual sampling ratios applied per metadata value
-- [ ] **Novelty Sampling** - Prioritize items most unlike the existing labeled/annotated set
-  - [ ] Compute embedding distance from each unlabeled item to nearest labeled item
-  - [ ] Sample items with maximum novelty for annotation or calibration
-  - [ ] Expand labeled set coverage efficiently
+- [x] **Error-Pattern Sampling** - Preferentially sample items matching known failure patterns
+  - [x] Extract failure patterns from cluster-failures output
+  - [x] Match new items against known patterns via embedding similarity
+  - [x] Ensures calibration and evaluation sets include known-hard cases
+- [x] **Progressive Sampling** - Start with small sample, expand if metrics are statistically inconclusive
+  - [x] Initial sample of N items, evaluate, check confidence intervals
+  - [x] Expand sample size if CI width exceeds threshold
+  - [x] Stop when statistical power is sufficient or budget exhausted
+- [x] **Metadata-Conditional Sampling** - Variable sample rates by metadata field values
+  - [x] Config: sample 100% of "production" items, 20% of "test" items
+  - [x] Per-field rate definitions in evalyn.yaml or --sample-by flag
+  - [x] Report actual sampling ratios applied per metadata value
+- [x] **Novelty Sampling** - Prioritize items most unlike the existing labeled/annotated set
+  - [x] Compute embedding distance from each unlabeled item to nearest labeled item
+  - [x] Sample items with maximum novelty for annotation or calibration
+  - [x] Expand labeled set coverage efficiently
 - [ ] **Sampling Reproducibility Report** - Log exactly which items were selected and why
   - [ ] Record sampling mode, seed, parameters, and selected item IDs in meta.json
   - [ ] Verify reproducibility: re-run with same params produces identical selection
