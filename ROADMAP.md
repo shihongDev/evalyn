@@ -1964,14 +1964,14 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Config: sampling_pipeline: [deduplicate, stratified, diverse] in evalyn.yaml
   - [x] Each stage feeds its output as input to the next
   - [x] Per-stage statistics showing how many items survived each filter
-- [ ] **Sampling Impact Analysis** - Estimate how sample size affects metric confidence intervals
-  - [ ] Given historical run data, compute expected CI width for different sample sizes
-  - [ ] evalyn sample-impact --dataset <path> --sizes 50,100,200 showing precision vs cost
-  - [ ] Recommend minimum sample size for target precision level
-- [ ] **Locale-Aware Sampling** - Sample proportionally by language or region for i18n testing
-  - [ ] Detect language/locale from input text or metadata field
-  - [ ] Ensure minimum representation per locale in sample
-  - [ ] --sample-by locale flag on build-dataset
+- [x] **Sampling Impact Analysis** - Estimate how sample size affects metric confidence intervals
+  - [x] Given historical run data, compute expected CI width for different sample sizes
+  - [x] evalyn sample-impact --dataset <path> --sizes 50,100,200 showing precision vs cost
+  - [x] Recommend minimum sample size for target precision level
+- [x] **Locale-Aware Sampling** - Sample proportionally by language or region for i18n testing
+  - [x] Detect language/locale from input text or metadata field
+  - [x] Ensure minimum representation per locale in sample
+  - [x] --sample-by locale flag on build-dataset
 - [ ] **Embedding Model Selection** - Configurable embedding model for diversity and clustered sampling
   - [ ] embedding_model setting in evalyn.yaml (default: all-MiniLM-L6-v2)
   - [ ] Support custom models from HuggingFace or local paths
@@ -1984,16 +1984,16 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Greedy coreset construction minimizing maximum approximation error
   - [x] Guarantee that statistics computed on coreset approximate full dataset within bounds
   - [x] --coreset N flag on build-dataset for maximum compression with minimal information loss
-- [ ] **IRT-Based Tiny Benchmarks** - Use Item Response Theory to find minimal representative subset
-  - [ ] Psychometrics-inspired: 100 items can replace 14K (140x reduction) within 2% error
-  - [ ] Estimate item difficulty and discrimination from historical eval data
-  - [ ] Select items maximizing information at target ability level
-  - [ ] evalyn dataset-optimize --method irt --target-size 100
-- [ ] **BenchBuilder Auto-Curation** - Automatically curate evaluation prompts from production traces
-  - [ ] Cluster production traces by topic (Arena-Hard pattern)
-  - [ ] Score each trace for quality and difficulty
-  - [ ] Select diverse, high-quality traces as evaluation dataset
-  - [ ] 98.6% human correlation at $20 cost (Arena-Hard benchmark)
+- [x] **IRT-Based Tiny Benchmarks** - Use Item Response Theory to find minimal representative subset
+  - [x] Psychometrics-inspired: 100 items can replace 14K (140x reduction) within 2% error
+  - [x] Estimate item difficulty and discrimination from historical eval data
+  - [x] Select items maximizing information at target ability level
+  - [x] evalyn dataset-optimize --method irt --target-size 100
+- [x] **BenchBuilder Auto-Curation** - Automatically curate evaluation prompts from production traces
+  - [x] Cluster production traces by topic (Arena-Hard pattern)
+  - [x] Score each trace for quality and difficulty
+  - [x] Select diverse, high-quality traces as evaluation dataset
+  - [x] 98.6% human correlation at $20 cost (Arena-Hard benchmark)
 
 ### Export & Reporting
 
