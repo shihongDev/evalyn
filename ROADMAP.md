@@ -570,7 +570,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] ToolCallF1: unordered tool call matching
   - [ ] AgentGoalAccuracy: end-state vs expected outcome assessment
   - [ ] TopicAdherence: domain boundary enforcement for conversational agents
-- [ ] **Automatic Test Case Generation from Behaviors** - Generate diverse scenarios from behavior descriptions
+- [x] **Automatic Test Case Generation from Behaviors** - Generate diverse scenarios from behavior descriptions
   - [ ] Bloom-style pipeline: understand behavior -> generate scenarios -> execute -> score
   - [ ] Mine production traces for challenging evaluation cases (Arena-Hard BenchBuilder pattern)
   - [ ] Synthesize adversarial variants of existing test cases
@@ -1092,7 +1092,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Topic distribution analysis via LLM classification
   - [ ] Length and vocabulary skew detection
   - [ ] evalyn dataset-audit producing bias report with recommendations
-- [ ] **Dataset Curation Suggestions** - LLM-powered gap analysis suggesting items to add
+- [x] **Dataset Curation Suggestions** - LLM-powered gap analysis suggesting items to add
   - [ ] Analyze current dataset coverage against metric requirements
   - [ ] Suggest input types, edge cases, and scenarios not yet represented
   - [ ] evalyn dataset-suggest --dataset <path> producing curation plan
@@ -1252,7 +1252,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Linear regression and exponential smoothing on metric pass rates over runs
   - [ ] Forecast next N runs with confidence bands
   - [ ] Alert when forecast predicts metric dropping below threshold
-- [ ] **Analysis Natural Language Summary** - LLM-generated plain English analysis report
+- [x] **Analysis Natural Language Summary** - LLM-generated plain English analysis report
   - [ ] Summarize key findings, regressions, and recommendations in 3-5 paragraphs
   - [ ] evalyn analyze --summary producing human-readable narrative
   - [ ] Useful for sharing results with non-technical stakeholders
@@ -1711,7 +1711,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Auto-assignment based on item metadata and annotator expertise match
   - [x] Workload balancing across annotators
   - [x] Progress dashboard per annotator
-- [ ] **Bulk Pre-Annotation via LLM** - Use LLM to pre-fill annotations for human review and correction
+- [x] **Bulk Pre-Annotation via LLM** - Use LLM to pre-fill annotations for human review and correction
   - [ ] evalyn pre-annotate --provider gemini to generate draft annotations
   - [ ] Confidence-based triage: auto-accept high-confidence, human-review low-confidence
   - [ ] Track pre-annotation accuracy vs human corrections
