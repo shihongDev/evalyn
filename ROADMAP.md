@@ -2096,7 +2096,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] evalyn batch commands.txt executing one command per line
   - [x] Stop-on-error vs continue-on-error modes
   - [x] Variable substitution: $DATE, $LATEST_RUN, $LATEST_DATASET
-- [ ] **CLI Output Pagination** - Built-in pager for long terminal outputs
+- [x] **CLI Output Pagination** - Built-in pager for long terminal outputs
   - [x] Auto-page when output exceeds terminal height
   - [x] Respect PAGER env var, default to less
   - [x] --no-pager flag to disable for piping
@@ -2128,7 +2128,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Multi-bar display: per-metric progress within a run
   - [x] ETA estimation based on completed items and average per-item time
   - [x] Rich-based dashboard with live updates (optional dependency)
-- [ ] **CLI Command Chaining** - Pipe output of one command as input to another
+- [x] **CLI Command Chaining** - Pipe output of one command as input to another
   - [x] evalyn build-dataset | evalyn run-eval passing dataset path automatically
   - [x] --stdin flag reading dataset path or run ID from standard input
   - [x] Useful for scripting multi-step workflows without temp variables
@@ -2140,7 +2140,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] evalyn !! repeating last command exactly
   - [x] evalyn !! --workers 8 repeating with flag override
   - [x] Command history stored in .evalyn/history.jsonl
-- [ ] **CLI Color Theme Configuration** - User-configurable terminal color scheme
+- [x] **CLI Color Theme Configuration** - User-configurable terminal color scheme
   - [x] theme setting in evalyn.yaml: default, solarized, monokai, high-contrast
   - [x] EVALYN_THEME env var for quick switching
   - [x] Separate from NO_COLOR which disables all colors entirely
@@ -2148,7 +2148,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Auto-detect terminal width and adjust table column widths accordingly
   - [x] --width N flag to override detected width (useful for piping to files)
   - [x] Truncate long cell values to fit within available space
-- [ ] **CLI Execution Audit Log** - Log every CLI command with full arguments for reproducibility
+- [x] **CLI Execution Audit Log** - Log every CLI command with full arguments for reproducibility
   - [x] Auto-append to .evalyn/command_log.jsonl: timestamp, command, args, exit code, duration
   - [x] evalyn audit-log showing chronological command history
   - [x] Distinct from evaluation audit trail (covers all commands, not just eval runs)
