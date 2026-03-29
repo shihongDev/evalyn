@@ -2035,25 +2035,25 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Views: trace list, run list, metric dashboard, item detail
   - [ ] Keyboard navigation: j/k scroll, enter drill-down, q quit
   - [ ] Real-time eval progress view with per-metric status
-- [ ] **Shell Completion** - Bash/zsh/fish tab completion for all commands and flags
-  - [ ] argcomplete integration for automatic completion generation
-  - [ ] Complete command names, flag names, and flag values (run IDs, dataset paths)
-  - [ ] Installation helper: evalyn --install-completion
-- [ ] **Watch Mode** - Auto-rerun evaluation when dataset or config file changes
-  - [ ] File watcher on dataset.jsonl and evalyn.yaml
-  - [ ] Debounce: wait 2s after last change before re-running
-  - [ ] Diff output: only show changed metrics since last run
-  - [ ] --watch flag on run-eval command
-- [ ] **Profile Command** - Show storage size, run counts, disk usage, and system health
-  - [ ] Database file size and table row counts
-  - [ ] Total eval runs, traces, and annotations
-  - [ ] Disk usage by data directory
-  - [ ] Python environment info: version, installed providers, API key status
-- [ ] **Config Validation Command** - Check evalyn.yaml for errors, missing fields, and deprecations
-  - [ ] Schema validation against expected evalyn.yaml structure
-  - [ ] Warn on unknown keys, deprecated fields, and type mismatches
-  - [ ] Suggest fixes for common misconfigurations
-  - [ ] evalyn config-check command
+- [x] **Shell Completion** - Bash/zsh/fish tab completion for all commands and flags
+  - [x] argcomplete integration for automatic completion generation
+  - [x] Complete command names, flag names, and flag values (run IDs, dataset paths)
+  - [x] Installation helper: evalyn --install-completion
+- [x] **Watch Mode** - Auto-rerun evaluation when dataset or config file changes
+  - [x] File watcher on dataset.jsonl and evalyn.yaml
+  - [x] Debounce: wait 2s after last change before re-running
+  - [x] Diff output: only show changed metrics since last run
+  - [x] --watch flag on run-eval command
+- [x] **Profile Command** - Show storage size, run counts, disk usage, and system health
+  - [x] Database file size and table row counts
+  - [x] Total eval runs, traces, and annotations
+  - [x] Disk usage by data directory
+  - [x] Python environment info: version, installed providers, API key status
+- [x] **Config Validation Command** - Check evalyn.yaml for errors, missing fields, and deprecations
+  - [x] Schema validation against expected evalyn.yaml structure
+  - [x] Warn on unknown keys, deprecated fields, and type mismatches
+  - [x] Suggest fixes for common misconfigurations
+  - [x] evalyn config-check command
 - [x] **evalyn doctor** - Diagnose common setup issues (missing API keys, stale data, broken config)
   - [x] Check API key validity for each configured provider
   - [x] Verify database accessibility and schema version
