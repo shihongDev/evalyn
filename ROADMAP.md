@@ -1791,22 +1791,22 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Extract failure patterns from cluster-failures output
   - [x] Generate new inputs matching each failure pattern
   - [x] Track fix rate: % of previously-failing patterns now passing
-- [ ] **Conditional Simulation** - Generate inputs that specifically test edge conditions (empty input, max length, unicode)
-  - [ ] Edge condition library: empty, null, max_length, unicode, mixed_language
-  - [ ] Combinatorial generation across edge conditions
-  - [ ] Configurable via --conditions flag
-- [ ] **Simulation Validation** - Auto-verify that generated items match expected statistical distributions
-  - [ ] Input length distribution comparison (generated vs seed)
-  - [ ] Vocabulary overlap check between generated and seed
-  - [ ] Deduplication against both seed and existing dataset
-- [ ] **Parallel Simulation** - Generate synthetic data with configurable concurrency for large-scale runs
-  - [ ] --workers flag on simulate command
-  - [ ] Batch LLM calls for generation efficiency
-  - [ ] Progress bar with items generated / total target
-- [ ] **Structured Input Simulation** - Generate dict/JSON inputs, not just text prompts
-  - [ ] Infer input schema from seed dataset items (detect keys, types, value ranges)
-  - [ ] Generate valid structured inputs conforming to detected schema
-  - [ ] Configurable field-level variation (mutate one field at a time for targeted testing)
+- [x] **Conditional Simulation** - Generate inputs that specifically test edge conditions (empty input, max length, unicode)
+  - [x] Edge condition library: empty, null, max_length, unicode, mixed_language
+  - [x] Combinatorial generation across edge conditions
+  - [x] Configurable via --conditions flag
+- [x] **Simulation Validation** - Auto-verify that generated items match expected statistical distributions
+  - [x] Input length distribution comparison (generated vs seed)
+  - [x] Vocabulary overlap check between generated and seed
+  - [x] Deduplication against both seed and existing dataset
+- [x] **Parallel Simulation** - Generate synthetic data with configurable concurrency for large-scale runs
+  - [x] --workers flag on simulate command
+  - [x] Batch LLM calls for generation efficiency
+  - [x] Progress bar with items generated / total target
+- [x] **Structured Input Simulation** - Generate dict/JSON inputs, not just text prompts
+  - [x] Infer input schema from seed dataset items (detect keys, types, value ranges)
+  - [x] Generate valid structured inputs conforming to detected schema
+  - [x] Configurable field-level variation (mutate one field at a time for targeted testing)
 - [ ] **Seed Selection Optimization** - Choose which seed items produce the most diverse simulations
   - [ ] Score seeds by diversity of generated outputs
   - [ ] Greedy selection: pick seeds that maximize coverage of unexplored input space
