@@ -1720,19 +1720,19 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Convert metric rubrics to annotator-friendly instructions
   - [x] Include concrete pass/fail examples from existing annotations
   - [x] Export as markdown document or HTML with examples
-- [ ] **Annotation Conflict Resolution UI** - Side-by-side view when annotators disagree, with tiebreaker workflow
-  - [ ] Display both annotators' labels with their confidence and reasoning
-  - [ ] Third-party tiebreaker annotation with full context
-  - [ ] Resolution policies: majority vote, senior override, discussion required
-- [ ] **Annotation UX Improvements** - Faster, more forgiving annotation workflow
-  - [ ] Undo/edit previous annotation without re-annotating from scratch
-  - [ ] Skip items with "s" key (mark as skipped, return to later)
-  - [ ] Keyboard shortcuts: y=pass, n=fail, 1-5=confidence, s=skip, u=undo
-  - [ ] Batch mode: present N items at once for rapid annotation
-- [ ] **Annotation Session Persistence** - Save and resume annotation progress
-  - [ ] Track annotated item IDs in session file per annotator
-  - [ ] evalyn annotate --resume to continue where last session ended
-  - [ ] Session statistics: items/hour, agreement rate over time
+- [x] **Annotation Conflict Resolution UI** - Side-by-side view when annotators disagree, with tiebreaker workflow
+  - [x] Display both annotators' labels with their confidence and reasoning
+  - [x] Third-party tiebreaker annotation with full context
+  - [x] Resolution policies: majority vote, senior override, discussion required
+- [x] **Annotation UX Improvements** - Faster, more forgiving annotation workflow
+  - [x] Undo/edit previous annotation without re-annotating from scratch
+  - [x] Skip items with "s" key (mark as skipped, return to later)
+  - [x] Keyboard shortcuts: y=pass, n=fail, 1-5=confidence, s=skip, u=undo
+  - [x] Batch mode: present N items at once for rapid annotation
+- [x] **Annotation Session Persistence** - Save and resume annotation progress
+  - [x] Track annotated item IDs in session file per annotator
+  - [x] evalyn annotate --resume to continue where last session ended
+  - [x] Session statistics: items/hour, agreement rate over time
 
 ### Human Annotation
 
@@ -1770,10 +1770,10 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] outlier mode - Edge cases and unusual inputs
 - [x] **Temperature control** - Separate temps for similar/outlier
 - [x] **Seed sampling** - Control number of seed examples
-- [ ] **Persona-Based Simulation** - Generate inputs as specific user personas (novice, expert, adversarial)
-  - [ ] Built-in personas: novice user, power user, adversarial attacker, non-native speaker
-  - [ ] Custom persona definitions in evalyn.yaml
-  - [ ] Persona tag in generated item metadata for cohort analysis
+- [x] **Persona-Based Simulation** - Generate inputs as specific user personas (novice, expert, adversarial)
+  - [x] Built-in personas: novice user, power user, adversarial attacker, non-native speaker
+  - [x] Custom persona definitions in evalyn.yaml
+  - [x] Persona tag in generated item metadata for cohort analysis
 - [ ] **Multi-Turn Simulation** - Generate full multi-turn conversations, not just single queries
   - [ ] Configurable conversation length (2-10 turns)
   - [ ] Follow-up generation based on agent response
