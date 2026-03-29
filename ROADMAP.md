@@ -18,7 +18,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Token-by-token capture with timing
   - [ ] First-token latency (TTFT) metric
   - [ ] Streaming interruption detection
-- [ ] **More LLM Provider Instrumentors**
+- [x] **More LLM Provider Instrumentors**
   - [ ] Cohere
   - [ ] Mistral
   - [ ] AWS Bedrock
@@ -26,7 +26,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Groq
   - [ ] Together AI
   - [ ] Replicate
-- [ ] **Framework Instrumentors**
+- [x] **Framework Instrumentors**
   - [x] CrewAI
   - [x] AutoGen
   - [x] DSPy
@@ -1104,7 +1104,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Cluster items by embedding similarity into N groups
   - [ ] evalyn dataset-subset --clusters N --dataset <path> extracting per-cluster subsets
   - [ ] Useful for focused evaluation on specific input categories
-- [ ] **Dataset Embedding Index** - Pre-compute and store embeddings for fast similarity queries
+- [x] **Dataset Embedding Index** - Pre-compute and store embeddings for fast similarity queries
   - [ ] Build embedding index on build-dataset using SentenceTransformer
   - [ ] Store embeddings alongside dataset.jsonl as embeddings.npy
   - [ ] Enable fast nearest-neighbor queries for sampling, dedup, and clustering
@@ -1400,7 +1400,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Fuzz _extract_json_object and extract_json_list with random strings
   - [ ] Fuzz _parse_passed with edge case values
   - [ ] Ensure no unhandled exceptions on any input
-- [ ] **Sandboxed Agent Evaluation** - Safe execution environment for agent evals where models run code
+- [x] **Sandboxed Agent Evaluation** - Safe execution environment for agent evals where models run code
   - [ ] Docker-based sandbox for executing agent tool calls safely (Inspect AI pattern)
   - [ ] Configurable timeout and resource limits per sandbox
   - [ ] Capture sandbox output as part of trace spans
