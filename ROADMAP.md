@@ -1527,10 +1527,10 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Tier 2: optional LLM-based classification for higher accuracy
   - [ ] Tier 3: optional vector similarity against known attack embeddings (self-hardening via Rebuff pattern)
   - [x] Scoring: 0.0 (injection detected) to 1.0 (clean), configurable sensitivity
-- [ ] **Embedding PII Safety Check** - Detect whether stored embeddings could leak PII via inversion attacks
-  - [ ] Warn when embedding vectors are stored alongside PII-containing text
-  - [ ] Research finding: 93-98% text recovery from ada-002 embeddings via inversion
-  - [ ] Recommend PII stripping before embedding or Eguard-style defense
+- [x] **Embedding PII Safety Check** - Detect whether stored embeddings could leak PII via inversion attacks
+  - [x] Warn when embedding vectors are stored alongside PII-containing text
+  - [x] Research finding: 93-98% text recovery from ada-002 embeddings via inversion
+  - [x] Recommend PII stripping before embedding or Eguard-style defense
 - [x] **EU AI Act Compliance Report** - Auto-generate evaluation documentation for regulatory compliance
   - [x] Document evaluation methodology, benchmarks used, and results
   - [x] Export as PDF/HTML for regulatory submission
@@ -1543,26 +1543,26 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Ollama provider for subjective metrics using local models
   - [x] Pre-download and cache model artifacts for sentence-transformers embeddings
   - [x] evalyn run-eval --offline flag that errors if any metric would require internet
-- [ ] **Local Model Performance Baselines** - Benchmark local models against API models for judge quality
-  - [ ] evalyn benchmark-judges --local ollama:llama3 --api gemini comparing alignment
-  - [ ] Per-metric local vs API agreement scores
-  - [ ] Recommend which metrics are safe to evaluate locally
+- [x] **Local Model Performance Baselines** - Benchmark local models against API models for judge quality
+  - [x] evalyn benchmark-judges --local ollama:llama3 --api gemini comparing alignment
+  - [x] Per-metric local vs API agreement scores
+  - [x] Recommend which metrics are safe to evaluate locally
 
 ### Scale & Performance
 
-- [ ] **Large Dataset Optimization** - Handle 10k+ item datasets without memory issues
-  - [ ] Streaming evaluation: process items without loading full dataset into memory
-  - [ ] Chunked metric result storage: write results in batches to avoid OOM
-  - [ ] Progress checkpointing every N items (currently only on interrupt)
-  - [ ] Memory usage monitoring and warning when approaching system limits
+- [x] **Large Dataset Optimization** - Handle 10k+ item datasets without memory issues
+  - [x] Streaming evaluation: process items without loading full dataset into memory
+  - [x] Chunked metric result storage: write results in batches to avoid OOM
+  - [x] Progress checkpointing every N items (currently only on interrupt)
+  - [x] Memory usage monitoring and warning when approaching system limits
 - [ ] **SQLite Full-Text Search** - FTS5 index for searching trace content and outputs
   - [ ] FTS index on function_call inputs and outputs
   - [ ] evalyn search "user asked about refund policy" finding matching traces
   - [ ] Search integration with build-dataset for content-based dataset curation
-- [ ] **Aggregation Queries** - Efficient database queries for cost and usage analytics
-  - [ ] Cost by project, by date range, by model
-  - [ ] Trace count and token usage per provider
-  - [ ] evalyn stats --project <name> --since 2026-03-01 for project-level analytics
+- [x] **Aggregation Queries** - Efficient database queries for cost and usage analytics
+  - [x] Cost by project, by date range, by model
+  - [x] Trace count and token usage per provider
+  - [x] evalyn stats --project <name> --since 2026-03-01 for project-level analytics
 
 ---
 
