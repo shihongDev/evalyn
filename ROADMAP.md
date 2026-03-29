@@ -2100,7 +2100,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Auto-page when output exceeds terminal height
   - [x] Respect PAGER env var, default to less
   - [x] --no-pager flag to disable for piping
-- [ ] **CLI Notification on Completion** - System notification when long-running commands finish
+- [x] **CLI Notification on Completion** - System notification when long-running commands finish
   - [x] Desktop notification via notify-send (Linux), osascript (macOS), or toast (Windows)
   - [x] --notify flag on run-eval, calibrate, and one-click commands
   - [x] Include pass/fail summary in notification body
@@ -2124,7 +2124,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] evalyn compare --side-by-side rendering left/right columns for two runs
   - [x] Per-item comparison with visual diff markers
   - [x] Automatic column width adjustment based on terminal size
-- [ ] **CLI Progress Dashboard** - Unified progress view for all concurrent operations
+- [x] **CLI Progress Dashboard** - Unified progress view for all concurrent operations
   - [x] Multi-bar display: per-metric progress within a run
   - [x] ETA estimation based on completed items and average per-item time
   - [x] Rich-based dashboard with live updates (optional dependency)
@@ -2239,11 +2239,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Grade definitions in evalyn.yaml (e.g. A=0.8-1.0, B=0.6-0.8, C=0.4-0.6, F=0-0.4)
   - [x] Grade distribution chart in analyze output
   - [x] Custom grade labels and thresholds per project
-- [ ] **Reference-Adaptive Metrics** - Auto-switch metric rubric based on whether expected reference is present
+- [x] **Reference-Adaptive Metrics** - Auto-switch metric rubric based on whether expected reference is present
   - [x] Detect reference availability per item via _dataset_has_reference
   - [x] Use reference-based rubric when available, reference-free rubric otherwise
   - [x] Report which rubric variant was used per item in MetricResult details
-- [ ] **Metric Debug Mode** - Verbose logging of the complete judge interaction per item
+- [x] **Metric Debug Mode** - Verbose logging of the complete judge interaction per item
   - [x] --debug-metrics flag showing: prompt sent, raw response, parsed result per item
   - [x] Log to .evalyn/metric_debug.jsonl for post-hoc analysis
   - [x] Useful for diagnosing why a metric scores differently than expected
