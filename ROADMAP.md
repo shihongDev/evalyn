@@ -133,7 +133,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Color-code by span type (llm_call, tool_call, node, etc.)
   - [ ] ASCII flame graph for terminal, SVG for HTML reports
   - [ ] Identify time-dominant spans at a glance vs nested show-trace tree
-- [ ] **Trace Summary Generation** - LLM-generated natural language summary of trace behavior
+- [x] **Trace Summary Generation** - LLM-generated natural language summary of trace behavior
   - [ ] Summarize what the agent did: tools called, decisions made, output produced
   - [ ] evalyn summarize-trace --id <id> producing 2-3 sentence summary
   - [ ] Batch summaries for dataset items to understand coverage
@@ -1116,7 +1116,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Configurable rules in evalyn.yaml: min_items, max_duplicate_rate, required_metadata_fields
   - [ ] run-eval refuses to start unless gate passes (--skip-quality-gate to override)
   - [ ] Gate report showing which checks passed and failed
-- [ ] **Dataset Item Clustering Report** - Show natural clusters with LLM-generated descriptions
+- [x] **Dataset Item Clustering Report** - Show natural clusters with LLM-generated descriptions
   - [ ] Auto-cluster items by embedding similarity into K groups
   - [ ] LLM-generated label per cluster describing what the items have in common
   - [ ] evalyn dataset-clusters --k 5 showing cluster summary with example items
@@ -1128,7 +1128,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Hash-based check that no item appears in both train and test splits
   - [ ] Embedding-based check for near-duplicate items across splits
   - [ ] evalyn dataset-xcontam --train <path1> --test <path2> reporting contamination
-- [ ] **Dataset Item Semantic Search** - Find items by natural language query using embeddings
+- [x] **Dataset Item Semantic Search** - Find items by natural language query using embeddings
   - [ ] evalyn dataset-search --query "user asks about refund policy" finding nearest items
   - [ ] Uses pre-built embedding index (from Dataset Embedding Index feature)
   - [ ] Return top-K matches with similarity scores
@@ -1412,7 +1412,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] Enable cross-platform evaluation result exchange
   - [ ] Schema covers: items, metrics, scores, metadata, provenance
   - [ ] No universal standard exists yet (industry gap evalyn could fill)
-- [ ] **Knowledge Graph Test Generation** - Generate evaluation questions from document knowledge graphs
+- [x] **Knowledge Graph Test Generation** - Generate evaluation questions from document knowledge graphs
   - [ ] Extract entities and relationships from source documents (Ragas pattern)
   - [ ] Generate questions that test understanding of specific relationships
   - [ ] Configurable question types: factual, inferential, multi-hop
