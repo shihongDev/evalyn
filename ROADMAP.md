@@ -1924,22 +1924,22 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Estimate per-item evaluation cost from input/output token counts
   - [x] Greedy selection maximizing item count within token/cost budget
   - [x] --max-eval-cost flag on build-dataset to cap total evaluation expense
-- [ ] **Human Disagreement Sampling** - Prioritize items where annotators previously disagreed
-  - [ ] Query annotation store for items with divergent human labels
-  - [ ] Weight by disagreement severity (binary flip vs minor score difference)
-  - [ ] Useful for building targeted calibration datasets
-- [ ] **Cluster Boundary Sampling** - Sample items near cluster decision boundaries for maximum information gain
-  - [ ] Identify items closest to cluster centroids vs farthest from all centroids
-  - [ ] Preferentially sample boundary items that are hardest to classify
-  - [ ] Combine with existing clustered sampling mode
-- [ ] **Bootstrap Resampling** - Generate bootstrap samples for confidence interval estimation on metrics
-  - [ ] --bootstrap N flag on run-eval to create N resampled evaluation runs
-  - [ ] Report 95% confidence intervals for each metric from bootstrap distribution
-  - [ ] Useful for small datasets where point estimates are unreliable
-- [ ] **Similarity-Based Sampling** - Sample items most or least similar to a given reference item
-  - [ ] --similar-to <item-id> flag selecting nearest neighbors by embedding distance
-  - [ ] --dissimilar-to <item-id> for maximum diversity from a reference
-  - [ ] Useful for focused investigation around a specific failure or success case
+- [x] **Human Disagreement Sampling** - Prioritize items where annotators previously disagreed
+  - [x] Query annotation store for items with divergent human labels
+  - [x] Weight by disagreement severity (binary flip vs minor score difference)
+  - [x] Useful for building targeted calibration datasets
+- [x] **Cluster Boundary Sampling** - Sample items near cluster decision boundaries for maximum information gain
+  - [x] Identify items closest to cluster centroids vs farthest from all centroids
+  - [x] Preferentially sample boundary items that are hardest to classify
+  - [x] Combine with existing clustered sampling mode
+- [x] **Bootstrap Resampling** - Generate bootstrap samples for confidence interval estimation on metrics
+  - [x] --bootstrap N flag on run-eval to create N resampled evaluation runs
+  - [x] Report 95% confidence intervals for each metric from bootstrap distribution
+  - [x] Useful for small datasets where point estimates are unreliable
+- [x] **Similarity-Based Sampling** - Sample items most or least similar to a given reference item
+  - [x] --similar-to <item-id> flag selecting nearest neighbors by embedding distance
+  - [x] --dissimilar-to <item-id> for maximum diversity from a reference
+  - [x] Useful for focused investigation around a specific failure or success case
 - [ ] **Error-Pattern Sampling** - Preferentially sample items matching known failure patterns
   - [ ] Extract failure patterns from cluster-failures output
   - [ ] Match new items against known patterns via embedding similarity
