@@ -2092,7 +2092,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Auto-log commands to .evalyn/history.jsonl with timestamps and exit codes
   - [x] evalyn history showing recent commands
   - [x] evalyn replay --from <timestamp> to re-run a sequence of commands
-- [ ] **CLI Batch Script** - Run multiple commands from a script file
+- [x] **CLI Batch Script** - Run multiple commands from a script file
   - [x] evalyn batch commands.txt executing one command per line
   - [x] Stop-on-error vs continue-on-error modes
   - [x] Variable substitution: $DATE, $LATEST_RUN, $LATEST_DATASET
@@ -2104,7 +2104,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Desktop notification via notify-send (Linux), osascript (macOS), or toast (Windows)
   - [x] --notify flag on run-eval, calibrate, and one-click commands
   - [x] Include pass/fail summary in notification body
-- [ ] **CLI Config Show** - Display effective merged configuration from all sources
+- [x] **CLI Config Show** - Display effective merged configuration from all sources
   - [x] evalyn config-show displaying global + project + env var + flag overrides
   - [x] Highlight which source each setting comes from
   - [x] Useful for debugging "why is this provider being used?"
@@ -2132,7 +2132,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] evalyn build-dataset | evalyn run-eval passing dataset path automatically
   - [x] --stdin flag reading dataset path or run ID from standard input
   - [x] Useful for scripting multi-step workflows without temp variables
-- [ ] **CLI Time Tracking** - Track total time spent per command type for operational analytics
+- [x] **CLI Time Tracking** - Track total time spent per command type for operational analytics
   - [x] Auto-log command name and duration to .evalyn/timing.jsonl
   - [x] evalyn timing-stats showing per-command average/total time
   - [x] Identify slowest commands for optimization opportunities
@@ -2215,7 +2215,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Chain definition: "if toxicity_safety fails, run toxicity_type_classifier"
   - [x] Diagnostic metrics produce detailed failure categorization
   - [x] Chain results stored alongside primary metric results
-- [ ] **Metric Namespacing** - Organize metrics by project/team namespace to avoid collisions
+- [x] **Metric Namespacing** - Organize metrics by project/team namespace to avoid collisions
   - [x] Namespace prefix: "team-safety/toxicity" vs "team-quality/toxicity"
   - [x] Namespace-scoped metric search in list-metrics
   - [x] Cross-namespace metric comparison
