@@ -1823,22 +1823,22 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Estimate token cost per simulation mode based on prompt complexity
   - [x] Maximize diversity under budget constraint via greedy allocation
   - [x] Report actual vs budgeted cost after generation
-- [ ] **Constraint-Guided Simulation** - Generate inputs satisfying specific constraints
-  - [ ] --constraint "topic=refunds AND length>200" flag on simulate command
-  - [ ] LLM-guided generation with constraint verification loop
-  - [ ] Reject and regenerate items that fail constraint checks
-- [ ] **Simulation Diversity Metrics** - Quantify how diverse the generated set is vs seed set
-  - [ ] Embedding spread: average pairwise distance in generated set
-  - [ ] Vocabulary uniqueness ratio vs seed set
-  - [ ] Novelty score: fraction of generated items far from all seed items
-- [ ] **Simulation Evaluation Loop** - Generate, evaluate, and iterate on simulated data in one command
-  - [ ] evalyn simulate-and-eval --rounds 3 running simulate + run-eval in a loop
-  - [ ] Each round generates items targeting previous round's failure patterns
-  - [ ] Convergence tracking: stop when pass rate stabilizes
-- [ ] **Simulation with Tool Schemas** - Generate inputs that exercise specific tool call patterns
-  - [ ] Provide tool definitions in evalyn.yaml; simulator generates queries requiring those tools
-  - [ ] Coverage tracking: % of tools exercised by generated inputs
-  - [ ] Useful for testing tool selection and parameter correctness
+- [x] **Constraint-Guided Simulation** - Generate inputs satisfying specific constraints
+  - [x] --constraint "topic=refunds AND length>200" flag on simulate command
+  - [x] LLM-guided generation with constraint verification loop
+  - [x] Reject and regenerate items that fail constraint checks
+- [x] **Simulation Diversity Metrics** - Quantify how diverse the generated set is vs seed set
+  - [x] Embedding spread: average pairwise distance in generated set
+  - [x] Vocabulary uniqueness ratio vs seed set
+  - [x] Novelty score: fraction of generated items far from all seed items
+- [x] **Simulation Evaluation Loop** - Generate, evaluate, and iterate on simulated data in one command
+  - [x] evalyn simulate-and-eval --rounds 3 running simulate + run-eval in a loop
+  - [x] Each round generates items targeting previous round's failure patterns
+  - [x] Convergence tracking: stop when pass rate stabilizes
+- [x] **Simulation with Tool Schemas** - Generate inputs that exercise specific tool call patterns
+  - [x] Provide tool definitions in evalyn.yaml; simulator generates queries requiring those tools
+  - [x] Coverage tracking: % of tools exercised by generated inputs
+  - [x] Useful for testing tool selection and parameter correctness
 - [ ] **Simulation Seed Clustering** - Cluster seeds before simulation to ensure diverse coverage
   - [ ] Auto-cluster seed items into groups by embedding similarity
   - [ ] Sample proportionally from each cluster for simulation seeds
