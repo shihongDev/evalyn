@@ -2108,11 +2108,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] evalyn config-show displaying global + project + env var + flag overrides
   - [x] Highlight which source each setting comes from
   - [x] Useful for debugging "why is this provider being used?"
-- [ ] **CLI Compare Shorthand** - Quick comparison shortcuts for common comparison patterns
+- [x] **CLI Compare Shorthand** - Quick comparison shortcuts for common comparison patterns
   - [x] evalyn compare --last-2 comparing two most recent runs
   - [x] evalyn compare --latest-vs-pinned comparing latest against pinned baseline
   - [x] evalyn compare --latest-vs-previous for sequential regression checking
-- [ ] **CLI Checkpoint Inspection** - View and manage evaluation checkpoints
+- [x] **CLI Checkpoint Inspection** - View and manage evaluation checkpoints
   - [x] evalyn checkpoints listing all saved checkpoints with item counts and timestamps
   - [x] evalyn checkpoint-info <id> showing checkpoint details
   - [x] evalyn checkpoint-delete <id> cleaning up stale checkpoints
@@ -2235,7 +2235,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Matrix: metrics on Y-axis, unit types (outcome, single_turn, tool_use, multi_turn) on X-axis
   - [x] evalyn list-metrics --compatibility showing supported unit types per metric
   - [x] Warn when user selects metrics incompatible with their trace structure
-- [ ] **Metric Score Binning** - Configurable score-to-grade mapping for human-friendly reporting
+- [x] **Metric Score Binning** - Configurable score-to-grade mapping for human-friendly reporting
   - [x] Grade definitions in evalyn.yaml (e.g. A=0.8-1.0, B=0.6-0.8, C=0.4-0.6, F=0-0.4)
   - [x] Grade distribution chart in analyze output
   - [x] Custom grade labels and thresholds per project
@@ -2294,15 +2294,15 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Metric Bundle Customization
 
-- [ ] **User-Defined Bundles** - Define custom metric bundles in evalyn.yaml
+- [x] **User-Defined Bundles** - Define custom metric bundles in evalyn.yaml
   - [x] bundles: section in evalyn.yaml with named metric lists
   - [x] evalyn suggest-metrics --mode bundle --bundle my-custom-bundle
   - [x] Inherit from built-in bundles and override (e.g. extend "chatbot" with custom metrics)
-- [ ] **Bundle Composition** - Combine multiple bundles into one with deduplication
+- [x] **Bundle Composition** - Combine multiple bundles into one with deduplication
   - [x] evalyn suggest-metrics --bundle chatbot+safety merging two bundles
   - [x] Automatic deduplication when combining overlapping bundles
   - [x] Conflict resolution when same metric appears with different configs
-- [ ] **Bundle Recommendation** - Auto-suggest bundle based on captured trace patterns
+- [x] **Bundle Recommendation** - Auto-suggest bundle based on captured trace patterns
   - [x] Analyze trace spans to detect agent type (RAG, orchestrator, chatbot, etc.)
   - [x] Match detected patterns to best-fit built-in bundle
   - [x] evalyn suggest-metrics --mode auto-bundle choosing bundle without user input
