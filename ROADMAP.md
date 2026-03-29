@@ -2070,7 +2070,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Metric-level summary: improved/regressed/unchanged counts
   - [x] --threshold flag to only show items with delta > N
   - [x] ASCII color coding: green for improvement, red for regression
-- [ ] **evalyn gc** - Garbage collect orphaned data (stale checkpoints, runs without datasets)
+- [x] **evalyn gc** - Garbage collect orphaned data (stale checkpoints, runs without datasets)
   - [x] Identify orphaned checkpoint files without matching runs
   - [x] Find runs referencing deleted datasets
   - [x] Remove temporary files in .evalyn/ directory
@@ -2080,15 +2080,15 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] JSONL streaming for long-running operations (progress events)
   - [x] Exit codes: 0=pass, 1=fail, 2=error for CI gate integration
   - [x] jq-friendly output structure
-- [ ] **CLI Plugin System** - Register custom commands via Python entry points
+- [x] **CLI Plugin System** - Register custom commands via Python entry points
   - [x] evalyn.commands entry point group for third-party command modules
   - [x] Auto-discovery and registration at startup
   - [x] evalyn list-plugins showing installed command plugins
-- [ ] **CLI Alias Support** - User-defined command aliases in evalyn.yaml
+- [x] **CLI Alias Support** - User-defined command aliases in evalyn.yaml
   - [x] aliases: section mapping short names to full commands (e.g. "q" -> "quickstart")
   - [x] Aliases can include default flags (e.g. "fast-eval" -> "run-eval --workers 8 --provider ollama")
   - [x] evalyn alias list showing configured aliases
-- [ ] **CLI Command History** - Record and replay command sequences for reproducible workflows
+- [x] **CLI Command History** - Record and replay command sequences for reproducible workflows
   - [x] Auto-log commands to .evalyn/history.jsonl with timestamps and exit codes
   - [x] evalyn history showing recent commands
   - [x] evalyn replay --from <timestamp> to re-run a sequence of commands
