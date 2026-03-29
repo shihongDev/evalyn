@@ -1464,10 +1464,10 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Rubric translation support in JUDGE_TEMPLATES (locale field per template)
   - [x] Language-matched judging: use rubric language matching the output language
   - [x] Cross-language evaluation: judge non-English outputs with English rubrics vs native rubrics
-- [ ] **Community Rubric Library** - Import and export rubrics from a shared repository
-  - [ ] evalyn rubric-export --metric <id> producing a portable YAML rubric file
-  - [ ] evalyn rubric-import from URL or local file
-  - [ ] Rubric metadata: author, version, tested-on, accuracy stats
+- [x] **Community Rubric Library** - Import and export rubrics from a shared repository
+  - [x] evalyn rubric-export --metric <id> producing a portable YAML rubric file
+  - [x] evalyn rubric-import from URL or local file
+  - [x] Rubric metadata: author, version, tested-on, accuracy stats
 - [x] **Rubric Testing** - Validate that a rubric produces consistent scores on test cases
   - [x] evalyn test-rubric --metric <id> running rubric against a set of known pass/fail items
   - [x] Consistency score: same rubric, same item, N runs, measure agreement
@@ -1484,21 +1484,21 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] evalyn dashboard --embed producing minimal HTML without navigation chrome
   - [x] Configurable widget size and chart selection
   - [x] PostMessage API for parent page communication (filter events, score updates)
-- [ ] **In-Dashboard Data Export** - CSV/JSON export buttons on each chart in HTML reports
-  - [ ] Download button per chart exporting underlying data as CSV
-  - [ ] Full dataset export button in failed items section
-  - [ ] Copy-to-clipboard for individual metric summaries
-- [ ] **Comparison Overlay Dashboard** - Overlay two runs on same charts for visual comparison
-  - [ ] evalyn dashboard --compare <run1> <run2>
-  - [ ] Dual bar charts, overlaid radar plots, side-by-side heatmaps
-  - [ ] Toggle visibility of each run for clean comparison
+- [x] **In-Dashboard Data Export** - CSV/JSON export buttons on each chart in HTML reports
+  - [x] Download button per chart exporting underlying data as CSV
+  - [x] Full dataset export button in failed items section
+  - [x] Copy-to-clipboard for individual metric summaries
+- [x] **Comparison Overlay Dashboard** - Overlay two runs on same charts for visual comparison
+  - [x] evalyn dashboard --compare <run1> <run2>
+  - [x] Dual bar charts, overlaid radar plots, side-by-side heatmaps
+  - [x] Toggle visibility of each run for clean comparison
 
 ### Audit & Governance
 
-- [ ] **Evaluation Audit Trail** - Immutable log of who ran what and when
-  - [ ] Record: user, timestamp, command, args, config hash, result summary
-  - [ ] Append-only audit log in .evalyn/audit.jsonl
-  - [ ] evalyn audit-log showing evaluation history with filters
+- [x] **Evaluation Audit Trail** - Immutable log of who ran what and when
+  - [x] Record: user, timestamp, command, args, config hash, result summary
+  - [x] Append-only audit log in .evalyn/audit.jsonl
+  - [x] evalyn audit-log showing evaluation history with filters
 - [ ] **Data Governance Metadata** - Track data provenance and compliance attributes
   - [ ] Dataset-level tags: PII-present, internal-only, customer-data, synthetic
   - [ ] Eval run compliance flag: was evaluation run on approved infrastructure?
