@@ -723,10 +723,10 @@ This document tracks planned features and completed work. Future roadmap items a
   - [ ] evalyn calibrate --metrics all calibrating every metric with annotations
   - [ ] Parallel calibration of independent metrics for speed
   - [ ] Combined calibration report showing per-metric alignment improvements
-- [ ] **SAMMO-Style Structural Optimization** - Treat prompts as symbolic DAGs with structural mutations
-  - [ ] Represent prompt as sections (instruction, context, examples, rubric) with structural operators
-  - [ ] Mutations: paraphrase section, drop section, reformat, reorder examples
-  - [ ] Multi-objective search: accuracy vs prompt length vs cost
+- [x] **SAMMO-Style Structural Optimization** - Treat prompts as symbolic DAGs with structural mutations
+  - [x] Represent prompt as sections (instruction, context, examples, rubric) with structural operators
+  - [x] Mutations: paraphrase section, drop section, reformat, reorder examples
+  - [x] Multi-objective search: accuracy vs prompt length vs cost
 - [x] **Annotation Queue Flywheel** - Closed loop where human labels improve judge, reducing future annotation needs
   - [ ] Track judge accuracy on human-labeled items over time
   - [ ] Identify metrics where judge is now reliable enough to skip human review
@@ -1499,10 +1499,10 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Record: user, timestamp, command, args, config hash, result summary
   - [x] Append-only audit log in .evalyn/audit.jsonl
   - [x] evalyn audit-log showing evaluation history with filters
-- [ ] **Data Governance Metadata** - Track data provenance and compliance attributes
-  - [ ] Dataset-level tags: PII-present, internal-only, customer-data, synthetic
-  - [ ] Eval run compliance flag: was evaluation run on approved infrastructure?
-  - [ ] Exportable governance report for compliance audits
+- [x] **Data Governance Metadata** - Track data provenance and compliance attributes
+  - [x] Dataset-level tags: PII-present, internal-only, customer-data, synthetic
+  - [x] Eval run compliance flag: was evaluation run on approved infrastructure?
+  - [x] Exportable governance report for compliance audits
 - [x] **Structured Logging** - JSON-formatted logs with configurable verbosity
   - [ ] --log-level flag (debug, info, warning, error) on all commands
   - [ ] JSON log format for machine parsing in production environments
@@ -1510,14 +1510,14 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Security
 
-- [ ] **API Key Rotation Support** - Gracefully handle key rotation without interrupting evaluation runs
-  - [ ] Accept multiple API keys per provider in evalyn.yaml (primary + fallback)
-  - [ ] Automatic fallback to secondary key when primary returns 401/403
-  - [ ] evalyn rotate-key --provider gemini to update key and verify connectivity
-- [ ] **Secrets Backend Integration** - Load API keys from external secret managers instead of plaintext config
-  - [ ] Support AWS Secrets Manager, GCP Secret Manager, HashiCorp Vault
-  - [ ] evalyn.yaml secrets_backend: "aws" with ARN references
-  - [ ] Environment variable passthrough as default (no config change needed)
+- [x] **API Key Rotation Support** - Gracefully handle key rotation without interrupting evaluation runs
+  - [x] Accept multiple API keys per provider in evalyn.yaml (primary + fallback)
+  - [x] Automatic fallback to secondary key when primary returns 401/403
+  - [x] evalyn rotate-key --provider gemini to update key and verify connectivity
+- [x] **Secrets Backend Integration** - Load API keys from external secret managers instead of plaintext config
+  - [x] Support AWS Secrets Manager, GCP Secret Manager, HashiCorp Vault
+  - [x] evalyn.yaml secrets_backend: "aws" with ARN references
+  - [x] Environment variable passthrough as default (no config change needed)
 - [ ] **Trace Content Redaction Policies** - Configurable rules for what gets stored in trace payloads
   - [ ] Policy definitions in evalyn.yaml: never store full messages, only store first/last N chars
   - [ ] Per-project redaction rules (strict for production, relaxed for test)
