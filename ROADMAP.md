@@ -1871,27 +1871,27 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Accept failure cluster labels from cluster-failures as simulation targets
   - [x] Generate items specifically designed to trigger each failure mode
   - [x] Coverage tracking: % of known failure patterns with generated test cases
-- [ ] **Evol-Instruct Data Evolution** - Evolve evaluation items through iterative complexity increases
-  - [ ] In-depth evolution: add constraints, reasoning steps, edge cases to existing items
-  - [ ] In-breadth evolution: generate topic variations and domain transfers
-  - [ ] Quality scoring: rate evolved items on clarity, depth, structure, relevance
-  - [ ] Auto-filtering: reject evolved items that degrade below quality threshold
-- [ ] **Persona Hub Integration** - Generate diverse user personas for simulation
-  - [ ] Large-scale persona generation from behavior descriptions
-  - [ ] Persona-to-Persona expansion for combinatorial diversity
-  - [ ] Structured diversity controls: ensure coverage across demographics, expertise, intent
-- [ ] **Cascade Model Routing for Evaluation** - Use cheap models for easy items, expensive for hard
-  - [ ] Difficulty estimation from input complexity heuristics
-  - [ ] Route easy items to flash-lite, hard items to flash/pro
-  - [ ] 87% cost reduction benchmark (ETH Zurich finding)
-  - [ ] Quality estimator to determine when to escalate
+- [x] **Evol-Instruct Data Evolution** - Evolve evaluation items through iterative complexity increases
+  - [x] In-depth evolution: add constraints, reasoning steps, edge cases to existing items
+  - [x] In-breadth evolution: generate topic variations and domain transfers
+  - [x] Quality scoring: rate evolved items on clarity, depth, structure, relevance
+  - [x] Auto-filtering: reject evolved items that degrade below quality threshold
+- [x] **Persona Hub Integration** - Generate diverse user personas for simulation
+  - [x] Large-scale persona generation from behavior descriptions
+  - [x] Persona-to-Persona expansion for combinatorial diversity
+  - [x] Structured diversity controls: ensure coverage across demographics, expertise, intent
+- [x] **Cascade Model Routing for Evaluation** - Use cheap models for easy items, expensive for hard
+  - [x] Difficulty estimation from input complexity heuristics
+  - [x] Route easy items to flash-lite, hard items to flash/pro
+  - [x] 87% cost reduction benchmark (ETH Zurich finding)
+  - [x] Quality estimator to determine when to escalate
 
 ### Sampling
 
-- [ ] **Importance Sampling** - Weight sample selection by item difficulty or model uncertainty
-  - [ ] Weight by inverse pass rate from previous eval run
-  - [ ] Weight by judge confidence (low confidence = high importance)
-  - [ ] Configurable weight function via Python callable
+- [x] **Importance Sampling** - Weight sample selection by item difficulty or model uncertainty
+  - [x] Weight by inverse pass rate from previous eval run
+  - [x] Weight by judge confidence (low confidence = high importance)
+  - [x] Configurable weight function via Python callable
 - [ ] **Curriculum Sampling** - Order samples from easy to hard for progressive evaluation
   - [ ] Difficulty estimation from input length, complexity heuristics, or past scores
   - [ ] Progressive disclosure: evaluate easy items first, add harder ones
