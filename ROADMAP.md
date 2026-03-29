@@ -1839,22 +1839,22 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Provide tool definitions in evalyn.yaml; simulator generates queries requiring those tools
   - [x] Coverage tracking: % of tools exercised by generated inputs
   - [x] Useful for testing tool selection and parameter correctness
-- [ ] **Simulation Seed Clustering** - Cluster seeds before simulation to ensure diverse coverage
-  - [ ] Auto-cluster seed items into groups by embedding similarity
-  - [ ] Sample proportionally from each cluster for simulation seeds
-  - [ ] Prevent simulation from over-representing one cluster of similar inputs
-- [ ] **Simulation Template Library** - Pre-built simulation configs for common use cases
-  - [ ] Templates: customer-support, rag-qa, code-review, multi-step-agent
+- [x] **Simulation Seed Clustering** - Cluster seeds before simulation to ensure diverse coverage
+  - [x] Auto-cluster seed items into groups by embedding similarity
+  - [x] Sample proportionally from each cluster for simulation seeds
+  - [x] Prevent simulation from over-representing one cluster of similar inputs
+- [x] **Simulation Template Library** - Pre-built simulation configs for common use cases
+  - [x] Templates: customer-support, rag-qa, code-review, multi-step-agent
   - [ ] Each template defines persona mix, edge case types, output format constraints
   - [ ] evalyn simulate --template customer-support
-- [ ] **Simulation Difficulty Grading** - Auto-tag generated items with estimated difficulty level
-  - [ ] Difficulty heuristics: input complexity, number of constraints, ambiguity level
-  - [ ] Tag in metadata as difficulty: easy/medium/hard
-  - [ ] Ensure generated set has balanced difficulty distribution
-- [ ] **Simulation Quality Score** - Evaluate generated items for naturalness compared to seed set
-  - [ ] LLM-based naturalness rating: does this look like a real user query?
-  - [ ] Statistical comparison: generated vs seed item length/vocabulary distributions
-  - [ ] Auto-reject generated items scoring below quality threshold
+- [x] **Simulation Difficulty Grading** - Auto-tag generated items with estimated difficulty level
+  - [x] Difficulty heuristics: input complexity, number of constraints, ambiguity level
+  - [x] Tag in metadata as difficulty: easy/medium/hard
+  - [x] Ensure generated set has balanced difficulty distribution
+- [x] **Simulation Quality Score** - Evaluate generated items for naturalness compared to seed set
+  - [x] LLM-based naturalness rating: does this look like a real user query?
+  - [x] Statistical comparison: generated vs seed item length/vocabulary distributions
+  - [x] Auto-reject generated items scoring below quality threshold
 - [ ] **Simulation Provider Diversity** - Use multiple LLM providers to increase variety in generated items
   - [ ] Round-robin across configured providers (Gemini, OpenAI, Ollama)
   - [ ] Merge results with provider tag in metadata
