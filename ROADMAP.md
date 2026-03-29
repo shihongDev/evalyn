@@ -1774,23 +1774,23 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Built-in personas: novice user, power user, adversarial attacker, non-native speaker
   - [x] Custom persona definitions in evalyn.yaml
   - [x] Persona tag in generated item metadata for cohort analysis
-- [ ] **Multi-Turn Simulation** - Generate full multi-turn conversations, not just single queries
-  - [ ] Configurable conversation length (2-10 turns)
-  - [ ] Follow-up generation based on agent response
-  - [ ] Conversation flow patterns: clarification, topic shift, error recovery
-- [ ] **Adversarial Simulation** - Deliberately craft inputs targeting known failure modes
-  - [ ] Prompt injection attempts
-  - [ ] Boundary inputs: empty, max length, special characters, unicode edge cases
-  - [ ] Contradiction inputs that conflict with system prompt
-  - [ ] Jailbreak pattern variations
-- [ ] **Domain Transfer Simulation** - Adapt seed inputs from one domain to another (e.g. medical to legal)
-  - [ ] LLM-powered domain rewriting preserving query structure
-  - [ ] Domain vocabulary substitution
-  - [ ] Complexity preservation across domain transfer
-- [ ] **Regression Simulation** - Re-generate past failure inputs to verify they no longer fail
-  - [ ] Extract failure patterns from cluster-failures output
-  - [ ] Generate new inputs matching each failure pattern
-  - [ ] Track fix rate: % of previously-failing patterns now passing
+- [x] **Multi-Turn Simulation** - Generate full multi-turn conversations, not just single queries
+  - [x] Configurable conversation length (2-10 turns)
+  - [x] Follow-up generation based on agent response
+  - [x] Conversation flow patterns: clarification, topic shift, error recovery
+- [x] **Adversarial Simulation** - Deliberately craft inputs targeting known failure modes
+  - [x] Prompt injection attempts
+  - [x] Boundary inputs: empty, max length, special characters, unicode edge cases
+  - [x] Contradiction inputs that conflict with system prompt
+  - [x] Jailbreak pattern variations
+- [x] **Domain Transfer Simulation** - Adapt seed inputs from one domain to another (e.g. medical to legal)
+  - [x] LLM-powered domain rewriting preserving query structure
+  - [x] Domain vocabulary substitution
+  - [x] Complexity preservation across domain transfer
+- [x] **Regression Simulation** - Re-generate past failure inputs to verify they no longer fail
+  - [x] Extract failure patterns from cluster-failures output
+  - [x] Generate new inputs matching each failure pattern
+  - [x] Track fix rate: % of previously-failing patterns now passing
 - [ ] **Conditional Simulation** - Generate inputs that specifically test edge conditions (empty input, max length, unicode)
   - [ ] Edge condition library: empty, null, max_length, unicode, mixed_language
   - [ ] Combinatorial generation across edge conditions
