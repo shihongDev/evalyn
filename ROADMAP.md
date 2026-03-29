@@ -1555,10 +1555,10 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Chunked metric result storage: write results in batches to avoid OOM
   - [x] Progress checkpointing every N items (currently only on interrupt)
   - [x] Memory usage monitoring and warning when approaching system limits
-- [ ] **SQLite Full-Text Search** - FTS5 index for searching trace content and outputs
-  - [ ] FTS index on function_call inputs and outputs
-  - [ ] evalyn search "user asked about refund policy" finding matching traces
-  - [ ] Search integration with build-dataset for content-based dataset curation
+- [x] **SQLite Full-Text Search** - FTS5 index for searching trace content and outputs
+  - [x] FTS index on function_call inputs and outputs
+  - [x] evalyn search "user asked about refund policy" finding matching traces
+  - [x] Search integration with build-dataset for content-based dataset curation
 - [x] **Aggregation Queries** - Efficient database queries for cost and usage analytics
   - [x] Cost by project, by date range, by model
   - [x] Trace count and token usage per provider
@@ -1701,25 +1701,25 @@ This document tracks planned features and completed work. Future roadmap items a
 
 ### Annotation Enhancements
 
-- [ ] **Inter-Annotator Agreement** - Track and visualize consistency between multiple annotators
-  - [ ] Cohen's Kappa and Krippendorff's Alpha per metric
-  - [ ] Pairwise agreement matrix across annotators
-  - [ ] Identify items with highest disagreement for re-annotation
-  - [ ] Agreement trend over time as annotators calibrate
-- [ ] **Annotation Delegation** - Assign specific items to specific annotators by expertise
-  - [ ] Annotator profiles with domain expertise tags
-  - [ ] Auto-assignment based on item metadata and annotator expertise match
-  - [ ] Workload balancing across annotators
-  - [ ] Progress dashboard per annotator
+- [x] **Inter-Annotator Agreement** - Track and visualize consistency between multiple annotators
+  - [x] Cohen's Kappa and Krippendorff's Alpha per metric
+  - [x] Pairwise agreement matrix across annotators
+  - [x] Identify items with highest disagreement for re-annotation
+  - [x] Agreement trend over time as annotators calibrate
+- [x] **Annotation Delegation** - Assign specific items to specific annotators by expertise
+  - [x] Annotator profiles with domain expertise tags
+  - [x] Auto-assignment based on item metadata and annotator expertise match
+  - [x] Workload balancing across annotators
+  - [x] Progress dashboard per annotator
 - [ ] **Bulk Pre-Annotation via LLM** - Use LLM to pre-fill annotations for human review and correction
   - [ ] evalyn pre-annotate --provider gemini to generate draft annotations
   - [ ] Confidence-based triage: auto-accept high-confidence, human-review low-confidence
   - [ ] Track pre-annotation accuracy vs human corrections
   - [ ] Use corrections to improve pre-annotation prompts
-- [ ] **Annotation Guidelines Generator** - Auto-generate annotation guidelines from metric definitions
-  - [ ] Convert metric rubrics to annotator-friendly instructions
-  - [ ] Include concrete pass/fail examples from existing annotations
-  - [ ] Export as markdown document or HTML with examples
+- [x] **Annotation Guidelines Generator** - Auto-generate annotation guidelines from metric definitions
+  - [x] Convert metric rubrics to annotator-friendly instructions
+  - [x] Include concrete pass/fail examples from existing annotations
+  - [x] Export as markdown document or HTML with examples
 - [ ] **Annotation Conflict Resolution UI** - Side-by-side view when annotators disagree, with tiebreaker workflow
   - [ ] Display both annotators' labels with their confidence and reasoning
   - [ ] Third-party tiebreaker annotation with full context
