@@ -1892,22 +1892,22 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Weight by inverse pass rate from previous eval run
   - [x] Weight by judge confidence (low confidence = high importance)
   - [x] Configurable weight function via Python callable
-- [ ] **Curriculum Sampling** - Order samples from easy to hard for progressive evaluation
-  - [ ] Difficulty estimation from input length, complexity heuristics, or past scores
-  - [ ] Progressive disclosure: evaluate easy items first, add harder ones
-  - [ ] Early stopping if easy items already fail
-- [ ] **Time-Weighted Sampling** - Prefer recent traces over older ones during dataset construction
-  - [ ] Exponential decay weighting by trace timestamp
-  - [ ] Configurable half-life parameter (e.g. 7 days, 30 days)
-  - [ ] Minimum representation guarantee for older traces
-- [ ] **Coverage-Aware Sampling** - Maximize coverage of the input feature space
-  - [ ] Embedding-based coverage using existing SentenceTransformer infrastructure
-  - [ ] Greedy maximal-diversity selection
-  - [ ] Coverage report: % of embedding space represented
-- [ ] **Balanced Sampling** - Ensure equal representation across metadata categories or labels
-  - [ ] Balance by any metadata field (tag, source, difficulty)
-  - [ ] Undersample majority or oversample minority categories
-  - [ ] Report sampling ratio adjustments applied
+- [x] **Curriculum Sampling** - Order samples from easy to hard for progressive evaluation
+  - [x] Difficulty estimation from input length, complexity heuristics, or past scores
+  - [x] Progressive disclosure: evaluate easy items first, add harder ones
+  - [x] Early stopping if easy items already fail
+- [x] **Time-Weighted Sampling** - Prefer recent traces over older ones during dataset construction
+  - [x] Exponential decay weighting by trace timestamp
+  - [x] Configurable half-life parameter (e.g. 7 days, 30 days)
+  - [x] Minimum representation guarantee for older traces
+- [x] **Coverage-Aware Sampling** - Maximize coverage of the input feature space
+  - [x] Embedding-based coverage using existing SentenceTransformer infrastructure
+  - [x] Greedy maximal-diversity selection
+  - [x] Coverage report: % of embedding space represented
+- [x] **Balanced Sampling** - Ensure equal representation across metadata categories or labels
+  - [x] Balance by any metadata field (tag, source, difficulty)
+  - [x] Undersample majority or oversample minority categories
+  - [x] Report sampling ratio adjustments applied
 - [ ] **Adversarial Sampling** - Select items most likely to trigger model failures based on past results
   - [ ] Prioritize items that failed in previous runs
   - [ ] Select items near decision boundaries (scores close to threshold)
