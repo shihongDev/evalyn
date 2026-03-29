@@ -1908,22 +1908,22 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Balance by any metadata field (tag, source, difficulty)
   - [x] Undersample majority or oversample minority categories
   - [x] Report sampling ratio adjustments applied
-- [ ] **Adversarial Sampling** - Select items most likely to trigger model failures based on past results
-  - [ ] Prioritize items that failed in previous runs
-  - [ ] Select items near decision boundaries (scores close to threshold)
-  - [ ] Include items from underperforming cohorts
-- [ ] **Score-Stratified Sampling** - Ensure representation across the full metric score range
-  - [ ] Bin items by score range (0-0.2, 0.2-0.4, ..., 0.8-1.0)
-  - [ ] Equal sampling from each bin
-  - [ ] Useful for calibration datasets needing score diversity
-- [ ] **Embedding Drift Sampling** - Prioritize items whose embeddings shifted most between dataset versions
-  - [ ] Compute per-item embedding delta between old and new dataset
-  - [ ] Sample items with largest cosine distance change
-  - [ ] Useful for targeting evaluation on items most affected by data updates
-- [ ] **Cost-Aware Sampling** - Prefer shorter/cheaper items when evaluation budget is constrained
-  - [ ] Estimate per-item evaluation cost from input/output token counts
-  - [ ] Greedy selection maximizing item count within token/cost budget
-  - [ ] --max-eval-cost flag on build-dataset to cap total evaluation expense
+- [x] **Adversarial Sampling** - Select items most likely to trigger model failures based on past results
+  - [x] Prioritize items that failed in previous runs
+  - [x] Select items near decision boundaries (scores close to threshold)
+  - [x] Include items from underperforming cohorts
+- [x] **Score-Stratified Sampling** - Ensure representation across the full metric score range
+  - [x] Bin items by score range (0-0.2, 0.2-0.4, ..., 0.8-1.0)
+  - [x] Equal sampling from each bin
+  - [x] Useful for calibration datasets needing score diversity
+- [x] **Embedding Drift Sampling** - Prioritize items whose embeddings shifted most between dataset versions
+  - [x] Compute per-item embedding delta between old and new dataset
+  - [x] Sample items with largest cosine distance change
+  - [x] Useful for targeting evaluation on items most affected by data updates
+- [x] **Cost-Aware Sampling** - Prefer shorter/cheaper items when evaluation budget is constrained
+  - [x] Estimate per-item evaluation cost from input/output token counts
+  - [x] Greedy selection maximizing item count within token/cost budget
+  - [x] --max-eval-cost flag on build-dataset to cap total evaluation expense
 - [ ] **Human Disagreement Sampling** - Prioritize items where annotators previously disagreed
   - [ ] Query annotation store for items with divergent human labels
   - [ ] Weight by disagreement severity (binary flip vs minor score difference)
