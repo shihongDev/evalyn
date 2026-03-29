@@ -2116,11 +2116,11 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] evalyn checkpoints listing all saved checkpoints with item counts and timestamps
   - [x] evalyn checkpoint-info <id> showing checkpoint details
   - [x] evalyn checkpoint-delete <id> cleaning up stale checkpoints
-- [ ] **CLI Pipeline Visualization** - Show pipeline steps as ASCII flowchart before execution
+- [x] **CLI Pipeline Visualization** - Show pipeline steps as ASCII flowchart before execution
   - [x] evalyn one-click --show-plan displaying step sequence with estimated times
   - [x] Indicate which steps will be skipped based on flags
   - [x] Confirm before executing the visualized plan
-- [ ] **CLI Side-by-Side View** - Display two outputs side by side in terminal
+- [x] **CLI Side-by-Side View** - Display two outputs side by side in terminal
   - [x] evalyn compare --side-by-side rendering left/right columns for two runs
   - [x] Per-item comparison with visual diff markers
   - [x] Automatic column width adjustment based on terminal size
@@ -2136,7 +2136,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Auto-log command name and duration to .evalyn/timing.jsonl
   - [x] evalyn timing-stats showing per-command average/total time
   - [x] Identify slowest commands for optimization opportunities
-- [ ] **CLI Quick Rerun** - Rerun last command with modified flags
+- [x] **CLI Quick Rerun** - Rerun last command with modified flags
   - [x] evalyn !! repeating last command exactly
   - [x] evalyn !! --workers 8 repeating with flag override
   - [x] Command history stored in .evalyn/history.jsonl
@@ -2144,7 +2144,7 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] theme setting in evalyn.yaml: default, solarized, monokai, high-contrast
   - [x] EVALYN_THEME env var for quick switching
   - [x] Separate from NO_COLOR which disables all colors entirely
-- [ ] **CLI Output Width Control** - Respect terminal width for table and chart formatting
+- [x] **CLI Output Width Control** - Respect terminal width for table and chart formatting
   - [x] Auto-detect terminal width and adjust table column widths accordingly
   - [x] --width N flag to override detected width (useful for piping to files)
   - [x] Truncate long cell values to fit within available space
