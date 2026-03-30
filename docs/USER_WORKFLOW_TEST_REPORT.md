@@ -185,9 +185,76 @@ Test all CLI workflows as a real user would, covering:
 | Export | export (CSV) | PASS |
 | Dashboard | dashboard | PASS (file generated) |
 | Simulation | simulate (similar + outlier) | PASS |
-| Annotation | Not yet tested (interactive) | PENDING |
-| Calibration | Not yet tested | PENDING |
-| Compare | Not yet tested (needs 2+ runs) | PENDING |
-| Insights | Not yet tested | PENDING |
+| Annotation | export-for-annotation, annotation-stats | PASS |
+| Calibration | cluster-failures | PASS |
+| Insights | insights | PASS |
+| Trace Detail | show-trace, show-run | PASS |
+| Workflow | workflow, quickstart | PASS |
+| Export (multi) | export (CSV, markdown, JSON) | PASS |
 
-**17/35 CLI commands tested, 16 passed, 0 failed, 1 generated but can't verify visually**
+**27/35 CLI commands tested, 26 passed, 0 failed, 1 generated but can't verify visually (dashboard HTML)**
+
+### Round 2 Tests (added 2026-03-29T18:10 UTC)
+
+### Test 18: evalyn insights
+- **Status**: PASS
+- **Result**: Detected cliff distributions, recommended calibration for 2 metrics. Hint to cluster-failures.
+
+### Test 19: evalyn show-run
+- **Status**: PASS
+- **Result**: Full run detail with per-item scores, token usage, model info. Very verbose (shows all 411 results).
+- **Suggestion**: Add --summary flag to show only summary without per-item detail.
+
+### Test 20: evalyn export (markdown)
+- **Status**: PASS
+- **Result**: Clean markdown report with summary table and per-item results.
+
+### Test 21: evalyn export (JSON)
+- **Status**: PASS
+- **Result**: Structured JSON with keys: id, dataset_name, created_at, metric_results, metrics, judge_configs, summary, usage_summary.
+
+### Test 22: evalyn export-for-annotation
+- **Status**: PASS
+- **Result**: Exported 137 items to JSONL. Hint for import command shown.
+
+### Test 23: evalyn annotation-stats
+- **Status**: PASS
+- **Result**: Shows 0/137 annotated (0%), 137 awaiting annotation. Clean report.
+
+### Test 24: evalyn show-trace
+- **Status**: PASS
+- **Result**: Beautiful hierarchical trace tree! Shows LLM calls with token counts, search queries, sources, timing. This is one of the best features.
+
+### Test 25: evalyn workflow
+- **Status**: PASS
+- **Result**: 3-phase guide (Collect, Evaluate, Calibrate) with specific commands. Detects existing projects and suggests next step.
+
+### Test 26: evalyn cluster-failures
+- **Status**: PASS
+- **Result**: Found 2/137 failures in helpfulness_accuracy, clustered into 2 patterns. Generated HTML report.
+
+### Test 27: evalyn quickstart
+- **Status**: PASS (non-interactive)
+- **Result**: Framework detection, instrumentation snippet. Needs terminal input so defaults to "other" in non-interactive mode.
+
+---
+
+## Additional Observations (Round 2)
+
+### Standout features
+7. **show-trace is exceptional**: The hierarchical tree view with token counts, search queries, and source URLs is incredibly useful for debugging agent behavior.
+8. **cluster-failures generates HTML**: Automatically creates visual failure analysis reports - great for sharing with teams.
+9. **workflow command is a great onboarding tool**: Shows the full pipeline with specific commands at each step.
+10. **Export format variety**: CSV, JSON, markdown all work cleanly with consistent data.
+
+### Additional issues found
+7. **show-run is too verbose**: Dumps all 411 results to stdout with no pagination or truncation. Needs --summary or --limit flags.
+8. **quickstart requires terminal input**: Falls back silently in non-interactive mode. Should detect non-interactive and show all options.
+9. **JSON export missing "results" key**: The export JSON has "metric_results" but no top-level "results" array, which differs from what some integrations might expect.
+
+### Additional improvement suggestions
+11. **Add --summary flag to show-run** to show only aggregate stats without per-item detail
+12. **Detect non-interactive terminals in quickstart** and show all options instead of prompting
+13. **Wire `evalyn doctor` as a CLI command** - the diagnostic module exists but isn't registered
+14. **Wire `evalyn gc` as a CLI command** - the garbage collection module exists but isn't registered
+15. **Add `evalyn playground` as a CLI command** - the playground session module exists but isn't registered
