@@ -1,0 +1,193 @@
+# Evalyn SDK - Real User Workflow Test Report
+
+Generated: 2026-03-29
+Last Updated: 2026-03-29T18:05 UTC
+Tester: Claude (automated end-to-end workflow testing)
+API: Gemini (GEMINI_API_KEY from environment)
+Dataset: gemini-deep-research-agent (137 traced items from Google ADK agent)
+
+---
+
+## Test Plan
+
+Test all CLI workflows as a real user would, covering:
+1. Setup and initialization
+2. Tracing and instrumentation
+3. Dataset building
+4. Metric selection
+5. Evaluation running
+6. Analysis and insights
+7. Export and reporting
+8. Dashboard generation
+9. Simulation
+10. Annotation workflow
+
+---
+
+## Test Execution Log
+
+### Test 1: evalyn help
+- **Status**: PASS
+- **Command**: `evalyn help`
+- **Result**: ASCII banner displayed with 35 commands organized in 8 categories (Quick Start, Tracing, Dataset, Metrics, Evaluation, Annotation/Calibration, Export/Simulation, Options)
+- **Notes**: Clean output, well-organized command groups
+
+### Test 2: evalyn --version
+- **Status**: PASS
+- **Command**: `evalyn --version`
+- **Result**: `evalyn 0.1.0`
+- **Notes**: Version should be bumped to 0.2.0 to match CHANGELOG
+
+### Test 3: evalyn init
+- **Status**: PASS
+- **Command**: `evalyn init` (in clean /tmp workspace)
+- **Result**: Created evalyn.yaml with minimal config, printed API key setup hint
+- **Notes**: Warning about missing evalyn.yaml.example - could bundle a full example template
+
+### Test 4: evalyn list-metrics
+- **Status**: PASS
+- **Command**: `evalyn list-metrics`
+- **Result**: Listed 76+ objective metrics and 60 subjective metrics in tabular format
+- **Notes**: Clean table with id, scope, category, config, description columns
+
+### Test 5: evalyn list-calls
+- **Status**: PASS
+- **Command**: `evalyn list-calls --limit 5`
+- **Result**: Showed 5 traced calls from xai-test project with IDs, function names, status, durations
+- **Notes**: Pagination hint at bottom ("100 more available. Use --offset 5")
+
+### Test 6: evalyn show-projects
+- **Status**: PASS
+- **Command**: `evalyn show-projects`
+- **Result**: Listed 4 projects: xai-test (6 calls), anthropic-research-agent (4), test-agent (1), gemini-deep-research-agent (138)
+- **Notes**: Good overview with error counts and date ranges
+
+### Test 7: evalyn show-call
+- **Status**: PASS
+- **Command**: `evalyn show-call --id 53bf0e9b`
+- **Result**: Detailed call view with inputs, output preview, metadata, source code, LLM call count
+- **Notes**: Short ID matching works correctly (8-char prefix)
+
+### Test 8: evalyn build-dataset
+- **Status**: PASS
+- **Command**: `evalyn build-dataset --project gemini-deep-research-agent --output /tmp/evalyn_test_workspace/dataset.jsonl`
+- **Result**: Wrote 137 items from traced calls
+- **Notes**: Clean output with next-step hint for suggest-metrics
+
+### Test 9: evalyn validate
+- **Status**: PASS
+- **Command**: `evalyn validate --dataset /tmp/evalyn_test_workspace`
+- **Result**: Validated 137 items - 100% with id, inputs, output, metadata. 0% with expected values. 2 warnings (no expected values, no metrics dir)
+- **Notes**: Helpful warnings guide user to next steps
+
+### Test 10: evalyn status
+- **Status**: PASS
+- **Command**: `evalyn status --dataset /tmp/evalyn_test_workspace`
+- **Result**: Comprehensive status showing dataset (137 items), no metrics yet, no runs, no annotations, no calibrations
+- **Notes**: Excellent UX - shows suggested next step at bottom
+
+### Test 11: evalyn suggest-metrics (basic mode)
+- **Status**: PASS
+- **Command**: `evalyn suggest-metrics --dataset /tmp/evalyn_test_workspace --mode basic`
+- **Result**: Suggested 3 metrics: latency_ms, output_nonempty, helpfulness_accuracy. Saved to metrics/metrics.json
+- **Notes**: Correctly excluded reference-based metrics (ROUGE, BLEU) since dataset has no expected values
+
+### Test 12: evalyn run-eval (Gemini provider)
+- **Status**: PASS
+- **Command**: `evalyn run-eval --dataset /tmp/evalyn_test_workspace --provider gemini`
+- **Result**: Evaluated 137 items on 3 metrics. Results: latency_ms avg=23986ms, output_nonempty 100% pass, helpfulness_accuracy 98.5% pass (avg=0.99)
+- **Token usage**: 1,574,038 input + 50,732 output = 1,624,770 total ($0.18)
+- **Model used**: gemini-2.5-flash-lite
+- **Notes**: AUTO-INSIGHTS detected metric leniency (99% scores at 1.0) and recommended calibration. Excellent!
+
+### Test 13: evalyn analyze
+- **Status**: PASS
+- **Command**: `evalyn analyze --dataset /tmp/evalyn_test_workspace --run <full-run-id>`
+- **Result**: Showed metric summary, insights, recommendations, key findings. Detected cliff distributions.
+- **Notes**: Had to use full run ID (short ID didn't work for analyze but worked for show-call). Inconsistency.
+
+### Test 14: evalyn list-runs
+- **Status**: PASS
+- **Command**: `evalyn list-runs`
+- **Result**: Listed all 10 historical runs with short IDs, dataset, date, metric/result counts
+- **Notes**: list-runs doesn't accept --dataset flag (but the error message is confusing argparse output)
+
+### Test 15: evalyn export (CSV)
+- **Status**: PASS
+- **Command**: `evalyn export --dataset /tmp/evalyn_test_workspace --run <id> --format csv`
+- **Result**: CSV output with item_id, metric_id, score, passed, reason columns
+- **Notes**: LLM judge reasoning included in CSV which is very useful for debugging
+
+### Test 16: evalyn dashboard
+- **Status**: PASS (generated)
+- **Command**: `evalyn dashboard --dataset /tmp/evalyn_test_workspace --run <id>`
+- **Result**: Generated HTML report at eval_runs/<date>_<id>/report.html
+- **Notes**: Can't auto-open browser in WSL, but file was created. Could detect WSL and print path instead.
+
+### Test 17: evalyn simulate
+- **Status**: PASS
+- **Command**: `evalyn simulate --dataset /tmp/evalyn_test_workspace --num-similar 2 --num-outlier 1 --max-seeds 3`
+- **Result**: Generated 6 similar + 3 outlier queries using Gemini. Saved to simulations/ directory.
+- **Notes**: Spinners visible during generation. Output clearly separated by mode.
+
+---
+
+## Observations
+
+### What works well
+1. **End-to-end pipeline flows naturally**: help -> init -> list-calls -> build-dataset -> validate -> suggest-metrics -> run-eval -> analyze -> export. Each step hints at the next.
+2. **Gemini integration is seamless**: run-eval with --provider gemini worked out of the box with the API key from environment.
+3. **AUTO-INSIGHTS are genuinely useful**: Detected that helpfulness_accuracy is too lenient (99% at 1.0) and suggested calibration.
+4. **Validation is thorough**: Catches missing expected values and suggests appropriate metrics.
+5. **Cost tracking is transparent**: Shows token usage and dollar cost after eval.
+6. **Short ID matching**: Works for show-call (8-char prefix matches).
+
+### Issues found
+1. **Version mismatch**: `--version` shows 0.1.0 but CHANGELOG has 0.2.0 section
+2. **Inconsistent short ID support**: show-call accepts short IDs but analyze requires full UUID
+3. **list-runs doesn't accept --dataset**: Error message is raw argparse output instead of friendly message
+4. **Dashboard in WSL**: Tries to open browser via xdg-open which fails - could detect WSL and print file path
+5. **evalyn init**: Warns about missing evalyn.yaml.example - should either bundle it or suppress the warning
+6. **trend command**: Requires --project flag but error message just says "required" without showing available projects
+
+---
+
+## Improvement Suggestions
+
+### High Priority
+1. **Bump version to 0.2.0** in `sdk/evalyn_sdk/__init__.py` to match CHANGELOG
+2. **Standardize short ID resolution** across all commands (analyze, compare, trend, etc.)
+3. **Improve error messages** for missing required flags - show available values where possible
+
+### Medium Priority
+4. **WSL detection** in dashboard command - print file path instead of trying to open browser
+5. **Add --dataset flag to list-runs** for filtering runs by dataset
+6. **Bundle evalyn.yaml.example** as a complete config template with comments
+7. **Add `evalyn doctor` to CLI** - the module exists but isn't wired as a CLI command yet
+
+### Low Priority
+8. **Add progress bars** for long operations like build-dataset with large trace sets
+9. **Colorize CLI output** - the color_theme module exists but isn't integrated into CLI output
+10. **Add `evalyn gc` command** - garbage collection module exists but no CLI command
+
+---
+
+## Test Coverage Summary
+
+| Workflow | Commands Tested | Status |
+|----------|----------------|--------|
+| Setup | help, version, init | PASS |
+| Tracing | list-calls, show-call, show-projects | PASS |
+| Dataset | build-dataset, validate, status | PASS |
+| Metrics | list-metrics, suggest-metrics | PASS |
+| Evaluation | run-eval (Gemini), list-runs | PASS |
+| Analysis | analyze | PASS |
+| Export | export (CSV) | PASS |
+| Dashboard | dashboard | PASS (file generated) |
+| Simulation | simulate (similar + outlier) | PASS |
+| Annotation | Not yet tested (interactive) | PENDING |
+| Calibration | Not yet tested | PENDING |
+| Compare | Not yet tested (needs 2+ runs) | PENDING |
+| Insights | Not yet tested | PENDING |
+
+**17/35 CLI commands tested, 16 passed, 0 failed, 1 generated but can't verify visually**
