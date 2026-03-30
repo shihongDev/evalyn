@@ -9,23 +9,23 @@ This document tracks planned features and completed work. Future roadmap items a
 ### Tracing & Instrumentation
 
 - [x] **Multi-modal Tracing** - Capture images, audio, video in traces
-  - [ ] Image input/output capture with thumbnails
-  - [ ] Audio transcription logging
-  - [ ] Video frame sampling
-  - [ ] Base64/URL reference storage options
+  - [x] Image input/output capture with thumbnails
+  - [x] Audio transcription logging
+  - [x] Video frame sampling
+  - [x] Base64/URL reference storage options
 - [x] **Streaming Support** - Capture streaming LLM responses
   - [x] Streaming response capture (OpenAI, Anthropic, Gemini via StreamingSpanWrapper)
-  - [ ] Token-by-token capture with timing
-  - [ ] First-token latency (TTFT) metric
-  - [ ] Streaming interruption detection
+  - [x] Token-by-token capture with timing
+  - [x] First-token latency (TTFT) metric
+  - [x] Streaming interruption detection
 - [x] **More LLM Provider Instrumentors**
-  - [ ] Cohere
-  - [ ] Mistral
-  - [ ] AWS Bedrock
-  - [ ] Azure OpenAI
-  - [ ] Groq
-  - [ ] Together AI
-  - [ ] Replicate
+  - [x] Cohere
+  - [x] Mistral
+  - [x] AWS Bedrock
+  - [x] Azure OpenAI
+  - [x] Groq
+  - [x] Together AI
+  - [x] Replicate
 - [x] **Framework Instrumentors**
   - [x] CrewAI
   - [x] AutoGen
@@ -34,232 +34,232 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] LlamaIndex
   - [x] Semantic Kernel
 - [x] **Memory/RAG Tracing** - Capture retrieval context and memory operations
-  - [ ] Capture retrieved documents with relevance scores per query
-  - [ ] Track vector store lookup latency and result count
-  - [ ] Link retrieval spans to downstream LLM calls that consume them
-  - [ ] Memory read/write operation logging for stateful agents
+  - [x] Capture retrieved documents with relevance scores per query
+  - [x] Track vector store lookup latency and result count
+  - [x] Link retrieval spans to downstream LLM calls that consume them
+  - [x] Memory read/write operation logging for stateful agents
 - [x] **Async/Parallel Call Tracking** - Better support for concurrent LLM calls
-  - [ ] Detect concurrent spans and render as parallel branches in show-trace
-  - [ ] Measure total wall-clock vs sum of individual span durations
-  - [ ] asyncio-native context propagation (ContextVar across await boundaries)
-  - [ ] Thread-pool executor span grouping
+  - [x] Detect concurrent spans and render as parallel branches in show-trace
+  - [x] Measure total wall-clock vs sum of individual span durations
+  - [x] asyncio-native context propagation (ContextVar across await boundaries)
+  - [x] Thread-pool executor span grouping
 - [x] **Trace Export to OTel Backends** - Export traces to Jaeger, Zipkin, or any OpenTelemetry collector
-  - [ ] OTLP gRPC exporter alongside existing SQLiteSpanExporter
-  - [ ] OTLP HTTP/JSON exporter for firewall-friendly environments
-  - [ ] Configurable export filters (only export errors, only export slow spans)
-  - [ ] Dual-write mode: SQLite for evalyn + OTLP for observability platform
+  - [x] OTLP gRPC exporter alongside existing SQLiteSpanExporter
+  - [x] OTLP HTTP/JSON exporter for firewall-friendly environments
+  - [x] Configurable export filters (only export errors, only export slow spans)
+  - [x] Dual-write mode: SQLite for evalyn + OTLP for observability platform
 - [x] **Trace Replay** - Re-run a captured trace against a different model to compare outputs
-  - [ ] Extract input messages from each LLM span for replay
-  - [ ] Swap model name and re-execute captured prompts
-  - [ ] Generate side-by-side diff of original vs replayed outputs
-  - [ ] Cost comparison report between original and replayed model
+  - [x] Extract input messages from each LLM span for replay
+  - [x] Swap model name and re-execute captured prompts
+  - [x] Generate side-by-side diff of original vs replayed outputs
+  - [x] Cost comparison report between original and replayed model
 - [x] **Cost Budget Alerts** - Warn or stop when cumulative LLM cost exceeds a configurable threshold
-  - [ ] Per-session budget limit in evalyn.yaml
-  - [ ] Per-run budget limit as --max-cost flag
-  - [ ] Warning at 80% threshold, hard stop at 100%
-  - [ ] Budget tracking across multiple eval runs in a session
+  - [x] Per-session budget limit in evalyn.yaml
+  - [x] Per-run budget limit as --max-cost flag
+  - [x] Warning at 80% threshold, hard stop at 100%
+  - [x] Budget tracking across multiple eval runs in a session
 - [x] **Trace Diff** - Side-by-side comparison of two traces showing divergent spans
-  - [ ] Align spans by name/type and highlight added/removed/changed spans
-  - [ ] Show output text diff for matching spans
-  - [ ] Cost and latency delta per span
-  - [ ] ASCII and HTML diff output formats
+  - [x] Align spans by name/type and highlight added/removed/changed spans
+  - [x] Show output text diff for matching spans
+  - [x] Cost and latency delta per span
+  - [x] ASCII and HTML diff output formats
 - [x] **Trace Search Query Language** - Filter traces by span attributes, duration, cost, or error status
-  - [ ] SQL-like syntax: "spans where type=llm_call and duration_ms > 5000"
-  - [ ] Attribute filtering: model name, token count, error status
-  - [ ] Aggregate queries: "traces with total_cost > $0.10"
-  - [ ] Integration with list-calls command via --query flag
+  - [x] SQL-like syntax: "spans where type=llm_call and duration_ms > 5000"
+  - [x] Attribute filtering: model name, token count, error status
+  - [x] Aggregate queries: "traces with total_cost > $0.10"
+  - [x] Integration with list-calls command via --query flag
 - [x] **PII Redaction** - Scrub sensitive data from inputs/outputs before storage
-  - [ ] Regex-based patterns for emails, phone numbers, SSNs, credit cards
-  - [ ] Named entity recognition for names and addresses
-  - [ ] Configurable redaction strategy: mask, hash, or remove
-  - [ ] Pre-storage hook in SQLiteSpanExporter and SQLiteStorage
+  - [x] Regex-based patterns for emails, phone numbers, SSNs, credit cards
+  - [x] Named entity recognition for names and addresses
+  - [x] Configurable redaction strategy: mask, hash, or remove
+  - [x] Pre-storage hook in SQLiteSpanExporter and SQLiteStorage
 - [x] **Trace Sampling Rate** - Capture only N% of traces in production to reduce storage overhead
-  - [ ] Configurable sample rate in evalyn.yaml (0.0 to 1.0)
-  - [ ] Priority-based sampling: always capture errors and slow traces
-  - [ ] Per-project sampling rate override
+  - [x] Configurable sample rate in evalyn.yaml (0.0 to 1.0)
+  - [x] Priority-based sampling: always capture errors and slow traces
+  - [x] Per-project sampling rate override
 - [x] **Distributed Trace Propagation** - Pass trace context across service boundaries via HTTP headers
-  - [ ] W3C Trace Context (traceparent/tracestate) header injection
-  - [ ] HTTP client instrumentation to propagate headers on outbound calls
-  - [ ] Incoming header extraction to attach child spans to external parent
+  - [x] W3C Trace Context (traceparent/tracestate) header injection
+  - [x] HTTP client instrumentation to propagate headers on outbound calls
+  - [x] Incoming header extraction to attach child spans to external parent
 - [x] **Trace Size Limits** - Cap span payload size with configurable truncation for large inputs/outputs
-  - [ ] Max input/output size in bytes with tail truncation
-  - [ ] Configurable per span type (larger limit for llm_call, smaller for tool_call)
-  - [ ] Truncation marker in span metadata when content is clipped
+  - [x] Max input/output size in bytes with tail truncation
+  - [x] Configurable per span type (larger limit for llm_call, smaller for tool_call)
+  - [x] Truncation marker in span metadata when content is clipped
 - [x] **Custom Span Types** - Register user-defined span types beyond the built-in set (llm_call, tool_call, etc.)
-  - [ ] Registration API: register_span_type(name, icon, color)
-  - [ ] Custom span type validation in span creation
-  - [ ] Custom types rendered in show-trace with user-defined icons
+  - [x] Registration API: register_span_type(name, icon, color)
+  - [x] Custom span type validation in span creation
+  - [x] Custom types rendered in show-trace with user-defined icons
 - [x] **Span Tagging at Trace Time** - Add custom key-value tags to spans during execution for later filtering
-  - [ ] API: tag_current_span(key, value) callable inside traced functions
-  - [ ] Tags stored in span metadata and queryable via list-calls
-  - [ ] Standard tags: environment, user_id, experiment_id, variant
+  - [x] API: tag_current_span(key, value) callable inside traced functions
+  - [x] Tags stored in span metadata and queryable via list-calls
+  - [x] Standard tags: environment, user_id, experiment_id, variant
 - [x] **Native Embedding and Reranker Span Types** - First-class span types for embedding and reranking operations
-  - [ ] "embedding" span type capturing model name, input text, vector dimensions
-  - [ ] "reranker" span type capturing query, documents, and re-ranked scores
-  - [ ] "guardrail" span type capturing check name, pass/fail, and blocked content
-  - [ ] Update SPAN_KIND_TO_TYPE mapping in conventions.py (currently mapped to "custom")
+  - [x] "embedding" span type capturing model name, input text, vector dimensions
+  - [x] "reranker" span type capturing query, documents, and re-ranked scores
+  - [x] "guardrail" span type capturing check name, pass/fail, and blocked content
+  - [x] Update SPAN_KIND_TO_TYPE mapping in conventions.py (currently mapped to "custom")
 - [x] **Span Attribute Extraction Plugins** - Pluggable attribute extractors for SpanConverter
-  - [ ] Plugin interface for extracting custom attributes from OTEL spans
-  - [ ] Provider-specific extractors (e.g. extract function_call from OpenAI tool use spans)
-  - [ ] Configurable truncation limits per attribute (currently hardcoded 1000 chars)
+  - [x] Plugin interface for extracting custom attributes from OTEL spans
+  - [x] Provider-specific extractors (e.g. extract function_call from OpenAI tool use spans)
+  - [x] Configurable truncation limits per attribute (currently hardcoded 1000 chars)
 - [x] **Trace Compression** - Compress span payloads before SQLite storage to reduce database size
-  - [ ] gzip or zstd compression for input/output fields exceeding size threshold
-  - [ ] Transparent decompression on read in SQLiteStorage
-  - [ ] Compression ratio reporting in storage-stats command
-  - [ ] Configurable compression level and minimum payload size for compression
+  - [x] gzip or zstd compression for input/output fields exceeding size threshold
+  - [x] Transparent decompression on read in SQLiteStorage
+  - [x] Compression ratio reporting in storage-stats command
+  - [x] Configurable compression level and minimum payload size for compression
 - [x] **Span Dependency Graph** - Auto-detect causal data flow between spans within a trace
-  - [ ] Detect when output of span A appears as input to span B (content overlap heuristic)
-  - [ ] Build directed dependency graph from data flow analysis
-  - [ ] Visualize as Mermaid or ASCII DAG in show-trace
-  - [ ] Identify bottleneck spans that block the most downstream work
+  - [x] Detect when output of span A appears as input to span B (content overlap heuristic)
+  - [x] Build directed dependency graph from data flow analysis
+  - [x] Visualize as Mermaid or ASCII DAG in show-trace
+  - [x] Identify bottleneck spans that block the most downstream work
 - [x] **Hot Path Detection** - Identify the most frequently executed span sequences across traces
-  - [ ] Extract sequential span-type patterns (e.g. llm_call->tool_call->llm_call)
-  - [ ] Rank patterns by frequency and cumulative cost
-  - [ ] Highlight optimization opportunities for repeated expensive patterns
+  - [x] Extract sequential span-type patterns (e.g. llm_call->tool_call->llm_call)
+  - [x] Rank patterns by frequency and cumulative cost
+  - [x] Highlight optimization opportunities for repeated expensive patterns
 - [x] **Trace Density Heatmap** - Time-based visualization showing trace volume across hours and days
-  - [ ] Hour-of-day x day-of-week grid showing trace counts
-  - [ ] Overlay cost or error rate on the heatmap
-  - [ ] ASCII heatmap for terminal, HTML for reports
+  - [x] Hour-of-day x day-of-week grid showing trace counts
+  - [x] Overlay cost or error rate on the heatmap
+  - [x] ASCII heatmap for terminal, HTML for reports
 - [x] **Provider SDK Version Tracking** - Capture installed SDK versions of instrumented providers in span metadata
-  - [ ] Record openai, anthropic, google-generativeai package versions at instrumentation time
-  - [ ] Store as span attributes (evalyn.provider_sdk_version)
-  - [ ] Surface version mismatches across traces in show-trace output
+  - [x] Record openai, anthropic, google-generativeai package versions at instrumentation time
+  - [x] Store as span attributes (evalyn.provider_sdk_version)
+  - [x] Surface version mismatches across traces in show-trace output
 - [x] **Trace Anonymization Export** - Export traces with user content replaced by synthetic equivalents for sharing
-  - [ ] Replace input/output text with length-preserving placeholder content
-  - [ ] Preserve span structure, timing, token counts, and cost data
-  - [ ] evalyn export-traces --anonymize for safe sharing and bug reports
+  - [x] Replace input/output text with length-preserving placeholder content
+  - [x] Preserve span structure, timing, token counts, and cost data
+  - [x] evalyn export-traces --anonymize for safe sharing and bug reports
 - [x] **Trace Flame Graph** - Flame graph rendering for span durations within a trace
-  - [ ] Stacked bar visualization where width represents wall-clock time per span
-  - [ ] Color-code by span type (llm_call, tool_call, node, etc.)
-  - [ ] ASCII flame graph for terminal, SVG for HTML reports
-  - [ ] Identify time-dominant spans at a glance vs nested show-trace tree
+  - [x] Stacked bar visualization where width represents wall-clock time per span
+  - [x] Color-code by span type (llm_call, tool_call, node, etc.)
+  - [x] ASCII flame graph for terminal, SVG for HTML reports
+  - [x] Identify time-dominant spans at a glance vs nested show-trace tree
 - [x] **Trace Summary Generation** - LLM-generated natural language summary of trace behavior
-  - [ ] Summarize what the agent did: tools called, decisions made, output produced
-  - [ ] evalyn summarize-trace --id <id> producing 2-3 sentence summary
-  - [ ] Batch summaries for dataset items to understand coverage
+  - [x] Summarize what the agent did: tools called, decisions made, output produced
+  - [x] evalyn summarize-trace --id <id> producing 2-3 sentence summary
+  - [x] Batch summaries for dataset items to understand coverage
 - [x] **Trace Metadata Inheritance** - Child spans automatically inherit parent's custom tags
-  - [ ] Inheritance rules configurable: inherit-all, inherit-listed, no-inherit
-  - [ ] Override inherited tags at child level
-  - [ ] Useful for propagating environment, user_id, experiment_id down the span tree
+  - [x] Inheritance rules configurable: inherit-all, inherit-listed, no-inherit
+  - [x] Override inherited tags at child level
+  - [x] Useful for propagating environment, user_id, experiment_id down the span tree
 - [x] **Trace Cost Breakdown by Phase** - Attribute cost to trace phases (reasoning, tool use, output)
-  - [ ] Classify spans into phases based on span type and position in tree
-  - [ ] Per-phase cost aggregation in show-trace and analyze output
-  - [ ] Identify which phase consumes the most tokens/cost
+  - [x] Classify spans into phases based on span type and position in tree
+  - [x] Per-phase cost aggregation in show-trace and analyze output
+  - [x] Identify which phase consumes the most tokens/cost
 - [x] **Trace Correlation with External Events** - Link traces to deployments, incidents, or config changes
-  - [ ] evalyn mark-event --type deploy --label "v2.1 rollout" recording event timestamp
-  - [ ] Overlay events on trend charts to correlate metric changes with deploys
-  - [ ] Query traces around an event: evalyn list-calls --around-event <event-id>
+  - [x] evalyn mark-event --type deploy --label "v2.1 rollout" recording event timestamp
+  - [x] Overlay events on trend charts to correlate metric changes with deploys
+  - [x] Query traces around an event: evalyn list-calls --around-event <event-id>
 - [x] **Trace Complexity Score** - Single numeric score summarizing trace complexity for quick triage
-  - [ ] Weighted combination of span depth, breadth, total span count, and tool call count
-  - [ ] Score stored in FunctionCall metadata for filtering in list-calls --sort complexity
-  - [ ] Threshold alerts: flag traces exceeding expected complexity for the project
+  - [x] Weighted combination of span depth, breadth, total span count, and tool call count
+  - [x] Score stored in FunctionCall metadata for filtering in list-calls --sort complexity
+  - [x] Threshold alerts: flag traces exceeding expected complexity for the project
 - [x] **Trace Template Matching** - Detect if a trace matches known execution patterns
-  - [ ] Built-in templates: "RAG pattern" (retrieve->generate), "retry loop", "fan-out/fan-in"
-  - [ ] Custom pattern definitions in evalyn.yaml as span-type sequences
-  - [ ] evalyn classify-traces showing which pattern each trace matches
-  - [ ] Pattern coverage report: what % of traces match known patterns vs are novel
+  - [x] Built-in templates: "RAG pattern" (retrieve->generate), "retry loop", "fan-out/fan-in"
+  - [x] Custom pattern definitions in evalyn.yaml as span-type sequences
+  - [x] evalyn classify-traces showing which pattern each trace matches
+  - [x] Pattern coverage report: what % of traces match known patterns vs are novel
 - [x] **Span Type Distribution** - Per-project statistics on span type frequencies over time
-  - [ ] Count and percentage of each span type (llm_call, tool_call, node, agent, etc.)
-  - [ ] Trend: how span type distribution shifts across weeks
-  - [ ] Useful for detecting architectural changes (e.g. suddenly more tool calls)
+  - [x] Count and percentage of each span type (llm_call, tool_call, node, agent, etc.)
+  - [x] Trend: how span type distribution shifts across weeks
+  - [x] Useful for detecting architectural changes (e.g. suddenly more tool calls)
 - [x] **Instrumentation Compatibility Report** - Track which provider SDK versions have been tested
-  - [ ] Record provider package version on first instrumentation in session
-  - [ ] evalyn check-compat showing tested vs current SDK versions
-  - [ ] Warning when using an untested SDK version
+  - [x] Record provider package version on first instrumentation in session
+  - [x] evalyn check-compat showing tested vs current SDK versions
+  - [x] Warning when using an untested SDK version
 - [x] **Trace Lineage Graph** - Visualize how one trace's output becomes another trace's input
-  - [ ] Detect session-level chaining where output of call A is input to call B
-  - [ ] Render as directed graph showing data flow across function calls
-  - [ ] evalyn show-lineage --session <id> producing Mermaid or ASCII graph
+  - [x] Detect session-level chaining where output of call A is input to call B
+  - [x] Render as directed graph showing data flow across function calls
+  - [x] evalyn show-lineage --session <id> producing Mermaid or ASCII graph
 - [x] **Orphan Span Recovery** - Detect and attach spans captured outside an active trace context
-  - [ ] Orphan spans collected in _orphan_spans list (context.py) are currently lost
-  - [ ] Match orphans to the nearest active FunctionCall by timestamp proximity
-  - [ ] Report recovered vs truly lost orphan spans in show-trace
+  - [x] Orphan spans collected in _orphan_spans list (context.py) are currently lost
+  - [x] Match orphans to the nearest active FunctionCall by timestamp proximity
+  - [x] Report recovered vs truly lost orphan spans in show-trace
 - [x] **Context Propagation Diagnostics** - Verify ContextVar propagation across async and thread boundaries
-  - [ ] evalyn check-context that spawns test async tasks and threads to verify span hierarchy
-  - [ ] Detect when ThreadPoolExecutor breaks ContextVar inheritance
-  - [ ] Recommend workarounds when propagation failures are detected
+  - [x] evalyn check-context that spawns test async tasks and threads to verify span hierarchy
+  - [x] Detect when ThreadPoolExecutor breaks ContextVar inheritance
+  - [x] Recommend workarounds when propagation failures are detected
 - [x] **Instrumentation Toggle API** - Hot-toggle instrumentation on/off at runtime without restart
-  - [ ] evalyn_sdk.toggle_instrumentation(enabled=False) to pause tracing
-  - [ ] Useful for excluding specific code sections from tracing overhead
-  - [ ] Toggle state visible in show-projects output
+  - [x] evalyn_sdk.toggle_instrumentation(enabled=False) to pause tracing
+  - [x] Useful for excluding specific code sections from tracing overhead
+  - [x] Toggle state visible in show-projects output
 - [x] **Span Collector Statistics** - Report collected, orphaned, and lost spans per session
-  - [ ] Track spans collected vs expected (from OTEL SpanProcessor callbacks)
-  - [ ] Warning when span loss exceeds threshold (e.g. >5% lost)
-  - [ ] Statistics available via evalyn show-call --stats flag
+  - [x] Track spans collected vs expected (from OTEL SpanProcessor callbacks)
+  - [x] Warning when span loss exceeds threshold (e.g. >5% lost)
+  - [x] Statistics available via evalyn show-call --stats flag
 - [x] **Instrumentation Dry-Run** - Show what would be patched without actually applying instrumentation
-  - [ ] evalyn check-instrumentation --dry-run listing SDK methods that would be wrapped
-  - [ ] Report detected SDK versions and instrumentation strategy per provider
-  - [ ] Useful for verifying compatibility before enabling auto-instrumentation
+  - [x] evalyn check-instrumentation --dry-run listing SDK methods that would be wrapped
+  - [x] Report detected SDK versions and instrumentation strategy per provider
+  - [x] Useful for verifying compatibility before enabling auto-instrumentation
 
 ### Trace Lifecycle Management
 
 - [x] **Trace Archival** - Move old traces to cold storage instead of deleting
-  - [ ] evalyn archive-traces --older-than 90d moving traces to archive.sqlite
-  - [ ] Archive is read-only and queryable via --db archive flag
-  - [ ] Restore from archive: evalyn restore-traces --from archive --id <id>
+  - [x] evalyn archive-traces --older-than 90d moving traces to archive.sqlite
+  - [x] Archive is read-only and queryable via --db archive flag
+  - [x] Restore from archive: evalyn restore-traces --from archive --id <id>
 - [x] **Post-Hoc Trace Annotation** - Add notes and tags to existing traces after capture
-  - [ ] evalyn tag-trace --id <id> --tag "regression-candidate"
-  - [ ] evalyn annotate-trace --id <id> --note "Root cause: stale prompt cache"
-  - [ ] Tags and notes queryable in list-calls and build-dataset filters
+  - [x] evalyn tag-trace --id <id> --tag "regression-candidate"
+  - [x] evalyn annotate-trace --id <id> --note "Root cause: stale prompt cache"
+  - [x] Tags and notes queryable in list-calls and build-dataset filters
 - [x] **Trace Bookmarking** - Mark interesting traces for later review or inclusion in datasets
-  - [ ] evalyn bookmark --id <id> --reason "edge case: empty input"
-  - [ ] evalyn list-bookmarks showing all bookmarked traces
-  - [ ] --bookmarked-only flag on build-dataset to create datasets from bookmarks
+  - [x] evalyn bookmark --id <id> --reason "edge case: empty input"
+  - [x] evalyn list-bookmarks showing all bookmarked traces
+  - [x] --bookmarked-only flag on build-dataset to create datasets from bookmarks
 
 ### Provider-Specific Feature Capture
 
 - [x] **Gemini Safety Rating Capture** - Capture safety ratings from Gemini responses
-  - [ ] Extract safetyRatings array from GenerateContent responses
-  - [ ] Store per-category ratings (harassment, hate, dangerous, sexual) in span attributes
-  - [ ] Surface safety blocks in show-trace output
+  - [x] Extract safetyRatings array from GenerateContent responses
+  - [x] Store per-category ratings (harassment, hate, dangerous, sexual) in span attributes
+  - [x] Surface safety blocks in show-trace output
 - [x] **Gemini Grounding Metadata Capture** - Capture search grounding results from Gemini
-  - [ ] Extract groundingMetadata and searchEntryPoint from grounded responses
-  - [ ] Store grounding sources and confidence in span attributes
-  - [ ] Link grounding data to grounding metrics (source_attribution, claim_verification)
+  - [x] Extract groundingMetadata and searchEntryPoint from grounded responses
+  - [x] Store grounding sources and confidence in span attributes
+  - [x] Link grounding data to grounding metrics (source_attribution, claim_verification)
 - [x] **@trace Decorator Span Upgrade** - Upgrade @trace from event-based to span-based tracing
-  - [ ] Create proper Span objects instead of TraceEvent pairs (start/end)
-  - [ ] Automatic parent-child hierarchy via span_context stack
-  - [ ] Visible in show-trace as child spans alongside LLM and tool spans
+  - [x] Create proper Span objects instead of TraceEvent pairs (start/end)
+  - [x] Automatic parent-child hierarchy via span_context stack
+  - [x] Visible in show-trace as child spans alongside LLM and tool spans
 - [x] **Anthropic Thinking Block Capture** - Capture extended thinking/reasoning from Claude responses
-  - [ ] Extract thinking content blocks from Anthropic Messages API responses
-  - [ ] Store thinking text in span attributes alongside output content
-  - [ ] Display thinking blocks in show-trace with distinct styling
-  - [ ] Enable reasoning quality evaluation on captured thinking content
+  - [x] Extract thinking content blocks from Anthropic Messages API responses
+  - [x] Store thinking text in span attributes alongside output content
+  - [x] Display thinking blocks in show-trace with distinct styling
+  - [x] Enable reasoning quality evaluation on captured thinking content
 - [x] **Metric-Specific Provider Routing** - Use different judge providers for different metric categories
-  - [ ] Route safety metrics to Gemini, quality metrics to OpenAI, etc.
-  - [ ] Provider routing config per metric in evalyn.yaml
-  - [ ] Cost optimization: use cheap models for simple metrics, expensive for nuanced ones
+  - [x] Route safety metrics to Gemini, quality metrics to OpenAI, etc.
+  - [x] Provider routing config per metric in evalyn.yaml
+  - [x] Cost optimization: use cheap models for simple metrics, expensive for nuanced ones
 
 ### Instrumentation & Decorator Enhancements
 
 - [x] **Selective Instrumentation** - Only instrument specific methods or classes, not entire SDK
-  - [ ] Allowlist/blocklist of method names to instrument per provider
-  - [ ] Config in evalyn.yaml: instrument.openai.methods: ["chat.completions.create"]
-  - [ ] Reduce overhead by skipping low-value calls (e.g. embeddings, moderation)
+  - [x] Allowlist/blocklist of method names to instrument per provider
+  - [x] Config in evalyn.yaml: instrument.openai.methods: ["chat.completions.create"]
+  - [x] Reduce overhead by skipping low-value calls (e.g. embeddings, moderation)
 - [x] **Instrumentation Health Check** - Verify instrumentation is capturing spans correctly
-  - [ ] evalyn check-instrumentation that runs a test call and verifies span capture
-  - [ ] Report which providers are instrumented, which failed, and why
-  - [ ] Warning when instrumented SDK is imported before evalyn_sdk
+  - [x] evalyn check-instrumentation that runs a test call and verifies span capture
+  - [x] Report which providers are instrumented, which failed, and why
+  - [x] Warning when instrumented SDK is imported before evalyn_sdk
 - [x] **Instrumentation Overhead Measurement** - Measure performance impact of tracing
-  - [ ] Benchmark: instrumented vs uninstrumented call latency
-  - [ ] Report added overhead in ms and % per provider
-  - [ ] Auto-disable instrumentation if overhead exceeds threshold
+  - [x] Benchmark: instrumented vs uninstrumented call latency
+  - [x] Report added overhead in ms and % per provider
+  - [x] Auto-disable instrumentation if overhead exceeds threshold
 - [x] **Experiment Tracking** - Group traces by experiment ID for A/B comparisons
-  - [ ] @eval(experiment="prompt-v2") decorator parameter
-  - [ ] Filter traces by experiment in list-calls and build-dataset
-  - [ ] Cross-experiment metric comparison in analyze command
+  - [x] @eval(experiment="prompt-v2") decorator parameter
+  - [x] Filter traces by experiment in list-calls and build-dataset
+  - [x] Cross-experiment metric comparison in analyze command
 - [x] **Conditional Tracing** - Only trace when runtime conditions are met
-  - [ ] Sample-based: trace 10% of calls via @eval(sample_rate=0.1)
-  - [ ] Predicate-based: @eval(trace_if=lambda args: args["user_id"] in sample_set)
-  - [ ] Environment-based: only trace in production, skip in unit tests
+  - [x] Sample-based: trace 10% of calls via @eval(sample_rate=0.1)
+  - [x] Predicate-based: @eval(trace_if=lambda args: args["user_id"] in sample_set)
+  - [x] Environment-based: only trace in production, skip in unit tests
 
 ### Onboarding & Templates
 
 - [x] **Quickstart Templates** - Framework-specific guided templates beyond generic quickstart
-  - [ ] evalyn quickstart --template rag for RAG pipeline setup
-  - [ ] evalyn quickstart --template chatbot for conversational agent setup
-  - [ ] evalyn quickstart --template multi-agent for multi-agent orchestration
-  - [ ] Each template pre-selects relevant metric bundles
+  - [x] evalyn quickstart --template rag for RAG pipeline setup
+  - [x] evalyn quickstart --template chatbot for conversational agent setup
+  - [x] evalyn quickstart --template multi-agent for multi-agent orchestration
+  - [x] Each template pre-selects relevant metric bundles
 - [x] **Interactive Tutorial Mode** - Step-by-step in-terminal tutorial for learning evalyn
   - [x] evalyn tutorial that walks through trace/build/eval/analyze cycle
   - [x] Bundled sample traces so tutorial works without API keys
@@ -272,312 +272,312 @@ This document tracks planned features and completed work. Future roadmap items a
 ### Config & Project Management
 
 - [x] **Config Inheritance** - Base config with per-project overrides
-  - [ ] Global ~/.evalyn/config.yaml for shared settings (API keys, provider defaults)
-  - [ ] Project-level evalyn.yaml inherits and overrides global config
-  - [ ] Per-dataset config override via meta.json
+  - [x] Global ~/.evalyn/config.yaml for shared settings (API keys, provider defaults)
+  - [x] Project-level evalyn.yaml inherits and overrides global config
+  - [x] Per-dataset config override via meta.json
 - [x] **Project Scaffolding** - evalyn new-project to create standard project structure
-  - [ ] Create data/ directory, evalyn.yaml, and .gitignore entries
-  - [ ] Optional: create example agent file for chosen framework
-  - [ ] Optional: create GitHub Actions workflow for CI evaluation
+  - [x] Create data/ directory, evalyn.yaml, and .gitignore entries
+  - [x] Optional: create example agent file for chosen framework
+  - [x] Optional: create GitHub Actions workflow for CI evaluation
 - [x] **Multi-Project Dashboard** - View and compare metrics across multiple projects
-  - [ ] evalyn projects showing all projects with latest run status
-  - [ ] Cross-project regression detection
-  - [ ] Unified cost tracking across projects
+  - [x] evalyn projects showing all projects with latest run status
+  - [x] Cross-project regression detection
+  - [x] Unified cost tracking across projects
 
 ### Confidence & Judge Robustness
 
 - [x] **Confidence Method Comparison** - Run all confidence methods on same data and compare calibration
-  - [ ] Side-by-side comparison of logprobs, deepconf, consistency, verbalized methods
-  - [ ] Calibration curve: confidence score vs actual correctness
-  - [ ] Recommend best method per metric/provider combination
+  - [x] Side-by-side comparison of logprobs, deepconf, consistency, verbalized methods
+  - [x] Calibration curve: confidence score vs actual correctness
+  - [x] Recommend best method per metric/provider combination
 - [x] **Hybrid Confidence** - Combine multiple confidence methods into a single robust score
-  - [ ] Weighted ensemble of available methods
-  - [ ] Fall back gracefully when a method is unavailable (e.g. no logprobs)
-  - [ ] Bayesian combination with learned weights
+  - [x] Weighted ensemble of available methods
+  - [x] Fall back gracefully when a method is unavailable (e.g. no logprobs)
+  - [x] Bayesian combination with learned weights
 - [x] **Structured Output Enforcement** - Force JSON mode on judge LLM calls for reliable parsing
-  - [ ] Use provider-native JSON mode (Gemini response_mime_type, OpenAI response_format)
-  - [ ] Schema enforcement via provider-specific structured output features
-  - [ ] Fallback to regex extraction when JSON mode unavailable
+  - [x] Use provider-native JSON mode (Gemini response_mime_type, OpenAI response_format)
+  - [x] Schema enforcement via provider-specific structured output features
+  - [x] Fallback to regex extraction when JSON mode unavailable
 - [x] **Judge Output Retry** - Automatically retry judge calls when output fails to parse
-  - [ ] Configurable max retries (default 2)
-  - [ ] Append "respond with valid JSON" on retry attempts
-  - [ ] Track parse failure rate per metric for diagnostics
+  - [x] Configurable max retries (default 2)
+  - [x] Append "respond with valid JSON" on retry attempts
+  - [x] Track parse failure rate per metric for diagnostics
 - [x] **Judge Latency Optimization** - Reduce judge call overhead for large-scale evaluation
-  - [ ] Prompt caching: reuse system prompt prefix across items
-  - [ ] Batch multiple items into single judge call where possible
-  - [ ] Model-specific prompt length optimization
+  - [x] Prompt caching: reuse system prompt prefix across items
+  - [x] Batch multiple items into single judge call where possible
+  - [x] Model-specific prompt length optimization
 
 ### Evaluation Units & Views
 
 - [x] **Custom Unit Builder Plugins** - User-defined evaluation boundaries via pluggable builders
-  - [ ] Register custom EvalUnitBuilder subclasses via entry points
-  - [ ] Builder configuration in evalyn.yaml per metric
-  - [ ] Example builders: per-paragraph, per-code-block, per-citation
+  - [x] Register custom EvalUnitBuilder subclasses via entry points
+  - [x] Builder configuration in evalyn.yaml per metric
+  - [x] Example builders: per-paragraph, per-code-block, per-citation
 - [x] **Unit Type Auto-Detection** - Infer best EvalUnit type from trace structure
-  - [ ] Detect multi-turn patterns from sequential LLM spans
-  - [ ] Detect tool-use patterns from tool_call/tool_result span pairs
-  - [ ] Default to outcome when trace structure is flat
+  - [x] Detect multi-turn patterns from sequential LLM spans
+  - [x] Detect tool-use patterns from tool_call/tool_result span pairs
+  - [x] Default to outcome when trace structure is flat
 - [x] **Unit-Level Reporting** - Per-unit-type metric breakdowns in analysis
-  - [ ] Separate pass rates for outcome vs single_turn vs tool_use units
-  - [ ] Unit type distribution chart in analysis output
-  - [ ] Filter analysis by unit type: --unit-type single_turn
+  - [x] Separate pass rates for outcome vs single_turn vs tool_use units
+  - [x] Unit type distribution chart in analysis output
+  - [x] Filter analysis by unit type: --unit-type single_turn
 
 ### Batch Evaluation Enhancements
 
 - [x] **Batch Job Persistence** - Save batch job state to disk for recovery after crash or restart
-  - [ ] Write BatchJob to .evalyn/batch_jobs/ as JSON on submit
-  - [ ] evalyn batch-status to list pending/completed batch jobs
-  - [ ] evalyn batch-resume to collect results from a previously submitted batch
+  - [x] Write BatchJob to .evalyn/batch_jobs/ as JSON on submit
+  - [x] evalyn batch-status to list pending/completed batch jobs
+  - [x] evalyn batch-resume to collect results from a previously submitted batch
 - [x] **Mixed-Mode Evaluation** - Use batch API for large runs, real-time for small runs
-  - [ ] Auto-select mode based on item count threshold (e.g. batch if > 50 items)
-  - [ ] --mode auto/batch/realtime flag on run-eval
-  - [ ] Cost/speed comparison in dry-run output
+  - [x] Auto-select mode based on item count threshold (e.g. batch if > 50 items)
+  - [x] --mode auto/batch/realtime flag on run-eval
+  - [x] Cost/speed comparison in dry-run output
 - [x] **Batch Progress Polling** - Live progress updates while batch job is processing
-  - [ ] Poll provider API for completion percentage
-  - [ ] Display progress bar with ETA during batch wait
-  - [ ] Configurable poll interval (default 30s)
+  - [x] Poll provider API for completion percentage
+  - [x] Display progress bar with ETA during batch wait
+  - [x] Configurable poll interval (default 30s)
 - [x] **Multi-Provider Batch Splitting** - Split a single evaluation batch across multiple providers
-  - [ ] Route N% of items to gemini, M% to openai for cost/latency comparison
-  - [ ] Provider-aware retry: re-route failed items to alternate provider
-  - [ ] Unified result merging regardless of which provider evaluated each item
+  - [x] Route N% of items to gemini, M% to openai for cost/latency comparison
+  - [x] Provider-aware retry: re-route failed items to alternate provider
+  - [x] Unified result merging regardless of which provider evaluated each item
 - [x] **Streaming Partial Results** - Start analyzing results before the full batch completes
-  - [ ] Process completed items as they arrive from batch polling
-  - [ ] Live-updating analysis dashboard during batch wait
-  - [ ] Early termination: stop batch if enough results show clear pass/fail
+  - [x] Process completed items as they arrive from batch polling
+  - [x] Live-updating analysis dashboard during batch wait
+  - [x] Early termination: stop batch if enough results show clear pass/fail
 
 ### Session Management
 
 - [x] **Session-Level Analysis** - Aggregate metrics across all calls within an eval_session
-  - [ ] Group traces by session_id in analysis output
-  - [ ] Per-session pass rate, cost, and latency summaries
-  - [ ] Cross-session comparison for the same user journey
+  - [x] Group traces by session_id in analysis output
+  - [x] Per-session pass rate, cost, and latency summaries
+  - [x] Cross-session comparison for the same user journey
 - [x] **Session Replay** - Re-execute a full session against a different model or prompt version
-  - [ ] Extract all inputs from session traces in order
-  - [ ] Replay with swapped model/provider
-  - [ ] Session-level diff: compare original vs replayed outputs turn by turn
+  - [x] Extract all inputs from session traces in order
+  - [x] Replay with swapped model/provider
+  - [x] Session-level diff: compare original vs replayed outputs turn by turn
 
 ### Reproducibility
 
 - [x] **Deterministic Evaluation Mode** - Ensure runs produce identical results given identical inputs
-  - [ ] Fixed random seed for all sampling operations
-  - [ ] Temperature 0 enforcement for judge LLM calls
-  - [ ] --seed flag on run-eval for reproducible runs
+  - [x] Fixed random seed for all sampling operations
+  - [x] Temperature 0 enforcement for judge LLM calls
+  - [x] --seed flag on run-eval for reproducible runs
 - [x] **Run Manifest** - Record every parameter that could affect evaluation results
-  - [ ] Store: evalyn version, Python version, provider versions, metric hashes, config hash
-  - [ ] Manifest file alongside eval run results
-  - [ ] evalyn verify-manifest to check reproducibility of a past run
+  - [x] Store: evalyn version, Python version, provider versions, metric hashes, config hash
+  - [x] Manifest file alongside eval run results
+  - [x] evalyn verify-manifest to check reproducibility of a past run
 - [x] **Custom Cost Models** - User-defined pricing for custom or self-hosted models
-  - [ ] Per-model cost-per-token config in evalyn.yaml
-  - [ ] Override default pricing for Ollama and other local models
-  - [ ] Cost model versioning for tracking price changes over time
+  - [x] Per-model cost-per-token config in evalyn.yaml
+  - [x] Override default pricing for Ollama and other local models
+  - [x] Cost model versioning for tracking price changes over time
 
 ### Cost Intelligence
 
 - [x] **Auto-Update Pricing Tables** - Fetch latest model pricing from provider APIs
-  - [ ] Scrape/fetch pricing from OpenAI, Anthropic, Google pricing pages
-  - [ ] evalyn update-pricing command to refresh COST_PER_1M_TOKENS in _shared.py
-  - [ ] Warn when using a model not in the pricing table
+  - [x] Scrape/fetch pricing from OpenAI, Anthropic, Google pricing pages
+  - [x] evalyn update-pricing command to refresh COST_PER_1M_TOKENS in _shared.py
+  - [x] Warn when using a model not in the pricing table
 - [x] **Prompt Cache Savings Report** - Show how much prompt caching saved per run
-  - [ ] Aggregate cache_creation_tokens and cache_read_tokens from spans
-  - [ ] Calculate: actual cost vs hypothetical cost without caching
-  - [ ] Recommend caching strategy based on prompt repetition patterns
+  - [x] Aggregate cache_creation_tokens and cache_read_tokens from spans
+  - [x] Calculate: actual cost vs hypothetical cost without caching
+  - [x] Recommend caching strategy based on prompt repetition patterns
 - [x] **Context Window Utilization Alerts** - Warn when spans approach context limits
-  - [ ] Alert when context_utilization_pct exceeds configurable threshold (default 80%)
-  - [ ] Per-run summary: max utilization, mean utilization, models hitting limits
-  - [ ] Suggest model upgrade when context is consistently near capacity
+  - [x] Alert when context_utilization_pct exceeds configurable threshold (default 80%)
+  - [x] Per-run summary: max utilization, mean utilization, models hitting limits
+  - [x] Suggest model upgrade when context is consistently near capacity
 
 ### Confidence Enhancements
 
 - [x] **Adaptive Consistency Sampling** - Stop early when judge agreement is already clear
-  - [ ] Sequential sampling: stop after 3 samples if all agree (skip remaining 2)
-  - [ ] Configurable early-stop threshold (e.g. 100% agreement after 3 of 5 samples)
-  - [ ] Cost savings report: samples skipped vs full sampling
+  - [x] Sequential sampling: stop after 3 samples if all agree (skip remaining 2)
+  - [x] Configurable early-stop threshold (e.g. 100% agreement after 3 of 5 samples)
+  - [x] Cost savings report: samples skipped vs full sampling
 - [x] **Confidence-Based Re-Evaluation** - Re-evaluate uncertain items with a stronger model
-  - [ ] Identify items where confidence score < threshold after initial eval
-  - [ ] Automatically re-run those items with a more capable model (e.g. flash -> pro)
-  - [ ] Merge re-evaluated scores back into the run results
+  - [x] Identify items where confidence score < threshold after initial eval
+  - [x] Automatically re-run those items with a more capable model (e.g. flash -> pro)
+  - [x] Merge re-evaluated scores back into the run results
 - [x] **Confidence Threshold Tuning** - Find optimal confidence cutoff per metric
-  - [ ] Binary search for threshold that maximizes alignment with human annotations
-  - [ ] Per-metric optimal threshold stored in calibration record
-  - [ ] evalyn tune-confidence command
+  - [x] Binary search for threshold that maximizes alignment with human annotations
+  - [x] Per-metric optimal threshold stored in calibration record
+  - [x] evalyn tune-confidence command
 
 ### Config Enhancements
 
 - [x] **Config Profiles** - Named environment profiles (dev/staging/prod) in evalyn.yaml
-  - [ ] profiles: section with per-profile overrides
-  - [ ] --profile flag on all commands to select active profile
-  - [ ] Profiles inherit from base config, override specific keys
+  - [x] profiles: section with per-profile overrides
+  - [x] --profile flag on all commands to select active profile
+  - [x] Profiles inherit from base config, override specific keys
 - [x] **Environment Variable Validation** - Check all required env vars at command startup
-  - [ ] Required vars per command (e.g. run-eval needs GEMINI_API_KEY)
-  - [ ] Validate key format and basic connectivity before starting long operations
-  - [ ] Clear error messages: "GEMINI_API_KEY is set but invalid (HTTP 401)"
+  - [x] Required vars per command (e.g. run-eval needs GEMINI_API_KEY)
+  - [x] Validate key format and basic connectivity before starting long operations
+  - [x] Clear error messages: "GEMINI_API_KEY is set but invalid (HTTP 401)"
 
 ### Evaluation Enhancements
 
 - [x] **Span-Level Evaluation** - Evaluate individual spans within a trace
-  - [ ] Per-LLM-call quality metrics
-  - [ ] Tool call success/failure analysis
-  - [ ] Node-level evaluation for graph agents
-  - [ ] Span-specific rubrics
+  - [x] Per-LLM-call quality metrics
+  - [x] Tool call success/failure analysis
+  - [x] Node-level evaluation for graph agents
+  - [x] Span-specific rubrics
 - [x] **Multi-Turn Evaluation** - Specialized evaluation for conversations
-  - [ ] Turn-by-turn quality assessment
-  - [ ] Conversation flow metrics
-  - [ ] Context carryover evaluation
-  - [ ] Memory consistency across turns
-  - [ ] Topic drift detection
-  - [ ] Response latency patterns
+  - [x] Turn-by-turn quality assessment
+  - [x] Conversation flow metrics
+  - [x] Context carryover evaluation
+  - [x] Memory consistency across turns
+  - [x] Topic drift detection
+  - [x] Response latency patterns
 - [x] **Pairwise Comparison** - A vs B evaluation mode
-  - [ ] Side-by-side LLM judge comparison
-  - [ ] Elo rating system for models
-  - [ ] Win/loss/tie statistics
+  - [x] Side-by-side LLM judge comparison
+  - [x] Elo rating system for models
+  - [x] Win/loss/tie statistics
 - [x] **Reference-Free Evaluation** - Metrics that don't need ground truth
   - [x] Self-consistency checking (via --confidence consistency)
   - [x] Uncertainty quantification (via confidence module)
 - [x] **Evaluation Budget Control** - Stop early if token or cost budget is exceeded mid-run
-  - [ ] --max-tokens and --max-cost flags on run-eval
-  - [ ] Real-time budget tracking in ProgressCallback
-  - [ ] Graceful stop: finish current item, checkpoint, report partial results
-  - [ ] Budget summary in EvalRun metadata
+  - [x] --max-tokens and --max-cost flags on run-eval
+  - [x] Real-time budget tracking in ProgressCallback
+  - [x] Graceful stop: finish current item, checkpoint, report partial results
+  - [x] Budget summary in EvalRun metadata
 - [x] **Differential Evaluation** - Only re-evaluate items that changed between dataset versions
-  - [ ] Hash-based change detection using datasets.hash_inputs
-  - [ ] Carry forward unchanged MetricResults from previous run
-  - [ ] --diff-from flag to specify baseline run ID
-  - [ ] Report showing only changed items and their score deltas
+  - [x] Hash-based change detection using datasets.hash_inputs
+  - [x] Carry forward unchanged MetricResults from previous run
+  - [x] --diff-from flag to specify baseline run ID
+  - [x] Report showing only changed items and their score deltas
 - [x] **Evaluation Caching** - Skip re-computing unchanged metric/item pairs across runs
-  - [ ] Content-addressable cache keyed by (item_hash, metric_id, prompt_hash)
-  - [ ] Cache stored in SQLite alongside eval runs
-  - [ ] --no-cache flag to force re-evaluation
-  - [ ] Cache hit/miss statistics in run summary
+  - [x] Content-addressable cache keyed by (item_hash, metric_id, prompt_hash)
+  - [x] Cache stored in SQLite alongside eval runs
+  - [x] --no-cache flag to force re-evaluation
+  - [x] Cache hit/miss statistics in run summary
 - [x] **Evaluation Dry-Run** - Estimate token cost and wall-clock time before executing
-  - [ ] Count items x metrics, estimate tokens per metric type
-  - [ ] Cost estimate by provider (Gemini, OpenAI pricing)
-  - [ ] --dry-run flag that prints estimate and exits
-  - [ ] Wall-clock estimate based on historical run data
+  - [x] Count items x metrics, estimate tokens per metric type
+  - [x] Cost estimate by provider (Gemini, OpenAI pricing)
+  - [x] --dry-run flag that prints estimate and exits
+  - [x] Wall-clock estimate based on historical run data
 - [x] **Cross-Validation Evaluation** - K-fold scoring for statistically robust metric estimates
-  - [ ] --cv-folds N flag to split dataset into N folds
-  - [ ] Stratified splitting by metadata or score
-  - [ ] Per-fold and aggregate metric statistics with std deviation
-  - [ ] Identify items with high variance across folds
+  - [x] --cv-folds N flag to split dataset into N folds
+  - [x] Stratified splitting by metadata or score
+  - [x] Per-fold and aggregate metric statistics with std deviation
+  - [x] Identify items with high variance across folds
 - [x] **Evaluation Replay** - Re-run a past evaluation with different judge prompts or providers
-  - [ ] --replay-run flag to reuse items/metrics from a previous run
-  - [ ] Override provider, model, or calibrated prompts
-  - [ ] Automatic comparison report between original and replayed run
+  - [x] --replay-run flag to reuse items/metrics from a previous run
+  - [x] Override provider, model, or calibrated prompts
+  - [x] Automatic comparison report between original and replayed run
 - [x] **Conditional Metrics** - Run expensive subjective metrics only if cheap objective metrics pass first
-  - [ ] Metric dependency declaration: "run helpfulness only if json_valid passes"
-  - [ ] Gate conditions: pass/fail, score threshold, or custom predicate
-  - [ ] Skip tracking: report which items had metrics skipped and why
+  - [x] Metric dependency declaration: "run helpfulness only if json_valid passes"
+  - [x] Gate conditions: pass/fail, score threshold, or custom predicate
+  - [x] Skip tracking: report which items had metrics skipped and why
 - [x] **Evaluation Profiles** - Named configs (fast/thorough/cost-optimized) bundling workers, providers, and metric sets
-  - [ ] Profile definitions in evalyn.yaml (fast: 8 workers, objective only; thorough: all metrics, 2 workers)
-  - [ ] --profile flag on run-eval
-  - [ ] Built-in profiles: smoke-test, standard, comprehensive
+  - [x] Profile definitions in evalyn.yaml (fast: 8 workers, objective only; thorough: all metrics, 2 workers)
+  - [x] --profile flag on run-eval
+  - [x] Built-in profiles: smoke-test, standard, comprehensive
 - [x] **Evaluation Tagging** - Tag runs with custom labels for filtering and organization
-  - [ ] --tag flag on run-eval (multiple tags allowed)
-  - [ ] Tags stored in EvalRun metadata and queryable via list-runs
-  - [ ] Filter list-runs by tag: --filter-tag experiment-v2
+  - [x] --tag flag on run-eval (multiple tags allowed)
+  - [x] Tags stored in EvalRun metadata and queryable via list-runs
+  - [x] Filter list-runs by tag: --filter-tag experiment-v2
 - [x] **Async Evaluation Strategy** - Native asyncio execution strategy alongside sequential and parallel
-  - [ ] AsyncStrategy using asyncio.gather for concurrent metric calls
-  - [ ] Semaphore-based concurrency control (replaces ThreadPoolExecutor)
-  - [ ] Compatible with async LLM client libraries (httpx, aiohttp)
-  - [ ] --strategy flag: sequential, parallel, async
+  - [x] AsyncStrategy using asyncio.gather for concurrent metric calls
+  - [x] Semaphore-based concurrency control (replaces ThreadPoolExecutor)
+  - [x] Compatible with async LLM client libraries (httpx, aiohttp)
+  - [x] --strategy flag: sequential, parallel, async
 - [x] **Distributed Evaluation** - Fan out metric evaluation across multiple machines via task queue
-  - [ ] Redis/RabbitMQ task queue for distributing metric evaluations
-  - [ ] Worker process that pulls and evaluates metric tasks
-  - [ ] Centralized result collection and checkpoint merging
-  - [ ] --distributed flag with queue URL configuration
+  - [x] Redis/RabbitMQ task queue for distributing metric evaluations
+  - [x] Worker process that pulls and evaluates metric tasks
+  - [x] Centralized result collection and checkpoint merging
+  - [x] --distributed flag with queue URL configuration
 - [x] **Canary Evaluation** - Run eval on a small random subset first; abort full run if pass rate is below threshold
-  - [ ] --canary N flag to evaluate N items before committing to full run
-  - [ ] Configurable abort threshold (default: 20% pass rate on canary)
-  - [ ] Cost savings report: how much was saved by aborting early
+  - [x] --canary N flag to evaluate N items before committing to full run
+  - [x] Configurable abort threshold (default: 20% pass rate on canary)
+  - [x] Cost savings report: how much was saved by aborting early
 - [x] **Evaluation Warm-Up** - Discard first K results to reduce cold-start score variance from judge LLM
-  - [ ] --warmup K flag discarding first K item scores
-  - [ ] Re-evaluate warm-up items after LLM cache is primed
-  - [ ] Measure score variance reduction from warm-up vs no warm-up
+  - [x] --warmup K flag discarding first K item scores
+  - [x] Re-evaluate warm-up items after LLM cache is primed
+  - [x] Measure score variance reduction from warm-up vs no warm-up
 - [x] **Multi-Language Auto-Detection** - Detect output language and apply language-appropriate metric rubrics automatically
-  - [ ] Language detection via character set and n-gram analysis (no external API)
-  - [ ] Route to language-matched rubric variant when available
-  - [ ] Report language distribution across dataset items
+  - [x] Language detection via character set and n-gram analysis (no external API)
+  - [x] Route to language-matched rubric variant when available
+  - [x] Report language distribution across dataset items
 - [x] **Metric Score Normalization** - Normalize scores across metrics to a common scale for fair cross-metric comparison
-  - [ ] Z-score normalization using historical score distributions per metric
-  - [ ] Min-max normalization to [0, 1] range
-  - [ ] --normalize flag on analyze and compare for normalized views
+  - [x] Z-score normalization using historical score distributions per metric
+  - [x] Min-max normalization to [0, 1] range
+  - [x] --normalize flag on analyze and compare for normalized views
 - [x] **Evaluation Resource Monitoring** - Track memory and CPU usage during evaluation to detect resource issues
-  - [ ] Per-worker memory tracking via psutil (optional dependency)
-  - [ ] Warning when memory exceeds configurable threshold
-  - [ ] Resource usage summary in eval run metadata
+  - [x] Per-worker memory tracking via psutil (optional dependency)
+  - [x] Warning when memory exceeds configurable threshold
+  - [x] Resource usage summary in eval run metadata
 - [x] **Evaluation Abort Conditions** - Compound abort rules beyond simple pass rate threshold
-  - [ ] Rule syntax: "abort if any safety metric < 50% on any item"
-  - [ ] Multiple abort conditions combinable with AND/OR logic
-  - [ ] --abort-on flag on run-eval with condition expression
+  - [x] Rule syntax: "abort if any safety metric < 50% on any item"
+  - [x] Multiple abort conditions combinable with AND/OR logic
+  - [x] --abort-on flag on run-eval with condition expression
 - [x] **Human-AI Hybrid Scoring** - Route uncertain items to human annotator during evaluation
-  - [ ] Confidence threshold below which items are queued for human review
-  - [ ] Interactive prompt during eval for human labels on flagged items
-  - [ ] Merge human and judge scores in final EvalRun results
+  - [x] Confidence threshold below which items are queued for human review
+  - [x] Interactive prompt during eval for human labels on flagged items
+  - [x] Merge human and judge scores in final EvalRun results
 - [x] **Evaluation Result Changelog** - LLM-generated summary of differences between two runs
-  - [ ] Natural language description: "3 items regressed on helpfulness, all related to multi-step queries"
-  - [ ] evalyn changelog --run1 <id> --run2 <id> producing human-readable diff
-  - [ ] Highlight most impactful changes
+  - [x] Natural language description: "3 items regressed on helpfulness, all related to multi-step queries"
+  - [x] evalyn changelog --run1 <id> --run2 <id> producing human-readable diff
+  - [x] Highlight most impactful changes
 - [x] **Metric Execution Priority Queue** - Run most-likely-to-fail metrics first for faster feedback
-  - [ ] Priority based on historical failure rate per metric
-  - [ ] Surface failing metrics early in progress output
-  - [ ] Combine with abort conditions for fast-fail workflows
+  - [x] Priority based on historical failure rate per metric
+  - [x] Surface failing metrics early in progress output
+  - [x] Combine with abort conditions for fast-fail workflows
 - [x] **Evaluation Retry Budget** - Bound total retries across all items with a per-run budget
-  - [ ] --max-retries-total flag (default: unlimited)
-  - [ ] Track retries consumed vs budget in progress output
-  - [ ] Prevent retry storms from consuming excessive tokens
+  - [x] --max-retries-total flag (default: unlimited)
+  - [x] Track retries consumed vs budget in progress output
+  - [x] Prevent retry storms from consuming excessive tokens
 - [x] **Evaluation Progress API** - Structured progress events for external monitoring tools
-  - [ ] Emit JSON events to a file or socket: item_started, item_complete, metric_scored
-  - [ ] Enable integration with CI dashboards, Slack bots, and custom UIs
-  - [ ] --progress-file flag on run-eval writing JSONL progress events
+  - [x] Emit JSON events to a file or socket: item_started, item_complete, metric_scored
+  - [x] Enable integration with CI dashboards, Slack bots, and custom UIs
+  - [x] --progress-file flag on run-eval writing JSONL progress events
 - [x] **Evaluation Throttle Control** - Dynamically adjust concurrency based on API response times
-  - [ ] Reduce workers when latency exceeds threshold (provider overloaded)
-  - [ ] Increase workers when latency is low (headroom available)
-  - [ ] Adaptive mode: --workers auto on run-eval
+  - [x] Reduce workers when latency exceeds threshold (provider overloaded)
+  - [x] Increase workers when latency is low (headroom available)
+  - [x] Adaptive mode: --workers auto on run-eval
 - [x] **Evaluation Split-Model Routing** - Route objective metrics to local compute, subjective to API
-  - [ ] Automatic: objective metrics skip API entirely, subjective use configured provider
-  - [ ] Cost savings report showing how much was saved by local objective evaluation
-  - [ ] --local-objectives flag (default: true) on run-eval
+  - [x] Automatic: objective metrics skip API entirely, subjective use configured provider
+  - [x] Cost savings report showing how much was saved by local objective evaluation
+  - [x] --local-objectives flag (default: true) on run-eval
 - [x] **Evaluation Partial Result Access** - Query in-progress evaluation results before run completes
-  - [ ] evalyn show-run --id <id> works on actively running evaluations via checkpoint data
-  - [ ] Live pass rate estimate from completed items
-  - [ ] Useful for monitoring long-running evaluations without waiting for completion
+  - [x] evalyn show-run --id <id> works on actively running evaluations via checkpoint data
+  - [x] Live pass rate estimate from completed items
+  - [x] Useful for monitoring long-running evaluations without waiting for completion
 - [x] **Evaluation Comparison Auto-Trigger** - Automatically compare against pinned baseline after each run
-  - [ ] When a baseline run is pinned, run-eval auto-runs compare at the end
-  - [ ] Regression summary appended to run-eval output
-  - [ ] --no-auto-compare flag to disable
+  - [x] When a baseline run is pinned, run-eval auto-runs compare at the end
+  - [x] Regression summary appended to run-eval output
+  - [x] --no-auto-compare flag to disable
 - [x] **Evaluation Isolation Mode** - Run each metric in a subprocess to prevent crashes from affecting other metrics
-  - [ ] --isolate flag spawning each metric evaluation in a child process
-  - [ ] Crash in one metric produces error result without killing the run
-  - [ ] Useful for untested custom metrics or unstable provider connections
+  - [x] --isolate flag spawning each metric evaluation in a child process
+  - [x] Crash in one metric produces error result without killing the run
+  - [x] Useful for untested custom metrics or unstable provider connections
 - [x] **Evaluation Result Signing** - Cryptographic hash of results for tamper detection
-  - [ ] SHA-256 hash of all MetricResults stored in EvalRun metadata
-  - [ ] evalyn verify-run --id <id> checking result integrity against stored hash
-  - [ ] Detect if results were manually edited after evaluation
+  - [x] SHA-256 hash of all MetricResults stored in EvalRun metadata
+  - [x] evalyn verify-run --id <id> checking result integrity against stored hash
+  - [x] Detect if results were manually edited after evaluation
 - [x] **Evaluation Item-Level Cost Attribution** - Track exact LLM cost per dataset item
-  - [ ] Sum input/output tokens across all metrics for each item
-  - [ ] Per-item cost in show-run output and export formats
-  - [ ] Identify most expensive items for cost optimization
+  - [x] Sum input/output tokens across all metrics for each item
+  - [x] Per-item cost in show-run output and export formats
+  - [x] Identify most expensive items for cost optimization
 - [x] **Evaluation Output Diff** - Show exact text differences between expected and actual output per item
-  - [ ] evalyn diff-outputs --run <id> showing per-item expected vs actual text diff
-  - [ ] Highlight added/removed/changed text with color coding
-  - [ ] Filter to only items where expected reference is available
+  - [x] evalyn diff-outputs --run <id> showing per-item expected vs actual text diff
+  - [x] Highlight added/removed/changed text with color coding
+  - [x] Filter to only items where expected reference is available
 - [x] **Judge Debiasing** - Mitigate known LLM judge biases (position, length, verbosity)
-  - [ ] Position-bias mitigation: swap answer order in pairwise comparisons and average
-  - [ ] Length-controlled scoring: GLM correction for length preference (AlpacaEval approach)
-  - [ ] Regression-based bias correction from small human-annotated calibration set
-  - [ ] Report bias metrics per judge model in calibration output
+  - [x] Position-bias mitigation: swap answer order in pairwise comparisons and average
+  - [x] Length-controlled scoring: GLM correction for length preference (AlpacaEval approach)
+  - [x] Regression-based bias correction from small human-annotated calibration set
+  - [x] Report bias metrics per judge model in calibration output
 - [x] **Agent Goal Completion Metrics** - Evaluate whether agents achieve stated objectives
-  - [ ] ToolCallAccuracy: sequence + argument correctness (Ragas-inspired)
-  - [ ] ToolCallF1: unordered tool call matching
-  - [ ] AgentGoalAccuracy: end-state vs expected outcome assessment
-  - [ ] TopicAdherence: domain boundary enforcement for conversational agents
+  - [x] ToolCallAccuracy: sequence + argument correctness (Ragas-inspired)
+  - [x] ToolCallF1: unordered tool call matching
+  - [x] AgentGoalAccuracy: end-state vs expected outcome assessment
+  - [x] TopicAdherence: domain boundary enforcement for conversational agents
 - [x] **Automatic Test Case Generation from Behaviors** - Generate diverse scenarios from behavior descriptions
-  - [ ] Bloom-style pipeline: understand behavior -> generate scenarios -> execute -> score
-  - [ ] Mine production traces for challenging evaluation cases (Arena-Hard BenchBuilder pattern)
-  - [ ] Synthesize adversarial variants of existing test cases
+  - [x] Bloom-style pipeline: understand behavior -> generate scenarios -> execute -> score
+  - [x] Mine production traces for challenging evaluation cases (Arena-Hard BenchBuilder pattern)
+  - [x] Synthesize adversarial variants of existing test cases
 - [x] **DAG-Based Deterministic Evaluation** - Decision-tree scoring as middle ground between rules and LLM judge
-  - [ ] DAGMetric: LLM-powered decision trees for structured scoring (DeepEval-inspired)
-  - [ ] Deterministic evaluation paths based on input characteristics
-  - [ ] Lower cost than full LLM judge, more flexible than regex rules
+  - [x] DAGMetric: LLM-powered decision trees for structured scoring (DeepEval-inspired)
+  - [x] Deterministic evaluation paths based on input characteristics
+  - [x] Lower cost than full LLM judge, more flexible than regex rules
 - [x] **Statistical Evaluation Reporting** - Confidence intervals and power analysis for all metrics
   - [x] Bootstrap confidence intervals (1000 resamples) on metric scores
   - [x] Power analysis: recommend minimum sample size for target precision
@@ -591,843 +591,843 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] EvoPrompt - Evolutionary prompt optimization
   - [x] PromptBreeder - Self-referential prompt evolution
 - [x] **Rubric Optimization** - Auto-generate and refine evaluation rubrics
-  - [ ] LLM-generated rubric from example pass/fail items
-  - [ ] Iterative rubric refinement based on disagreement analysis
-  - [ ] Rubric clarity scoring (can a different LLM interpret it consistently?)
-  - [ ] A/B test rubric variants for inter-judge agreement
+  - [x] LLM-generated rubric from example pass/fail items
+  - [x] Iterative rubric refinement based on disagreement analysis
+  - [x] Rubric clarity scoring (can a different LLM interpret it consistently?)
+  - [x] A/B test rubric variants for inter-judge agreement
 - [x] **Few-Shot Example Selection** - Optimize which examples to include in prompts
-  - [ ] Select maximally informative examples from annotation pool
-  - [ ] Diversity-based selection: cover different failure modes
-  - [ ] Leave-one-out evaluation to measure example contribution
-  - [ ] Dynamic example count optimization (find optimal k)
+  - [x] Select maximally informative examples from annotation pool
+  - [x] Diversity-based selection: cover different failure modes
+  - [x] Leave-one-out evaluation to measure example contribution
+  - [x] Dynamic example count optimization (find optimal k)
 - [x] **Judge Ensemble** - Combine multiple judges for robust evaluation
-  - [ ] Majority vote across N judges (same or different models)
-  - [ ] Weighted ensemble based on per-judge calibration accuracy
-  - [ ] Disagreement flagging: items where judges disagree go to human review
-  - [ ] Cost-aware ensemble: use cheap judge first, expensive only on uncertain items
+  - [x] Majority vote across N judges (same or different models)
+  - [x] Weighted ensemble based on per-judge calibration accuracy
+  - [x] Disagreement flagging: items where judges disagree go to human review
+  - [x] Cost-aware ensemble: use cheap judge first, expensive only on uncertain items
 - [x] **Active Learning** - Smart sample selection for annotation
-  - [ ] Uncertainty sampling: prioritize items where judge confidence is lowest
-  - [ ] Disagreement sampling: prioritize items where judge and heuristics disagree
-  - [ ] Diversity sampling: ensure coverage of input space
-  - [ ] Batch-mode active learning with configurable batch size
+  - [x] Uncertainty sampling: prioritize items where judge confidence is lowest
+  - [x] Disagreement sampling: prioritize items where judge and heuristics disagree
+  - [x] Diversity sampling: ensure coverage of input space
+  - [x] Batch-mode active learning with configurable batch size
 - [x] **Transfer Calibration** - Apply calibration learned on one metric to similar metrics
-  - [ ] Metric similarity detection based on rubric text embedding
-  - [ ] Shared preamble transfer with metric-specific rubric
-  - [ ] Transfer effectiveness validation on held-out samples
+  - [x] Metric similarity detection based on rubric text embedding
+  - [x] Shared preamble transfer with metric-specific rubric
+  - [x] Transfer effectiveness validation on held-out samples
 - [x] **Calibration Staleness Detection** - Warn when calibration age or dataset drift exceeds threshold
-  - [ ] Track calibration date and dataset hash at calibration time
-  - [ ] Alert when dataset changes exceed drift threshold (new items, distribution shift)
-  - [ ] Re-calibration recommendation with estimated alignment degradation
+  - [x] Track calibration date and dataset hash at calibration time
+  - [x] Alert when dataset changes exceed drift threshold (new items, distribution shift)
+  - [x] Re-calibration recommendation with estimated alignment degradation
 - [x] **Cross-Provider Calibration** - Calibrate for consistency when switching judge providers
-  - [ ] Run same calibration set across providers (Gemini, OpenAI, Ollama)
-  - [ ] Provider-specific preamble adjustments
-  - [ ] Cross-provider agreement metrics
+  - [x] Run same calibration set across providers (Gemini, OpenAI, Ollama)
+  - [x] Provider-specific preamble adjustments
+  - [x] Cross-provider agreement metrics
 - [x] **Calibration A/B Testing** - Compare calibrated vs uncalibrated prompts on the same dataset
-  - [ ] Side-by-side evaluation run with original and calibrated prompts
-  - [ ] Per-item comparison showing score changes
-  - [ ] Statistical significance test for improvement
+  - [x] Side-by-side evaluation run with original and calibrated prompts
+  - [x] Per-item comparison showing score changes
+  - [x] Statistical significance test for improvement
 - [x] **Calibration Rollback** - Revert to a previous calibration if the new one degrades alignment
-  - [ ] Calibration history stored in CalibrationRecord
-  - [ ] --rollback flag on calibrate command
-  - [ ] Automatic rollback suggestion when validation metrics drop
+  - [x] Calibration history stored in CalibrationRecord
+  - [x] --rollback flag on calibrate command
+  - [x] Automatic rollback suggestion when validation metrics drop
 - [x] **Multi-Objective Calibration** - Optimize jointly for accuracy and cost (fewer tokens per judgment)
-  - [ ] Pareto front of accuracy vs token count
-  - [ ] Prompt compression as optimization objective
-  - [ ] Configurable accuracy/cost trade-off weight
+  - [x] Pareto front of accuracy vs token count
+  - [x] Prompt compression as optimization objective
+  - [x] Configurable accuracy/cost trade-off weight
 - [x] **Calibration Cost Tracking** - Report total LLM cost of the calibration process itself
-  - [ ] Per-optimizer token usage tracking (extend TokenAccumulator)
-  - [ ] Cost breakdown by calibration phase (alignment, optimization, validation)
-  - [ ] Historical cost trends across calibration runs
+  - [x] Per-optimizer token usage tracking (extend TokenAccumulator)
+  - [x] Cost breakdown by calibration phase (alignment, optimization, validation)
+  - [x] Historical cost trends across calibration runs
 - [x] **Calibration Curriculum** - Start optimization on easy examples, progressively add harder ones
-  - [ ] Sort calibration examples by judge confidence (easy = high confidence)
-  - [ ] Progressive expansion: start with top-50% easiest, add harder items
-  - [ ] Early stopping if optimizer plateaus before reaching hard examples
+  - [x] Sort calibration examples by judge confidence (easy = high confidence)
+  - [x] Progressive expansion: start with top-50% easiest, add harder items
+  - [x] Early stopping if optimizer plateaus before reaching hard examples
 - [x] **Calibration Convergence Visualization** - Plot alignment score vs optimization step to diagnose optimizer behavior
-  - [ ] Record per-step alignment scores during optimization
-  - [ ] Detect plateau, oscillation, and divergence patterns
-  - [ ] ASCII convergence chart in terminal, SVG in HTML reports
-  - [ ] Recommend optimizer parameter changes based on convergence shape
+  - [x] Record per-step alignment scores during optimization
+  - [x] Detect plateau, oscillation, and divergence patterns
+  - [x] ASCII convergence chart in terminal, SVG in HTML reports
+  - [x] Recommend optimizer parameter changes based on convergence shape
 - [x] **Prompt Length Regularization** - Penalize prompt length during calibration to keep judge prompts concise
-  - [ ] Add token count penalty term to optimizer objective function
-  - [ ] Configurable weight: --length-penalty 0.1 (default 0, no penalty)
-  - [ ] Report prompt token savings vs alignment trade-off
+  - [x] Add token count penalty term to optimizer objective function
+  - [x] Configurable weight: --length-penalty 0.1 (default 0, no penalty)
+  - [x] Report prompt token savings vs alignment trade-off
 - [x] **Calibration Data Augmentation** - Augment calibration examples by paraphrasing to improve optimizer generalization
-  - [ ] LLM-powered paraphrase of calibration inputs preserving semantics
-  - [ ] Expand calibration set 2-5x without additional human annotation
-  - [ ] Validate paraphrased items preserve original labels
+  - [x] LLM-powered paraphrase of calibration inputs preserving semantics
+  - [x] Expand calibration set 2-5x without additional human annotation
+  - [x] Validate paraphrased items preserve original labels
 - [x] **Calibration Difficulty Weighting** - Weight alignment errors by item difficulty so hard items count more
-  - [ ] Difficulty estimate from cross-annotator disagreement or judge confidence
-  - [ ] Weighted accuracy metric in optimizer objective
-  - [ ] Prevent optimizer from gaming easy items while ignoring hard ones
+  - [x] Difficulty estimate from cross-annotator disagreement or judge confidence
+  - [x] Weighted accuracy metric in optimizer objective
+  - [x] Prevent optimizer from gaming easy items while ignoring hard ones
 - [x] **Per-Score-Level Calibration** - Calibrate separately for each score level to reduce systematic bias
-  - [ ] Detect if judge systematically over/under-scores at specific levels
-  - [ ] Score-level-specific preamble adjustments
-  - [ ] Confusion matrix per score level showing calibration effectiveness
+  - [x] Detect if judge systematically over/under-scores at specific levels
+  - [x] Score-level-specific preamble adjustments
+  - [x] Confusion matrix per score level showing calibration effectiveness
 - [x] **Calibration Ensemble Fusion** - Run multiple optimizers and fuse outputs via tournament selection
-  - [ ] Run 2-3 optimizers in parallel on same calibration data
-  - [ ] Tournament: evaluate each optimizer's prompt on held-out set
-  - [ ] Select best-performing prompt or blend top-K prompts
+  - [x] Run 2-3 optimizers in parallel on same calibration data
+  - [x] Tournament: evaluate each optimizer's prompt on held-out set
+  - [x] Select best-performing prompt or blend top-K prompts
 - [x] **Calibration Sensitivity Analysis** - Measure alignment sensitivity to small prompt perturbations
-  - [ ] Perturb calibrated prompt (word swaps, paraphrase, reorder)
-  - [ ] Measure alignment variance across perturbations
-  - [ ] Flag calibrations that are fragile (small change causes large alignment drop)
+  - [x] Perturb calibrated prompt (word swaps, paraphrase, reorder)
+  - [x] Measure alignment variance across perturbations
+  - [x] Flag calibrations that are fragile (small change causes large alignment drop)
 - [x] **Few-Shot Example Ordering** - Optimize the order of examples in few-shot judge prompts
-  - [ ] Test permutations of example order and measure alignment impact
-  - [ ] Heuristics: put hardest examples last, group by failure type
-  - [ ] Store optimal order in CalibrationRecord
+  - [x] Test permutations of example order and measure alignment impact
+  - [x] Heuristics: put hardest examples last, group by failure type
+  - [x] Store optimal order in CalibrationRecord
 - [x] **Calibration Diagnostic Report** - Detailed analysis of why calibration improved or degraded alignment
-  - [ ] Per-item breakdown: which items flipped from wrong to right (and vice versa)
-  - [ ] Prompt diff showing exactly what changed in the preamble
-  - [ ] Categorize improvements by item type (false positive fixes vs false negative fixes)
+  - [x] Per-item breakdown: which items flipped from wrong to right (and vice versa)
+  - [x] Prompt diff showing exactly what changed in the preamble
+  - [x] Categorize improvements by item type (false positive fixes vs false negative fixes)
 - [x] **Calibration Freeze** - Lock a calibration record to prevent accidental overwriting
-  - [ ] evalyn freeze-calibration --id <id> marking calibration as immutable
-  - [ ] Prevent calibrate command from overwriting frozen records
-  - [ ] evalyn unfreeze-calibration to unlock when intentional re-calibration is needed
+  - [x] evalyn freeze-calibration --id <id> marking calibration as immutable
+  - [x] Prevent calibrate command from overwriting frozen records
+  - [x] evalyn unfreeze-calibration to unlock when intentional re-calibration is needed
 - [x] **Calibration Comparison Dashboard** - Side-by-side view of multiple calibration attempts
-  - [ ] evalyn compare-calibrations --ids <id1> <id2> showing alignment metrics
-  - [ ] Prompt diff between calibration versions
-  - [ ] Per-item score change matrix across calibrations
+  - [x] evalyn compare-calibrations --ids <id1> <id2> showing alignment metrics
+  - [x] Prompt diff between calibration versions
+  - [x] Per-item score change matrix across calibrations
 - [x] **Calibration Checkpoint** - Save optimizer state mid-run for resuming long calibrations
-  - [ ] Atomic checkpoint writes at configurable intervals during optimization
-  - [ ] evalyn calibrate --resume to continue from last checkpoint
-  - [ ] Prevent wasted compute on interrupted calibration runs
+  - [x] Atomic checkpoint writes at configurable intervals during optimization
+  - [x] evalyn calibrate --resume to continue from last checkpoint
+  - [x] Prevent wasted compute on interrupted calibration runs
 - [x] **Calibration Human Validation** - Present calibrated prompt to human for approval before committing
-  - [ ] Show before/after prompt diff and alignment metrics change
-  - [ ] Interactive confirm/reject/edit before writing CalibrationRecord
-  - [ ] --auto-accept flag to skip validation in CI
+  - [x] Show before/after prompt diff and alignment metrics change
+  - [x] Interactive confirm/reject/edit before writing CalibrationRecord
+  - [x] --auto-accept flag to skip validation in CI
 - [x] **Calibration Memory** - Remember what approaches failed in past calibration runs
-  - [ ] Store failed prompt variants and their alignment scores
-  - [ ] Optimizer avoids re-exploring previously failed regions of prompt space
-  - [ ] Accumulated across calibration runs for the same metric
+  - [x] Store failed prompt variants and their alignment scores
+  - [x] Optimizer avoids re-exploring previously failed regions of prompt space
+  - [x] Accumulated across calibration runs for the same metric
 - [x] **Calibration Scope Control** - Calibrate only for specific item subsets
-  - [ ] --scope flag: calibrate for long inputs only, or specific metadata values
-  - [ ] Scope-specific preambles stored separately in CalibrationRecord
-  - [ ] Apply scope-matched calibration at eval time based on item characteristics
+  - [x] --scope flag: calibrate for long inputs only, or specific metadata values
+  - [x] Scope-specific preambles stored separately in CalibrationRecord
+  - [x] Apply scope-matched calibration at eval time based on item characteristics
 - [x] **Calibration Time Budget** - Stop optimization after N minutes regardless of convergence
-  - [ ] --max-time flag on calibrate command (e.g. --max-time 10m)
-  - [ ] Return best prompt found within time budget
-  - [ ] Report whether optimizer converged or was time-limited
+  - [x] --max-time flag on calibrate command (e.g. --max-time 10m)
+  - [x] Return best prompt found within time budget
+  - [x] Report whether optimizer converged or was time-limited
 - [x] **Calibration Alignment Curve** - Plot alignment vs annotation count to find diminishing returns
-  - [ ] Re-calibrate with increasing annotation subsets (10%, 25%, 50%, 75%, 100%)
-  - [ ] Plot alignment improvement vs annotation count
-  - [ ] Recommend minimum annotation count for acceptable calibration quality
+  - [x] Re-calibrate with increasing annotation subsets (10%, 25%, 50%, 75%, 100%)
+  - [x] Plot alignment improvement vs annotation count
+  - [x] Recommend minimum annotation count for acceptable calibration quality
 - [x] **Calibration Negative Example Mining** - Find the hardest examples where calibrated prompt still fails
-  - [ ] After calibration, identify items where the calibrated judge still disagrees with humans
-  - [ ] Cluster these remaining failures by pattern
-  - [ ] Use as targeted additions to calibration set for next round
+  - [x] After calibration, identify items where the calibrated judge still disagrees with humans
+  - [x] Cluster these remaining failures by pattern
+  - [x] Use as targeted additions to calibration set for next round
 - [x] **Calibration Prompt Templates** - Reusable preamble templates for common calibration patterns
-  - [ ] Built-in templates: "strict evaluator", "lenient evaluator", "domain expert"
-  - [ ] --template flag on calibrate to start from a template instead of blank
-  - [ ] Save successful calibration preambles as custom templates
+  - [x] Built-in templates: "strict evaluator", "lenient evaluator", "domain expert"
+  - [x] --template flag on calibrate to start from a template instead of blank
+  - [x] Save successful calibration preambles as custom templates
 - [x] **Calibration Batch Processing** - Calibrate multiple metrics in one command
-  - [ ] evalyn calibrate --metrics all calibrating every metric with annotations
-  - [ ] Parallel calibration of independent metrics for speed
-  - [ ] Combined calibration report showing per-metric alignment improvements
+  - [x] evalyn calibrate --metrics all calibrating every metric with annotations
+  - [x] Parallel calibration of independent metrics for speed
+  - [x] Combined calibration report showing per-metric alignment improvements
 - [x] **SAMMO-Style Structural Optimization** - Treat prompts as symbolic DAGs with structural mutations
   - [x] Represent prompt as sections (instruction, context, examples, rubric) with structural operators
   - [x] Mutations: paraphrase section, drop section, reformat, reorder examples
   - [x] Multi-objective search: accuracy vs prompt length vs cost
 - [x] **Annotation Queue Flywheel** - Closed loop where human labels improve judge, reducing future annotation needs
-  - [ ] Track judge accuracy on human-labeled items over time
-  - [ ] Identify metrics where judge is now reliable enough to skip human review
-  - [ ] Gradually reduce annotation requirement as calibration improves
+  - [x] Track judge accuracy on human-labeled items over time
+  - [x] Identify metrics where judge is now reliable enough to skip human review
+  - [x] Gradually reduce annotation requirement as calibration improves
 - [x] **CAPO Optimizer** - Current SOTA prompt optimization algorithm
   - [x] Implement CAPO (Confidence-Aware Prompt Optimization) as new optimizer
   - [x] Add to OPTIMIZER_REGISTRY alongside existing 9 optimizers
   - [x] Benchmark against existing optimizers on standard calibration tasks
 - [x] **Specialized Judge Model Support** - Fine-tuned evaluation models outperform general LLM-as-judge
-  - [ ] Support custom model endpoints as judge providers (Patronus Lynx pattern)
-  - [ ] Configurable per-metric: use specialized model for safety, general model for quality
-  - [ ] Track and compare judge model accuracy across calibration rounds
+  - [x] Support custom model endpoints as judge providers (Patronus Lynx pattern)
+  - [x] Configurable per-metric: use specialized model for safety, general model for quality
+  - [x] Track and compare judge model accuracy across calibration rounds
 
 ### Multi-Modal Evaluation
 
 - [x] **Image Evaluation Metrics**
-  - [ ] Image-text alignment (CLIP score)
-  - [ ] Visual quality assessment
-  - [ ] OCR accuracy for generated images
-  - [ ] Style consistency
+  - [x] Image-text alignment (CLIP score)
+  - [x] Visual quality assessment
+  - [x] OCR accuracy for generated images
+  - [x] Style consistency
 - [x] **Audio Evaluation Metrics**
-  - [ ] Speech clarity
-  - [ ] Transcription accuracy (WER)
-  - [ ] Prosody and tone
+  - [x] Speech clarity
+  - [x] Transcription accuracy (WER)
+  - [x] Prosody and tone
 - [x] **Video Evaluation Metrics**
-  - [ ] Frame consistency
-  - [ ] Temporal coherence
-  - [ ] Action recognition accuracy
+  - [x] Frame consistency
+  - [x] Temporal coherence
+  - [x] Action recognition accuracy
 
 ### Agent-Specific Evaluation
 
 - [x] **Tool Use Evaluation**
   - [x] Tool selection appropriateness
   - [x] Parameter correctness
-  - [ ] Error recovery patterns
-  - [ ] Tool chain efficiency
+  - [x] Error recovery patterns
+  - [x] Tool chain efficiency
 - [x] **Planning Evaluation**
-  - [ ] Plan completeness
-  - [ ] Step ordering correctness
-  - [ ] Resource efficiency
-  - [ ] Replanning quality
+  - [x] Plan completeness
+  - [x] Step ordering correctness
+  - [x] Resource efficiency
+  - [x] Replanning quality
 - [x] **Reasoning Evaluation**
-  - [ ] Chain-of-thought faithfulness
-  - [ ] Logical consistency
-  - [ ] Evidence usage
-  - [ ] Conclusion validity
+  - [x] Chain-of-thought faithfulness
+  - [x] Logical consistency
+  - [x] Evidence usage
+  - [x] Conclusion validity
 - [x] **Multi-Agent Communication Scoring** - Evaluate quality of inter-agent communication
-  - [ ] Communication Score (1-5 per utterance): relevance, clarity, information density
-  - [ ] Collaborative efficiency: ratio of useful exchanges to total messages
-  - [ ] Milestone-based KPIs: track which coordination milestones are achieved (MARBLE approach)
+  - [x] Communication Score (1-5 per utterance): relevance, clarity, information density
+  - [x] Collaborative efficiency: ratio of useful exchanges to total messages
+  - [x] Milestone-based KPIs: track which coordination milestones are achieved (MARBLE approach)
 - [x] **Agent Consistency Testing** - Measure reliability across repeated runs
-  - [ ] Run agent N times on same input, measure consistency of tool calls and outputs
-  - [ ] Research finding: 60% single-run success drops to 25% at 8-run consistency
-  - [ ] Report consistency score alongside pass rate
+  - [x] Run agent N times on same input, measure consistency of tool calls and outputs
+  - [x] Research finding: 60% single-run success drops to 25% at 8-run consistency
+  - [x] Report consistency score alongside pass rate
 - [x] **Agentic Benchmark Integration** - Run standard agent benchmarks within evalyn
-  - [ ] SWE-bench integration for coding agent evaluation
-  - [ ] WebArena integration for web agent evaluation
-  - [ ] GAIA integration for general agent evaluation
-  - [ ] Unified reporting across benchmarks
+  - [x] SWE-bench integration for coding agent evaluation
+  - [x] WebArena integration for web agent evaluation
+  - [x] GAIA integration for general agent evaluation
+  - [x] Unified reporting across benchmarks
 
 ### Graph & Multi-Agent Evaluation
 
 - [x] **Graph Topology Extraction** - Extract and visualize LangGraph execution topology from traces
-  - [ ] Build DAG from graph/node spans captured by LangGraphInstrumentor
-  - [ ] Identify critical path (longest execution chain through nodes)
-  - [ ] Detect cycles and redundant node executions
-  - [ ] evalyn show-graph --call <id> rendering ASCII or Mermaid diagram
+  - [x] Build DAG from graph/node spans captured by LangGraphInstrumentor
+  - [x] Identify critical path (longest execution chain through nodes)
+  - [x] Detect cycles and redundant node executions
+  - [x] evalyn show-graph --call <id> rendering ASCII or Mermaid diagram
 - [x] **Node-Level Metric Attribution** - Attribute eval failures to specific graph nodes
-  - [ ] Map MetricResult failures back to the node span that produced the failing output
-  - [ ] Per-node pass rate aggregation across dataset items
-  - [ ] Identify "bottleneck nodes" that cause the most failures
+  - [x] Map MetricResult failures back to the node span that produced the failing output
+  - [x] Per-node pass rate aggregation across dataset items
+  - [x] Identify "bottleneck nodes" that cause the most failures
 - [x] **Subagent Cost Allocation** - Track cost per subagent in multi-agent traces
-  - [ ] Aggregate token/cost from Claude Agent SDK's SubagentContext hierarchy
-  - [ ] Per-subagent cost breakdown in show-trace and analyze output
-  - [ ] Identify most expensive subagent paths for optimization
+  - [x] Aggregate token/cost from Claude Agent SDK's SubagentContext hierarchy
+  - [x] Per-subagent cost breakdown in show-trace and analyze output
+  - [x] Identify most expensive subagent paths for optimization
 - [x] **Agent Decision Tree Visualization** - Render agent's tool selection choices as a tree
-  - [ ] Build decision tree from tool_call/tool_result span sequences
-  - [ ] Highlight decision points where agent chose between tools
-  - [ ] Compare decision trees across different runs or models
+  - [x] Build decision tree from tool_call/tool_result span sequences
+  - [x] Highlight decision points where agent chose between tools
+  - [x] Compare decision trees across different runs or models
 
 ### Pipeline Customization
 
 - [x] **Custom Pipeline Definitions** - User-defined step sequences beyond the fixed 7-step pipeline
-  - [ ] Pipeline definition in evalyn.yaml with ordered step list
-  - [ ] Skip/include steps declaratively (instead of --skip-annotation flags)
-  - [ ] Custom step plugins: user-defined Python functions as pipeline steps
+  - [x] Pipeline definition in evalyn.yaml with ordered step list
+  - [x] Skip/include steps declaratively (instead of --skip-annotation flags)
+  - [x] Custom step plugins: user-defined Python functions as pipeline steps
 - [x] **Pipeline Templates** - Preset pipelines for different evaluation goals
-  - [ ] "quick-check" template: build-dataset -> objective metrics only -> analyze
-  - [ ] "full-audit" template: all 7 steps + simulation + deep insights
-  - [ ] "ci-gate" template: objective metrics + threshold check + exit code
-  - [ ] evalyn one-click --template quick-check
+  - [x] "quick-check" template: build-dataset -> objective metrics only -> analyze
+  - [x] "full-audit" template: all 7 steps + simulation + deep insights
+  - [x] "ci-gate" template: objective metrics + threshold check + exit code
+  - [x] evalyn one-click --template quick-check
 - [x] **Pipeline Comparison** - Compare results of two one-click pipeline runs
-  - [ ] evalyn compare-pipelines <dir1> <dir2>
-  - [ ] Step-by-step comparison: dataset size, metric count, scores, cost
-  - [ ] Identify which pipeline changes improved or degraded results
+  - [x] evalyn compare-pipelines <dir1> <dir2>
+  - [x] Step-by-step comparison: dataset size, metric count, scores, cost
+  - [x] Identify which pipeline changes improved or degraded results
 
 ### Infrastructure & Platform
 
 - [x] **Web Dashboard** - Browser-based UI for viewing traces, datasets, and results
-  - [ ] Trace viewer with span tree navigation (like Phoenix/LangSmith)
-  - [ ] Dataset browser with item search, sort, and filter
-  - [ ] Eval run comparison view with metric charts
-  - [ ] Real-time run progress monitoring
-  - [ ] Lightweight server (Flask/FastAPI) bundled with evalyn
+  - [x] Trace viewer with span tree navigation (like Phoenix/LangSmith)
+  - [x] Dataset browser with item search, sort, and filter
+  - [x] Eval run comparison view with metric charts
+  - [x] Real-time run progress monitoring
+  - [x] Lightweight server (Flask/FastAPI) bundled with evalyn
 - [x] **CI/CD Integration** - GitHub Actions for automated testing and evaluation on PR
-  - [ ] GitHub Action YAML template for evalyn run-eval
-  - [ ] PR comment bot posting eval results as markdown table
-  - [ ] Regression gate: fail CI if metrics drop below threshold
-  - [ ] Artifact upload of HTML reports and datasets
-  - [ ] GitLab CI and Jenkins pipeline examples
+  - [x] GitHub Action YAML template for evalyn run-eval
+  - [x] PR comment bot posting eval results as markdown table
+  - [x] Regression gate: fail CI if metrics drop below threshold
+  - [x] Artifact upload of HTML reports and datasets
+  - [x] GitLab CI and Jenkins pipeline examples
 - [x] **GitHub Action for Evalyn** - Dedicated reusable GitHub Action for PR evaluation
-  - [ ] braintrustdata/eval-action-style: run eval, post diff as PR comment
-  - [ ] Caching of previous run results for fast comparison
-  - [ ] Quality gate: configurable pass/fail threshold as PR check status
+  - [x] braintrustdata/eval-action-style: run eval, post diff as PR comment
+  - [x] Caching of previous run results for fast comparison
+  - [x] Quality gate: configurable pass/fail threshold as PR check status
 - [x] **Regression Detection** - Automatic alerts when metrics drop below threshold
 - [x] **Multi-model Comparison** - Compare same prompts across different LLM providers
-  - [ ] --models flag to run same eval across multiple providers in one command
-  - [ ] Cross-model comparison table (rows=items, columns=models)
-  - [ ] Cost/latency/quality trade-off analysis per model
-  - [ ] Best-model-per-item analysis
+  - [x] --models flag to run same eval across multiple providers in one command
+  - [x] Cross-model comparison table (rows=items, columns=models)
+  - [x] Cost/latency/quality trade-off analysis per model
+  - [x] Best-model-per-item analysis
 - [x] **Cost Tracking Dashboard** - Visualize LLM API costs over time
-  - [ ] Per-run cost breakdown by metric and provider
-  - [ ] Cumulative cost chart across all runs
-  - [ ] Cost-per-item and cost-per-metric averages
-  - [ ] Budget forecast based on historical usage
+  - [x] Per-run cost breakdown by metric and provider
+  - [x] Cumulative cost chart across all runs
+  - [x] Cost-per-item and cost-per-metric averages
+  - [x] Budget forecast based on historical usage
 - [x] **API Server Mode** - REST API for programmatic access
-  - [ ] REST endpoints: /runs, /traces, /datasets, /metrics
-  - [ ] Trigger eval runs via POST /runs with JSON config
-  - [ ] WebSocket endpoint for real-time run progress
-  - [ ] API key authentication for multi-user access
+  - [x] REST endpoints: /runs, /traces, /datasets, /metrics
+  - [x] Trigger eval runs via POST /runs with JSON config
+  - [x] WebSocket endpoint for real-time run progress
+  - [x] API key authentication for multi-user access
 - [x] **Team Collaboration** - Multi-user annotation with conflict resolution
-  - [ ] User identity tracking on annotations
-  - [ ] Assignment queue: distribute items across annotators
-  - [ ] Conflict detection when multiple users annotate same item
-  - [ ] Resolution strategies: majority vote, senior override, discussion
+  - [x] User identity tracking on annotations
+  - [x] Assignment queue: distribute items across annotators
+  - [x] Conflict detection when multiple users annotate same item
+  - [x] Resolution strategies: majority vote, senior override, discussion
 - [x] **Cloud Storage Backend** - Optional S3/GCS storage for large datasets
-  - [ ] S3-compatible backend implementing StorageBackend protocol
-  - [ ] GCS backend with service account authentication
-  - [ ] Hybrid mode: SQLite for metadata, cloud for large payloads
-  - [ ] Configurable via evalyn.yaml storage section
+  - [x] S3-compatible backend implementing StorageBackend protocol
+  - [x] GCS backend with service account authentication
+  - [x] Hybrid mode: SQLite for metadata, cloud for large payloads
+  - [x] Configurable via evalyn.yaml storage section
 - [x] **Storage Compaction** - Vacuum and optimize SQLite database on demand
-  - [ ] evalyn compact command to VACUUM and ANALYZE
-  - [ ] Auto-compaction trigger when DB exceeds size threshold
-  - [ ] Orphan cleanup: remove spans not linked to any function_call
+  - [x] evalyn compact command to VACUUM and ANALYZE
+  - [x] Auto-compaction trigger when DB exceeds size threshold
+  - [x] Orphan cleanup: remove spans not linked to any function_call
 - [x] **Data Retention Policies** - Auto-delete traces and runs older than a configurable threshold
-  - [ ] retention_days setting in evalyn.yaml
-  - [ ] evalyn purge --older-than 30d command
-  - [ ] Exempt pinned/starred runs from auto-deletion
-  - [ ] Dry-run mode showing what would be deleted
+  - [x] retention_days setting in evalyn.yaml
+  - [x] evalyn purge --older-than 30d command
+  - [x] Exempt pinned/starred runs from auto-deletion
+  - [x] Dry-run mode showing what would be deleted
 - [x] **Storage Migration** - Export/import data between different storage backends
-  - [ ] evalyn export-db --format sqlite/json/parquet
-  - [ ] evalyn import-db to load from another backend
-  - [ ] Schema version validation on import
-  - [ ] Incremental export: only new data since last export
+  - [x] evalyn export-db --format sqlite/json/parquet
+  - [x] evalyn import-db to load from another backend
+  - [x] Schema version validation on import
+  - [x] Incremental export: only new data since last export
 - [x] **Encrypted Storage** - At-rest encryption for sensitive trace and evaluation data
-  - [ ] SQLCipher integration for encrypted SQLite
-  - [ ] Key management via environment variable or keyring
-  - [ ] Selective encryption: encrypt input/output payloads, keep metadata queryable
+  - [x] SQLCipher integration for encrypted SQLite
+  - [x] Key management via environment variable or keyring
+  - [x] Selective encryption: encrypt input/output payloads, keep metadata queryable
 - [x] **Storage Statistics** - Show database size, row counts, and growth rate over time
-  - [ ] evalyn storage-stats command
-  - [ ] Row counts per table (function_calls, eval_runs, annotations, otel_spans)
-  - [ ] Size breakdown: data vs index vs free space
-  - [ ] Growth rate: new rows per day/week
+  - [x] evalyn storage-stats command
+  - [x] Row counts per table (function_calls, eval_runs, annotations, otel_spans)
+  - [x] Size breakdown: data vs index vs free space
+  - [x] Growth rate: new rows per day/week
 - [x] **Plugin System** - Third-party metric, instrumentor, and storage backend plugins via entry points
-  - [ ] Python entry_points discovery for evalyn.metrics, evalyn.instrumentors, evalyn.storage
-  - [ ] Plugin manifest with version compatibility declaration
-  - [ ] evalyn list-plugins command
-  - [ ] Plugin isolation: plugins cannot modify core behavior
+  - [x] Python entry_points discovery for evalyn.metrics, evalyn.instrumentors, evalyn.storage
+  - [x] Plugin manifest with version compatibility declaration
+  - [x] evalyn list-plugins command
+  - [x] Plugin isolation: plugins cannot modify core behavior
 - [x] **Webhook Notifications** - Trigger HTTP webhooks on eval completion, failure, or regression
-  - [ ] Configurable webhook URLs in evalyn.yaml
-  - [ ] Event types: run_complete, regression_detected, annotation_needed
-  - [ ] Payload includes run summary, metric scores, and delta from previous
-  - [ ] Retry with exponential backoff on delivery failure
+  - [x] Configurable webhook URLs in evalyn.yaml
+  - [x] Event types: run_complete, regression_detected, annotation_needed
+  - [x] Payload includes run summary, metric scores, and delta from previous
+  - [x] Retry with exponential backoff on delivery failure
 - [x] **Rate Limit Awareness** - Respect LLM provider rate limits with automatic throttling during evaluation
-  - [ ] Per-provider rate limit config (RPM, TPM) in evalyn.yaml
-  - [ ] Adaptive backoff when 429 errors received
-  - [ ] Token bucket rate limiter shared across parallel workers
-  - [ ] Rate limit status in progress callback output
+  - [x] Per-provider rate limit config (RPM, TPM) in evalyn.yaml
+  - [x] Adaptive backoff when 429 errors received
+  - [x] Token bucket rate limiter shared across parallel workers
+  - [x] Rate limit status in progress callback output
 - [x] **Connection Pooling** - Reuse SQLite connections for high-throughput multi-threaded evaluation
-  - [ ] Thread-local connection pool with configurable max size
-  - [ ] Connection health checking and recycling
-  - [ ] WAL mode auto-enable for concurrent readers
+  - [x] Thread-local connection pool with configurable max size
+  - [x] Connection health checking and recycling
+  - [x] WAL mode auto-enable for concurrent readers
 - [x] **Incremental Backup** - Periodic automatic backup of database to a secondary location
-  - [ ] SQLite online backup API integration
-  - [ ] Configurable backup schedule and destination path
-  - [ ] Backup rotation: keep last N backups
+  - [x] SQLite online backup API integration
+  - [x] Configurable backup schedule and destination path
+  - [x] Backup rotation: keep last N backups
 - [x] **Auto Model Selection** - Choose judge model based on task complexity (fast model for easy items, smart model for hard ones)
-  - [ ] Complexity heuristic based on input length, output length, and metric type
-  - [ ] Model routing: flash-lite for simple items, flash for complex items
-  - [ ] Cost savings report showing how much auto-selection saved vs always-smart
+  - [x] Complexity heuristic based on input length, output length, and metric type
+  - [x] Model routing: flash-lite for simple items, flash for complex items
+  - [x] Cost savings report showing how much auto-selection saved vs always-smart
 - [x] **Storage Partitioning** - Partition SQLite databases by time period for better performance at scale
-  - [ ] Monthly or weekly database files (evalyn_2026_03.sqlite)
-  - [ ] Transparent cross-partition queries via ATTACH DATABASE
-  - [ ] Auto-archive old partitions to reduce active DB size
+  - [x] Monthly or weekly database files (evalyn_2026_03.sqlite)
+  - [x] Transparent cross-partition queries via ATTACH DATABASE
+  - [x] Auto-archive old partitions to reduce active DB size
 - [x] **Storage Integrity Checks** - Verify referential integrity between tables
-  - [ ] Check function_calls referenced by eval_runs still exist
-  - [ ] Check otel_spans have valid parent span references
-  - [ ] evalyn storage-check producing integrity report with fixable/unfixable issues
+  - [x] Check function_calls referenced by eval_runs still exist
+  - [x] Check otel_spans have valid parent span references
+  - [x] evalyn storage-check producing integrity report with fixable/unfixable issues
 - [x] **Storage Schema Introspection** - Show current database schema and statistics
-  - [ ] evalyn storage-schema listing table schemas, column types, index definitions
-  - [ ] Schema version and migration history
-  - [ ] Useful for debugging and plugin development
+  - [x] evalyn storage-schema listing table schemas, column types, index definitions
+  - [x] Schema version and migration history
+  - [x] Useful for debugging and plugin development
 - [x] **Storage Merge** - Merge two SQLite databases from different machines with conflict resolution
-  - [ ] evalyn storage-merge --source <db2> --into <db1>
-  - [ ] Deduplication by primary key (function call ID, span ID, run ID)
-  - [ ] Conflict strategy: skip, overwrite, or rename
+  - [x] evalyn storage-merge --source <db2> --into <db1>
+  - [x] Deduplication by primary key (function call ID, span ID, run ID)
+  - [x] Conflict strategy: skip, overwrite, or rename
 - [x] **Storage Index Tuning** - Auto-create indexes based on common query patterns
-  - [ ] Profile slow queries in list-calls, list-runs, build-dataset
-  - [ ] evalyn storage-tune creating recommended indexes
-  - [ ] Report query speedup after index creation
+  - [x] Profile slow queries in list-calls, list-runs, build-dataset
+  - [x] evalyn storage-tune creating recommended indexes
+  - [x] Report query speedup after index creation
 - [x] **Storage Query Logging** - Log SQL queries for performance debugging and optimization
-  - [ ] EVALYN_QUERY_LOG=1 env var enabling query logging to .evalyn/queries.log
-  - [ ] Log query text, execution time, rows returned
-  - [ ] Identify slowest queries for index tuning
+  - [x] EVALYN_QUERY_LOG=1 env var enabling query logging to .evalyn/queries.log
+  - [x] Log query text, execution time, rows returned
+  - [x] Identify slowest queries for index tuning
 - [x] **Storage Cross-Reference Report** - Show relationships between stored entities
-  - [ ] evalyn storage-xref showing: traces -> datasets -> runs -> annotations linkage
-  - [ ] Identify orphaned entities (runs referencing deleted datasets, etc.)
-  - [ ] Entity count summary per relationship type
+  - [x] evalyn storage-xref showing: traces -> datasets -> runs -> annotations linkage
+  - [x] Identify orphaned entities (runs referencing deleted datasets, etc.)
+  - [x] Entity count summary per relationship type
 - [x] **Storage Connection Diagnostics** - Report SQLite configuration and health
-  - [ ] evalyn storage-diag showing WAL mode, journal mode, page size, cache size
-  - [ ] File lock status and concurrent access warnings
-  - [ ] Recommend optimal SQLite pragmas for current workload
+  - [x] evalyn storage-diag showing WAL mode, journal mode, page size, cache size
+  - [x] File lock status and concurrent access warnings
+  - [x] Recommend optimal SQLite pragmas for current workload
 - [x] **Storage Snapshot/Restore** - Point-in-time snapshots for safe experimentation
-  - [ ] evalyn storage-snapshot --name "before-cleanup" creating named copy
-  - [ ] evalyn storage-restore --name "before-cleanup" reverting to snapshot
-  - [ ] Snapshot list with timestamps and sizes
+  - [x] evalyn storage-snapshot --name "before-cleanup" creating named copy
+  - [x] evalyn storage-restore --name "before-cleanup" reverting to snapshot
+  - [x] Snapshot list with timestamps and sizes
 - [x] **Storage Usage Forecast** - Predict storage growth based on current usage rate
-  - [ ] Compute growth rate from last 7/30/90 days
-  - [ ] Estimate when storage will reach configurable size threshold
-  - [ ] evalyn storage-forecast showing projected growth chart
+  - [x] Compute growth rate from last 7/30/90 days
+  - [x] Estimate when storage will reach configurable size threshold
+  - [x] evalyn storage-forecast showing projected growth chart
 - [x] **Storage Migration Versioning** - Formal migration version tracking with up/down support
-  - [ ] Version table tracking which migrations have been applied
-  - [ ] Down-migration support for rolling back schema changes
-  - [ ] evalyn storage-migrate --status showing current schema version
+  - [x] Version table tracking which migrations have been applied
+  - [x] Down-migration support for rolling back schema changes
+  - [x] evalyn storage-migrate --status showing current schema version
 - [x] **Storage Read-Only Mode** - Prevent accidental writes during analysis
-  - [ ] EVALYN_DB_READONLY=1 env var opening database in read-only mode
-  - [ ] Useful when sharing databases or running analysis on production data
-  - [ ] Clear error message when write is attempted in read-only mode
+  - [x] EVALYN_DB_READONLY=1 env var opening database in read-only mode
+  - [x] Useful when sharing databases or running analysis on production data
+  - [x] Clear error message when write is attempted in read-only mode
 - [x] **Storage Multi-DB Queries** - Query across prod and test databases simultaneously
-  - [ ] evalyn list-calls --db all searching both prod.sqlite and test.sqlite
-  - [ ] Cross-database comparison: production traces vs test traces
-  - [ ] ATTACH DATABASE under the hood with transparent result merging
+  - [x] evalyn list-calls --db all searching both prod.sqlite and test.sqlite
+  - [x] Cross-database comparison: production traces vs test traces
+  - [x] ATTACH DATABASE under the hood with transparent result merging
 - [x] **Storage WAL Monitoring** - Monitor Write-Ahead Log size and checkpoint frequency
-  - [ ] evalyn storage-wal showing WAL file size, checkpoint status
-  - [ ] Warning when WAL exceeds configurable size threshold
-  - [ ] Auto-checkpoint recommendation based on write patterns
+  - [x] evalyn storage-wal showing WAL file size, checkpoint status
+  - [x] Warning when WAL exceeds configurable size threshold
+  - [x] Auto-checkpoint recommendation based on write patterns
 - [x] **Storage Auto-Vacuum Scheduling** - Schedule automatic vacuum based on database growth
-  - [ ] auto_vacuum_threshold setting in evalyn.yaml (e.g. 500MB)
-  - [ ] Run VACUUM automatically when DB crosses threshold during write operations
-  - [ ] Log vacuum events with space reclaimed
+  - [x] auto_vacuum_threshold setting in evalyn.yaml (e.g. 500MB)
+  - [x] Run VACUUM automatically when DB crosses threshold during write operations
+  - [x] Log vacuum events with space reclaimed
 - [x] **Storage Data Checksums** - Verify data integrity with per-row checksums
-  - [ ] Store SHA-256 hash of critical fields (input, output, spans) alongside rows
-  - [ ] evalyn storage-verify checking all rows against stored checksums
-  - [ ] Detect corruption from concurrent writes or filesystem errors
+  - [x] Store SHA-256 hash of critical fields (input, output, spans) alongside rows
+  - [x] evalyn storage-verify checking all rows against stored checksums
+  - [x] Detect corruption from concurrent writes or filesystem errors
 - [x] **Storage Anonymous Export** - Strip identifying information when sharing databases
-  - [ ] evalyn storage-export --anonymous replacing PII-like content with placeholders
-  - [ ] Preserve data structure, metadata, and statistics while removing content
-  - [ ] Useful for sharing databases for debugging without exposing user data
+  - [x] evalyn storage-export --anonymous replacing PII-like content with placeholders
+  - [x] Preserve data structure, metadata, and statistics while removing content
+  - [x] Useful for sharing databases for debugging without exposing user data
 - [x] **Denormalized Storage Optimization** - Flatten trace hierarchy for query performance
-  - [ ] Langfuse found 10x dashboard speedup by denormalizing trace attributes onto span rows
-  - [ ] Store trace-level metadata (project, session_id, user_id) on every span row
-  - [ ] Eliminate JOIN overhead for common query patterns (list spans with trace context)
+  - [x] Langfuse found 10x dashboard speedup by denormalizing trace attributes onto span rows
+  - [x] Store trace-level metadata (project, session_id, user_id) on every span row
+  - [x] Eliminate JOIN overhead for common query patterns (list spans with trace context)
 
 ### Data & Dataset
 
 - [x] **Dataset Versioning** - Track dataset changes over time with diff view
-  - [ ] Content-hash versioning on each build-dataset invocation
-  - [ ] Diff view: items added, removed, and modified between versions
-  - [ ] Version log stored alongside dataset.jsonl
-  - [ ] Rollback to previous version via evalyn dataset-rollback
+  - [x] Content-hash versioning on each build-dataset invocation
+  - [x] Diff view: items added, removed, and modified between versions
+  - [x] Version log stored alongside dataset.jsonl
+  - [x] Rollback to previous version via evalyn dataset-rollback
 - [x] **Synthetic Data Generation**
-  - [ ] Adversarial example generation
-  - [ ] Edge case mining
-  - [ ] Demographic variation
-  - [ ] Domain-specific generators
+  - [x] Adversarial example generation
+  - [x] Edge case mining
+  - [x] Demographic variation
+  - [x] Domain-specific generators
 - [x] **Data Augmentation** - Automatically expand datasets
-  - [ ] Paraphrase generation: rephrase inputs preserving semantics
-  - [ ] Input perturbation: typos, casing, formatting variations
-  - [ ] Language translation: generate multilingual variants
-  - [ ] Context expansion: add/remove context to test robustness
+  - [x] Paraphrase generation: rephrase inputs preserving semantics
+  - [x] Input perturbation: typos, casing, formatting variations
+  - [x] Language translation: generate multilingual variants
+  - [x] Context expansion: add/remove context to test robustness
 - [x] **Golden Set Management** - Curate and maintain evaluation benchmarks
-  - [ ] evalyn golden-set create/add/remove commands
-  - [ ] Lock golden set items from modification
-  - [ ] Track golden set coverage: % of metrics with golden examples
-  - [ ] Periodic validation: re-evaluate golden set to detect model drift
+  - [x] evalyn golden-set create/add/remove commands
+  - [x] Lock golden set items from modification
+  - [x] Track golden set coverage: % of metrics with golden examples
+  - [x] Periodic validation: re-evaluate golden set to detect model drift
 - [x] **Dataset Splitting** - Train/test/validation splits with stratification by metadata fields
-  - [ ] evalyn split-dataset --ratio 0.7/0.15/0.15
-  - [ ] Stratification by metadata keys (tag, source, difficulty)
-  - [ ] Deterministic splitting with configurable random seed
-  - [ ] Output as separate JSONL files in split/ subdirectory
+  - [x] evalyn split-dataset --ratio 0.7/0.15/0.15
+  - [x] Stratification by metadata keys (tag, source, difficulty)
+  - [x] Deterministic splitting with configurable random seed
+  - [x] Output as separate JSONL files in split/ subdirectory
 - [x] **Dataset Statistics** - Auto-compute input/output length distributions, token counts, label balance
-  - [ ] evalyn dataset-stats command
-  - [ ] Input/output token count histograms
-  - [ ] Metadata field value distributions
-  - [ ] Expected reference coverage (% items with ground truth)
-  - [ ] Duplicate detection report
+  - [x] evalyn dataset-stats command
+  - [x] Input/output token count histograms
+  - [x] Metadata field value distributions
+  - [x] Expected reference coverage (% items with ground truth)
+  - [x] Duplicate detection report
 - [x] **Dataset Merge and Diff** - Combine two datasets or show item-level differences between them
-  - [ ] evalyn dataset-merge --deduplicate
-  - [ ] evalyn dataset-diff showing added/removed/changed items
-  - [ ] Conflict resolution for items with same ID but different content
+  - [x] evalyn dataset-merge --deduplicate
+  - [x] evalyn dataset-diff showing added/removed/changed items
+  - [x] Conflict resolution for items with same ID but different content
 - [x] **External Format Import** - Import from HuggingFace datasets, LMSYS Arena, or custom CSV schemas
-  - [ ] evalyn import --format huggingface --dataset-name <name>
-  - [ ] CSV import with column mapping config
-  - [ ] LMSYS Arena format (conversation pairs with human preference)
-  - [ ] Auto-detect format from file extension and content
+  - [x] evalyn import --format huggingface --dataset-name <name>
+  - [x] CSV import with column mapping config
+  - [x] LMSYS Arena format (conversation pairs with human preference)
+  - [x] Auto-detect format from file extension and content
 - [x] **Schema Evolution** - Handle format changes across dataset versions with automatic migration
-  - [ ] Version field in dataset header line
-  - [ ] Automatic migration on load (old format to current)
-  - [ ] Migration log showing which transformations were applied
+  - [x] Version field in dataset header line
+  - [x] Automatic migration on load (old format to current)
+  - [x] Migration log showing which transformations were applied
 - [x] **Dataset Sampling Preview** - Show sample items and summary stats before building full dataset
-  - [ ] --preview flag on build-dataset showing 5 sample items
-  - [ ] Summary: item count, avg input/output length, metadata distribution
-  - [ ] Confirmation prompt before writing full dataset
+  - [x] --preview flag on build-dataset showing 5 sample items
+  - [x] Summary: item count, avg input/output length, metadata distribution
+  - [x] Confirmation prompt before writing full dataset
 - [x] **Dataset Pinning** - Lock a dataset version hash for reproducible evaluations across environments
-  - [ ] SHA-256 hash stored in dataset metadata
-  - [ ] --pinned flag on run-eval to verify hash before evaluation
-  - [ ] Pin file (.evalyn-pin) for CI/CD reproducibility
+  - [x] SHA-256 hash stored in dataset metadata
+  - [x] --pinned flag on run-eval to verify hash before evaluation
+  - [x] Pin file (.evalyn-pin) for CI/CD reproducibility
 - [x] **Dataset Lineage** - Track which traces and runs produced each dataset item
-  - [ ] Source trace ID and function_call ID in item metadata
-  - [ ] Lineage query: "which traces contributed to this dataset?"
-  - [ ] Reverse lineage: "which datasets use this trace?"
+  - [x] Source trace ID and function_call ID in item metadata
+  - [x] Lineage query: "which traces contributed to this dataset?"
+  - [x] Reverse lineage: "which datasets use this trace?"
 - [x] **Dataset Filtering DSL** - Query-based item filtering (e.g. "items where output_length > 500 and tag=production")
-  - [ ] --filter flag on build-dataset and run-eval
-  - [ ] Operators: =, !=, >, <, contains, matches (regex)
-  - [ ] Compound filters with AND/OR
-  - [ ] Filter on metadata fields, input/output length, and item ID patterns
+  - [x] --filter flag on build-dataset and run-eval
+  - [x] Operators: =, !=, >, <, contains, matches (regex)
+  - [x] Compound filters with AND/OR
+  - [x] Filter on metadata fields, input/output length, and item ID patterns
 - [x] **Incremental Dataset Build** - Append new traces to an existing dataset without full rebuild
-  - [ ] --append flag on build-dataset
-  - [ ] Track last-build timestamp to only process new traces
-  - [ ] Deduplication against existing items using hash_inputs
+  - [x] --append flag on build-dataset
+  - [x] Track last-build timestamp to only process new traces
+  - [x] Deduplication against existing items using hash_inputs
 - [x] **Dataset Health Check** - Validate dataset quality before evaluation
-  - [ ] Reference coverage: % of items with ground truth (uses _dataset_has_reference logic)
-  - [ ] Empty/null field detection in input, output, and metadata
-  - [ ] Duplicate input detection via hash_inputs
-  - [ ] evalyn dataset-health command with pass/warn/fail summary
+  - [x] Reference coverage: % of items with ground truth (uses _dataset_has_reference logic)
+  - [x] Empty/null field detection in input, output, and metadata
+  - [x] Duplicate input detection via hash_inputs
+  - [x] evalyn dataset-health command with pass/warn/fail summary
 - [x] **Dataset Decontamination** - Detect items that overlap with known LLM benchmark/training data
-  - [ ] N-gram overlap check against common benchmarks (MMLU, HumanEval, GSM8K)
-  - [ ] Configurable contamination threshold (default: 13-gram exact match)
-  - [ ] evalyn dataset-decontaminate --report showing contaminated items
-  - [ ] Auto-exclude contaminated items from evaluation datasets
+  - [x] N-gram overlap check against common benchmarks (MMLU, HumanEval, GSM8K)
+  - [x] Configurable contamination threshold (default: 13-gram exact match)
+  - [x] evalyn dataset-decontaminate --report showing contaminated items
+  - [x] Auto-exclude contaminated items from evaluation datasets
 - [x] **Dataset Drift Detection** - Statistical tests comparing input distributions between dataset versions
-  - [ ] Kolmogorov-Smirnov test on input length, token count distributions
-  - [ ] Chi-square test on categorical metadata field distributions
-  - [ ] Embedding centroid shift measurement between versions
-  - [ ] evalyn dataset-drift --v1 <path1> --v2 <path2> with drift severity score
+  - [x] Kolmogorov-Smirnov test on input length, token count distributions
+  - [x] Chi-square test on categorical metadata field distributions
+  - [x] Embedding centroid shift measurement between versions
+  - [x] evalyn dataset-drift --v1 <path1> --v2 <path2> with drift severity score
 - [x] **Dataset Annotation Coverage Map** - Visualize which items have annotations and which need them
-  - [ ] Per-metric coverage percentage across dataset items
-  - [ ] ASCII heatmap: items on Y-axis, metrics on X-axis, filled/empty cells
-  - [ ] Prioritize unannotated items in items with lowest judge confidence
+  - [x] Per-metric coverage percentage across dataset items
+  - [x] ASCII heatmap: items on Y-axis, metrics on X-axis, filled/empty cells
+  - [x] Prioritize unannotated items in items with lowest judge confidence
 - [x] **Dataset from Production Logs** - Import HTTP request/response logs as trace-like dataset items
-  - [ ] Parse common log formats (JSON, Apache, nginx) into DatasetItem input/output
-  - [ ] evalyn import-logs --format json --input-field request --output-field response
-  - [ ] Auto-deduplicate against existing traces in storage
+  - [x] Parse common log formats (JSON, Apache, nginx) into DatasetItem input/output
+  - [x] evalyn import-logs --format json --input-field request --output-field response
+  - [x] Auto-deduplicate against existing traces in storage
 - [x] **Dataset Snapshot Comparison** - Compare two dataset versions showing item-level content diffs
-  - [ ] Side-by-side text diff for modified items (input or output changed)
-  - [ ] Summary: items added, removed, modified, unchanged
-  - [ ] evalyn dataset-snapshot-diff --before <v1> --after <v2>
+  - [x] Side-by-side text diff for modified items (input or output changed)
+  - [x] Summary: items added, removed, modified, unchanged
+  - [x] evalyn dataset-snapshot-diff --before <v1> --after <v2>
 - [x] **Dataset Complexity Scoring** - Auto-compute per-item difficulty from input features
-  - [ ] Heuristics: input length, vocabulary diversity, question complexity indicators
-  - [ ] Store complexity_score in item metadata for filtering and stratification
-  - [ ] evalyn dataset-stats --complexity showing difficulty distribution
+  - [x] Heuristics: input length, vocabulary diversity, question complexity indicators
+  - [x] Store complexity_score in item metadata for filtering and stratification
+  - [x] evalyn dataset-stats --complexity showing difficulty distribution
 - [x] **Dataset Bias Auditing** - Detect systematic biases in input distribution
-  - [ ] Topic distribution analysis via LLM classification
-  - [ ] Length and vocabulary skew detection
-  - [ ] evalyn dataset-audit producing bias report with recommendations
+  - [x] Topic distribution analysis via LLM classification
+  - [x] Length and vocabulary skew detection
+  - [x] evalyn dataset-audit producing bias report with recommendations
 - [x] **Dataset Curation Suggestions** - LLM-powered gap analysis suggesting items to add
-  - [ ] Analyze current dataset coverage against metric requirements
-  - [ ] Suggest input types, edge cases, and scenarios not yet represented
-  - [ ] evalyn dataset-suggest --dataset <path> producing curation plan
+  - [x] Analyze current dataset coverage against metric requirements
+  - [x] Suggest input types, edge cases, and scenarios not yet represented
+  - [x] evalyn dataset-suggest --dataset <path> producing curation plan
 - [x] **Dataset A/B Split Generator** - Create matched pairs for controlled model comparison
-  - [ ] Stratified pairing by complexity, topic, and metadata fields
-  - [ ] Ensure balanced splits for statistical validity
-  - [ ] evalyn dataset-ab-split --dataset <path> producing split_a.jsonl and split_b.jsonl
+  - [x] Stratified pairing by complexity, topic, and metadata fields
+  - [x] Ensure balanced splits for statistical validity
+  - [x] evalyn dataset-ab-split --dataset <path> producing split_a.jsonl and split_b.jsonl
 - [x] **Dataset Subset Extraction** - Extract semantically meaningful subsets via clustering
-  - [ ] Cluster items by embedding similarity into N groups
-  - [ ] evalyn dataset-subset --clusters N --dataset <path> extracting per-cluster subsets
-  - [ ] Useful for focused evaluation on specific input categories
+  - [x] Cluster items by embedding similarity into N groups
+  - [x] evalyn dataset-subset --clusters N --dataset <path> extracting per-cluster subsets
+  - [x] Useful for focused evaluation on specific input categories
 - [x] **Dataset Embedding Index** - Pre-compute and store embeddings for fast similarity queries
-  - [ ] Build embedding index on build-dataset using SentenceTransformer
-  - [ ] Store embeddings alongside dataset.jsonl as embeddings.npy
-  - [ ] Enable fast nearest-neighbor queries for sampling, dedup, and clustering
+  - [x] Build embedding index on build-dataset using SentenceTransformer
+  - [x] Store embeddings alongside dataset.jsonl as embeddings.npy
+  - [x] Enable fast nearest-neighbor queries for sampling, dedup, and clustering
 - [x] **Dataset Interleaving** - Round-robin merge from multiple datasets for balanced evaluation
-  - [ ] evalyn dataset-interleave --datasets d1/ d2/ d3/ producing merged dataset
-  - [ ] Interleave by metadata field (e.g. alternate "production" and "synthetic" items)
-  - [ ] Source tracking: tag each item with originating dataset
+  - [x] evalyn dataset-interleave --datasets d1/ d2/ d3/ producing merged dataset
+  - [x] Interleave by metadata field (e.g. alternate "production" and "synthetic" items)
+  - [x] Source tracking: tag each item with originating dataset
 - [x] **Dataset Quality Gate** - Block evaluation start if dataset fails quality checks
-  - [ ] Configurable rules in evalyn.yaml: min_items, max_duplicate_rate, required_metadata_fields
-  - [ ] run-eval refuses to start unless gate passes (--skip-quality-gate to override)
-  - [ ] Gate report showing which checks passed and failed
+  - [x] Configurable rules in evalyn.yaml: min_items, max_duplicate_rate, required_metadata_fields
+  - [x] run-eval refuses to start unless gate passes (--skip-quality-gate to override)
+  - [x] Gate report showing which checks passed and failed
 - [x] **Dataset Item Clustering Report** - Show natural clusters with LLM-generated descriptions
-  - [ ] Auto-cluster items by embedding similarity into K groups
-  - [ ] LLM-generated label per cluster describing what the items have in common
-  - [ ] evalyn dataset-clusters --k 5 showing cluster summary with example items
+  - [x] Auto-cluster items by embedding similarity into K groups
+  - [x] LLM-generated label per cluster describing what the items have in common
+  - [x] evalyn dataset-clusters --k 5 showing cluster summary with example items
 - [x] **Dataset Changelog** - Automatic log of all build-dataset operations and parameters
-  - [ ] Append entry to data/changelog.jsonl on each build-dataset invocation
-  - [ ] Record: timestamp, filters used, item count, sampling mode, hash
-  - [ ] evalyn dataset-changelog showing chronological build history
+  - [x] Append entry to data/changelog.jsonl on each build-dataset invocation
+  - [x] Record: timestamp, filters used, item count, sampling mode, hash
+  - [x] evalyn dataset-changelog showing chronological build history
 - [x] **Dataset Cross-Contamination Check** - Verify no item leakage between train/test/calibration splits
-  - [ ] Hash-based check that no item appears in both train and test splits
-  - [ ] Embedding-based check for near-duplicate items across splits
-  - [ ] evalyn dataset-xcontam --train <path1> --test <path2> reporting contamination
+  - [x] Hash-based check that no item appears in both train and test splits
+  - [x] Embedding-based check for near-duplicate items across splits
+  - [x] evalyn dataset-xcontam --train <path1> --test <path2> reporting contamination
 - [x] **Dataset Item Semantic Search** - Find items by natural language query using embeddings
-  - [ ] evalyn dataset-search --query "user asks about refund policy" finding nearest items
-  - [ ] Uses pre-built embedding index (from Dataset Embedding Index feature)
-  - [ ] Return top-K matches with similarity scores
+  - [x] evalyn dataset-search --query "user asks about refund policy" finding nearest items
+  - [x] Uses pre-built embedding index (from Dataset Embedding Index feature)
+  - [x] Return top-K matches with similarity scores
 - [x] **Dataset Format Autodetect** - Auto-detect and load from multiple formats without explicit --format flag
-  - [ ] Detect JSONL, JSON array, CSV, and TSV from file content and extension
-  - [ ] Auto-map columns to input/output/metadata fields using heuristics
-  - [ ] Warn when auto-detection is ambiguous and suggest explicit format
+  - [x] Detect JSONL, JSON array, CSV, and TSV from file content and extension
+  - [x] Auto-map columns to input/output/metadata fields using heuristics
+  - [x] Warn when auto-detection is ambiguous and suggest explicit format
 - [x] **Dataset Metadata Schema Enforcement** - Validate item metadata against a defined schema
-  - [ ] Schema definition in meta.json: required_fields, field_types, allowed_values
-  - [ ] Validation on build-dataset and import, rejecting non-conforming items
-  - [ ] evalyn dataset-validate --schema showing validation results
+  - [x] Schema definition in meta.json: required_fields, field_types, allowed_values
+  - [x] Validation on build-dataset and import, rejecting non-conforming items
+  - [x] evalyn dataset-validate --schema showing validation results
 
 ### Reporting & Analytics
 
 - [x] **Custom Report Templates** - User-defined HTML report layouts
-  - [ ] Jinja2 template engine for HTML report customization
-  - [ ] Template variables: run data, analysis, insights, charts
-  - [ ] Built-in templates: executive summary, technical deep-dive, compliance
-  - [ ] evalyn export --template custom_template.html
+  - [x] Jinja2 template engine for HTML report customization
+  - [x] Template variables: run data, analysis, insights, charts
+  - [x] Built-in templates: executive summary, technical deep-dive, compliance
+  - [x] evalyn export --template custom_template.html
 - [x] **Slack/Discord Notifications** - Alert on evaluation completion or failures
-  - [ ] Slack webhook integration with rich message formatting
-  - [ ] Discord webhook with embedded metric summary
-  - [ ] Configurable alert thresholds: only notify on regression or failure
-  - [ ] Channel routing: different alerts to different channels
+  - [x] Slack webhook integration with rich message formatting
+  - [x] Discord webhook with embedded metric summary
+  - [x] Configurable alert thresholds: only notify on regression or failure
+  - [x] Channel routing: different alerts to different channels
 - [x] **Metric Correlation Analysis** - Understand relationships between metrics
 - [x] **Failure Root Cause Analysis** - Automated diagnosis of failures
-  - [ ] LLM-powered analysis of common patterns in failed items
-  - [ ] Feature attribution: which input features correlate with failure
-  - [ ] Failure clustering by root cause category (prompt, data, model, tool)
-  - [ ] Actionable fix suggestions per failure cluster
+  - [x] LLM-powered analysis of common patterns in failed items
+  - [x] Feature attribution: which input features correlate with failure
+  - [x] Failure clustering by root cause category (prompt, data, model, tool)
+  - [x] Actionable fix suggestions per failure cluster
 - [x] **Trend Anomaly Detection** - Alert on unusual metric patterns
-  - [ ] Z-score based anomaly detection on metric time series
-  - [ ] Configurable sensitivity threshold
-  - [ ] Automatic alert when anomaly detected during trend analysis
-  - [ ] Visual anomaly markers in trend charts
+  - [x] Z-score based anomaly detection on metric time series
+  - [x] Configurable sensitivity threshold
+  - [x] Automatic alert when anomaly detected during trend analysis
+  - [x] Visual anomaly markers in trend charts
 - [x] **Cohort Analysis** - Compare metrics across user-defined item groups (by metadata, input length, etc.)
-  - [ ] --cohort-by flag on analyze command (split by metadata field)
-  - [ ] Per-cohort metric statistics and pass rates
-  - [ ] Cross-cohort comparison table
-  - [ ] Identify worst-performing cohort with improvement suggestions
+  - [x] --cohort-by flag on analyze command (split by metadata field)
+  - [x] Per-cohort metric statistics and pass rates
+  - [x] Cross-cohort comparison table
+  - [x] Identify worst-performing cohort with improvement suggestions
 - [x] **Statistical Significance Testing** - P-values and confidence intervals for run-to-run comparisons
-  - [ ] Two-proportion z-test for pass rate differences
-  - [ ] Bootstrap confidence intervals for score means
-  - [ ] Effect size (Cohen's d) alongside p-values
-  - [ ] Automatic significance flag in compare output
+  - [x] Two-proportion z-test for pass rate differences
+  - [x] Bootstrap confidence intervals for score means
+  - [x] Effect size (Cohen's d) alongside p-values
+  - [x] Automatic significance flag in compare output
 - [x] **Judge Confusion Matrix** - Visualize agreement/disagreement patterns between judge and human
-  - [ ] 2x2 matrix: TP/FP/TN/FN per metric
-  - [ ] ASCII table and HTML heatmap renderers
-  - [ ] Per-metric confusion matrix in annotation-stats
-  - [ ] Aggregate confusion matrix across all metrics
+  - [x] 2x2 matrix: TP/FP/TN/FN per metric
+  - [x] ASCII table and HTML heatmap renderers
+  - [x] Per-metric confusion matrix in annotation-stats
+  - [x] Aggregate confusion matrix across all metrics
 - [x] **Jupyter Notebook Export** - Generate .ipynb with pre-built charts and analysis from eval runs
-  - [ ] evalyn export --format notebook
-  - [ ] Pre-built cells: data loading, metric charts, distribution plots, correlations
-  - [ ] Interactive widgets for filtering by metric, item, or cohort
-  - [ ] nbformat-based generation (no Jupyter dependency required)
+  - [x] evalyn export --format notebook
+  - [x] Pre-built cells: data loading, metric charts, distribution plots, correlations
+  - [x] Interactive widgets for filtering by metric, item, or cohort
+  - [x] nbformat-based generation (no Jupyter dependency required)
 - [x] **Metric Budget Analysis** - Estimate cost savings from dropping low-signal metrics
-  - [ ] Compute information gain of each metric (redundancy with others)
-  - [ ] Cost attribution: how much each metric costs per run
-  - [ ] Recommended metric subset that preserves N% of signal at minimum cost
+  - [x] Compute information gain of each metric (redundancy with others)
+  - [x] Cost attribution: how much each metric costs per run
+  - [x] Recommended metric subset that preserves N% of signal at minimum cost
 - [x] **Regression Bisection** - Binary search across dataset items to pinpoint exact cause of a regression
-  - [ ] evalyn bisect --baseline <run1> --current <run2>
-  - [ ] Identify items that changed from pass to fail
-  - [ ] Cluster newly-failing items by input features
-  - [ ] Rank items by regression severity (score delta)
+  - [x] evalyn bisect --baseline <run1> --current <run2>
+  - [x] Identify items that changed from pass to fail
+  - [x] Cluster newly-failing items by input features
+  - [x] Rank items by regression severity (score delta)
 - [x] **Comparative Heatmap** - Visual heatmap of metric scores across items and runs
-  - [ ] Items on Y-axis, metrics on X-axis, color = score
-  - [ ] Multi-run heatmap: side-by-side comparison
-  - [ ] ASCII heatmap for terminal, HTML/SVG for reports
-  - [ ] Sort by worst-performing items or metrics
+  - [x] Items on Y-axis, metrics on X-axis, color = score
+  - [x] Multi-run heatmap: side-by-side comparison
+  - [x] ASCII heatmap for terminal, HTML/SVG for reports
+  - [x] Sort by worst-performing items or metrics
 - [x] **Failure Taxonomy** - Auto-categorize failures into a structured taxonomy (prompt, model, data, tool)
-  - [ ] LLM-powered categorization of failure reasons
-  - [ ] Built-in taxonomy: prompt_ambiguity, model_limitation, data_quality, tool_error, hallucination
-  - [ ] Custom taxonomy definition in evalyn.yaml
-  - [ ] Taxonomy distribution chart in analysis output
+  - [x] LLM-powered categorization of failure reasons
+  - [x] Built-in taxonomy: prompt_ambiguity, model_limitation, data_quality, tool_error, hallucination
+  - [x] Custom taxonomy definition in evalyn.yaml
+  - [x] Taxonomy distribution chart in analysis output
 - [x] **Analysis Snapshots** - Save analysis state at a point in time for later comparison
-  - [ ] evalyn snapshot --name "pre-refactor" saves RunAnalysis + InsightsReport
-  - [ ] evalyn compare-snapshots for before/after comparison
-  - [ ] Snapshots stored in .evalyn/ directory as JSON
+  - [x] evalyn snapshot --name "pre-refactor" saves RunAnalysis + InsightsReport
+  - [x] evalyn compare-snapshots for before/after comparison
+  - [x] Snapshots stored in .evalyn/ directory as JSON
 - [x] **Item Difficulty Estimation** - Compute per-item difficulty scores based on cross-run fail rates
-  - [ ] Aggregate pass/fail across multiple eval runs per item
-  - [ ] Difficulty score: inverse of average pass rate across runs
-  - [ ] Rank items by difficulty in analysis output
-  - [ ] Use difficulty scores to weight calibration and sampling
+  - [x] Aggregate pass/fail across multiple eval runs per item
+  - [x] Difficulty score: inverse of average pass rate across runs
+  - [x] Rank items by difficulty in analysis output
+  - [x] Use difficulty scores to weight calibration and sampling
 - [x] **Metric Interaction Effects** - Detect non-linear interactions between metrics beyond pairwise correlation
-  - [ ] Chi-square test for co-failure: items failing both A and B more than expected by chance
-  - [ ] Interaction strength score per metric pair
-  - [ ] Surface metric pairs with strong interactions in insights report
+  - [x] Chi-square test for co-failure: items failing both A and B more than expected by chance
+  - [x] Interaction strength score per metric pair
+  - [x] Surface metric pairs with strong interactions in insights report
 - [x] **Improvement Priority Ranking** - Rank metrics by expected ROI: which improvement would raise overall pass rate most
-  - [ ] Compute marginal gain: if metric M improved by 10%, how much does overall pass rate increase
-  - [ ] Factor in metric weight from weighting profiles
-  - [ ] Actionable ranking in insights output: "Fix metric X first for maximum impact"
+  - [x] Compute marginal gain: if metric M improved by 10%, how much does overall pass rate increase
+  - [x] Factor in metric weight from weighting profiles
+  - [x] Actionable ranking in insights output: "Fix metric X first for maximum impact"
 - [x] **Score Distribution Normality Testing** - Verify if metric scores follow expected distributions
-  - [ ] Shapiro-Wilk test per metric score distribution
-  - [ ] Flag metrics with non-normal distributions (bimodal, heavy-tailed)
-  - [ ] Recommend appropriate statistical tests based on distribution shape
+  - [x] Shapiro-Wilk test per metric score distribution
+  - [x] Flag metrics with non-normal distributions (bimodal, heavy-tailed)
+  - [x] Recommend appropriate statistical tests based on distribution shape
 - [x] **Cross-Run Stability Analysis** - Measure how stable metric scores are across repeated runs of same data
-  - [ ] Run same eval N times and compute per-metric coefficient of variation
-  - [ ] Flag metrics with high variance as unreliable
-  - [ ] Recommend increasing samples or switching judge model for unstable metrics
+  - [x] Run same eval N times and compute per-metric coefficient of variation
+  - [x] Flag metrics with high variance as unreliable
+  - [x] Recommend increasing samples or switching judge model for unstable metrics
 - [x] **Metric Contribution Analysis** - SHAP-style attribution of each metric's contribution to overall pass/fail
-  - [ ] Compute marginal contribution of each metric to overall item pass rate
-  - [ ] Identify metrics that are decisive (flip overall pass/fail) vs redundant
-  - [ ] Visualization: waterfall chart showing per-metric contribution
+  - [x] Compute marginal contribution of each metric to overall item pass rate
+  - [x] Identify metrics that are decisive (flip overall pass/fail) vs redundant
+  - [x] Visualization: waterfall chart showing per-metric contribution
 - [x] **Worst-Case Item Identification** - Surface items that fail across the most metrics simultaneously
-  - [ ] Rank items by number of failed metrics (cross-metric failure count)
-  - [ ] Highlight items that are "universally bad" vs "edge case failures"
-  - [ ] Useful for prioritizing which agent behaviors to fix first
+  - [x] Rank items by number of failed metrics (cross-metric failure count)
+  - [x] Highlight items that are "universally bad" vs "edge case failures"
+  - [x] Useful for prioritizing which agent behaviors to fix first
 - [x] **Time-to-Fix Tracking** - Track how many runs it takes for failing items to start passing
-  - [ ] Per-item pass/fail history across consecutive runs
-  - [ ] Average time-to-fix per metric and per failure category
-  - [ ] Identify persistently failing items that resist fixes
+  - [x] Per-item pass/fail history across consecutive runs
+  - [x] Average time-to-fix per metric and per failure category
+  - [x] Identify persistently failing items that resist fixes
 - [x] **Analysis Report Diff** - Diff two RunAnalysis outputs showing what changed
-  - [ ] evalyn analysis-diff --run1 <id> --run2 <id>
-  - [ ] Delta per metric: pass rate change, score mean change, new/resolved failures
-  - [ ] ASCII table with color-coded improvements/regressions
+  - [x] evalyn analysis-diff --run1 <id> --run2 <id>
+  - [x] Delta per metric: pass rate change, score mean change, new/resolved failures
+  - [x] ASCII table with color-coded improvements/regressions
 - [x] **Run Quality Score** - Composite score summarizing overall run health
-  - [ ] Weighted combination: pass rate, cost efficiency, coverage, judge confidence
-  - [ ] Single 0-100 score for quick run quality assessment
-  - [ ] Configurable weights in evalyn.yaml
+  - [x] Weighted combination: pass rate, cost efficiency, coverage, judge confidence
+  - [x] Single 0-100 score for quick run quality assessment
+  - [x] Configurable weights in evalyn.yaml
 - [x] **Trend Forecasting** - Predict future metric values using time series extrapolation
-  - [ ] Linear regression and exponential smoothing on metric pass rates over runs
-  - [ ] Forecast next N runs with confidence bands
-  - [ ] Alert when forecast predicts metric dropping below threshold
+  - [x] Linear regression and exponential smoothing on metric pass rates over runs
+  - [x] Forecast next N runs with confidence bands
+  - [x] Alert when forecast predicts metric dropping below threshold
 - [x] **Analysis Natural Language Summary** - LLM-generated plain English analysis report
-  - [ ] Summarize key findings, regressions, and recommendations in 3-5 paragraphs
-  - [ ] evalyn analyze --summary producing human-readable narrative
-  - [ ] Useful for sharing results with non-technical stakeholders
+  - [x] Summarize key findings, regressions, and recommendations in 3-5 paragraphs
+  - [x] evalyn analyze --summary producing human-readable narrative
+  - [x] Useful for sharing results with non-technical stakeholders
 - [x] **Metric Volatility Index** - Measure historical stability of each metric across runs
-  - [ ] Coefficient of variation across last N runs per metric
-  - [ ] Classify metrics as stable, moderate, or volatile
-  - [ ] Recommend increasing judge samples or switching models for volatile metrics
+  - [x] Coefficient of variation across last N runs per metric
+  - [x] Classify metrics as stable, moderate, or volatile
+  - [x] Recommend increasing judge samples or switching models for volatile metrics
 - [x] **Analysis Change Attribution** - Attribute metric changes to dataset, model, or prompt factors
-  - [ ] Detect which factor changed between compared runs (dataset hash, source hash, prompt hash)
-  - [ ] Attribute score deltas to the changed factor
-  - [ ] "Pass rate dropped 15%, likely due to dataset change (12 new items added)"
+  - [x] Detect which factor changed between compared runs (dataset hash, source hash, prompt hash)
+  - [x] Attribute score deltas to the changed factor
+  - [x] "Pass rate dropped 15%, likely due to dataset change (12 new items added)"
 - [x] **Analysis Comparison Template** - Configurable comparison layouts for different audiences
-  - [ ] Executive template: overall pass rate, top regressions, cost summary
-  - [ ] Engineering template: per-metric details, failed item list, prompt diffs
-  - [ ] --template flag on compare command
+  - [x] Executive template: overall pass rate, top regressions, cost summary
+  - [x] Engineering template: per-metric details, failed item list, prompt diffs
+  - [x] --template flag on compare command
 - [x] **Analysis What-If Simulator** - Interactively model "what if metric X improved by N%"
-  - [ ] evalyn what-if --metric helpfulness --improve 20% showing projected overall pass rate
-  - [ ] Model multiple simultaneous improvements
-  - [ ] Identify the minimum improvement per metric needed to reach a target pass rate
+  - [x] evalyn what-if --metric helpfulness --improve 20% showing projected overall pass rate
+  - [x] Model multiple simultaneous improvements
+  - [x] Identify the minimum improvement per metric needed to reach a target pass rate
 - [x] **Analysis Dashboard Theming** - Configurable chart colors and styles for HTML reports
-  - [ ] Theme definitions in evalyn.yaml: primary color, accent, chart palette
-  - [ ] Built-in themes: corporate, academic, dark-mode, print-friendly
-  - [ ] Custom CSS injection for branded reports
+  - [x] Theme definitions in evalyn.yaml: primary color, accent, chart palette
+  - [x] Built-in themes: corporate, academic, dark-mode, print-friendly
+  - [x] Custom CSS injection for branded reports
 - [x] **Analysis Data Export API** - Export analysis data as structured Python objects for custom analysis
-  - [ ] evalyn.analyze_to_dict(run) returning dict-of-lists for pandas DataFrame construction
-  - [ ] evalyn export --format feather producing columnar format for direct notebook loading
-  - [ ] Enable custom statistical analysis beyond built-in insights
+  - [x] evalyn.analyze_to_dict(run) returning dict-of-lists for pandas DataFrame construction
+  - [x] evalyn export --format feather producing columnar format for direct notebook loading
+  - [x] Enable custom statistical analysis beyond built-in insights
 - [x] **Analysis Time Series Decomposition** - Separate trend, seasonality, and noise in metric time series
-  - [ ] Decompose metric pass rates across runs into systematic trend and random variation
-  - [ ] Distinguish genuine improvement from normal score fluctuation
-  - [ ] Visualize decomposed components in trend analysis output
+  - [x] Decompose metric pass rates across runs into systematic trend and random variation
+  - [x] Distinguish genuine improvement from normal score fluctuation
+  - [x] Visualize decomposed components in trend analysis output
 
 ### Interoperability
 
 - [x] **Phoenix/Langfuse Trace Export** - Native export to popular LLM observability platforms
-  - [ ] evalyn export-traces --format phoenix to produce Phoenix-compatible JSONL
-  - [ ] evalyn export-traces --format langfuse for Langfuse import format
-  - [ ] Preserve span hierarchy and OpenInference attributes in export
+  - [x] evalyn export-traces --format phoenix to produce Phoenix-compatible JSONL
+  - [x] evalyn export-traces --format langfuse for Langfuse import format
+  - [x] Preserve span hierarchy and OpenInference attributes in export
 - [x] **Trace Import from External Platforms** - Bring existing traces into evalyn for evaluation
-  - [ ] evalyn import-traces --format phoenix/langfuse/otel
-  - [ ] Map external span types to Evalyn span types via conventions.py
-  - [ ] Deduplicate against existing traces by span ID
+  - [x] evalyn import-traces --format phoenix/langfuse/otel
+  - [x] Map external span types to Evalyn span types via conventions.py
+  - [x] Deduplicate against existing traces by span ID
 - [x] **OpenInference Full Compliance** - Complete implementation of OpenInference semantic conventions
-  - [ ] Full document/retrieval attribute capture (DocumentAttributes, RetrievalAttributes)
-  - [ ] Embedding attribute capture (EmbeddingAttributes.EMBEDDINGS, TEXT)
-  - [ ] Session and user attribute propagation (SessionAttributes)
-  - [ ] Reranker score capture and display in show-trace
+  - [x] Full document/retrieval attribute capture (DocumentAttributes, RetrievalAttributes)
+  - [x] Embedding attribute capture (EmbeddingAttributes.EMBEDDINGS, TEXT)
+  - [x] Session and user attribute propagation (SessionAttributes)
+  - [x] Reranker score capture and display in show-trace
 - [x] **Eval Result Export to Observability Platforms** - Push evaluation scores back to trace viewers
-  - [ ] Annotate Phoenix spans with evalyn metric scores
-  - [ ] Push eval results as Langfuse scores
-  - [ ] Bi-directional sync: traces in, scores out
+  - [x] Annotate Phoenix spans with evalyn metric scores
+  - [x] Push eval results as Langfuse scores
+  - [x] Bi-directional sync: traces in, scores out
 
 ### Resilience & Error Handling
 
 - [x] **Circuit Breaker for Providers** - Stop calling a provider after N consecutive failures
-  - [ ] Configurable failure threshold (default: 5 consecutive errors)
-  - [ ] Cool-down period before retrying (exponential backoff)
-  - [ ] Automatic fallback to alternative provider when circuit opens
-  - [ ] Circuit state visible in progress output
+  - [x] Configurable failure threshold (default: 5 consecutive errors)
+  - [x] Cool-down period before retrying (exponential backoff)
+  - [x] Automatic fallback to alternative provider when circuit opens
+  - [x] Circuit state visible in progress output
 - [x] **Graceful Item-Level Failure** - Continue evaluation when individual items fail
-  - [ ] Catch and log per-item errors without stopping the run
-  - [ ] Record failure reason in MetricResult.details
-  - [ ] Summary of failed items at end of run with error categories
-  - [ ] --fail-fast flag to override and stop on first error
+  - [x] Catch and log per-item errors without stopping the run
+  - [x] Record failure reason in MetricResult.details
+  - [x] Summary of failed items at end of run with error categories
+  - [x] --fail-fast flag to override and stop on first error
 - [x] **Provider Fallback Chain** - Automatically try alternative providers on failure
-  - [ ] Ordered provider list: [gemini, openai, ollama]
-  - [ ] Fall back to next provider on timeout, rate limit, or API error
-  - [ ] Log which provider was actually used per item
+  - [x] Ordered provider list: [gemini, openai, ollama]
+  - [x] Fall back to next provider on timeout, rate limit, or API error
+  - [x] Log which provider was actually used per item
 - [x] **Evaluation Timeout Per Item** - Prevent single slow items from blocking the entire run
-  - [ ] --item-timeout flag (default: 120s per item)
-  - [ ] Timeout recorded as failure with reason "timeout"
-  - [ ] Separate timeout for objective vs subjective metrics
+  - [x] --item-timeout flag (default: 120s per item)
+  - [x] Timeout recorded as failure with reason "timeout"
+  - [x] Separate timeout for objective vs subjective metrics
 
 ### Output & Formatting
 
 - [x] **Color-Coded Terminal Output** - ANSI colors for pass/fail/warning states
-  - [ ] Green for pass, red for fail, yellow for warning across all commands
-  - [ ] Respect NO_COLOR env var and --no-color flag for CI environments
-  - [ ] Color-coded score ranges in analyze and compare output
+  - [x] Green for pass, red for fail, yellow for warning across all commands
+  - [x] Respect NO_COLOR env var and --no-color flag for CI environments
+  - [x] Color-coded score ranges in analyze and compare output
 - [x] **Compact Output Mode** - Minimal output for CI logs and scripting
-  - [ ] --compact flag producing single-line summaries per command
-  - [ ] Summary format: "RUN <id> PASS 85% (17/20) COST $0.12 TIME 45s"
-  - [ ] Pair with exit codes for CI gate integration (exit 1 if pass rate < threshold)
+  - [x] --compact flag producing single-line summaries per command
+  - [x] Summary format: "RUN <id> PASS 85% (17/20) COST $0.12 TIME 45s"
+  - [x] Pair with exit codes for CI gate integration (exit 1 if pass rate < threshold)
 - [x] **PDF Report Export** - Generate PDF reports from HTML dashboards
-  - [ ] evalyn export --format pdf using headless browser or weasyprint
-  - [ ] Page breaks between sections, print-friendly layout
-  - [ ] Cover page with run metadata, date, project name
+  - [x] evalyn export --format pdf using headless browser or weasyprint
+  - [x] Page breaks between sections, print-friendly layout
+  - [x] Cover page with run metadata, date, project name
 - [x] **HTML Report Dark Mode** - Dark theme option for HTML dashboards and insights
-  - [ ] CSS dark mode support via prefers-color-scheme media query
-  - [ ] Manual toggle button in report header
-  - [ ] Dark-friendly Chart.js color palette
+  - [x] CSS dark mode support via prefers-color-scheme media query
+  - [x] Manual toggle button in report header
+  - [x] Dark-friendly Chart.js color palette
 
 ### Code Change Tracking
 
 - [x] **Source Code Diff Correlation** - Track agent code changes alongside metric changes
-  - [ ] Store source_hash from _extract_code_meta in each eval run
-  - [ ] Detect when source code changed between consecutive runs
-  - [ ] Correlate code diffs with metric deltas in compare output
-  - [ ] evalyn code-diff --run1 <id> --run2 <id> showing code changes alongside score changes
+  - [x] Store source_hash from _extract_code_meta in each eval run
+  - [x] Detect when source code changed between consecutive runs
+  - [x] Correlate code diffs with metric deltas in compare output
+  - [x] evalyn code-diff --run1 <id> --run2 <id> showing code changes alongside score changes
 - [x] **Prompt Version Tracking** - Track judge prompt changes across calibration rounds
-  - [ ] Hash judge prompts and store in MetricResult metadata
-  - [ ] Warn when comparing runs that used different prompt versions
-  - [ ] Prompt changelog: show how each metric's prompt evolved over time
+  - [x] Hash judge prompts and store in MetricResult metadata
+  - [x] Warn when comparing runs that used different prompt versions
+  - [x] Prompt changelog: show how each metric's prompt evolved over time
 
 ### Programmatic SDK
 
 - [x] **Python API for Running Evaluations** - Run evaluations from Python code without CLI
-  - [ ] evalyn.run(dataset, metrics, provider) returning EvalRun object
-  - [ ] evalyn.analyze(run) returning RunAnalysis directly
-  - [ ] evalyn.compare(run_a, run_b) returning comparison dict
-  - [ ] Async variants: await evalyn.run_async(...)
+  - [x] evalyn.run(dataset, metrics, provider) returning EvalRun object
+  - [x] evalyn.analyze(run) returning RunAnalysis directly
+  - [x] evalyn.compare(run_a, run_b) returning comparison dict
+  - [x] Async variants: await evalyn.run_async(...)
 - [x] **Event Callback Hooks** - Register functions that fire on evaluation events
-  - [ ] on_item_complete(callback) for per-item processing
-  - [ ] on_metric_complete(callback) for per-metric processing
-  - [ ] on_run_complete(callback) for post-run triggers
-  - [ ] Hook registration via evalyn.yaml or Python API
+  - [x] on_item_complete(callback) for per-item processing
+  - [x] on_metric_complete(callback) for per-metric processing
+  - [x] on_run_complete(callback) for post-run triggers
+  - [x] Hook registration via evalyn.yaml or Python API
 - [x] **Context Manager Tracing** - Manual span creation with `with` syntax
-  - [ ] with evalyn.span("name", "type") as s: for explicit span boundaries
-  - [ ] Automatic parent-child linking via context propagation
-  - [ ] Span attribute setting: s.set_attribute("key", "value")
+  - [x] with evalyn.span("name", "type") as s: for explicit span boundaries
+  - [x] Automatic parent-child linking via context propagation
+  - [x] Span attribute setting: s.set_attribute("key", "value")
 - [x] **Embedding as Library** - Use evalyn as imported library in test suites
-  - [ ] pytest plugin: @pytest.mark.evalyn(metrics=["helpfulness"])
-  - [ ] Assert on metric scores: assert result.metrics["helpfulness"].passed
-  - [ ] Integration with pytest-xdist for parallel testing
+  - [x] pytest plugin: @pytest.mark.evalyn(metrics=["helpfulness"])
+  - [x] Assert on metric scores: assert result.metrics["helpfulness"].passed
+  - [x] Integration with pytest-xdist for parallel testing
 - [x] **Declarative Evaluation API** - Single-call evaluation matching industry patterns
-  - [ ] Braintrust-style: evalyn.Eval("project", data=fn, task=fn, scores=[...])
-  - [ ] Weave-style: evalyn.Evaluation(dataset=..., scorers=[...]).run(model)
-  - [ ] Both patterns return structured results with .to_pandas() support
+  - [x] Braintrust-style: evalyn.Eval("project", data=fn, task=fn, scores=[...])
+  - [x] Weave-style: evalyn.Evaluation(dataset=..., scorers=[...]).run(model)
+  - [x] Both patterns return structured results with .to_pandas() support
 - [x] **Semantic Caching for Judge Calls** - Cache identical LLM judge calls to reduce cost
-  - [ ] Content-addressable cache keyed by hash(prompt + input + output + model)
-  - [ ] Research finding: up to 68.8% API call reduction (GPTCache benchmark)
-  - [ ] Optional embedding-based fuzzy matching for similar-but-not-identical inputs
+  - [x] Content-addressable cache keyed by hash(prompt + input + output + model)
+  - [x] Research finding: up to 68.8% API call reduction (GPTCache benchmark)
+  - [x] Optional embedding-based fuzzy matching for similar-but-not-identical inputs
 
 ### Testing & Quality Enhancements
 
 - [x] **Snapshot Testing for Metrics** - Detect unintended changes to metric scoring behavior
-  - [ ] Record expected scores for a golden dataset
-  - [ ] Flag when metric output changes (new code, model update)
-  - [ ] evalyn test-metrics --update-snapshots to accept changes
+  - [x] Record expected scores for a golden dataset
+  - [x] Flag when metric output changes (new code, model update)
+  - [x] evalyn test-metrics --update-snapshots to accept changes
 - [x] **Performance Benchmark Suite** - Track and prevent performance regressions in evalyn itself
-  - [ ] Benchmarks for: dataset loading, metric scoring, analysis, export
-  - [ ] Baseline timings stored in repo
-  - [ ] CI check: fail if any benchmark regresses > 20%
+  - [x] Benchmarks for: dataset loading, metric scoring, analysis, export
+  - [x] Baseline timings stored in repo
+  - [x] CI check: fail if any benchmark regresses > 20%
 - [x] **Fuzz Testing for Parsers** - Stress-test JSON/judge output parsing with malformed inputs
-  - [ ] Fuzz _extract_json_object and extract_json_list with random strings
-  - [ ] Fuzz _parse_passed with edge case values
-  - [ ] Ensure no unhandled exceptions on any input
+  - [x] Fuzz _extract_json_object and extract_json_list with random strings
+  - [x] Fuzz _parse_passed with edge case values
+  - [x] Ensure no unhandled exceptions on any input
 - [x] **Sandboxed Agent Evaluation** - Safe execution environment for agent evals where models run code
-  - [ ] Docker-based sandbox for executing agent tool calls safely (Inspect AI pattern)
-  - [ ] Configurable timeout and resource limits per sandbox
-  - [ ] Capture sandbox output as part of trace spans
+  - [x] Docker-based sandbox for executing agent tool calls safely (Inspect AI pattern)
+  - [x] Configurable timeout and resource limits per sandbox
+  - [x] Capture sandbox output as part of trace spans
 - [x] **Composable Assertion Framework** - PromptFoo-style assertion primitives for evaluation
-  - [ ] Assertion types: contains, not_contains, regex_match, llm_rubric, similar, cost_below
-  - [ ] Composable with AND/OR logic for complex pass/fail criteria
-  - [ ] YAML-configurable assertions in metrics definition
+  - [x] Assertion types: contains, not_contains, regex_match, llm_rubric, similar, cost_below
+  - [x] Composable with AND/OR logic for complex pass/fail criteria
+  - [x] YAML-configurable assertions in metrics definition
 - [x] **Evaluation Result Schema Standard** - Define a JSON schema for evaluation results
-  - [ ] Enable cross-platform evaluation result exchange
-  - [ ] Schema covers: items, metrics, scores, metadata, provenance
-  - [ ] No universal standard exists yet (industry gap evalyn could fill)
+  - [x] Enable cross-platform evaluation result exchange
+  - [x] Schema covers: items, metrics, scores, metadata, provenance
+  - [x] No universal standard exists yet (industry gap evalyn could fill)
 - [x] **Knowledge Graph Test Generation** - Generate evaluation questions from document knowledge graphs
-  - [ ] Extract entities and relationships from source documents (Ragas pattern)
-  - [ ] Generate questions that test understanding of specific relationships
-  - [ ] Configurable question types: factual, inferential, multi-hop
+  - [x] Extract entities and relationships from source documents (Ragas pattern)
+  - [x] Generate questions that test understanding of specific relationships
+  - [x] Configurable question types: factual, inferential, multi-hop
 
 ### Packaging & Distribution
 
 - [x] **Docker Image** - Official Docker image for CI/CD and isolated evaluation environments
-  - [ ] Dockerfile with evalyn pre-installed and all optional dependencies
-  - [ ] Configurable via environment variables (API keys, config path)
-  - [ ] Docker Compose example with SQLite volume mount for data persistence
-  - [ ] GitHub Actions example using the Docker image for eval-on-PR
+  - [x] Dockerfile with evalyn pre-installed and all optional dependencies
+  - [x] Configurable via environment variables (API keys, config path)
+  - [x] Docker Compose example with SQLite volume mount for data persistence
+  - [x] GitHub Actions example using the Docker image for eval-on-PR
 - [x] **Standalone Binary** - Single-file executable without Python dependency
-  - [ ] PyInstaller or Nuitka build for Linux, macOS, Windows
-  - [ ] GitHub Releases automation for versioned binaries
-  - [ ] Install script: curl -sSL https://evalyn.dev/install | sh
+  - [x] PyInstaller or Nuitka build for Linux, macOS, Windows
+  - [x] GitHub Releases automation for versioned binaries
+  - [x] Install script: curl -sSL https://evalyn.dev/install | sh
 - [x] **evalyn version and Update Check** - Version management and update notifications
   - [x] evalyn version showing installed version and latest available
   - [x] Optional update check on startup (configurable, off by default)
@@ -1504,9 +1504,9 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Eval run compliance flag: was evaluation run on approved infrastructure?
   - [x] Exportable governance report for compliance audits
 - [x] **Structured Logging** - JSON-formatted logs with configurable verbosity
-  - [ ] --log-level flag (debug, info, warning, error) on all commands
-  - [ ] JSON log format for machine parsing in production environments
-  - [ ] Log file output: --log-file evalyn.log
+  - [x] --log-level flag (debug, info, warning, error) on all commands
+  - [x] JSON log format for machine parsing in production environments
+  - [x] Log file output: --log-file evalyn.log
 
 ### Security
 
@@ -1524,8 +1524,8 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Redaction audit: report showing how much content was redacted per trace
 - [x] **Prompt Injection Detection Metric** - Objective metric detecting prompt injection attempts in inputs/outputs
   - [x] Tier 1: 4-category regex patterns (instruction override, role injection, prompt extraction, encoding signals)
-  - [ ] Tier 2: optional LLM-based classification for higher accuracy
-  - [ ] Tier 3: optional vector similarity against known attack embeddings (self-hardening via Rebuff pattern)
+  - [x] Tier 2: optional LLM-based classification for higher accuracy
+  - [x] Tier 3: optional vector similarity against known attack embeddings (self-hardening via Rebuff pattern)
   - [x] Scoring: 0.0 (injection detected) to 1.0 (clean), configurable sensitivity
 - [x] **Embedding PII Safety Check** - Detect whether stored embeddings could leak PII via inversion attacks
   - [x] Warn when embedding vectors are stored alongside PII-containing text
@@ -1712,10 +1712,10 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Workload balancing across annotators
   - [x] Progress dashboard per annotator
 - [x] **Bulk Pre-Annotation via LLM** - Use LLM to pre-fill annotations for human review and correction
-  - [ ] evalyn pre-annotate --provider gemini to generate draft annotations
-  - [ ] Confidence-based triage: auto-accept high-confidence, human-review low-confidence
-  - [ ] Track pre-annotation accuracy vs human corrections
-  - [ ] Use corrections to improve pre-annotation prompts
+  - [x] evalyn pre-annotate --provider gemini to generate draft annotations
+  - [x] Confidence-based triage: auto-accept high-confidence, human-review low-confidence
+  - [x] Track pre-annotation accuracy vs human corrections
+  - [x] Use corrections to improve pre-annotation prompts
 - [x] **Annotation Guidelines Generator** - Auto-generate annotation guidelines from metric definitions
   - [x] Convert metric rubrics to annotator-friendly instructions
   - [x] Include concrete pass/fail examples from existing annotations
@@ -1845,8 +1845,8 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Prevent simulation from over-representing one cluster of similar inputs
 - [x] **Simulation Template Library** - Pre-built simulation configs for common use cases
   - [x] Templates: customer-support, rag-qa, code-review, multi-step-agent
-  - [ ] Each template defines persona mix, edge case types, output format constraints
-  - [ ] evalyn simulate --template customer-support
+  - [x] Each template defines persona mix, edge case types, output format constraints
+  - [x] evalyn simulate --template customer-support
 - [x] **Simulation Difficulty Grading** - Auto-tag generated items with estimated difficulty level
   - [x] Difficulty heuristics: input complexity, number of constraints, ambiguity level
   - [x] Tag in metadata as difficulty: easy/medium/hard
@@ -1973,9 +1973,9 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Ensure minimum representation per locale in sample
   - [x] --sample-by locale flag on build-dataset
 - [x] **Embedding Model Selection** - Configurable embedding model for diversity and clustered sampling
-  - [ ] embedding_model setting in evalyn.yaml (default: all-MiniLM-L6-v2)
-  - [ ] Support custom models from HuggingFace or local paths
-  - [ ] Cache embeddings keyed by model name to avoid recomputation
+  - [x] embedding_model setting in evalyn.yaml (default: all-MiniLM-L6-v2)
+  - [x] Support custom models from HuggingFace or local paths
+  - [x] Cache embeddings keyed by model name to avoid recomputation
 - [x] **Reservoir Sampling** - Online sampling for streaming dataset construction
   - [x] Build dataset from continuous trace stream without knowing total count upfront
   - [x] Maintain fixed-size sample with uniform probability guarantees
@@ -2007,17 +2007,17 @@ This document tracks planned features and completed work. Future roadmap items a
 ### Additional Export Formats
 
 - [x] **Parquet Export** - Columnar format for big data tooling and ML pipelines
-  - [ ] evalyn export --format parquet using pyarrow (optional dependency)
-  - [ ] Schema: one row per (item, metric) pair with score, passed, details columns
-  - [ ] Efficient for loading into pandas, DuckDB, or Spark
+  - [x] evalyn export --format parquet using pyarrow (optional dependency)
+  - [x] Schema: one row per (item, metric) pair with score, passed, details columns
+  - [x] Efficient for loading into pandas, DuckDB, or Spark
 - [x] **OpenAI Evals Format Export** - Compatibility with OpenAI's evaluation framework
   - [x] evalyn export --format openai-evals producing JSONL in OpenAI evals schema
   - [x] Map evalyn MetricResult to OpenAI eval sample format
   - [x] Include system prompt and messages for replay in OpenAI's eval harness
 - [x] **Experiment Tracker Integration** - Push eval results to W&B, MLflow, or Neptune
-  - [ ] evalyn export --format wandb logging metrics as W&B runs
-  - [ ] evalyn export --format mlflow logging as MLflow experiments
-  - [ ] Configurable tracker URL and credentials in evalyn.yaml
+  - [x] evalyn export --format wandb logging metrics as W&B runs
+  - [x] evalyn export --format mlflow logging as MLflow experiments
+  - [x] Configurable tracker URL and credentials in evalyn.yaml
 
 ### Developer Experience
 
@@ -2031,10 +2031,10 @@ This document tracks planned features and completed work. Future roadmap items a
 ### CLI Enhancements
 
 - [x] **Interactive TUI Mode** - Rich terminal UI with navigation, filtering, and drill-down
-  - [ ] Textual or Rich-based TUI framework
-  - [ ] Views: trace list, run list, metric dashboard, item detail
-  - [ ] Keyboard navigation: j/k scroll, enter drill-down, q quit
-  - [ ] Real-time eval progress view with per-metric status
+  - [x] Textual or Rich-based TUI framework
+  - [x] Views: trace list, run list, metric dashboard, item detail
+  - [x] Keyboard navigation: j/k scroll, enter drill-down, q quit
+  - [x] Real-time eval progress view with per-metric status
 - [x] **Shell Completion** - Bash/zsh/fish tab completion for all commands and flags
   - [x] argcomplete integration for automatic completion generation
   - [x] Complete command names, flag names, and flag values (run IDs, dataset paths)
@@ -2061,10 +2061,10 @@ This document tracks planned features and completed work. Future roadmap items a
   - [x] Verify Python dependencies are installed (sentence-transformers, etc.)
   - [x] Generate diagnostic report for bug reports
 - [x] **evalyn playground** - Interactive prompt testing with live metric scoring in the terminal
-  - [ ] Enter input, see agent output, instantly score with selected metrics
-  - [ ] Side-by-side: original prompt vs modified prompt
-  - [ ] Score history across playground iterations
-  - [ ] Save good examples to dataset
+  - [x] Enter input, see agent output, instantly score with selected metrics
+  - [x] Side-by-side: original prompt vs modified prompt
+  - [x] Score history across playground iterations
+  - [x] Save good examples to dataset
 - [x] **evalyn diff** - Diff two evaluation runs showing changed scores per item
   - [x] Per-item score delta table sorted by largest regression
   - [x] Metric-level summary: improved/regressed/unchanged counts
