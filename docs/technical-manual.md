@@ -15,8 +15,9 @@ Internal technical reference for Evalyn SDK architecture, design decisions, and 
 9. [Pipeline Orchestration](#pipeline-orchestration)
 10. [Analysis & Visualization](#analysis--visualization)
 11. [File Structure](#file-structure)
-12. [Environment Variables](#environment-variables)
-13. [CLI Conveniences](#cli-conveniences)
+12. [Extension Module Inventory](#extension-module-inventory)
+13. [Environment Variables](#environment-variables)
+14. [CLI Conveniences](#cli-conveniences)
 
 ---
 
@@ -1526,6 +1527,213 @@ evalyn/
 │   └── optimizers/              # Optimizer design docs
 └── example_agents/              # SDK integration examples
 ```
+
+---
+
+## Extension Module Inventory
+
+Beyond the core packages above, `sdk/evalyn_sdk/` contains 190 top-level Python modules (as of 2026-03-29). The extension modules are grouped by domain below.
+
+### Sampling (23 modules)
+
+Strategies for selecting subsets of evaluation data.
+
+| Module | Purpose |
+|--------|---------|
+| `adversarial_sampling` | Adversarial example selection |
+| `balanced_sampling` | Class-balanced subset selection |
+| `bootstrap_resampling` | Bootstrap resampling for confidence intervals |
+| `coreset_sampling` | Coreset construction for representative subsets |
+| `cost_aware_sampling` | Cost-weighted sample selection |
+| `coverage_sampling` | Coverage-maximizing sampling |
+| `curriculum_sampling` | Curriculum-ordered sampling (easy to hard) |
+| `disagreement_sampling` | Samples where judges disagree |
+| `drift_sampling` | Distribution-drift-aware sampling |
+| `error_pattern_sampling` | Sampling focused on error patterns |
+| `importance_sampling` | Importance-weighted sampling |
+| `locale_sampling` | Locale/language-aware sampling |
+| `metadata_sampling` | Metadata-driven subset selection |
+| `novelty_sampling` | Novel/unseen-pattern sampling |
+| `progressive_sampling` | Incrementally growing sample sizes |
+| `reservoir_sampling` | Online reservoir sampling |
+| `sampling_impact` | Impact analysis of sampling choices |
+| `sampling_pipeline` | Composable sampling pipeline |
+| `sampling_reproducibility` | Reproducibility guarantees for sampling |
+| `seed_selection` | Seed item selection heuristics |
+| `similarity_sampling` | Similarity-based sampling |
+| `stratified_sampling` | Stratified random sampling |
+| `time_weighted_sampling` | Recency-weighted sampling |
+
+### Simulation (22 modules)
+
+Synthetic data generation and simulation-based evaluation.
+
+| Module | Purpose |
+|--------|---------|
+| `adversarial_simulation` | Adversarial input generation |
+| `behavior_test_gen` | Behavioral test case generation |
+| `budget_optimizer` | Simulation budget optimization |
+| `conditional_simulation` | Conditional data generation |
+| `constraint_simulation` | Constraint-satisfying generation |
+| `diversity_metrics` | Diversity measurement for generated data |
+| `domain_transfer` | Cross-domain simulation |
+| `eval_loop` | Simulation-evaluation loop |
+| `evol_instruct` | Evol-Instruct style complexity scaling |
+| `feedback_injection` | Injecting feedback into simulations |
+| `multiturn_simulation` | Multi-turn conversation simulation |
+| `parallel_simulation` | Parallel simulation execution |
+| `persona_simulation` | Persona-driven simulation |
+| `quality_score` | Quality scoring for generated data |
+| `reference_simulation` | Reference answer generation |
+| `regression_simulation` | Regression-focused test generation |
+| `reproducibility_seed` | Seed management for reproducible simulations |
+| `seed_clustering` | Clustering-based seed selection |
+| `simulation_templates` | Reusable simulation templates |
+| `simulation_validation` | Validation of simulation outputs |
+| `structured_simulation` | Structured output simulation |
+| `tool_schema_simulation` | Tool/function-call simulation |
+
+### CLI (26 modules)
+
+CLI extensions, UX improvements, and output formatting.
+
+| Module | Purpose |
+|--------|---------|
+| `batch_script` | Batch script execution |
+| `cli_aliases` | User-defined command aliases |
+| `cli_plugins` | Plugin loading for CLI extensions |
+| `color_theme` | Terminal color theme configuration |
+| `command_chaining` | Pipe-style command chaining |
+| `command_history` | Command history tracking |
+| `compare_shorthand` | Shorthand syntax for comparisons |
+| `completion_notify` | Desktop notifications on completion |
+| `config_show` | Display current configuration |
+| `config_validation` | Config file validation |
+| `execution_audit` | Audit log of CLI executions |
+| `garbage_collect` | Storage cleanup and compaction |
+| `json_output` | Machine-readable JSON output mode |
+| `openai_evals_export` | Export to OpenAI Evals format |
+| `output_pagination` | Paged terminal output |
+| `output_width` | Dynamic output width detection |
+| `pipeline_visualization` | Visual pipeline diagrams |
+| `playground` | Interactive evaluation playground |
+| `profile_command` | Performance profiling for commands |
+| `progress_dashboard` | Real-time progress dashboard |
+| `quick_rerun` | One-command re-run of last evaluation |
+| `shell_completion` | Shell tab-completion generation |
+| `side_by_side` | Side-by-side output comparison |
+| `time_tracking` | Wall-clock time tracking per command |
+| `tui_mode` | Terminal UI mode |
+| `watch_mode` | File-watch triggered re-evaluation |
+
+### Analysis and Reporting (13 modules)
+
+Extended analysis, reporting, and visualization.
+
+| Module | Purpose |
+|--------|---------|
+| `benchbuilder` | Custom benchmark construction |
+| `clustering_report` | Cluster analysis reports |
+| `comparison_overlay` | Overlay comparison charts |
+| `compliance_report` | Compliance/governance reports |
+| `coverage_report` | Evaluation coverage reports |
+| `curation_suggestions` | Dataset curation recommendations |
+| `dashboard_export` | Export dashboards to static files |
+| `embeddable_widget` | Embeddable HTML report widgets |
+| `eval_diff` | Diff between evaluation runs |
+| `irt_benchmarks` | Item Response Theory benchmarks |
+| `metric_catalog` | Browsable metric catalog |
+| `nl_summary` | Natural language summary generation |
+| `trace_summary` | Trace-level summary extraction |
+
+### Metrics and Evaluation (11 modules)
+
+Metric extensions, routing, and optimization.
+
+| Module | Purpose |
+|--------|---------|
+| `adaptive_metrics` | Dynamically adjusted metrics |
+| `capo_optimizer` | CAPO-based metric optimization |
+| `cascade_routing` | Cascading model routing for evaluation |
+| `judge_routing` | Judge selection and routing |
+| `metric_debug` | Metric debugging and introspection |
+| `metric_namespacing` | Namespaced metric organization |
+| `model_baselines` | Baseline model comparisons |
+| `offline_eval` | Offline evaluation from stored traces |
+| `prompt_optimization` | Prompt optimization for metrics |
+| `score_binning` | Score discretization and binning |
+| `user_bundles` | User-defined metric bundles |
+
+### Security and Governance (6 modules)
+
+Data protection, audit, and compliance.
+
+| Module | Purpose |
+|--------|---------|
+| `audit_trail` | Immutable audit trail logging |
+| `data_governance` | Data governance policy enforcement |
+| `embedding_pii_check` | PII detection in embeddings |
+| `key_rotation` | API key rotation management |
+| `secrets_backend` | Secrets storage abstraction |
+| `trace_redaction` | PII/sensitive data redaction in traces |
+
+### Infrastructure (10 modules)
+
+Packaging, storage, search, and deployment.
+
+| Module | Purpose |
+|--------|---------|
+| `binary_packaging` | Single-binary packaging |
+| `docker_config` | Docker configuration generation |
+| `embedding_index` | Embedding vector index |
+| `embedding_selection` | Embedding model selection |
+| `experiment_tracker` | Experiment tracking integration |
+| `fts_search` | Full-text search over traces |
+| `large_dataset` | Large dataset streaming support |
+| `parquet_export` | Parquet file export |
+| `provider_diversity` | Multi-provider diversity enforcement |
+| `web_dashboard` | Web-based dashboard server |
+
+### Annotation (7 modules)
+
+Human annotation workflow and agreement.
+
+| Module | Purpose |
+|--------|---------|
+| `annotation_delegation` | Annotation task delegation |
+| `annotation_session` | Annotation session management |
+| `annotation_ux` | Annotation UX helpers |
+| `annotator_agreement` | Inter-annotator agreement metrics |
+| `conflict_resolution` | Annotation conflict resolution |
+| `guidelines_generator` | Annotation guidelines generation |
+| `pre_annotation` | Pre-annotation with model predictions |
+
+### Rubrics (4 modules)
+
+Rubric management and testing.
+
+| Module | Purpose |
+|--------|---------|
+| `rubric_i18n` | Rubric internationalization |
+| `rubric_library` | Shared rubric library |
+| `rubric_packs` | Bundled rubric packs |
+| `rubric_testing` | Rubric validation and testing |
+
+### Other (9 modules)
+
+Configuration references, versioning, tutorials, and miscellaneous.
+
+| Module | Purpose |
+|--------|---------|
+| `breaking_changes` | Breaking change detection |
+| `cli_reference` | Auto-generated CLI reference |
+| `config_reference` | Configuration reference docs |
+| `cost_estimation` | Evaluation cost estimation |
+| `deprecation` | Deprecation warnings and migration |
+| `example_gallery` | Example gallery generation |
+| `persona_hub` | Persona library for simulations |
+| `tutorial` | Interactive tutorial system |
+| `version_check` | SDK version checking |
 
 ---
 

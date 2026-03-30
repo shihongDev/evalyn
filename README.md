@@ -16,9 +16,10 @@ Evalyn focuses on making GenAI App evaluation practical and easy. It provides li
 |---|---|
 | **Fully Local** | All data stays on your machine. SQLite storage, no cloud dependencies. |
 | **Easy Onboarding** | Just `import evalyn_sdk` — LLM calls auto-captured with tokens & cost. |
-| **Metric Bank** | 135 built-in metrics (73 objective, 62 LLM judges). Community contributions welcome. |
-| **Auto Calibration** | 9 calibration optimizers (GEPA, APE, OPRO, EvoPrompt, TextGrad, MIPROv2, PromptBreeder, and more). |
+| **Metric Bank** | 136 built-in metrics (76 objective, 60 LLM judges) - including audio, image, and video evaluation. Community contributions welcome. |
+| **Auto Calibration** | 9 calibration optimizers (GEPA, APE, OPRO, EvoPrompt, TextGrad, MIPROv2, PromptBreeder, and more) plus active learning, curriculum learning, ensemble fusion, and sensitivity analysis. |
 | **14 Instrumentors** | Auto-captures OpenAI, Anthropic, Gemini, xAI, LangChain, LangGraph, Google ADK, Claude Agent SDK, CrewAI, AutoGen, DSPy, Haystack, LlamaIndex, Semantic Kernel. |
+| **Deep Analysis** | 75+ analysis modules: cohort analysis, confusion matrices, cost dashboards, forecasting, root cause analysis, what-if simulation, and more. |
 | **One Command** | Run the entire pipeline with `evalyn one-click`. |
 
 ## The Pipeline
@@ -157,7 +158,7 @@ Hint: To suggest metrics, run: evalyn suggest-metrics --dataset <path> --mode ba
 
 ### Step 3: Select Metrics
 
-Use `--mode llm-registry` to pick from 135 built-in metrics via LLM selection:
+Use `--mode llm-registry` to pick from 136 built-in metrics via LLM selection:
 ```bash
 evalyn suggest-metrics --dataset <dataset-path> --mode llm-registry
 ```
@@ -417,11 +418,11 @@ uv run pytest tests/ -v
 # Run with coverage
 uv run pytest tests/ --cov=evalyn_sdk --cov-report=term-missing
 
-# Run fast unit tests only (no subprocess CLI tests)
-uv run pytest tests/test_analysis.py tests/test_models_extended.py tests/test_storage.py tests/test_cli_utils.py tests/test_metrics_extended.py tests/test_cli_export.py
+# Run core unit tests only (no subprocess CLI tests)
+uv run pytest tests/test_analysis.py tests/test_models_extended.py tests/test_storage.py tests/test_cli_utils.py tests/test_metrics_extended.py tests/test_cli_export.py tests/test_insights.py
 ```
 
-The test suite has 1,100+ tests across 30 files covering analysis engine, model serialization, storage, CLI commands, export formats, metrics, tracing, and instrumentation. See [CONTRIBUTING.md](CONTRIBUTING.md) for details on the test structure and writing tests.
+The test suite has 17,300+ tests across 460 files covering analysis engine, model serialization, storage, CLI commands, export formats, metrics, tracing, instrumentation, calibration, sampling, simulation, integration, and more. See [CONTRIBUTING.md](CONTRIBUTING.md) for details on the test structure and writing tests.
 
 ## Example
 

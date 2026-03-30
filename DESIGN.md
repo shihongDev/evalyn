@@ -10,21 +10,70 @@ This document describes the current system architecture and proposes designs for
 
 ```
                            CLI Layer
-                    (argparse + formatters)
+               (argparse + 14 command modules + formatters)
                               |
               Pipeline Orchestrator (7 steps)
                               |
-         +----------+---------+---------+----------+
-         |          |         |         |          |
-     Tracing   Evaluation  Metrics  Calibration  Analysis
-         |          |         |         |          |
-         +----------+---------+---------+----------+
+    +------+------+--------+------+--------+------+--------+
+    |      |      |        |      |        |      |        |
+ Tracing  Eval  Metrics  Calib  Analysis  Judges  Annot  Simulation
+  (70)   (78)   (20)    (47)    (78)      (7)    (3)     (2)
+    |      |      |        |      |        |      |        |
+    +------+------+--------+------+--------+------+--------+
                               |
-                      Storage Layer
+         +--------------------+--------------------+
+         |                    |                    |
+    Integration (12)    Testing (3)          Utils (2)
+         |                    |                    |
+         +--------------------+--------------------+
+                              |
+                      Storage Layer (30)
                      (StorageBackend)
                               |
                        SQLiteStorage
 ```
+
+Module counts above are .py files per package. Top-level `sdk/evalyn_sdk/` contains
+~190 additional modules for sampling strategies, simulation modes, CLI extensions,
+dataset engineering, and other capability areas (see Capability Modules below).
+Total: ~579 .py files across the SDK.
+
+### Capability Modules (top-level)
+
+These ~190 modules live directly under `sdk/evalyn_sdk/` and extend the core packages:
+
+**Sampling strategies (~20 modules):** adversarial, balanced, bootstrap resampling,
+boundary, coreset, cost-aware, coverage, curriculum, disagreement, drift, error-pattern,
+importance, locale, metadata, novelty, progressive, reservoir, similarity,
+stratified, time-weighted sampling.
+
+**Simulation framework (~12 modules):** adversarial, conditional, constraint,
+domain transfer, multi-turn, parallel, persona, reference, regression,
+structured, tool-schema simulation, simulation templates and validation.
+
+**CLI extensions (~15 modules):** aliases, command chaining, color themes, shell
+completion, command history, output pagination, output width, compare shorthand,
+quick rerun, completion notify, JSON output, progress dashboard, TUI mode,
+watch mode, CLI plugins.
+
+**Dataset engineering (~25 modules):** versioning, filtering, golden sets, import,
+merge, split, augmentation, bias audit, changelog, complexity scoring,
+cross-contamination, decontamination, drift detection, format autodetect,
+incremental builds, interleaving, lineage, metadata schema, pin, preview,
+production logs, quality gate, schema evolution, snapshot comparison, subset,
+synthetic generation, AB split.
+
+**Configuration and infrastructure (~15 modules):** config inheritance, profiles,
+validation, show, reference; deprecation, breaking changes, doctor, version check,
+logging config, secrets backend, binary packaging, Docker config.
+
+**Reporting and visualization (~10 modules):** dashboard export, embeddable widget,
+comparison overlay, pipeline visualization, NL summary, compliance report,
+Parquet export, side-by-side view, clustering report.
+
+**Calibration and optimization (~10 modules):** CAPO optimizer, cascade routing,
+budget optimizer, embedding selection, judge routing, prompt optimization,
+provider diversity, quality score, rubric testing, rubric i18n, rubric packs.
 
 ### Data Model Core
 
@@ -206,7 +255,7 @@ metric.evaluate(call, item)          metric.evaluate_unit(view, item)
 
 ## 4. Metrics Design
 
-### Current: 133 metrics (73 objective + 60 subjective)
+### Current: 136 metrics (76 objective + 60 subjective)
 
 ```
 Objective: pure function (FunctionCall, DatasetItem) -> MetricResult
@@ -2324,4 +2373,4 @@ evalyn build-dataset --mode auto-curate --source production --target-size 100
 8. **Fail-open for optional features:** Missing optional dependencies degrade gracefully with warnings, never crash
 9. **Schema stability:** Additive-only migrations; existing data always readable by newer versions
 
-*Last updated: 2026-03-27*
+*Last updated: 2026-03-29*

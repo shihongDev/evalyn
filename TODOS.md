@@ -1,19 +1,16 @@
 # TODOS
 
 Technical debt and improvements identified during architecture review (2026-03-23).
+Updated 2026-03-29: ROADMAP 100% complete (559/559 items, 2151 sub-items). Focus shifts to tech debt and stabilization.
 
 ---
 
 ## High Priority
 
-### Write tests for 11 untested modules
-- **What:** Add dedicated test files for: parsing.py, evaluation/execution.py, evaluation/batch/evaluator.py, judges/llm_judge.py, judges/confidence/* (3 files), simulation/simulator.py, calibration/factory.py, calibration/engine.py, datasets.py, cli/utils/pipeline_steps.py.
-- **Why:** These orchestrator modules are currently covered only indirectly through CLI integration tests. A failure in JSON parsing surfaces as "run-eval failed" in the CLI test - debugging is 5-10x slower. The test suite has 236 tests across 18.5K LOC but is concentrated on instrumentation (8.2K LOC) while the evaluation core has gaps.
-- **Pros:** Faster debugging, better regression detection, confidence in refactoring.
-- **Cons:** ~300 tests to write (though CC can do this in ~30min).
-- **Context:** Most critical gaps: parsing.py (used everywhere for LLM response extraction), execution.py (parallel strategy), confidence/* (3 estimation methods). The parsing module likely accounts for a significant chunk of production bugs.
+### Write tests for new modules
+- **What:** The SDK grew from ~75 to 579 modules. The original 11 untested modules (parsing.py, execution.py, batch/evaluator.py, llm_judge.py, confidence/*, simulator.py, calibration/factory.py, calibration/engine.py, datasets.py, pipeline_steps.py) still need dedicated tests. Additionally, the 240+ new modules (sampling, simulation, security, CLI tools) have no unit tests yet.
+- **Why:** New modules are covered only through commit-time smoke tests. Regressions in sampling strategies or simulation generators would go undetected until user-facing failures.
 - **Depends on:** Nothing.
-
 
 ---
 
@@ -21,18 +18,17 @@ Technical debt and improvements identified during architecture review (2026-03-2
 
 ### Extract shared CLI storage helpers
 - **What:** Create `cli/utils/storage_helpers.py` with `get_storage(args)` and `load_run(args)`. Wire all 12+ `SQLiteStorage()` instantiations through shared helpers.
-- **Why:** SQLiteStorage is instantiated independently in analysis.py, dashboard.py, export.py, infrastructure.py, insights.py, quickstart.py, traces.py, and pipeline_steps.py. The run-loading pattern (resolve from --run ID or --dataset path) is reimplemented in 3 places. When the storage API changes, every callsite must be updated.
-- **Pros:** DRY, single point of change for storage initialization, consistent --db flag handling.
-- **Cons:** Minor refactor touching many files (but each change is mechanical).
-- **Context:** traces.py already has a `_storage()` helper that other commands don't use. Standardize on one approach.
+- **Why:** SQLiteStorage is instantiated independently in analysis.py, dashboard.py, export.py, infrastructure.py, insights.py, quickstart.py, traces.py, and pipeline_steps.py. The run-loading pattern (resolve from --run ID or --dataset path) is reimplemented in 3 places.
 - **Depends on:** Nothing.
 
 ### Remove deprecated DatasetItem fields
 - **What:** Drop `inputs` and `expected` fields from DatasetItem. Keep only `input` and `output`. Update all internal references.
-- **Why:** The bidirectional sync in `__post_init__` has edge cases (empty dict `{}` is falsy, so `if self.inputs and not self.input` fails). Dual fields confuse contributors - some code uses `item.input`, some uses `item.inputs`. Pre-1.0 with no external users is the right time to clean this up.
-- **Pros:** Simpler model, no sync bugs, clearer API.
-- **Cons:** Breaks any local scripts using the old field names. Need to update `from_payload()` to still accept old-format JSONL files (read compat without write compat).
-- **Context:** `as_dict()` already only serializes new fields. The cleanup is mostly mechanical: grep for `.inputs` and `.expected` across the codebase.
+- **Why:** The bidirectional sync in `__post_init__` has edge cases. Dual fields confuse contributors. Pre-1.0 with no external users is the right time.
+- **Depends on:** Nothing.
+
+### Consolidate sampling module organization
+- **What:** 24 sampling modules live as top-level files in evalyn_sdk/. Consider moving to a `sampling/` subpackage.
+- **Why:** Top-level directory has 200+ files. Grouping by domain (sampling/, simulation/, security/) would improve navigability.
 - **Depends on:** Nothing.
 
 ---

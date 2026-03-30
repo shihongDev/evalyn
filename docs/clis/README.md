@@ -8,7 +8,10 @@ Complete documentation for all Evalyn CLI commands.
 |---------|-------------|
 | [init](init.md) | Initialize configuration file |
 | [one-click](one-click.md) | Run complete evaluation pipeline |
+| [quickstart](quickstart.md) | Guided setup for first-time users |
 | [status](status.md) | Show dataset status overview |
+| [workflow](workflow.md) | Show evaluation workflow and next steps |
+| [dashboard](dashboard.md) | Generate and open HTML insights dashboard |
 
 ### Tracing
 | Command | Description |
@@ -61,6 +64,13 @@ Complete documentation for all Evalyn CLI commands.
 | Command | Description |
 |---------|-------------|
 | [simulate](simulate.md) | Generate synthetic test data |
+
+### Infrastructure
+| Command | Description |
+|---------|-------------|
+| [workflow](workflow.md) | Show evaluation workflow and next steps |
+| [quickstart](quickstart.md) | Guided setup for first-time users |
+| [dashboard](dashboard.md) | Generate and open HTML insights dashboard |
 
 ## Common Workflows
 

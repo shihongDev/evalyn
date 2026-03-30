@@ -2,16 +2,19 @@
 
 **Local-first evaluation framework for LLM agents**
 
-Evalyn makes GenAI app evaluation practical and easy. Trace LLM calls, evaluate with 130+ metrics, calibrate judges with human feedback — all running locally on your machine.
+Evalyn makes GenAI app evaluation practical and easy. Trace LLM calls, evaluate with 130+ metrics, calibrate judges with human feedback - all running locally on your machine. Ships with 579 modules covering sampling, simulation, security, and reporting.
 
 ## Why Evalyn?
 
 | | |
 |---|---|
 | **Fully Local** | All data stays on your machine. SQLite storage, no cloud dependencies. |
-| **Easy Onboarding** | Just `import evalyn_sdk` — LLM calls auto-captured with tokens & cost. |
+| **Easy Onboarding** | Just `import evalyn_sdk` - LLM calls auto-captured with tokens & cost. |
 | **Metric Bank** | 130+ built-in metrics (73 objective, 60 LLM judges). |
-| **Auto Calibration** | 5 optimizers (GEPA, EvoPrompt, TextGrad, MIPROv2, PromptBreeder) align LLM judges with human feedback. |
+| **Auto Calibration** | 6 optimizers (GEPA, EvoPrompt, TextGrad, MIPROv2, PromptBreeder, CAPO) align LLM judges with human feedback. |
+| **Sampling** | 24 strategies - adversarial, drift-aware, curriculum, importance, coverage, and more. |
+| **Simulation** | 14 generators for multi-turn, adversarial, regression, and domain-transfer scenarios. |
+| **Security** | PII detection, trace redaction, compliance reports, audit trails, secrets management. |
 | **One Command** | Run the entire pipeline with `evalyn one-click`. |
 
 ## Install
@@ -82,6 +85,43 @@ build-      run-eval     cluster-      queries
 dataset     insights     failures
 ```
 
+## Sampling Strategies
+
+24 built-in strategies for selecting evaluation data:
+
+| Category | Strategies |
+|----------|------------|
+| Active learning | disagreement, boundary, error-pattern, novelty |
+| Distribution | stratified, balanced, importance, bootstrap |
+| Temporal | drift-aware, time-weighted, curriculum, progressive |
+| Cost/coverage | cost-aware, coverage, coreset, reservoir |
+| Domain-specific | adversarial, locale, metadata-conditional, similarity |
+
+```bash
+evalyn sample --strategy drift --dataset data/prod/datasets/myapp-*/dataset.jsonl
+```
+
+## Simulation
+
+14 synthetic data generators for stress-testing your agent:
+
+```bash
+evalyn simulate --mode adversarial --project myapp
+evalyn simulate --mode multi-turn --turns 5 --project myapp
+```
+
+Modes: multi-turn, adversarial, regression, domain-transfer, conditional, structured, parallel, constraint, persona, reference, tool-schema, and more.
+
+## Security and Governance
+
+```bash
+evalyn pii-check --dataset data/prod/datasets/myapp-*/dataset.jsonl
+evalyn compliance-report --project myapp
+evalyn trace-redact --project myapp --patterns ssn,email
+```
+
+Built-in: PII detection, trace redaction, compliance reports, execution audit, audit trails, data governance policies, secrets backend.
+
 ## Key Commands
 
 | Command | What it does |
@@ -97,6 +137,12 @@ dataset     insights     failures
 | `evalyn insights --latest --format html` | Interactive HTML dashboard |
 | `evalyn annotate --latest` | Human annotation |
 | `evalyn calibrate --metric-id X` | Calibrate LLM judges |
+| `evalyn sample --strategy X` | Apply sampling strategy |
+| `evalyn simulate --mode X` | Generate synthetic data |
+| `evalyn pii-check --dataset D` | Scan for PII |
+| `evalyn compliance-report` | Generate compliance report |
+| `evalyn doctor` | Diagnose environment issues |
+| `evalyn watch --project X` | Watch mode with auto-rerun |
 
 ## Supported Frameworks
 
@@ -130,7 +176,7 @@ Evalyn includes [Claude Code skills](https://github.com/shihongDev/evalyn) that 
 cp -r skills/evalyn-* ~/.claude/skills/
 ```
 
-Then in Claude Code: *"Help me evaluate my agent"* — Claude handles the rest.
+Then in Claude Code: *"Help me evaluate my agent"* - Claude handles the rest.
 
 ## License
 

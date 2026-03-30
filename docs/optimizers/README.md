@@ -43,6 +43,7 @@ Evalyn provides multiple prompt optimization algorithms for calibrating LLM judg
 | [GEPA-Native](gepa.md) | Pareto-based evolution | Medium-High | Yes | Complex rubrics, when diversity matters |
 | [OPRO](opro.md) | Trajectory-based search | Medium | Yes | Iterative refinement, finding local optima |
 | [APE](ape.md) | UCB bandit search | Medium | Yes | Exploration vs exploitation tradeoff |
+| [CAPO](capo.md) | Confidence-aware evolutionary | None (no LLM calls) | N/A | Pure Python optimization, no API cost |
 | GEPA (external) | Evolutionary reflection | Medium-High | No | Legacy - use gepa-native instead |
 
 ## Cost & Performance
