@@ -80,3 +80,4 @@ docs/dev/
 # MCP config (contains tokens)
 .mcp.json
 
+user_behavior_data/
