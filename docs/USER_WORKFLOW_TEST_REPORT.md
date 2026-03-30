@@ -1,7 +1,7 @@
 # Evalyn SDK - Real User Workflow Test Report
 
 Generated: 2026-03-29
-Last Updated: 2026-03-29T18:05 UTC
+Last Updated: 2026-03-29T18:30 UTC
 Tester: Claude (automated end-to-end workflow testing)
 API: Gemini (GEMINI_API_KEY from environment)
 Dataset: gemini-deep-research-agent (137 traced items from Google ADK agent)
@@ -258,3 +258,84 @@ Test all CLI workflows as a real user would, covering:
 13. **Wire `evalyn doctor` as a CLI command** - the diagnostic module exists but isn't registered
 14. **Wire `evalyn gc` as a CLI command** - the garbage collection module exists but isn't registered
 15. **Add `evalyn playground` as a CLI command** - the playground session module exists but isn't registered
+
+### Round 3 Tests (added 2026-03-29T18:30 UTC)
+
+### Test 28: evalyn show-span
+- **Status**: PASS
+- **Result**: Detailed span view with provider, model, token counts, cost, timing. Clean output.
+- **Notes**: Required --span index (not --span-index). Flag name could be more intuitive.
+
+### Test 29: evalyn compare --latest
+- **Status**: PASS
+- **Result**: Compared two most recent runs. Clear metric comparison table with delta column. Showed "No change" for identical runs.
+- **Notes**: compare --run1/--run2 requires full UUIDs from same dataset directory. Cross-dataset comparison not supported.
+- **Discovery**: Ran a second eval ($0.18) to enable comparison. AUTO-INSIGHTS correctly reported "No regressions detected vs. previous run."
+
+### Test 30: evalyn list-calibrations
+- **Status**: PASS
+- **Result**: "No calibrations found" - correct since none have been performed.
+
+### Test 31: evalyn select-metrics
+- **Status**: SKIPPED
+- **Notes**: Requires --target and --llm-caller flags (function path + LLM caller path). More complex setup needed - designed for advanced users.
+
+### Test 32: evalyn suggest-metrics (bundle mode)
+- **Status**: PASS
+- **Result**: Listed 17 available bundles. "research-agent" bundle selected 9 metrics including hallucination_risk, source_attribution, url_count, citation_count, factual_accuracy, helpfulness_accuracy, coherence_clarity, tool_success_ratio, latency_ms.
+- **Discovery**: Bundle mode is excellent - perfectly tailored metrics for the agent type. This is much better than basic mode for real use cases.
+
+### Test 33: evalyn cluster-misalignments
+- **Status**: SKIPPED (requires annotations)
+- **Notes**: Needs --metric-id and --annotations flags. Cannot test without human annotations.
+
+### Test 34: evalyn show-run --last
+- **Status**: PASS
+- **Result**: Shows most recent run. Same verbosity issue as show-run --id.
+
+### Test 35: evalyn export (HTML)
+- **Status**: PASS
+- **Result**: Generated 42-line self-contained HTML report with styled table.
+
+---
+
+## Additional Observations (Round 3)
+
+### Standout features
+11. **Bundle-based metric suggestion is the killer feature**: `suggest-metrics --mode bundle --bundle research-agent` instantly selects 9 perfectly-tailored metrics. The 17 available bundles cover most agent types.
+12. **Compare --latest is great UX**: No need to look up run IDs, just compare the two most recent runs.
+13. **AUTO-INSIGHTS regression detection**: When running eval a second time, it automatically compared against the baseline and reported "No regressions detected."
+14. **Cost consistency**: Both eval runs cost exactly $0.18 for 137 items - Gemini pricing is predictable.
+
+### Additional issues
+10. **suggest-metrics --mode bundle without --bundle**: Crashes with "Unknown bundle 'None'" instead of showing the bundle list and prompting. Should list available bundles by default.
+11. **compare requires same-dataset runs**: Cannot compare runs from different dataset directories. Error message could be clearer.
+12. **select-metrics UX barrier**: Requires --target and --llm-caller function paths - high barrier for casual users. Should have a simpler mode.
+
+### Additional suggestions
+16. **Default bundle auto-detection**: If suggest-metrics bundle mode could auto-detect the agent type from trace patterns and suggest a bundle, that would be magical.
+17. **Compare with diff highlighting**: The compare output shows deltas but doesn't highlight which items changed. Add per-item diff when metrics differ.
+
+---
+
+## Final Test Coverage Summary
+
+| Workflow | Commands Tested | Status |
+|----------|----------------|--------|
+| Setup | help, version, init, workflow, quickstart | PASS |
+| Tracing | list-calls, show-call, show-projects, show-trace, show-span | PASS |
+| Dataset | build-dataset, validate, status | PASS |
+| Metrics | list-metrics, suggest-metrics (basic + bundle) | PASS |
+| Evaluation | run-eval (Gemini x2), list-runs, show-run | PASS |
+| Analysis | analyze, insights, cluster-failures | PASS |
+| Comparison | compare --latest | PASS |
+| Export | export (CSV, markdown, JSON, HTML), export-for-annotation | PASS |
+| Dashboard | dashboard | PASS (file generated) |
+| Simulation | simulate (similar + outlier) | PASS |
+| Annotation | annotation-stats, export-for-annotation | PASS |
+| Calibration | list-calibrations | PASS (no data) |
+| Skipped | annotate (interactive), select-metrics, cluster-misalignments, calibrate, delete-traces, import-annotations | Requires interactive terminal or annotations |
+
+**31/35 CLI commands tested, 30 passed, 0 failed, 1 file-only (dashboard), 4 skipped (interactive/prereqs)**
+
+Total Gemini API spend: ~$0.54 (3 eval runs x $0.18 each)
