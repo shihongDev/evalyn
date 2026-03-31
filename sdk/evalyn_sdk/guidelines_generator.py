@@ -243,13 +243,13 @@ def generate_batch_guidelines(
 ) -> List[AnnotationGuideline]:
     """Generate guidelines for multiple metrics.
 
-    Each dict must have: id, description, rubric.
+    Each dict must have: metric_id (or id), description, rubric.
     Optional: examples.
     """
     results: List[AnnotationGuideline] = []
     for m in metrics:
         g = generate_guideline(
-            metric_id=m["id"],
+            metric_id=m.get("metric_id") or m["id"],
             description=m["description"],
             rubric=m["rubric"],
             examples=m.get("examples"),

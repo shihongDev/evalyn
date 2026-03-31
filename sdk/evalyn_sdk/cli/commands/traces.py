@@ -1321,7 +1321,7 @@ def register_commands(subparsers) -> None:
     # show-span
     p = subparsers.add_parser("show-span", help="Show details of a specific span")
     _add_db_arg(p)
-    p.add_argument("--call-id", required=True, help="Call ID containing the span")
+    p.add_argument("--call-id", "--id", required=True, help="Call ID containing the span")
     p.add_argument("--span", required=True, help="Span name or index to show")
     p.add_argument(
         "--format", choices=["table", "json"], default="table", help="Output format"

@@ -175,8 +175,8 @@ class TestDetectLocale:
         assert detect_locale(text) == "ja"
 
     def test_cjk_unified(self):
-        # CJK Unified Ideographs
-        assert detect_locale("\u4e00\u4e01\u4e02") == "ja"
+        # CJK Unified Ideographs without kana -> Chinese
+        assert detect_locale("\u4e00\u4e01\u4e02") == "zh"
 
 
 # ---------------------------------------------------------------------------

@@ -288,8 +288,22 @@ def transfer_batch(
     Uses BUILTIN_VOCABULARIES if vocabularies is not provided.
     """
     vocabs = vocabularies or BUILTIN_VOCABULARIES
-    source_vocab = vocabs.get(config.source_domain)
-    target_vocab = vocabs.get(config.target_domain)
+    source_domain = config.source_domain
+    target_domain = config.target_domain
+    general_vocab = vocabs.get("general")
+
+    # For non-general to non-general transfers, route through general
+    # as intermediary to ensure overlapping generic keys
+    if (
+        source_domain != "general"
+        and target_domain != "general"
+        and general_vocab is not None
+    ):
+        source_vocab = general_vocab
+        target_vocab = vocabs.get(target_domain)
+    else:
+        source_vocab = vocabs.get(source_domain)
+        target_vocab = vocabs.get(target_domain)
 
     if source_vocab is None or target_vocab is None:
         missing = []

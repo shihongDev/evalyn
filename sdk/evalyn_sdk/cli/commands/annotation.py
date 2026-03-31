@@ -104,6 +104,23 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
             data = json.loads(line)
             items.append(AnnotationItem.from_dict(data))
 
+    # Also check storage for imported annotations
+    try:
+        from ...decorators import get_default_tracer
+        tracer = get_default_tracer()
+        if tracer.storage:
+            stored_anns = tracer.storage.list_annotations(limit=10000)
+            stored_target_ids = {a.target_id for a in stored_anns}
+            for item in items:
+                item_id = getattr(item, "id", "") or ""
+                if item_id in stored_target_ids and not item.human_label:
+                    # Mark as having annotation from storage
+                    matching = [a for a in stored_anns if a.target_id == item_id]
+                    if matching:
+                        item.human_label = matching[0]
+    except Exception:
+        pass  # storage unavailable - continue with file-based data
+
     if not items:
         print("No items found.")
         return

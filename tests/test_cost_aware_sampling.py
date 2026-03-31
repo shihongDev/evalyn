@@ -158,29 +158,29 @@ class TestCostAwareResult:
 
 class TestEstimateItemTokens:
     def test_empty_string(self):
-        # ceil(0/4) + 300 = 300
-        assert estimate_item_tokens("") == 300
+        # max(1, ceil(0/4)) = 1, output = min(300, max(50, 1)) = 50, total = 51
+        assert estimate_item_tokens("") == 51
 
     def test_short_text(self):
-        # len("hi") = 2, ceil(2/4) = 1, + 300 = 301
-        assert estimate_item_tokens("hi") == 301
+        # max(1, ceil(2/4)) = 1, output = min(300, max(50, 1)) = 50, total = 51
+        assert estimate_item_tokens("hi") == 51
 
     def test_four_chars(self):
-        # len("abcd") = 4, ceil(4/4) = 1, + 300 = 301
-        assert estimate_item_tokens("abcd") == 301
+        # max(1, ceil(4/4)) = 1, output = 50, total = 51
+        assert estimate_item_tokens("abcd") == 51
 
     def test_five_chars(self):
-        # len("abcde") = 5, ceil(5/4) = 2, + 300 = 302
-        assert estimate_item_tokens("abcde") == 302
+        # max(1, ceil(5/4)) = 2, output = 50, total = 52
+        assert estimate_item_tokens("abcde") == 52
 
     def test_longer_text(self):
         text = "a" * 400
-        # ceil(400/4) = 100, + 300 = 400
-        assert estimate_item_tokens(text) == 400
+        # ceil(400/4) = 100, output = min(300, max(50, 100)) = 100, total = 200
+        assert estimate_item_tokens(text) == 200
 
     def test_includes_output_overhead(self):
-        # All estimates include 300 output tokens
-        assert estimate_item_tokens("x") >= 300
+        # All estimates include at least 50 output tokens
+        assert estimate_item_tokens("x") >= 50
 
     def test_scales_with_length(self):
         short = estimate_item_tokens("short")
@@ -204,16 +204,16 @@ class TestComputeItemCosts:
         assert [c.item_id for c in costs] == ["a", "b", "c"]
 
     def test_cost_calculation(self):
-        items = {"a": "a" * 400}  # 400 chars -> ceil(400/4)=100 input + 300 = 400 tokens
+        items = {"a": "a" * 400}  # 400 chars -> ceil(400/4)=100 input + 100 output = 200
         costs = compute_item_costs(items, cost_per_1k=0.075)
-        assert costs[0].estimated_tokens == 400
-        expected_cost = 400 * 0.075 / 1000
+        assert costs[0].estimated_tokens == 200
+        expected_cost = 200 * 0.075 / 1000
         assert abs(costs[0].estimated_cost - expected_cost) < 1e-9
 
     def test_custom_cost_per_1k(self):
         items = {"a": "a" * 400}
         costs = compute_item_costs(items, cost_per_1k=0.1)
-        expected_cost = 400 * 0.1 / 1000
+        expected_cost = 200 * 0.1 / 1000
         assert abs(costs[0].estimated_cost - expected_cost) < 1e-9
 
     def test_empty_items(self):
@@ -224,12 +224,21 @@ class TestComputeItemCosts:
 
 
 class TestGreedyBudgetSelection:
-    def test_unlimited_budget_selects_all(self):
+    def test_zero_budget_selects_none(self):
         costs = [
             ItemCost(item_id="a", estimated_tokens=100, estimated_cost=0.1),
             ItemCost(item_id="b", estimated_tokens=200, estimated_cost=0.2),
         ]
-        budget = CostBudget()  # unlimited
+        budget = CostBudget()  # zero = no capacity
+        result = greedy_budget_selection(costs, budget)
+        assert result == []
+
+    def test_large_budget_selects_all(self):
+        costs = [
+            ItemCost(item_id="a", estimated_tokens=100, estimated_cost=0.1),
+            ItemCost(item_id="b", estimated_tokens=200, estimated_cost=0.2),
+        ]
+        budget = CostBudget(max_tokens=999999, max_cost=999999.0)
         result = greedy_budget_selection(costs, budget)
         assert set(result) == {"a", "b"}
 
@@ -352,7 +361,7 @@ class TestKnapsackSelection:
 class TestRunCostAwareSampling:
     def test_basic_pipeline(self):
         items = {"a": "short", "b": "a longer text here", "c": "medium text"}
-        budget = CostBudget()  # unlimited
+        budget = CostBudget(max_tokens=999999, max_cost=999999.0)
         result = run_cost_aware_sampling(items, budget)
         assert isinstance(result, CostAwareResult)
         assert result.items_selected == 3
@@ -360,38 +369,38 @@ class TestRunCostAwareSampling:
 
     def test_total_tokens_computed(self):
         items = {"a": "a" * 400}
-        budget = CostBudget()
+        budget = CostBudget(max_tokens=999999, max_cost=999999.0)
         result = run_cost_aware_sampling(items, budget)
-        assert result.total_tokens == 400  # ceil(400/4) + 300
+        assert result.total_tokens == 200  # ceil(400/4)=100 + output=100
 
     def test_total_cost_computed(self):
         items = {"a": "a" * 400}
-        budget = CostBudget(cost_per_1k_tokens=0.1)
+        budget = CostBudget(max_tokens=999999, max_cost=999999.0, cost_per_1k_tokens=0.1)
         result = run_cost_aware_sampling(items, budget)
-        expected = 400 * 0.1 / 1000
+        expected = 200 * 0.1 / 1000
         assert abs(result.total_cost - expected) < 1e-9
 
     def test_budget_limits_selection(self):
         items = {str(i): "x" * 100 for i in range(100)}
-        # Each item: ceil(100/4)=25 + 300 = 325 tokens
-        # 325 * 0.075/1000 = 0.024375 per item
-        budget = CostBudget(max_cost=0.05)  # fits ~2 items
+        # Each item: ceil(100/4)=25, output=min(300,max(50,25))=50, total=75 tokens
+        # 75 * 0.075/1000 = 0.005625 per item
+        budget = CostBudget(max_cost=0.012)  # fits ~2 items
         result = run_cost_aware_sampling(items, budget)
         assert result.items_selected == 2
 
     def test_budget_utilization_token_bound(self):
-        items = {"a": "a" * 400}  # 400 tokens
+        items = {"a": "a" * 400}  # 200 tokens (100 input + 100 output)
         budget = CostBudget(max_tokens=1000)
         result = run_cost_aware_sampling(items, budget)
-        assert abs(result.budget_utilization - 0.4) < 1e-9
+        assert abs(result.budget_utilization - 0.2) < 1e-9
 
     def test_budget_utilization_cost_bound(self):
-        items = {"a": "a" * 400}  # 400 tokens, cost = 400*0.075/1000 = 0.03
+        items = {"a": "a" * 400}  # 200 tokens, cost = 200*0.075/1000 = 0.015
         budget = CostBudget(max_cost=0.06)
         result = run_cost_aware_sampling(items, budget)
-        assert abs(result.budget_utilization - 0.5) < 1e-9
+        assert abs(result.budget_utilization - 0.25) < 1e-9
 
-    def test_unlimited_budget_zero_utilization(self):
+    def test_zero_budget_zero_utilization(self):
         items = {"a": "text"}
         budget = CostBudget()
         result = run_cost_aware_sampling(items, budget)

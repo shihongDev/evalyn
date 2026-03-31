@@ -135,6 +135,27 @@ def _bigrams(words: List[str]) -> List[str]:
 # ---------------------------------------------------------------------------
 
 
+def score_word_validity(text: str) -> float:
+    """Fraction of words that look like real words (contain vowels, reasonable length).
+
+    Returns 0.0 for all-gibberish, 1.0 for all valid-looking words.
+    """
+    words = _tokenize(text)
+    if not words:
+        return 0.0
+
+    vowels = set("aeiouy")
+    valid = 0
+    for w in words:
+        has_vowel = any(c in vowels for c in w)
+        reasonable_length = 1 <= len(w) <= 25
+        not_all_same = len(set(w)) > 1 or len(w) == 1
+        if has_vowel and reasonable_length and not_all_same:
+            valid += 1
+
+    return round(valid / len(words), 4)
+
+
 def score_length_naturalness(text: str, seed_lengths: List[int]) -> float:
     """How close text length is to the seed distribution (z-score based).
 
@@ -248,6 +269,12 @@ def compute_quality_score(
 
     # Compute dimensions
     dims = [
+        QualityDimension(
+            name="word_validity",
+            score=score_word_validity(text),
+            weight=2.0,
+            details="fraction of words that contain vowels and have reasonable structure",
+        ),
         QualityDimension(
             name="length_naturalness",
             score=score_length_naturalness(text, seed_lengths),

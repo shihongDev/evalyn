@@ -130,10 +130,13 @@ def format_eval_for_langfuse(scores: List[EvalScore]) -> List[Dict[str, Any]]:
             "name": s.metric_id,
             "value": s.score,
         }
+        comment_parts = []
         if s.label:
-            entry["comment"] = s.label
+            comment_parts.append(s.label)
         if s.explanation:
-            entry["comment"] = s.explanation
+            comment_parts.append(s.explanation)
+        if comment_parts:
+            entry["comment"] = " - ".join(comment_parts)
         result.append(entry)
     return result
 

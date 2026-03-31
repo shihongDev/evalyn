@@ -276,7 +276,7 @@ class TestComputeQualityScore:
         result = compute_quality_score("The cat ran in the yard.", seeds, item_id="t1")
         assert result.item_id == "t1"
         assert 0.0 <= result.overall_score <= 1.0
-        assert len(result.dimensions) == 4
+        assert len(result.dimensions) == 5  # word_validity + 4 original
 
     def test_default_item_id(self):
         result = compute_quality_score("hello", ["hello"])

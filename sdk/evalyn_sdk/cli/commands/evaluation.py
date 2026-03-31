@@ -1310,17 +1310,22 @@ def _run_suggest_metrics_bundle_mode(
     bundle = (bundle_name or "").lower()
     ids = BUNDLES.get(bundle)
     if not ids:
+        available = ", ".join(sorted(BUNDLES.keys()))
         if output_format == "json":
             print(
                 json.dumps(
                     {
-                        "error": f"Unknown bundle '{args.bundle}'",
-                        "available": list(BUNDLES.keys()),
+                        "error": f"No bundle specified or unknown bundle '{bundle_name}'",
+                        "available": sorted(BUNDLES.keys()),
+                        "hint": "Use --bundle <name> to select a bundle",
                     }
                 )
             )
         else:
-            print(f"Unknown bundle '{args.bundle}'. Available: {', '.join(BUNDLES.keys())}")
+            if not bundle_name or bundle_name.lower() == "none":
+                print(f"No bundle specified. Use --bundle <name> to select one.\n\nAvailable bundles: {available}")
+            else:
+                print(f"Unknown bundle '{bundle_name}'. Available: {available}")
         return
 
     all_templates = _filter_metric_templates_by_scope(

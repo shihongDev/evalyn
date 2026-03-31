@@ -63,7 +63,18 @@ def load_eval_run_for_command(
         s = _get_storage()
         run = s.get_eval_run(run_id)
         if not run:
-            fatal_error(f"No eval run found with ID '{run_id}'")
+            # Try short-ID prefix match
+            all_runs = s.list_eval_runs(limit=100)
+            matches = [r for r in all_runs if r.id.startswith(run_id)]
+            if len(matches) == 1:
+                run = matches[0]
+            elif len(matches) > 1:
+                fatal_error(
+                    f"Ambiguous run ID '{run_id}' matches {len(matches)} runs",
+                    "Use more characters for a unique match",
+                )
+            else:
+                fatal_error(f"No eval run found with ID '{run_id}'")
         return LoadedRun(run=run)
 
     if dataset_path:

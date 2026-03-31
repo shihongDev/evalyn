@@ -40,7 +40,9 @@ from ..utils.errors import fatal_error
 
 def cmd_init(args: argparse.Namespace) -> None:
     """Initialize configuration file by copying from evalyn.yaml.example."""
-    output_path = Path(args.output)
+    target_dir = Path(args.dir) if getattr(args, "dir", None) else Path.cwd()
+    target_dir.mkdir(parents=True, exist_ok=True)
+    output_path = target_dir / args.output
 
     if output_path.exists() and not args.force:
         fatal_error(f"{output_path} already exists", "Use --force to overwrite")
@@ -318,6 +320,11 @@ def register_commands(subparsers) -> None:
         "--output",
         default="evalyn.yaml",
         help="Output path for config file (default: evalyn.yaml)",
+    )
+    init_parser.add_argument(
+        "--dir",
+        default=None,
+        help="Directory to create config in (default: current directory)",
     )
     init_parser.add_argument(
         "--force", action="store_true", help="Overwrite existing config file"

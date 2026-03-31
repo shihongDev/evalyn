@@ -91,9 +91,13 @@ class CostAwareResult:
 
 
 def estimate_item_tokens(text: str) -> int:
-    """Approximate token count: ceil(len(text) / 4) for input + 300 for output."""
-    input_tokens = math.ceil(len(text) / 4)
-    return input_tokens + 300
+    """Approximate token count: ceil(len(text) / 4) for input + estimated output.
+
+    Output estimate scales with input: min 50 tokens, max 300, proportional.
+    """
+    input_tokens = max(1, math.ceil(len(text) / 4))
+    output_estimate = min(300, max(50, input_tokens))
+    return input_tokens + output_estimate
 
 
 def compute_item_costs(
@@ -134,8 +138,11 @@ def greedy_budget_selection(
     """Sort by cost ascending and greedily select items until budget exhausted.
 
     Maximizes item count within budget constraints. When both token and cost
-    budgets are unlimited (0), all items are selected.
+    budgets are zero, returns empty (zero budget means zero capacity).
+    Use negative values or very large values for unlimited.
     """
+    if budget.max_tokens == 0 and budget.max_cost == 0.0:
+        return []
     sorted_costs = sorted(costs, key=lambda c: c.estimated_cost)
     selected: List[str] = []
     running_tokens = 0

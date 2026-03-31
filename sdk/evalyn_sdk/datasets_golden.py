@@ -163,7 +163,10 @@ def create_golden_set(
 
 
 def add_to_golden_set(golden: GoldenSet, item: GoldenItem) -> GoldenSet:
-    """Add an item to a golden set. Returns a new set (does not mutate)."""
+    """Add an item to a golden set. Rejects duplicates. Returns a new set (does not mutate)."""
+    existing_ids = {i.id for i in golden.items}
+    if item.id in existing_ids:
+        raise ValueError(f"Duplicate item ID '{item.id}' in golden set '{golden.name}'")
     new_items = list(golden.items) + [item]
     return GoldenSet(
         name=golden.name,

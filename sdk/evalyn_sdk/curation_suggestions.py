@@ -82,12 +82,14 @@ class CurationReport:
     suggestions: List[CurationSuggestion] = field(default_factory=list)
     total_items: int = 0
     gaps_found: int = 0
+    gaps: List[CurationGap] = field(default_factory=list)
 
     def as_dict(self) -> Dict[str, Any]:
         return {
             "suggestions": [s.as_dict() for s in self.suggestions],
             "total_items": self.total_items,
             "gaps_found": self.gaps_found,
+            "gaps": [g.as_dict() for g in self.gaps],
         }
 
     @classmethod
@@ -98,6 +100,7 @@ class CurationReport:
             ],
             total_items=data.get("total_items", 0),
             gaps_found=data.get("gaps_found", 0),
+            gaps=[CurationGap.from_dict(g) for g in data.get("gaps", [])],
         )
 
 
@@ -458,6 +461,7 @@ def generate_curation_report(
         suggestions=suggestions,
         total_items=len(items),
         gaps_found=len(all_gaps),
+        gaps=all_gaps,
     )
 
 

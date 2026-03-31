@@ -108,10 +108,13 @@ class LocaleResult:
 
 
 def detect_locale(text: str) -> str:
-    """Heuristic language detection based on Unicode character ranges.
+    """Heuristic language detection based on Unicode ranges and Latin markers.
 
-    Checks for CJK/Hiragana/Katakana (ja), Hangul (ko), Cyrillic (ru),
-    Arabic (ar), Devanagari (hi). Falls back to "en".
+    Checks for CJK/Hiragana/Katakana (ja/zh), Hangul (ko), Cyrillic (ru),
+    Arabic (ar), Devanagari (hi), Thai (th), Greek (el).
+    For Latin-script text, uses accented character and common word markers
+    to distinguish French, Spanish, German, Portuguese, Italian, and Dutch.
+    Falls back to "en".
 
     Args:
         text: Input text to analyze.
@@ -122,9 +125,12 @@ def detect_locale(text: str) -> str:
     counts: Dict[str, int] = {
         "ko": 0,
         "ja": 0,
+        "zh": 0,
         "ru": 0,
         "ar": 0,
         "hi": 0,
+        "th": 0,
+        "el": 0,
     }
 
     for ch in text:
@@ -132,9 +138,12 @@ def detect_locale(text: str) -> str:
         # Korean Hangul: Jamo, Syllables, Compatibility Jamo
         if (0xAC00 <= cp <= 0xD7AF) or (0x1100 <= cp <= 0x11FF) or (0x3130 <= cp <= 0x318F):
             counts["ko"] += 1
-        # CJK Unified Ideographs + Hiragana + Katakana -> ja
-        elif (0x4E00 <= cp <= 0x9FFF) or (0x3040 <= cp <= 0x309F) or (0x30A0 <= cp <= 0x30FF):
+        # Hiragana + Katakana -> ja
+        elif (0x3040 <= cp <= 0x309F) or (0x30A0 <= cp <= 0x30FF):
             counts["ja"] += 1
+        # CJK Unified Ideographs -> zh (unless ja already has kana)
+        elif 0x4E00 <= cp <= 0x9FFF:
+            counts["zh"] += 1
         # Cyrillic
         elif 0x0400 <= cp <= 0x04FF:
             counts["ru"] += 1
@@ -144,10 +153,39 @@ def detect_locale(text: str) -> str:
         # Devanagari
         elif 0x0900 <= cp <= 0x097F:
             counts["hi"] += 1
+        # Thai
+        elif 0x0E00 <= cp <= 0x0E7F:
+            counts["th"] += 1
+        # Greek
+        elif 0x0370 <= cp <= 0x03FF:
+            counts["el"] += 1
+
+    # If CJK chars present with kana, it's Japanese
+    if counts["ja"] > 0 and counts["zh"] > 0:
+        counts["ja"] += counts["zh"]
+        counts["zh"] = 0
 
     best = max(counts, key=lambda k: counts[k])
     if counts[best] > 0:
         return best
+
+    # Latin-script language detection via common word markers
+    lower = text.lower()
+    _LANG_MARKERS: Dict[str, List[str]] = {
+        "fr": ["le ", "la ", "les ", "des ", "est ", "une ", "dans ", "pour ", "avec ", "que "],
+        "es": [" el ", " la ", " los ", " las ", " es ", " una ", " del ", " por ", " con ", " que "],
+        "de": [" der ", " die ", " das ", " und ", " ist ", " ein ", " mit ", " den ", " von "],
+        "pt": [" o ", " os ", " uma ", " com ", " para ", " que ", " mais ", " por "],
+        "it": [" il ", " la ", " che ", " per ", " con ", " una ", " del ", " sono "],
+        "nl": [" de ", " het ", " een ", " van ", " en ", " is ", " dat ", " niet "],
+    }
+    marker_hits: Dict[str, int] = {}
+    for lang, markers in _LANG_MARKERS.items():
+        marker_hits[lang] = sum(1 for m in markers if m in lower)
+
+    best_lang = max(marker_hits, key=lambda k: marker_hits[k])
+    if marker_hits[best_lang] >= 3:
+        return best_lang
     return "en"
 
 

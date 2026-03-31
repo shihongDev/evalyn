@@ -48,7 +48,9 @@ def import_annotations(path: str | Path) -> List[Annotation]:
                             )
                         )
                 else:
-                    # Old format
+                    # Annotation format - auto-generate id if missing
+                    if "id" not in data:
+                        data["id"] = str(uuid.uuid4())
                     annotations.append(Annotation.from_dict(data))
     return annotations
 

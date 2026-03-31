@@ -206,10 +206,22 @@ def apply_truncation(
         first_part = text[:keep_first] if keep_first > 0 else ""
         last_part = text[-keep_last:] if keep_last > 0 else ""
         result = first_part + marker + last_part
-        # If the assembled result is longer than max_len, hard-truncate
+        # If the assembled result is longer than max_len, trim while
+        # preserving both first and last portions as much as possible
         if len(result) > max_len:
-            if max_len > len(marker):
-                return text[:max_len - len(marker)] + marker
+            available = max_len - len(marker)
+            if available >= keep_first + keep_last and keep_first + keep_last > 0:
+                first_part = text[:keep_first]
+                last_part = text[-keep_last:]
+                return first_part + marker + last_part
+            elif available > 0 and keep_last > 0:
+                # Prioritize showing some of both ends
+                half = available // 2
+                first_n = max(1, half)
+                last_n = max(1, available - first_n)
+                return text[:first_n] + marker + text[-last_n:]
+            elif available > 0:
+                return text[:available] + marker
             return text[:max_len]
         return result
 

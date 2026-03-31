@@ -42,6 +42,10 @@ class AggregationQuery:
     date_from: str = ""
     date_to: str = ""
 
+    def __post_init__(self) -> None:
+        if isinstance(self.group_by, str):
+            self.group_by = [self.group_by]
+
     def as_dict(self) -> Dict[str, Any]:
         return {
             "group_by": list(self.group_by),

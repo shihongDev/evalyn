@@ -613,7 +613,7 @@ def calibrate_metric(
     This is the typed API for calibration used by both the CLI and pipeline.
     It loads the run, annotations, and dataset, runs calibration, and saves outputs.
     """
-    # Build a minimal namespace for existing helper compatibility
+    # Build a namespace with all attributes that helpers expect
     args = argparse.Namespace(
         metric_id=metric_id,
         annotations=annotations_path,
@@ -629,6 +629,39 @@ def calibrate_metric(
         format="table",
         verbose=verbose,
         quiet=False,
+        # GEPA defaults
+        gepa_task_lm="gemini/gemini-2.5-flash",
+        gepa_reflection_lm="gemini/gemini-2.5-flash",
+        gepa_max_calls=150,
+        # OPRO defaults
+        opro_iterations=10,
+        opro_candidates=4,
+        opro_optimizer_model="gemini-2.5-flash",
+        opro_scorer_model="gemini-2.5-flash-lite",
+        # APE defaults
+        ape_candidates=10,
+        ape_rounds=5,
+        ape_samples=5,
+        # GEPA-Native defaults
+        gepa_native_task_model="gemini-2.5-flash",
+        gepa_native_reflection_model="gemini-2.5-flash",
+        gepa_native_max_calls=150,
+        gepa_native_initial_candidates=5,
+        gepa_native_batch_size=5,
+        # EvoPrompt defaults
+        evo_population=8,
+        evo_generations=5,
+        evo_mutation_rate=0.3,
+        # TextGrad defaults
+        textgrad_iterations=8,
+        textgrad_threshold=0.01,
+        # MIPROv2 defaults
+        mipro_instructions=6,
+        mipro_demos=3,
+        mipro_eval_samples=10,
+        # PromptBreeder defaults
+        pb_population=6,
+        pb_generations=5,
     )
 
     _, run = _load_calibration_run(args)

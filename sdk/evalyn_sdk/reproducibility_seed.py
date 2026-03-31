@@ -113,8 +113,10 @@ class SeededRandom:
 # ---------------------------------------------------------------------------
 
 
-def create_seeded_rng(seed: int) -> SeededRandom:
-    """Create a SeededRandom instance from a given seed."""
+def create_seeded_rng(seed: "int | SeedConfig") -> SeededRandom:
+    """Create a SeededRandom instance from an int seed or SeedConfig."""
+    if isinstance(seed, SeedConfig):
+        seed = seed.seed
     return SeededRandom(seed)
 
 

@@ -303,8 +303,8 @@ class TestTransferBatch:
         with pytest.raises(ValueError, match="Unknown domain"):
             transfer_batch(["hello"], config)
 
-    def test_unknown_source_domain_raises(self):
-        config = TransferConfig("nonexistent", "medical")
+    def test_unknown_target_domain_raises(self):
+        config = TransferConfig("medical", "nonexistent")
         with pytest.raises(ValueError, match="Unknown domain"):
             transfer_batch(["hello"], config)
 
