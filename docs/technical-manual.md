@@ -689,8 +689,11 @@ data/test/traces.sqlite   # Test traces (when EVALYN_ENV=test)
 
 Override with:
 ```python
-from evalyn_sdk import configure
-configure(storage_path="/custom/path/traces.sqlite")
+from evalyn_sdk import configure_tracer
+from evalyn_sdk.trace.tracer import EvalTracer
+from evalyn_sdk.storage.sqlite import SQLiteStorage
+
+configure_tracer(EvalTracer(SQLiteStorage("/custom/path/traces.sqlite")))
 ```
 
 ---
@@ -716,7 +719,7 @@ configure(storage_path="/custom/path/traces.sqlite")
 │   - token_count         │     │   - toxicity            │
 │   - json_valid          │     │   - hallucination       │
 │   - bleu, rouge, etc.   │     │   - coherence, etc.     │
-│   (73 metrics total)    │     │   (62 metrics total)    │
+│   (76 metrics total)    │     │   (60 metrics total)    │
 └─────────────────────────┘     └─────────────────────────┘
 ```
 
@@ -732,7 +735,7 @@ configure(storage_path="/custom/path/traces.sqlite")
 | Mode | Description | Output |
 |------|-------------|--------|
 | `basic` | Heuristic based on function signature | Objective + Subjective |
-| `llm-registry` | LLM selects from 130+ templates | Objective + Subjective |
+| `llm-registry` | LLM selects from 136 built-in templates | Objective + Subjective |
 | `llm-brainstorm` | LLM generates custom metrics | **Subjective only** |
 | `bundle` | Pre-configured sets (17 bundles) | Objective + Subjective |
 
@@ -814,7 +817,7 @@ confidence = max(pass_count, fail_count) / total_samples
 ```
 Higher agreement across samples = higher confidence.
 
-The confidence module (`evalyn_sdk/confidence/`) provides:
+The confidence module (`evalyn_sdk/judges/confidence/`) provides:
 - `LogprobsConfidence`: Token probability-based (OpenAI/Ollama only)
 - `DeepConfConfidence`: Meta AI's DeepConf with bottom-10%/tail strategies (OpenAI only)
 - `SelfConsistencyConfidence`: Multi-sample agreement
@@ -1451,8 +1454,8 @@ evalyn/
 │       │   ├── sqlite.py        # SQLiteStorage
 │       │   └── migrations.py    # Schema version upgrades
 │       ├── metrics/
-│       │   ├── objective.py     # 73 objective metric templates + handlers
-│       │   ├── subjective.py    # 62 subjective metric definitions
+│       │   ├── objective.py     # 76 objective metric templates + handlers
+│       │   ├── subjective.py    # 60 subjective metric definitions
 │       │   ├── factory.py       # Metric builders
 │       │   └── suggester.py     # Metric suggestion logic
 │       ├── judges/
@@ -1748,7 +1751,7 @@ Configuration references, versioning, tutorials, and miscellaneous.
 | `OPENAI_API_KEY` | - | OpenAI API key (alternative) |
 | `EVALYN_DB` | - | Override database path |
 | `EVALYN_OTEL_ENDPOINT` | - | OpenTelemetry endpoint URL |
-| `EVALYN_OTEL` | `off` | Enable OpenTelemetry spans |
+| `EVALYN_OTEL` | `on` | Enable OpenTelemetry spans |
 | `EVALYN_OTEL_SERVICE` | `evalyn` | OTel service name |
 | `EVALYN_OTEL_EXPORTER` | `sqlite` | OTel exporter type |
 

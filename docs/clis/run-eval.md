@@ -28,6 +28,7 @@ evalyn run-eval --latest [OPTIONS]
 | `--confidence-samples` | 3 | Number of samples for consistency method |
 | `--unit-types` | outcome | Evaluation unit types (comma-separated) |
 | `--span-types` | - | Filter spans by type (comma-separated) |
+| `--verbose`, `-v` | false | Show detailed cost breakdown by metric |
 
 ## Evaluation Unit Types
 
@@ -136,13 +137,13 @@ The `--confidence` flag adds confidence scores to judge evaluations:
 | `none` (default) | No confidence estimation | - |
 | `consistency` | Run judge N times with temp=0.7, measure agreement | Any provider |
 | `logprobs` | Use mean of token log probabilities | OpenAI or Ollama only |
-| `deepconf` | Meta AI's DeepConf with bottom-10% aggregation | OpenAI only (best) |
+| `deepconf` | Meta AI's DeepConf with bottom-10% aggregation | OpenAI or Ollama (best) |
 
 **Consistency method**: Higher agreement across samples = higher confidence. Costs N API calls per item.
 
 **Logprobs method**: Uses mean token-level probabilities from the LLM. Single API call.
 
-**DeepConf method**: Uses bottom-10% of token confidences instead of mean. Better at detecting incorrect reasoning. Based on Meta AI's "Deep Think with Confidence" (arXiv:2508.15260). OpenAI only: Ollama does not expose token-level logprobs.
+**DeepConf method**: Uses bottom-10% of token confidences instead of mean. Better at detecting incorrect reasoning. Based on Meta AI's "Deep Think with Confidence" (arXiv:2508.15260). Requires OpenAI or Ollama (Gemini is not supported).
 
 Confidence scores (0.0-1.0) appear in the `details.confidence` field of each metric result.
 

@@ -2,7 +2,7 @@
 
 **Local-first evaluation framework for LLM agents**
 
-Evalyn makes GenAI app evaluation practical and easy. Trace LLM calls, evaluate with 130+ metrics, calibrate judges with human feedback - all running locally on your machine. Ships with 579 modules covering sampling, simulation, security, and reporting.
+Evalyn makes GenAI app evaluation practical and easy. Trace LLM calls, evaluate with 136 built-in metrics, calibrate judges with human feedback - all running locally on your machine. Ships with 579 modules covering sampling, simulation, security, and reporting.
 
 ## Why Evalyn?
 
@@ -10,8 +10,8 @@ Evalyn makes GenAI app evaluation practical and easy. Trace LLM calls, evaluate 
 |---|---|
 | **Fully Local** | All data stays on your machine. SQLite storage, no cloud dependencies. |
 | **Easy Onboarding** | Just `import evalyn_sdk` - LLM calls auto-captured with tokens & cost. |
-| **Metric Bank** | 130+ built-in metrics (73 objective, 60 LLM judges). |
-| **Auto Calibration** | 6 optimizers (GEPA, EvoPrompt, TextGrad, MIPROv2, PromptBreeder, CAPO) align LLM judges with human feedback. |
+| **Metric Bank** | 136 built-in metrics (76 objective, 60 LLM judges) - including audio, image, and video evaluation. |
+| **Auto Calibration** | 9 optimizers (GEPA, APE, OPRO, EvoPrompt, TextGrad, MIPROv2, PromptBreeder, and more) align LLM judges with human feedback. |
 | **Sampling** | 24 strategies - adversarial, drift-aware, curriculum, importance, coverage, and more. |
 | **Simulation** | 14 generators for multi-turn, adversarial, regression, and domain-transfer scenarios. |
 | **Security** | PII detection, trace redaction, compliance reports, audit trails, secrets management. |
@@ -97,9 +97,7 @@ dataset     insights     failures
 | Cost/coverage | cost-aware, coverage, coreset, reservoir |
 | Domain-specific | adversarial, locale, metadata-conditional, similarity |
 
-```bash
-evalyn sample --strategy drift --dataset data/prod/datasets/myapp-*/dataset.jsonl
-```
+Sampling is available programmatically via the `evalyn_sdk.sampling` module.
 
 ## Simulation
 
@@ -114,13 +112,7 @@ Modes: multi-turn, adversarial, regression, domain-transfer, conditional, struct
 
 ## Security and Governance
 
-```bash
-evalyn pii-check --dataset data/prod/datasets/myapp-*/dataset.jsonl
-evalyn compliance-report --project myapp
-evalyn trace-redact --project myapp --patterns ssn,email
-```
-
-Built-in: PII detection, trace redaction, compliance reports, execution audit, audit trails, data governance policies, secrets backend.
+Built-in modules for PII detection, trace redaction, compliance reports, execution audit, audit trails, data governance policies, and secrets backend.
 
 ## Key Commands
 
@@ -137,16 +129,14 @@ Built-in: PII detection, trace redaction, compliance reports, execution audit, a
 | `evalyn insights --latest --format html` | Interactive HTML dashboard |
 | `evalyn annotate --latest` | Human annotation |
 | `evalyn calibrate --metric-id X` | Calibrate LLM judges |
-| `evalyn sample --strategy X` | Apply sampling strategy |
 | `evalyn simulate --mode X` | Generate synthetic data |
-| `evalyn pii-check --dataset D` | Scan for PII |
-| `evalyn compliance-report` | Generate compliance report |
-| `evalyn doctor` | Diagnose environment issues |
-| `evalyn watch --project X` | Watch mode with auto-rerun |
+| `evalyn dashboard --latest` | Open interactive HTML dashboard |
+| `evalyn quickstart` | Guided first-run setup |
+| `evalyn workflow` | Show evaluation workflow and next steps |
 
 ## Supported Frameworks
 
-Auto-instrumentation for: **OpenAI**, **Anthropic**, **Google Gemini**, **LangChain**, **CrewAI**, **AutoGen**, **DSPy**, **Haystack**, **LlamaIndex**, **Semantic Kernel**
+Auto-instrumentation for: **OpenAI**, **Anthropic**, **Google Gemini**, **xAI**, **LangChain**, **LangGraph**, **Google ADK**, **Claude Agent SDK**, **CrewAI**, **AutoGen**, **DSPy**, **Haystack**, **LlamaIndex**, **Semantic Kernel**
 
 ## Optional Extras
 
@@ -173,7 +163,7 @@ Evalyn includes [Claude Code skills](https://github.com/shihongDev/evalyn) that 
 
 ```bash
 # Install skills
-cp -r skills/evalyn-* ~/.claude/skills/
+cp -r sdk/skills/evalyn-* ~/.claude/skills/
 ```
 
 Then in Claude Code: *"Help me evaluate my agent"* - Claude handles the rest.

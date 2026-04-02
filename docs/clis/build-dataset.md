@@ -23,6 +23,10 @@ evalyn build-dataset [OPTIONS]
 | `--since DATE` | - | Filter traces after date (ISO format) |
 | `--until DATE` | - | Filter traces before date (ISO format) |
 | `--include-errors` | false | Include errored calls |
+| `--deduplicate` | false | Remove near-duplicate inputs before sampling |
+| `--dedup-threshold FLOAT` | 0.95 | Cosine similarity threshold for deduplication |
+| `--n-clusters INT` | 10 | Number of clusters for `clustered` mode |
+| `--seed INT` | 42 | Random seed for reproducible sampling |
 
 ## Output Structure
 

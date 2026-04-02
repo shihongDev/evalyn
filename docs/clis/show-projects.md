@@ -17,11 +17,16 @@ evalyn show-projects
 
 ## Output
 
-Shows for each project:
-- Project name
-- Number of traces
-- Versions available
-- Date range of traces
+Displays a pipe-delimited table with columns:
+
+| Column | Description |
+|--------|-------------|
+| project | Project name |
+| version | Version from metadata |
+| calls | Total number of traces |
+| errors | Number of traces with errors |
+| first | Earliest trace timestamp |
+| last | Latest trace timestamp |
 
 ## Examples
 
@@ -33,20 +38,10 @@ evalyn show-projects
 ## Sample Output
 
 ```
-PROJECT SUMMARY
-===============
-
-gemini-deep-research-agent
-  Versions: v1, v2
-  Traces: 156
-  First: 2025-01-10 10:23:45
-  Last:  2025-01-15 08:14:03
-
-my-chatbot
-  Versions: v1
-  Traces: 42
-  First: 2025-01-12 14:30:00
-  Last:  2025-01-14 16:45:22
+project | version | calls | errors | first | last
+------------------------------------------------------------------------------------------------------------------------
+gemini-deep-research-agent | v1 | 156 | 2 | 2025-01-10 10:23:45 | 2025-01-15 08:14:03
+my-chatbot | v1 | 42 | 0 | 2025-01-12 14:30:00 | 2025-01-14 16:45:22
 ```
 
 ## See Also

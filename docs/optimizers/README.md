@@ -43,7 +43,10 @@ Evalyn provides multiple prompt optimization algorithms for calibrating LLM judg
 | [GEPA-Native](gepa.md) | Pareto-based evolution | Medium-High | Yes | Complex rubrics, when diversity matters |
 | [OPRO](opro.md) | Trajectory-based search | Medium | Yes | Iterative refinement, finding local optima |
 | [APE](ape.md) | UCB bandit search | Medium | Yes | Exploration vs exploitation tradeoff |
-| [CAPO](capo.md) | Confidence-aware evolutionary | None (no LLM calls) | N/A | Pure Python optimization, no API cost |
+| EvoPrompt | Population-based mutation/crossover | Medium | Yes | Diverse candidate exploration |
+| TextGrad | Iterative critique-revise loop | Medium | Yes | Targeted incremental improvement |
+| MIPROv2 | Joint instruction + few-shot demo | Medium-High | Yes | Rubrics that benefit from examples |
+| PromptBreeder | Self-referential prompt evolution | Medium-High | Yes | Novel rubric strategies |
 | GEPA (external) | Evolutionary reflection | Medium-High | No | Legacy - use gepa-native instead |
 
 ## Cost & Performance
@@ -61,7 +64,7 @@ Note: GEPA requires external dependencies and is not benchmarked here.
 **Token usage scaling:**
 - LLM: Fixed cost, regardless of dataset size
 - OPRO: `O(iterations x candidates x (samples + context))`
-- APE: `O(candidates x rounds x samples)
+- APE: `O(candidates x rounds x samples)`
 
 ## Metric Structure
 
@@ -103,6 +106,18 @@ evalyn calibrate --optimizer opro --metric-id helpfulness --annotations data/ann
 
 # APE optimizer
 evalyn calibrate --optimizer ape --metric-id helpfulness --annotations data/annotations.jsonl
+
+# EvoPrompt optimizer
+evalyn calibrate --optimizer evoprompt --metric-id helpfulness --annotations data/annotations.jsonl
+
+# TextGrad optimizer
+evalyn calibrate --optimizer textgrad --metric-id helpfulness --annotations data/annotations.jsonl
+
+# MIPROv2 optimizer
+evalyn calibrate --optimizer miprov2 --metric-id helpfulness --annotations data/annotations.jsonl
+
+# PromptBreeder optimizer
+evalyn calibrate --optimizer promptbreeder --metric-id helpfulness --annotations data/annotations.jsonl
 
 # GEPA external (legacy - requires: pip install gepa)
 evalyn calibrate --optimizer gepa --metric-id helpfulness --annotations data/annotations.jsonl

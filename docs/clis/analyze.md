@@ -12,12 +12,12 @@ evalyn analyze --latest
 
 ## Options
 
-| Option | Description |
-|--------|-------------|
-| `--run ID` | Eval run ID to analyze |
-| `--dataset PATH` | Dataset path (uses latest run from eval_runs/) |
-| `--latest` | Use the most recently modified dataset |
-| `--format` | Output format: table (default) or json |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--run ID` | - | Eval run ID to analyze |
+| `--dataset PATH` | - | Dataset path (uses latest run from eval_runs/) |
+| `--latest` | false | Use the most recently modified dataset |
+| `--format` | table | Output format: table or json |
 
 ## Description
 
@@ -39,7 +39,7 @@ The `analyze` command provides insights from your evaluation results:
 Run ID:      abc123
 Dataset:     my-agent-v1
 Items:       50
-Started:     2024-01-15 10:30:00
+Created:     2024-01-15 10:30:00
 
 ======================================================================
   METRIC SUMMARY

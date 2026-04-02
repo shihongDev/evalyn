@@ -15,19 +15,24 @@ evalyn calibrate --metric-id <id> --annotations <file> [OPTIONS]
 | `--metric-id ID` | Required | Metric to calibrate |
 | `--annotations FILE` | Required | Annotations file (JSONL) |
 | `--run-id ID` | latest | Eval run ID to calibrate |
-| `--threshold N` | - | Current threshold for pass/fail |
+| `--threshold N` | 0.5 | Current threshold for pass/fail |
 | `--dataset PATH` | - | Dataset path (for prompt optimization) |
 | `--latest` | false | Use the most recently modified dataset |
 | `--no-optimize` | false | Skip prompt optimization, only compute metrics |
 | `--optimizer TYPE` | basic | Optimizer: `basic`, `ape`, `opro`, `gepa`, `gepa-native`, `evoprompt`, `textgrad`, `miprov2`, `promptbreeder` |
-| `--model MODEL` | - | LLM model for prompt optimization (llm mode) |
-| `--gepa-task-lm MODEL` | - | Task model for GEPA (model being optimized) |
-| `--gepa-reflection-lm MODEL` | - | Reflection model for GEPA (strong model for reflection) |
-| `--gepa-max-calls N` | - | Max metric calls budget for GEPA optimization |
+| `--model MODEL` | gemini-2.5-flash-lite | LLM model for prompt optimization (llm mode) |
+| `--gepa-task-lm MODEL` | gemini/gemini-2.5-flash | Task model for GEPA (model being optimized) |
+| `--gepa-reflection-lm MODEL` | gemini/gemini-2.5-flash | Reflection model for GEPA (strong model for reflection) |
+| `--gepa-max-calls N` | 150 | Max metric calls budget for GEPA optimization |
+| `--gepa-native-task-model MODEL` | gemini-2.5-flash | Task model for GEPA-native optimizer |
+| `--gepa-native-reflection-model MODEL` | gemini-2.5-flash | Reflection model for GEPA-native optimizer |
+| `--gepa-native-max-calls N` | 150 | Max calls for GEPA-native optimization |
+| `--gepa-native-initial-candidates N` | 5 | Initial candidates for GEPA-native |
+| `--gepa-native-batch-size N` | 5 | Batch size for GEPA-native evaluation |
 | `--opro-iterations N` | 10 | Max iterations for OPRO optimization |
 | `--opro-candidates N` | 4 | Candidate prompts per OPRO iteration |
-| `--opro-optimizer-model MODEL` | - | Model for generating OPRO candidates |
-| `--opro-scorer-model MODEL` | - | Model for scoring OPRO candidates |
+| `--opro-optimizer-model MODEL` | gemini-2.5-flash | Model for generating OPRO candidates |
+| `--opro-scorer-model MODEL` | gemini-2.5-flash-lite | Model for scoring OPRO candidates |
 | `--ape-candidates N` | 10 | Number of candidate prompts for APE |
 | `--ape-rounds N` | 5 | UCB evaluation rounds for APE |
 | `--ape-samples N` | 5 | Samples per candidate per APE round |
@@ -44,6 +49,7 @@ evalyn calibrate --metric-id <id> --annotations <file> [OPTIONS]
 | `--show-examples` | false | Show disagreement examples |
 | `--output FILE` | - | Save calibration record to file |
 | `--format FMT` | table | Output format: `table` or `json` |
+| `--verbose`, `-v` | false | Show detailed cost breakdown |
 
 ## Alignment Metrics
 

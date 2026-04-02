@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "evalyn-sdk"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local-first evaluation framework for LLM agents — tracing, metrics, calibration, and insights."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -67,6 +67,11 @@ clustering = [
 
 [project.scripts]
 evalyn = "evalyn_sdk.cli:main"
+
+[tool.pytest.ini_options]
+markers = [
+  "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
 
 [tool.setuptools.packages.find]
 include = ["evalyn_sdk*"]

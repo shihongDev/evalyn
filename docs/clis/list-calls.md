@@ -18,7 +18,7 @@ evalyn list-calls [OPTIONS]
 | `--project NAME` | - | Filter by project name |
 | `--function NAME` | - | Filter by function name (substring match) |
 | `--error-only` | false | Show only calls with errors |
-| `--sort FIELD` | -started_at | Sort by field: started_at, duration, function, status. Prefix with + for ascending, - for descending |
+| `--sort FIELD` | started_at | Sort by field: started_at, duration, function, status. Default order is descending. Prefix with + for ascending, - for descending |
 | `--format` | table | Output format: table or json |
 | `--production` | false | Show only production traces |
 | `--simulation` | false | Show only simulation traces |
@@ -31,7 +31,7 @@ evalyn list-calls [OPTIONS]
 | function | Function name |
 | project | Project name from metadata |
 | version | Version from metadata |
-| sim | Simulation indicator (S = simulation) |
+| sim | Simulation indicator (Y = simulation) |
 | status | OK or ERROR |
 | file | Source file path |
 | started_at | Start timestamp |
@@ -91,7 +91,7 @@ evalyn list-calls --format json
 id | function | project | version | sim | status | file | started_at | ended_at | duration_ms
 ------------------------------------------------------------------------------------------------------------
 47fe2576... | research_agent | my-agent | v1 |   | OK | agent.py | 2025-01-15 08:13:37 | 2025-01-15 08:14:03 | 25296.37
-1629e69e... | research_agent | my-agent | v1 | S | OK | agent.py | 2025-01-15 08:13:03 | 2025-01-15 08:13:29 | 26186.39
+1629e69e... | research_agent | my-agent | v1 | Y | OK | agent.py | 2025-01-15 08:13:03 | 2025-01-15 08:13:29 | 26186.39
 
 Showing 2 of 10 calls (8 more available)
 ```

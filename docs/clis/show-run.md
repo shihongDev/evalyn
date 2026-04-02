@@ -15,6 +15,7 @@ evalyn show-run --id <run_id>
 | `--id ID` | - | The run ID to display |
 | `--last` | false | Show the most recent eval run |
 | `--format FMT` | table | Output format: `table` or `json` |
+| `--verbose`, `-v` | false | Show detailed cost breakdown by metric |
 
 One of `--id` or `--last` is required.
 

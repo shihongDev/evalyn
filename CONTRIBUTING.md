@@ -4,14 +4,14 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/anthropics/evalyn.git
+git clone https://github.com/shihongDev/evalyn.git
 cd evalyn
 
 # Install uv if not already installed
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Create virtual environment and install
-uv venv --python 3.11
+uv venv --python 3.10
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv pip install -e "./sdk[dev,llm]"
 
@@ -121,13 +121,13 @@ evalyn/
 │   │   │   │   ├── export.py       # export (json/csv/md/html), export-for-annotation
 │   │   │   │   ├── annotation.py   # annotate, import-annotations, annotation-stats
 │   │   │   │   ├── calibration.py  # calibrate, list-calibrations
-│   │   │   │   ├── evaluation.py   # run-eval, build-dataset
+│   │   │   │   ├── evaluation.py   # run-eval, suggest-metrics, select-metrics, list-metrics
 │   │   │   │   ├── simulate.py     # simulate
 │   │   │   │   ├── dashboard.py    # dashboard
 │   │   │   │   ├── dataset.py      # dataset management commands
 │   │   │   │   ├── insights.py     # insights
-│   │   │   │   ├── infrastructure.py # doctor, config, init
-│   │   │   │   ├── quickstart.py   # quickstart, workflow
+│   │   │   │   ├── infrastructure.py # init, one-click, workflow
+│   │   │   │   ├── quickstart.py   # quickstart
 │   │   │   │   └── clustering.py   # cluster-failures, cluster-misalignments
 │   │   │   └── utils/              # 17 CLI utility modules
 │   │   │       ├── formatters.py   # print_table, format_cost, output_json

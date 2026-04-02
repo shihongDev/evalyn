@@ -15,7 +15,7 @@ Evalyn focuses on making GenAI App evaluation practical and easy. It provides li
 | | |
 |---|---|
 | **Fully Local** | All data stays on your machine. SQLite storage, no cloud dependencies. |
-| **Easy Onboarding** | Just `import evalyn_sdk` — LLM calls auto-captured with tokens & cost. |
+| **Easy Onboarding** | Just `import evalyn_sdk` - LLM calls auto-captured with tokens & cost. |
 | **Metric Bank** | 136 built-in metrics (76 objective, 60 LLM judges) - including audio, image, and video evaluation. Community contributions welcome. |
 | **Auto Calibration** | 9 calibration optimizers (GEPA, APE, OPRO, EvoPrompt, TextGrad, MIPROv2, PromptBreeder, and more) plus active learning, curriculum learning, ensemble fusion, and sensitivity analysis. |
 | **14 Instrumentors** | Auto-captures OpenAI, Anthropic, Gemini, xAI, LangChain, LangGraph, Google ADK, Claude Agent SDK, CrewAI, AutoGen, DSPy, Haystack, LlamaIndex, Semantic Kernel. |

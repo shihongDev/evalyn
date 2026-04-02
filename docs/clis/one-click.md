@@ -19,7 +19,7 @@ evalyn one-click --project <name> [OPTIONS]
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--target SPEC` | - | Target function (for simulation) |
-| `--version V` | prompt | Version filter (prompts if multiple) |
+| `--version V` | - | Version filter (prompts if multiple) |
 | `--output-dir PATH` | auto | Custom output directory |
 | `--resume` | false | Resume from previous incomplete run |
 | `--auto-yes` | false | Skip all confirmation prompts |
@@ -64,7 +64,7 @@ evalyn one-click --project <name> [OPTIONS]
 | `--enable-simulation` | false | Enable simulation step |
 | `--simulation-modes M` | similar | Modes to run |
 | `--num-similar N` | 3 | Similar queries per seed |
-| `--num-outlier N` | 1 | Outlier queries per seed |
+| `--num-outlier N` | 2 | Outlier queries per seed |
 | `--max-sim-seeds N` | 10 | Max seeds for simulation |
 
 ## Pipeline Steps
