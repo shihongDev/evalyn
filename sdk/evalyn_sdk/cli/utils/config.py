@@ -13,6 +13,10 @@ from ..constants import DEFAULT_CONFIG_PATHS
 # Cache for project root to avoid repeated filesystem lookups
 _project_root_cache: Optional[Path] = None
 
+# Cache for loaded config (read once per process - config doesn't change during a CLI session)
+_UNSET = object()
+_config_cache: Any = _UNSET
+
 
 def find_project_root(cwd: Optional[Path] = None) -> Path:
     """Find the project root directory.
@@ -88,9 +92,18 @@ def _expand_env_vars(value: Any) -> Any:
 def load_config() -> Dict[str, Any]:
     """Load configuration from evalyn.yaml or .evalynrc if present.
 
+    The result is cached for the lifetime of the process because the config
+    file does not change during a single CLI session. This avoids redundant
+    disk I/O and YAML parsing when multiple code-paths call load_config()
+    (typically 3-5 times per command invocation).
+
     Raises:
         ValueError: If config file exists but cannot be parsed
     """
+    global _config_cache
+    if _config_cache is not _UNSET:
+        return _config_cache
+
     for config_path in DEFAULT_CONFIG_PATHS:
         path = Path(config_path)
         if path.exists():
@@ -100,16 +113,28 @@ def load_config() -> Dict[str, Any]:
                 with open(path, encoding="utf-8") as f:
                     config = yaml.safe_load(f) or {}
                     config = _expand_env_vars(config)
+                    _config_cache = config
                     return config
             except ImportError:
                 # YAML not available, try JSON
                 with open(path, encoding="utf-8") as f:
                     config = json.load(f)
                     config = _expand_env_vars(config)
+                    _config_cache = config
                     return config
             except Exception as e:
                 raise ValueError(f"Failed to parse config file {path}: {e}") from e
+    _config_cache = {}
     return {}
+
+
+def clear_config_cache() -> None:
+    """Reset the config cache so the next load_config() re-reads from disk.
+
+    Useful in tests or when the config file is modified at runtime.
+    """
+    global _config_cache
+    _config_cache = _UNSET
 
 
 def get_config_default(config: Dict[str, Any], *keys: str, default: Any = None) -> Any:
@@ -185,6 +210,7 @@ __all__ = [
     "find_project_root",
     "get_data_dir",
     "load_config",
+    "clear_config_cache",
     "get_config_default",
     "find_latest_dataset",
     "resolve_dataset_path",
