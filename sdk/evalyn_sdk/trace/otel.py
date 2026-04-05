@@ -92,34 +92,36 @@ class SQLiteSpanExporter:
                 cur.execute(f"ALTER TABLE otel_spans ADD COLUMN {col} {col_type}")
         self.conn.commit()
 
+    @staticmethod
+    def _format_id(value, width: int) -> str | None:
+        """Format a trace/span ID to a hex string of the given width."""
+        if value is None:
+            return None
+        if hasattr(value, "hex"):
+            try:
+                return value.hex
+            except Exception:
+                pass
+        if isinstance(value, int):
+            return f"{value:0{width}x}"
+        if isinstance(value, str):
+            raw = value.strip().lower()
+            if raw.startswith("0x"):
+                raw = raw[2:]
+            if raw and all(c in "0123456789abcdef" for c in raw):
+                return raw.zfill(width)
+            return value
+        try:
+            return value.hex()
+        except Exception:
+            return str(value)
+
     def export(self, spans) -> None:
         import json
 
-        cur = self.conn.cursor()
+        fmt = self._format_id
+        rows = []
         for span in spans:
-
-            def _format_id(value, width: int) -> str | None:
-                if value is None:
-                    return None
-                if hasattr(value, "hex"):
-                    try:
-                        return value.hex
-                    except Exception:
-                        pass
-                if isinstance(value, int):
-                    return f"{value:0{width}x}"
-                if isinstance(value, str):
-                    raw = value.strip().lower()
-                    if raw.startswith("0x"):
-                        raw = raw[2:]
-                    if raw and all(c in "0123456789abcdef" for c in raw):
-                        return raw.zfill(width)
-                    return value
-                try:
-                    return value.hex()
-                except Exception:
-                    return str(value)
-
             attrs = dict(span.attributes) if getattr(span, "attributes", None) else {}
             events = [
                 {
@@ -133,37 +135,41 @@ class SQLiteSpanExporter:
             parent_span_id = None
             if getattr(span, "parent", None):
                 try:
-                    parent_span_id = _format_id(span.parent.span_id, 16)
+                    parent_span_id = fmt(span.parent.span_id, 16)
                 except Exception:
                     parent_span_id = None
             trace_id = None
             span_id = None
             if getattr(span, "context", None):
-                trace_id = _format_id(span.context.trace_id, 32)
-                span_id = _format_id(span.context.span_id, 16)
+                trace_id = fmt(span.context.trace_id, 32)
+                span_id = fmt(span.context.span_id, 16)
             status = getattr(getattr(span, "status", None), "status_code", None)
             if status is not None and hasattr(status, "name"):
                 status = status.name
-            cur.execute(
+            rows.append((
+                trace_id,
+                span_id,
+                parent_span_id,
+                call_id,
+                span.name,
+                getattr(span, "start_time", None),
+                getattr(span, "end_time", None),
+                status,
+                json.dumps(attrs, default=str),
+                json.dumps(events, default=str),
+            ))
+
+        if rows:
+            cur = self.conn.cursor()
+            cur.executemany(
                 """
                 INSERT OR REPLACE INTO otel_spans
                 (trace_id, span_id, parent_span_id, call_id, name, start_time, end_time, status, attributes, events)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (
-                    trace_id,
-                    span_id,
-                    parent_span_id,
-                    call_id,
-                    span.name,
-                    getattr(span, "start_time", None),
-                    getattr(span, "end_time", None),
-                    status,
-                    json.dumps(attrs, default=str),
-                    json.dumps(events, default=str),
-                ),
+                rows,
             )
-        self.conn.commit()
+            self.conn.commit()
         return None
 
     def shutdown(self) -> None:
