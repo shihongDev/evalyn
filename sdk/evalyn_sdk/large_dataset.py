@@ -7,11 +7,15 @@ Pure Python - handles large JSONL files without loading everything into memory.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
+import tempfile
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterator, List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -139,21 +143,47 @@ def stream_dataset(file_path: str, chunk_size: int = 100) -> Iterator[list[dict]
 
 
 def save_checkpoint(state: CheckpointState) -> None:
-    """Write checkpoint state as JSON to state.checkpoint_path."""
+    """Write checkpoint state atomically via temp file + rename.
+
+    A direct open("w") would truncate the existing checkpoint to zero bytes
+    immediately. If the process crashes during json.dump, the checkpoint is
+    lost. Instead we write to a temp file, fsync, then atomic-rename.
+    """
     parent = os.path.dirname(state.checkpoint_path)
     if parent:
         os.makedirs(parent, exist_ok=True)
-    with open(state.checkpoint_path, "w", encoding="utf-8") as fh:
-        json.dump(state.as_dict(), fh)
+    temp_fd, temp_path = tempfile.mkstemp(
+        dir=parent or ".",
+        prefix=".checkpoint_",
+        suffix=".tmp",
+    )
+    try:
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as fh:
+            json.dump(state.as_dict(), fh)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(temp_path, state.checkpoint_path)
+    except Exception:
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+        raise
 
 
 def load_checkpoint(checkpoint_path: str) -> Optional[CheckpointState]:
-    """Load a checkpoint from disk. Return None if file does not exist."""
+    """Load a checkpoint from disk. Return None if file does not exist.
+
+    If the checkpoint is corrupted (partial write from a previous crash),
+    logs a warning and returns None so the caller can start fresh.
+    """
     if not os.path.exists(checkpoint_path):
         return None
-    with open(checkpoint_path, "r", encoding="utf-8") as fh:
-        data = json.load(fh)
-    return CheckpointState.from_dict(data)
+    try:
+        with open(checkpoint_path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        return CheckpointState.from_dict(data)
+    except (json.JSONDecodeError, KeyError, ValueError) as e:
+        logger.warning("Checkpoint corrupted, starting fresh: %s", e)
+        return None
 
 
 def should_checkpoint(processed: int, interval: int) -> bool:
