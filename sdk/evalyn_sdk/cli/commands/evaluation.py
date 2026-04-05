@@ -587,12 +587,12 @@ def _save_eval_run_and_report(
         generate_html_report,
     )
 
-    run_folder = save_eval_run_json(run, dataset_dir)
+    run_data = run.as_dict()  # serialize once, reuse for both file and analysis
+    run_folder = save_eval_run_json(run, dataset_dir, _precomputed_dict=run_data)
     results_path = run_folder / "results.json"
     analysis = None
 
     try:
-        run_data = run.as_dict()
         analysis = analyze_run_data(run_data)
         item_details = {}
         for item in dataset_list:

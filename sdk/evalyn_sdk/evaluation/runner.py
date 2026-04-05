@@ -492,6 +492,7 @@ def save_eval_run_json(
     dataset_dir: Union[str, Path],
     *,
     runs_subdir: str = "eval_runs",
+    _precomputed_dict: Optional[dict] = None,
 ) -> Path:
     """
     Save an EvalRun as JSON in a dedicated folder.
@@ -505,6 +506,8 @@ def save_eval_run_json(
         run: The EvalRun to save
         dataset_dir: Path to the dataset directory
         runs_subdir: Subdirectory name for eval runs (default: "eval_runs")
+        _precomputed_dict: Optional pre-computed run.as_dict() to avoid
+            redundant serialization when the caller also needs the dict.
 
     Returns:
         Path to the run folder (not the JSON file)
@@ -521,9 +524,10 @@ def save_eval_run_json(
     run_folder.mkdir(parents=True, exist_ok=True)
 
     # Save as results.json
+    data = _precomputed_dict if _precomputed_dict is not None else run.as_dict()
     results_path = run_folder / "results.json"
     results_path.write_text(
-        json.dumps(run.as_dict(), indent=2, ensure_ascii=False, default=str),
+        json.dumps(data, indent=2, ensure_ascii=False, default=str),
         encoding="utf-8",
     )
 
