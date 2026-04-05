@@ -117,20 +117,24 @@ class GeminiClient:
         self.model = model
         self.temperature = temperature
         self._api_key = api_key
+        self._resolved_key: Optional[str] = None
         self.timeout = timeout
 
     def _get_api_key(self) -> str:
-        """Get API key from instance, config, or environment."""
+        """Get API key from instance, config, or environment. Cached after first resolution."""
         if self._api_key:
             return self._api_key
+        if self._resolved_key:
+            return self._resolved_key
 
-        # Check YAML config
+        # Check YAML config (only on first call - result is cached)
         try:
             from ..cli.utils.config import get_config_default, load_config
 
             config = load_config()
             config_key = get_config_default(config, "api_keys", "gemini")
             if config_key:
+                self._resolved_key = config_key
                 return config_key
         except Exception:
             pass  # Config loading failed, fall back to env
@@ -141,6 +145,7 @@ class GeminiClient:
             raise RuntimeError(
                 "Missing GEMINI_API_KEY. Set in evalyn.yaml, environment variable, or pass api_key."
             )
+        self._resolved_key = key
         return key
 
     def generate(self, prompt: str, temperature: Optional[float] = None) -> str:
@@ -207,6 +212,9 @@ class GeminiClient:
         )
 
 
+_gemini_client_cache: dict[tuple[str, float], GeminiClient] = {}
+
+
 def call_gemini_api(
     prompt: str,
     model: str = "gemini-2.5-flash-lite",
@@ -214,6 +222,9 @@ def call_gemini_api(
     temperature: float = 0.0,
 ) -> str:
     """Convenience function to call Gemini API.
+
+    Reuses a cached client per (model, temperature) pair to avoid
+    repeated config file reads and object construction.
 
     Args:
         prompt: The prompt to send to the model
@@ -224,7 +235,11 @@ def call_gemini_api(
     Returns:
         The generated text response
     """
-    client = GeminiClient(model=model, api_key=api_key, temperature=temperature)
+    cache_key = (model, temperature)
+    client = _gemini_client_cache.get(cache_key)
+    if client is None or (api_key and client._api_key != api_key):
+        client = GeminiClient(model=model, api_key=api_key, temperature=temperature)
+        _gemini_client_cache[cache_key] = client
     return client.generate(prompt)
 
 
@@ -251,20 +266,24 @@ class OpenAIClient:
         self.model = model
         self.temperature = temperature
         self._api_key = api_key
+        self._resolved_key: Optional[str] = None
         self.timeout = timeout
 
     def _get_api_key(self) -> str:
-        """Get API key from instance, config, or environment."""
+        """Get API key from instance, config, or environment. Cached after first resolution."""
         if self._api_key:
             return self._api_key
+        if self._resolved_key:
+            return self._resolved_key
 
-        # Check YAML config
+        # Check YAML config (only on first call - result is cached)
         try:
             from ..cli.utils.config import get_config_default, load_config
 
             config = load_config()
             config_key = get_config_default(config, "api_keys", "openai")
             if config_key:
+                self._resolved_key = config_key
                 return config_key
         except Exception:
             pass  # Config loading failed, fall back to env
@@ -275,6 +294,7 @@ class OpenAIClient:
             raise RuntimeError(
                 "Missing OPENAI_API_KEY. Set in evalyn.yaml, environment variable, or pass api_key."
             )
+        self._resolved_key = key
         return key
 
     def _call_api(
