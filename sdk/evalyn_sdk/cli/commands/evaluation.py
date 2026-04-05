@@ -488,7 +488,8 @@ def _execute_run_eval(
 
             prepared = []
             for item in dataset_list:
-                call = tracer.storage.get_call(item.call_id) if item.call_id else None
+                call_id = item.metadata.get("call_id") if isinstance(item.metadata, dict) else None
+                call = tracer.storage.get_call(call_id) if call_id else None
                 if call:
                     prepared.append((item, call))
 
