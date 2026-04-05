@@ -314,6 +314,12 @@ class PipelineOrchestrator:
                 self.state.mark_step(step.name, result)
                 self.state.save(self.state_path)
 
+            if result.status == "failed":
+                msg = result.error or "unknown error"
+                raise RuntimeError(
+                    f"Step '{step.display_name}' failed: {msg}"
+                )
+
         except KeyboardInterrupt:
             print("\n  Step interrupted by user\n")
             if self.state:

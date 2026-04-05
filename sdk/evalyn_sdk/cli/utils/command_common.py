@@ -167,9 +167,17 @@ def resolve_call_id(
         if resolved:
             return resolved
         if strict_prefix_match:
+            # Differentiate ambiguous from not-found
+            if hasattr(storage, "count_call_prefix_matches"):
+                count = storage.count_call_prefix_matches(input_id)
+                if count > 1:
+                    fatal_error(
+                        f"Ambiguous ID '{input_id}' matches {count} calls",
+                        "Use more characters for a unique match",
+                    )
             fatal_error(
                 f"No call found matching '{input_id}'",
-                "Use more characters for a unique match",
+                "Check the ID and try again",
             )
     return input_id
 

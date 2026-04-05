@@ -506,6 +506,15 @@ class SQLiteStorage:
             return rows[0][0]
         return None  # Ambiguous or not found
 
+    def count_call_prefix_matches(self, short_id: str) -> int:
+        """Count how many call IDs match a given prefix."""
+        cur = self.get_connection().cursor()
+        cur.execute(
+            "SELECT COUNT(*) FROM function_calls WHERE id LIKE ?",
+            (short_id + "%",),
+        )
+        return cur.fetchone()[0]
+
     def resolve_eval_run_id(self, short_id: str) -> Optional[str]:
         """Resolve a short ID prefix to full eval run ID.
 

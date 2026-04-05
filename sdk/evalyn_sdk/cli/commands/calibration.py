@@ -58,11 +58,11 @@ from ..utils.ui import Spinner
 def _apply_calibration_config_defaults(args: argparse.Namespace, config: dict) -> None:
     """Apply config file defaults to calibration args."""
     # Basic calibration settings
-    if args.optimizer == "basic":  # Only override if still at default
+    if args.optimizer is None:
         args.optimizer = get_config_default(
             config, "calibration", "optimizer", default="basic"
         )
-    if args.threshold == 0.5:
+    if args.threshold is None:
         args.threshold = get_config_default(
             config, "calibration", "threshold", default=0.5
         )
@@ -690,17 +690,22 @@ def calibrate_metric(
 
 def cmd_calibrate(args: argparse.Namespace) -> None:
     """Calibrate a subjective metric using human annotations."""
-    calibrate_metric(
-        metric_id=args.metric_id,
-        annotations_path=args.annotations,
-        dataset_dir=getattr(args, "dataset", None) or "",
-        optimizer=getattr(args, "optimizer", "basic"),
-        model=getattr(args, "model", "gemini-2.5-flash-lite"),
-        threshold=getattr(args, "threshold", 0.5),
-        no_optimize=getattr(args, "no_optimize", False),
-        run_id=getattr(args, "run_id", None),
-        verbose=getattr(args, "verbose", False),
-    )
+    try:
+        calibrate_metric(
+            metric_id=args.metric_id,
+            annotations_path=args.annotations,
+            dataset_dir=getattr(args, "dataset", None) or "",
+            optimizer=getattr(args, "optimizer", "basic"),
+            model=getattr(args, "model", "gemini-2.5-flash-lite"),
+            threshold=getattr(args, "threshold", 0.5),
+            no_optimize=getattr(args, "no_optimize", False),
+            run_id=getattr(args, "run_id", None),
+            verbose=getattr(args, "verbose", False),
+        )
+    except FileNotFoundError as e:
+        fatal_error(str(e))
+    except ValueError as e:
+        fatal_error(str(e))
 
 
 def cmd_list_calibrations(args: argparse.Namespace) -> None:
@@ -822,7 +827,7 @@ def register_commands(subparsers) -> None:
         "--run-id", help="Eval run id to calibrate; defaults to latest run"
     )
     calibrate_parser.add_argument(
-        "--threshold", type=float, default=0.5, help="Current threshold for pass/fail"
+        "--threshold", type=float, default=None, help="Current threshold for pass/fail"
     )
     calibrate_parser.add_argument(
         "--dataset",
@@ -837,7 +842,7 @@ def register_commands(subparsers) -> None:
     calibrate_parser.add_argument(
         "--optimizer",
         choices=["basic", "gepa", "gepa-native", "opro", "ape", "evoprompt", "textgrad", "miprov2", "promptbreeder"],
-        default="basic",
+        default=None,
         help="Optimization method: 'basic' (single-shot), 'ape' (search), 'opro' (trajectory), 'evoprompt' (evolutionary), 'textgrad' (critique-revise), 'miprov2' (instruction+demo), 'promptbreeder' (self-referential)",
     )
     calibrate_parser.add_argument(

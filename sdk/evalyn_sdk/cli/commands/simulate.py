@@ -48,10 +48,10 @@ def run_simulation(
     target: str,
     output: str,
     *,
-    modes: str = "similar",
+    modes: str = "similar,outlier",
     num_similar: int = 3,
-    num_outlier: int = 2,
-    max_seeds: int = 10,
+    num_outlier: int = 1,
+    max_seeds: int = 50,
     model: str = "gemini-2.5-flash-lite",
     temp_similar: float = 0.3,
     temp_outlier: float = 0.8,
@@ -74,6 +74,16 @@ def run_simulation(
 
 def cmd_simulate(args: argparse.Namespace) -> None:
     """Generate synthetic test data using LLM-based user simulation."""
+    try:
+        _cmd_simulate_inner(args)
+    except FileNotFoundError as e:
+        fatal_error(str(e))
+    except ValueError as e:
+        fatal_error(str(e))
+
+
+def _cmd_simulate_inner(args: argparse.Namespace) -> None:
+    """Inner implementation of cmd_simulate."""
 
     # Resolve dataset path
     dataset_path = Path(args.dataset)
@@ -104,9 +114,15 @@ def cmd_simulate(args: argparse.Namespace) -> None:
             print("Simulation will generate queries only (no agent execution)")
 
     # Parse modes
-    modes = [m.strip() for m in args.modes.split(",")]
+    raw_modes = [m.strip() for m in args.modes.split(",")]
     valid_modes = {"similar", "outlier"}
-    modes = [m for m in modes if m in valid_modes]
+    invalid_modes = [m for m in raw_modes if m and m not in valid_modes]
+    if invalid_modes:
+        fatal_error(
+            f"Invalid simulation mode(s): {', '.join(invalid_modes)}",
+            "Valid modes are: similar, outlier",
+        )
+    modes = [m for m in raw_modes if m in valid_modes]
     if not modes:
         modes = ["similar", "outlier"]
 

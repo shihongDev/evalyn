@@ -406,6 +406,7 @@ def _aggregate_analysis_stats(run, human_labels: dict[tuple[str, str], bool]) ->
         "item_failures": item_failures,
         "alignment_stats": alignment_stats,
         "sorted_metrics": sorted_metrics,
+        "run_analysis": run_analysis,
     }
 
 
@@ -499,6 +500,7 @@ def _print_analysis_table_output(
     insights: list[str],
     problem_metrics,
     item_failures: dict[str, list[str]],
+    run_analysis=None,
 ) -> None:
     """Print table-formatted evaluation analysis."""
     from ...calibration import AlignmentMetrics
@@ -508,7 +510,7 @@ def _print_analysis_table_output(
     print(f"{'=' * 70}")
     print(f"\nRun ID:      {run.id}")
     print(f"Dataset:     {run.dataset_name}")
-    print(f"Items:       {len(run.metric_results)}")
+    print(f"Items:       {len(set(mr.item_id for mr in run.metric_results))}")
     print(f"Created:     {run.created_at}")
 
     print(f"\n{'=' * 70}")
@@ -583,18 +585,12 @@ def _print_analysis_table_output(
         print("    Run 'evalyn simulate --modes outlier' to generate edge cases.")
 
     # Key findings from insights engine
-    try:
-        from ...analysis.core import analyze_run as _analyze_run
-        from ...analysis.insights import (
-            compute_metric_correlations,
-            analyze_score_distributions,
-        )
-    except ImportError:
-        _analyze_run = None
-
-    if _analyze_run is not None:
+    if run_analysis is not None:
         try:
-            run_analysis = _analyze_run(run.as_dict())
+            from ...analysis.insights import (
+                compute_metric_correlations,
+                analyze_score_distributions,
+            )
 
             findings = []
             for c in compute_metric_correlations(run_analysis):
@@ -727,6 +723,7 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         insights=insights,
         problem_metrics=problem_metrics,
         item_failures=item_failures,
+        run_analysis=aggregated.get("run_analysis"),
     )
     _print_analysis_next_hint(
         run=run,

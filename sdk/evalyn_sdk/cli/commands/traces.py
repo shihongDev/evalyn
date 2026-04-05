@@ -197,6 +197,9 @@ def _print_show_call_header(call) -> None:
 def _print_show_call_inputs(call) -> None:
     """Print call input args/kwargs."""
     print("\nInputs:")
+    if not call.inputs:
+        print("  <none>")
+        return
     args_list = call.inputs.get("args", [])
     kwargs = call.inputs.get("kwargs", {})
     if args_list:
@@ -458,7 +461,14 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
     """List captured function calls."""
     storage = _get_storage(args)
     # Fetch more calls for filtering (we'll slice later for pagination)
-    fetch_limit = args.limit + getattr(args, "offset", 0) + 100
+    has_post_filters = (
+        getattr(args, "function", None)
+        or getattr(args, "error_only", False)
+        or getattr(args, "simulation", False)
+        or getattr(args, "production", False)
+    )
+    base_limit = args.limit + getattr(args, "offset", 0)
+    fetch_limit = base_limit * 5 if has_post_filters else base_limit + 100
     project = getattr(args, "project", None)
     all_calls = (
         storage.list_calls(limit=fetch_limit, project=project) if storage else []

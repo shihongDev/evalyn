@@ -448,6 +448,9 @@ def _execute_run_eval(
     checkpoint_path = dataset_dir / ".eval_checkpoint.json"
     use_batch = getattr(args, "batch", False)
 
+    if use_batch and subjective_count == 0 and output_format != "json":
+        print("Note: --batch only applies to subjective metrics. No subjective metrics found; ignoring --batch.")
+
     if use_batch and subjective_count > 0:
         from ...evaluation.batch import BatchEvaluator, BatchEvalProgress
         from ...models import EvalRun
@@ -1552,19 +1555,21 @@ def register_commands(subparsers) -> None:
         default="none",
         help="Confidence method: none (default), consistency (N samples), logprobs/deepconf (openai/ollama only)",
     )
+    def _positive_int(value):
+        ivalue = int(value)
+        if ivalue < 1:
+            raise argparse.ArgumentTypeError(f"--confidence-samples must be >= 1, got {value}")
+        return ivalue
+
     run_parser.add_argument(
         "--confidence-samples",
-        type=int,
+        type=_positive_int,
         default=3,
-        help="Number of samples for consistency method (default: 3)",
+        help="Number of samples for consistency method (default: 3, must be >= 1)",
     )
     run_parser.add_argument(
         "--unit-types",
         help="Evaluation unit types (comma-separated): outcome, single_turn, tool_use, multi_turn, custom. Default: outcome (full trace)",
-    )
-    run_parser.add_argument(
-        "--span-types",
-        help="Filter spans by type (comma-separated): llm_call, tool_call, retrieval, agent, etc. Used with --unit-types for targeted evaluation",
     )
     run_parser.add_argument(
         "--verbose",
