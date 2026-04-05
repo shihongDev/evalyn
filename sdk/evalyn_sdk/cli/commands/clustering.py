@@ -143,6 +143,10 @@ def cmd_cluster_misalignments(args: argparse.Namespace) -> None:
     """Cluster LLM judge vs human disagreements by semantic similarity."""
     _, metric_results = _get_eval_run_and_metrics(args)
 
+    # Validate annotations file exists
+    if not Path(args.annotations).exists():
+        fatal_error(f"Annotations file not found: {args.annotations}")
+
     # Load annotations
     anns = import_annotations(args.annotations)
     if not anns:

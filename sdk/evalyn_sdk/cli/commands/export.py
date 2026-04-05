@@ -69,6 +69,13 @@ def cmd_export_for_annotation(args: argparse.Namespace) -> None:
     if not run:
         print("Warning: No eval run found, exporting without LLM results")
 
+    # Pre-index metric results by item_id
+    from collections import defaultdict
+    results_by_item: dict[str, list] = defaultdict(list)
+    if run:
+        for mr in run.metric_results:
+            results_by_item[mr.item_id].append(mr)
+
     # Build annotation items
     output_items = []
     for item in items:
@@ -76,13 +83,12 @@ def cmd_export_for_annotation(args: argparse.Namespace) -> None:
 
         # Add eval results if we have a run
         if run:
-            for mr in run.metric_results:
-                if mr.item_id == item.id:
-                    eval_results[mr.metric_id] = {
-                        "score": mr.score,
-                        "passed": mr.passed,
-                        "reason": mr.details.get("reason") if mr.details else None,
-                    }
+            for mr in results_by_item.get(item.id, []):
+                eval_results[mr.metric_id] = {
+                    "score": mr.score,
+                    "passed": mr.passed,
+                    "reason": mr.details.get("reason") if mr.details else None,
+                }
 
         ann_item = AnnotationItem(
             id=item.id,

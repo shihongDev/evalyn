@@ -13,6 +13,7 @@ evalyn init [OPTIONS]
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--output FILE` | evalyn.yaml | Output file path |
+| `--dir PATH` | . | Directory for the config file |
 | `--force` | false | Overwrite existing file |
 
 ## Examples

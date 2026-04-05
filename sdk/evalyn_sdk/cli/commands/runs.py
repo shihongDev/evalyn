@@ -165,12 +165,12 @@ def cmd_show_run(args: argparse.Namespace) -> None:
     print(f"\n=== Eval Run {run.id} ===")
     print(f"Dataset: {run.dataset_name}")
     print("Metrics summary:")
-    for mid, stats in run.summary.get("metrics", {}).items():
+    for mid, stats in (run.summary or {}).get("metrics", {}).items():
         print(
             f" - {mid:<18} count={stats['count']:<3} "
             f"avg_score={stats['avg_score']!s:<10} pass_rate={stats['pass_rate']!s:<10}"
         )
-    if run.summary.get("failed_items"):
+    if (run.summary or {}).get("failed_items"):
         print(f"Failed items: {run.summary['failed_items']}")
 
     # Show token usage and cost summary if available

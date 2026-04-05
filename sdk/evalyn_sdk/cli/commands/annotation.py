@@ -148,7 +148,9 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
     for item in items:
         if not item.human_label or not item.eval_results:
             continue
-        human_passed = item.human_label.passed
+        human_passed = getattr(item.human_label, 'passed', None)
+        if human_passed is None and hasattr(item.human_label, 'label'):
+            human_passed = item.human_label.label
         for metric_id, result in item.eval_results.items():
             llm_passed = result.get("passed")
             if llm_passed is None:
