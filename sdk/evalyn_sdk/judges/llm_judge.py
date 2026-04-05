@@ -16,7 +16,10 @@ Usage:
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 from ..models import DatasetItem, FunctionCall, Metric, MetricResult, MetricSpec
 from ..utils.api_client import create_llm_client
@@ -402,13 +405,28 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
                 score = judge_raw.get("score")
                 passed = score is not None and score >= final_threshold
 
+            # Detect parse failure: both score and passed_val are None means
+            # the LLM response could not be parsed as JSON. Record as
+            # indeterminate (passed=None) rather than false negative, and flag
+            # it so downstream analysis can distinguish parse errors from real
+            # failures.
+            details: dict = {"judge": judge.name, "reason": judge_raw.get("reason")}
+            if passed_val is None and judge_raw.get("score") is None:
+                passed = None
+                score = None
+                details["parse_error"] = True
+                logger.warning(
+                    "Judge '%s' returned unparseable response for item '%s'",
+                    judge.name, item.id,
+                )
+
             return MetricResult(
                 metric_id=spec.id,
                 item_id=item.id,
                 call_id=call.id,
                 score=score,
                 passed=passed,
-                details={"judge": judge.name, "reason": judge_raw.get("reason")},
+                details=details,
                 raw_judge=judge_raw,
                 input_tokens=judge_raw.get("input_tokens"),
                 output_tokens=judge_raw.get("output_tokens"),
