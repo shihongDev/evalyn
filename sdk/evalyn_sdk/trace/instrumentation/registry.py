@@ -28,6 +28,7 @@ class InstrumentorRegistry:
     def __init__(self):
         self._instrumentors: Dict[str, Instrumentor] = {}
         self._auto_instrumented = False
+        self._instrument_result_cache: Dict[str, bool] = {}
 
     @classmethod
     def get(cls) -> "InstrumentorRegistry":
@@ -127,12 +128,10 @@ class InstrumentorRegistry:
         Lazily instrument all SDKs on first trace.
 
         Called automatically by the tracer. Respects EVALYN_AUTO_INSTRUMENT env var.
+        Returns cached result on subsequent calls to avoid per-call overhead.
         """
         if self._auto_instrumented:
-            return {
-                name: inst.is_instrumented()
-                for name, inst in self._instrumentors.items()
-            }
+            return self._instrument_result_cache
 
         self._auto_instrumented = True
 
@@ -142,9 +141,11 @@ class InstrumentorRegistry:
             "0",
             "no",
         ):
-            return {}
+            self._instrument_result_cache: Dict[str, bool] = {}
+            return self._instrument_result_cache
 
-        return self.instrument_all()
+        self._instrument_result_cache = self.instrument_all()
+        return self._instrument_result_cache
 
     def get_hooks(self, name: str) -> Optional[Any]:
         """

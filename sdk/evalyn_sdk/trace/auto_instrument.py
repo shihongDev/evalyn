@@ -267,13 +267,15 @@ def ensure_patched() -> Dict[str, bool]:
     """Lazily patch all libraries when first needed (not at import time).
 
     This is called automatically when starting a trace. Call this explicitly
-    if you want to patch before the first trace.
+    if you want to patch before the first trace. Returns empty dict on
+    subsequent calls to avoid per-call overhead.
     """
     global _auto_patched
-    registry = get_registry()
-    result = registry.ensure_instrumented()
+    if _auto_patched:
+        return {}
     _auto_patched = True
-    return result
+    registry = get_registry()
+    return registry.ensure_instrumented()
 
 
 # Placeholder for langchain handler (populated on patch_langchain)
