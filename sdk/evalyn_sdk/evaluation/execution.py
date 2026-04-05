@@ -202,11 +202,18 @@ class ParallelStrategy(ExecutionStrategy):
             interrupted = True
             logger.info("Interrupted - saving checkpoint with completed results...")
 
-        # Collect results in order and mark completed
+        # Collect results in order; only mark an item completed when ALL
+        # its metrics have finished.  Without this check, a KeyboardInterrupt
+        # could mark a partially-evaluated item as completed, and on resume
+        # the missing metrics would never be evaluated (silent data loss).
+        num_metrics = len(metrics)
         results: List[MetricResult] = []
         for item, call in prepared:
-            if item.id in results_by_item:
-                results.extend(results_by_item[item.id])
+            item_results = results_by_item.get(item.id)
+            if not item_results:
+                continue
+            results.extend(item_results)
+            if len(item_results) >= num_metrics:
                 completed_items.add(item.id)
 
         # Checkpoint (always save on interrupt or after completion)
