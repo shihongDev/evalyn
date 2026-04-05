@@ -359,17 +359,22 @@ class MetricSpec:
 
         Changes when the metric's prompt, rubric, threshold, or type changes.
         Used for detecting metric version drift between evaluation runs.
+        Cached after first computation.
         """
+        cached = getattr(self, "_version_hash_cache", None)
+        if cached is not None:
+            return cached
         import hashlib
         import json
-        # Include fields that affect evaluation behavior
         identity = {
             "id": self.id,
             "type": self.type,
             "config": self.config or {},
         }
         content = json.dumps(identity, sort_keys=True, ensure_ascii=True)
-        return hashlib.sha256(content.encode()).hexdigest()[:16]
+        result = hashlib.sha256(content.encode()).hexdigest()[:16]
+        object.__setattr__(self, "_version_hash_cache", result)
+        return result
 
     def as_dict(self) -> Dict[str, Any]:
         return {

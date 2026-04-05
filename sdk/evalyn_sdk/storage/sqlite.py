@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import os
@@ -16,6 +17,7 @@ DEFAULT_PROD_DB = "data/prod/traces.sqlite"
 DEFAULT_TEST_DB = "data/test/traces.sqlite"
 
 
+@functools.lru_cache(maxsize=1)
 def _find_project_root() -> Path:
     """Find project root by looking for .git (preferred) or pyproject.toml."""
     cwd = Path.cwd()
@@ -209,7 +211,8 @@ class SQLiteStorage:
         run_migrations(self.conn)
 
     def store_call(self, call: FunctionCall) -> None:
-        cur = self.conn.cursor()
+        conn = self.get_connection()
+        cur = conn.cursor()
         cur.execute(
             """
             INSERT OR REPLACE INTO function_calls
@@ -232,10 +235,10 @@ class SQLiteStorage:
                 _dumps([s.as_dict() for s in call.spans]) if call.spans else None,
             ),
         )
-        self.conn.commit()
+        conn.commit()
 
     def get_call(self, call_id: str) -> Optional[FunctionCall]:
-        cur = self.conn.cursor()
+        cur = self.get_connection().cursor()
         cur.execute("SELECT * FROM function_calls WHERE id = ?", (call_id,))
         row = cur.fetchone()
         if not row:
@@ -245,7 +248,7 @@ class SQLiteStorage:
     def list_calls(
         self, limit: int = 100, project: Optional[str] = None
     ) -> List[FunctionCall]:
-        cur = self.conn.cursor()
+        cur = self.get_connection().cursor()
         if project:
             # Filter by project in SQL using JSON metadata fields
             cur.execute(
@@ -278,7 +281,8 @@ class SQLiteStorage:
         """
         if not call_ids:
             return 0
-        cur = self.conn.cursor()
+        conn = self.get_connection()
+        cur = conn.cursor()
         placeholders = ",".join("?" * len(call_ids))
         # Delete related spans first
         cur.execute(
@@ -288,11 +292,12 @@ class SQLiteStorage:
         cur.execute(
             f"DELETE FROM function_calls WHERE id IN ({placeholders})", call_ids
         )
-        self.conn.commit()
+        conn.commit()
         return cur.rowcount
 
     def store_eval_run(self, run: EvalRun) -> None:
-        cur = self.conn.cursor()
+        conn = self.get_connection()
+        cur = conn.cursor()
         # Store run metadata (no JSON blob for metric_results on new runs)
         cur.execute(
             """
@@ -315,13 +320,14 @@ class SQLiteStorage:
         if run.metric_results:
             self.batch_insert_metric_results(run.id, run.metric_results)
         else:
-            self.conn.commit()
+            conn.commit()
 
     def batch_insert_metric_results(
         self, run_id: str, results: List, batch_size: int = 1000
     ) -> None:
         """Insert metric results in batches for efficient writes."""
-        cur = self.conn.cursor()
+        conn = self.get_connection()
+        cur = conn.cursor()
         for i in range(0, len(results), batch_size):
             batch = results[i : i + batch_size]
             cur.executemany(
@@ -352,13 +358,13 @@ class SQLiteStorage:
                     for r in batch
                 ],
             )
-            self.conn.commit()
+        conn.commit()
 
     def load_metric_results(self, run_id: str) -> List:
         """Load metric results from relational table for a run."""
         from ..models import MetricResult
 
-        cur = self.conn.cursor()
+        cur = self.get_connection().cursor()
         cur.execute(
             "SELECT * FROM metric_results_rows WHERE run_id = ?", (run_id,)
         )
@@ -390,7 +396,7 @@ class SQLiteStorage:
         batch_results: dict = {}
         if needs_load:
             placeholders = ",".join("?" for _ in needs_load)
-            cur = self.conn.cursor()
+            cur = self.get_connection().cursor()
             cur.execute(
                 f"SELECT * FROM metric_results_rows WHERE run_id IN ({placeholders})",
                 needs_load,
@@ -432,7 +438,7 @@ class SQLiteStorage:
         return results
 
     def list_eval_runs(self, limit: int = 20) -> List[EvalRun]:
-        cur = self.conn.cursor()
+        cur = self.get_connection().cursor()
         cur.execute(
             """
             SELECT * FROM eval_runs
@@ -447,7 +453,7 @@ class SQLiteStorage:
         self, dataset_name: str, limit: int = 20
     ) -> List[EvalRun]:
         """List eval runs for a specific project (dataset_name)."""
-        cur = self.conn.cursor()
+        cur = self.get_connection().cursor()
         cur.execute(
             """
             SELECT * FROM eval_runs
@@ -460,10 +466,12 @@ class SQLiteStorage:
         return self._batch_load_runs(cur.fetchall())
 
     def get_eval_run(self, run_id: str) -> Optional[EvalRun]:
-        cur = self.conn.cursor()
+        cur = self.get_connection().cursor()
         cur.execute("SELECT * FROM eval_runs WHERE id = ?", (run_id,))
         row = cur.fetchone()
-        return self._row_to_eval_run(row) if row else None
+        if not row:
+            return None
+        return self._batch_load_runs([row])[0]
 
     def resolve_call_id(self, short_id: str) -> Optional[str]:
         """Resolve a short ID prefix to full call ID.
@@ -472,7 +480,7 @@ class SQLiteStorage:
         Supports both short prefixes (e.g., '6cf21eb3') and full UUIDs.
         """
         # First try exact match
-        cur = self.conn.cursor()
+        cur = self.get_connection().cursor()
         cur.execute("SELECT id FROM function_calls WHERE id = ?", (short_id,))
         row = cur.fetchone()
         if row:
@@ -495,7 +503,7 @@ class SQLiteStorage:
         Supports both short prefixes and full UUIDs.
         """
         # First try exact match
-        cur = self.conn.cursor()
+        cur = self.get_connection().cursor()
         cur.execute("SELECT id FROM eval_runs WHERE id = ?", (short_id,))
         row = cur.fetchone()
         if row:
@@ -512,14 +520,15 @@ class SQLiteStorage:
         return None  # Ambiguous or not found
 
     def store_annotations(self, annotations: Iterable[Annotation]) -> None:
-        cur = self.conn.cursor()
-        for ann in annotations:
-            cur.execute(
-                """
-                INSERT OR REPLACE INTO annotations
-                (id, target_id, label, rationale, annotator, source, confidence, created_at, metric_labels)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
+        conn = self.get_connection()
+        cur = conn.cursor()
+        cur.executemany(
+            """
+            INSERT OR REPLACE INTO annotations
+            (id, target_id, label, rationale, annotator, source, confidence, created_at, metric_labels)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
                 (
                     ann.id,
                     ann.target_id,
@@ -532,14 +541,16 @@ class SQLiteStorage:
                     _dumps({k: v.as_dict() for k, v in ann.metric_labels.items()})
                     if ann.metric_labels
                     else None,
-                ),
-            )
-        self.conn.commit()
+                )
+                for ann in annotations
+            ),
+        )
+        conn.commit()
 
     def list_annotations(
         self, target_id: Optional[str] = None, limit: int = 100
     ) -> List[Annotation]:
-        cur = self.conn.cursor()
+        cur = self.get_connection().cursor()
         if target_id:
             cur.execute(
                 """
@@ -579,7 +590,8 @@ class SQLiteStorage:
         ]
 
     def store_span_metric_links(self, links: Iterable[SpanMetricLink]) -> None:
-        cur = self.conn.cursor()
+        conn = self.get_connection()
+        cur = conn.cursor()
         cur.executemany(
             """
             INSERT OR REPLACE INTO span_metric_links
@@ -591,7 +603,7 @@ class SQLiteStorage:
                 for l in links
             ),
         )
-        self.conn.commit()
+        conn.commit()
 
     def list_span_metric_links(
         self,
@@ -599,7 +611,7 @@ class SQLiteStorage:
         span_id: Optional[str] = None,
         metric_result_id: Optional[str] = None,
     ) -> List[SpanMetricLink]:
-        cur = self.conn.cursor()
+        cur = self.get_connection().cursor()
         query = "SELECT * FROM span_metric_links WHERE run_id = ?"
         params: list = [run_id]
         if span_id:
@@ -623,7 +635,7 @@ class SQLiteStorage:
         ]
 
     def list_spans(self, call_id: str) -> List[dict]:
-        cur = self.conn.cursor()
+        cur = self.get_connection().cursor()
         try:
             cur.execute(
                 """

@@ -26,12 +26,18 @@ _root_span: contextvars.ContextVar[Optional[Span]] = contextvars.ContextVar(
 
 
 def _safe_value(value: Any) -> Any:
-    """Convert values to something JSON serializable; fallback to repr."""
-    try:
-        json.dumps(value)
+    """Convert values to something JSON serializable; fallback to repr.
+
+    Uses type checks instead of trial serialization to avoid double-encoding
+    cost on large payloads.
+    """
+    if value is None or isinstance(value, (str, int, float, bool)):
         return value
-    except TypeError:
-        return repr(value)
+    if isinstance(value, (list, tuple)):
+        return [_safe_value(v) for v in value]
+    if isinstance(value, dict):
+        return {str(k): _safe_value(v) for k, v in value.items()}
+    return repr(value)
 
 
 def _normalize_inputs(args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Dict[str, Any]:
