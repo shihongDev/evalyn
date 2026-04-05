@@ -10,17 +10,28 @@ from .models import FunctionCall
 
 
 def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
-    """Extract first JSON object from text, handling markdown code blocks."""
+    """Extract first JSON object from text, handling markdown code blocks.
+
+    Tries in order: direct parse, markdown code fence extraction,
+    then progressively tries each '{' position until json.loads succeeds.
+    This handles LLM responses with explanation text containing braces
+    before the actual JSON object.
+    """
     text = (text or "").strip()
     if not text:
         return None
 
-    # Remove markdown code blocks if present
-    if text.startswith("```"):
-        lines = text.split("\n")
-        if len(lines) >= 2:
-            text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
-            text = text.strip()
+    # Remove markdown code blocks if present (```json ... ``` or ``` ... ```)
+    for pattern in [r"```json\s*(.*?)\s*```", r"```\s*(.*?)\s*```"]:
+        match = re.search(pattern, text, re.DOTALL)
+        if match:
+            inner = match.group(1).strip()
+            try:
+                parsed = json.loads(inner)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                continue
 
     # Try direct parse
     try:
@@ -29,20 +40,26 @@ def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
     except Exception:
         pass
 
-    # Find JSON object using bracket-finding (handles braces inside strings correctly
-    # by delegating to json.loads rather than manual brace-depth counting)
-    start = text.find("{")
-    if start < 0:
-        return None
+    # Try each '{' position from left to right with the last '}'
+    # This handles text like: "The output looks {good}. {"passed": true}"
     end = text.rfind("}")
-    if end <= start:
+    if end < 0:
         return None
-    snippet = text[start : end + 1]
-    try:
-        parsed = json.loads(snippet)
-        return parsed if isinstance(parsed, dict) else None
-    except Exception:
-        return None
+    pos = 0
+    while True:
+        start = text.find("{", pos)
+        if start < 0 or start >= end:
+            break
+        snippet = text[start : end + 1]
+        try:
+            parsed = json.loads(snippet)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+        pos = start + 1
+
+    return None
 
 
 def extract_json_list(text: str) -> List[dict]:
