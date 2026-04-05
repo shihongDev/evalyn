@@ -9,7 +9,10 @@ import threading
 from pathlib import Path
 from typing import Iterable, List, Optional
 
-from ..models import Annotation, EvalRun, FunctionCall, SpanMetricLink
+from ..models import (
+    Annotation, EvalRun, FunctionCall, JudgeConfig, MetricSpec,
+    SpanMetricLink, _parse_datetime, now_utc,
+)
 from .migrations import run_migrations
 
 # Default paths for prod/test separation
@@ -409,30 +412,37 @@ class SQLiteStorage:
         for row in rows:
             run_id = row["id"]
             json_blob = row["metric_results"]
+
+            # For runs stored in the relational table, construct MetricResult
+            # objects directly from rows. Avoids a wasteful round-trip:
+            # row -> MetricResult -> dict -> MetricResult (2x construction).
             if json_blob:
-                metric_results_raw = json.loads(json_blob)
+                # Legacy: metric results stored as JSON blob in eval_runs
+                from ..models import MetricResult
+                metric_results = [
+                    MetricResult.from_dict(r) for r in json.loads(json_blob)
+                ]
             else:
                 mr_rows = batch_results.get(run_id, [])
-                metric_results_raw = [
-                    self._row_to_metric_result(r).as_dict() for r in mr_rows
+                metric_results = [
+                    self._row_to_metric_result(r) for r in mr_rows
                 ]
 
+            metrics_raw = json.loads(row["metrics"]) if row["metrics"] else []
+            jc_raw = json.loads(row["judge_configs"]) if row["judge_configs"] else []
+
             results.append(
-                EvalRun.from_dict(
-                    {
-                        "id": run_id,
-                        "dataset_name": row["dataset_name"],
-                        "created_at": row["created_at"],
-                        "metric_results": metric_results_raw,
-                        "metrics": json.loads(row["metrics"]) if row["metrics"] else [],
-                        "judge_configs": json.loads(row["judge_configs"])
-                        if row["judge_configs"]
-                        else [],
-                        "summary": json.loads(row["summary"]) if row["summary"] else {},
-                        "usage_summary": json.loads(row["usage_summary"])
-                        if row["usage_summary"]
-                        else {},
-                    }
+                EvalRun(
+                    id=run_id,
+                    dataset_name=row["dataset_name"],
+                    created_at=_parse_datetime(row["created_at"]) or now_utc(),
+                    metric_results=metric_results,
+                    metrics=[MetricSpec.from_dict(m) for m in metrics_raw],
+                    judge_configs=[JudgeConfig.from_dict(j) for j in jc_raw],
+                    summary=json.loads(row["summary"]) if row["summary"] else {},
+                    usage_summary=json.loads(row["usage_summary"])
+                    if row["usage_summary"]
+                    else {},
                 )
             )
         return results
@@ -712,30 +722,3 @@ class SQLiteStorage:
             }
         )
 
-    def _row_to_eval_run(self, row: sqlite3.Row) -> EvalRun:
-        # Load metric results from relational table first, fall back to JSON blob
-        run_id = row["id"]
-        json_blob = row["metric_results"]
-        if json_blob:
-            metric_results_raw = json.loads(json_blob)
-        else:
-            metric_results_raw = [
-                r.as_dict() for r in self.load_metric_results(run_id)
-            ]
-
-        return EvalRun.from_dict(
-            {
-                "id": run_id,
-                "dataset_name": row["dataset_name"],
-                "created_at": row["created_at"],
-                "metric_results": metric_results_raw,
-                "metrics": json.loads(row["metrics"]) if row["metrics"] else [],
-                "judge_configs": json.loads(row["judge_configs"])
-                if row["judge_configs"]
-                else [],
-                "summary": json.loads(row["summary"]) if row["summary"] else {},
-                "usage_summary": json.loads(row["usage_summary"])
-                if row["usage_summary"]
-                else {},
-            }
-        )
