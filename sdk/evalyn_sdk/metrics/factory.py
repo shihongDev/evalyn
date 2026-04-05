@@ -599,15 +599,7 @@ def build_subjective_metric(
     # Normalize rubric to list
     rubric = _normalize_rubric(cfg.get("rubric"))
 
-    if rubric:
-        rubric_lines = "\n".join(
-            [f"- {str(r).strip()}" for r in rubric if str(r).strip()]
-        )
-        if prompt:
-            prompt += "\n\n"
-        prompt += "Evaluate using this rubric (PASS only if all criteria met):\n"
-        prompt += rubric_lines
-    elif not tpl and not custom_prompt:
+    if not rubric and not tpl and not custom_prompt:
         # For custom metrics without rubric, add generic evaluation guidance
         prompt += "\n\nReturn PASS if the output is satisfactory, FAIL otherwise."
 
@@ -619,6 +611,9 @@ def build_subjective_metric(
         model = cfg.get("model", DEFAULT_MODELS_BY_PROVIDER.get(provider, DEFAULT_EVAL_MODEL))
         temperature = float(cfg.get("temperature", 0.0))
         from ..judges import LLMJudge as _LLMJudge
+        # Pass rubric to LLMJudge (it handles appending rubric to prompt
+        # in _build_evaluation_prompt). Do NOT bake rubric into prompt here
+        # to avoid sending the rubric twice in every API call.
         judge = _LLMJudge(
             name=metric_id,
             prompt=prompt,
