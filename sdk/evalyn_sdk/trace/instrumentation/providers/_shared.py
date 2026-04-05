@@ -25,12 +25,32 @@ from ... import context as span_context
 # to ensure substring matching finds the most specific model first.
 # e.g., "gpt-4o-mini" must match before "gpt-4o"
 _COST_PER_1M_TOKENS_UNSORTED = {
-    # OpenAI
+    # OpenAI - latest models
+    "gpt-4.1": {"input": 2.00, "output": 8.00},
+    "gpt-4.1-mini": {"input": 0.40, "output": 1.60},
+    "gpt-4.1-nano": {"input": 0.10, "output": 0.40},
+    "o3": {"input": 2.00, "output": 8.00},
+    "o3-mini": {"input": 1.10, "output": 4.40},
+    "o4-mini": {"input": 1.10, "output": 4.40},
+    # OpenAI - GPT-4o family
     "gpt-4o": {"input": 2.50, "output": 10.00},
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
     "gpt-4-turbo": {"input": 10.00, "output": 30.00},
     "gpt-4": {"input": 30.00, "output": 60.00},
     "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
+    # Anthropic Claude 4.6 models
+    "claude-opus-4-6": {
+        "input": 5.00,
+        "output": 25.00,
+        "cache_write": 6.25,
+        "cache_read": 0.50,
+    },
+    "claude-sonnet-4-6": {
+        "input": 3.00,
+        "output": 15.00,
+        "cache_write": 3.75,
+        "cache_read": 0.30,
+    },
     # Anthropic Claude 4.5 models
     "claude-opus-4-5": {
         "input": 5.00,
@@ -103,6 +123,7 @@ _COST_PER_1M_TOKENS_UNSORTED = {
         "cache_read": 0.025,
     },
     # Google Gemini 2.5 models
+    "gemini-2.5-pro": {"input": 1.25, "output": 10.00},
     "gemini-2.5-flash": {"input": 0.30, "output": 2.50},
     "gemini-2.5-flash-lite": {"input": 0.10, "output": 0.40},
     # Google Gemini 2.0 models
@@ -129,11 +150,19 @@ COST_PER_1M_TOKENS = dict(
 
 
 _MODEL_CONTEXT_WINDOWS_UNSORTED = {
+    "gpt-4.1": 1_047_576,
+    "gpt-4.1-mini": 1_047_576,
+    "gpt-4.1-nano": 1_047_576,
+    "o3": 200_000,
+    "o3-mini": 200_000,
+    "o4-mini": 200_000,
     "gpt-4o": 128_000,
     "gpt-4o-mini": 128_000,
     "gpt-4-turbo": 128_000,
     "gpt-4": 8_192,
     "gpt-3.5-turbo": 16_385,
+    "claude-opus-4-6": 1_000_000,
+    "claude-sonnet-4-6": 1_000_000,
     "claude-opus-4-5": 200_000,
     "claude-sonnet-4-5": 200_000,
     "claude-haiku-4-5": 200_000,
