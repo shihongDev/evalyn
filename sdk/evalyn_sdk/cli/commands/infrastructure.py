@@ -34,6 +34,7 @@ from datetime import datetime
 from pathlib import Path
 
 from ...decorators import get_default_tracer
+from ...defaults import DEFAULT_EVAL_MODEL
 from ..utils.config import load_config, get_config_default, find_project_root
 from ..utils.errors import fatal_error
 
@@ -128,7 +129,7 @@ def _apply_config_defaults(args: argparse.Namespace, config: dict) -> None:
     defaults = [
         ("version", "defaults", "version", None),
         ("metric_mode", "metrics", "mode", "basic"),
-        ("model", "llm", "model", "gemini-2.5-flash-lite"),
+        ("model", "llm", "model", DEFAULT_EVAL_MODEL),
         ("llm_mode", "llm", "mode", "api"),
         ("bundle", "metrics", "bundle", None),
         ("skip_annotation", "annotation", "skip", False),
@@ -231,6 +232,7 @@ def _create_output_dir(args: argparse.Namespace) -> Path:
 
 def cmd_workflow(args: argparse.Namespace) -> None:
     """Show the evaluation workflow and next steps."""
+    # NOTE: This workflow text is manually maintained. Update when adding/removing commands.
     workflow = """
 EVALYN WORKFLOW
 ===============
@@ -387,8 +389,8 @@ def register_commands(subparsers) -> None:
     )
     oneclick_parser.add_argument(
         "--model",
-        default="gemini-2.5-flash-lite",
-        help="LLM model name (default: gemini-2.5-flash-lite)",
+        default=DEFAULT_EVAL_MODEL,
+        help=f"LLM model name (default: {DEFAULT_EVAL_MODEL})",
     )
     oneclick_parser.add_argument("--bundle", help="Bundle name (if metric-mode=bundle)")
     oneclick_parser.add_argument(

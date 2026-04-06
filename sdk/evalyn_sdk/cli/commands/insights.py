@@ -35,7 +35,7 @@ from ..utils.hints import print_hint
 from ...analysis.core import find_eval_runs
 
 
-def _load_dataset_items(dataset_path: Path) -> list[dict]:
+def load_dataset_items(dataset_path: Path) -> list[dict]:
     """Load raw dataset items from dataset.jsonl."""
     dataset_file = dataset_path / "dataset.jsonl"
     if not dataset_file.exists():
@@ -49,7 +49,7 @@ def _load_dataset_items(dataset_path: Path) -> list[dict]:
     return items
 
 
-def _load_previous_run(dataset_path: Path, current_run_path: Path) -> "EvalRun | None":
+def load_previous_run(dataset_path: Path, current_run_path: Path) -> "EvalRun | None":
     """Load the second-most-recent run for regression detection."""
     from ...models import EvalRun
 
@@ -161,9 +161,15 @@ def _print_insights_table(report, run, previous_run_id=None, panel_discussion=No
     print()
 
 
-def cmd_insights(args: argparse.Namespace) -> None:
-    """Run comprehensive insights analysis on evaluation results."""
-    from ...models import EvalRun
+def build_insights_report(run, dataset_path, run_file_path):
+    """Build a RunAnalysis and InsightsReport from an eval run.
+
+    Shared by cmd_insights and cmd_dashboard to avoid duplicating the
+    analysis pipeline (correlations, regressions, features, distributions,
+    recommendations).
+
+    Returns (analysis, report, dataset_items).
+    """
     from ...analysis.core import analyze_run
     from ...analysis.insights import (
         compute_metric_correlations,
@@ -174,6 +180,44 @@ def cmd_insights(args: argparse.Namespace) -> None:
         InsightsReport,
     )
 
+    run_data = run.as_dict()
+    analysis = analyze_run(run_data)
+    correlations = compute_metric_correlations(analysis)
+
+    regressions = []
+    if dataset_path and run_file_path:
+        previous_run_obj = load_previous_run(dataset_path, run_file_path)
+        if previous_run_obj:
+            prev_analysis = analyze_run(previous_run_obj.as_dict())
+            regressions = detect_regressions(analysis, prev_analysis)
+
+    dataset_items = []
+    feature_insights = []
+    if dataset_path:
+        dataset_items = load_dataset_items(dataset_path)
+        if dataset_items:
+            feature_insights = analyze_input_features(dataset_items, analysis)
+
+    distribution_insights = analyze_score_distributions(analysis)
+
+    report = InsightsReport(
+        correlations=correlations,
+        regressions=regressions,
+        feature_insights=feature_insights,
+        distribution_insights=distribution_insights,
+    )
+
+    report.recommendations = generate_recommendations(
+        analysis,
+        report,
+        dataset_path=str(dataset_path) if dataset_path else None,
+    )
+
+    return analysis, report, dataset_items
+
+
+def cmd_insights(args: argparse.Namespace) -> None:
+    """Run comprehensive insights analysis on evaluation results."""
     output_format = getattr(args, "format", "table")
     use_deep = getattr(args, "deep", False)
     config = load_config()
@@ -192,49 +236,16 @@ def cmd_insights(args: argparse.Namespace) -> None:
     if run_file_path and output_format not in ("json", "html"):
         print(f"Analyzing latest run: {run_file_path.parent.name}")
 
-    # Build RunAnalysis
-    run_data = run.as_dict()
-    analysis = analyze_run(run_data)
+    analysis, report, dataset_items = build_insights_report(
+        run, dataset_path, run_file_path
+    )
 
-    # Correlations
-    correlations = compute_metric_correlations(analysis)
-
-    # Regressions (need previous run)
-    regressions = []
+    # Get previous run ID for display (lightweight file read)
     previous_run_id = None
     if dataset_path and run_file_path:
-        previous_run_obj = _load_previous_run(dataset_path, run_file_path)
+        previous_run_obj = load_previous_run(dataset_path, run_file_path)
         if previous_run_obj:
             previous_run_id = previous_run_obj.id
-            prev_data = previous_run_obj.as_dict()
-            prev_analysis = analyze_run(prev_data)
-            regressions = detect_regressions(analysis, prev_analysis)
-
-    # Input feature analysis
-    dataset_items = []
-    feature_insights = []
-    if dataset_path:
-        dataset_items = _load_dataset_items(dataset_path)
-        if dataset_items:
-            feature_insights = analyze_input_features(dataset_items, analysis)
-
-    # Score distributions
-    distribution_insights = analyze_score_distributions(analysis)
-
-    # Build report (without recommendations first, then generate them)
-    report = InsightsReport(
-        correlations=correlations,
-        regressions=regressions,
-        feature_insights=feature_insights,
-        distribution_insights=distribution_insights,
-    )
-
-    # Recommendations
-    report.recommendations = generate_recommendations(
-        analysis,
-        report,
-        dataset_path=str(dataset_path) if dataset_path else None,
-    )
 
     # Expert panel (--deep)
     panel_discussion = None
@@ -342,4 +353,10 @@ def register_commands(subparsers) -> None:
     p.set_defaults(func=cmd_insights)
 
 
-__all__ = ["cmd_insights", "register_commands"]
+__all__ = [
+    "build_insights_report",
+    "cmd_insights",
+    "load_dataset_items",
+    "load_previous_run",
+    "register_commands",
+]

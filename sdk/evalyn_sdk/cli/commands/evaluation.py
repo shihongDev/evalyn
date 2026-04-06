@@ -36,8 +36,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from dataclasses import dataclass, field
+
 from ...datasets import load_dataset
 from ...decorators import get_default_tracer
+from ...defaults import DEFAULT_EVAL_MODEL
 from ...metrics.objective import OBJECTIVE_REGISTRY
 from ...metrics.subjective import SUBJECTIVE_REGISTRY
 from ..constants import BUNDLES
@@ -210,7 +213,7 @@ def _build_llm_caller(args: argparse.Namespace) -> Callable:
         or get_config_default(config, "api_keys", "gemini")
         or os.environ.get("GEMINI_API_KEY", "")
     )
-    model = args.model or "gemini-2.5-flash-lite"
+    model = args.model or DEFAULT_EVAL_MODEL
 
     def default_caller(prompt: str) -> str:
         return call_gemini_api(prompt, model=model, api_key=api_key)
@@ -299,13 +302,27 @@ def _parse_unit_types(args: argparse.Namespace) -> Optional[List[str]]:
     return unit_types
 
 
+@dataclass
+class EvalMetricsConfig:
+    """Configuration and metrics built for an evaluation run."""
+
+    metrics: List[Any] = field(default_factory=list)
+    objective_count: int = 0
+    subjective_count: int = 0
+    calibrated_count: int = 0
+    provider: str = "gemini"
+    confidence_method: str = "none"
+    confidence_samples: int = 3
+    unit_types: Optional[List[str]] = None
+
+
 def _build_run_eval_metrics(
     args: argparse.Namespace,
     output_format: str,
     config: dict,
     dataset_dir: Path,
     all_metrics_data: Dict[str, dict],
-) -> tuple[List[Any], int, int, int, str, str, int, Optional[List[str]]]:
+) -> EvalMetricsConfig:
     """Build metric instances and return counters/settings."""
     from ...metrics.factory import build_objective_metric, build_subjective_metric
     from ...calibration import load_optimized_prompt
@@ -407,15 +424,15 @@ def _build_run_eval_metrics(
                     judge_info += f", confidence={confidence_method}"
             print(judge_info)
 
-    return (
-        metrics,
-        objective_count,
-        subjective_count,
-        calibrated_count,
-        provider,
-        confidence_method,
-        confidence_samples,
-        unit_types,
+    return EvalMetricsConfig(
+        metrics=metrics,
+        objective_count=objective_count,
+        subjective_count=subjective_count,
+        calibrated_count=calibrated_count,
+        provider=provider,
+        confidence_method=confidence_method,
+        confidence_samples=confidence_samples,
+        unit_types=unit_types,
     )
 
 
@@ -882,16 +899,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
     )
     dataset_dir = dataset_file.parent
 
-    (
-        metrics,
-        _objective_count,
-        subjective_count,
-        _calibrated_count,
-        _provider,
-        _confidence_method,
-        _confidence_samples,
-        unit_types,
-    ) = _build_run_eval_metrics(
+    eval_config = _build_run_eval_metrics(
         args,
         output_format,
         config,
@@ -901,9 +909,9 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
 
     if output_format != "json":
         print(f"Dataset: {len(dataset_list)} items")
-        if unit_types and unit_types != ["outcome"]:
-            print(f"Unit types: {', '.join(unit_types)} (span-level evaluation)")
-        if subjective_count > 0:
+        if eval_config.unit_types and eval_config.unit_types != ["outcome"]:
+            print(f"Unit types: {', '.join(eval_config.unit_types)} (span-level evaluation)")
+        if eval_config.subjective_count > 0:
             check_llm_api_keys(quiet=False)
         print()
 
@@ -913,9 +921,9 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         dataset_file,
         dataset_dir,
         dataset_list,
-        metrics,
-        subjective_count,
-        unit_types,
+        eval_config.metrics,
+        eval_config.subjective_count,
+        eval_config.unit_types,
     )
     if run is None:
         return
@@ -930,7 +938,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         run_folder,
         results_path,
         report_path,
-        metrics,
+        eval_config.metrics,
     )
 
     # Auto-insights: lightweight deterministic analysis after every eval
@@ -1621,8 +1629,8 @@ def register_commands(subparsers) -> None:
     )
     suggest_parser.add_argument(
         "--model",
-        default="gemini-2.5-flash-lite",
-        help="Model name (e.g., gemini-2.5-flash-lite, gpt-4, llama3.1 for Ollama)",
+        default=DEFAULT_EVAL_MODEL,
+        help=f"Model name (default: {DEFAULT_EVAL_MODEL})",
     )
     suggest_parser.add_argument(
         "--api-base", help="Custom API base URL for --llm-mode api (optional)"

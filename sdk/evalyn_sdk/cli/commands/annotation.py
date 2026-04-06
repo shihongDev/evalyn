@@ -30,10 +30,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 from ...annotation import import_annotations
 from ..utils.errors import fatal_error
@@ -118,8 +121,8 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
                     matching = [a for a in stored_anns if a.target_id == item_id]
                     if matching:
                         item.human_label = matching[0]
-    except Exception:
-        pass  # storage unavailable - continue with file-based data
+    except Exception as e:
+        logger.debug("Failed to load annotations from storage: %s", e)
 
     if not items:
         print("No items found.")
@@ -269,8 +272,8 @@ def _load_existing_span_annotations(
             data = json.loads(line)
             ann = SpanAnnotation.from_dict(data)
             existing_annotations[ann.span_id] = ann
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Failed to load existing span annotations: %s", e)
     return existing_annotations
 
 
@@ -855,8 +858,8 @@ def cmd_annotate(args: argparse.Namespace) -> None:
                     data = json.loads(line)
                     ann = Annotation.from_dict(data)
                     existing_annotations[ann.target_id] = ann
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to load existing annotations file: %s", e)
 
     # Filter items based on options
     items_to_annotate = []

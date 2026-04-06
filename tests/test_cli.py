@@ -154,6 +154,26 @@ class TestShowTrace:
         result = run_cli("show-trace")
         result.assert_failure()
 
+    def test_show_trace_missing_id_error_message(self):
+        """Test show-trace without --id gives a clear error about missing ID."""
+        result = run_cli("show-trace")
+        result.assert_failure()
+        # Should mention --id or --last is needed
+        combined = (result.stdout + result.stderr).lower()
+        assert "--id" in combined or "--last" in combined or "must specify" in combined
+
+    def test_show_trace_verbose_flag(self):
+        """Test --verbose flag is recognized in help."""
+        result = run_cli("show-trace", "--help")
+        result.assert_success()
+        result.assert_output_contains("--verbose")
+
+    def test_show_trace_max_depth_flag(self):
+        """Test --max-depth flag is recognized in help."""
+        result = run_cli("show-trace", "--help")
+        result.assert_success()
+        result.assert_output_contains("--max-depth")
+
 
 # ===========================================================================
 # show-projects tests
@@ -402,6 +422,23 @@ class TestAnnotationCommands:
         result.assert_success()
         result.assert_output_contains("--dataset")
 
+    def test_annotate_missing_dataset(self):
+        """Test annotate without --dataset or --latest fails."""
+        result = run_cli("annotate")
+        result.assert_failure()
+
+    def test_annotate_per_metric_flag(self):
+        """Test --per-metric flag is recognized in help."""
+        result = run_cli("annotate", "--help")
+        result.assert_success()
+        result.assert_output_contains("--per-metric")
+
+    def test_annotate_restart_flag(self):
+        """Test --restart flag is recognized in help."""
+        result = run_cli("annotate", "--help")
+        result.assert_success()
+        result.assert_output_contains("--restart")
+
     def test_import_annotations(self, sample_annotations_file):
         """Test importing annotations."""
         result = run_cli(
@@ -427,6 +464,22 @@ class TestCalibrate:
         result.assert_output_contains("--metric-id")
         result.assert_output_contains("--annotations")
 
+    def test_calibrate_missing_metric_id(self):
+        """Test calibrate without --metric-id fails (argparse required)."""
+        result = run_cli("calibrate", "--annotations", "dummy.jsonl")
+        result.assert_failure()
+
+    def test_calibrate_missing_annotations(self):
+        """Test calibrate without --annotations fails (argparse required)."""
+        result = run_cli("calibrate", "--metric-id", "some_metric")
+        result.assert_failure()
+
+    def test_calibrate_no_optimize_flag(self):
+        """Test --no-optimize flag is recognized in help."""
+        result = run_cli("calibrate", "--help")
+        result.assert_success()
+        result.assert_output_contains("--no-optimize")
+
 
 # ===========================================================================
 # simulate tests
@@ -447,6 +500,20 @@ class TestSimulate:
         """Test simulate without --dataset fails."""
         result = run_cli("simulate")
         result.assert_failure()
+
+    def test_simulate_invalid_modes(self, sample_dataset):
+        """Test simulate with invalid --modes value fails."""
+        result = run_cli(
+            "simulate", "--dataset", str(sample_dataset), "--modes", "garbage"
+        )
+        result.assert_failure()
+
+    def test_simulate_num_similar_and_num_outlier_flags(self):
+        """Test --num-similar and --num-outlier flags exist in help."""
+        result = run_cli("simulate", "--help")
+        result.assert_success()
+        result.assert_output_contains("--num-similar")
+        result.assert_output_contains("--num-outlier")
 
 
 # ===========================================================================
@@ -510,6 +577,23 @@ class TestOneClick:
         result = run_cli("one-click", "--help")
         result.assert_success()
         result.assert_output_contains("--project")
+
+    def test_one_click_missing_project(self):
+        """Test one-click without --project fails (argparse required)."""
+        result = run_cli("one-click")
+        result.assert_failure()
+
+    def test_one_click_dry_run_flag(self):
+        """Test --dry-run flag is recognized in help."""
+        result = run_cli("one-click", "--help")
+        result.assert_success()
+        result.assert_output_contains("--dry-run")
+
+    def test_one_click_auto_yes_flag(self):
+        """Test --auto-yes flag is recognized in help."""
+        result = run_cli("one-click", "--help")
+        result.assert_success()
+        result.assert_output_contains("--auto-yes")
 
 
 # ===========================================================================

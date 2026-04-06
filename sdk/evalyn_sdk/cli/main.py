@@ -97,6 +97,7 @@ def _print_ascii_help(parser: argparse.ArgumentParser) -> None:
     print("=" * 80)
 
     # Print grouped commands instead of raw argparse help
+    # NOTE: This command list is manually maintained. Update when adding/removing commands.
     grouped_help = """
 QUICK START
   quickstart       Detect framework, generate snippet, set up evaluation

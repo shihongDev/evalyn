@@ -46,6 +46,7 @@ from ...calibration import (
 )
 from ...datasets import load_dataset
 from ...decorators import get_default_tracer
+from ...defaults import DEFAULT_EVAL_MODEL
 from ...models import DatasetItem
 from ..utils.command_common import load_eval_run_for_command, try_resolve_dataset_dir_and_file
 from ..utils.config import load_config, resolve_dataset_path, get_config_default
@@ -90,13 +91,13 @@ def _apply_calibration_config_defaults(args: argparse.Namespace, config: dict) -
         args.opro_optimizer_model = get_config_default(
             config, "calibration", "opro", "optimizer_model", default="gemini-2.5-flash"
         )
-    if args.opro_scorer_model == "gemini-2.5-flash-lite":
+    if args.opro_scorer_model == DEFAULT_EVAL_MODEL:
         args.opro_scorer_model = get_config_default(
             config,
             "calibration",
             "opro",
             "scorer_model",
-            default="gemini-2.5-flash-lite",
+            default=DEFAULT_EVAL_MODEL,
         )
     if args.opro_iterations == 10:
         args.opro_iterations = get_config_default(
@@ -602,7 +603,7 @@ def calibrate_metric(
     dataset_dir: str,
     *,
     optimizer: str = "basic",
-    model: str = "gemini-2.5-flash-lite",
+    model: str = DEFAULT_EVAL_MODEL,
     threshold: float = 0.5,
     no_optimize: bool = False,
     run_id: Optional[str] = None,
@@ -637,7 +638,7 @@ def calibrate_metric(
         opro_iterations=10,
         opro_candidates=4,
         opro_optimizer_model="gemini-2.5-flash",
-        opro_scorer_model="gemini-2.5-flash-lite",
+        opro_scorer_model=DEFAULT_EVAL_MODEL,
         # APE defaults
         ape_candidates=10,
         ape_rounds=5,
@@ -696,7 +697,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
             annotations_path=args.annotations,
             dataset_dir=getattr(args, "dataset", None) or "",
             optimizer=getattr(args, "optimizer", "basic"),
-            model=getattr(args, "model", "gemini-2.5-flash-lite"),
+            model=getattr(args, "model", DEFAULT_EVAL_MODEL),
             threshold=getattr(args, "threshold", 0.5),
             no_optimize=getattr(args, "no_optimize", False),
             run_id=getattr(args, "run_id", None),
@@ -847,8 +848,8 @@ def register_commands(subparsers) -> None:
     )
     calibrate_parser.add_argument(
         "--model",
-        default="gemini-2.5-flash-lite",
-        help="LLM model for prompt optimization (llm mode)",
+        default=DEFAULT_EVAL_MODEL,
+        help=f"LLM model for prompt optimization (default: {DEFAULT_EVAL_MODEL})",
     )
     calibrate_parser.add_argument(
         "--gepa-task-lm",
@@ -886,8 +887,8 @@ def register_commands(subparsers) -> None:
     )
     calibrate_parser.add_argument(
         "--opro-scorer-model",
-        default="gemini-2.5-flash-lite",
-        help="Model for scoring OPRO candidates",
+        default=DEFAULT_EVAL_MODEL,
+        help=f"Model for scoring OPRO candidates (default: {DEFAULT_EVAL_MODEL})",
     )
     # APE-specific arguments
     calibrate_parser.add_argument(

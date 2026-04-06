@@ -81,8 +81,11 @@ class PipelineState:
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(temp_path, path)
-        except Exception:
-            pass  # Non-fatal
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Failed to save pipeline state to %s: %s", path, e
+            )
 
     def is_step_done(self, step_name: str) -> bool:
         """Check if a step completed successfully."""

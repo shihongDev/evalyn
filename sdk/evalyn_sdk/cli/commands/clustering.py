@@ -44,6 +44,7 @@ from ...datasets import load_dataset
 from ...decorators import get_default_tracer
 from ...models import DatasetItem, EvalRun, MetricResult
 from ..utils.command_common import load_eval_run_for_command
+from ...defaults import DEFAULT_EVAL_MODEL
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
@@ -330,8 +331,8 @@ def register_commands(subparsers) -> None:
     )
     failures_parser.add_argument(
         "--model",
-        default="gemini-2.5-flash-lite",
-        help="LLM model for clustering (default: gemini-2.5-flash-lite)",
+        default=DEFAULT_EVAL_MODEL,
+        help=f"LLM model for clustering (default: {DEFAULT_EVAL_MODEL})",
     )
     failures_parser.add_argument(
         "--format",
@@ -380,8 +381,8 @@ def register_commands(subparsers) -> None:
     )
     misalign_parser.add_argument(
         "--model",
-        default="gemini-2.5-flash-lite",
-        help="LLM model for clustering (default: gemini-2.5-flash-lite)",
+        default=DEFAULT_EVAL_MODEL,
+        help=f"LLM model for clustering (default: {DEFAULT_EVAL_MODEL})",
     )
     misalign_parser.add_argument(
         "--format",

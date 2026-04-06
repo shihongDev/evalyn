@@ -37,6 +37,7 @@ from pathlib import Path
 from ...datasets import load_dataset
 from ...decorators import eval as eval_decorator
 from ...simulation import AgentSimulator, SimulationConfig, UserSimulator
+from ...defaults import DEFAULT_EVAL_MODEL
 from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
 from ..utils.loaders import _load_callable
@@ -52,7 +53,7 @@ def run_simulation(
     num_similar: int = 3,
     num_outlier: int = 1,
     max_seeds: int = 50,
-    model: str = "gemini-2.5-flash-lite",
+    model: str = DEFAULT_EVAL_MODEL,
     temp_similar: float = 0.3,
     temp_outlier: float = 0.8,
 ) -> None:
@@ -305,8 +306,8 @@ def register_commands(subparsers) -> None:
     )
     p.add_argument(
         "--model",
-        default="gemini-2.5-flash-lite",
-        help="LLM model for query generation",
+        default=DEFAULT_EVAL_MODEL,
+        help=f"LLM model for query generation (default: {DEFAULT_EVAL_MODEL})",
     )
     p.add_argument(
         "--temp-similar",
