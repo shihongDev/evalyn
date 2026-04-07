@@ -8,7 +8,7 @@ Updated 2026-03-29: ROADMAP 100% complete (559/559 items, 2151 sub-items). Focus
 ## High Priority
 
 ### Write tests for new modules
-- **What:** The SDK grew from ~75 to 579 modules. The original 11 untested modules (parsing.py, execution.py, batch/evaluator.py, llm_judge.py, confidence/*, simulator.py, calibration/factory.py, calibration/engine.py, datasets.py, pipeline_steps.py) still need dedicated tests. Additionally, the 240+ new modules (sampling, simulation, security, CLI tools) have no unit tests yet.
+- **What:** The SDK grew from ~75 to 579 modules. The original 11 untested modules (parsing.py, execution.py, batch/evaluator.py, llm_judge.py, confidence/*, simulator.py, calibration/factory.py, calibration/engine.py, datasets.py, pipeline_steps.py) still need dedicated tests. Additionally, the ~500 new modules (sampling, simulation, security, CLI tools) have no unit tests yet.
 - **Why:** New modules are covered only through commit-time smoke tests. Regressions in sampling strategies or simulation generators would go undetected until user-facing failures.
 - **Depends on:** Nothing.
 
@@ -23,7 +23,7 @@ Updated 2026-03-29: ROADMAP 100% complete (559/559 items, 2151 sub-items). Focus
 
 ### Remove deprecated DatasetItem fields
 - **What:** Drop `inputs` and `expected` fields from DatasetItem. Keep only `input` and `output`. Update all internal references.
-- **Why:** The bidirectional sync in `__post_init__` has edge cases. Dual fields confuse contributors. Pre-1.0 with no external users is the right time.
+- **Why:** The property aliases (`inputs`/`expected`) add indirection. Dual fields confuse contributors. Pre-1.0 with no external users is the right time.
 - **Depends on:** Nothing.
 
 ### Consolidate sampling module organization

@@ -255,7 +255,7 @@ metric.evaluate(call, item)          metric.evaluate_unit(view, item)
 
 ## 4. Metrics Design
 
-### Current: 136 metrics (76 objective + 60 subjective)
+### Current: 133 metrics (73 objective + 60 subjective)
 
 ```
 Objective: pure function (FunctionCall, DatasetItem) -> MetricResult
@@ -468,6 +468,10 @@ Insights functions:
 - Real-time: WebSocket for live eval progress
 - Frontend: minimal Jinja2 templates + Chart.js (no heavy JS framework)
 - Launch: `evalyn dashboard` command starting local server
+
+> **Note:** Current implementation generates static HTML reports with Chart.js
+> visualizations (no live server). The FastAPI/WebSocket design above is
+> aspirational and planned for a future release.
 
 ---
 

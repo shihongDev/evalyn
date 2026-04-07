@@ -54,11 +54,8 @@ Each line in the output JSONL contains:
 ## Output
 
 ```
-Using latest eval run: abc123-def456
 Exported 50 items to annotations_export.jsonl
-  - With eval results: 50
-  - With human labels: 10
-  - Awaiting annotation: 40
+Hint: After annotating, import with: evalyn import-annotations --path annotations_export.jsonl
 ```
 
 ## Examples

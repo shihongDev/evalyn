@@ -7,7 +7,7 @@ Show comprehensive status of a dataset including items, metrics, runs, annotatio
 ```bash
 evalyn status --dataset <path>
 evalyn status --latest
-evalyn status  # Lists available datasets
+evalyn status  # Errors if no dataset found (prints available datasets as hint)
 ```
 
 ## Options
@@ -75,7 +75,7 @@ evalyn status --dataset data/myapp-v1-20250115-120000
 # Check status of the most recent dataset
 evalyn status --latest
 
-# List all available datasets (when no dataset specified)
+# Without --dataset or --latest, errors and prints available datasets as a hint
 evalyn status
 ```
 

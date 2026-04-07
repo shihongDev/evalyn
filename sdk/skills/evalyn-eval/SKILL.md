@@ -97,7 +97,7 @@ Do NOT use modes like `agent`, `rag`, or `classify` - those do not exist.
 evalyn run-eval --dataset <path>
 ```
 
-This runs all metrics, generates `results.json` and `report.html` in `eval_runs/`, and prints a summary table. Note the run ID from the output.
+This runs all metrics, generates `results.json` in `eval_runs/`, and prints a summary table. Note the run ID from the output.
 
 Useful flags:
 - `--workers 8`: increase parallel workers (default 4, max 16)

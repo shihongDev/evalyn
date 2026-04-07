@@ -31,7 +31,7 @@ pip install "evalyn-sdk[llm]"
 ### 1. Instrument Your Agent
 
 ```python
-import evalyn_sdk  # Auto-patches OpenAI, Anthropic, Gemini clients
+import evalyn_sdk  # LLM calls auto-captured on first @eval trace
 
 from evalyn_sdk import eval
 
@@ -104,11 +104,11 @@ Sampling is available programmatically via the `evalyn_sdk.sampling` module.
 14 synthetic data generators for stress-testing your agent:
 
 ```bash
-evalyn simulate --mode adversarial --project myapp
-evalyn simulate --mode multi-turn --turns 5 --project myapp
+evalyn simulate --dataset data/prod/datasets/myapp-*/dataset.jsonl --modes similar,outlier
+evalyn simulate --dataset data/prod/datasets/myapp-*/dataset.jsonl --target myapp:my_agent --modes similar
 ```
 
-Modes: multi-turn, adversarial, regression, domain-transfer, conditional, structured, parallel, constraint, persona, reference, tool-schema, and more.
+CLI modes: `similar` (variations of existing queries) and `outlier` (edge cases). Additional simulation strategies (multi-turn, adversarial, regression, domain-transfer, conditional, structured, parallel, constraint, persona, reference, tool-schema, and more) are available programmatically via the `evalyn_sdk.simulation` module.
 
 ## Security and Governance
 
@@ -163,7 +163,7 @@ Evalyn includes [Claude Code skills](https://github.com/shihongDev/evalyn) that 
 
 ```bash
 # Install skills
-cp -r sdk/skills/evalyn-* ~/.claude/skills/
+cp -r sdk/skills/evalyn* ~/.claude/skills/
 ```
 
 Then in Claude Code: *"Help me evaluate my agent"* - Claude handles the rest.

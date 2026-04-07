@@ -73,11 +73,11 @@ analyze / insights / compare
 
 | Location | Variable | Problem |
 |---|---|---|
-| `context.py:43-47` | `_global_call_id`, `_global_collectors`, `_orphan_spans` | Module-level mutables, not ContextVar. Data races under concurrency. |
+| `context.py:42` + `context.py:49` | `_global_collectors`, `_orphan_spans` | Module-level mutables, not ContextVar. Data races under concurrency. |
 | `context.py:29-30` + `tracer.py:19` | Two `_active_call` ContextVars | Same concept, two variables. Manually synchronized - fragile. |
-| `decorators.py:12` | `_default_tracer` singleton | Hardcodes SQLiteStorage. No reset path for tests. |
-| `config.py:14` | `_project_root_cache` | Never invalidated. Breaks tests that change cwd. |
-| `tracer.py:76` | `_function_meta_cache` keyed by `id(func)` | Python reuses object IDs after GC. Rare but real stale-cache bug. |
+| `decorators.py:10` | `_default_tracer` singleton | Hardcodes SQLiteStorage. No reset path for tests. |
+| ~~`config.py:14`~~ | ~~`_project_root_cache`~~ | ~~Never invalidated. Breaks tests that change cwd.~~ RESOLVED (Phase 4). |
+| `tracer.py:82` | `_function_meta_cache` keyed by `id(func)` | Python reuses object IDs after GC. Rare but real stale-cache bug. |
 | `registry.py:26` | `InstrumentorRegistry._instance` singleton | Has `.reset()` for tests. Correct pattern. |
 
 ### Configuration Architecture
@@ -178,13 +178,11 @@ Service layer would provide:
 
 ### Protocol Gaps
 
-**StorageBackend** is missing 4 methods that `SQLiteStorage` exposes publicly and that evaluation/CLI code calls:
+~~**StorageBackend** was missing 4 methods~~ RESOLVED - all 4 methods added to the protocol:
 - `batch_insert_metric_results`
 - `load_metric_results`
 - `store_span_metric_links`
 - `list_span_metric_links`
-
-Any alternative backend implementing only the protocol is silently incompatible.
 
 **`list_spans`** returns `List[Dict[str, Any]]` instead of `List[Span]`.
 
@@ -197,7 +195,7 @@ Any alternative backend implementing only the protocol is silently incompatible.
 | `ExecutionStrategy` | Yes | Cleanest ABC in codebase |
 | `BatchProvider` | Yes | Private abstract `_get_api_key()` is unusual but intentional |
 | `ConfidenceEstimator` | Weak | `estimate(**kwargs)` - callers can't discover required args |
-| `BaseOptimizer` | Not an ABC | `optimize()` raises `NotImplementedError` but isn't `@abstractmethod`. Bad subclasses fail at runtime, not instantiation. |
+| `BaseOptimizer` | ~~Not an ABC~~ RESOLVED | Now a proper ABC with `@abstractmethod` on `optimize()`. |
 
 ### Serialization Inconsistency
 
@@ -260,7 +258,7 @@ Any alternative backend implementing only the protocol is silently incompatible.
 
 | # | Issue | File:Line | Fix |
 |---|---|---|---|
-| 1 | Global mutable state data race in span collection | `context.py:43-47` | Use thread-keyed dict or `threading.local` |
+| 1 | Global mutable state data race in span collection | `context.py:42,49` | Use thread-keyed dict or `threading.local` |
 | 2 | Composite PK truncation (64 chars) causes silent result overwrite | `sqlite.py:336` | Hash the composite key |
 | 3 | Bare except swallows checkpoint errors | `runner.py:126-128, 163-165` | Log warning, check return value |
 | 4 | ContextVar token discarded, wrong reset in async | `context.py:180-190` | Use `cv.reset(token)` |
@@ -275,7 +273,7 @@ Any alternative backend implementing only the protocol is silently incompatible.
 |---|---|---|---|
 | 9 | StorageBackend protocol missing 4 public methods | `storage/base.py:9-31` | Add to protocol |
 | 10 | N+1 query in list_eval_runs | `sqlite.py:656-682` | Batch load with `IN (...)` |
-| 11 | DatasetItem dual-field sync breaks after mutation | `models.py:519-529` | Remove dual fields, use properties |
+| 11 | ~~DatasetItem dual-field sync breaks after mutation~~ RESOLVED | `models.py:673-689` | Fixed with property aliases (`inputs`/`expected`) |
 | 12 | MetricSpec constructed manually in 4 places | Multiple | Use `MetricSpec.from_dict()` |
 | 13 | MultiTurnBuilder non-deterministic unit IDs | `builders.py:165` | Derive from span IDs |
 | 14 | `sample_diverse` ignores caller seed | `sampling.py:114-116` | Add seed parameter |
@@ -346,4 +344,4 @@ Any alternative backend implementing only the protocol is silently incompatible.
 - ~~Extract ProviderFactory from 3 provider dispatch locations~~ DONE (create_llm_client in api_client.py)
 - ~~Extract MetricsLoader from 3 metric-building implementations~~ DONE (build_metrics_from_specs in factory.py)
 
-*Last updated: 2026-03-26*
+*Last updated: 2026-04-07*

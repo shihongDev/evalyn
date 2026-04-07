@@ -28,7 +28,7 @@ Look for subjective metrics (type `[llm]`) with pass rates below 90%. Only subje
 Run interactive annotation with per-metric mode for targeted feedback:
 
 ```bash
-evalyn annotate --run-id <latest-run-id> --per-metric
+evalyn annotate --run-id <latest-run-id> --dataset <dataset-path> --per-metric
 ```
 
 This is an interactive terminal session. The user will:
@@ -62,8 +62,12 @@ The output shows alignment metrics:
 | `opro` | `--optimizer opro` | Medium | Iterative refinement |
 | `gepa-native` | `--optimizer gepa-native` | Slow | Best quality, built-in token tracking |
 | `gepa` | `--optimizer gepa` | Slow | Evolutionary (requires `pip install gepa`) |
+| `evoprompt` | `--optimizer evoprompt` | Medium | Evolutionary mutation/crossover of prompts |
+| `textgrad` | `--optimizer textgrad` | Medium | Critique-revise gradient descent on text |
+| `miprov2` | `--optimizer miprov2` | Medium | Instruction + few-shot demo co-optimization |
+| `promptbreeder` | `--optimizer promptbreeder` | Slow | Self-referential evolutionary prompt search |
 
-Optimizer-specific settings are available as CLI flags (e.g., `--opro-iterations`, `--ape-candidates`, `--gepa-generations`, `--gepa-population-size`).
+Optimizer-specific settings are available as CLI flags (e.g., `--opro-iterations`, `--ape-candidates`, `--gepa-task-lm`, `--gepa-reflection-lm`, `--gepa-max-calls`).
 
 If basic doesn't improve alignment enough:
 

@@ -35,8 +35,8 @@ Test all CLI workflows as a real user would, covering:
 ### Test 2: evalyn --version
 - **Status**: PASS
 - **Command**: `evalyn --version`
-- **Result**: `evalyn 0.1.0`
-- **Notes**: Version should be bumped to 0.2.0 to match CHANGELOG
+- **Result**: `evalyn 0.2.0`
+- **Notes**: Version was bumped to 0.2.0 (resolved)
 
 ### Test 3: evalyn init
 - **Status**: PASS
@@ -143,7 +143,7 @@ Test all CLI workflows as a real user would, covering:
 6. **Short ID matching**: Works for show-call (8-char prefix matches).
 
 ### Issues found
-1. **Version mismatch**: `--version` shows 0.1.0 but CHANGELOG has 0.2.0 section
+1. ~~**Version mismatch**: `--version` shows 0.1.0 but CHANGELOG has 0.2.0 section~~ (resolved - version bumped to 0.2.0)
 2. **Inconsistent short ID support**: show-call accepts short IDs but analyze requires full UUID
 3. **list-runs doesn't accept --dataset**: Error message is raw argparse output instead of friendly message
 4. **Dashboard in WSL**: Tries to open browser via xdg-open which fails - could detect WSL and print file path
@@ -155,7 +155,7 @@ Test all CLI workflows as a real user would, covering:
 ## Improvement Suggestions
 
 ### High Priority
-1. **Bump version to 0.2.0** in `sdk/evalyn_sdk/__init__.py` to match CHANGELOG
+1. ~~**Bump version to 0.2.0** in `sdk/evalyn_sdk/__init__.py` to match CHANGELOG~~ (resolved)
 2. **Standardize short ID resolution** across all commands (analyze, compare, trend, etc.)
 3. **Improve error messages** for missing required flags - show available values where possible
 
@@ -192,7 +192,7 @@ Test all CLI workflows as a real user would, covering:
 | Workflow | workflow, quickstart | PASS |
 | Export (multi) | export (CSV, markdown, JSON) | PASS |
 
-**27/35 CLI commands tested, 26 passed, 0 failed, 1 generated but can't verify visually (dashboard HTML)**
+**27/34 CLI commands tested, 26 passed, 0 failed, 1 generated but can't verify visually (dashboard HTML)**
 
 ### Round 2 Tests (added 2026-03-29T18:10 UTC)
 
@@ -336,6 +336,6 @@ Test all CLI workflows as a real user would, covering:
 | Calibration | list-calibrations | PASS (no data) |
 | Skipped | annotate (interactive), select-metrics, cluster-misalignments, calibrate, delete-traces, import-annotations | Requires interactive terminal or annotations |
 
-**31/35 CLI commands tested, 30 passed, 0 failed, 1 file-only (dashboard), 4 skipped (interactive/prereqs)**
+**31/34 CLI commands tested, 30 passed, 0 failed, 1 file-only (dashboard), 3 skipped (interactive/prereqs)**
 
 Total Gemini API spend: ~$0.54 (3 eval runs x $0.18 each)

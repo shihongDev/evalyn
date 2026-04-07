@@ -249,7 +249,7 @@ If calibration is recommended and the user agrees, invoke the calibration flow:
 1. **Annotate** — Run interactive annotation:
 
 ```bash
-evalyn annotate --run-id <latest-run-id> --per-metric
+evalyn annotate --run-id <latest-run-id> --dataset <dataset-path> --per-metric
 ```
 
 This is an interactive terminal session. Tell the user:

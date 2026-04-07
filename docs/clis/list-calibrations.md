@@ -23,7 +23,7 @@ The `list-calibrations` command shows all calibration records stored for a datas
 
 - **Metric ID**: Which metric was calibrated
 - **Timestamp**: When calibration was performed
-- **Optimizer**: Method used (llm or gepa)
+- **Optimizer**: Method used (basic, gepa, gepa-native, opro, ape, evoprompt, textgrad, miprov2, or promptbreeder)
 - **Alignment metrics**: Accuracy, F1 score, Cohen's Kappa
 - **Sample count**: Number of annotations used
 

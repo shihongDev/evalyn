@@ -27,7 +27,6 @@ evalyn run-eval --latest [OPTIONS]
 | `--confidence` | none | Confidence method: `none`, `consistency`, `logprobs`, `deepconf` |
 | `--confidence-samples` | 3 | Number of samples for consistency method |
 | `--unit-types` | outcome | Evaluation unit types (comma-separated) |
-| `--span-types` | - | Filter spans by type (comma-separated) |
 | `--verbose`, `-v` | false | Show detailed cost breakdown by metric |
 
 ## Evaluation Unit Types

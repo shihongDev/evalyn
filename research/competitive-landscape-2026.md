@@ -569,7 +569,7 @@ Query -> Confidence Estimator ->
 2. **Cost-aware evaluation** (routing during evals) not integrated into any eval SDK
 3. **Consistency measurement** rarely built-in (CLEAR framework is the exception: 60% -> 25% drop)
 4. **Agent trajectory comparison** across runs is manual in most tools
-5. **User simulation** only in Google ADK - others lack synthetic user generation
+5. **User simulation** only in Google ADK - others lack synthetic user generation (Note: Evalyn now has `evalyn simulate` for synthetic user generation, closing this gap)
 
 ### Design patterns to adopt:
 - `evaluate(dataset, metrics, ...)` as the core API (DeepEval, Ragas pattern)

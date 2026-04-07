@@ -7,8 +7,8 @@ Trace-shape-driven evaluation. Discover evaluatable units from trace structure, 
 - 559 completed roadmap items
 - 1500+ Python modules across the SDK
 - 460+ test files
-- CLI: 35+ commands covering tracing, datasets, metrics, evaluation, annotation, calibration, simulation, and infrastructure
-- Optimizer algorithms: LLM, GEPA-Native, OPRO, APE, CAPO
+- CLI: 34 commands covering tracing, datasets, metrics, evaluation, annotation, calibration, simulation, and infrastructure
+- Optimizer algorithms: Basic, GEPA, GEPA-Native, OPRO, APE, EvoPrompt, TextGrad, MIPROv2, PromptBreeder
 - Standalone modules for doctor, playground, dashboard export, quickstart templates, and more
 
 ## Core Concept
@@ -31,14 +31,19 @@ Key insight: System discovers "what CAN be evaluated" rather than "run metric X 
 
 ```python
 SpanType = Literal[
-    # Existing
-    "session", "graph", "node", "llm_call", "tool_call",
-    "retrieval", "scorer", "agent", "custom",
-    # NEW
-    "message",        # Conversation turn
-    "state_snapshot", # Agent state checkpoint
-    "outcome",        # Final result/decision
-    "decision",       # Agent decision point
+    "session",         # Root session span
+    "graph",           # LangGraph execution
+    "node",            # LangGraph node
+    "llm_call",        # LLM API call
+    "tool_call",       # Tool/function call
+    "retrieval",       # RAG retrieval
+    "scorer",          # Metric evaluation
+    "agent",           # Agent execution (Google ADK, Anthropic Agents, etc.)
+    "custom",          # User-defined span
+    "input_message",   # User/system message input
+    "output_message",  # Assistant message output
+    "tool_use",        # Tool invocation request
+    "tool_result",     # Tool execution result
 ]
 ```
 
@@ -50,68 +55,61 @@ SpanType = Literal[
 
 ```python
 EvalUnitType = Literal[
-    "single_turn",  # Single LLM input->output
-    "multi_turn",   # Conversation sequence
-    "trajectory",   # Action sequence (tool calls)
-    "outcome",      # Final result evaluation
-    "subgraph",     # Nested agent/graph
+    "outcome",      # Full trace outcome (default, backward-compatible)
+    "single_turn",  # Single LLM call: input -> output
+    "tool_use",     # Tool invocation: request -> result
+    "multi_turn",   # Consecutive exchanges in a conversation
+    "custom",       # User-defined evaluation boundary
 ]
 
 @dataclass
 class EvalUnit:
     id: str
-    unit_type: EvalUnitType
-    call_id: str
-    span_ids: List[str]
-    input_view: Any
-    output_view: Any
+    unit_type: str  # EvalUnitType
+    call_id: str    # Parent FunctionCall ID
+    span_ids: List[str]  # Spans comprising this unit
     context: Dict[str, Any] = field(default_factory=dict)
-    name: str = ""
-    parent_unit_id: Optional[str] = None
-
-    @classmethod
-    def from_span(cls, span: Span, call_id: str) -> "EvalUnit": ...
 ```
 
 ---
 
-## 3. EvalUnitBuilder Protocol
+## 3. EvalUnitBuilder ABC
 
-**NEW: sdk/evalyn_sdk/eval_units/builders.py**
+**sdk/evalyn_sdk/evaluation/units/builders.py**
 
 ```python
-class EvalUnitBuilder(Protocol):
-    unit_type: str
-    def build(self, call: FunctionCall) -> List[EvalUnit]: ...
+class EvalUnitBuilder(ABC):
+    @property
+    @abstractmethod
+    def unit_type(self) -> str: ...
 
+    @abstractmethod
+    def discover(self, call: FunctionCall) -> List[EvalUnit]: ...
+
+class OutcomeBuilder:       # Full trace outcome (DEFAULT)
 class SingleTurnBuilder:    # EvalUnit per llm_call span
-class MultiTurnBuilder:     # Group message spans into conversation
-class TrajectoryBuilder:    # Sequence of tool calls
-class OutcomeBuilder:       # Final call result (DEFAULT)
-class SubgraphBuilder:      # Nested agent/graph executions
+class ToolUseBuilder:       # Tool invocation request/result
+class MultiTurnBuilder:     # Group llm_call spans by parent into conversation
+class CustomBuilder:        # User-defined eval boundaries via span attributes
 ```
 
 ---
 
 ## 4. EvalView Projection
 
-**NEW: sdk/evalyn_sdk/eval_units/views.py**
+**sdk/evalyn_sdk/evaluation/units/views.py**
 
 ```python
 @dataclass
 class EvalView:
     unit_id: str
     unit_type: str
-    input_text: str         # Flattened for LLM judge
-    output_text: str
-    input_structured: Any   # For objective metrics
-    output_structured: Any
-    conversation_history: List[Dict] = field(default_factory=list)
-    tool_calls: List[Dict] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    input: Any              # Projected input (varies by unit type)
+    output: Any             # Projected output (varies by unit type)
+    context: Dict[str, Any] = field(default_factory=dict)
 
-    @classmethod
-    def from_unit(cls, unit: EvalUnit, call: FunctionCall) -> "EvalView": ...
+# Standalone projection function (not a classmethod):
+def project_unit(unit: EvalUnit, call: FunctionCall) -> EvalView: ...
 ```
 
 ---
@@ -128,7 +126,7 @@ class Metric:
     def evaluate(self, call, item) -> MetricResult:  # KEEP existing
         ...
 
-    def evaluate_unit(self, unit: EvalUnit, view: EvalView) -> MetricResult:  # NEW
+    def evaluate_unit(self, view: EvalView, item: DatasetItem) -> MetricResult:  # NEW
         ...
 
 @dataclass
@@ -174,16 +172,14 @@ class EvalRunner:
 **evaluation.py**:
 
 ```
---unit-types TYPE...     # single_turn multi_turn trajectory outcome
---builders BUILDER...    # SingleTurnBuilder TrajectoryBuilder etc
---span-types TYPE...     # For SingleTurnBuilder: which spans to evaluate
+--unit-types TYPE...     # outcome, single_turn, tool_use, multi_turn, custom (comma-separated)
 ```
 
 Examples:
 ```bash
-evalyn run-eval data.jsonl -m metrics.json --unit-types single_turn --span-types llm_call
-evalyn run-eval data.jsonl -m metrics.json --unit-types trajectory
-evalyn run-eval data.jsonl -m metrics.json --unit-types outcome single_turn
+evalyn run-eval data.jsonl -m metrics.json --unit-types single_turn
+evalyn run-eval data.jsonl -m metrics.json --unit-types tool_use
+evalyn run-eval data.jsonl -m metrics.json --unit-types outcome,single_turn
 ```
 
 ---
@@ -194,7 +190,7 @@ evalyn run-eval data.jsonl -m metrics.json --unit-types outcome single_turn
 [
   {"id": "helpfulness", "type": "subjective", "unit_types": ["outcome"], ...},
   {"id": "llm_quality", "type": "subjective", "unit_types": ["single_turn"], ...},
-  {"id": "trajectory_efficiency", "type": "objective", "unit_types": ["trajectory"], ...}
+  {"id": "tool_use_quality", "type": "objective", "unit_types": ["tool_use"], ...}
 ]
 ```
 
@@ -206,10 +202,10 @@ evalyn run-eval data.jsonl -m metrics.json --unit-types outcome single_turn
 |------|--------|
 | sdk/evalyn_sdk/models.py | Extend SpanType, add EvalUnitType, EvalUnit, EvalView |
 | sdk/evalyn_sdk/models.py | Extend Metric (unit_types), MetricResult (+3 Optional) |
-| sdk/evalyn_sdk/eval_units/__init__.py | NEW: Package |
-| sdk/evalyn_sdk/eval_units/builders.py | NEW: EvalUnitBuilder + impls |
-| sdk/evalyn_sdk/eval_units/views.py | NEW: EvalView projection |
-| sdk/evalyn_sdk/runner.py | unit_builders, _discover_units(), updated loop |
+| sdk/evalyn_sdk/evaluation/units/__init__.py | Package |
+| sdk/evalyn_sdk/evaluation/units/builders.py | EvalUnitBuilder ABC + impls |
+| sdk/evalyn_sdk/evaluation/units/views.py | EvalView projection (project_unit) |
+| sdk/evalyn_sdk/evaluation/runner.py | unit_builders, _discover_units(), updated loop |
 | sdk/evalyn_sdk/metrics/factory.py | Handle unit_types |
 | sdk/evalyn_sdk/cli/commands/evaluation.py | New CLI flags |
 
@@ -243,5 +239,5 @@ evalyn run-eval data.jsonl -m metrics.json --unit-types outcome single_turn
 1. Unit tests for each EvalUnitBuilder
 2. Test EvalView projection from various unit types
 3. Integration: trace with 3 LLM calls -> 3 single_turn units -> 3 results
-4. CLI test: `--unit-types single_turn --span-types llm_call`
+4. CLI test: `--unit-types single_turn`
 5. Backwards compat: existing eval runs produce identical results

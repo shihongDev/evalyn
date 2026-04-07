@@ -15,7 +15,7 @@ evalyn calibrate --metric-id <id> --annotations <file> [OPTIONS]
 | `--metric-id ID` | Required | Metric to calibrate |
 | `--annotations FILE` | Required | Annotations file (JSONL) |
 | `--run-id ID` | latest | Eval run ID to calibrate |
-| `--threshold N` | 0.5 | Current threshold for pass/fail |
+| `--threshold N` | None | Current threshold for pass/fail |
 | `--dataset PATH` | - | Dataset path (for prompt optimization) |
 | `--latest` | false | Use the most recently modified dataset |
 | `--no-optimize` | false | Skip prompt optimization, only compute metrics |
