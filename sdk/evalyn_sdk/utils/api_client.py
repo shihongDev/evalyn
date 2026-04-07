@@ -518,6 +518,7 @@ class OllamaClient:
         prompt: str,
         temperature: Optional[float],
         extra_options: Optional[dict] = None,
+        system_instruction: Optional[str] = None,
     ) -> dict[str, Any]:
         """Make API call and return raw response data."""
         options = {
@@ -526,12 +527,14 @@ class OllamaClient:
         if extra_options:
             options.update(extra_options)
 
-        payload = {
+        payload: dict[str, Any] = {
             "model": self.model,
             "prompt": prompt,
             "stream": False,
             "options": options,
         }
+        if system_instruction:
+            payload["system"] = system_instruction
         headers = {"Content-Type": "application/json"}
         url = f"{self.base_url}/api/generate"
         return _http_post(url, payload, headers, self.timeout, "Ollama API")
@@ -542,10 +545,20 @@ class OllamaClient:
         return result.text
 
     def generate_with_usage(
-        self, prompt: str, temperature: Optional[float] = None
+        self, prompt: str, temperature: Optional[float] = None,
+        system_instruction: Optional[str] = None,
     ) -> GenerateResult:
-        """Call Ollama API and return text with token usage."""
-        response_data = self._call_api(prompt, temperature)
+        """Call Ollama API and return text with token usage.
+
+        Args:
+            prompt: The prompt to send as the user message
+            temperature: Optional temperature override for this request
+            system_instruction: Optional system message (sent as Ollama's
+                "system" field, separating instructions from evaluation data)
+        """
+        response_data = self._call_api(
+            prompt, temperature, system_instruction=system_instruction,
+        )
 
         text = response_data.get("response", "")
 
