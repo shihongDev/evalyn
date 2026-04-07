@@ -39,8 +39,15 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
     tracer = get_default_tracer()
     if not tracer.storage:
         fatal_error("No storage configured")
-    runs = tracer.storage.list_eval_runs(limit=args.limit)
+    # Lightweight: skip deserializing metric results (can be 7300+ per run).
+    # Results count comes from SQL COUNT via summary["results_count"].
+    runs = tracer.storage.list_eval_runs(limit=args.limit, lightweight=True)
     output_format = getattr(args, "format", "table")
+
+    def _results_count(run) -> int:
+        if "results_count" in run.summary:
+            return run.summary["results_count"]
+        return len(run.metric_results)
 
     if not runs:
         if output_format == "json":
@@ -59,7 +66,7 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
                 if run.created_at
                 else None,
                 "metrics_count": len(run.metrics),
-                "results_count": len(run.metric_results),
+                "results_count": _results_count(run),
                 "summary": run.summary,
             }
             if run.name:
@@ -86,7 +93,7 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
             run.dataset_name,
             str(run.created_at),
             str(len(run.metrics)),
-            str(len(run.metric_results)),
+            str(_results_count(run)),
             name_display,
         ]
         print(" | ".join(row))

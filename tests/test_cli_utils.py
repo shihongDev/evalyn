@@ -379,12 +379,14 @@ class TestLoadEvalRunForCommand:
         """Pass mock storage directly, verify run loaded by ID."""
         run = _make_eval_run(run_id="run-by-id")
         mock_storage = MagicMock()
+        mock_storage.resolve_eval_run_id.return_value = "run-by-id"
         mock_storage.get_eval_run.return_value = run
 
         loaded = load_eval_run_for_command(run_id="run-by-id", storage=mock_storage)
 
         assert loaded.run.id == "run-by-id"
         assert loaded.run_file_path is None
+        mock_storage.resolve_eval_run_id.assert_called_once_with("run-by-id")
         mock_storage.get_eval_run.assert_called_once_with("run-by-id")
 
     def test_load_from_dataset_dir(self, tmp_path):
@@ -401,7 +403,7 @@ class TestLoadEvalRunForCommand:
     def test_fatal_on_missing_run_id(self):
         """Verify SystemExit when run_id points to nonexistent run."""
         mock_storage = MagicMock()
-        mock_storage.get_eval_run.return_value = None
+        mock_storage.resolve_eval_run_id.return_value = None
 
         with pytest.raises(SystemExit):
             load_eval_run_for_command(run_id="nonexistent-id", storage=mock_storage)
