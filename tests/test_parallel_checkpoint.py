@@ -44,7 +44,9 @@ def _make_call(item_id: str) -> FunctionCall:
 
 
 def _make_metric(metric_id: str) -> Metric:
-    spec = MetricSpec(id=metric_id, name=metric_id, type="objective")
+    # Use type="subjective" so ParallelStrategy dispatches to the thread pool
+    # (objective metrics are now run sequentially in phase 1)
+    spec = MetricSpec(id=metric_id, name=metric_id, type="subjective")
 
     def handler(call, item):
         return MetricResult(

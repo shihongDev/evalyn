@@ -155,12 +155,45 @@ class ParallelStrategy(ExecutionStrategy):
             result = self._evaluate(metric, call, item)
             return (item.id, result)
 
-        # Build all tasks
-        tasks = [(metric, call, item) for item, call in prepared for metric in metrics]
+        # Split objective (CPU-bound, instant) from subjective (I/O-bound, slow).
+        # Run objective metrics sequentially first to avoid thread pool overhead,
+        # then dispatch subjective metrics to the thread pool.
+        objective_metrics = [m for m in metrics if m.spec.type == "objective"]
+        subjective_metrics = [m for m in metrics if m.spec.type != "objective"]
 
-        # Execute in parallel
         results_by_item: Dict[str, List[MetricResult]] = defaultdict(list)
         interrupted = False
+
+        # Phase 1: objective metrics - sequential, no threading overhead
+        if objective_metrics:
+            for item, call in prepared:
+                for metric in objective_metrics:
+                    result = self._evaluate(metric, call, item)
+                    results_by_item[item.id].append(result)
+                    if progress_callback:
+                        with progress_lock:
+                            current = next(eval_counter)
+                            progress_callback(current, total_evals, metric.spec.id, metric.spec.type)
+
+        # Phase 2: subjective metrics - parallel via thread pool
+        if not subjective_metrics:
+            # All objective - skip thread pool entirely
+            num_metrics = len(metrics)
+            results: List[MetricResult] = []
+            for item, call in prepared:
+                item_results = results_by_item.get(item.id, [])
+                results.extend(item_results)
+                if len(item_results) >= num_metrics:
+                    completed_items.add(item.id)
+            if self._checkpoint and results:
+                self._checkpoint(results, completed_items, run_id)
+            return results
+
+        tasks = [
+            (metric, call, item)
+            for item, call in prepared
+            for metric in subjective_metrics
+        ]
 
         try:
             with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
