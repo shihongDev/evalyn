@@ -38,19 +38,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from dataclasses import dataclass, field
 
-from ...datasets import load_dataset
-from ...decorators import get_default_tracer
-from ...defaults import DEFAULT_EVAL_MODEL
-from ...metrics.objective import OBJECTIVE_REGISTRY
-from ...metrics.subjective import SUBJECTIVE_REGISTRY
 from ..constants import BUNDLES
-from ...metrics.suggester import (
-    HeuristicSuggester,
-    LLMSuggester,
-    TemplateSelector,
-    LLMRegistrySelector,
-)
-from ...models import MetricRegistry, MetricSpec
 from ..utils.config import load_config, get_config_default, resolve_dataset_path
 from ..utils.errors import fatal_error
 from ..utils.formatters import print_token_usage_summary
@@ -88,6 +76,8 @@ def _save_suggested_metrics(
     Returns:
         Path to saved metrics file, or None if not saved
     """
+    from ...metrics.objective import OBJECTIVE_REGISTRY
+
     if not dataset_path:
         return None
 
@@ -200,6 +190,7 @@ def _save_suggested_metrics(
 
 def _build_llm_caller(args: argparse.Namespace) -> Callable:
     """Build an LLM caller from args."""
+    from ...defaults import DEFAULT_EVAL_MODEL
     from ...utils.api_client import call_gemini_api
 
     # Custom caller if provided
@@ -227,6 +218,8 @@ def _resolve_run_eval_inputs(
     config: dict,
 ) -> tuple[Path, List[Any], Dict[str, dict], List[Path]]:
     """Resolve dataset and load merged metric specs for run-eval."""
+    from ...datasets import load_dataset
+
     metrics_all = getattr(args, "metrics_all", False)
 
     dataset_arg = getattr(args, "dataset", None)
@@ -324,8 +317,9 @@ def _build_run_eval_metrics(
     all_metrics_data: Dict[str, dict],
 ) -> EvalMetricsConfig:
     """Build metric instances and return counters/settings."""
-    from ...metrics.factory import build_objective_metric, build_subjective_metric
     from ...calibration import load_optimized_prompt
+    from ...metrics.factory import build_objective_metric, build_subjective_metric
+    from ...models import MetricSpec
 
     metrics: List[Any] = []
     objective_count = 0
@@ -447,6 +441,8 @@ def _execute_run_eval(
     unit_types: Optional[List[str]],
 ):
     """Execute evaluation in standard or batch mode."""
+    from ...decorators import get_default_tracer
+
     tracer = get_default_tracer()
     if not tracer.storage:
         fatal_error("No storage configured")
@@ -966,6 +962,11 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
     - tool_call: Metrics that evaluate tool usage
     - trace: Metrics that aggregate across the entire trace
     """
+    from ...decorators import get_default_tracer
+    from ...metrics.objective import OBJECTIVE_REGISTRY
+    from ...metrics.subjective import SUBJECTIVE_REGISTRY
+    from ...metrics.suggester import LLMSuggester, TemplateSelector
+
     output_format = getattr(args, "format", "table")
     tracer = get_default_tracer()
 
@@ -1319,6 +1320,10 @@ def _run_suggest_metrics_bundle_mode(
     output_format: str,
 ) -> None:
     """Handle bundle-based metric suggestion mode."""
+    from ...metrics.objective import OBJECTIVE_REGISTRY
+    from ...metrics.subjective import SUBJECTIVE_REGISTRY
+    from ...models import MetricSpec
+
     bundle = (bundle_name or "").lower()
     ids = BUNDLES.get(bundle)
     if not ids:
@@ -1379,6 +1384,10 @@ def _run_suggest_metrics_basic_mode(
     scope_filter: Optional[str],
 ) -> List[MetricSpec]:
     """Handle heuristic/basic metric suggestion mode."""
+    from ...metrics.objective import OBJECTIVE_REGISTRY
+    from ...metrics.subjective import SUBJECTIVE_REGISTRY
+    from ...metrics.suggester import HeuristicSuggester
+
     suggester = HeuristicSuggester(has_reference=has_reference)
     specs = suggester.suggest(target_fn, traces)
     if not scope_filter:
@@ -1391,8 +1400,11 @@ def _run_suggest_metrics_basic_mode(
 
 def cmd_select_metrics(args: argparse.Namespace) -> None:
     """LLM-guided selection from metric registry."""
-    from ...metrics.suggester import TemplateSelector
-    from ...metrics.objective import register_builtin_metrics
+    from ...decorators import get_default_tracer
+    from ...metrics.objective import OBJECTIVE_REGISTRY, register_builtin_metrics
+    from ...metrics.subjective import SUBJECTIVE_REGISTRY
+    from ...metrics.suggester import LLMRegistrySelector, TemplateSelector
+    from ...models import MetricRegistry
 
     target_fn = _load_callable(args.target)
     tracer = get_default_tracer()
@@ -1418,6 +1430,9 @@ def cmd_select_metrics(args: argparse.Namespace) -> None:
 
 def cmd_list_metrics(args: argparse.Namespace) -> None:
     """List available metric templates (objective + subjective)."""
+    from ...metrics.objective import OBJECTIVE_REGISTRY
+    from ...metrics.subjective import SUBJECTIVE_REGISTRY
+
     output_format = getattr(args, "format", "table")
 
     # JSON output mode
@@ -1499,6 +1514,8 @@ def cmd_list_metrics(args: argparse.Namespace) -> None:
 
 def register_commands(subparsers) -> None:
     """Register evaluation commands."""
+    from ...defaults import DEFAULT_EVAL_MODEL
+
     # run-eval
     run_parser = subparsers.add_parser(
         "run-eval", help="Run evaluation on dataset using specified metrics"

@@ -27,7 +27,6 @@ from __future__ import annotations
 import argparse
 import json
 
-from ...decorators import get_default_tracer
 from ..utils.errors import fatal_error
 from ..utils.formatters import print_token_usage_summary
 from ..utils.hints import print_hint
@@ -35,6 +34,8 @@ from ..utils.hints import print_hint
 
 def cmd_list_runs(args: argparse.Namespace) -> None:
     """List stored eval runs."""
+    from ...decorators import get_default_tracer
+
     tracer = get_default_tracer()
     if not tracer.storage:
         fatal_error("No storage configured")
@@ -99,6 +100,8 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
 
 def cmd_show_run(args: argparse.Namespace) -> None:
     """Show details for a specific eval run."""
+    from ...decorators import get_default_tracer
+
     tracer = get_default_tracer()
     output_format = getattr(args, "format", "table")
 

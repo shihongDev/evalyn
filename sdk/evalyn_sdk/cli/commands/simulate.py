@@ -34,10 +34,6 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from ...datasets import load_dataset
-from ...decorators import eval as eval_decorator
-from ...simulation import AgentSimulator, SimulationConfig, UserSimulator
-from ...defaults import DEFAULT_EVAL_MODEL
 from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
 from ..utils.loaders import _load_callable
@@ -53,11 +49,15 @@ def run_simulation(
     num_similar: int = 3,
     num_outlier: int = 1,
     max_seeds: int = 50,
-    model: str = DEFAULT_EVAL_MODEL,
+    model: str = "",
     temp_similar: float = 0.3,
     temp_outlier: float = 0.8,
 ) -> None:
     """Run simulation - typed API callable without argparse."""
+    from ...defaults import DEFAULT_EVAL_MODEL
+
+    if not model:
+        model = DEFAULT_EVAL_MODEL
     args = argparse.Namespace(
         dataset=dataset,
         target=target,
@@ -85,6 +85,9 @@ def cmd_simulate(args: argparse.Namespace) -> None:
 
 def _cmd_simulate_inner(args: argparse.Namespace) -> None:
     """Inner implementation of cmd_simulate."""
+    from ...datasets import load_dataset
+    from ...decorators import eval as eval_decorator
+    from ...simulation import AgentSimulator, SimulationConfig, UserSimulator
 
     # Resolve dataset path
     dataset_path = Path(args.dataset)
@@ -264,6 +267,8 @@ def _cmd_simulate_inner(args: argparse.Namespace) -> None:
 
 def register_commands(subparsers) -> None:
     """Register simulation commands."""
+    from ...defaults import DEFAULT_EVAL_MODEL
+
     # simulate
     p = subparsers.add_parser(
         "simulate", help="Generate synthetic test data using LLM-based user simulation"

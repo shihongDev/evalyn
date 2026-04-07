@@ -8,79 +8,70 @@ This module provides tools for calibrating LLM judges against human annotations:
 
 IMPORTANT: All optimizers only modify the preamble (system prompt/instructions).
 The rubric (evaluation criteria) is kept FIXED as defined by humans.
+
+All symbols are loaded lazily so that importing the calibration package
+(e.g., to access models or utils) does not pull in every optimizer.
 """
 
-from .ape import APEConfig, APEOptimizer
-from .base_optimizer import BaseOptimizer
-from .evoprompt import EvoPromptConfig, EvoPromptOptimizer
-from .basic import BasicOptimizer
-from .engine import CalibrationConfig, CalibrationEngine
-from .factory import OPTIMIZER_REGISTRY, call_optimizer, create_optimizer
-from .gepa import GEPA_AVAILABLE, GEPAConfig, GEPAOptimizer
-from .miprov2 import MIPROv2Config, MIPROv2Optimizer
-from .promptbreeder import BreederUnit, PromptBreederConfig, PromptBreederOptimizer
-from .textgrad import TextGradConfig, TextGradOptimizer
-from .gepa_native import GEPANativeConfig, GEPANativeOptimizer
-from .models import (
-    AlignmentMetrics,
-    DisagreementAnalysis,
-    DisagreementCase,
-    PromptOptimizationResult,
-    TokenAccumulator,
-    ValidationResult,
-)
-from .opro import OPROConfig, OPROOptimizer, TrajectoryEntry
-from .utils import (
-    build_dataset_from_annotations,
-    build_full_prompt,
-    load_optimized_prompt,
-    parse_candidates_response,
-    parse_judge_response,
-    save_calibration,
-)
+from __future__ import annotations
 
-__all__ = [
+import importlib as _importlib
+
+_LAZY_IMPORTS: dict[str, tuple[str, str]] = {
+    # Models (lightweight dataclasses)
+    "AlignmentMetrics": (".models", "AlignmentMetrics"),
+    "DisagreementAnalysis": (".models", "DisagreementAnalysis"),
+    "DisagreementCase": (".models", "DisagreementCase"),
+    "PromptOptimizationResult": (".models", "PromptOptimizationResult"),
+    "TokenAccumulator": (".models", "TokenAccumulator"),
+    "ValidationResult": (".models", "ValidationResult"),
     # Engine
-    "CalibrationConfig",
-    "CalibrationEngine",
+    "CalibrationConfig": (".engine", "CalibrationConfig"),
+    "CalibrationEngine": (".engine", "CalibrationEngine"),
     # Factory
-    "BaseOptimizer",
-    "create_optimizer",
-    "call_optimizer",
-    "OPTIMIZER_REGISTRY",
-    # Models
-    "AlignmentMetrics",
-    "DisagreementAnalysis",
-    "DisagreementCase",
-    "PromptOptimizationResult",
-    "TokenAccumulator",
-    "ValidationResult",
-    # Optimizers
-    "BasicOptimizer",
-    "GEPAConfig",
-    "GEPAOptimizer",
-    "GEPA_AVAILABLE",
-    "GEPANativeConfig",
-    "GEPANativeOptimizer",
-    "OPROConfig",
-    "OPROOptimizer",
-    "TrajectoryEntry",
-    "APEConfig",
-    "APEOptimizer",
-    "EvoPromptConfig",
-    "EvoPromptOptimizer",
-    "TextGradConfig",
-    "TextGradOptimizer",
-    "MIPROv2Config",
-    "MIPROv2Optimizer",
-    "BreederUnit",
-    "PromptBreederConfig",
-    "PromptBreederOptimizer",
+    "BaseOptimizer": (".base_optimizer", "BaseOptimizer"),
+    "OPTIMIZER_REGISTRY": (".factory", "OPTIMIZER_REGISTRY"),
+    "call_optimizer": (".factory", "call_optimizer"),
+    "create_optimizer": (".factory", "create_optimizer"),
     # Utils
-    "build_full_prompt",
-    "build_dataset_from_annotations",
-    "parse_candidates_response",
-    "parse_judge_response",
-    "save_calibration",
-    "load_optimized_prompt",
-]
+    "build_dataset_from_annotations": (".utils", "build_dataset_from_annotations"),
+    "build_full_prompt": (".utils", "build_full_prompt"),
+    "load_optimized_prompt": (".utils", "load_optimized_prompt"),
+    "parse_candidates_response": (".utils", "parse_candidates_response"),
+    "parse_judge_response": (".utils", "parse_judge_response"),
+    "save_calibration": (".utils", "save_calibration"),
+    # Optimizers
+    "BasicOptimizer": (".basic", "BasicOptimizer"),
+    "GEPAConfig": (".gepa", "GEPAConfig"),
+    "GEPAOptimizer": (".gepa", "GEPAOptimizer"),
+    "GEPA_AVAILABLE": (".gepa", "GEPA_AVAILABLE"),
+    "GEPANativeConfig": (".gepa_native", "GEPANativeConfig"),
+    "GEPANativeOptimizer": (".gepa_native", "GEPANativeOptimizer"),
+    "OPROConfig": (".opro", "OPROConfig"),
+    "OPROOptimizer": (".opro", "OPROOptimizer"),
+    "TrajectoryEntry": (".opro", "TrajectoryEntry"),
+    "APEConfig": (".ape", "APEConfig"),
+    "APEOptimizer": (".ape", "APEOptimizer"),
+    "EvoPromptConfig": (".evoprompt", "EvoPromptConfig"),
+    "EvoPromptOptimizer": (".evoprompt", "EvoPromptOptimizer"),
+    "TextGradConfig": (".textgrad", "TextGradConfig"),
+    "TextGradOptimizer": (".textgrad", "TextGradOptimizer"),
+    "MIPROv2Config": (".miprov2", "MIPROv2Config"),
+    "MIPROv2Optimizer": (".miprov2", "MIPROv2Optimizer"),
+    "BreederUnit": (".promptbreeder", "BreederUnit"),
+    "PromptBreederConfig": (".promptbreeder", "PromptBreederConfig"),
+    "PromptBreederOptimizer": (".promptbreeder", "PromptBreederOptimizer"),
+}
+
+
+def __getattr__(name: str):
+    if name in _LAZY_IMPORTS:
+        module_path, attr_name = _LAZY_IMPORTS[name]
+        mod = _importlib.import_module(module_path, __name__)
+        val = getattr(mod, attr_name)
+        globals()[name] = val
+        return val
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ = list(_LAZY_IMPORTS.keys())

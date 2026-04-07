@@ -3,8 +3,6 @@ from __future__ import annotations
 import os
 from typing import Any, Callable, Optional
 
-from .storage.sqlite import SQLiteStorage
-from .trace.otel import configure_default_otel
 from .trace.tracer import EvalTracer
 
 ALLOWED_METRIC_MODES = {"llm-registry", "llm-brainstorm", "bundle"}
@@ -16,10 +14,14 @@ def get_default_tracer() -> EvalTracer:
     """Lazily create a tracer backed by local SQLite storage."""
     global _default_tracer
     if _default_tracer is None:
+        from .storage.sqlite import SQLiteStorage
+
         _default_tracer = EvalTracer(SQLiteStorage())
         # Auto-enable OpenTelemetry spans unless explicitly disabled.
         otel_flag = os.getenv("EVALYN_OTEL", "on").lower()
         if otel_flag not in {"0", "off", "false"}:
+            from .trace.otel import configure_default_otel
+
             otel_tracer = configure_default_otel(
                 service_name=os.getenv("EVALYN_OTEL_SERVICE", "evalyn"),
                 exporter=os.getenv("EVALYN_OTEL_EXPORTER", "sqlite"),

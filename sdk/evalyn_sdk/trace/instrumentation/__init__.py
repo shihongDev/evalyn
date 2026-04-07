@@ -23,6 +23,7 @@ Usage:
 
 from __future__ import annotations
 
+import importlib
 from typing import Any, Dict, List, Optional
 
 from .base import Instrumentor, InstrumentorType
@@ -88,11 +89,6 @@ def _setup_registry() -> None:
         registry.register(ClaudeAgentSDKInstrumentor())
     except ImportError:
         pass
-
-
-# Lazy accessors for optional provider utilities (imported on demand)
-_has_google_adk = None
-_has_claude_agent_sdk = None
 
 
 def create_adk_callbacks(*args, **kwargs):
@@ -235,9 +231,10 @@ _LAZY_PROVIDER_IMPORTS = {
 
 def __getattr__(name: str):
     if name in _LAZY_PROVIDER_IMPORTS:
-        import importlib
         module = importlib.import_module(_LAZY_PROVIDER_IMPORTS[name], __package__)
-        return getattr(module, name)
+        val = getattr(module, name)
+        globals()[name] = val
+        return val
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

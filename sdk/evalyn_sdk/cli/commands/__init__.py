@@ -1,35 +1,5 @@
-"""CLI command modules."""
+"""CLI command modules.
 
-from . import (
-    analysis,
-    annotation,
-    calibration,
-    clustering,
-    dashboard,
-    dataset,
-    evaluation,
-    export,
-    infrastructure,
-    insights,
-    quickstart,
-    runs,
-    simulate,
-    traces,
-)
-
-__all__ = [
-    "analysis",
-    "annotation",
-    "calibration",
-    "clustering",
-    "dashboard",
-    "dataset",
-    "evaluation",
-    "export",
-    "infrastructure",
-    "insights",
-    "quickstart",
-    "runs",
-    "simulate",
-    "traces",
-]
+Modules are imported lazily via importlib in cli/main.py to avoid loading
+heavy dependencies at startup. Do not add eager imports here.
+"""

@@ -33,8 +33,6 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from ...decorators import get_default_tracer
-from ...defaults import DEFAULT_EVAL_MODEL
 from ..utils.config import load_config, get_config_default, find_project_root
 from ..utils.errors import fatal_error
 
@@ -126,6 +124,8 @@ def cmd_one_click(args: argparse.Namespace) -> None:
 
 def _apply_config_defaults(args: argparse.Namespace, config: dict) -> None:
     """Apply config file defaults to unset args."""
+    from ...defaults import DEFAULT_EVAL_MODEL
+
     defaults = [
         ("version", "defaults", "version", None),
         ("metric_mode", "metrics", "mode", "basic"),
@@ -173,6 +173,8 @@ def _resolve_version(args: argparse.Namespace) -> None:
     """Prompt for version if not specified."""
     if args.version:
         return
+
+    from ...decorators import get_default_tracer
 
     storage = get_default_tracer().storage
     calls = storage.list_calls(limit=500)
@@ -310,6 +312,8 @@ NEXT STEPS
 
 def register_commands(subparsers) -> None:
     """Register infrastructure commands."""
+    from ...defaults import DEFAULT_EVAL_MODEL
+
     # workflow
     workflow_parser = subparsers.add_parser(
         "workflow", help="Show evaluation workflow and next steps"

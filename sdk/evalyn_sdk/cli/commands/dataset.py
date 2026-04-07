@@ -26,9 +26,6 @@ import os
 from datetime import datetime, timezone
 from typing import Optional
 
-from ...datasets import build_dataset_from_storage, save_dataset_with_meta
-from ...decorators import get_default_tracer
-from ...sampling import SAMPLING_MODES, apply_sampling
 from ..utils.config import get_data_dir
 from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
@@ -37,6 +34,10 @@ from ..utils.validation import extract_project_id
 
 def cmd_build_dataset(args: argparse.Namespace) -> None:
     """Build dataset from stored traces."""
+    from ...datasets import build_dataset_from_storage, save_dataset_with_meta
+    from ...decorators import get_default_tracer
+    from ...sampling import apply_sampling
+
     tracer = get_default_tracer()
     if not tracer.storage:
         print("No storage configured.")
@@ -172,6 +173,8 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
 
 def register_commands(subparsers) -> None:
     """Register dataset commands."""
+    from ...sampling import SAMPLING_MODES
+
     # build-dataset
     p = subparsers.add_parser("build-dataset", help="Build dataset from stored traces")
     p.add_argument(

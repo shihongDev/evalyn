@@ -36,30 +36,50 @@ from .context import (
     set_current_call,
 )
 from .tracer import EvalTracer, eval_session
-from .auto_instrument import (
-    patch_all,
-    patch_openai,
-    patch_anthropic,
-    patch_gemini,
-    patch_langchain,
-    patch_langgraph,
-    is_patched,
-    trace,
-    ensure_patched,
-)
 
-# New instrumentation API
-from .instrumentation import (
-    instrument,
-    instrument_all,
-    uninstrument,
-    uninstrument_all,
-    is_instrumented,
-    list_available,
-    list_instrumented,
-    get_hooks,
-    create_agent_hooks,
-)
+# Auto-instrumentation and instrumentation API are loaded lazily.
+# auto_instrument imports instrumentation.registry which triggers the
+# instrumentation package (~84ms). Only needed when patching SDKs.
+_LAZY_AUTO_INSTRUMENT = {
+    "patch_all",
+    "patch_openai",
+    "patch_anthropic",
+    "patch_gemini",
+    "patch_langchain",
+    "patch_langgraph",
+    "is_patched",
+    "trace",
+    "ensure_patched",
+}
+
+_LAZY_INSTRUMENTATION = {
+    "instrument",
+    "instrument_all",
+    "uninstrument",
+    "uninstrument_all",
+    "is_instrumented",
+    "list_available",
+    "list_instrumented",
+    "get_hooks",
+    "create_agent_hooks",
+}
+
+
+def __getattr__(name: str):
+    if name in _LAZY_AUTO_INSTRUMENT:
+        from . import auto_instrument as _ai
+
+        val = getattr(_ai, name)
+        globals()[name] = val
+        return val
+    if name in _LAZY_INSTRUMENTATION:
+        from . import instrumentation as _instr
+
+        val = getattr(_instr, name)
+        globals()[name] = val
+        return val
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     # Context
@@ -80,7 +100,7 @@ __all__ = [
     "is_patched",
     "trace",
     "ensure_patched",
-    # New instrumentation API
+    # New instrumentation API (lazy)
     "instrument",
     "instrument_all",
     "uninstrument",

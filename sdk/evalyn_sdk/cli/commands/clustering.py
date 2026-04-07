@@ -31,20 +31,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from ...analysis.clustering import (
-    ReasonClusterer,
-    generate_cluster_html,
-    generate_cluster_text,
-    generate_failure_cluster_html,
-    generate_failure_cluster_text,
-)
-from ...annotation import import_annotations
-from ...calibration import CalibrationEngine
-from ...datasets import load_dataset
-from ...decorators import get_default_tracer
-from ...models import DatasetItem, EvalRun, MetricResult
 from ..utils.command_common import load_eval_run_for_command
-from ...defaults import DEFAULT_EVAL_MODEL
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
@@ -52,6 +39,8 @@ from ..utils.hints import print_hint
 
 def _get_eval_run(args: argparse.Namespace) -> EvalRun:
     """Load eval run from storage or dataset directory's eval_runs/ folder."""
+    from ...decorators import get_default_tracer
+
     tracer = get_default_tracer()
     dataset_arg = getattr(args, "dataset", None)
     dataset_path = Path(dataset_arg) if dataset_arg else None
@@ -86,6 +75,8 @@ def _load_dataset_context(
     args: argparse.Namespace,
 ) -> tuple[Optional[list[DatasetItem]], Optional[Path]]:
     """Load dataset items and determine dataset directory."""
+    from ...datasets import load_dataset
+
     config = load_config()
     dataset_items: Optional[list[DatasetItem]] = None
     dataset_dir: Optional[Path] = None
@@ -142,6 +133,14 @@ def _write_output(
 
 def cmd_cluster_misalignments(args: argparse.Namespace) -> None:
     """Cluster LLM judge vs human disagreements by semantic similarity."""
+    from ...analysis.clustering import (
+        ReasonClusterer,
+        generate_cluster_html,
+        generate_cluster_text,
+    )
+    from ...annotation import import_annotations
+    from ...calibration import CalibrationEngine
+
     _, metric_results = _get_eval_run_and_metrics(args)
 
     # Validate annotations file exists
@@ -207,6 +206,12 @@ def cmd_cluster_misalignments(args: argparse.Namespace) -> None:
 
 def cmd_cluster_failures(args: argparse.Namespace) -> None:
     """Cluster failed items from eval runs by semantic similarity of judge reasons."""
+    from ...analysis.clustering import (
+        ReasonClusterer,
+        generate_failure_cluster_html,
+        generate_failure_cluster_text,
+    )
+
     run = _get_eval_run(args)
 
     # Load dataset items for context
@@ -307,6 +312,8 @@ def cmd_cluster_failures(args: argparse.Namespace) -> None:
 
 def register_commands(subparsers) -> None:
     """Register clustering commands."""
+    from ...defaults import DEFAULT_EVAL_MODEL
+
     # cluster-failures: Cluster failed items from eval runs
     failures_parser = subparsers.add_parser(
         "cluster-failures",

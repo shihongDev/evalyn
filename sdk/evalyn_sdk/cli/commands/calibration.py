@@ -34,20 +34,6 @@ import json
 from pathlib import Path
 from typing import List, Optional
 
-from ...annotation import import_annotations
-from ...calibration import (
-    CalibrationEngine,
-    GEPAConfig,
-    GEPA_AVAILABLE,
-    GEPANativeConfig,
-    OPROConfig,
-    APEConfig,
-    save_calibration,
-)
-from ...datasets import load_dataset
-from ...decorators import get_default_tracer
-from ...defaults import DEFAULT_EVAL_MODEL
-from ...models import DatasetItem
 from ..utils.command_common import load_eval_run_for_command, try_resolve_dataset_dir_and_file
 from ..utils.config import load_config, resolve_dataset_path, get_config_default
 from ..utils.errors import fatal_error
@@ -58,6 +44,8 @@ from ..utils.ui import Spinner
 
 def _apply_calibration_config_defaults(args: argparse.Namespace, config: dict) -> None:
     """Apply config file defaults to calibration args."""
+    from ...defaults import DEFAULT_EVAL_MODEL
+
     # Basic calibration settings
     if args.optimizer is None:
         args.optimizer = get_config_default(
@@ -155,6 +143,8 @@ def _apply_calibration_config_defaults(args: argparse.Namespace, config: dict) -
 
 def _load_calibration_run(args: argparse.Namespace):
     """Load eval run for calibration (explicit run or latest with target metric)."""
+    from ...decorators import get_default_tracer
+
     tracer = get_default_tracer()
     dataset_arg = getattr(args, "dataset", None)
     dataset_path = Path(dataset_arg) if dataset_arg else None
@@ -200,6 +190,9 @@ def _load_optional_calibration_dataset_context(
     args: argparse.Namespace, config: dict
 ) -> tuple[Optional[Path], Optional[List[DatasetItem]]]:
     """Resolve optional dataset context for calibration examples/validation."""
+    from ...datasets import load_dataset
+    from ...models import DatasetItem
+
     dataset_items: Optional[List[DatasetItem]] = None
     dataset_dir: Optional[Path] = None
 
@@ -220,6 +213,14 @@ def _load_optional_calibration_dataset_context(
 
 def _build_calibration_optimizer_configs(args: argparse.Namespace) -> dict:
     """Build optimizer-specific config objects from CLI args."""
+    from ...calibration import (
+        GEPAConfig,
+        GEPA_AVAILABLE,
+        GEPANativeConfig,
+        OPROConfig,
+        APEConfig,
+    )
+
     gepa_config = None
     if args.optimizer == "gepa":
         if not GEPA_AVAILABLE:
@@ -307,6 +308,8 @@ def _build_calibration_engine(
     optimizer_configs: dict,
 ) -> CalibrationEngine:
     """Construct CalibrationEngine from args and optimizer configs."""
+    from ...calibration import CalibrationEngine
+
     return CalibrationEngine(
         judge_name=args.metric_id,
         current_threshold=args.threshold,
@@ -557,6 +560,8 @@ def _save_calibration_outputs(
     dataset_dir: Optional[Path],
 ) -> None:
     """Save calibration record to dataset artifacts and/or explicit output path."""
+    from ...calibration import save_calibration
+
     saved_files = {}
 
     if dataset_dir and dataset_dir.exists():
@@ -603,7 +608,7 @@ def calibrate_metric(
     dataset_dir: str,
     *,
     optimizer: str = "basic",
-    model: str = DEFAULT_EVAL_MODEL,
+    model: Optional[str] = None,
     threshold: float = 0.5,
     no_optimize: bool = False,
     run_id: Optional[str] = None,
@@ -614,6 +619,12 @@ def calibrate_metric(
     This is the typed API for calibration used by both the CLI and pipeline.
     It loads the run, annotations, and dataset, runs calibration, and saves outputs.
     """
+    from ...annotation import import_annotations
+    from ...defaults import DEFAULT_EVAL_MODEL
+
+    if model is None:
+        model = DEFAULT_EVAL_MODEL
+
     # Build a namespace with all attributes that helpers expect
     args = argparse.Namespace(
         metric_id=metric_id,
@@ -691,6 +702,8 @@ def calibrate_metric(
 
 def cmd_calibrate(args: argparse.Namespace) -> None:
     """Calibrate a subjective metric using human annotations."""
+    from ...defaults import DEFAULT_EVAL_MODEL
+
     try:
         calibrate_metric(
             metric_id=args.metric_id,
@@ -810,6 +823,8 @@ def cmd_list_calibrations(args: argparse.Namespace) -> None:
 
 def register_commands(subparsers) -> None:
     """Register calibration commands."""
+    from ...defaults import DEFAULT_EVAL_MODEL
+
     # calibrate
     calibrate_parser = subparsers.add_parser(
         "calibrate", help="Calibrate a subjective metric using human annotations"

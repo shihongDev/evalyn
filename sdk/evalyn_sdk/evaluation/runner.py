@@ -100,6 +100,7 @@ class EvalRunner:
         self.checkpoint_path = Path(checkpoint_path) if checkpoint_path else None
         self.checkpoint_interval = checkpoint_interval
         self.max_workers = max(1, min(max_workers, 16))  # Clamp 1-16
+        self._checkpoint_count: int = 0  # results already written to checkpoint JSONL
 
         # Unit-based evaluation configuration
         # Priority: explicit builders > unit_types > default (OutcomeBuilder)
@@ -110,42 +111,90 @@ class EvalRunner:
         else:
             self.unit_builders = get_default_builders()
 
+    @property
+    def _checkpoint_results_path(self) -> Optional[Path]:
+        """JSONL file that stores metric results alongside the header."""
+        if self.checkpoint_path is None:
+            return None
+        return self.checkpoint_path.with_suffix(".jsonl")
+
     def _load_checkpoint(self) -> Dict:
-        """Load checkpoint if it exists. Returns dict with 'results' and 'completed_items'."""
+        """Load checkpoint if it exists. Returns dict with 'results' and 'completed_items'.
+
+        Supports two formats:
+        - New: header JSON (.json) + results JSONL (.jsonl) - O(n) total writes
+        - Legacy: single JSON file with embedded results - auto-migrated on resume
+        """
         if not self.checkpoint_path or not self.checkpoint_path.exists():
             return {"results": [], "completed_items": set(), "run_id": str(uuid4())}
 
         try:
             with open(self.checkpoint_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            # Convert results back to MetricResult objects
-            results = [MetricResult.from_dict(r) for r in data.get("results", [])]
+
+            # Check for JSONL results file (new format)
+            results_path = self._checkpoint_results_path
+            if results_path and results_path.exists():
+                raw_results = []
+                with open(results_path, "r", encoding="utf-8") as rf:
+                    for line in rf:
+                        line = line.strip()
+                        if line:
+                            raw_results.append(json.loads(line))
+                results = [MetricResult.from_dict(r) for r in raw_results]
+            else:
+                # Legacy: results embedded in the header JSON
+                raw_results = data.get("results", [])
+                results = [MetricResult.from_dict(r) for r in raw_results]
+
             completed = set(data.get("completed_items", []))
             run_id = data.get("run_id", str(uuid4()))
+            self._checkpoint_count = len(results)
             return {"results": results, "completed_items": completed, "run_id": run_id}
         except Exception as e:
-            # If checkpoint is corrupted, start fresh but warn the user
             logger.warning("Checkpoint corrupted, starting fresh: %s", e)
             return {"results": [], "completed_items": set(), "run_id": str(uuid4())}
 
     def _save_checkpoint(
         self, results: List[MetricResult], completed_items: set, run_id: str
     ) -> bool:
-        """Save checkpoint atomically. Returns True on success."""
+        """Save checkpoint incrementally. Returns True on success.
+
+        Uses a split format for O(n) total serialization:
+        - Header file (.json): small dict with run_id and completed_items
+          (rewritten each checkpoint, always tiny)
+        - Results file (.jsonl): append-only, one JSON line per MetricResult
+          (only new results are serialized and appended)
+
+        Previously, the entire results list was re-serialized into a single
+        JSON file on every checkpoint, giving O(n^2) total work over an
+        evaluation run. This split approach keeps each checkpoint O(k)
+        where k is the number of new results since last save.
+        """
         if not self.checkpoint_path:
             return False
 
         try:
-            # Prepare checkpoint data
-            data = {
+            self.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+            results_path = self._checkpoint_results_path
+
+            # Append only new results to JSONL file
+            new_start = self._checkpoint_count
+            if new_start < len(results):
+                with open(results_path, "a", encoding="utf-8") as rf:
+                    for r in results[new_start:]:
+                        rf.write(json.dumps(r.as_dict(), ensure_ascii=False, default=str))
+                        rf.write("\n")
+                    rf.flush()
+                self._checkpoint_count = len(results)
+
+            # Write header atomically (small file, always fast)
+            header = {
                 "run_id": run_id,
                 "completed_items": list(completed_items),
-                "results": [r.as_dict() for r in results],
+                "results_file": results_path.name if results_path else None,
                 "saved_at": now_utc().isoformat(),
             }
-
-            # Write to temp file, then atomic rename
-            self.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
             temp_fd, temp_path = tempfile.mkstemp(
                 dir=self.checkpoint_path.parent,
                 prefix=".checkpoint_",
@@ -153,7 +202,7 @@ class EvalRunner:
             )
             try:
                 with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-                    json.dump(data, f, indent=2, ensure_ascii=False, default=str)
+                    json.dump(header, f, ensure_ascii=False, default=str)
                     f.flush()
                     os.fsync(f.fileno())
                 os.replace(temp_path, self.checkpoint_path)
@@ -167,12 +216,13 @@ class EvalRunner:
             return False
 
     def _cleanup_checkpoint(self) -> None:
-        """Remove checkpoint file after successful completion."""
-        if self.checkpoint_path and self.checkpoint_path.exists():
-            try:
-                self.checkpoint_path.unlink()
-            except Exception:
-                pass
+        """Remove checkpoint files after successful completion."""
+        for path in (self.checkpoint_path, self._checkpoint_results_path):
+            if path and path.exists():
+                try:
+                    path.unlink()
+                except Exception:
+                    pass
 
     def _discover_units(self, call: FunctionCall) -> List[EvalUnit]:
         """Discover all evaluatable units from a call using configured builders."""

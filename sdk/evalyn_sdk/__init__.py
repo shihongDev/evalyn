@@ -1,27 +1,11 @@
 __version__ = "0.2.0"
 
 # ---------------------------------------------------------------------------
-# Eager imports: core functionality needed by all users
+# Eager imports: lightweight dataclasses only
 # ---------------------------------------------------------------------------
 
-# Core decorators and tracer
-from .decorators import eval, configure_tracer, get_default_tracer
-from .trace.tracer import EvalTracer, eval_session
+import importlib as _importlib
 
-# Modules - auto-instrumentation (must load eagerly for sys.meta_path patching)
-from . import trace
-from .trace import auto_instrument
-from .trace.auto_instrument import (
-    trace as trace_decorator,
-    patch_all,
-    is_patched,
-)
-from .trace.instrumentation.providers._shared import calculate_cost
-
-# Evaluation
-from .evaluation.runner import EvalRunner
-
-# Models (lightweight dataclasses)
 from .models import (
     Annotation,
     CalibrationRecord,
@@ -35,28 +19,39 @@ from .models import (
     MetricType,
 )
 
-# Datasets
-from .datasets import (
-    load_dataset,
-    save_dataset,
-    hash_inputs,
-    dataset_from_calls,
-    build_dataset_from_storage,
-)
-
-# OpenTelemetry configuration
-from .trace.otel import configure_otel, configure_default_otel
-
 
 # ---------------------------------------------------------------------------
 # Lazy imports: loaded on first access via __getattr__ (PEP 562)
 #
-# Defers calibration (9 optimizers), simulation, annotation, judges,
-# suggesters, and metric registries to reduce import time and memory
-# when users only need core tracing and evaluation.
+# Everything except models is deferred to keep `import evalyn_sdk` fast.
+# The CLI and SDK API both benefit: the CLI avoids loading trace providers,
+# evaluation runners, etc. just to parse commands, and SDK users only pay
+# for the modules they actually use.
 # ---------------------------------------------------------------------------
 
 _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
+    # Core decorators and tracer
+    "eval": (".decorators", "eval"),
+    "configure_tracer": (".decorators", "configure_tracer"),
+    "get_default_tracer": (".decorators", "get_default_tracer"),
+    "EvalTracer": (".trace.tracer", "EvalTracer"),
+    "eval_session": (".trace.tracer", "eval_session"),
+    # Auto-instrumentation
+    "trace_decorator": (".trace.auto_instrument", "trace"),
+    "patch_all": (".trace.auto_instrument", "patch_all"),
+    "is_patched": (".trace.auto_instrument", "is_patched"),
+    "calculate_cost": (".trace.instrumentation.providers._shared", "calculate_cost"),
+    # Evaluation
+    "EvalRunner": (".evaluation.runner", "EvalRunner"),
+    # Datasets
+    "load_dataset": (".datasets", "load_dataset"),
+    "save_dataset": (".datasets", "save_dataset"),
+    "hash_inputs": (".datasets", "hash_inputs"),
+    "dataset_from_calls": (".datasets", "dataset_from_calls"),
+    "build_dataset_from_storage": (".datasets", "build_dataset_from_storage"),
+    # OpenTelemetry configuration
+    "configure_otel": (".trace.otel", "configure_otel"),
+    "configure_default_otel": (".trace.otel", "configure_default_otel"),
     # Judges
     "LLMJudge": (".judges", "LLMJudge"),
     "EchoJudge": (".judges", "EchoJudge"),
@@ -120,6 +115,8 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
 
 # Submodules that should be importable as `evalyn_sdk.X`
 _LAZY_SUBMODULES: dict[str, str] = {
+    "trace": ".trace",
+    "auto_instrument": ".trace.auto_instrument",
     "annotation": ".annotation",
     "calibration": ".calibration",
     "simulation": ".simulation",
@@ -127,17 +124,15 @@ _LAZY_SUBMODULES: dict[str, str] = {
 
 
 def __getattr__(name: str):
-    import importlib
-
     if name in _LAZY_IMPORTS:
         module_path, attr_name = _LAZY_IMPORTS[name]
-        mod = importlib.import_module(module_path, __name__)
+        mod = _importlib.import_module(module_path, __name__)
         val = getattr(mod, attr_name)
         globals()[name] = val  # Cache so __getattr__ is not called again
         return val
 
     if name in _LAZY_SUBMODULES:
-        mod = importlib.import_module(_LAZY_SUBMODULES[name], __name__)
+        mod = _importlib.import_module(_LAZY_SUBMODULES[name], __name__)
         globals()[name] = mod
         return mod
 

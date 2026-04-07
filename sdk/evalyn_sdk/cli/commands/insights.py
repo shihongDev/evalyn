@@ -32,7 +32,6 @@ from ..utils.dataset_resolver import get_dataset
 from ..utils.errors import fatal_error
 from ..utils.formatters import output_json
 from ..utils.hints import print_hint
-from ...analysis.core import find_eval_runs
 
 
 def load_dataset_items(dataset_path: Path) -> list[dict]:
@@ -51,6 +50,7 @@ def load_dataset_items(dataset_path: Path) -> list[dict]:
 
 def load_previous_run(dataset_path: Path, current_run_path: Path) -> "EvalRun | None":
     """Load the second-most-recent run for regression detection."""
+    from ...analysis.core import find_eval_runs
     from ...models import EvalRun
 
     run_files = find_eval_runs(dataset_path)

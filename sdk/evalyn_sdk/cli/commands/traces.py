@@ -24,10 +24,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
-from ...decorators import get_default_tracer
-from ...storage import SQLiteStorage
+if TYPE_CHECKING:
+    from ...storage import SQLiteStorage
+
 from ..utils.command_common import (
     resolve_call_id,
     resolve_call_id_or_last,
@@ -46,9 +47,13 @@ DB_PATHS = {
 
 def _get_storage(args: argparse.Namespace) -> SQLiteStorage:
     """Get storage based on --db flag."""
+    from ...storage import SQLiteStorage
+
     db = getattr(args, "db", None)
     if db and db in DB_PATHS:
         return SQLiteStorage(DB_PATHS[db])
+    from ...decorators import get_default_tracer
+
     tracer = get_default_tracer()
     return tracer.storage
 
@@ -1201,6 +1206,8 @@ def cmd_delete_traces(args: argparse.Namespace) -> None:
 
     if db not in DB_PATHS:
         fatal_error(f"Unknown database: {db}")
+
+    from ...storage import SQLiteStorage
 
     storage = SQLiteStorage(DB_PATHS[db])
 

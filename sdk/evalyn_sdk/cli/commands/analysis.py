@@ -34,7 +34,6 @@ from ..utils.config import load_config, resolve_dataset_path
 from ..utils.dataset_resolver import get_dataset
 from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
-from ...analysis.core import find_eval_runs
 
 
 def cmd_status(args: argparse.Namespace) -> None:
@@ -745,6 +744,7 @@ def cmd_compare(args: argparse.Namespace) -> None:
 
     Shows per-metric pass rate changes and overall delta.
     """
+    from ...analysis.core import find_eval_runs
     from ...decorators import get_default_tracer
     from ...models import EvalRun
 

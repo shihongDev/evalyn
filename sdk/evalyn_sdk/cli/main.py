@@ -57,26 +57,62 @@ PIPELINE:
 from __future__ import annotations
 
 import argparse
+import importlib
 import sys
 from typing import List, Optional
 
-# Import command modules
-from .commands import (
-    analysis,
-    annotation,
-    calibration,
-    clustering,
-    dashboard,
-    dataset,
-    evaluation,
-    export,
-    infrastructure,
-    insights,
-    quickstart,
-    runs,
-    simulate,
-    traces,
-)
+# Command name -> module name (relative to .commands package).
+# Only the module for the invoked command is imported at runtime.
+_COMMAND_MODULE_MAP: dict[str, str] = {
+    # traces
+    "list-calls": "traces",
+    "show-call": "traces",
+    "show-trace": "traces",
+    "show-span": "traces",
+    "show-projects": "traces",
+    "delete-traces": "traces",
+    # runs
+    "list-runs": "runs",
+    "show-run": "runs",
+    # dataset
+    "build-dataset": "dataset",
+    # simulate
+    "simulate": "simulate",
+    # export
+    "export": "export",
+    "export-for-annotation": "export",
+    # analysis
+    "status": "analysis",
+    "validate": "analysis",
+    "analyze": "analysis",
+    "compare": "analysis",
+    "trend": "analysis",
+    # annotation
+    "annotate": "annotation",
+    "import-annotations": "annotation",
+    "annotation-stats": "annotation",
+    # calibration
+    "calibrate": "calibration",
+    "list-calibrations": "calibration",
+    # clustering
+    "cluster-failures": "clustering",
+    "cluster-misalignments": "clustering",
+    # evaluation
+    "run-eval": "evaluation",
+    "suggest-metrics": "evaluation",
+    "select-metrics": "evaluation",
+    "list-metrics": "evaluation",
+    # insights
+    "insights": "insights",
+    # infrastructure
+    "workflow": "infrastructure",
+    "init": "infrastructure",
+    "one-click": "infrastructure",
+    # dashboard
+    "dashboard": "dashboard",
+    # quickstart
+    "quickstart": "quickstart",
+}
 
 
 def _print_ascii_help(parser: argparse.ArgumentParser) -> None:
@@ -109,7 +145,9 @@ TRACING
   list-calls       List captured function calls
   show-call        Show details of a specific call (supports short IDs)
   show-trace       Show hierarchical span tree
+  show-span        Show details of a specific span
   show-projects    Show project summary
+  delete-traces    Delete traces from storage
 
 DATASET
   build-dataset    Build dataset from stored traces
@@ -134,8 +172,11 @@ EVALUATION
 ANNOTATION & CALIBRATION
   annotate         Interactive annotation interface
   annotation-stats Show annotation statistics
+  import-annotations Import annotations from file
   calibrate        Calibrate LLM judges
   list-calibrations List calibration records
+  cluster-failures Cluster failed items by failure reason
+  cluster-misalignments Cluster judge vs human disagreements
 
 EXPORT & SIMULATION
   export           Export results (json/csv/markdown/html)
@@ -159,8 +200,16 @@ For command details: evalyn <command> --help
     print(grouped_help)
 
 
-def main(argv: Optional[List[str]] = None) -> None:
-    """Main CLI entry point."""
+def _find_command(argv: List[str]) -> Optional[str]:
+    """Return the first non-flag token (the subcommand name), or None."""
+    for arg in argv:
+        if not arg.startswith("-"):
+            return arg
+    return None
+
+
+def _build_base_parser() -> argparse.ArgumentParser:
+    """Build the top-level parser without any subcommands registered."""
     parser = argparse.ArgumentParser(
         prog="evalyn",
         description="Evalyn CLI - Instrument, trace, and evaluate LLM agents",
@@ -182,31 +231,48 @@ For more info on a command: evalyn <command> --help
     parser.add_argument(
         "-q", "--quiet", action="store_true", help="Suppress hint messages"
     )
+    return parser
+
+
+def main(argv: Optional[List[str]] = None) -> None:
+    """Main CLI entry point.
+
+    Uses lazy imports: only the command module needed for the invoked
+    subcommand is loaded, keeping startup fast for every path.
+    """
+    effective_argv = argv if argv is not None else sys.argv[1:]
+    command = _find_command(effective_argv)
+
+    # --- Fast paths that need zero command-module imports ---
+
+    if command is None:
+        # No subcommand: just flags like --help, --version, or nothing
+        if "--version" in effective_argv:
+            from .. import __version__
+
+            print(f"evalyn {__version__}")
+            return
+        _print_ascii_help(_build_base_parser())
+        return
+
+    if command == "help":
+        _print_ascii_help(_build_base_parser())
+        return
+
+    # --- Lazy-load only the module that owns this command ---
+
+    module_name = _COMMAND_MODULE_MAP.get(command)
+    if module_name is None:
+        print(f"evalyn: unknown command '{command}'", file=sys.stderr)
+        print("Run 'evalyn help' for a list of commands.", file=sys.stderr)
+        sys.exit(2)
+
+    mod = importlib.import_module(f".commands.{module_name}", __package__)
+
+    parser = _build_base_parser()
     subparsers = parser.add_subparsers(dest="command")
+    mod.register_commands(subparsers)
 
-    # Help command
-    help_parser = subparsers.add_parser(
-        "help", help="Show available commands and examples", add_help=False
-    )
-    help_parser.set_defaults(func=lambda args: _print_ascii_help(parser))
-
-    # Register commands from extracted modules
-    traces.register_commands(subparsers)
-    runs.register_commands(subparsers)
-    dataset.register_commands(subparsers)
-    simulate.register_commands(subparsers)
-    export.register_commands(subparsers)
-    analysis.register_commands(subparsers)
-    annotation.register_commands(subparsers)
-    calibration.register_commands(subparsers)
-    clustering.register_commands(subparsers)
-    evaluation.register_commands(subparsers)
-    insights.register_commands(subparsers)
-    infrastructure.register_commands(subparsers)
-    dashboard.register_commands(subparsers)
-    quickstart.register_commands(subparsers)
-
-    # Parse and execute
     args = parser.parse_args(argv)
 
     # Handle --version flag (only when it's a boolean True, not a string value from subcommands)
@@ -216,9 +282,8 @@ For more info on a command: evalyn <command> --help
         print(f"evalyn {__version__}")
         return
 
-    # Require a command if --version wasn't used
     if not args.command:
-        parser.print_help()
+        _print_ascii_help(parser)
         return
 
     try:

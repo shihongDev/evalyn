@@ -38,7 +38,6 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-from ...annotation import import_annotations
 from ..utils.errors import fatal_error
 from ..utils.input_helpers import (
     truncate_text,
@@ -47,21 +46,15 @@ from ..utils.input_helpers import (
     get_str_input,
     get_confidence,
 )
-from ...annotation import (
-    SpanAnnotation,
-    ANNOTATION_SCHEMAS,
-    extract_spans_from_trace,
-    get_annotation_prompts,
-)
-from ...datasets import load_dataset
-from ...decorators import get_default_tracer
-from ...models import AnnotationItem, Annotation, MetricLabel, DatasetItem
 from ..utils.command_common import resolve_dataset_dir_and_file
 from ..utils.hints import print_hint
 
 
 def cmd_import_annotations(args: argparse.Namespace) -> None:
     """Import annotations from a JSONL file."""
+    from ...annotation import import_annotations
+    from ...decorators import get_default_tracer
+
     tracer = get_default_tracer()
     if not tracer.storage:
         print("No storage configured.")
@@ -78,6 +71,8 @@ def cmd_import_annotations(args: argparse.Namespace) -> None:
 
 def cmd_annotation_stats(args: argparse.Namespace) -> None:
     """Show annotation coverage statistics."""
+    from ...models import AnnotationItem
+
     # Resolve dataset path
     dataset_path = Path(args.dataset)
     if dataset_path.is_dir():
@@ -261,6 +256,8 @@ def _load_existing_span_annotations(
     output_path: Path, *, restart: bool
 ) -> Dict[str, SpanAnnotation]:
     """Load existing span annotations indexed by span_id."""
+    from ...annotation import SpanAnnotation
+
     existing_annotations: Dict[str, SpanAnnotation] = {}
     if not output_path.exists() or restart:
         return existing_annotations
@@ -285,6 +282,9 @@ def _collect_spans_for_annotation(
     existing_annotations: Dict[str, SpanAnnotation],
 ) -> List[Dict[str, Any]]:
     """Collect unannotated spans with call context attached."""
+    from ...annotation import SpanAnnotation, extract_spans_from_trace
+    from ...models import DatasetItem
+
     all_spans: List[Dict[str, Any]] = []
     for item in dataset_items:
         call_id = item.metadata.get("call_id", item.id)
@@ -368,6 +368,8 @@ def _display_span_annotation_context(span: Dict[str, Any], idx: int, total: int)
 
 def _prompt_span_annotation_values(span_type: str) -> tuple[dict, bool, bool]:
     """Prompt for annotation values. Returns (values, quit_requested, skip_span)."""
+    from ...annotation import get_annotation_prompts
+
     prompts = get_annotation_prompts(span_type)
     annotation_values: dict = {}
     quit_requested = False
@@ -416,6 +418,8 @@ def _build_span_annotation_record(
     annotation_values: dict,
 ) -> SpanAnnotation:
     """Build a SpanAnnotation model from collected form values."""
+    from ...annotation import SpanAnnotation, ANNOTATION_SCHEMAS
+
     call = span["call"]
     span_type = span["span_type"]
     span_id = span["span_id"]
@@ -461,6 +465,10 @@ def _handle_single_span_annotation(
 
 def cmd_annotate_spans(args: argparse.Namespace) -> None:
     """Interactive span-level annotation interface."""
+    from ...annotation import SpanAnnotation
+    from ...datasets import load_dataset
+    from ...decorators import get_default_tracer
+
     dataset_dir, data_file = resolve_dataset_dir_and_file(
         getattr(args, "dataset", None), getattr(args, "latest", False)
     )
@@ -655,6 +663,8 @@ def _annotate_per_metric(
     existing_count: int,
 ) -> Optional[Annotation]:
     """Per-metric annotation flow."""
+    from ...models import Annotation, MetricLabel
+
     call_id = item.metadata.get("call_id", item.id)
     metric_labels: Dict[str, MetricLabel] = {}
 
@@ -740,6 +750,8 @@ def _annotate_simple(
     existing_count: int,
 ) -> Optional[Annotation | str]:
     """Simple overall pass/fail annotation flow."""
+    from ...models import Annotation
+
     call_id = item.metadata.get("call_id", item.id)
     while True:
         try:
@@ -811,6 +823,10 @@ def run_annotation(
 
 def cmd_annotate(args: argparse.Namespace) -> None:
     """Interactive CLI annotation interface with per-metric support."""
+    from ...datasets import load_dataset
+    from ...decorators import get_default_tracer
+    from ...models import Annotation
+
     # Check for span annotation mode
     if getattr(args, "spans", False):
         return cmd_annotate_spans(args)
