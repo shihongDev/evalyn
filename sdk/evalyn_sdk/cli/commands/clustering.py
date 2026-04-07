@@ -34,7 +34,7 @@ from typing import Optional
 from ..utils.command_common import load_eval_run_for_command
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.errors import fatal_error
-from ..utils.hints import HintCollector
+from ..utils.rich import banner, section, footer
 
 
 def _get_eval_run(args: argparse.Namespace) -> EvalRun:
@@ -178,6 +178,11 @@ def cmd_cluster_misalignments(args: argparse.Namespace) -> None:
         if dataset_dir
         else Path(f"clusters_{args.metric_id}.html")
     )
+
+    if args.format == "table":
+        print(banner("MISALIGNMENT CLUSTERS"))
+        print(section(f"{args.metric_id}"))
+
     _write_output(
         args.format,
         args.output,
@@ -187,7 +192,7 @@ def cmd_cluster_misalignments(args: argparse.Namespace) -> None:
         generate_cluster_text(result, args.metric_id),
     )
 
-    # Show summary
+    # Show summary for non-table formats
     if args.format != "table":
         fp_count = len(result.false_positive_clusters)
         fn_count = len(result.false_negative_clusters)
@@ -198,12 +203,15 @@ def cmd_cluster_misalignments(args: argparse.Namespace) -> None:
         print(f"  False Negatives: {fn_count} clusters ({fn_cases} cases)")
 
     if dataset_dir:
-        hints = HintCollector(quiet=getattr(args, "quiet", False), format=args.format)
-        hints.add(
-            f"evalyn calibrate --metric-id {args.metric_id} --annotations {args.annotations} --dataset {dataset_dir}",
-            "Calibrate this metric",
-        )
-        hints.render()
+        hint_items = [
+            (
+                f"evalyn calibrate --metric-id {args.metric_id} --annotations {args.annotations} --dataset {dataset_dir}",
+                "Calibrate this metric",
+            ),
+        ]
+        hint_text = footer(hint_items, quiet=getattr(args, "quiet", False), format=args.format)
+        if hint_text:
+            print(hint_text)
 
 
 def cmd_cluster_failures(args: argparse.Namespace) -> None:
@@ -245,6 +253,9 @@ def cmd_cluster_failures(args: argparse.Namespace) -> None:
     clusterer = ReasonClusterer(model=args.model, cache_dir=None)
     compute_embeddings = args.format == "html"
     quiet = getattr(args, "quiet", False)
+
+    if args.format == "table":
+        print(banner("FAILURE CLUSTERS"))
 
     for mid in metric_ids:
         metric_results = [r for r in run.metric_results if r.metric_id == mid]
@@ -288,6 +299,13 @@ def cmd_cluster_failures(args: argparse.Namespace) -> None:
             else Path(f"failures_{mid}.html")
         )
 
+        # Print section header for table format
+        if args.format == "table":
+            total_failures = result.total_cases
+            total_items = len(metric_results)
+            pct = 100 * total_failures / total_items if total_items else 0
+            print(section(f"{mid} ({total_failures}/{total_items} failed, {pct:.1f}%)"))
+
         _write_output(
             args.format,
             output_path,
@@ -297,7 +315,7 @@ def cmd_cluster_failures(args: argparse.Namespace) -> None:
             generate_failure_cluster_text(result, mid),
         )
 
-        # Show summary
+        # Show summary for non-table formats
         if args.format != "table":
             total_failures = result.total_cases
             total_items = len(metric_results)
@@ -306,9 +324,10 @@ def cmd_cluster_failures(args: argparse.Namespace) -> None:
                 f"  {mid}: {total_failures}/{total_items} failed ({pct:.1f}%), {len(result.clusters)} patterns"
             )
 
-    hints = HintCollector(quiet=quiet, format=args.format)
-    hints.add("evalyn show-run --last", "See full eval results")
-    hints.render()
+    hint_items = [("evalyn show-run --last", "See full eval results")]
+    hint_text = footer(hint_items, quiet=quiet, format=args.format)
+    if hint_text:
+        print(hint_text)
 
 
 def register_commands(subparsers) -> None:

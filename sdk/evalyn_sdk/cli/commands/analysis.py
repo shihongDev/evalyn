@@ -515,39 +515,43 @@ def _print_analysis_table_output(
     """Print table-formatted evaluation analysis."""
     from ...calibration import AlignmentMetrics
 
-    print(f"\n{'=' * 70}")
-    print("  EVALUATION ANALYSIS")
-    print(f"{'=' * 70}")
-    print(f"\nRun ID:      {run.id}")
-    print(f"Dataset:     {run.dataset_name}")
-    print(f"Items:       {len(set(mr.item_id for mr in run.metric_results))}")
-    print(f"Created:     {run.created_at}")
+    from ..utils.rich import banner, section, kv, icon, status_icon, progress_bar, footer
 
-    print(f"\n{'=' * 70}")
-    print("  METRIC SUMMARY")
-    print(f"{'=' * 70}\n")
+    item_count = len(set(mr.item_id for mr in run.metric_results))
 
+    print(banner("EVALUATION ANALYSIS"))
+    print(kv([
+        ("Run", f"{run.id[:8]}  ({run.dataset_name}, {item_count} items)"),
+        ("Created", str(run.created_at)[:16]),
+    ]))
+
+    print(f"\n{section('METRIC SUMMARY')}\n")
+
+    total_evals = 0
+    total_passed = 0
     for metric_id, stats in sorted_metrics:
         total = stats["total"]
         passed = stats["passed"]
-        failed = stats["failed"]
-        pass_rate = 100 * passed / max(1, total)
-        status = "PASS" if failed == 0 else "FAIL"
+        total_evals += total
+        total_passed += passed
+        rate = 100 * passed / max(1, total)
+        ic = status_icon(stats["failed"] == 0)
+        avg = sum(stats["scores"]) / len(stats["scores"]) if stats["scores"] else 0
+        print(f"  {ic} {metric_id:<25} {passed:>3}/{total:<3} {rate:>5.1f}%  avg {avg:.2f}")
 
-        avg_score = ""
-        if stats["scores"]:
-            avg = sum(stats["scores"]) / len(stats["scores"])
-            avg_score = f"  avg={avg:.2f}"
-
-        print(
-            f"  [{status}] {metric_id:<30} {passed}/{total} passed ({pass_rate:.0f}%){avg_score}"
-        )
+    overall_rate = 100 * total_passed / max(1, total_evals)
+    health_status = (
+        "GOOD"
+        if overall_rate >= 90
+        else "MODERATE"
+        if overall_rate >= 70
+        else "NEEDS_ATTENTION"
+    )
+    print(f"\n  Overall: {progress_bar(total_passed, total_evals, label=health_status)}")
 
     has_alignment = any(a.total > 0 for a in alignment_stats.values())
     if has_alignment:
-        print(f"\n{'=' * 70}")
-        print("  ALIGNMENT STATS (vs human annotations)")
-        print(f"{'=' * 70}\n")
+        print(f"\n{section('ALIGNMENT STATS (vs human annotations)')}\n")
         print(
             f"  {'Metric':<25} {'N':>4} {'Acc':>6} {'Prec':>6} {'Rec':>6} {'F1':>6} {'Kappa':>6}"
         )
@@ -576,23 +580,19 @@ def _print_analysis_table_output(
                 f"{total_align.recall:>5.0%} {total_align.f1:>5.0%} {total_align.cohens_kappa:>6.2f}"
             )
 
-    print(f"\n{'=' * 70}")
-    print("  INSIGHTS")
-    print(f"{'=' * 70}\n")
+    print(f"\n{section('INSIGHTS')}\n")
     for insight in insights:
-        print(f"  {insight}\n")
+        print(f"  {icon('info')} {insight}\n")
 
-    print(f"{'=' * 70}")
-    print("  RECOMMENDATIONS")
-    print(f"{'=' * 70}\n")
+    print(section("NEXT STEPS"))
 
     if problem_metrics:
-        print("  1. Run 'evalyn annotate' to provide human labels for failed items")
-        print("  2. Run 'evalyn calibrate' to improve metric alignment")
+        print(f"  {icon('next')} Run 'evalyn annotate' to provide human labels for failed items")
+        print(f"  {icon('next')} Run 'evalyn calibrate' to improve metric alignment")
 
     if not item_failures:
-        print("  All items passed! Consider adding more challenging test cases.")
-        print("    Run 'evalyn simulate --modes outlier' to generate edge cases.")
+        print(f"  {icon('info')} All items passed! Consider adding more challenging test cases.")
+        print(f"    Run 'evalyn simulate --modes outlier' to generate edge cases.")
 
     # Key findings from insights engine
     if run_analysis is not None:
@@ -611,11 +611,9 @@ def _print_analysis_table_output(
                 findings.append(f"{d.metric_id}: {d.shape} - {d.finding}")
 
             if findings:
-                print(f"\n{'=' * 70}")
-                print("  KEY FINDINGS")
-                print(f"{'=' * 70}\n")
+                print(f"\n{section('KEY FINDINGS')}\n")
                 for finding in findings[:5]:
-                    print(f"  - {finding}")
+                    print(f"  {icon('info')} {finding}")
                 print(f"\n  Run 'evalyn insights' for full diagnostic report.")
         except (KeyError, ValueError, TypeError):
             pass
@@ -811,12 +809,14 @@ def cmd_compare(args: argparse.Namespace) -> None:
         if not run2:
             fatal_error(f"Could not load run2: {args.run2}")
 
-    print(f"\n{'=' * 70}")
-    print("  EVALUATION COMPARISON")
-    print(f"{'=' * 70}")
+    from ..utils.rich import banner, section, kv, icon, status_icon, progress_bar
+    from ..utils.colors import delta_color
 
-    print(f"\n  Run 1: {run1.id[:12]}... ({run1.dataset_name})")
-    print(f"  Run 2: {run2.id[:12]}... ({run2.dataset_name})")
+    print(banner("RUN COMPARISON"))
+    print(kv([
+        ("Baseline", f"{run1.id[:12]}  ({run1.dataset_name})"),
+        ("Current", f"{run2.id[:12]}  ({run2.dataset_name})"),
+    ]))
 
     # Build metric stats for each run
     def get_metric_stats(run):
@@ -844,11 +844,9 @@ def cmd_compare(args: argparse.Namespace) -> None:
     # Get all metric IDs
     all_metrics = set(stats1.keys()) | set(stats2.keys())
 
-    print(f"\n{'=' * 70}")
-    print("  METRIC COMPARISON")
-    print(f"{'=' * 70}\n")
+    print(f"\n{section('METRIC CHANGES')}\n")
 
-    print(f"  {'Metric':<25} {'Run 1':>12} {'Run 2':>12} {'Delta':>12}")
+    print(f"  {'Metric':<25} {'Baseline':>12} {'Current':>12} {'Delta':>12}")
     print(f"  {'-' * 25} {'-' * 12} {'-' * 12} {'-' * 12}")
 
     improvements = 0
@@ -864,24 +862,22 @@ def cmd_compare(args: argparse.Namespace) -> None:
         r1_str = f"{rate1:.0f}%" if rate1 is not None else "N/A"
         r2_str = f"{rate2:.0f}%" if rate2 is not None else "N/A"
 
-        delta = ""
+        delta_str = ""
         if rate1 is not None and rate2 is not None:
             diff = rate2 - rate1
             if diff > 0:
-                delta = f"+{diff:.0f}%"
                 improvements += 1
             elif diff < 0:
-                delta = f"{diff:.0f}%"
                 regressions += 1
-            else:
-                delta = "="
+            # Use delta_color for the formatted delta value
+            delta_str = delta_color(diff / 100)
+        else:
+            delta_str = "="
 
-        print(f"  {metric_id:<25} {r1_str:>12} {r2_str:>12} {delta:>12}")
+        print(f"  {metric_id:<25} {r1_str:>12} {r2_str:>12} {delta_str:>12}")
 
     # Summary
-    print(f"\n{'=' * 70}")
-    print("  SUMMARY")
-    print(f"{'=' * 70}\n")
+    print(f"\n{section('SUMMARY')}\n")
 
     total1 = sum(s["passed"] for s in stats1.values())
     total2 = sum(s["passed"] for s in stats2.values())
@@ -892,20 +888,15 @@ def cmd_compare(args: argparse.Namespace) -> None:
     overall2 = 100 * total2 / max(1, all2)
     overall_delta = overall2 - overall1
 
-    print("  Overall pass rate:")
-    print(f"    Run 1: {overall1:.1f}% ({total1}/{all1})")
-    print(f"    Run 2: {overall2:.1f}% ({total2}/{all2})")
+    print(kv([
+        ("Baseline pass rate", f"{overall1:.1f}% ({total1}/{all1})"),
+        ("Current pass rate", f"{overall2:.1f}% ({total2}/{all2})"),
+        ("Change", delta_color(overall_delta / 100)),
+    ]))
 
-    if overall_delta > 0:
-        print(f"    Change: +{overall_delta:.1f}% IMPROVED")
-    elif overall_delta < 0:
-        print(f"    Change: {overall_delta:.1f}% REGRESSED")
-    else:
-        print("    Change: No change")
-
-    print(f"\n  Metrics improved:  {improvements}")
-    print(f"  Metrics regressed: {regressions}")
-    print(f"  Metrics unchanged: {len(all_metrics) - improvements - regressions}")
+    print(f"\n  {status_icon(improvements > 0)} Metrics improved:  {improvements}")
+    print(f"  {status_icon(regressions == 0)} Metrics regressed: {regressions}")
+    print(f"  {icon('info')} Metrics unchanged: {len(all_metrics) - improvements - regressions}")
 
     # Regression severity alerts from insights engine
     if regressions > 0:
@@ -922,9 +913,9 @@ def cmd_compare(args: argparse.Namespace) -> None:
                 alerts = _detect_regressions(a2, a1)
                 critical = [a for a in alerts if a.severity == "critical"]
                 if critical:
-                    print(f"\n  REGRESSION ALERTS:")
+                    print(f"\n{section('REGRESSION ALERTS')}\n")
                     for alert in critical:
-                        print(f"    [CRITICAL] {alert.metric_id}: {abs(alert.delta) * 100:.0f}% drop")
+                        print(f"  {icon('fail')} [CRITICAL] {alert.metric_id}: {abs(alert.delta) * 100:.0f}% drop")
             except (KeyError, ValueError, TypeError):
                 pass
 
