@@ -43,7 +43,7 @@ def _get_default_db_path() -> str:
 
 
 def _dumps(data: object) -> str:
-    return json.dumps(data, default=lambda o: repr(o))
+    return json.dumps(data, default=repr)
 
 
 class SQLiteStorage:
