@@ -210,12 +210,32 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
 
         return score, passed, parsed.get("reason"), parsed
 
+    def _get_system_instruction(self) -> Optional[str]:
+        """Build the stable system instruction (prompt + rubric) for prefix caching.
+
+        Gemini 2.5+ models automatically cache shared prefixes, saving up to
+        90% on input token costs. By placing the rubric in systemInstruction,
+        it becomes a stable prefix reused across all items for the same metric.
+        """
+        parts = [self.prompt]
+        if self.rubric:
+            rubric_lines = "\n".join(f"- {r}" for r in self.rubric)
+            parts.append(f"\nRUBRIC:\n{rubric_lines}")
+        return "\n".join(parts) if parts else None
+
     def score(self, call: FunctionCall, item: DatasetItem) -> Dict[str, Any]:
         """Evaluate and return {score, passed, reason, input_tokens, output_tokens, model}."""
         full_prompt = self._build_evaluation_prompt(call, item)
 
+        # For Gemini clients, pass system instruction separately for
+        # prefix caching optimization (90% input cost savings on 2.5+).
+        kwargs: dict = {}
+        from ..utils.api_client import GeminiClient
+        if isinstance(self.client, GeminiClient):
+            kwargs["system_instruction"] = self._get_system_instruction()
+
         try:
-            result = self.client.generate_with_usage(full_prompt)
+            result = self.client.generate_with_usage(full_prompt, **kwargs)
             raw_text = result.text
             input_tokens = result.input_tokens
             output_tokens = result.output_tokens

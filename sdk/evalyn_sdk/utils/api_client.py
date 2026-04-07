@@ -235,13 +235,17 @@ class GeminiClient:
         return result.text
 
     def generate_with_usage(
-        self, prompt: str, temperature: Optional[float] = None
+        self, prompt: str, temperature: Optional[float] = None,
+        system_instruction: Optional[str] = None,
     ) -> GenerateResult:
         """Call Gemini API and return text with token usage.
 
         Args:
             prompt: The prompt to send to the model
             temperature: Optional temperature override for this request
+            system_instruction: Optional system instruction (placed in
+                systemInstruction field for better prefix caching on
+                Gemini 2.5+ models - 90% input cost savings on cache hits)
 
         Returns:
             GenerateResult with text and token counts
@@ -254,6 +258,10 @@ class GeminiClient:
                 else self.temperature
             },
         }
+        if system_instruction:
+            payload["systemInstruction"] = {
+                "parts": [{"text": system_instruction}]
+            }
         headers = {
             "Content-Type": "application/json",
             "x-goog-api-key": self._get_api_key(),
