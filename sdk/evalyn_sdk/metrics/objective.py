@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import re
+from functools import lru_cache
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from ..models import DatasetItem, FunctionCall, Metric, MetricResult, MetricSpec
@@ -796,11 +797,23 @@ def _get_output(call: FunctionCall, item: DatasetItem) -> str:
     return _as_text(call.output)
 
 
-def _tokenize(text: str) -> List[str]:
-    return re.findall(r"[A-Za-z0-9]+", text.lower())
+@lru_cache(maxsize=256)
+def _tokenize(text: str) -> Tuple[str, ...]:
+    """Tokenize text into alphanumeric tokens (lowercased).
+
+    Cached because many objective metrics tokenize the same output text
+    independently (word_count, distinct_1, distinct_2, vocabulary_richness,
+    repetition_ratio, flesch_kincaid, avg_sentence_length, rouge_*, etc.).
+    With 13+ metrics sharing the same output, caching avoids 12 redundant
+    regex scans and string allocations per item.
+
+    Returns a tuple (immutable) so the cached result cannot be accidentally
+    mutated by callers.
+    """
+    return tuple(re.findall(r"[A-Za-z0-9]+", text.lower()))
 
 
-def _ngram_counts(tokens: List[str], n: int) -> Dict[Tuple[str, ...], int]:
+def _ngram_counts(tokens: Sequence[str], n: int) -> Dict[Tuple[str, ...], int]:
     counts: Dict[Tuple[str, ...], int] = {}
     if n <= 0:
         return counts
@@ -833,7 +846,7 @@ def _overlap_f1(candidate: str, reference: str, n: int = 1) -> float:
     return 2 * precision * recall / (precision + recall)
 
 
-def _lcs_length(a: List[str], b: List[str]) -> int:
+def _lcs_length(a: Sequence[str], b: Sequence[str]) -> int:
     if not a or not b:
         return 0
     # O(n*m) DP with O(min(n,m)) memory.
@@ -3988,7 +4001,7 @@ def tool_call_sequence_metric(
     return Metric(spec, handler)
 
 
-def _lcs_length(a: List[str], b: List[str]) -> int:
+def _lcs_length(a: Sequence[str], b: Sequence[str]) -> int:
     """Compute length of longest common subsequence."""
     m, n = len(a), len(b)
     if m == 0 or n == 0:
