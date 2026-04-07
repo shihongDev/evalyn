@@ -139,8 +139,14 @@ class LLMJudge:
         """List available template names."""
         return list(cls.TEMPLATES.keys())
 
-    def _build_evaluation_prompt(self, call: FunctionCall, item: DatasetItem) -> str:
-        """Build the full prompt for evaluation."""
+    def _build_evaluation_body(self, call: FunctionCall, item: DatasetItem) -> str:
+        """Build the evaluation-specific part of the prompt (no rubric/system text).
+
+        This contains the EVALUATION_INPUT data and response format instructions.
+        The rubric and system prompt are handled separately via _get_system_instruction()
+        for providers that support system messages (Gemini, OpenAI), or prepended
+        by _build_evaluation_prompt() for providers that don't (Ollama).
+        """
         trace_excerpt = _safe_trace_excerpt(call)
 
         evaluation_input = {
@@ -157,15 +163,7 @@ class LLMJudge:
                 span_ids.append({"span_id": s.id, "name": s.name, "type": s.span_type})
             evaluation_input["spans"] = span_ids
 
-        # Include rubric if available
-        rubric_text = ""
-        if self.rubric:
-            rubric_lines = "\n".join(f"- {r}" for r in self.rubric)
-            rubric_text = f"\n\nRUBRIC:\n{rubric_lines}"
-
-        full_prompt = f"""{self.prompt}{rubric_text}
-
-EVALUATION_INPUT:
+        return f"""EVALUATION_INPUT:
 {json.dumps(evaluation_input, default=str, ensure_ascii=False, indent=2)}
 
 Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
@@ -176,7 +174,25 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
   Each element: {{"span_id": "...", "relevance": 0.0-1.0, "reason": "..."}}
   Identify which spans most influenced your verdict.
 """
-        return full_prompt
+
+    def _format_rubric(self) -> str:
+        """Format rubric lines for inclusion in prompts. Returns empty string if no rubric."""
+        if not self.rubric:
+            return ""
+        rubric_lines = "\n".join(f"- {r}" for r in self.rubric)
+        return f"\n\nRUBRIC:\n{rubric_lines}"
+
+    def _build_evaluation_prompt(self, call: FunctionCall, item: DatasetItem) -> str:
+        """Build the full prompt with system text inlined.
+
+        Used by score_with_confidence/score_with_deepconf. The main score()
+        path uses _build_evaluation_body() + _get_system_instruction() instead,
+        which enables prefix caching on Gemini/OpenAI.
+        """
+        body = self._build_evaluation_body(call, item)
+        return f"""{self.prompt}{self._format_rubric()}
+
+{body}"""
 
     def _parse_response(
         self, raw_text: str
@@ -213,28 +229,19 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
     def _get_system_instruction(self) -> Optional[str]:
         """Build the stable system instruction (prompt + rubric) for prefix caching.
 
-        Gemini 2.5+ models automatically cache shared prefixes, saving up to
-        90% on input token costs. By placing the rubric in systemInstruction,
-        it becomes a stable prefix reused across all items for the same metric.
+        Gemini/OpenAI automatically cache shared prefixes when sent as the
+        system message, saving up to 50-90% on input token costs.
         """
-        parts = [self.prompt]
-        if self.rubric:
-            rubric_lines = "\n".join(f"- {r}" for r in self.rubric)
-            parts.append(f"\nRUBRIC:\n{rubric_lines}")
-        return "\n".join(parts) if parts else None
+        return f"{self.prompt}{self._format_rubric()}" if self.prompt else None
 
     def score(self, call: FunctionCall, item: DatasetItem) -> Dict[str, Any]:
         """Evaluate and return {score, passed, reason, input_tokens, output_tokens, model}."""
-        full_prompt = self._build_evaluation_prompt(call, item)
-
-        # Separate stable prefix (prompt+rubric) for provider-side caching
-        kwargs: dict = {}
-        from ..utils.api_client import GeminiClient, OpenAIClient
-        if isinstance(self.client, (GeminiClient, OpenAIClient)):
-            kwargs["system_instruction"] = self._get_system_instruction()
+        # Separate rubric (stable) from evaluation data (per-item) for prefix caching
+        prompt = self._build_evaluation_body(call, item)
+        kwargs: dict = {"system_instruction": self._get_system_instruction()}
 
         try:
-            result = self.client.generate_with_usage(full_prompt, **kwargs)
+            result = self.client.generate_with_usage(prompt, **kwargs)
             raw_text = result.text
             input_tokens = result.input_tokens
             output_tokens = result.output_tokens

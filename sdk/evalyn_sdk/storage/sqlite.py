@@ -235,7 +235,7 @@ class SQLiteStorage:
                 _dumps(call.inputs),
                 _dumps(call.output),
                 call.error,
-                _dumps([t.as_dict() for t in call.trace]),
+                _dumps([t.as_dict() for t in call.trace]) if call.trace else "[]",
                 _dumps(call.metadata),
                 call.parent_call_id,
                 _dumps([s.as_dict() for s in call.spans]) if call.spans else None,
