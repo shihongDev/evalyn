@@ -198,7 +198,7 @@ def cmd_cluster_misalignments(args: argparse.Namespace) -> None:
         print(f"  False Negatives: {fn_count} clusters ({fn_cases} cases)")
 
     if dataset_dir:
-        hints = HintCollector(quiet=getattr(args, "quiet", False))
+        hints = HintCollector(quiet=getattr(args, "quiet", False), format=args.format)
         hints.add(
             f"evalyn calibrate --metric-id {args.metric_id} --annotations {args.annotations} --dataset {dataset_dir}",
             "Calibrate this metric",
@@ -306,7 +306,7 @@ def cmd_cluster_failures(args: argparse.Namespace) -> None:
                 f"  {mid}: {total_failures}/{total_items} failed ({pct:.1f}%), {len(result.clusters)} patterns"
             )
 
-    hints = HintCollector(quiet=quiet)
+    hints = HintCollector(quiet=quiet, format=args.format)
     hints.add("evalyn show-run --last", "See full eval results")
     hints.render()
 
