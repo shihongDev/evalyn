@@ -227,11 +227,10 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
         """Evaluate and return {score, passed, reason, input_tokens, output_tokens, model}."""
         full_prompt = self._build_evaluation_prompt(call, item)
 
-        # For Gemini clients, pass system instruction separately for
-        # prefix caching optimization (90% input cost savings on 2.5+).
+        # Separate stable prefix (prompt+rubric) for provider-side caching
         kwargs: dict = {}
-        from ..utils.api_client import GeminiClient
-        if isinstance(self.client, GeminiClient):
+        from ..utils.api_client import GeminiClient, OpenAIClient
+        if isinstance(self.client, (GeminiClient, OpenAIClient)):
             kwargs["system_instruction"] = self._get_system_instruction()
 
         try:

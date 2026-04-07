@@ -376,12 +376,17 @@ class OpenAIClient:
         return key
 
     def _call_api(
-        self, prompt: str, temperature: Optional[float], with_logprobs: bool = False
+        self, prompt: str, temperature: Optional[float], with_logprobs: bool = False,
+        system_instruction: Optional[str] = None,
     ) -> dict[str, Any]:
         """Make API call and return raw response data."""
+        messages: list[dict[str, str]] = []
+        if system_instruction:
+            messages.append({"role": "system", "content": system_instruction})
+        messages.append({"role": "user", "content": prompt})
         payload = {
             "model": self.model,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": messages,
             "temperature": temperature if temperature is not None else self.temperature,
         }
         if with_logprobs:
@@ -400,10 +405,20 @@ class OpenAIClient:
         return result.text
 
     def generate_with_usage(
-        self, prompt: str, temperature: Optional[float] = None
+        self, prompt: str, temperature: Optional[float] = None,
+        system_instruction: Optional[str] = None,
     ) -> GenerateResult:
-        """Call OpenAI API and return text with token usage."""
-        response_data = self._call_api(prompt, temperature)
+        """Call OpenAI API and return text with token usage.
+
+        Args:
+            prompt: The prompt to send as the user message
+            temperature: Optional temperature override for this request
+            system_instruction: Optional system message for prompt caching
+                (50% input token discount on shared prefixes)
+        """
+        response_data = self._call_api(
+            prompt, temperature, system_instruction=system_instruction,
+        )
 
         text = ""
         choices = response_data.get("choices", [])
