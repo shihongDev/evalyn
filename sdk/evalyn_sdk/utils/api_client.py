@@ -34,6 +34,51 @@ _BASE_DELAY = 1.0  # seconds
 _MAX_TOTAL_TIMEOUT = 30.0  # seconds - give up after this total elapsed time
 
 
+# ---------------------------------------------------------------------------
+# HTTP transport with connection pooling
+# ---------------------------------------------------------------------------
+
+# Per-host session cache for HTTP keep-alive connection reuse.
+# Key: (scheme, host) tuple. Value: urllib3.HTTPSConnectionPool or fallback flag.
+_pool_cache: dict[tuple[str, str], Any] = {}
+_use_urllib3: Optional[bool] = None
+
+
+def _get_pool(url: str, timeout: int) -> Any:
+    """Get or create a connection pool for the given URL's host."""
+    global _use_urllib3
+    if _use_urllib3 is None:
+        try:
+            import urllib3
+            _use_urllib3 = True
+        except ImportError:
+            _use_urllib3 = False
+
+    if not _use_urllib3:
+        return None
+
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    key = (parsed.scheme, parsed.netloc)
+    pool = _pool_cache.get(key)
+    if pool is not None:
+        return pool
+
+    import urllib3
+    if parsed.scheme == "https":
+        pool = urllib3.HTTPSConnectionPool(
+            parsed.hostname, parsed.port or 443,
+            maxsize=16, timeout=timeout, retries=False,
+        )
+    else:
+        pool = urllib3.HTTPConnectionPool(
+            parsed.hostname, parsed.port or 80,
+            maxsize=16, timeout=timeout, retries=False,
+        )
+    _pool_cache[key] = pool
+    return pool
+
+
 def _http_post(
     url: str,
     payload: dict[str, Any],
@@ -43,6 +88,10 @@ def _http_post(
 ) -> dict[str, Any]:
     """Make HTTP POST request with retry on transient failures.
 
+    Uses urllib3 connection pools when available for HTTP keep-alive
+    (eliminates TLS handshake overhead on repeated calls to the same host).
+    Falls back to urllib.request if urllib3 is not installed.
+
     Retries up to 3 times with exponential backoff and jitter for
     429/5xx responses. Non-retryable errors (4xx except 429) raise
     immediately.
@@ -50,12 +99,33 @@ def _http_post(
     data = json.dumps(payload).encode("utf-8")
     start = time.monotonic()
     last_error: Exception | None = None
+    pool = _get_pool(url, timeout)
 
     for attempt in range(_MAX_RETRIES + 1):
-        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                return json.loads(resp.read().decode("utf-8"))
+            if pool is not None:
+                # urllib3 path: connection pooling with keep-alive
+                from urllib.parse import urlparse
+                path = urlparse(url).path
+                if urlparse(url).query:
+                    path += "?" + urlparse(url).query
+                resp = pool.urlopen(
+                    "POST", path, body=data, headers=headers,
+                    timeout=timeout, redirect=False,
+                )
+                if 200 <= resp.status < 300:
+                    return json.loads(resp.data.decode("utf-8"))
+                if resp.status not in _RETRYABLE_STATUS_CODES or attempt == _MAX_RETRIES:
+                    raise RuntimeError(
+                        f"{error_prefix} error ({resp.status}): {resp.data.decode('utf-8', errors='replace')}"
+                    )
+            else:
+                # Fallback: stdlib urllib.request (no connection reuse)
+                req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    return json.loads(resp.read().decode("utf-8"))
+        except RuntimeError:
+            raise
         except urllib.error.HTTPError as e:
             if e.code not in _RETRYABLE_STATUS_CODES or attempt == _MAX_RETRIES:
                 error_body = e.read().decode("utf-8") if e.fp else ""
@@ -63,10 +133,10 @@ def _http_post(
                     f"{error_prefix} error ({e.code}): {error_body}"
                 ) from e
             last_error = e
-        except urllib.error.URLError as e:
+        except Exception as e:
             if attempt == _MAX_RETRIES:
                 raise RuntimeError(
-                    f"{error_prefix} connection error: {e.reason}"
+                    f"{error_prefix} connection error: {e}"
                 ) from e
             last_error = e
 

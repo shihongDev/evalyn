@@ -30,68 +30,38 @@ from .registry import InstrumentorRegistry, get_registry
 from .span_converter import SpanConverter
 from .span_processor import EvalynSpanProcessor, create_evalyn_tracer_provider
 
-# Import providers and register them
-from .providers.openai import OpenAIInstrumentor
-from .providers.anthropic import AnthropicInstrumentor
-from .providers.gemini import GeminiInstrumentor
-from .providers.langchain import LangChainInstrumentor
-from .providers.langgraph import LangGraphInstrumentor
-from .providers.xai import XAIInstrumentor
-from .providers.crewai import CrewAIInstrumentor
-from .providers.autogen import AutoGenInstrumentor
-from .providers.dspy import DSPyInstrumentor
-from .providers.haystack import HaystackInstrumentor
-from .providers.llamaindex import LlamaIndexInstrumentor
-from .providers.semantic_kernel import SemanticKernelInstrumentor
+# ---------------------------------------------------------------------------
+# Lazy provider registration: providers are imported and registered on first
+# use (instrument() or ensure_instrumented()) rather than at module import.
+# This saves ~300ms by deferring the import of 14 provider modules.
+# ---------------------------------------------------------------------------
 
-# Optional providers
-try:
-    from .providers.google_adk import (
-        GoogleADKInstrumentor,
-        EvalynADKCallbacks,
-        ADKStreamAdapter,
-        create_adk_callbacks,
-        create_stream_adapter as create_adk_stream_adapter,
-    )
-
-    _has_google_adk = True
-except ImportError:
-    _has_google_adk = False
-
-    def create_adk_callbacks(*args, **kwargs):  # type: ignore
-        raise ImportError("google-adk not installed")
-
-    def create_adk_stream_adapter(*args, **kwargs):  # type: ignore
-        raise ImportError("google-adk not installed")
-
-
-try:
-    from .providers.claude_agent_sdk import (
-        AnthropicAgentsInstrumentor,  # Backwards compat alias
-        ClaudeAgentSDKInstrumentor,
-        EvalynAgentHooks,
-        MessageStreamAdapter,
-        SubagentContext,
-        create_agent_hooks,
-        create_stream_adapter,
-    )
-
-    _has_claude_agent_sdk = True
-except ImportError:
-    _has_claude_agent_sdk = False
-
-    def create_agent_hooks(*args, **kwargs):  # type: ignore
-        raise ImportError("claude_agent_sdk not installed")
-
-    def create_stream_adapter(*args, **kwargs):  # type: ignore
-        raise ImportError("claude_agent_sdk not installed")
+_registry_initialized = False
 
 
 def _setup_registry() -> None:
-    """Register all instrumentors with the global registry."""
+    """Register all instrumentors with the global registry (called lazily)."""
+    global _registry_initialized
+    if _registry_initialized:
+        return
+    _registry_initialized = True
+
     registry = get_registry()
 
-    # Core instrumentors (monkey-patch)
+    # Core instrumentors (monkey-patch) - imported here, not at module level
+    from .providers.openai import OpenAIInstrumentor
+    from .providers.anthropic import AnthropicInstrumentor
+    from .providers.gemini import GeminiInstrumentor
+    from .providers.langchain import LangChainInstrumentor
+    from .providers.langgraph import LangGraphInstrumentor
+    from .providers.xai import XAIInstrumentor
+    from .providers.crewai import CrewAIInstrumentor
+    from .providers.autogen import AutoGenInstrumentor
+    from .providers.dspy import DSPyInstrumentor
+    from .providers.haystack import HaystackInstrumentor
+    from .providers.llamaindex import LlamaIndexInstrumentor
+    from .providers.semantic_kernel import SemanticKernelInstrumentor
+
     registry.register(OpenAIInstrumentor())
     registry.register(AnthropicInstrumentor())
     registry.register(GeminiInstrumentor())
@@ -106,16 +76,47 @@ def _setup_registry() -> None:
     registry.register(SemanticKernelInstrumentor())
 
     # Optional OTEL-native instrumentors
-    if _has_google_adk:
+    try:
+        from .providers.google_adk import GoogleADKInstrumentor
         registry.register(GoogleADKInstrumentor())
+    except ImportError:
+        pass
 
     # Optional hook-based instrumentors
-    if _has_claude_agent_sdk:
+    try:
+        from .providers.claude_agent_sdk import ClaudeAgentSDKInstrumentor
         registry.register(ClaudeAgentSDKInstrumentor())
+    except ImportError:
+        pass
 
 
-# Initialize registry on import
-_setup_registry()
+# Lazy accessors for optional provider utilities (imported on demand)
+_has_google_adk = None
+_has_claude_agent_sdk = None
+
+
+def create_adk_callbacks(*args, **kwargs):
+    """Create Google ADK callbacks (imports on first call)."""
+    from .providers.google_adk import create_adk_callbacks as _create
+    return _create(*args, **kwargs)
+
+
+def create_adk_stream_adapter(*args, **kwargs):
+    """Create ADK stream adapter (imports on first call)."""
+    from .providers.google_adk import create_stream_adapter as _create
+    return _create(*args, **kwargs)
+
+
+def create_agent_hooks(*args, **kwargs):
+    """Create Claude Agent SDK hooks (imports on first call)."""
+    from .providers.claude_agent_sdk import create_agent_hooks as _create
+    return _create(*args, **kwargs)
+
+
+def create_stream_adapter(*args, **kwargs):
+    """Create Claude Agent SDK stream adapter (imports on first call)."""
+    from .providers.claude_agent_sdk import create_stream_adapter as _create
+    return _create(*args, **kwargs)
 
 
 # Public API
@@ -132,6 +133,7 @@ def instrument(*names: str) -> Dict[str, bool]:
     Example:
         instrument("openai", "anthropic")
     """
+    _setup_registry()
     registry = get_registry()
     return registry.instrument(*names)
 
@@ -143,6 +145,7 @@ def instrument_all() -> Dict[str, bool]:
     Returns:
         Dict mapping name to success status
     """
+    _setup_registry()
     registry = get_registry()
     return registry.instrument_all()
 
@@ -157,30 +160,35 @@ def uninstrument(*names: str) -> Dict[str, bool]:
     Returns:
         Dict mapping name to success status
     """
+    _setup_registry()
     registry = get_registry()
     return registry.uninstrument(*names)
 
 
 def uninstrument_all() -> Dict[str, bool]:
     """Remove instrumentation from all SDKs."""
+    _setup_registry()
     registry = get_registry()
     return registry.uninstrument_all()
 
 
 def is_instrumented(name: str) -> bool:
     """Check if a specific SDK is instrumented."""
+    _setup_registry()
     registry = get_registry()
     return registry.is_instrumented(name)
 
 
 def list_available() -> List[str]:
     """List all available (installed) SDKs that can be instrumented."""
+    _setup_registry()
     registry = get_registry()
     return registry.list_available()
 
 
 def list_instrumented() -> List[str]:
     """List currently instrumented SDKs."""
+    _setup_registry()
     registry = get_registry()
     return registry.list_instrumented()
 
@@ -195,8 +203,42 @@ def get_hooks(name: str) -> Optional[Any]:
     Returns:
         Hook object to pass to the agent, or None if not applicable
     """
+    _setup_registry()
     registry = get_registry()
     return registry.get_hooks(name)
+
+
+# Lazy attribute access for provider classes (PEP 562)
+_LAZY_PROVIDER_IMPORTS = {
+    "OpenAIInstrumentor": ".providers.openai",
+    "AnthropicInstrumentor": ".providers.anthropic",
+    "GeminiInstrumentor": ".providers.gemini",
+    "LangChainInstrumentor": ".providers.langchain",
+    "LangGraphInstrumentor": ".providers.langgraph",
+    "XAIInstrumentor": ".providers.xai",
+    "CrewAIInstrumentor": ".providers.crewai",
+    "AutoGenInstrumentor": ".providers.autogen",
+    "DSPyInstrumentor": ".providers.dspy",
+    "HaystackInstrumentor": ".providers.haystack",
+    "LlamaIndexInstrumentor": ".providers.llamaindex",
+    "SemanticKernelInstrumentor": ".providers.semantic_kernel",
+    "GoogleADKInstrumentor": ".providers.google_adk",
+    "EvalynADKCallbacks": ".providers.google_adk",
+    "ADKStreamAdapter": ".providers.google_adk",
+    "ClaudeAgentSDKInstrumentor": ".providers.claude_agent_sdk",
+    "AnthropicAgentsInstrumentor": ".providers.claude_agent_sdk",
+    "EvalynAgentHooks": ".providers.claude_agent_sdk",
+    "MessageStreamAdapter": ".providers.claude_agent_sdk",
+    "SubagentContext": ".providers.claude_agent_sdk",
+}
+
+
+def __getattr__(name: str):
+    if name in _LAZY_PROVIDER_IMPORTS:
+        import importlib
+        module = importlib.import_module(_LAZY_PROVIDER_IMPORTS[name], __package__)
+        return getattr(module, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 __all__ = [
