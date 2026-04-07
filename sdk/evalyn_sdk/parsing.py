@@ -10,12 +10,12 @@ from .models import FunctionCall
 
 
 def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
-    """Extract first JSON object from text, handling markdown code blocks.
+    """Extract a JSON object from text, handling markdown code blocks.
 
-    Tries in order: direct parse, markdown code fence extraction,
-    then progressively tries each '{' position until json.loads succeeds.
-    This handles LLM responses with explanation text containing braces
-    before the actual JSON object.
+    Tries in order: markdown code fence extraction, direct parse,
+    then progressively tries each '{' from right to left (last to first)
+    paired with the last '}'. Reverse search is optimal for LLM output
+    where explanation precedes the JSON object.
     """
     text = (text or "").strip()
     if not text:
@@ -40,15 +40,17 @@ def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
     except Exception:
         pass
 
-    # Try each '{' position from left to right with the last '}'
+    # Try each '{' position from right to left with the last '}'
+    # LLMs typically write explanation first, JSON last, so searching
+    # backward finds the correct '{' on the first try in the common case.
     # This handles text like: "The output looks {good}. {"passed": true}"
     end = text.rfind("}")
     if end < 0:
         return None
-    pos = 0
+    pos = end
     while True:
-        start = text.find("{", pos)
-        if start < 0 or start >= end:
+        start = text.rfind("{", 0, pos)
+        if start < 0:
             break
         snippet = text[start : end + 1]
         try:
@@ -57,7 +59,7 @@ def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
                 return parsed
         except Exception:
             pass
-        pos = start + 1
+        pos = start
 
     return None
 
