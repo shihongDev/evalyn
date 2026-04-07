@@ -8,6 +8,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from ..models import DatasetItem, FunctionCall, Metric, MetricResult, MetricSpec
 
+_TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
+
 
 def _make_result(
     spec: MetricSpec,
@@ -830,7 +832,7 @@ def _tokenize(text: str) -> Tuple[str, ...]:
     Returns a tuple (immutable) so the cached result cannot be accidentally
     mutated by callers.
     """
-    return tuple(re.findall(r"[A-Za-z0-9]+", text.lower()))
+    return tuple(_TOKEN_RE.findall(text.lower()))
 
 
 def _ngram_counts(tokens: Sequence[str], n: int) -> Dict[Tuple[str, ...], int]:
