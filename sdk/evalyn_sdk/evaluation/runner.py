@@ -407,8 +407,19 @@ class EvalRunner:
         if self._is_outcome_only():
             # Default mode: use existing strategy-based execution (backward compat)
             checkpoint_fn = self._save_checkpoint if self.checkpoint_path else None
+
+            # Objective metrics are CPU-bound microsecond operations (no I/O).
+            # Threading adds ~3us overhead per task which dominates actual
+            # compute for 100 items x 73 metrics (27ms overhead vs 1ms work).
+            # Force sequential when all metrics are objective.
+            effective_workers = self.max_workers
+            if effective_workers > 1 and all(
+                m.spec.type == "objective" for m in self.metrics
+            ):
+                effective_workers = 1
+
             strategy = create_strategy(
-                max_workers=self.max_workers,
+                max_workers=effective_workers,
                 evaluate_fn=self._evaluate_metric,
                 checkpoint_fn=checkpoint_fn,
                 checkpoint_interval=self.checkpoint_interval,
