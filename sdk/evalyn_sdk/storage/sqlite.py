@@ -540,7 +540,7 @@ class SQLiteStorage:
         return self._lightweight_load_runs(rows)
 
     def list_eval_runs_by_project(
-        self, dataset_name: str, limit: int = 20
+        self, dataset_name: str, limit: int = 20, lightweight: bool = False
     ) -> List[EvalRun]:
         """List eval runs for a specific project (dataset_name)."""
         cur = self.get_connection().cursor()
@@ -553,7 +553,10 @@ class SQLiteStorage:
             """,
             (dataset_name, limit),
         )
-        return self._batch_load_runs(cur.fetchall())
+        rows = cur.fetchall()
+        if not lightweight:
+            return self._batch_load_runs(rows)
+        return self._lightweight_load_runs(rows)
 
     def get_eval_run(self, run_id: str) -> Optional[EvalRun]:
         cur = self.get_connection().cursor()
