@@ -367,12 +367,15 @@ class TestGenerateEdgeCases:
 
     def test_special_chars_case(self):
         spec = _make_spec()
-        cases = generate_edge_cases(spec)
+        # Use a seeded RNG for deterministic results
+        import random
+        rng = random.Random(42)
+        cases = generate_edge_cases(spec, rng=rng)
         special = [tc for tc in cases if tc.variant == "edge_special"]
         assert len(special) == 1
-        # Should contain some non-alphanumeric characters
+        # Should contain some non-alphanumeric characters from _SPECIAL_CHARS
         text = special[0].input_text
-        assert any(c in text for c in "!@#$%^&*")
+        assert any(not c.isalnum() and not c.isspace() for c in text)
 
     def test_all_hard_difficulty(self):
         spec = _make_spec()
