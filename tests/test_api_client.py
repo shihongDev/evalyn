@@ -33,7 +33,21 @@ def _make_url_error(reason: str = "Connection refused") -> urllib.error.URLError
 
 
 class TestHttpPostRetry:
-    """Tests for _http_post retry with exponential backoff."""
+    """Tests for _http_post retry with exponential backoff.
+
+    These tests mock urllib.request.urlopen, so we disable the urllib3
+    connection pooling path to ensure the stdlib fallback is used.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _disable_urllib3(self):
+        """Force _http_post to use stdlib urllib.request (mockable)."""
+        import evalyn_sdk.utils.api_client as mod
+        orig = mod._use_urllib3
+        mod._use_urllib3 = False
+        mod._pool_cache.clear()
+        yield
+        mod._use_urllib3 = orig
 
     @patch("evalyn_sdk.utils.api_client.urllib.request.urlopen")
     def test_success_no_retry(self, mock_urlopen):

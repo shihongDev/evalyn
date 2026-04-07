@@ -92,7 +92,8 @@ class TestListCommands:
         # Count data lines (exclude header, separator, pagination info, and hints)
         lines = [l for l in result.stdout.strip().split("\n")
                  if l and not l.startswith("-") and not l.startswith("(")
-                 and not l.startswith("Hint:") and not l.startswith("Showing")]
+                 and not l.startswith("Hint:") and not l.startswith("Showing")
+                 and not l.startswith("Next") and not l.startswith("  evalyn")]
         assert len(lines) <= 4  # header + up to 3 data rows
 
     def test_list_calls_with_project_filter(self):
