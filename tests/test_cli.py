@@ -211,8 +211,8 @@ class TestListMetrics:
         """Test list-metrics shows both objective and subjective."""
         result = run_cli("list-metrics")
         result.assert_success()
-        result.assert_output_contains("Objective metrics")
-        result.assert_output_contains("Subjective metrics")
+        result.assert_output_contains("OBJECTIVE METRICS")
+        result.assert_output_contains("SUBJECTIVE METRICS")
 
     def test_list_metrics_has_common_metrics(self):
         """Test list-metrics includes common metrics."""

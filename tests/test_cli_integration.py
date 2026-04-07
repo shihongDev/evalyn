@@ -123,8 +123,8 @@ class TestListCommands:
         result.assert_success()
         result.assert_output_contains("latency_ms")
         result.assert_output_contains("json_valid")
-        result.assert_output_contains("Objective metrics")
-        result.assert_output_contains("Subjective metrics")
+        result.assert_output_contains("OBJECTIVE METRICS")
+        result.assert_output_contains("SUBJECTIVE METRICS")
 
     def test_list_calibrations(self, test_dataset):
         """Test list-calibrations command."""

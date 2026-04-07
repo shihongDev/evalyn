@@ -44,6 +44,7 @@ from ..utils.errors import fatal_error
 from ..utils.formatters import print_token_usage_summary
 from ..utils.hints import HintCollector
 from ..utils.loaders import _load_callable
+from ..utils.rich import banner, section, table as rich_table
 from ..utils.validation import check_llm_api_keys
 from ..utils.dataset_utils import (
     ProgressBar,
@@ -1443,45 +1444,12 @@ def cmd_list_metrics(args: argparse.Namespace) -> None:
         print(json.dumps(result, indent=2))
         return
 
-    def _compact(value, max_len: int = 60) -> str:
-        try:
-            text = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
-        except Exception:
-            text = str(value)
-        return text if len(text) <= max_len else text[: max_len - 3] + "..."
-
     def _compact_text(value: Any, max_len: int = 55) -> str:
         text = str(value or "")
         text = re.sub(r"\s+", " ", text).strip()
         return text if len(text) <= max_len else text[: max_len - 3] + "..."
 
-    def _config_summary(cfg: Any) -> str:
-        if not cfg:
-            return "{}"
-        if not isinstance(cfg, dict):
-            return _compact(cfg, 55)
-        parts: list[str] = []
-        for key in sorted(cfg.keys()):
-            val = cfg.get(key)
-            if key == "rubric" and isinstance(val, list):
-                parts.append(f"rubric[{len(val)}]")
-                continue
-            if key == "policy" and isinstance(val, str):
-                parts.append(f"policy[{len(val)}]")
-                continue
-            if key == "schema" and isinstance(val, dict):
-                parts.append(f"schema[{len(val)}]")
-                continue
-            if isinstance(val, (str, int, float, bool)) or val is None:
-                parts.append(f"{key}={_compact_text(val, 18)}")
-            else:
-                parts.append(f"{key}=...")
-        text = ", ".join(parts)
-        return text if text else "{}"
-
-    def _print_table(title: str, templates: list[dict]) -> None:
-        print(title)
-        headers = ["id", "scope", "category", "config", "desc"]
+    def _build_rows(templates: list[dict]) -> list[list[str]]:
         rows = []
         for tpl in templates:
             rows.append(
@@ -1489,24 +1457,19 @@ def cmd_list_metrics(args: argparse.Namespace) -> None:
                     tpl.get("id", ""),
                     tpl.get("scope", "overall"),
                     tpl.get("category", ""),
-                    _config_summary(tpl.get("config", {})),
                     _compact_text(tpl.get("description", ""), 50),
                 ]
             )
+        return rows
 
-        widths = [len(h) for h in headers]
-        for row in rows:
-            for i, cell in enumerate(row):
-                widths[i] = max(widths[i], len(str(cell)))
+    headers = ["ID", "Scope", "Category", "Description"]
+    align = ["left", "left", "left", "left"]
 
-        header_line = " | ".join(h.ljust(widths[i]) for i, h in enumerate(headers))
-        print(header_line)
-        print("-" * len(header_line))
-        for row in rows:
-            print(" | ".join(str(cell).ljust(widths[i]) for i, cell in enumerate(row)))
+    print(banner(f"OBJECTIVE METRICS ({len(OBJECTIVE_REGISTRY)})"))
+    print(rich_table(headers, _build_rows(OBJECTIVE_REGISTRY), align))
 
-    _print_table("\nObjective metrics:", OBJECTIVE_REGISTRY)
-    _print_table("\nSubjective metrics:", SUBJECTIVE_REGISTRY)
+    print(section(f"SUBJECTIVE METRICS ({len(SUBJECTIVE_REGISTRY)})"))
+    print(rich_table(headers, _build_rows(SUBJECTIVE_REGISTRY), align))
 
 
 def register_commands(subparsers) -> None:

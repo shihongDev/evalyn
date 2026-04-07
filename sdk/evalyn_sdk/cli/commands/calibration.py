@@ -39,6 +39,7 @@ from ..utils.config import load_config, resolve_dataset_path, get_config_default
 from ..utils.errors import fatal_error
 from ..utils.formatters import print_token_usage_summary
 from ..utils.hints import HintCollector
+from ..utils.rich import banner, table as rich_table, footer, icon, status_icon
 from ..utils.ui import Spinner
 
 
@@ -787,21 +788,25 @@ def cmd_list_calibrations(args: argparse.Namespace) -> None:
         return
 
     # Table format
-    print(f"\nCalibrations in {dataset_path.name}:")
-    print(f"{'=' * 80}")
-    print(
-        f"{'Metric':<25} {'Timestamp':<17} {'Optimizer':<8} {'Acc':<7} {'F1':<7} {'Kappa':<7} {'N':<5}"
-    )
-    print(f"{'-' * 80}")
+    headers = ["Metric", "Timestamp", "Optimizer", "Acc", "F1", "Kappa", "N"]
+    align = ["left", "left", "left", "right", "right", "right", "right"]
+    rows = []
     for cal in calibrations:
-        print(
-            f"{cal['metric_id']:<25} {cal['timestamp']:<17} {cal['optimizer']:<8} "
-            f"{cal['accuracy']:.1%}   {cal['f1']:.1%}   {cal['kappa']:.3f}  {cal['samples']:<5}"
-        )
+        rows.append([
+            cal["metric_id"],
+            cal["timestamp"],
+            cal["optimizer"],
+            f"{cal['accuracy']:.1%}",
+            f"{cal['f1']:.1%}",
+            f"{cal['kappa']:.3f}",
+            str(cal["samples"]),
+        ])
+
+    print(banner("CALIBRATIONS"))
+    print(rich_table(headers, rows, align=align))
 
     # Show prompt files if any
-    print(f"\n{'=' * 80}")
-    print("Optimized prompts:")
+    has_prompts = False
     for metric_dir in calibrations_dir.iterdir():
         if not metric_dir.is_dir():
             continue
@@ -809,14 +814,18 @@ def cmd_list_calibrations(args: argparse.Namespace) -> None:
         if prompts_dir.exists():
             full_prompts = list(prompts_dir.glob("*_full.txt"))
             if full_prompts:
+                if not has_prompts:
+                    print("\nOptimized prompts:")
+                    has_prompts = True
                 latest = sorted(full_prompts, reverse=True)[0]
                 print(f"  {metric_dir.name}: {latest}")
 
     # Show hints
     if calibrations:
-        hints = HintCollector(quiet=getattr(args, "quiet", False))
-        hints.add(f"evalyn run-eval --dataset {dataset_path} --use-calibrated", "Re-run with calibrated prompts")
-        hints.render()
+        hint_items = [(f"evalyn run-eval --dataset {dataset_path} --use-calibrated", "Re-run with calibrated prompts")]
+        hint_text = footer(hint_items, quiet=getattr(args, "quiet", False))
+        if hint_text:
+            print(hint_text)
 
 
 def register_commands(subparsers) -> None:
