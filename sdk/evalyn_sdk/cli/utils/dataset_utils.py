@@ -217,7 +217,12 @@ class ProgressBar:
         self._current = current
         self._current_metric = metric
         self._current_type = metric_type
-        self._render()
+        # Throttle renders to at most every 50ms to reduce I/O overhead.
+        # The final update (100%) always renders so the bar reaches completion.
+        now = time.time()
+        if current >= self.total or (now - self._last_render_time) >= 0.05:
+            self._last_render_time = now
+            self._render()
 
     def add_error(self, error: str) -> None:
         """Record an error to display."""

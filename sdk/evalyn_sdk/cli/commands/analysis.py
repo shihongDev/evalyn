@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 from ..utils.command_common import load_eval_run_for_command, resolve_dataset_dir_and_file
@@ -34,6 +35,20 @@ from ..utils.config import load_config, resolve_dataset_path
 from ..utils.dataset_resolver import get_dataset
 from ..utils.errors import fatal_error
 from ..utils.hints import print_hint
+
+
+def _print_run_summary(run_name: str, results_file: Path) -> None:
+    """Print a one-line run summary without parsing the full JSON.
+
+    Reads the file once as bytes. Extracts created_at from the header via
+    regex and counts metric results by scanning for "metric_id" keys.
+    This avoids deserializing multi-hundred-KB result files.
+    """
+    raw = results_file.read_bytes()
+    m = re.search(rb'"created_at"\s*:\s*"([^"]{1,25})"', raw[:512])
+    created = m.group(1).decode("utf-8", errors="replace")[:19] if m else ""
+    results_count = raw.count(b'"metric_id"')
+    print(f"  {run_name}: {results_count} results ({created})")
 
 
 def cmd_status(args: argparse.Namespace) -> None:
@@ -81,16 +96,12 @@ def cmd_status(args: argparse.Namespace) -> None:
         # Count JSON files in each run dir
         run_count = sum(1 for d in eval_runs if list(d.glob("*.json")))
         print(f"Eval runs: {run_count}")
-        # Show latest 3
+        # Show latest 3 - use lightweight parsing to avoid loading full results
         for rd in eval_runs[:3]:
             results_file = rd / "results.json"
             if results_file.exists():
                 try:
-                    with open(results_file, encoding="utf-8") as f:
-                        run = json.load(f)
-                        created = run.get("created_at", "")[:19]
-                        results_count = len(run.get("metric_results", []))
-                        print(f"  {rd.name}: {results_count} results ({created})")
+                    _print_run_summary(rd.name, results_file)
                 except Exception:
                     pass
     else:
