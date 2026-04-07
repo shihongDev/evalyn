@@ -251,6 +251,18 @@ class SQLiteStorage:
             return None
         return self._row_to_call(row)
 
+    def get_calls_batch(self, call_ids: List[str]) -> Dict[str, FunctionCall]:
+        """Fetch multiple calls by ID in a single query. Returns {id: call}."""
+        if not call_ids:
+            return {}
+        cur = self.get_connection().cursor()
+        placeholders = ",".join("?" for _ in call_ids)
+        cur.execute(
+            f"SELECT * FROM function_calls WHERE id IN ({placeholders})",
+            call_ids,
+        )
+        return {row["id"]: self._row_to_call(row) for row in cur.fetchall()}
+
     def list_calls(
         self,
         limit: int = 100,

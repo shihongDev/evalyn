@@ -387,10 +387,26 @@ class EvalRunner:
             (i, item) for i, item in enumerate(items) if item.id not in completed_items
         ]
 
-        # Prepare all items with their FunctionCalls first (sequential)
+        # Batch-fetch FunctionCalls from storage (1 query instead of N)
+        storage = self.tracer.storage
+        call_ids_to_fetch = []
+        for _, item in pending_items:
+            if isinstance(item.metadata, dict) and "call_id" in item.metadata:
+                call_ids_to_fetch.append(item.metadata["call_id"])
+
+        calls_by_id: Dict[str, FunctionCall] = {}
+        if call_ids_to_fetch and storage and hasattr(storage, "get_calls_batch"):
+            calls_by_id = storage.get_calls_batch(call_ids_to_fetch)
+
+        # Prepare all items with their FunctionCalls
         prepared: List[Tuple[DatasetItem, FunctionCall]] = []
         for item_idx, item in pending_items:
-            call = self._prepare_item_call(item, use_synthetic, failures)
+            # Try batch-fetched call first (O(1) dict lookup)
+            call = None
+            if isinstance(item.metadata, dict) and "call_id" in item.metadata:
+                call = calls_by_id.get(item.metadata["call_id"])
+            if call is None:
+                call = self._prepare_item_call(item, use_synthetic, failures)
             if call is None:
                 if use_synthetic:
                     raise RuntimeError(
