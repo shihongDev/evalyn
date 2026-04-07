@@ -204,42 +204,35 @@ def generate_html_report(
                     row.append(None)
             score_matrix.append(row)
 
-        # Compute correlation matrix
-        correlations = []
-        for i in range(len(metric_ids)):
-            row = []
-            for j in range(len(metric_ids)):
-                if i == j:
-                    row.append(1.0)
-                else:
-                    # Pearson correlation
-                    x_vals = [
-                        score_matrix[k][i]
-                        for k in range(len(score_matrix))
-                        if score_matrix[k][i] is not None
-                        and score_matrix[k][j] is not None
-                    ]
-                    y_vals = [
-                        score_matrix[k][j]
-                        for k in range(len(score_matrix))
-                        if score_matrix[k][i] is not None
-                        and score_matrix[k][j] is not None
-                    ]
-                    if len(x_vals) > 1:
-                        x_mean = sum(x_vals) / len(x_vals)
-                        y_mean = sum(y_vals) / len(y_vals)
-                        numerator = sum(
-                            (x - x_mean) * (y - y_mean) for x, y in zip(x_vals, y_vals)
-                        )
-                        denom_x = sum((x - x_mean) ** 2 for x in x_vals) ** 0.5
-                        denom_y = sum((y - y_mean) ** 2 for y in y_vals) ** 0.5
-                        if denom_x > 0 and denom_y > 0:
-                            row.append(round(numerator / (denom_x * denom_y), 2))
-                        else:
-                            row.append(0)
+        # Symmetric: only compute upper triangle, mirror to lower
+        n_metrics = len(metric_ids)
+        correlations = [[0.0] * n_metrics for _ in range(n_metrics)]
+        for i in range(n_metrics):
+            correlations[i][i] = 1.0
+            for j in range(i + 1, n_metrics):
+                x_vals = []
+                y_vals = []
+                for row in score_matrix:
+                    xi, xj = row[i], row[j]
+                    if xi is not None and xj is not None:
+                        x_vals.append(xi)
+                        y_vals.append(xj)
+                if len(x_vals) > 1:
+                    x_mean = sum(x_vals) / len(x_vals)
+                    y_mean = sum(y_vals) / len(y_vals)
+                    numerator = sum(
+                        (x - x_mean) * (y - y_mean) for x, y in zip(x_vals, y_vals)
+                    )
+                    denom_x = sum((x - x_mean) ** 2 for x in x_vals) ** 0.5
+                    denom_y = sum((y - y_mean) ** 2 for y in y_vals) ** 0.5
+                    if denom_x > 0 and denom_y > 0:
+                        corr = round(numerator / (denom_x * denom_y), 2)
                     else:
-                        row.append(0)
-            correlations.append(row)
+                        corr = 0
+                else:
+                    corr = 0
+                correlations[i][j] = corr
+                correlations[j][i] = corr
         correlation_data = {"labels": metric_ids, "matrix": correlations}
 
     all_passed_count = sum(

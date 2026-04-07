@@ -21,7 +21,6 @@ from pathlib import Path
 from ..utils.command_common import load_eval_run_for_command
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.hints import print_hint
-from .insights import build_insights_report
 
 
 def _open_in_browser(file_path: Path) -> bool:
@@ -58,6 +57,8 @@ def cmd_dashboard(args: argparse.Namespace) -> None:
     )
 
     print(f"Analyzing run: {loaded.run.id[:12]}...")
+
+    from .insights import build_insights_report
 
     analysis, report, dataset_items = build_insights_report(
         loaded.run, dataset_path, loaded.run_file_path

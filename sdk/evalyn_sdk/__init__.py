@@ -1,35 +1,25 @@
 __version__ = "0.2.0"
 
 # ---------------------------------------------------------------------------
-# Eager imports: lightweight dataclasses only
+# Lazy imports: ALL symbols loaded on first access via __getattr__ (PEP 562).
+# This keeps `import evalyn_sdk` near-zero cost for the CLI, while SDK users
+# get the same API - symbols resolve transparently on first reference.
 # ---------------------------------------------------------------------------
 
 import importlib as _importlib
 
-from .models import (
-    Annotation,
-    CalibrationRecord,
-    DatasetItem,
-    EvalRun,
-    FunctionCall,
-    Metric,
-    MetricRegistry,
-    MetricResult,
-    MetricSpec,
-    MetricType,
-)
-
-
-# ---------------------------------------------------------------------------
-# Lazy imports: loaded on first access via __getattr__ (PEP 562)
-#
-# Everything except models is deferred to keep `import evalyn_sdk` fast.
-# The CLI and SDK API both benefit: the CLI avoids loading trace providers,
-# evaluation runners, etc. just to parse commands, and SDK users only pay
-# for the modules they actually use.
-# ---------------------------------------------------------------------------
-
 _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
+    # Models (lightweight dataclasses)
+    "Annotation": (".models", "Annotation"),
+    "CalibrationRecord": (".models", "CalibrationRecord"),
+    "DatasetItem": (".models", "DatasetItem"),
+    "EvalRun": (".models", "EvalRun"),
+    "FunctionCall": (".models", "FunctionCall"),
+    "Metric": (".models", "Metric"),
+    "MetricRegistry": (".models", "MetricRegistry"),
+    "MetricResult": (".models", "MetricResult"),
+    "MetricSpec": (".models", "MetricSpec"),
+    "MetricType": (".models", "MetricType"),
     # Core decorators and tracer
     "eval": (".decorators", "eval"),
     "configure_tracer": (".decorators", "configure_tracer"),
