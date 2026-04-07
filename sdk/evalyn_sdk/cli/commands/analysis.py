@@ -937,6 +937,8 @@ def cmd_compare(args: argparse.Namespace) -> None:
         hints.add(f"evalyn analyze --run {run2.id}", "Investigate regression in detail")
     if improvements > 0:
         hints.add(f"evalyn trend --project {run2.dataset_name}", "See trends over time")
+    if not hints._hints:
+        hints.add(f"evalyn analyze --run {run2.id}", "Analyze run in detail")
     hints.render()
 
 
@@ -1019,7 +1021,6 @@ def cmd_trend(args: argparse.Namespace) -> None:
         if trend.regressing_metrics:
             metrics_str = ", ".join(trend.regressing_metrics[:3])
             hints.add(f"evalyn calibrate --metric-id <metric>", f"Calibrate regressing metrics: {metrics_str}")
-        project_name = getattr(args, "project", None) or ""
         hints.add(f"evalyn insights --project {project_name}", "Deep-dive into results")
         hints.render()
 
