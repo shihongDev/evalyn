@@ -413,6 +413,62 @@ class SQLiteStorage:
             model=row["model"],
         )
 
+    def _lightweight_load_runs(self, rows: list) -> List[EvalRun]:
+        """Convert rows to EvalRun objects WITHOUT loading metric results.
+
+        Instead of deserializing all MetricResult rows (can be 7300+ per run),
+        uses a single SQL COUNT to populate summary["results_count"].
+        This makes list-runs ~100x faster for runs with many results.
+        """
+        if not rows:
+            return []
+
+        run_ids = [r["id"] for r in rows]
+
+        # Single query to get result counts for all runs (vs N*M deserialization)
+        cur = self.get_connection().cursor()
+        counts: dict[str, int] = {}
+
+        # Check relational table counts
+        placeholders = ",".join("?" for _ in run_ids)
+        cur.execute(
+            f"SELECT run_id, COUNT(*) FROM metric_results_rows WHERE run_id IN ({placeholders}) GROUP BY run_id",
+            run_ids,
+        )
+        for cid, cnt in cur.fetchall():
+            counts[cid] = cnt
+
+        # For legacy JSON blob runs, count by parsing the JSON length
+        for row in rows:
+            rid = row["id"]
+            if rid not in counts and row["metric_results"]:
+                blob = row["metric_results"]
+                # Count JSON array elements without full deserialization
+                counts[rid] = blob.count('"metric_id"')
+
+        results = []
+        for row in rows:
+            run_id = row["id"]
+            metrics_raw = json.loads(row["metrics"]) if row["metrics"] else []
+            summary = json.loads(row["summary"]) if row["summary"] else {}
+            summary["results_count"] = counts.get(run_id, 0)
+
+            results.append(
+                EvalRun(
+                    id=run_id,
+                    dataset_name=row["dataset_name"],
+                    created_at=_parse_datetime(row["created_at"]) or now_utc(),
+                    metric_results=[],  # Not loaded in lightweight mode
+                    metrics=[MetricSpec.from_dict(m) for m in metrics_raw],
+                    judge_configs=[],  # Not needed for listing
+                    summary=summary,
+                    usage_summary=json.loads(row["usage_summary"])
+                    if row["usage_summary"]
+                    else {},
+                )
+            )
+        return results
+
     def _batch_load_runs(self, rows: list) -> List[EvalRun]:
         """Convert rows to EvalRun objects, batch-loading metric results when needed."""
         # Identify runs that need relational metric result loading
@@ -468,7 +524,7 @@ class SQLiteStorage:
             )
         return results
 
-    def list_eval_runs(self, limit: int = 20) -> List[EvalRun]:
+    def list_eval_runs(self, limit: int = 20, lightweight: bool = False) -> List[EvalRun]:
         cur = self.get_connection().cursor()
         cur.execute(
             """
@@ -478,7 +534,10 @@ class SQLiteStorage:
             """,
             (limit,),
         )
-        return self._batch_load_runs(cur.fetchall())
+        rows = cur.fetchall()
+        if not lightweight:
+            return self._batch_load_runs(rows)
+        return self._lightweight_load_runs(rows)
 
     def list_eval_runs_by_project(
         self, dataset_name: str, limit: int = 20
