@@ -89,12 +89,11 @@ class TestListCommands:
         """Test list-calls with custom limit."""
         result = run_cli("list-calls", "--limit", "3")
         result.assert_success()
-        # Count data lines (exclude header, separator, pagination info, and hints)
-        lines = [l for l in result.stdout.strip().split("\n")
-                 if l and not l.startswith("-") and not l.startswith("(")
-                 and not l.startswith("Hint:") and not l.startswith("Showing")
-                 and not l.startswith("Next") and not l.startswith("  evalyn")]
-        assert len(lines) <= 4  # header + up to 3 data rows
+        # Verify limit via JSON output (table format has box-drawing decoration)
+        json_result = run_cli("list-calls", "--limit", "3", "--format", "json")
+        json_result.assert_success()
+        data = json.loads(json_result.stdout)
+        assert len(data["calls"]) <= 3
 
     def test_list_calls_with_project_filter(self):
         """Test list-calls filtered by project."""
