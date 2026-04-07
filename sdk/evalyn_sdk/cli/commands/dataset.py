@@ -28,7 +28,7 @@ from typing import Optional
 
 from ..utils.config import get_data_dir
 from ..utils.errors import fatal_error
-from ..utils.hints import print_hint
+from ..utils.hints import HintCollector
 from ..utils.validation import extract_project_id
 
 
@@ -165,10 +165,9 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
         items, dataset_dir, meta, dataset_filename=dataset_file
     )
     print(f"Wrote {len(items)} items to {dataset_path}")
-    print_hint(
-        f"To suggest metrics, run: evalyn suggest-metrics --dataset {dataset_dir} --mode basic",
-        quiet=getattr(args, "quiet", False),
-    )
+    hints = HintCollector(quiet=getattr(args, "quiet", False))
+    hints.add(f"evalyn suggest-metrics --dataset {dataset_dir} --mode basic", "Suggest evaluation metrics")
+    hints.render()
 
 
 def register_commands(subparsers) -> None:

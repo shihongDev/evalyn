@@ -29,7 +29,7 @@ import json
 
 from ..utils.errors import fatal_error
 from ..utils.formatters import print_token_usage_summary
-from ..utils.hints import print_hint
+from ..utils.hints import HintCollector
 
 
 def cmd_list_runs(args: argparse.Namespace) -> None:
@@ -98,11 +98,10 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
         ]
         print(" | ".join(row))
 
+    hints = HintCollector(quiet=getattr(args, "quiet", False))
     if first_run_id:
-        print_hint(
-            f"To see details, run: evalyn show-run --id {first_run_id}",
-            quiet=getattr(args, "quiet", False),
-        )
+        hints.add(f"evalyn show-run --id {first_run_id}", "See run details")
+    hints.render()
 
 
 def cmd_show_run(args: argparse.Namespace) -> None:

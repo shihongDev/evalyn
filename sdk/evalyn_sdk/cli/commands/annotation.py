@@ -47,7 +47,7 @@ from ..utils.input_helpers import (
     get_confidence,
 )
 from ..utils.command_common import resolve_dataset_dir_and_file
-from ..utils.hints import print_hint
+from ..utils.hints import HintCollector
 
 
 def cmd_import_annotations(args: argparse.Namespace) -> None:
@@ -63,10 +63,9 @@ def cmd_import_annotations(args: argparse.Namespace) -> None:
     tracer.storage.store_annotations(anns)
     print(f"Imported {len(anns)} annotations into storage.")
 
-    print_hint(
-        "To view annotation statistics, run: evalyn annotation-stats --dataset <path>",
-        quiet=getattr(args, "quiet", False),
-    )
+    hints = HintCollector(quiet=getattr(args, "quiet", False))
+    hints.add("evalyn annotation-stats --dataset <path>", "View annotation statistics")
+    hints.render()
 
 
 def cmd_annotation_stats(args: argparse.Namespace) -> None:
@@ -108,14 +107,11 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
         tracer = get_default_tracer()
         if tracer.storage:
             stored_anns = tracer.storage.list_annotations(limit=10000)
-            stored_target_ids = {a.target_id for a in stored_anns}
+            stored_by_target = {a.target_id: a for a in stored_anns}
             for item in items:
                 item_id = getattr(item, "id", "") or ""
-                if item_id in stored_target_ids and not item.human_label:
-                    # Mark as having annotation from storage
-                    matching = [a for a in stored_anns if a.target_id == item_id]
-                    if matching:
-                        item.human_label = matching[0]
+                if item_id in stored_by_target and not item.human_label:
+                    item.human_label = stored_by_target[item_id]
     except Exception as e:
         logger.debug("Failed to load annotations from storage: %s", e)
 
@@ -215,10 +211,12 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
         total_disagree = sum(s["disagree"] for s in agreement_stats.values())
         if total_disagree > 0:
             annotations_path = Path(dataset_path) / "annotations.jsonl"
-            print_hint(
-                f"To calibrate LLM judges, run: evalyn calibrate --metric-id <metric> --annotations {annotations_path} --dataset {dataset_path}",
-                quiet=getattr(args, "quiet", False),
+            hints = HintCollector(quiet=getattr(args, "quiet", False))
+            hints.add(
+                f"evalyn calibrate --metric-id <metric> --annotations {annotations_path} --dataset {dataset_path}",
+                "Calibrate LLM judges",
             )
+            hints.render()
 
 
 def _display_span_detail(span_type: str, detail: dict) -> None:
@@ -337,10 +335,16 @@ def _print_span_annotation_intro(
 
 
 def _save_span_annotations(output_path: Path, annotations: List[SpanAnnotation]) -> None:
-    """Persist span annotations to disk."""
+    """Persist span annotations to disk (full rewrite)."""
     with open(output_path, "w", encoding="utf-8") as f:
         for ann in annotations:
             f.write(json.dumps(ann.as_dict(), ensure_ascii=False) + "\n")
+
+
+def _append_span_annotation(output_path: Path, ann: SpanAnnotation) -> None:
+    """Append a single span annotation to disk (avoids full rewrite)."""
+    with open(output_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(ann.as_dict(), ensure_ascii=False) + "\n")
 
 
 def _display_span_annotation_context(span: Dict[str, Any], idx: int, total: int) -> None:
@@ -541,7 +545,7 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
 
         if result == "saved" and span_annotation is not None:
             annotations.append(span_annotation)
-            _save_span_annotations(output_path, annotations)
+            _append_span_annotation(output_path, span_annotation)
             print(f"Saved annotation for {span['span_type']}")
         else:
             print("No annotation recorded (all fields skipped).")
@@ -1009,10 +1013,12 @@ def cmd_annotate(args: argparse.Namespace) -> None:
     print(f"Saved to: {output_path}")
     print("=" * 70)
 
-    print_hint(
-        f"To calibrate LLM judges, run: evalyn calibrate --metric-id <metric> --annotations {output_path} --dataset {dataset_dir}",
-        quiet=getattr(args, "quiet", False),
+    hints = HintCollector(quiet=getattr(args, "quiet", False))
+    hints.add(
+        f"evalyn calibrate --metric-id <metric> --annotations {output_path} --dataset {dataset_dir}",
+        "Calibrate LLM judges",
     )
+    hints.render()
 
 
 def register_commands(subparsers) -> None:

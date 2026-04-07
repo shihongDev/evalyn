@@ -35,7 +35,7 @@ from datetime import datetime
 from pathlib import Path
 
 from ..utils.errors import fatal_error
-from ..utils.hints import print_hint
+from ..utils.hints import HintCollector
 from ..utils.loaders import _load_callable
 from ..utils.ui import Spinner
 
@@ -183,13 +183,12 @@ def _cmd_simulate_inner(args: argparse.Namespace) -> None:
             else:
                 print(f"  {mode}: -> {path}")
 
-        # Show hint for next step - use first simulation output
+        # Show hints
+        hints = HintCollector(quiet=getattr(args, "quiet", False))
         first_result_path = list(results.values())[0] if results else None
         if first_result_path:
-            print_hint(
-                f"To evaluate simulated data, run: evalyn run-eval --dataset {first_result_path}",
-                quiet=getattr(args, "quiet", False),
-            )
+            hints.add(f"evalyn run-eval --dataset {first_result_path}", "Evaluate simulated data")
+        hints.render()
     else:
         # Query generation only (no target function)
         user_sim = UserSimulator(model=args.model)
@@ -259,10 +258,9 @@ def _cmd_simulate_inner(args: argparse.Namespace) -> None:
         print("QUERY GENERATION COMPLETE")
         print(f"{'=' * 60}")
 
-        print_hint(
-            "To run these queries through your agent, add --target <module:func> flag",
-            quiet=getattr(args, "quiet", False),
-        )
+        hints = HintCollector(quiet=getattr(args, "quiet", False))
+        hints.add("evalyn simulate --target <module:func>", "Run queries through your agent")
+        hints.render()
 
 
 def register_commands(subparsers) -> None:

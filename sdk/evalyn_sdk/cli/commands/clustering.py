@@ -34,7 +34,7 @@ from typing import Optional
 from ..utils.command_common import load_eval_run_for_command
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.errors import fatal_error
-from ..utils.hints import print_hint
+from ..utils.hints import HintCollector
 
 
 def _get_eval_run(args: argparse.Namespace) -> EvalRun:
@@ -198,10 +198,12 @@ def cmd_cluster_misalignments(args: argparse.Namespace) -> None:
         print(f"  False Negatives: {fn_count} clusters ({fn_cases} cases)")
 
     if dataset_dir:
-        print_hint(
-            f"To calibrate this metric, run: evalyn calibrate --metric-id {args.metric_id} --annotations {args.annotations} --dataset {dataset_dir}",
-            quiet=getattr(args, "quiet", False),
+        hints = HintCollector(quiet=getattr(args, "quiet", False))
+        hints.add(
+            f"evalyn calibrate --metric-id {args.metric_id} --annotations {args.annotations} --dataset {dataset_dir}",
+            "Calibrate this metric",
         )
+        hints.render()
 
 
 def cmd_cluster_failures(args: argparse.Namespace) -> None:
@@ -304,10 +306,9 @@ def cmd_cluster_failures(args: argparse.Namespace) -> None:
                 f"  {mid}: {total_failures}/{total_items} failed ({pct:.1f}%), {len(result.clusters)} patterns"
             )
 
-    print_hint(
-        "To see full eval results: evalyn show-run --last",
-        quiet=quiet,
-    )
+    hints = HintCollector(quiet=quiet)
+    hints.add("evalyn show-run --last", "See full eval results")
+    hints.render()
 
 
 def register_commands(subparsers) -> None:

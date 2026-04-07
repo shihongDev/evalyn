@@ -31,7 +31,7 @@ from pathlib import Path
 from ..utils.command_common import load_eval_run_for_command
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.errors import fatal_error
-from ..utils.hints import print_hint
+from ..utils.hints import HintCollector
 
 
 def cmd_export_for_annotation(args: argparse.Namespace) -> None:
@@ -125,10 +125,9 @@ def cmd_export_for_annotation(args: argparse.Namespace) -> None:
 
     print(f"Exported {len(output_items)} items to {output_path}")
 
-    print_hint(
-        f"After annotating, import with: evalyn import-annotations --path {output_path}",
-        quiet=getattr(args, "quiet", False),
-    )
+    hints = HintCollector(quiet=getattr(args, "quiet", False))
+    hints.add(f"evalyn import-annotations --path {output_path}", "Import annotations after review")
+    hints.render()
 
 
 def _load_export_run_data(args: argparse.Namespace) -> dict:

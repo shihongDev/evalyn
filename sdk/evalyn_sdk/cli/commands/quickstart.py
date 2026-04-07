@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from ..utils.errors import fatal_error
-from ..utils.hints import print_hint
+from ..utils.hints import HintCollector
 
 
 # Framework detection patterns: framework name -> (compiled regex patterns, display name)
@@ -417,11 +417,9 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     print("  Ready! Run `evalyn run-eval` to evaluate.")
     print("=" * 60 + "\n")
 
-    if not quiet:
-        print_hint(
-            "Use `evalyn workflow` to see the full evaluation pipeline.",
-            quiet=quiet,
-        )
+    hints = HintCollector(quiet=quiet)
+    hints.add("evalyn workflow", "See the full evaluation pipeline")
+    hints.render()
 
 
 def register_commands(subparsers: argparse._SubParsersAction) -> None:

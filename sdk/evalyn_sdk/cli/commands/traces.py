@@ -35,7 +35,7 @@ from ..utils.command_common import (
     try_resolve_call_id,
 )
 from ..utils.errors import fatal_error
-from ..utils.hints import print_hint
+from ..utils.hints import HintCollector
 from ..utils.validation import extract_project_id
 
 # Database paths
@@ -465,47 +465,46 @@ def _render_show_call_table(call) -> None:
 def cmd_list_calls(args: argparse.Namespace) -> None:
     """List captured function calls."""
     storage = _get_storage(args)
-    # Fetch more calls for filtering (we'll slice later for pagination)
+    base_limit = args.limit + getattr(args, "offset", 0)
+
+    # Push function_name filter to SQL where possible
+    func_filter = getattr(args, "function", None)
+    project = getattr(args, "project", None)
+
+    # Only overfetch for filters that can't be pushed to SQL
     has_post_filters = (
-        getattr(args, "function", None)
-        or getattr(args, "error_only", False)
+        getattr(args, "error_only", False)
         or getattr(args, "simulation", False)
         or getattr(args, "production", False)
     )
-    base_limit = args.limit + getattr(args, "offset", 0)
-    fetch_limit = base_limit * 5 if has_post_filters else base_limit + 100
-    project = getattr(args, "project", None)
+    fetch_limit = base_limit * 2 if has_post_filters else base_limit + 50
+
     all_calls = (
-        storage.list_calls(limit=fetch_limit, project=project, lightweight=True)
+        storage.list_calls(
+            limit=fetch_limit,
+            project=project,
+            function_name=func_filter,
+            lightweight=True,
+        )
         if storage
         else []
     )
     calls = list(all_calls)
 
-    # Filter by function name
-    if getattr(args, "function", None) and calls:
-        func_filter = args.function.lower()
-        calls = [c for c in calls if func_filter in c.function_name.lower()]
-
-    # Filter by error-only
+    # Post-filters for conditions not handled in SQL
     if getattr(args, "error_only", False) and calls:
         calls = [c for c in calls if c.error]
 
-    # Filter by simulation/production if specified
     if hasattr(args, "simulation") and args.simulation and calls:
-        filtered = []
-        for c in calls:
-            meta = c.metadata if isinstance(c.metadata, dict) else {}
-            if meta.get("is_simulation", False):
-                filtered.append(c)
-        calls = filtered
+        calls = [
+            c for c in calls
+            if (c.metadata if isinstance(c.metadata, dict) else {}).get("is_simulation", False)
+        ]
     elif hasattr(args, "production") and args.production and calls:
-        filtered = []
-        for c in calls:
-            meta = c.metadata if isinstance(c.metadata, dict) else {}
-            if not meta.get("is_simulation", False):
-                filtered.append(c)
-        calls = filtered
+        calls = [
+            c for c in calls
+            if not (c.metadata if isinstance(c.metadata, dict) else {}).get("is_simulation", False)
+        ]
 
     # Sorting
     sort_field = getattr(args, "sort", "started_at")
@@ -551,31 +550,33 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
     # Calculate "more available"
     more_available = max(0, total_after_filter - offset - len(calls))
 
+    def _extract_call_meta(call):
+        """Extract common display fields from call metadata once."""
+        meta = call.metadata if isinstance(call.metadata, dict) else {}
+        code = meta.get("code", {}) if meta else {}
+        return {
+            "project": extract_project_id(call.metadata) or "",
+            "version": meta.get("version", ""),
+            "is_sim": meta.get("is_simulation", False),
+            "code": code,
+            "file_path": code.get("file_path") if isinstance(code, dict) else None,
+            "status": "ERROR" if call.error else "OK",
+        }
+
     # JSON output mode
     if output_format == "json":
         result_calls = []
         for call in calls:
-            code = (
-                call.metadata.get("code", {}) if isinstance(call.metadata, dict) else {}
-            )
-            project = extract_project_id(call.metadata) or ""
-            version = ""
-            if isinstance(call.metadata, dict):
-                version = call.metadata.get("version", "")
-            is_sim = (
-                call.metadata.get("is_simulation", False)
-                if isinstance(call.metadata, dict)
-                else False
-            )
+            m = _extract_call_meta(call)
             result_calls.append(
                 {
                     "id": call.id,
                     "function": call.function_name,
-                    "project": project,
-                    "version": version,
-                    "is_simulation": is_sim,
-                    "status": "ERROR" if call.error else "OK",
-                    "file": code.get("file_path") if isinstance(code, dict) else None,
+                    "project": m["project"],
+                    "version": m["version"],
+                    "is_simulation": m["is_sim"],
+                    "status": m["status"],
+                    "file": m["file_path"],
                     "started_at": call.started_at.isoformat()
                     if call.started_at
                     else None,
@@ -632,26 +633,16 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
         return "..." + compact[-(max_len - 3) :]
 
     for call in calls:
-        status = "ERROR" if call.error else "OK"
-        code = call.metadata.get("code", {}) if isinstance(call.metadata, dict) else {}
-        project = ""
-        version = ""
-        is_sim = False
-        project = extract_project_id(call.metadata) or ""
-        if isinstance(call.metadata, dict):
-            version = call.metadata.get("version", "")
-            is_sim = call.metadata.get("is_simulation", False)
-        file_path = code.get("file_path") if isinstance(code, dict) else None
-        # Use short ID (first 8 chars) for easier copy-paste
+        m = _extract_call_meta(call)
         short_id = call.id[:8]
         row = [
             short_id,
             call.function_name,
-            project,
-            version,
-            "Y" if is_sim else "",
-            status,
-            _short_path(file_path),
+            m["project"],
+            m["version"],
+            "Y" if m["is_sim"] else "",
+            m["status"],
+            _short_path(m["file_path"]),
             str(call.started_at),
             str(call.ended_at),
             f"{call.duration_ms:.2f}" if call.duration_ms is not None else "N/A",
@@ -665,15 +656,12 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
             f"\n({more_available} more available. Use --offset {next_offset} to see next page)"
         )
 
-    # Show hint with first call ID (guard against empty list after filtering)
+    # Show hints
+    hints = HintCollector(quiet=getattr(args, "quiet", False), format=output_format)
     if calls:
-        # Use short ID (first 8 chars) in hint for easier copy-paste
         short_id = calls[0].id[:8]
-        print_hint(
-            f"To see details, run: evalyn show-call --id {short_id}",
-            quiet=getattr(args, "quiet", False),
-            format=output_format,
-        )
+        hints.add(f"evalyn show-call --id {short_id}", "See call details")
+    hints.render()
 
 
 def cmd_show_call(args: argparse.Namespace) -> None:
@@ -699,11 +687,10 @@ def cmd_show_call(args: argparse.Namespace) -> None:
         print(json.dumps(call.as_dict(), indent=2, default=str))
         return
     _render_show_call_table(call)
+    hints = HintCollector(quiet=getattr(args, "quiet", False), format=output_format)
     if call.spans:
-        print_hint(
-            f"To see span tree with details, run: evalyn show-trace --id {call.id[:8]} --verbose",
-            quiet=getattr(args, "quiet", False),
-        )
+        hints.add(f"evalyn show-trace --id {call.id[:8]} --verbose", "See span tree with details")
+    hints.render()
 
 
 def _show_trace_format_tokens(attrs: dict) -> str:
@@ -946,24 +933,17 @@ def _print_show_trace_summary_and_hints(
         summary_line += f" | ({truncated_count[0]} spans hidden, use --max-depth to see more)"
     print(summary_line)
 
+    hints = HintCollector(quiet=getattr(args, "quiet", False))
     if not verbose and (llm_count > 0 or tool_count > 0):
-        print_hint(
-            "Use --verbose to see input/output details for each span",
-            quiet=getattr(args, "quiet", False),
-        )
+        hints.add("evalyn show-trace --id ... --verbose", "See input/output details for each span")
 
     meta = call.metadata if isinstance(call.metadata, dict) else {}
     project = meta.get("project_id") or meta.get("project_name")
     if verbose and not full_output:
-        print_hint(
-            f"Use --full for no truncation, or: evalyn show-span --call-id {call.id[:8]} --span <name>",
-            quiet=getattr(args, "quiet", False),
-        )
+        hints.add(f"evalyn show-span --call-id {call.id[:8]} --span <name>", "See full span content")
     if project and verbose:
-        print_hint(
-            f"To build a dataset, run: evalyn build-dataset --project {project}",
-            quiet=getattr(args, "quiet", False),
-        )
+        hints.add(f"evalyn build-dataset --project {project}", "Build a dataset from traces")
+    hints.render()
 
 
 def _render_show_trace(call, args: argparse.Namespace) -> None:
@@ -1123,15 +1103,13 @@ def cmd_show_span(args: argparse.Namespace) -> None:
 
     print(f"{'=' * 60}")
 
-    # Show hint
+    # Show hints
+    hints = HintCollector(quiet=getattr(args, "quiet", False), format=output_format)
     meta = call.metadata if isinstance(call.metadata, dict) else {}
     project = meta.get("project_id") or meta.get("project_name")
     if project:
-        print_hint(
-            f"To build a dataset, run: evalyn build-dataset --project {project}",
-            quiet=getattr(args, "quiet", False),
-            format=output_format,
-        )
+        hints.add(f"evalyn build-dataset --project {project}", "Build a dataset from traces")
+    hints.render()
     print()
 
 
@@ -1186,12 +1164,11 @@ def cmd_show_projects(args: argparse.Namespace) -> None:
         ]
         print(" | ".join(row))
 
-    # Show hint to list calls for a project
+    # Show hints
+    hints = HintCollector(quiet=getattr(args, "quiet", False))
     if first_project:
-        print_hint(
-            f"To see calls, run: evalyn list-calls --project {first_project}",
-            quiet=getattr(args, "quiet", False),
-        )
+        hints.add(f"evalyn list-calls --project {first_project}", "See calls for this project")
+    hints.render()
 
 
 # ---------------------------------------------------------------------------

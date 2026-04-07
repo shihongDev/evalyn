@@ -34,7 +34,7 @@ from ..utils.command_common import load_eval_run_for_command, resolve_dataset_di
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.dataset_resolver import get_dataset
 from ..utils.errors import fatal_error
-from ..utils.hints import print_hint
+from ..utils.hints import HintCollector
 
 
 def _print_run_summary(run_name: str, results_file: Path) -> None:
@@ -632,8 +632,9 @@ def _print_analysis_next_hint(
     multi_fail_items,
     quiet: bool,
 ) -> None:
-    """Print post-analysis next-step hint."""
+    """Print post-analysis next-step hints."""
     dataset_flag = f"--dataset {dataset_path}" if dataset_path else "--latest"
+    hints = HintCollector(quiet=quiet, format=output_format)
 
     from ...metrics.subjective import SUBJECTIVE_REGISTRY
 
@@ -644,23 +645,11 @@ def _print_analysis_next_hint(
 
     if subjective_problem_metrics:
         worst_metric = subjective_problem_metrics[0][0]
-        print_hint(
-            f"To calibrate '{worst_metric}', first annotate: evalyn annotate {dataset_flag}",
-            quiet=quiet,
-            format=output_format,
-        )
-    elif problem_metrics or multi_fail_items:
-        print_hint(
-            f"To annotate failing items, run: evalyn annotate {dataset_flag}",
-            quiet=quiet,
-            format=output_format,
-        )
-    else:
-        print_hint(
-            f"To see trends over time, run: evalyn trend --project {run.dataset_name}",
-            quiet=quiet,
-            format=output_format,
-        )
+        hints.add(f"evalyn annotate {dataset_flag}", f"Annotate to calibrate '{worst_metric}'")
+    if problem_metrics or multi_fail_items:
+        hints.add(f"evalyn cluster-failures {dataset_flag}", "Cluster failures by pattern")
+    hints.add(f"evalyn trend --project {run.dataset_name}", "See trends over time")
+    hints.render()
 
 
 def cmd_analyze(args: argparse.Namespace) -> None:
@@ -941,17 +930,14 @@ def cmd_compare(args: argparse.Namespace) -> None:
 
     print()
 
-    # Show helpful hints based on results
+    # Show hints based on results
+    output_format = getattr(args, "format", "table")
+    hints = HintCollector(quiet=getattr(args, "quiet", False), format=output_format)
     if regressions > improvements:
-        print_hint(
-            "Run 2 shows regression. Consider: evalyn analyze --run " + run2.id,
-            quiet=getattr(args, "quiet", False),
-        )
-    elif improvements > 0:
-        print_hint(
-            f"Run 2 shows improvement. To see trends: evalyn trend --project {run2.dataset_name}",
-            quiet=getattr(args, "quiet", False),
-        )
+        hints.add(f"evalyn analyze --run {run2.id}", "Investigate regression in detail")
+    if improvements > 0:
+        hints.add(f"evalyn trend --project {run2.dataset_name}", "See trends over time")
+    hints.render()
 
 
 def cmd_trend(args: argparse.Namespace) -> None:
@@ -1027,17 +1013,15 @@ def cmd_trend(args: argparse.Namespace) -> None:
         report = generate_trend_text_report(trend)
         print(report)
 
-        # Show helpful hints based on trend results
+        # Show hints based on trend results
+        output_format = getattr(args, "format", "table")
+        hints = HintCollector(quiet=getattr(args, "quiet", False), format=output_format)
         if trend.regressing_metrics:
-            print_hint(
-                f"Metrics regressing: {', '.join(trend.regressing_metrics[:3])}. Consider calibration.",
-                quiet=getattr(args, "quiet", False),
-            )
-        elif trend.overall_delta and trend.overall_delta > 0:
-            print_hint(
-                "Overall trend is improving. Keep up the good work!",
-                quiet=getattr(args, "quiet", False),
-            )
+            metrics_str = ", ".join(trend.regressing_metrics[:3])
+            hints.add(f"evalyn calibrate --metric-id <metric>", f"Calibrate regressing metrics: {metrics_str}")
+        project_name = getattr(args, "project", None) or ""
+        hints.add(f"evalyn insights --project {project_name}", "Deep-dive into results")
+        hints.render()
 
 
 def register_commands(subparsers) -> None:

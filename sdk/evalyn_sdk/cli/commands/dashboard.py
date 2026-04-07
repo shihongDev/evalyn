@@ -20,7 +20,7 @@ from pathlib import Path
 
 from ..utils.command_common import load_eval_run_for_command
 from ..utils.config import load_config, resolve_dataset_path
-from ..utils.hints import print_hint
+from ..utils.hints import HintCollector
 
 
 def _open_in_browser(file_path: Path) -> bool:
@@ -85,10 +85,9 @@ def cmd_dashboard(args: argparse.Namespace) -> None:
         print(f"Could not open browser automatically.")
         print(f"Open this file in your browser: {file_url}")
 
-    print_hint(
-        "Run `evalyn insights --deep` for LLM expert panel analysis",
-        quiet=getattr(args, "quiet", False),
-    )
+    hints = HintCollector(quiet=getattr(args, "quiet", False))
+    hints.add("evalyn insights --deep", "Run LLM expert panel analysis")
+    hints.render()
 
 
 def register_commands(subparsers) -> None:
