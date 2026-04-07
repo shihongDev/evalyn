@@ -405,7 +405,8 @@ class SQLiteStorage:
             call_id=row["call_id"] or "",
             score=row["score"],
             passed=bool(passed_val) if passed_val is not None else None,
-            details=json.loads(row["details"]) if row["details"] else {},
+            details=({} if not row["details"] or row["details"] == "{}"
+                    else json.loads(row["details"])),
             unit_id=row["unit_id"],
             unit_type=row["unit_type"],
             input_tokens=row["input_tokens"],
