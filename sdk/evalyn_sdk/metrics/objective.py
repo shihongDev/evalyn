@@ -758,15 +758,35 @@ OBJECTIVE_REGISTRY = [
 # =============================================================================
 
 
+# Identity-based cache for _as_text.  When 73 objective metrics each call
+# _as_text(call.output) on the same item, the dict/list output is
+# json.dumps'd ~50 times redundantly.  This tiny cache (keyed on id())
+# collapses those into 1 json.dumps per unique object.  Bounded to 8
+# entries to avoid leaks; in practice only 2-3 distinct objects are
+# live at once (call.output, item.output, item.expected).
+# Thread-safe under CPython GIL (dict ops are atomic); worst case
+# under contention is a harmless cache miss.
+_as_text_id_cache: Dict[int, Tuple[Any, str]] = {}
+_AS_TEXT_CACHE_MAX = 8
+
+
 def _as_text(value: Any) -> str:
     if value is None:
         return ""
     if isinstance(value, str):
         return value
+    obj_id = id(value)
+    cached = _as_text_id_cache.get(obj_id)
+    if cached is not None and cached[0] is value:
+        return cached[1]
     try:
-        return json.dumps(value, ensure_ascii=False)
+        result = json.dumps(value, ensure_ascii=False)
     except Exception:
-        return str(value)
+        result = str(value)
+    if len(_as_text_id_cache) >= _AS_TEXT_CACHE_MAX:
+        _as_text_id_cache.clear()
+    _as_text_id_cache[obj_id] = (value, result)
+    return result
 
 
 def _get_reference(item: DatasetItem) -> str:
