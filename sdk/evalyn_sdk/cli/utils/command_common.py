@@ -197,7 +197,7 @@ def resolve_call_id_or_last(
 ) -> str:
     """Resolve call ID from --id/--last semantics used by trace commands."""
     if use_last:
-        calls = storage.list_calls(limit=1)
+        calls = storage.list_calls(limit=1, lightweight=True)
         if not calls:
             fatal_error("No calls found")
         return calls[0].id

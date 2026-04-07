@@ -177,7 +177,9 @@ def build_dataset_from_storage(
     effective_fetch = fetch_limit if fetch_limit is not None else limit
     project_filter = project_id or project_name
     calls = (
-        storage.list_calls(limit=effective_fetch * 5, project=project_filter)
+        storage.list_calls(
+            limit=effective_fetch * 5, project=project_filter, lightweight=True
+        )
         if storage
         else []
     )

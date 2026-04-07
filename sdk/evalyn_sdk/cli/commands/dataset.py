@@ -46,7 +46,7 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
     # Check if --project is specified; if not, warn about building from all projects
     if not args.project and not getattr(args, "all", False):
         # Get unique projects from recent calls
-        calls = tracer.storage.list_calls(limit=500)
+        calls = tracer.storage.list_calls(limit=500, lightweight=True)
         projects = set()
         for call in calls:
             proj = extract_project_id(call.metadata)

@@ -476,7 +476,9 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
     fetch_limit = base_limit * 5 if has_post_filters else base_limit + 100
     project = getattr(args, "project", None)
     all_calls = (
-        storage.list_calls(limit=fetch_limit, project=project) if storage else []
+        storage.list_calls(limit=fetch_limit, project=project, lightweight=True)
+        if storage
+        else []
     )
     calls = list(all_calls)
 
@@ -1138,7 +1140,7 @@ def cmd_show_projects(args: argparse.Namespace) -> None:
     storage = _get_storage(args)
     if not storage:
         fatal_error("No storage configured")
-    calls = storage.list_calls(limit=args.limit)
+    calls = storage.list_calls(limit=args.limit, lightweight=True)
     summary = {}
     for call in calls:
         meta = call.metadata if isinstance(call.metadata, dict) else {}
@@ -1228,7 +1230,7 @@ def cmd_delete_traces(args: argparse.Namespace) -> None:
     else:
         # Delete latest N (default: 1)
         limit = n if n is not None else 1
-        calls = storage.list_calls(limit=limit)
+        calls = storage.list_calls(limit=limit, lightweight=True)
 
     if not calls:
         print(f"No traces found in {db} database.")

@@ -177,7 +177,7 @@ def _resolve_version(args: argparse.Namespace) -> None:
     from ...decorators import get_default_tracer
 
     storage = get_default_tracer().storage
-    calls = storage.list_calls(limit=500)
+    calls = storage.list_calls(limit=500, lightweight=True)
     versions = {
         (call.metadata or {}).get("version")
         for call in calls
@@ -289,7 +289,7 @@ NEXT STEPS
 
     tracer = get_default_tracer()
     if tracer.storage:
-        calls = tracer.storage.list_calls(limit=10)
+        calls = tracer.storage.list_calls(limit=10, lightweight=True)
         if calls:
             projects = set()
             for call in calls:

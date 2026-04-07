@@ -323,7 +323,7 @@ def _check_traces_captured() -> int:
         from ...decorators import get_default_tracer
 
         storage = get_default_tracer().storage
-        calls = storage.list_calls(limit=10)
+        calls = storage.list_calls(limit=10, lightweight=True)
         return len(calls)
     except Exception:
         return 0

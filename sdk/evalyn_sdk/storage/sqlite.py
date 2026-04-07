@@ -252,7 +252,10 @@ class SQLiteStorage:
         return self._row_to_call(row)
 
     def list_calls(
-        self, limit: int = 100, project: Optional[str] = None
+        self,
+        limit: int = 100,
+        project: Optional[str] = None,
+        lightweight: bool = False,
     ) -> List[FunctionCall]:
         cur = self.get_connection().cursor()
         if project:
@@ -278,7 +281,10 @@ class SQLiteStorage:
                 """,
                 (limit,),
             )
-        return [self._row_to_call(row) for row in cur.fetchall()]
+        return [
+            self._row_to_call(row, lightweight=lightweight)
+            for row in cur.fetchall()
+        ]
 
     def delete_calls(self, call_ids: List[str]) -> int:
         """Delete calls by IDs. Returns number deleted.
@@ -703,18 +709,27 @@ class SQLiteStorage:
     def close(self) -> None:
         self.conn.close()
 
-    def _row_to_call(self, row: sqlite3.Row) -> FunctionCall:
+    def _row_to_call(
+        self, row: sqlite3.Row, lightweight: bool = False
+    ) -> FunctionCall:
         # Handle new columns that may not exist in old databases
         parent_call_id = None
-        spans = []
+        spans: list = []
         try:
             parent_call_id = row["parent_call_id"]
-            spans_raw = row["spans"]
-            if spans_raw:
-                spans = json.loads(spans_raw)
+            if not lightweight:
+                spans_raw = row["spans"]
+                if spans_raw:
+                    spans = json.loads(spans_raw)
         except (KeyError, IndexError):
             # Old database without new columns
             pass
+
+        trace = (
+            []
+            if lightweight
+            else (json.loads(row["trace"]) if row["trace"] else [])
+        )
 
         return FunctionCall.from_dict(
             {
@@ -727,7 +742,7 @@ class SQLiteStorage:
                 "inputs": json.loads(row["inputs"]) if row["inputs"] else {},
                 "output": json.loads(row["output"]) if row["output"] else None,
                 "error": row["error"],
-                "trace": json.loads(row["trace"]) if row["trace"] else [],
+                "trace": trace,
                 "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
                 "parent_call_id": parent_call_id,
                 "spans": spans,
