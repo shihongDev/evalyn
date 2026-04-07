@@ -10,6 +10,16 @@ from ..models import DatasetItem, FunctionCall, Metric, MetricResult, MetricSpec
 
 _TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
 
+# Pre-compiled patterns for markdown structure metrics (called per-item).
+_HEADING_RE = re.compile(r"^#{1,6}\s+", re.MULTILINE)
+_BULLET_RE = re.compile(r"^[\s]*[-*+]\s+", re.MULTILINE)
+_CODE_FENCE_RE = re.compile(r"```")
+_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+_TABLE_SEP_RE = re.compile(r"^\|[-:| ]+\|$", re.MULTILINE)
+_NUMBERED_LIST_RE = re.compile(r"^\s*\d+[.)]\s+", re.MULTILINE)
+_NUMBER_RE = re.compile(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?")
+_CODE_BLOCK_RE = re.compile(r"```(?:\w+)?\n(.*?)```", re.DOTALL)
+
 
 def _make_result(
     spec: MetricSpec,
@@ -953,7 +963,7 @@ def _coerce_number(value: Any) -> Optional[float]:
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         return float(value)
     if isinstance(value, str):
-        m = re.search(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", value)
+        m = _NUMBER_RE.search(value)
         if not m:
             return None
         try:
@@ -971,7 +981,7 @@ def _extract_number(value: Any, output_field: Optional[str] = None) -> Optional[
 
 def _extract_code_from_markdown(text: str) -> str:
     """Extract code from markdown fenced code blocks, or return text as-is."""
-    code_match = re.search(r"```(?:\w+)?\n(.*?)```", text, re.DOTALL)
+    code_match = _CODE_BLOCK_RE.search(text)
     return code_match.group(1) if code_match else text
 
 
@@ -2847,10 +2857,10 @@ def markdown_structure_metric(
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         text = _as_text(call.output)
-        headings = len(re.findall(r"^#{1,6}\s+", text, re.MULTILINE))
-        bullets = len(re.findall(r"^[\s]*[-*+]\s+", text, re.MULTILINE))
-        code_blocks = len(re.findall(r"```", text)) // 2
-        links = len(re.findall(r"\[([^\]]+)\]\(([^)]+)\)", text))
+        headings = len(_HEADING_RE.findall(text))
+        bullets = len(_BULLET_RE.findall(text))
+        code_blocks = len(_CODE_FENCE_RE.findall(text)) // 2
+        links = len(_LINK_RE.findall(text))
 
         req_heading = item.metadata.get("require_heading", require_heading)
         passed = True
@@ -2981,7 +2991,7 @@ def bullet_count_metric(
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         text = _as_text(call.output)
-        count = len(re.findall(r"^[\s]*[-*+]\s+", text, re.MULTILINE))
+        count = len(_BULLET_RE.findall(text))
         passed, _, _ = _check_min_max_bounds(
             count, item, "min_count", "max_count", min_count, max_count
         )
@@ -3005,7 +3015,7 @@ def heading_count_metric(
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         text = _as_text(call.output)
-        count = len(re.findall(r"^#{1,6}\s+", text, re.MULTILINE))
+        count = len(_HEADING_RE.findall(text))
         passed, _, _ = _check_min_max_bounds(
             count, item, "min_count", "max_count", min_count, max_count
         )
@@ -3029,7 +3039,7 @@ def code_block_count_metric(
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         text = _as_text(call.output)
-        count = len(re.findall(r"```", text)) // 2
+        count = len(_CODE_FENCE_RE.findall(text)) // 2
         passed, _, _ = _check_min_max_bounds(
             count, item, "min_count", "max_count", min_count, max_count
         )
@@ -3052,7 +3062,7 @@ def table_count_metric(
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         text = _as_text(call.output)
         # Count table separator lines (|---|---|)
-        count = len(re.findall(r"^\|[-:| ]+\|$", text, re.MULTILINE))
+        count = len(_TABLE_SEP_RE.findall(text))
         min_v = item.metadata.get("min_count", min_count)
         passed = True if min_v is None else count >= int(min_v)
         return _make_result(spec, item, call, float(count), passed, {"count": count})
@@ -3626,7 +3636,7 @@ def numbered_list_count_metric(
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         text = _as_text(call.output)
-        count = len(re.findall(r"^\s*\d+[.)]\s+", text, re.MULTILINE))
+        count = len(_NUMBERED_LIST_RE.findall(text))
         passed, _, _ = _check_min_max_bounds(
             count, item, "min_count", "max_count", min_count, max_count
         )
@@ -3650,8 +3660,8 @@ def list_item_count_metric(
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         text = _as_text(call.output)
-        bullets = len(re.findall(r"^[\s]*[-*+]\s+", text, re.MULTILINE))
-        numbered = len(re.findall(r"^\s*\d+[.)]\s+", text, re.MULTILINE))
+        bullets = len(_BULLET_RE.findall(text))
+        numbered = len(_NUMBERED_LIST_RE.findall(text))
         count = bullets + numbered
 
         passed, _, _ = _check_min_max_bounds(
