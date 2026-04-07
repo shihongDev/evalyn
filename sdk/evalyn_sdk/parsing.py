@@ -8,6 +8,11 @@ from typing import Any, Dict, List, Optional
 
 from .models import FunctionCall
 
+# Pre-compiled: avoids re._cache hash+lookup on every judge response.
+_RE_CODE_FENCE_JSON = re.compile(r"```json\s*(.*?)\s*```", re.DOTALL)
+_RE_CODE_FENCE_PLAIN = re.compile(r"```\s*(.*?)\s*```", re.DOTALL)
+_CODE_FENCE_PATTERNS = (_RE_CODE_FENCE_JSON, _RE_CODE_FENCE_PLAIN)
+
 
 def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
     """Extract a JSON object from text, handling markdown code blocks.
@@ -22,8 +27,8 @@ def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
         return None
 
     # Remove markdown code blocks if present (```json ... ``` or ``` ... ```)
-    for pattern in [r"```json\s*(.*?)\s*```", r"```\s*(.*?)\s*```"]:
-        match = re.search(pattern, text, re.DOTALL)
+    for pattern in _CODE_FENCE_PATTERNS:
+        match = pattern.search(text)
         if match:
             inner = match.group(1).strip()
             try:
@@ -81,8 +86,8 @@ def extract_json_list(text: str) -> List[dict]:
         pass
 
     # Markdown code block extraction
-    for pattern in [r"```json\s*(.*?)\s*```", r"```\s*(.*?)\s*```"]:
-        match = re.search(pattern, text, re.DOTALL)
+    for pattern in _CODE_FENCE_PATTERNS:
+        match = pattern.search(text)
         if match:
             try:
                 parsed = json.loads(match.group(1))
