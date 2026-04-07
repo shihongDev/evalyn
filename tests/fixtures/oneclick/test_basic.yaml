@@ -1,0 +1,30 @@
+# Test config: Basic mode (no LLM required)
+# Tests: dataset build + basic metric suggestion + objective eval
+
+api_keys:
+  gemini: null  # Not needed for basic mode
+
+llm:
+  model: "gemini-2.5-flash-lite"
+  mode: "api"
+
+defaults:
+  project: null
+  version: null
+
+metrics:
+  mode: "basic"
+  bundle: null
+
+annotation:
+  skip: true
+
+calibration:
+  skip: true
+
+simulation:
+  enable: false
+
+pipeline:
+  auto_yes: true
+  verbose: false

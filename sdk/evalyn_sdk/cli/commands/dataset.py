@@ -29,6 +29,7 @@ from typing import Optional
 from ..utils.config import get_data_dir
 from ..utils.errors import fatal_error
 from ..utils.hints import HintCollector
+from ..utils.rich import banner, icon, kv
 from ..utils.validation import extract_project_id
 
 
@@ -164,7 +165,7 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
     dataset_path = save_dataset_with_meta(
         items, dataset_dir, meta, dataset_filename=dataset_file
     )
-    print(f"Wrote {len(items)} items to {dataset_path}")
+    print(f"{icon('pass')} Wrote {len(items)} items to {dataset_path}")
     hints = HintCollector(quiet=getattr(args, "quiet", False))
     hints.add(f"evalyn suggest-metrics --dataset {dataset_dir} --mode basic", "Suggest evaluation metrics")
     hints.render()

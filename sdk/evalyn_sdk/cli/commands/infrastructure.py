@@ -35,6 +35,7 @@ from pathlib import Path
 
 from ..utils.config import load_config, get_config_default, find_project_root
 from ..utils.errors import fatal_error
+from ..utils.rich import banner, section, icon, footer
 
 
 def cmd_init(args: argparse.Namespace) -> None:
@@ -61,7 +62,7 @@ def cmd_init(args: argparse.Namespace) -> None:
 
     if example_path:
         shutil.copy(example_path, output_path)
-        print(f"Created {output_path} (from {example_path})")
+        print(f"{icon('pass')} Created {output_path} (from {example_path})")
     else:
         # Fallback: create minimal config if example not found
         minimal = """# Evalyn Configuration
@@ -81,7 +82,7 @@ defaults:
 """
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(minimal)
-        print(f"Created {output_path} (minimal config)")
+        print(f"{icon('pass')} Created {output_path} (minimal config)")
         print("Note: evalyn.yaml.example not found for full template")
 
     print("\nSet your API key:")
@@ -235,58 +236,49 @@ def _create_output_dir(args: argparse.Namespace) -> Path:
 def cmd_workflow(args: argparse.Namespace) -> None:
     """Show the evaluation workflow and next steps."""
     # NOTE: This workflow text is manually maintained. Update when adding/removing commands.
-    workflow = """
-EVALYN WORKFLOW
-===============
+    print()
+    print(banner("EVALYN WORKFLOW"))
+    print("\n  The evaluation pipeline has 3 phases:\n")
 
-The evaluation pipeline has 3 phases:
+    print(section("PHASE 1: COLLECT"))
+    print("  1. Add @eval decorator to your agent function")
+    print("  2. Run your agent to collect traces")
+    print("  3. Build a dataset from traces")
+    print()
+    print(f"  {icon('next')} evalyn list-calls              # View captured traces")
+    print(f"  {icon('next')} evalyn show-projects           # See project summary")
+    print(f"  {icon('next')} evalyn build-dataset --project <name>  # Create dataset")
+    print()
 
-PHASE 1: COLLECT
-----------------
-  1. Add @eval decorator to your agent function
-  2. Run your agent to collect traces
-  3. Build a dataset from traces
+    print(section("PHASE 2: EVALUATE"))
+    print("  4. Select metrics for evaluation")
+    print("  5. Run evaluation")
+    print("  6. Analyze results")
+    print()
+    print(f"  {icon('next')} evalyn suggest-metrics --dataset <path> --mode basic")
+    print(f"  {icon('next')} evalyn run-eval --dataset <path>")
+    print(f"  {icon('next')} evalyn analyze --dataset <path>")
+    print()
 
-  Commands:
-    evalyn list-calls              # View captured traces
-    evalyn show-projects           # See project summary
-    evalyn build-dataset --project <name>  # Create dataset
+    print(section("PHASE 3: CALIBRATE (OPTIONAL)"))
+    print("  7. Annotate results (human feedback)")
+    print("  8. Calibrate LLM judges")
+    print("  9. Re-evaluate with calibrated prompts")
+    print()
+    print(f"  {icon('next')} evalyn annotate --dataset <path>")
+    print(f"  {icon('next')} evalyn calibrate --dataset <path> --metric-id <id>")
+    print(f"  {icon('next')} evalyn run-eval --dataset <path> --use-calibrated")
+    print()
 
-PHASE 2: EVALUATE
------------------
-  4. Select metrics for evaluation
-  5. Run evaluation
-  6. Analyze results
-
-  Commands:
-    evalyn suggest-metrics --dataset <path> --mode basic
-    evalyn run-eval --dataset <path>
-    evalyn analyze --dataset <path>
-
-PHASE 3: CALIBRATE (optional)
------------------------------
-  7. Annotate results (human feedback)
-  8. Calibrate LLM judges
-  9. Re-evaluate with calibrated prompts
-
-  Commands:
-    evalyn annotate --dataset <path>
-    evalyn calibrate --dataset <path> --metric-id <id>
-    evalyn run-eval --dataset <path> --use-calibrated
-
-ONE-CLICK OPTION
-----------------
-  Run the entire pipeline automatically:
-    evalyn one-click --project <name>
-
-NEXT STEPS
-----------
-"""
-    print(workflow)
+    print(section("ONE-CLICK OPTION"))
+    print("  Run the entire pipeline automatically:")
+    print(f"  {icon('next')} evalyn one-click --project <name>")
+    print()
 
     # Show context-aware next steps
     from ...decorators import get_default_tracer
 
+    next_steps = []
     tracer = get_default_tracer()
     if tracer.storage:
         calls = tracer.storage.list_calls(limit=10, lightweight=True)
@@ -301,13 +293,18 @@ NEXT STEPS
                         projects.add(proj)
             if projects:
                 print(f"  You have traces for: {', '.join(sorted(projects))}")
-                print(f"  Try: evalyn build-dataset --project {sorted(projects)[0]}")
+                next_steps.append(
+                    (f"evalyn build-dataset --project {sorted(projects)[0]}", "Build dataset from traces")
+                )
             else:
-                print("  You have traces. Try: evalyn build-dataset")
+                next_steps.append(("evalyn build-dataset", "Build dataset from traces"))
         else:
             print("  No traces yet. Add @eval decorator to your agent and run it.")
     else:
         print("  No storage configured. Run your @eval-decorated agent first.")
+
+    if next_steps:
+        print(footer(next_steps))
 
 
 def register_commands(subparsers) -> None:

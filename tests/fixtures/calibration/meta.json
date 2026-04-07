@@ -1,0 +1,36 @@
+{
+  "dataset_name": "gemini-deep-research-agent-v0-20260125-230520",
+  "created_at": "2026-01-25T23:05:20.577340+00:00",
+  "project": "gemini-deep-research-agent",
+  "version": null,
+  "function": "research_agent",
+  "filters": {
+    "since": null,
+    "until": null,
+    "limit": 100,
+    "include_errors": false
+  },
+  "counts": {
+    "items": 100
+  },
+  "schema": {
+    "inputs_keys": [
+      "args",
+      "kwargs"
+    ],
+    "metadata_keys": [
+      "call_id",
+      "code",
+      "duration_ms",
+      "function",
+      "is_simulation",
+      "project_id",
+      "project_name",
+      "started_at",
+      "version"
+    ]
+  },
+  "dataset_file": "dataset.jsonl",
+  "meta_file": "meta.json",
+  "dataset_hash": "ded66fc977b065cac7e3cd0c9da25d461a6c4fe1a34209ebadc3c051deb56b78"
+}

@@ -53,30 +53,89 @@ def _print_run_summary(run_name: str, results_file: Path) -> None:
 
 def cmd_status(args: argparse.Namespace) -> None:
     """Show status of a dataset including items, metrics, runs, annotations, and calibrations."""
+    from ..utils.rich import banner, footer, kv, section, status_icon
+
     ds = get_dataset(
         getattr(args, "dataset", None),
         getattr(args, "latest", False),
         require=True,
     )
 
-    print(f"\n{'=' * 60}")
-    print(f"DATASET STATUS: {ds.name}")
-    print(f"{'=' * 60}")
-    print(f"Path: {ds.path}")
-
-    # Dataset items
-    print("\n--- DATASET ---")
-    print(f"Items: {ds.item_count}")
+    print(banner("DATASET STATUS"))
+    info_pairs = [
+        ("Dataset", ds.name),
+        ("Path", str(ds.path)),
+        ("Items", str(ds.item_count)),
+    ]
     if ds.project:
-        print(f"Project: {ds.project}")
+        info_pairs.append(("Project", ds.project))
     if ds.version:
-        print(f"Version: {ds.version}")
+        info_pairs.append(("Version", ds.version))
+    print(kv(info_pairs))
 
-    # Metrics
-    print("\n--- METRICS ---")
+    # Gather pipeline info for summary
     metric_files = ds.list_metrics_files()
+    eval_runs = ds.list_eval_runs()
+    annotations_file = ds.path / "annotations.jsonl"
+    has_annotations = annotations_file.exists()
+    calibrations_dir = ds.path / "calibrations"
+    has_calibrations = calibrations_dir.exists() and any(
+        calibrations_dir.iterdir()
+    ) if calibrations_dir.exists() else False
+
+    # Metrics detail
     if metric_files:
-        print(f"Metric sets: {len(metric_files)}")
+        metrics_info = f"{len(metric_files)} set(s)"
+    else:
+        metrics_info = "none"
+
+    # Eval runs detail
+    if eval_runs:
+        run_count = sum(1 for d in eval_runs if list(d.glob("*.json")))
+        runs_info = f"{run_count} run(s)"
+    else:
+        runs_info = "none"
+
+    # Annotations detail
+    if has_annotations:
+        with open(annotations_file, encoding="utf-8") as f:
+            ann_count = sum(1 for _ in f)
+        coverage = (
+            f"{ann_count}/{ds.item_count}" if ds.item_count > 0 else str(ann_count)
+        )
+        pct = f" ({ann_count / ds.item_count:.0%})" if ds.item_count > 0 else ""
+        ann_info = f"{coverage}{pct}"
+    else:
+        ann_info = "none"
+
+    # Calibrations detail
+    cal_count = 0
+    metrics_with_cal: list[str] = []
+    if has_calibrations:
+        for metric_dir in calibrations_dir.iterdir():
+            if metric_dir.is_dir():
+                cals = list(metric_dir.glob("*.json"))
+                if cals:
+                    cal_count += len(cals)
+                    metrics_with_cal.append(metric_dir.name)
+    if cal_count > 0:
+        cal_info = f"{cal_count} across {len(metrics_with_cal)} metric(s)"
+    else:
+        cal_info = "none"
+        has_calibrations = False
+
+    # Pipeline summary
+    print()
+    print(section("PIPELINE"))
+    print(f"  {status_icon(bool(metric_files))}  Metrics       {metrics_info}")
+    print(f"  {status_icon(bool(eval_runs))}  Eval Runs     {runs_info}")
+    print(f"  {status_icon(has_annotations)}  Annotations   {ann_info}")
+    print(f"  {status_icon(has_calibrations)}  Calibrations  {cal_info}")
+
+    # Metric details
+    if metric_files:
+        print()
+        print(section("METRICS"))
         for mf in metric_files:
             try:
                 with open(mf, encoding="utf-8") as f:
@@ -85,18 +144,11 @@ def cmd_status(args: argparse.Namespace) -> None:
                     print(f"  {mf.name}: {count} metrics")
             except Exception:
                 print(f"  {mf.name}: (error reading)")
-    else:
-        print("No metrics defined yet")
-        print(f"  -> Run: evalyn suggest-metrics --dataset {ds.path}")
 
-    # Eval runs
-    print("\n--- EVAL RUNS ---")
-    eval_runs = ds.list_eval_runs()
+    # Eval run details
     if eval_runs:
-        # Count JSON files in each run dir
-        run_count = sum(1 for d in eval_runs if list(d.glob("*.json")))
-        print(f"Eval runs: {run_count}")
-        # Show latest 3 - use lightweight parsing to avoid loading full results
+        print()
+        print(section("EVAL RUNS"))
         for rd in eval_runs[:3]:
             results_file = rd / "results.json"
             if results_file.exists():
@@ -104,86 +156,56 @@ def cmd_status(args: argparse.Namespace) -> None:
                     _print_run_summary(rd.name, results_file)
                 except Exception:
                     pass
-    else:
-        print("No eval runs yet")
-        print(f"  -> Run: evalyn run-eval --dataset {ds.path}")
 
-    # Annotations
-    annotations_file = ds.path / "annotations.jsonl"
-    print("\n--- ANNOTATIONS ---")
-    if annotations_file.exists():
-        with open(annotations_file, encoding="utf-8") as f:
-            ann_count = sum(1 for _ in f)
-        coverage = (
-            f"{ann_count}/{ds.item_count}" if ds.item_count > 0 else str(ann_count)
-        )
-        pct = f" ({ann_count / ds.item_count:.0%})" if ds.item_count > 0 else ""
-        print(f"Annotated: {coverage}{pct}")
-    else:
-        print("No annotations yet")
-        print(f"  -> Run: evalyn annotate --dataset {ds.path}")
-
-    # Calibrations
-    calibrations_dir = ds.path / "calibrations"
-    print("\n--- CALIBRATIONS ---")
-    if calibrations_dir.exists():
-        cal_count = 0
-        metrics_with_cal = []
-        for metric_dir in calibrations_dir.iterdir():
-            if metric_dir.is_dir():
-                cals = list(metric_dir.glob("*.json"))
-                if cals:
-                    cal_count += len(cals)
-                    metrics_with_cal.append(metric_dir.name)
-        if cal_count > 0:
-            print(f"Calibrations: {cal_count} across {len(metrics_with_cal)} metrics")
-            for m in metrics_with_cal[:5]:
-                prompts_dir = calibrations_dir / m / "prompts"
-                has_prompt = (
-                    "(prompt)"
-                    if prompts_dir.exists() and list(prompts_dir.glob("*_full.txt"))
-                    else ""
-                )
-                print(f"  {m} {has_prompt}")
-        else:
-            print("No calibrations yet")
-    else:
-        print("No calibrations yet")
-        print(
-            f"  -> Run: evalyn calibrate --metric-id <metric> --annotations {ds.path / 'annotations.jsonl'} --dataset {ds.path}"
-        )
+    # Calibration details
+    if metrics_with_cal:
+        print()
+        print(section("CALIBRATIONS"))
+        for m in metrics_with_cal[:5]:
+            prompts_dir = calibrations_dir / m / "prompts"
+            has_prompt = (
+                "(prompt)"
+                if prompts_dir.exists() and list(prompts_dir.glob("*_full.txt"))
+                else ""
+            )
+            print(f"  {m} {has_prompt}")
 
     # Suggested next step
-    print(f"\n{'=' * 60}")
-    print("SUGGESTED NEXT STEP:")
+    print()
+    print(section("NEXT STEP"))
     if not metric_files:
-        print(f"  evalyn suggest-metrics --dataset {ds.path}")
+        next_cmd = (f"evalyn suggest-metrics --dataset {ds.path}", "Define metrics")
     elif not eval_runs:
-        print(f"  evalyn run-eval --dataset {ds.path}")
-    elif not annotations_file.exists():
-        print(f"  evalyn annotate --dataset {ds.path}")
-    elif not calibrations_dir.exists():
-        print(
-            f"  evalyn calibrate --metric-id <metric> --annotations {ds.path / 'annotations.jsonl'} --dataset {ds.path}"
+        next_cmd = (f"evalyn run-eval --dataset {ds.path}", "Run evaluation")
+    elif not has_annotations:
+        next_cmd = (f"evalyn annotate --dataset {ds.path}", "Add annotations")
+    elif not has_calibrations:
+        next_cmd = (
+            f"evalyn calibrate --metric-id <metric> --annotations {ds.path / 'annotations.jsonl'} --dataset {ds.path}",
+            "Calibrate metrics",
         )
     else:
-        print("  All steps complete! Consider:")
-        print("  - Re-run eval with optimized prompts")
-        print(f"  - Generate synthetic data: evalyn simulate --dataset {ds.path}")
+        next_cmd = (f"evalyn run-eval --dataset {ds.path}", "All steps complete - re-run eval with optimized prompts")
+    print(footer([next_cmd]))
 
 
 def cmd_validate(args: argparse.Namespace) -> None:
     """Validate dataset format and detect potential issues."""
+    from ..utils.rich import banner, icon, kv, section, status_icon
+
     config = load_config()
     dataset_dir, dataset_file = resolve_dataset_dir_and_file(
         args.dataset, args.latest, config=config
     )
 
-    print(f"\nValidating: {dataset_file}\n")
-    print("-" * 60)
+    print(banner("VALIDATION"))
+    print(kv([
+        ("File", str(dataset_file)),
+        ("Directory", str(dataset_dir)),
+    ]))
 
-    errors = []
-    warnings = []
+    errors: list[str] = []
+    warnings: list[str] = []
     stats = {
         "total_items": 0,
         "has_id": 0,
@@ -237,27 +259,33 @@ def cmd_validate(args: argparse.Namespace) -> None:
     for line_num, dup_id in stats["duplicate_ids"]:
         errors.append(f"Line {line_num}: Duplicate ID '{dup_id}'")
 
-    # Print results
-    print("VALIDATION RESULTS")
-    print("-" * 60)
-
+    # Print field summary with status icons
     total = stats["total_items"]
-    print(f"\n  Total items:        {total}")
-    print(
-        f"  With 'id':          {stats['has_id']} ({100 * stats['has_id'] // max(1, total)}%)"
-    )
-    print(
-        f"  With 'inputs':      {stats['has_inputs']} ({100 * stats['has_inputs'] // max(1, total)}%)"
-    )
-    print(
-        f"  With 'output':      {stats['has_output']} ({100 * stats['has_output'] // max(1, total)}%)"
-    )
-    print(
-        f"  With 'expected':    {stats['has_expected']} ({100 * stats['has_expected'] // max(1, total)}%)"
-    )
-    print(
-        f"  With 'metadata':    {stats['has_metadata']} ({100 * stats['has_metadata'] // max(1, total)}%)"
-    )
+
+    def _field_icon(count: int, total_n: int) -> str:
+        """Return pass for 100%, warn for 0%, info otherwise."""
+        if total_n == 0:
+            return icon("info")
+        pct = count / total_n
+        if pct >= 1.0:
+            return icon("pass")
+        if pct <= 0.0:
+            return icon("warn")
+        return icon("info")
+
+    print()
+    print(section("FIELDS"))
+    print(f"  Total items:        {total}")
+    fields = [
+        ("id", stats["has_id"]),
+        ("inputs", stats["has_inputs"]),
+        ("output", stats["has_output"]),
+        ("expected", stats["has_expected"]),
+        ("metadata", stats["has_metadata"]),
+    ]
+    for field_name, count in fields:
+        pct = 100 * count // max(1, total)
+        print(f"  {_field_icon(count, total)}  {field_name:<16} {count}/{total} ({pct}%)")
     print(f"  Unique IDs:         {len(stats['unique_ids'])}")
 
     # Warnings
@@ -279,11 +307,13 @@ def cmd_validate(args: argparse.Namespace) -> None:
         try:
             with open(meta_file, encoding="utf-8") as f:
                 meta = json.load(f)
-            print("\n  meta.json:          Found")
+            meta_pairs = [("meta.json", "Found")]
             if "project" in meta:
-                print(f"  Project:            {meta.get('project')}")
+                meta_pairs.append(("Project", str(meta.get("project"))))
             if "version" in meta:
-                print(f"  Version:            {meta.get('version')}")
+                meta_pairs.append(("Version", str(meta.get("version"))))
+            print()
+            print(kv(meta_pairs))
         except Exception as e:
             errors.append(f"meta.json: Invalid JSON - {e}")
     else:
@@ -293,7 +323,9 @@ def cmd_validate(args: argparse.Namespace) -> None:
     metrics_dir = dataset_dir / "metrics"
     if metrics_dir.exists():
         metric_files = list(metrics_dir.glob("*.json"))
-        print(f"\n  Metrics files:      {len(metric_files)}")
+        print()
+        print(section("METRICS"))
+        print(f"  Metrics files: {len(metric_files)}")
         for mf in metric_files[:5]:
             print(f"    - {mf.name}")
         if len(metric_files) > 5:
@@ -303,21 +335,29 @@ def cmd_validate(args: argparse.Namespace) -> None:
             "No metrics/ directory found. Run 'evalyn suggest-metrics' first."
         )
 
-    # Print warnings and errors
+    # Print warnings
     if warnings:
-        print(f"\nWARNINGS ({len(warnings)}):")
+        print()
+        print(section(f"WARNINGS ({len(warnings)})"))
         for w in warnings:
-            print(f"  - {w}")
+            print(f"  {icon('warn')} {w}")
 
+    # Print errors and final result
     if errors:
-        print(f"\nERRORS ({len(errors)}):")
+        print()
+        print(section(f"ERRORS ({len(errors)})"))
         for e in errors[:20]:
-            print(f"  - {e}")
+            print(f"  {icon('fail')} {e}")
         if len(errors) > 20:
             print(f"  ... and {len(errors) - 20} more errors")
+
+    print()
+    print(section("RESULT"))
+    if errors:
+        print(f"  {icon('fail')} Dataset is INVALID - {len(errors)} error(s) found")
         fatal_error(f"Dataset has {len(errors)} error(s)")
     else:
-        print("\nDataset is valid!")
+        print(f"  {icon('pass')} Dataset is valid!")
 
 
 def _load_analysis_run(

@@ -44,7 +44,7 @@ from ..utils.errors import fatal_error
 from ..utils.formatters import print_token_usage_summary
 from ..utils.hints import HintCollector
 from ..utils.loaders import _load_callable
-from ..utils.rich import banner, section, table as rich_table
+from ..utils.rich import banner, icon, kv, section, table as rich_table
 from ..utils.validation import check_llm_api_keys
 from ..utils.dataset_utils import (
     ProgressBar,
@@ -181,7 +181,7 @@ def _save_suggested_metrics(
     )
 
     if output_format != "json":
-        print(f"Saved metrics to {metrics_file}")
+        print(f"{icon('pass')} Saved metrics to {metrics_file}")
         hints = HintCollector(quiet=quiet, format=output_format)
         hints.add(f"evalyn run-eval --dataset {dataset_dir}", "Run evaluation with these metrics")
         hints.render()
@@ -669,9 +669,11 @@ def _render_run_eval_output(
         print(json.dumps(result, indent=2))
         return
 
-    print(f"\nEval run {run.id}")
-    print(f"Dataset: {run.dataset_name}")
-    print(f"Run folder: {run_folder}")
+    print(f"\n{icon('pass')} Eval run {run.id}")
+    print(kv([
+        ("Dataset", run.dataset_name),
+        ("Run folder", str(run_folder)),
+    ]))
     print("  results.json - evaluation data")
     if report_path:
         print("  report.html  - analysis report")
@@ -1248,7 +1250,7 @@ def _print_suggested_metric_spec(spec: MetricSpec, output_format: str) -> None:
         return
     why = getattr(spec, "why", "") or ""
     suffix = f" | why: {why}" if why else ""
-    print(f"- {spec.id} [{spec.type}] :: {spec.description}{suffix}")
+    print(f"  {icon('info')} {spec.id} [{spec.type}] :: {spec.description}{suffix}")
 
 
 def _print_suggest_metrics_json(
@@ -1284,6 +1286,8 @@ def _finalize_suggest_metrics_output(
 ) -> None:
     """Apply limits, print specs, save, and emit JSON output when requested."""
     final_specs = specs[:max_metrics] if max_metrics else specs
+    if output_format != "json":
+        print(banner("SUGGESTED METRICS"))
     for spec in final_specs:
         _print_suggested_metric_spec(spec, output_format)
     saved_path = _save_suggested_metrics(

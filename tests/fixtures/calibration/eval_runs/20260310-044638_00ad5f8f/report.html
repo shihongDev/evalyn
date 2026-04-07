@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eval Dashboard - test-llm-judge</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            /* Backgrounds - warm cream tones */
+            --bg-primary: #FFFBF7;
+            --bg-secondary: #FBF7F3;
+            --bg-tertiary: #F5EDE6;
+            --bg-hover: #F0E8E0;
+
+            /* Accents - terracotta and warm tones */
+            --accent-primary: #D4A27F;
+            --accent-secondary: #C4836A;
+            --accent-muted: #A89F97;
+            --accent-purple: #9B8AA6;
+
+            /* Status */
+            --status-pass: #6B8E8E;
+            --status-fail: #C97B63;
+            --status-warn: #D4A27F;
+
+            /* Text */
+            --text-primary: #1A1A1A;
+            --text-secondary: #555555;
+            --text-muted: #888888;
+
+            /* Borders */
+            --border-subtle: rgba(212, 162, 127, 0.2);
+            --border-strong: rgba(212, 162, 127, 0.4);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            font-size: 14px;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .dashboard {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* Header Bar */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            margin-bottom: 24px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .header-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .header-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .header-meta span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .header-meta .value {
+            color: var(--text-secondary);
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+        }
+
+        /* KPI Bar - horizontal, no cards */
+        .kpi-bar {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            margin-bottom: 24px;
+            overflow-x: auto;
+        }
+
+        .kpi-item {
+            flex: 1;
+            min-width: 120px;
+            padding: 0 24px;
+            border-right: 1px solid var(--border-subtle);
+            text-align: center;
+        }
+
+        .kpi-item:last-child {
+            border-right: none;
+        }
+
+        .kpi-value {
+            font-size: 32px;
+            font-weight: 700;
+            line-height: 1.1;
+            margin-bottom: 4px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .kpi-value.pass { color: var(--status-pass); }
+        .kpi-value.warn { color: var(--status-warn); }
+        .kpi-value.fail { color: var(--status-fail); }
+        .kpi-value.neutral { color: var(--text-primary); }
+
+        .kpi-unit {
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--text-muted);
+            margin-left: 2px;
+        }
+
+        .kpi-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        /* Section layout */
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section-header {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        /* Charts Grid */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .chart-box {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            padding: 20px;
+        }
+
+        .chart-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        /* Dense Table */
+        .table-wrapper {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        th {
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 500;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: var(--text-muted);
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-strong);
+            white-space: nowrap;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        th:hover {
+            color: var(--text-secondary);
+        }
+
+        /* Pinned average row */
+        tr.avg-row {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+        }
+
+        tr.avg-row td {
+            border-bottom: 2px solid var(--border-strong);
+            color: var(--accent-primary);
+        }
+
+        td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+        }
+
+        tr:hover {
+            background: var(--bg-hover);
+        }
+
+        /* Mini score bar */
+        .score-bar {
+            display: inline-block;
+            width: 40px;
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            overflow: hidden;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        .score-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+        }
+
+        .score-bar-fill.high { background: var(--status-pass); }
+        .score-bar-fill.mid { background: var(--status-warn); }
+        .score-bar-fill.low { background: var(--status-fail); }
+
+        /* Status indicators */
+        .status-pass { color: var(--status-pass); }
+        .status-fail { color: var(--status-fail); }
+        .status-warn { color: var(--status-warn); }
+
+        /* Failed Items Section */
+        .failed-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .failed-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .failed-header h3 {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .failed-count {
+            font-size: 12px;
+            color: var(--status-fail);
+            font-weight: 600;
+        }
+
+        .failed-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .failed-item {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .failed-item:last-child {
+            border-bottom: none;
+        }
+
+        .failed-item-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .failed-item-id {
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .failed-item-summary {
+            font-size: 12px;
+            color: var(--status-fail);
+        }
+
+        .failed-item-content {
+            display: none;
+        }
+
+        .failed-item.expanded .failed-item-content {
+            display: block;
+        }
+
+        .io-block {
+            margin-top: 12px;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+            font-size: 12px;
+            max-height: 150px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .io-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        }
+
+        .io-block.input {
+            border-left: 3px solid var(--accent-purple);
+        }
+
+        .io-block.output {
+            border-left: 3px solid var(--accent-secondary);
+        }
+
+        .expand-btn {
+            background: none;
+            border: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            padding: 4px 10px;
+            font-size: 11px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .expand-btn:hover {
+            border-color: var(--text-muted);
+            color: var(--text-secondary);
+        }
+
+        /* Enhanced failed item expansion */
+        .io-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 900px) {
+            .io-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .io-content {
+            margin: 0;
+            padding: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 12px;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+            color: var(--text-secondary);
+        }
+
+        .metric-details-section {
+            margin-top: 16px;
+        }
+
+        .metric-detail {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-left: 3px solid var(--status-fail);
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 8px;
+        }
+
+        .metric-detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .metric-detail-name {
+            font-weight: 600;
+            color: var(--status-fail);
+            font-size: 13px;
+        }
+
+        .metric-detail-score {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+        }
+
+        .metric-detail-reason {
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        /* Metadata footer */
+        .footer {
+            margin-top: 24px;
+            padding: 16px 0;
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            gap: 32px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .footer-item {
+            display: flex;
+            gap: 8px;
+        }
+
+        .footer-label {
+            color: var(--text-muted);
+        }
+
+        .footer-value {
+            color: var(--text-secondary);
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .kpi-bar {
+                flex-wrap: wrap;
+            }
+            .kpi-item {
+                flex: 1 1 45%;
+                border-right: none;
+                border-bottom: 1px solid var(--border-subtle);
+                padding: 16px;
+            }
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-strong);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header Bar -->
+        <div class="header">
+            <div class="header-left">
+                <div class="header-title">Evaluation Dashboard</div>
+                <div class="header-meta">
+                    <span>Dataset: <span class="value">test-llm-judge</span></span>
+                    <span>Run: <span class="value">00ad5f8f-f3c...</span></span>
+                    <span>Time: <span class="value">2026-03-10T04:46:38</span></span>
+                </div>
+            </div>
+        </div>
+        <!-- KPI Bar -->
+        <div class="kpi-bar">
+            <div class="kpi-item">
+                <div class="kpi-value neutral">100</div>
+                <div class="kpi-label">Items</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value neutral">1</div>
+                <div class="kpi-label">Metrics</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value pass">98.0<span class="kpi-unit">%</span></div>
+                <div class="kpi-label">Pass Rate</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value fail">2</div>
+                <div class="kpi-label">Failed</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value pass">98</div>
+                <div class="kpi-label">All Passed</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value neutral">$0.1039</div>
+                <div class="kpi-label">Judge Cost</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value pass">98<span class="kpi-unit">%</span></div>
+                <div class="kpi-label">helpfulness</div>
+            </div>
+        </div>
+        <!-- Charts Grid -->
+        <div class="charts-grid">
+            <div class="chart-box">
+                <div class="chart-title">Pass Rate by Metric</div>
+                <div class="chart-container">
+                    <canvas id="passRateChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-box">
+                <div class="chart-title">Score Distribution</div>
+                <div class="chart-container">
+                    <canvas id="scoreDistChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <!-- Metric Details Table -->
+        <div class="section">
+            <div class="section-header">Metric Details</div>
+            <div class="table-wrapper">
+                <table id="metricsTable">
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Type</th>
+                            <th>Pass Rate</th>
+                            <th>Avg Score</th>
+                            <th>Min</th>
+                            <th>Max</th>
+                            <th>Std Dev</th>
+                            <th>Passed</th>
+                            <th>Failed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Average row pinned at top -->
+                        <tr class="avg-row">
+                            <td>AVG</td>
+                            <td>-</td>
+                            <td>98.0%</td>
+                            <td>0.980</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>98</td>
+                            <td>2</td>
+                        </tr>
+                        <tr>
+            <td style="color: var(--text-primary); font-weight: 500;">helpfulness</td>
+            <td><span class="status-warn">sub</span></td>
+            <td><span class="score-bar"><span class="score-bar-fill high" style="width: 98.0%"></span></span><span class="status-pass">98.0%</span></td>
+            <td>0.980</td>
+            <td>0.000</td>
+            <td>1.000</td>
+            <td>0.140</td>
+            <td class="status-pass">98</td>
+            <td class="status-fail">2</td>
+        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <!-- Failed Items Section -->
+        <div class="section">
+            <div class="section-header">Failed Items</div>
+            <div class="failed-section">
+                <div class="failed-header">
+                    <h3>Items with metric failures</h3>
+                    <span class="failed-count">2 items</span>
+                </div>
+                <div class="failed-list">
+                    <div class="failed-item" id="item-0">
+            <div class="failed-item-header">
+                <div>
+                    <span class="failed-item-id">de0eed9c-4821-4f47-abb1-...</span>
+                    <span class="failed-item-summary">1/1 failed</span>
+                </div>
+                <button class="expand-btn" onclick="toggleExpand(0)">Expand</button>
+            </div>
+            <div class="failed-item-content">
+                <div class="io-section">
+                    <div class="io-block input">
+                        <div class="io-label">INPUT</div>
+                        <pre class="io-content">{
+  &quot;args&quot;: [],
+  &quot;kwargs&quot;: {
+    &quot;question&quot;: &quot;How does the stock market work?&quot;,
+    &quot;initial_queries&quot;: 1,
+    &quot;max_loops&quot;: 1,
+    &quot;reasoning_model&quot;: &quot;gemini-2.5-flash-lite&quot;
+  }
+}</pre>
+                    </div>
+                    <div class="io-block output">
+                        <div class="io-label">OUTPUT</div>
+                        <pre class="io-content">The stock market in 2025 and looking ahead to 2026 is characterized by a shift from broad market rallies to a more selective investment environment. While Artificial Intelligence (AI) has been a major driver of growth, there&#x27;s an increasing focus on specific sectors, careful stock selection, and managing potential volatility [youtube](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEYzfwck2MyX_gT8zL2qzEET72UjBb5kKD9GTKUr9LceeGhlTlZXk0tbf7XddUmozDOmWw4fGoJAsHxN6E8EfhAkpBkKcET3X_zsGAIzi0maYrriZ_PbHyyREfCfy2ZadP3e2PcVzM=) [ameriprise](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEQ1zvWMYoO6Ji85Tnp2VM5BDwKnAmitdGrFy9qANJc9ZjfCost08cfPywaaImfE-PMAwm-9a25xlCiaCr_nLAN0db0Sy5dgeEp2gWer458E5hX9xSUPbBhRSH6nkrRG3MQa0LWItqOTeu8nTOkgflP8cNB4X7T4jIqeyyF3ef-UzX0Y5lDzHP-1KoXt_JROqkJ5Q==).
+
+**Key Principles and Market Dynamics:**
+
+*   **Selective Environment:** The market is moving away from a broad rally seen in previous years (2020-2024) to a more discerning phase. Thoughtful position sizing and a focus on high-probability outcomes are becoming crucial [blackrock](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF9TAhczQiUMNoM0TnyYPZ752NXU88YO69Z36JIAQyhbmSh-aazCk9PHaqkYAhIC8lcEBzoB__w4z1s7y0_KifKjx6GLbgf91BrxPs2_MoF8NEUwR2yIOpf2lNEYIv93CMjQ4MjgKLad0YeXkLgvXDLUqfp-j5a46rr_OTE9lJigejOqKVBY4cb_QQ=). The S&amp;P 500 saw a 16% gain in 2025, marking its third consecutive year of double-digit returns, but there are indicators suggesting a potential pullback in early 2026 [fool](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHRVhDMGjahPnEoaBXxkIyqg3Ls0_EyVXyfjKQdDXVrNBczh5QRp5GtBU3CtVvCZ8tGguXBxSOSKIYi7PkSUmJA1Hq_6v4BXJZ4BCaoJ0cFRk7bhmNLXVkQZ2ODwWZ1Wmc9-ssEkX-4vjmnFxwwY86FPIDSuNzr_zxlvA3UaNR_FgPA_uLpxgsqk_7PdiRjQYaIfx6D0DJLLw==).
+*   **AI as a Dominant Theme:** Enthusiasm for AI infrastructure and technology has been a significant market narrative, driving substantial stock gains. While concerns about spending and monetization exist, the long-term outlook for AI-related companies remains strong [ameriprise](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEQ1zvWMYoO6Ji85Tnp2VM5BDwKnAmitdGrFy9qANJc9ZjfCost08cfPywaaImfE-PMAwm-9a25xlCiaCr_nLAN0db0Sy5dgeEp2gWer458E5hX9xSUPbBhRSH6nkrRG3MQa0LWItqOTeu8nTOkgflP8cNB4X7T4jIqeyyF3ef-UzX0Y5lDzHP-1KoXt_JROqkJ5Q==]. AI is also a primary catalyst for innovations in application-specific semiconductors due to increased demand for computing power [mckinsey](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGvFqHGgrfqdYc5W51Hyt-AMT9cMK9vP8j6UQA3jLHfYA4Dli9I9nhVa1nxUnpxN027TBf45GujT3Z1Q8e7rjvy4w6PkQaFMFRS3h07JKLw_54O_eWoWU7kVAUCp7cJuktEXAhJ1XsdnDsD_xJTc-2A8VUjW6v3X6Yh04UiQIYCvuqxhwne5bVnVovbMJZWtK0=).
+*   **Sector Performance and Trends:**
+    *   The **technology sector** has seen faster growth than the S&amp;P 500 in late 2025 [jpmorgan](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQG-jx9ngo1B-PtdxDU1L30imDHrKDx8nx3HGWCZ3BXkKC0DZo333RtMu7rpyXDQjxT709ktB3zqyY48mmeqPTgvPFgeyalOIkYwpMVeNfwoM1bMYFafTS5Ph7scL5jDNk_xMkBI6s5DMKkuaRt2sIw9-LuplTutHpBF3mvSfWwy3JnkYWQHSdRovUHcQ3uBQTn4vHkKzoKQZHKgyNmWIGxRKwVS9owplv4c2laP-SSt_eE8km6pTxV9Ks4=). However, questions arise about whether the AI boom is entering bubble territory, with some drawing comparisons to the dot-com bubble, though others point to solid earnings growth in current AI leaders [capitalgroup](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQH3gntODHAg0Ui28hF0XdbrlybkkdRCGC9A-7QeYh8lb8BE1MYJZggyd_QFVtV7wXQtfb1Q6L4NxXP-7Sp2KE9ojuf5sSOP0cY0AzQj6IMFYkd3u7ERVJCTHWDEGmgT-2eI8Hl81-RgCT4ODJI2y29dl15FNT5fV86BOIO1jXx2ENidAO0y6rgKWm5JzHroWFg=).
+    *   **Energy equities** are noted as an underperforming sector due to shifts in global energy supply [ml](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEOGFhCrDj2U9RgtyUsKe6AL5wYOdRwcI3Dr-SLvg1IFOBGIwVkmzokBYcriZS1gONc2fZzSPgHAOdkLfXWS6e86wIQdLKacigMUoeGfrrr92sVaS_7pKUBoHDUfg7JWoKIk8oXLmNiBgpz5Z4J7HrC81V73P0ji4yu5Hh4).
+    *   Areas like **innovative infrastructure, domestic manufacturing, and cybersecurity** are identified as emerging leaders in a new profit cycle [ml](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEOGFhCrDj2U9RgtyUsKe6AL5wYOdRwcI3Dr-SLvg1IFOBGIwVkmzokBYcriZS1gONc2fZzSPgHAOdkLfXWS6e86wIQdLKacigMUoeGfrrr92sVaS_7pKUBoHDUfg7JWoKIk8oXLmNiBgpz5Z4J7HrC81V73P0ji4yu5Hh4).
+*   **SPAC Market Rebound:** Special Purpose Acquisition Companies (SPACs) experienced a notable rebound in IPO activity in 2025, driven by a better balance between SPACs and available targets, and private equity and venture-backed companies seeking liquidity [ajg](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQG7eowWBdXL5lDfC0XI_lFSggk5jUUAkonBZ7K-mgt2C4Dtc4kjq_itjtEZtaGyZ72DTIzFkBZO5gA2cSGIkM4JnSa-2vKR53fhNgP-9znA86qBxjALQ2NhWdACTDRd86w_iWpWp7nNxlKkQRJQUf8rfwx6JhqZ6CEaeT3AeNgL6Ksfyfk-FyKu6_sZdXvoKjdvmhyXraQ=).
+
+**Economic and Policy Influences:**
+
+*   **Moderating Inflation and Focus on Labor:** Inflation appears to be easing, with a focus shifting to the labor market. While economic growth remains resilient, there&#x27;s potential for softening labor markets [blackrock](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF9TAhczQiUMNoM0TnyYPZ752NXU88YO69Z36JIAQyhbmSh-aazCk9PHaqkYAhIC8lcEBzoB__w4z1s7y0_KifKjx6GLbgf91BrxPs2_MoF8NEUwR2yIOpf2lNEYIv93CMjQ4MjgKLad0YeXkLgvXDLUqfp-j5a46rr_OTE9lJigejOqKVBY4cb_QQ=).
+*   **Interest Rate Cuts Anticipated:** Interest rate cuts are expected in 2026, though it&#x27;s unlikely to represent a full &quot;rate cutting cycle&quot; [youtube](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEYzfwck2MyX_gT8zL2qzEET72UjBb5kKD9GTKUr9LceeGhlTlZXk0tbf7XddUmozDOmWw4fGoJAsHxN6E8EfhAkpBkKcET3X_zsGAIzi0maYrriZ_PbHyyREfCfy2ZadP3e2PcVzM=).
+*   **Supportive Fiscal Policy:** Fiscal deficits remain substantial, and policy continues to be broadly supportive, with potential for increased fiscal stimulus in some regions [blackrock](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF9TAhczQiUMNoM0TnyYPZ752NXU88YO69Z36JIAQyhbmSh-aazCk9PHaqkYAhIC8lcEBzoB__w4z1s7y0_KifKjx6GLbgf91BrxPs2_MoF8NEUwR2yIOpf2lNEYIv93CMjQ4MjgKLad0YeXkLgvXDLUqfp-j5a46rr_OTE9lJigejOqKVBY4cb_QQ=) [gs](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGZi_1KD_GeGuwsr003IgFi--9aRo0VZa98D50dtQr7HaEniw-B59nB2h20nfu0hmMbf-NMI4AJW_aMEJaW19ExooAdO1ngSb4SWWMqBSk1oz1vnDzoM9CPWfdnkHCHXlABHVN-z72iRhEksg8E7XUmAbqDACNzwGCeTJH9HSN-YUtP7XnjWbX3j1rMACkTRPJsRKU=).
+*   **Geopolitical and Trade Shifts:** Geopolitical tensions, evolving supply chains, and stricter national regulations are reshaping global trade flows [unctad](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEQ1zvWMYoO6Ji85Tnp2VM5BDwKnAmitdGrFy9qANJc9ZjfCost08cfPywaaImfE-PMAwm-9a25xlCiaCr_nLAN0db0Sy5dgeEp2gWer458E5hX9xSUPbBhRSH6nkrRG3MQa0LWItqOTeu8nTOkgflP8cNB4X7T4jIqeyyF3ef-UzX0Y5lDzHP-1KoXt_JROqkJ5Q==0). Tariffs are creating challenges for supply chains and consumer sentiment [paulhastings](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEQ1zvWMYoO6Ji85Tnp2VM5BDwKnAmitdGrFy9qANJc9ZjfCost08cfPywaaImfE-PMAwm-9a25xlCiaCr_nLAN0db0Sy5dgeEp2gWer458E5hX9xSUPbBhRSH6nkrRG3MQa0LWItqOTeu8nTOkgflP8cNB4X7T4jIqeyyF3ef-UzX0Y5lDzHP-1KoXt_JROqkJ5Q==1).
+
+**Investment Principles and Strategies:**
+
+*   **Diversification:** A balanced asset allocation, including international investments with emerging growth catalysts in Asia and Europe, is recommended [capitalgroup](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQH3gntODHAg0Ui28hF0XdbrlybkkdRCGC9A-7QeYh8lb8BE1MYJZggyd_QFVtV7wXQtfb1Q6L4NxXP-7Sp2KE9ojuf5sSOP0cY0AzQj6IMFYkd3u7ERVJCTHWDEGmgT-2eI8Hl81-RgCT4ODJI2y29dl15FNT5fV86BOIO1jXx2ENidAO0y6rgKWm5JzHroWFg=). Investors are advised to consider a broader financial planning framework focusing on after-inflation wealth preservation [morganstanley](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEQ1zvWMYoO6Ji85Tnp2VM5BDwKnAmitdGrFy9qANJc9ZjfCost08cfPywaaImfE-PMAwm-9a25xlCiaCr_nLAN0db0Sy5dgeEp2gWer458E5hX9xSUPbBhRSH6nkrRG3MQa0LWItqOTeu8nTOkgflP8cNB4X7T4jIqeyyF3ef-UzX0Y5lDzHP-1KoXt_JROqkJ5Q==3).
+*   **Active Management and Stock Selection:** In a less straightforward market, active management and careful stock selection are becoming increasingly important [youtube](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEYzfwck2MyX_gT8zL2qzEET72UjBb5kKD9GTKUr9LceeGhlTlZXk0tbf7XddUmozDOmWw4fGoJAsHxN6E8EfhAkpBkKcET3X_zsGAIzi0maYrriZ_PbHyyREfCfy2ZadP3e2PcVzM=).
+*   **Cash as a Strategic Option:** Holding a higher level of cash can serve as a hedge against volatility and provide purchasing power during market downturns [realinvestmentadvice](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEQ1zvWMYoO6Ji85Tnp2VM5BDwKnAmitdGrFy9qANJc9ZjfCost08cfPywaaImfE-PMAwm-9a25xlCiaCr_nLAN0db0Sy5dgeEp2gWer458E5hX9xSUPbBhRSH6nkrRG3MQa0LWItqOTeu8nTOkgflP8cNB4X7T4jIqeyyF3ef-UzX0Y5lDzHP-1KoXt_JROqkJ5Q==2).
+*   **Revisiting Goals and Portfolio Scrutiny:** Investors should review their financial goals and scrutinize their portfolios for diversification across geography, sectors, and asset types [fidelity](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEQ1zvWMYoO6Ji85Tnp2VM5BDwKnAmitdGrFy9qANJc9ZjfCost08cfPywaaImfE-PMAwm-9a25xlCiaCr_nLAN0db0Sy5dgeEp2gWer458E5hX9xSUPbBhRSH6nkrRG3MQa0LWItqOTeu8nTOkgflP8cNB4X7T4jIqeyyF3ef-UzX0Y5lDzHP-1KoXt_JROqkJ5Q==4).
+*   **Tax Efficiency:** Utilizing tax-efficient accounts and allowances is crucial for optimizing investment returns [fidelity](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEQ1zvWMYoO6Ji85Tnp2VM5BDwKnAmitdGrFy9qANJc9ZjfCost08cfPywaaImfE-PMAwm-9a25xlCiaCr_nLAN0db0Sy5dgeEp2gWer458E5hX9xSUPbBhRSH6nkrRG3MQa0LWItqOTeu8nTOkgflP8cNB4X7T4jIqeyyF3ef-UzX0Y5lDzHP-1KoXt_JROqkJ5Q==4).
+*   **
+... (truncated)</pre>
+                    </div>
+                </div>
+                <div class="metric-details-section">
+                    <div class="io-label">FAILED METRICS</div>
+                    <div class="metric-detail">
+                    <div class="metric-detail-header">
+                        <span class="metric-detail-name">✗ helpfulness</span>
+                        <span class="metric-detail-score">(0.00)</span>
+                    </div>
+                    <div class="metric-detail-reason">The response does not directly address the user&#x27;s question about how the stock market works. Instead, it provides an analysis of the stock market&#x27;s performance and trends in 2025-2026, which is a different topic.</div>
+                </div>
+                </div>
+            </div>
+        </div><div class="failed-item" id="item-1">
+            <div class="failed-item-header">
+                <div>
+                    <span class="failed-item-id">c006ec67-c8d8-4e46-b3a8-...</span>
+                    <span class="failed-item-summary">1/1 failed</span>
+                </div>
+                <button class="expand-btn" onclick="toggleExpand(1)">Expand</button>
+            </div>
+            <div class="failed-item-content">
+                <div class="io-section">
+                    <div class="io-block input">
+                        <div class="io-label">INPUT</div>
+                        <pre class="io-content">{
+  &quot;args&quot;: [],
+  &quot;kwargs&quot;: {
+    &quot;question&quot;: &quot;Explain the concept of infinity.&quot;,
+    &quot;initial_queries&quot;: 1,
+    &quot;max_loops&quot;: 1,
+    &quot;reasoning_model&quot;: &quot;gemini-2.5-flash-lite&quot;
+  }
+}</pre>
+                    </div>
+                    <div class="io-block output">
+                        <div class="io-label">OUTPUT</div>
+                        <pre class="io-content">The concept of infinity refers to the idea of something without any limit or end. While traditionally understood as a single, albeit vast, concept, recent mathematical discoveries have revealed that infinity is more complex, with different &quot;sizes&quot; and properties.
+
+**New Types of Infinities:**
+In late 2024 and early 2025, mathematicians discovered two new types of infinities, termed &quot;exacting&quot; and &quot;ultra-exacting&quot; cardinals [zmescience](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFFQNK6r6bqGLVhP5a9-NXrNe9s6td6YdONhC52wpyGVRLJlV4xdH14kOEjp9Rsj3Sv5d0QL5Aotm1lOkg3yDNqrqEZo87gk_KdwZj3KJCfKTHM2h6UZ4GUmKnYY09K1EVbClRw5grxFaKhL6Fz0Cax4yIOAgFJGZOJkSgvILf8l2uvZlC7GOA=) [popularmechanics](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQErqnQ_X4foY--nKMt5Fc94-y4ZRI_0pivWT4Qxa8RBSrtzXAjO1Qp0aEUwpLH8u2anDBk_Fn6DDBgxPaLCjwK8h9kx7cAhW4CTwGnI31g4jrXsOx5AhGvGrMZmrYnXH5NjGqJ62KlSDNKc5zJ5C7iwAdl1yOuT4CCBW8i1cOwEKcgl_jADBsyFFnnBbrf-MTk=) [rollingout](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFlwHfOLfx-xWZiSRCtihTNwHeI-AfQZgykb_MH9Rb-w24_yOlrExxVKkK_kNL4pYydHYGn-ljbQ1zvDt5UCzNJwDKqy8lN5OUwnP2oeQo3-Va7yOye2UCLKknELJurGgNhRhRm-ySZL3azmV4GPcqCvMXOi2UhI2KANo5aM6gxFxUe) [rahulanand](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFR2K7L2tRG-VWeHlEnuSad_d8gxUYKHML9p1eUwUZB1NW-lj9KlePJZlJvVywyIrkklNGM6z72DvPvYap5nh_UDXVgJu6UHzYTDdp6I4opPk_Jpn4qqslZh1KGYyBiVESqW5m3f7WjHmOhr7GvbqDXysx_FL8Gf5o7ru30HCxHYOHKXDx5ho40uw-j_WhzgeEc8g==). These new infinities do not fit into the established hierarchy of infinities, which has been understood as a ladder of increasing sizes [zmescience](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFFQNK6r6bqGLVhP5a9-NXrNe9s6td6YdONhC52wpyGVRLJlV4xdH14kOEjp9Rsj3Sv5d0QL5Aotm1lOkg3yDNqrqEZo87gk_KdwZj3KJCfKTHM2h6UZ4GUmKnYY09K1EVbClRw5grxFaKhL6Fz0Cax4yIOAgFJGZOJkSgvILf8l2uvZlC7GOA=) [popularmechanics](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQErqnQ_X4foY--nKMt5Fc94-y4ZRI_0pivWT4Qxa8RBSrtzXAjO1Qp0aEUwpLH8u2anDBk_Fn6DDBgxPaLCjwK8h9kx7cAhW4CTwGnI31g4jrXsOx5AhGvGrMZmrYnXH5NjGqJ62KlSDNKc5zJ5C7iwAdl1yOuT4CCBW8i1cOwEKcgl_jADBsyFFnnBbrf-MTk=) [rollingout](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFlwHfOLfx-xWZiSRCtihTNwHeI-AfQZgykb_MH9Rb-w24_yOlrExxVKkK_kNL4pYydHYGn-ljbQ1zvDt5UCzNJwDKqy8lN5OUwnP2oeQo3-Va7yOye2UCLKknELJurGgNhRhRm-ySZL3azmV4GPcqCvMXOi2UhI2KANo5aM6gxFxUe). A unique characteristic of these new cardinals is their ability to contain perfect replicas of themselves [rollingout](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFlwHfOLfx-xWZiSRCtihTNwHeI-AfQZgykb_MH9Rb-w24_yOlrExxVKkK_kNL4pYydHYGn-ljbQ1zvDt5UCzNJwDKqy8lN5OUwnP2oeQo3-Va7yOye2UCLKknELJurGgNhRhRm-ySZL3azmV4GPcqCvMXOi2UhI2KANo5aM6gxFxUe) [rahulanand](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFR2K7L2tRG-VWeHlEnuSad_d8gxUYKHML9p1eUwUZB1NW-lj9KlePJZlJvVywyIrkklNGM6z72DvPvYap5nh_UDXVgJu6UHzYTDdp6I4opPk_Jpn4qqslZh1KGYyBiVESqW5m3f7WjHmOhr7GvbqDXysx_FL8Gf5o7ru30HCxHYOHKXDx5ho40uw-j_WhzgeEc8g==). Ultra-exacting cardinals are considered an even more powerful and restrictive version, possessing additional &quot;superpowers&quot; that amplify their impact on the mathematical universe [zmescience](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFFQNK6r6bqGLVhP5a9-NXrNe9s6td6YdONhC52wpyGVRLJlV4xdH14kOEjp9Rsj3Sv5d0QL5Aotm1lOkg3yDNqrqEZo87gk_KdwZj3KJCfKTHM2h6UZ4GUmKnYY09K1EVbClRw5grxFaKhL6Fz0Cax4yIOAgFJGZOJkSgvILf8l2uvZlC7GOA=).
+
+**Challenging Mathematical Frameworks:**
+The existence of these novel infinities challenges traditional mathematical theories. For instance, they question the Hereditarily Ordinal Definable (HOD) theory, which suggests that extremely large infinities align with the ordering principles of the Axiom of Choice [rollingout](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFlwHfOLfx-xWZiSRCtihTNwHeI-AfQZgykb_MH9Rb-w24_yOlrExxVKkK_kNL4pYydHYGn-ljbQ1zvDt5UCzNJwDKqy8lN5OUwnP2oeQo3-Va7yOye2UCLKknELJurGgNhRhRm-ySZL3azmV4GPcqCvMXOi2UhI2KANo5aM6gxFxUe) [rahulanand](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFR2K7L2tRG-VWeHlEnuSad_d8gxUYKHML9p1eUwUZB1NW-lj9KlePJZlJvVywyIrkklNGM6z72DvPvYap5nh_UDXVgJu6UHzYTDdp6I4opPk_Jpn4qqslZh1KGYyBiVESqW5m3f7WjHmOhr7GvbqDXysx_FL8Gf5o7ru30HCxHYOHKXDx5ho40uw-j_WhzgeEc8g==). The new cardinals suggest that some infinities might not adhere to this framework, potentially introducing a degree of unpredictability or &quot;chaos&quot; into the mathematical universe [zmescience](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFFQNK6r6bqGLVhP5a9-NXrNe9s6td6YdONhC52wpyGVRLJlV4xdH14kOEjp9Rsj3Sv5d0QL5Aotm1lOkg3yDNqrqEZo87gk_KdwZj3KJCfKTHM2h6UZ4GUmKnYY09K1EVbClRw5grxFaKhL6Fz0Cax4yIOAgFJGZOJkSgvILf8l2uvZlC7GOA=) [rollingout](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFlwHfOLfx-xWZiSRCtihTNwHeI-AfQZgykb_MH9Rb-w24_yOlrExxVKkK_kNL4pYydHYGn-ljbQ1zvDt5UCzNJwDKqy8lN5OUwnP2oeQo3-Va7yOye2UCLKknELJurGgNhRhRm-ySZL3azmV4GPcqCvMXOi2UhI2KANo5aM6gxFxUe). This prompts a re-evaluation of the fundamental nature of infinity [zmescience](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFFQNK6r6bqGLVhP5a9-NXrNe9s6td6YdONhC52wpyGVRLJlV4xdH14kOEjp9Rsj3Sv5d0QL5Aotm1lOkg3yDNqrqEZo87gk_KdwZj3KJCfKTHM2h6UZ4GUmKnYY09K1EVbClRw5grxFaKhL6Fz0Cax4yIOAgFJGZOJkSgvILf8l2uvZlC7GOA=).
+
+**Implications for Physics and Beyond:**
+These mathematical advancements have far-reaching implications, extending beyond pure mathematics into theoretical physics, potentially influencing theories about the universe&#x27;s origins and structure [travelingintuscany](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHxY4I2FHhRREGcMiID1xo5qzADWgMcPTFVKpH2LEEhdggJNN35DMX2rxzobKh9I9Eq9ljNoHSdsTBLFvJ6fUCfqZ27MMdg7dzwwH2AMzP-RD7Swf6UrWkANNw9QxYcScAjBR0aa34wBr0P0jRZLnEi0oHOjfnv4NTGJwNGDxsQxS7_YR4cd3_BMzLKH6vEzAsmN8361Qhn2UhMZjRL-8ipXC1pAw0WTYPMSnbXUs2yDag-xcOuuEmZPPjf9giYDfPyoQrxp7jRHZ8bHFYsks8NNkNAB9v2bSIdYcrIWa9Z_vCtFkF47081rsqDbGj2ei_ikJvEyfI4I-WisoaL4p_0Kc8vQseAQlSyKEYCWOQ=). Some experts believe that understanding these new infinities could help resolve ongoing issues in cosmology and quantum physics [travelingintuscany](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHxY4I2FHhRREGcMiID1xo5qzADWgMcPTFVKpH2LEEhdggJNN35DMX2rxzobKh9I9Eq9ljNoHSdsTBLFvJ6fUCfqZ27MMdg7dzwwH2AMzP-RD7Swf6UrWkANNw9QxYcScAjBR0aa34wBr0P0jRZLnEi0oHOjfnv4NTGJwNGDxsQxS7_YR4cd3_BMzLKH6vEzAsmN8361Qhn2UhMZjRL-8ipXC1pAw0WTYPMSnbXUs2yDag-xcOuuEmZPPjf9giYDfPyoQrxp7jRHZ8bHFYsks8NNkNAB9v2bSIdYcrIWa9Z_vCtFkF47081rsqDbGj2ei_ikJvEyfI4I-WisoaL4p_0Kc8vQseAQlSyKEYCWOQ=). The discoveries also test the limits of the logic underpinning modern computer science [zmescience](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFFQNK6r6bqGLVhP5a9-NXrNe9s6td6YdONhC52wpyGVRLJlV4xdH14kOEjp9Rsj3Sv5d0QL5Aotm1lOkg3yDNqrqEZo87gk_KdwZj3KJCfKTHM2h6UZ4GUmKnYY09K1EVbClRw5grxFaKhL6Fz0Cax4yIOAgFJGZOJkSgvILf8l2uvZlC7GOA=).
+
+**Human Perception of Infinity:**
+Interestingly, research suggests that humans often struggle to intuitively grasp the concept of infinity. A 2024 study indicated that people tend to perceive the infinity symbol (∞) as a concrete number rather than a representation of an endless concept, highlighting the abstract nature of infinity and the difficulty in comprehending ideas without direct physical counterparts [psypost](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGGtF2wjtNXOjTYU4rd6LPsuqqwcmgWRZQzfYac5idA1RvGaX022Q15EaqqbfEcOU2eBPOT5D2QLlLR7QqTR0V5V19O7mBm8yHtdOq0FQm7krte_nFSzCqdiYpFJzWv_wlzjCnpAtlVWwMiSyrlfxgA4TnoSJvj0xWu6HlJLhER-gCStjt323h5EnDRRXridu2InTLoqOY=).
+
+**Philosophical and Cosmological Perspectives:**
+Philosophical debates in 2025 and 2026 continue to explore infinity&#x27;s implications for cosmology, metaphysics, and logic [preprints](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHVHMGtZAAvvCF_kuEyqzAPCYxSZiLsLj2QBCdCPtmKdkWr3oa9fP87PudxhaBp9hNQREk3nodHD0b8KCsCmSn_sASNZHibY-UCI_6r9TmLr5FMuTC4gxZIXbXzgNCRYxfeDiVQg1o5yrJUqQ==) [reapress](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF_hMWgQUrW-djyxMPZRTdjOhHv6mcvnURQLywXDWXTHQU4ecilXWxqdOmXqMrXupFUfb44i9dbutUxZx1iWh6j-TOp9wuKpCgnOgHtD1rozDLG4mjHVrUXUzkGH7dlpR0-gHhGB7I7oqcmNg==) [researchgate](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFvP_RK58z8lV-9WTTuui16dniaspQfUBhAjKrcpeiHs3Ljr1HUXqSiBvsMB5ugyBPeJLXbXryUdU5GSymCoVx6128FjU-3yTkSL_nllpCryfjcpSAwV-1NWq6AweFKWQeHgSb1dJMA84TF5XmlFTnnKWQSV3Ugkya89G9zdhmFtxAvrwxhURAnrMEM10c-6uW17uNv6wjZukFsc2DYR7Oi10wdV_LWZPGoWKCBQwkRYsnn52tXmOpO) [researchgate](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFKRqeJ9PJOJ6jUWFeHYZBDcrcVvCzIzadhNiia1uILkesLdbTq-RXeDPjy1S4YwoncgiJqqFKuOQxpavIyKZtmy0MB-Sozx7J-h3B7tXvxzWkcLFZxMdEre4IvbOll5ItyK0ODs9RzTXEFySR_IxKZStRsMC5VXhlm0goRIPErwCGKI-EHf6Yz7pETr7v3DFZspilt6mijMqGkTK430KOP4nHbjA03usUaK74M5wO9X8CCAFGlsQ==). Questions persist about whether the universe is infinite and the philosophical weight of a finite versus an infinite cosmos [planksip](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEYFgIElYqs4QASkAEJ5Zf1svLhumFFdcvvaBB8_hVdRHl5aBCW-5SABNJmUHWEEtCZYNAOqSL3YDDxaFJYofIhz1LATlv8BB3RY78xLO5-cNypmBH6NkJjCeRP6LqgfBPKT1X64UGro0ahJOIV4hQXeBfnldvr5t0EV3bowN6_5L8eGCjNUzT1DqCTxeqA9-rWrd2MOYxQ) [planksip](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGELQGkiMEKcgObKjxZGsf9Eog-VHe1u5TZMHTCUBd99fqUB-Bi7c4uo8bSjnd3PnpeT9ByeMh5tPyo5nqrPRPVT3wY6Es6TTVIEYw-0EuGY__od90elf7v1zL_GlyhLsGmH2G6TZPcXrR5zLjkM_PYRvOgspG1FuLgWeddPm74SafmKFwqMaKblmizdE2lMqPxP5DVDR0Y) [bisquecoffee](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHchcz1omVI0SE2MGfZoHlxw0ZNteZG4C8WMteJYjMJpdpPM9QtjvZ8DQ9R4yZvcpd23TK2uHsqODKC9tvn77PdXSKeKWC6quNDOPkz0-oby0yghAL0yvB76WwMfArRtml2k4OQFSx6VFAUoR6IatbSslRLr8
+... (truncated)</pre>
+                    </div>
+                </div>
+                <div class="metric-details-section">
+                    <div class="io-label">FAILED METRICS</div>
+                    <div class="metric-detail">
+                    <div class="metric-detail-header">
+                        <span class="metric-detail-name">✗ helpfulness</span>
+                        <span class="metric-detail-score">(0.00)</span>
+                    </div>
+                    <div class="metric-detail-reason">The response provides information about new types of infinities discovered in late 2024 and early 2025. However, this information appears to be fabricated or based on misinformation, as there are no widely recognized mathematical discoveries of &#x27;exacting&#x27; and &#x27;ultra-exacting&#x27; cardinals in that timeframe. This makes the core of the response inaccurate and potentially misleading for research purposes. While it attempts to explain the concept of infinity, its reliance on unsubstantiated claims renders it unhelpful for a research assistant.</div>
+                </div>
+                </div>
+            </div>
+        </div>
+                    
+                </div>
+            </div>
+        </div>
+        <!-- Footer -->
+        <div class="footer">
+            <div class="footer-item">
+                <span class="footer-label">Run ID:</span>
+                <span class="footer-value">00ad5f8f-f3cc-4292-b959-7416fc88972e</span>
+            </div>
+            <div class="footer-item">
+                <span class="footer-label">Dataset:</span>
+                <span class="footer-value">test-llm-judge</span>
+            </div>
+            <div class="footer-item">
+                <span class="footer-label">Created:</span>
+                <span class="footer-value">2026-03-10T04:46:38.812406+00:00</span>
+            </div>
+            <div class="footer-item">
+                <span class="footer-label">Passing All:</span>
+                <span class="footer-value">98/100</span>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Warm theme colors - Anthropic style
+        const colors = {
+            accent: '#D4A27F',
+            accentDim: 'rgba(212, 162, 127, 0.3)',
+            secondary: '#C4836A',
+            error: '#C97B63',
+            errorDim: 'rgba(201, 123, 99, 0.3)',
+            warning: '#D4A27F',
+            success: '#6B8E8E',
+            muted: '#A89F97',
+            border: 'rgba(212, 162, 127, 0.2)',
+            gridLine: 'rgba(212, 162, 127, 0.15)',
+            bg: '#FFFBF7',
+            text: '#1A1A1A',
+            textMuted: '#888888'
+        };
+
+        // Chart.js defaults for warm theme
+        Chart.defaults.font.family = "'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
+        Chart.defaults.color = colors.textMuted;
+        Chart.defaults.borderColor = colors.border;
+
+        // Toggle expand for failed items
+        function toggleExpand(idx) {
+            const item = document.getElementById('item-' + idx);
+            if (item) {
+                const content = item.querySelector('.failed-item-content');
+                const btn = item.querySelector('.expand-btn');
+                if (content.style.display === 'none' || !content.style.display) {
+                    content.style.display = 'block';
+                    btn.textContent = 'Collapse';
+                    item.classList.add('expanded');
+                } else {
+                    content.style.display = 'none';
+                    btn.textContent = 'Expand';
+                    item.classList.remove('expanded');
+                }
+            }
+        }
+
+        // Pass Rate Chart - horizontal bars with thin styling
+        const passRateCtx = document.getElementById('passRateChart').getContext('2d');
+        new Chart(passRateCtx, {
+            type: 'bar',
+            data: {
+                labels: ["helpfulness"],
+                datasets: [{
+                    data: [98.0],
+                    backgroundColor: ["#6B8E8E"],
+                    borderColor: ["#6B8E8E"],
+                    borderWidth: 1,
+                    borderRadius: 2,
+                    borderSkipped: false,
+                    barThickness: 16,
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: colors.bg,
+                        titleColor: colors.text,
+                        bodyColor: colors.text,
+                        borderColor: colors.border,
+                        borderWidth: 1,
+                        padding: 10,
+                        callbacks: {
+                            label: (ctx) => ctx.raw.toFixed(1) + '%'
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: {
+                            color: colors.gridLine,
+                            lineWidth: 1
+                        },
+                        ticks: { color: colors.textMuted },
+                        title: { display: true, text: 'Pass Rate (%)', color: colors.muted }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: colors.text }
+                    }
+                }
+            }
+        });
+
+        // Score Distribution Chart
+        const scoreDistCtx = document.getElementById('scoreDistChart').getContext('2d');
+        const scoreDistData = [{"metric": "helpfulness", "min": 0.0, "q1": 1.0, "median": 1.0, "q3": 1.0, "max": 1.0, "avg": 0.98}];
+        new Chart(scoreDistCtx, {
+            type: 'bar',
+            data: {
+                labels: scoreDistData.map(d => d.metric),
+                datasets: [
+                    {
+                        label: 'Score Range',
+                        data: scoreDistData.map(d => [d.min, d.max]),
+                        backgroundColor: colors.accentDim,
+                        borderColor: colors.accent,
+                        borderWidth: 2,
+                        borderRadius: 2,
+                        borderSkipped: false,
+                        barThickness: 8,
+                    },
+                    {
+                        label: 'Average',
+                        data: scoreDistData.map(d => d.avg),
+                        type: 'scatter',
+                        backgroundColor: colors.accent,
+                        borderColor: colors.bg,
+                        borderWidth: 2,
+                        pointRadius: 6,
+                        pointStyle: 'circle',
+                    }
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: colors.bg,
+                        titleColor: colors.text,
+                        bodyColor: colors.text,
+                        borderColor: colors.border,
+                        borderWidth: 1,
+                        padding: 10,
+                        callbacks: {
+                            label: (ctx) => {
+                                if (ctx.datasetIndex === 0) {
+                                    return `Range: ${ctx.raw[0].toFixed(3)} - ${ctx.raw[1].toFixed(3)}`;
+                                }
+                                return `Avg: ${ctx.raw.toFixed(3)}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        max: 1.1,
+                        grid: {
+                            color: colors.gridLine,
+                            lineWidth: 1
+                        },
+                        ticks: { color: colors.textMuted },
+                        title: { display: true, text: 'Score', color: colors.muted }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: colors.text }
+                    }
+                }
+            }
+        });
+
+        
+    </script>
+</body>
+</html>

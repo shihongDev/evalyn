@@ -37,6 +37,7 @@ from pathlib import Path
 from ..utils.errors import fatal_error
 from ..utils.hints import HintCollector
 from ..utils.loaders import _load_callable
+from ..utils.rich import banner, icon, kv
 from ..utils.ui import Spinner
 
 
@@ -170,18 +171,18 @@ def _cmd_simulate_inner(args: argparse.Namespace) -> None:
                 modes=modes,
             )
 
-        print(f"\n{'=' * 60}")
-        print("SIMULATION COMPLETE")
-        print(f"{'=' * 60}")
+        print()
+        print(banner("SIMULATION COMPLETE"))
+        kv_pairs = []
         for mode, path in results.items():
-            # Count items
             sim_dataset_file = path / "dataset.jsonl"
             if sim_dataset_file.exists():
                 with open(sim_dataset_file, encoding="utf-8") as f:
                     count = sum(1 for _ in f)
-                print(f"  {mode}: {count} items -> {path}")
+                kv_pairs.append((mode, f"{count} items -> {path}"))
             else:
-                print(f"  {mode}: -> {path}")
+                kv_pairs.append((mode, str(path)))
+        print(kv(kv_pairs))
 
         # Show hints
         hints = HintCollector(quiet=getattr(args, "quiet", False))
@@ -252,11 +253,10 @@ def _cmd_simulate_inner(args: argparse.Namespace) -> None:
             with open(mode_dir / "meta.json", "w", encoding="utf-8") as f:
                 json.dump(meta, f, indent=2)
 
-            print(f"  Generated {len(generated)} {mode} queries -> {mode_dir}")
+            print(f"  {icon('pass')} Generated {len(generated)} {mode} queries -> {mode_dir}")
 
-        print(f"\n{'=' * 60}")
-        print("QUERY GENERATION COMPLETE")
-        print(f"{'=' * 60}")
+        print()
+        print(banner("QUERY GENERATION COMPLETE"))
 
         hints = HintCollector(quiet=getattr(args, "quiet", False))
         hints.add("evalyn simulate --target <module:func>", "Run queries through your agent")

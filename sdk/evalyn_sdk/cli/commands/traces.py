@@ -1258,7 +1258,7 @@ def cmd_delete_traces(args: argparse.Namespace) -> None:
     # Delete
     call_ids = [call.id for call in calls]
     deleted = storage.delete_calls(call_ids)
-    print(f"\nDeleted {deleted} trace(s) from {db} database.")
+    print(f"\n{icon('pass')} Deleted {deleted} trace(s) from {db} database.")
 
 
 def _add_db_arg(parser) -> None:

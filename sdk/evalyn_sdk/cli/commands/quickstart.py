@@ -27,6 +27,7 @@ from typing import Dict, List, Optional, Tuple
 
 from ..utils.errors import fatal_error
 from ..utils.hints import HintCollector
+from ..utils.rich import banner, section, icon, footer
 
 
 # Framework detection patterns: framework name -> (compiled regex patterns, display name)
@@ -357,9 +358,8 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     run_cmd = getattr(args, "run", None)
     timeout = getattr(args, "timeout", 120)
 
-    print("\n" + "=" * 60)
-    print("  EVALYN QUICKSTART")
-    print("=" * 60)
+    print()
+    print(banner("EVALYN QUICKSTART"))
 
     # Check idempotency: if evalyn.yaml exists and instrumentation present, skip setup
     yaml_exists = Path("evalyn.yaml").exists()
@@ -370,22 +370,24 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
         print("  Skipping to run step...\n")
     else:
         # Step 1: Detect framework
-        print("\n[1/3] Detecting agent framework...")
+        print()
+        print(section("STEP 1/3: DETECT FRAMEWORK"))
         framework, detected_file = _detect_framework(agent_file)
 
         # Step 2: Generate instrumentation snippet
-        print("\n[2/3] Instrumentation snippet")
+        print()
+        print(section("STEP 2/3: INSTRUMENTATION"))
         _print_instrumentation_snippet(framework)
 
         # Step 3: Create evalyn.yaml
-        print("\n[3/3] Setting up configuration...")
+        print()
+        print(section("STEP 3/3: CONFIGURATION"))
         _create_evalyn_yaml()
 
     # Step 4: Run the agent (optional)
     if run_cmd:
-        print("\n" + "-" * 60)
-        print("  RUNNING AGENT")
-        print("-" * 60)
+        print()
+        print(section("RUNNING AGENT"))
 
         traces_before = _check_traces_captured()
         success = _run_agent(run_cmd, timeout)
@@ -404,18 +406,17 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
                 print("    - Ensure your agent makes at least one LLM call")
                 print("    - Check that evalyn_sdk is installed: pip show evalyn-sdk")
     else:
-        print("\n" + "-" * 60)
-        print("  NEXT: Run your agent to capture traces")
-        print("-" * 60)
+        print()
+        print(section("NEXT: RUN YOUR AGENT"))
         print("\n  Run your agent with evalyn_sdk imported, then come back:")
         print("    python your_agent.py")
         print("\n  Or re-run quickstart with --run:")
         print('    evalyn quickstart --run "python your_agent.py"')
 
     # Final message
-    print("\n" + "=" * 60)
-    print("  Ready! Run `evalyn run-eval` to evaluate.")
-    print("=" * 60 + "\n")
+    print()
+    print(banner("READY"))
+    print("  Run `evalyn run-eval` to evaluate.\n")
 
     hints = HintCollector(quiet=quiet)
     hints.add("evalyn workflow", "See the full evaluation pipeline")

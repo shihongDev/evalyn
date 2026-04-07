@@ -21,6 +21,7 @@ from pathlib import Path
 from ..utils.command_common import load_eval_run_for_command
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.hints import HintCollector
+from ..utils.rich import icon
 
 
 def _open_in_browser(file_path: Path) -> bool:
@@ -76,13 +77,13 @@ def cmd_dashboard(args: argparse.Namespace) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html_content, encoding="utf-8")
 
-    print(f"Dashboard saved to: {output_path}")
+    print(f"{icon('pass')} Dashboard saved to: {output_path}")
 
     if _open_in_browser(output_path):
-        print("Opened dashboard in default browser.")
+        print(f"{icon('pass')} Opened dashboard in default browser.")
     else:
         file_url = output_path.as_uri()
-        print(f"Could not open browser automatically.")
+        print(f"{icon('warn')} Could not open browser automatically.")
         print(f"Open this file in your browser: {file_url}")
 
     hints = HintCollector(quiet=getattr(args, "quiet", False))
