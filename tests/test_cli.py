@@ -1015,25 +1015,24 @@ class TestOpenInBrowser:
         assert isinstance(result, bool)
 
     def test_open_in_browser_success(self, tmp_path):
-        """Successful subprocess call returns True."""
+        """Successful webbrowser.open call returns True."""
         from unittest.mock import patch
         from evalyn_sdk.cli.commands.dashboard import _open_in_browser
 
         fake_file = tmp_path / "test.html"
         fake_file.write_text("<html></html>")
-        with patch("evalyn_sdk.cli.commands.dashboard.subprocess.run"):
+        with patch("evalyn_sdk.cli.commands.dashboard.webbrowser.open", return_value=True):
             assert _open_in_browser(fake_file) is True
 
     def test_open_in_browser_failure(self, tmp_path):
-        """Failed subprocess call returns False."""
+        """Failed webbrowser.open call returns False."""
         from unittest.mock import patch
-        import subprocess
         from evalyn_sdk.cli.commands.dashboard import _open_in_browser
 
         fake_file = tmp_path / "test.html"
         fake_file.write_text("<html></html>")
         with patch(
-            "evalyn_sdk.cli.commands.dashboard.subprocess.run",
-            side_effect=subprocess.CalledProcessError(1, "open"),
+            "evalyn_sdk.cli.commands.dashboard.webbrowser.open",
+            side_effect=Exception("no browser"),
         ):
             assert _open_in_browser(fake_file) is False
