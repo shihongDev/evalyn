@@ -87,7 +87,14 @@ def cmd_dashboard(args: argparse.Namespace) -> None:
         print(f"Open this file in your browser: {file_url}")
 
     hints = HintCollector(quiet=getattr(args, "quiet", False))
-    hints.add("evalyn insights --deep", "Run LLM expert panel analysis")
+    hints.add(
+        "evalyn insights --deep",
+        "Run LLM expert panel analysis",
+        options=[
+            ("--project <name>", "Analyze a specific project"),
+            ("--format json", "Machine-readable output"),
+        ],
+    )
     hints.render()
 
 

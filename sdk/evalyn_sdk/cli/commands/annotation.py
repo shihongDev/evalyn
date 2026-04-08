@@ -65,7 +65,13 @@ def cmd_import_annotations(args: argparse.Namespace) -> None:
     print(f"{icon('pass')} Imported {len(anns)} annotations into storage.")
 
     hints = HintCollector(quiet=getattr(args, "quiet", False))
-    hints.add("evalyn annotation-stats --dataset <path>", "View annotation statistics")
+    hints.add(
+        "evalyn annotation-stats --dataset <path>",
+        "View annotation statistics",
+        options=[
+            ("--format json", "Machine-readable output"),
+        ],
+    )
     hints.render()
 
 
@@ -233,6 +239,10 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
             hints.add(
                 f"evalyn calibrate --metric-id <metric> --annotations {annotations_path} --dataset {dataset_path}",
                 "Calibrate LLM judges",
+                options=[
+                    ("--optimizer basic|gepa|opro|ape", "Optimization method"),
+                    ("--show-examples", "Show disagreement cases"),
+                ],
             )
             hints.render()
 
@@ -1035,6 +1045,11 @@ def cmd_annotate(args: argparse.Namespace) -> None:
     hints.add(
         f"evalyn calibrate --metric-id <metric> --annotations {output_path} --dataset {dataset_dir}",
         "Calibrate LLM judges",
+        options=[
+            ("--optimizer basic|gepa|opro|ape", "Optimization method"),
+            ("--show-examples", "Show disagreement cases"),
+            ("--verbose", "Show detailed cost breakdown"),
+        ],
     )
     hints.render()
 

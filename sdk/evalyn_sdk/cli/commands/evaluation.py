@@ -183,7 +183,17 @@ def _save_suggested_metrics(
     if output_format != "json":
         print(f"{icon('pass')} Saved metrics to {metrics_file}")
         hints = HintCollector(quiet=quiet, format=output_format)
-        hints.add(f"evalyn run-eval --dataset {dataset_dir}", "Run evaluation with these metrics")
+        hints.add(
+            f"evalyn run-eval --dataset {dataset_dir}",
+            "Run evaluation with these metrics",
+            options=[
+                ("--provider gemini|openai|ollama", "LLM provider for judges (default: gemini)"),
+                ("--workers <N>", "Parallel workers (default: 4)"),
+                ("--use-calibrated", "Use calibrated prompts if available"),
+                ("--confidence consistency", "Enable confidence scoring"),
+                ("--verbose", "Show detailed cost breakdown by metric"),
+            ],
+        )
         hints.render()
     return metrics_file
 
@@ -742,8 +752,17 @@ def _render_run_eval_output(
             hints.add(
                 f"evalyn cluster-failures --metric-id {failed_metric}",
                 "Cluster failures by pattern",
+                options=[
+                    ("--top <N>", "Number of clusters to show (default: 5)"),
+                ],
             )
-    hints.add(f"evalyn analyze --run {run.id}", "Analyze results in detail")
+    hints.add(
+        f"evalyn analyze --run {run.id}",
+        "Analyze results in detail",
+        options=[
+            ("--format json", "Machine-readable output"),
+        ],
+    )
     hints.render()
 
 

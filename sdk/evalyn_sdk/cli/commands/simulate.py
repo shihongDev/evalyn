@@ -188,7 +188,14 @@ def _cmd_simulate_inner(args: argparse.Namespace) -> None:
         hints = HintCollector(quiet=getattr(args, "quiet", False))
         first_result_path = list(results.values())[0] if results else None
         if first_result_path:
-            hints.add(f"evalyn run-eval --dataset {first_result_path}", "Evaluate simulated data")
+            hints.add(
+                f"evalyn run-eval --dataset {first_result_path}",
+                "Evaluate simulated data",
+                options=[
+                    ("--provider gemini|openai|ollama", "LLM provider for judges (default: gemini)"),
+                    ("--workers <N>", "Parallel workers (default: 4)"),
+                ],
+            )
         hints.render()
     else:
         # Query generation only (no target function)
@@ -259,7 +266,14 @@ def _cmd_simulate_inner(args: argparse.Namespace) -> None:
         print(banner("QUERY GENERATION COMPLETE"))
 
         hints = HintCollector(quiet=getattr(args, "quiet", False))
-        hints.add("evalyn simulate --target <module:func>", "Run queries through your agent")
+        hints.add(
+            "evalyn simulate --target <module:func>",
+            "Run queries through your agent",
+            options=[
+                ("--modes similar,adversarial,edge", "Query generation modes"),
+                ("--num-similar <N>", "Queries per seed input (default: 3)"),
+            ],
+        )
         hints.render()
 
 

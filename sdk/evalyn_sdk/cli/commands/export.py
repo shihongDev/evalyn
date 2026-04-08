@@ -127,7 +127,10 @@ def cmd_export_for_annotation(args: argparse.Namespace) -> None:
     print(f"{icon('pass')} Exported {len(output_items)} items to {output_path}")
 
     hints = HintCollector(quiet=getattr(args, "quiet", False))
-    hints.add(f"evalyn import-annotations --path {output_path}", "Import annotations after review")
+    hints.add(
+        f"evalyn import-annotations --path {output_path}",
+        "Import annotations after review",
+    )
     hints.render()
 
 

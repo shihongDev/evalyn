@@ -683,10 +683,30 @@ def _print_analysis_next_hint(
 
     if subjective_problem_metrics:
         worst_metric = subjective_problem_metrics[0][0]
-        hints.add(f"evalyn annotate {dataset_flag}", f"Annotate to calibrate '{worst_metric}'")
+        hints.add(
+            f"evalyn annotate {dataset_flag}",
+            f"Annotate to calibrate '{worst_metric}'",
+            options=[
+                ("--metric-id <id>", "Annotate specific metric only"),
+                ("--count <N>", "Number of items to annotate"),
+            ],
+        )
     if problem_metrics or multi_fail_items:
-        hints.add(f"evalyn cluster-failures {dataset_flag}", "Cluster failures by pattern")
-    hints.add(f"evalyn trend --project {run.dataset_name}", "See trends over time")
+        hints.add(
+            f"evalyn cluster-failures {dataset_flag}",
+            "Cluster failures by pattern",
+            options=[
+                ("--metric-id <id>", "Focus on a specific failing metric"),
+                ("--top <N>", "Number of clusters to show (default: 5)"),
+            ],
+        )
+    hints.add(
+        f"evalyn trend --project {run.dataset_name}",
+        "See trends over time",
+        options=[
+            ("--limit <N>", "Max runs to analyze (default: 20)"),
+        ],
+    )
     hints.render()
 
 
@@ -965,11 +985,23 @@ def cmd_compare(args: argparse.Namespace) -> None:
     output_format = getattr(args, "format", "table")
     hints = HintCollector(quiet=getattr(args, "quiet", False), format=output_format)
     if regressions > improvements:
-        hints.add(f"evalyn analyze --run {run2.id}", "Investigate regression in detail")
+        hints.add(
+            f"evalyn analyze --run {run2.id}",
+            "Investigate regression in detail",
+            options=[("--format json", "Machine-readable output")],
+        )
     if improvements > 0:
-        hints.add(f"evalyn trend --project {run2.dataset_name}", "See trends over time")
-    if not hints._hints:
-        hints.add(f"evalyn analyze --run {run2.id}", "Analyze run in detail")
+        hints.add(
+            f"evalyn trend --project {run2.dataset_name}",
+            "See trends over time",
+            options=[("--limit <N>", "Max runs to analyze (default: 20)")],
+        )
+    if not hints.has_hints:
+        hints.add(
+            f"evalyn analyze --run {run2.id}",
+            "Analyze run in detail",
+            options=[("--format json", "Machine-readable output")],
+        )
     hints.render()
 
 
@@ -1051,8 +1083,22 @@ def cmd_trend(args: argparse.Namespace) -> None:
         hints = HintCollector(quiet=getattr(args, "quiet", False), format=output_format)
         if trend.regressing_metrics:
             metrics_str = ", ".join(trend.regressing_metrics[:3])
-            hints.add(f"evalyn calibrate --metric-id <metric>", f"Calibrate regressing metrics: {metrics_str}")
-        hints.add(f"evalyn insights --project {project_name}", "Deep-dive into results")
+            hints.add(
+                f"evalyn calibrate --metric-id <metric> --annotations <path>",
+                f"Calibrate regressing metrics: {metrics_str}",
+                options=[
+                    ("--optimizer basic|gepa|opro|ape", "Optimization method"),
+                    ("--dataset <path>", "Provide input/output context"),
+                    ("--show-examples", "Show disagreement cases"),
+                ],
+            )
+        hints.add(
+            f"evalyn insights --project {project_name}",
+            "Deep-dive into results",
+            options=[
+                ("--deep", "Run LLM expert panel analysis"),
+            ],
+        )
         hints.render()
 
 

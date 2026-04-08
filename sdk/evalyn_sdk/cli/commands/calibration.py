@@ -598,7 +598,15 @@ def _print_calibration_postamble(
 
     if dataset_dir:
         hints = HintCollector(quiet=getattr(args, "quiet", False))
-        hints.add(f"evalyn run-eval --dataset {dataset_dir} --use-calibrated", "Re-run with calibrated prompts")
+        hints.add(
+            f"evalyn run-eval --dataset {dataset_dir} --use-calibrated",
+            "Re-run with calibrated prompts",
+            options=[
+                ("--provider gemini|openai|ollama", "LLM provider for judges (default: gemini)"),
+                ("--workers <N>", "Parallel workers (default: 4)"),
+                ("--verbose", "Show detailed cost breakdown by metric"),
+            ],
+        )
         hints.render()
 
 

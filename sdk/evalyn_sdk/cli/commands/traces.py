@@ -690,7 +690,13 @@ def cmd_show_call(args: argparse.Namespace) -> None:
     _render_show_call_table(call)
     hints = HintCollector(quiet=getattr(args, "quiet", False), format=output_format)
     if call.spans:
-        hints.add(f"evalyn show-trace --id {call.id[:8]} --verbose", "See span tree with details")
+        hints.add(
+            f"evalyn show-trace --id {call.id[:8]} --verbose",
+            "See span tree with details",
+            options=[
+                ("--format json", "Machine-readable output"),
+            ],
+        )
     hints.render()
 
 

@@ -419,7 +419,18 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     print("  Run `evalyn run-eval` to evaluate.\n")
 
     hints = HintCollector(quiet=quiet)
-    hints.add("evalyn workflow", "See the full evaluation pipeline")
+    hints.add(
+        "evalyn workflow",
+        "See the full evaluation pipeline",
+    )
+    hints.add(
+        "evalyn run-eval --dataset <path>",
+        "Jump straight to evaluation",
+        options=[
+            ("--provider gemini|openai|ollama", "LLM provider for judges (default: gemini)"),
+            ("--verbose", "Show detailed cost breakdown by metric"),
+        ],
+    )
     hints.render()
 
 

@@ -305,7 +305,14 @@ def cmd_insights(args: argparse.Namespace) -> None:
 
     hints = HintCollector(quiet=getattr(args, "quiet", False), format=output_format)
     dataset_flag = f"--dataset {dataset_path}" if dataset_path else "--latest"
-    hints.add(f"evalyn cluster-failures {dataset_flag}", "Drill into failure patterns")
+    hints.add(
+        f"evalyn cluster-failures {dataset_flag}",
+        "Drill into failure patterns",
+        options=[
+            ("--metric-id <id>", "Focus on a specific failing metric"),
+            ("--top <N>", "Number of clusters to show (default: 5)"),
+        ],
+    )
     hints.render()
 
 

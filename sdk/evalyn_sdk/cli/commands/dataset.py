@@ -167,7 +167,16 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
     )
     print(f"{icon('pass')} Wrote {len(items)} items to {dataset_path}")
     hints = HintCollector(quiet=getattr(args, "quiet", False))
-    hints.add(f"evalyn suggest-metrics --dataset {dataset_dir} --mode basic", "Suggest evaluation metrics")
+    hints.add(
+        f"evalyn suggest-metrics --dataset {dataset_dir} --mode basic",
+        "Suggest evaluation metrics",
+        options=[
+            ("--mode llm-brainstorm", "LLM free-form metric generation"),
+            ("--mode bundle --bundle <name>", "Use preset bundle (summarization, orchestrator, ...)"),
+            ("--scope overall|llm_call|tool_call", "Filter metrics by scope"),
+            ("-n <count>", "Max number of metrics to return (default: 5)"),
+        ],
+    )
     hints.render()
 
 
