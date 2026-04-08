@@ -332,6 +332,29 @@ def analyze_input_features(
 
 MIN_SCORES_FOR_DISTRIBUTION = 5
 
+# Cliff detection: fraction of scores at a single boundary value (0.0 or 1.0)
+_CLIFF_FRACTION = 0.7
+
+# Bimodal detection: minimum fraction in low/high tails, maximum fraction in middle
+_BIMODAL_LOW_THRESHOLD = 0.3
+_BIMODAL_HIGH_THRESHOLD = 0.3
+_BIMODAL_MID_CEILING = 0.2
+
+# Skewed-low detection: mean below this with std above minimum
+_SKEWED_LOW_MEAN = 0.3
+_SKEWED_LOW_MIN_STD = 0.1
+
+# Skewed-high detection: mean above this with std below maximum
+_SKEWED_HIGH_MEAN = 0.8
+_SKEWED_HIGH_MAX_STD = 0.15
+
+# Uniform detection: std above this and all buckets at or below ceiling
+_UNIFORM_MIN_STD = 0.25
+_UNIFORM_BUCKET_CEILING = 0.35
+
+# Low pass rate threshold for recommendation engine
+_LOW_PASS_RATE = 0.8
+
 
 def _bucket_scores(scores: List[float]) -> List[float]:
     """Bucket scores into 5 bins. Returns list of 5 fractions."""
@@ -368,27 +391,27 @@ def analyze_score_distributions(
         std = stats.std_dev
         buckets = _bucket_scores(scores)
 
-        # cliff: >70% at exactly 0.0 or 1.0
+        # cliff: majority of scores at exactly 0.0 or 1.0
         at_zero = sum(1 for s in scores if s == 0.0) / n
         at_one = sum(1 for s in scores if s == 1.0) / n
-        if at_zero > 0.7:
+        if at_zero > _CLIFF_FRACTION:
             results.append(DistributionInsight(
                 metric_id=metric_id, shape="cliff",
                 finding=f"{at_zero:.0%} of scores at 0.0 - most items fail completely",
             ))
             continue
-        if at_one > 0.7:
+        if at_one > _CLIFF_FRACTION:
             results.append(DistributionInsight(
                 metric_id=metric_id, shape="cliff",
                 finding=f"{at_one:.0%} of scores at 1.0 - metric may be too lenient",
             ))
             continue
 
-        # bimodal: >30% low AND >30% high with <20% middle
-        low_frac = sum(1 for s in scores if s <= 0.3) / n
-        high_frac = sum(1 for s in scores if s >= 0.7) / n
-        mid_frac = sum(1 for s in scores if 0.3 < s < 0.7) / n
-        if low_frac > 0.3 and high_frac > 0.3 and mid_frac < 0.2:
+        # bimodal: significant mass in both tails with thin middle
+        low_frac = sum(1 for s in scores if s <= _BIMODAL_LOW_THRESHOLD) / n
+        high_frac = sum(1 for s in scores if s >= (1 - _BIMODAL_HIGH_THRESHOLD)) / n
+        mid_frac = sum(1 for s in scores if _BIMODAL_LOW_THRESHOLD < s < (1 - _BIMODAL_HIGH_THRESHOLD)) / n
+        if low_frac > _BIMODAL_LOW_THRESHOLD and high_frac > _BIMODAL_HIGH_THRESHOLD and mid_frac < _BIMODAL_MID_CEILING:
             results.append(DistributionInsight(
                 metric_id=metric_id, shape="bimodal",
                 finding=f"Split outcomes: {low_frac:.0%} low, {high_frac:.0%} high - review rubric",
@@ -396,7 +419,7 @@ def analyze_score_distributions(
             continue
 
         # skewed_low
-        if mean < 0.3 and std > 0.1:
+        if mean < _SKEWED_LOW_MEAN and std > _SKEWED_LOW_MIN_STD:
             results.append(DistributionInsight(
                 metric_id=metric_id, shape="skewed_low",
                 finding=f"Mean score {mean:.2f} - most items score poorly",
@@ -404,7 +427,7 @@ def analyze_score_distributions(
             continue
 
         # skewed_high
-        if mean > 0.8 and std < 0.15:
+        if mean > _SKEWED_HIGH_MEAN and std < _SKEWED_HIGH_MAX_STD:
             results.append(DistributionInsight(
                 metric_id=metric_id, shape="skewed_high",
                 finding=f"Mean score {mean:.2f} with low variance - may be too lenient",
@@ -412,7 +435,7 @@ def analyze_score_distributions(
             continue
 
         # uniform
-        if std > 0.25 and all(b <= 0.35 for b in buckets):
+        if std > _UNIFORM_MIN_STD and all(b <= _UNIFORM_BUCKET_CEILING for b in buckets):
             results.append(DistributionInsight(
                 metric_id=metric_id, shape="uniform",
                 finding="Scores spread uniformly - metric may lack discriminative power",
@@ -514,7 +537,7 @@ def generate_recommendations(
     # 7. Problem metrics needing calibration
     problem_metrics = [
         mid for mid, ms in run_analysis.metric_stats.items()
-        if ms.pass_rate is not None and ms.pass_rate < 0.8
+        if ms.pass_rate is not None and ms.pass_rate < _LOW_PASS_RATE
     ]
     already_mentioned = {r.metric_id for r in regressions if r.severity == "critical"}
     for mid in problem_metrics:

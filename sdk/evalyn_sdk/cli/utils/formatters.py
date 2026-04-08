@@ -7,6 +7,23 @@ import sys
 from typing import Any, Dict, List, Optional
 
 
+def trim_timestamp(ts) -> str:
+    """Trim a timestamp to 'YYYY-MM-DD HH:MM' (first 16 chars)."""
+    if not ts:
+        return ""
+    s = str(ts)
+    return s[:16] if len(s) >= 16 else s
+
+
+def format_duration(ms: float | None) -> str:
+    """Format a duration in milliseconds to a human-readable string like '350ms' or '1.5s'."""
+    if ms is None:
+        return "?"
+    if ms < 1000:
+        return f"{ms:.0f}ms"
+    return f"{ms / 1000:.1f}s"
+
+
 def is_json_format(args) -> bool:
     """Check if output format is JSON."""
     return getattr(args, "format", "table") == "json"
@@ -110,6 +127,8 @@ def print_token_usage_summary(usage: Dict[str, Any], verbose: bool = False) -> N
 
 
 __all__ = [
+    "trim_timestamp",
+    "format_duration",
     "is_json_format",
     "print_if_table",
     "print_error_if_table",

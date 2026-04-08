@@ -37,6 +37,23 @@ from ..utils.errors import fatal_error
 from ..utils.hints import HintCollector
 
 
+# Threshold for flagging a metric as a "problem" (failure rate > 20%)
+_PROBLEM_METRIC_THRESHOLD = 0.2
+
+# Overall health status boundaries (percent pass rate)
+_HEALTH_GOOD = 90
+_HEALTH_MODERATE = 70
+
+
+def _health_status(rate: float) -> str:
+    """Return a health label for the given pass rate (0-100 scale)."""
+    if rate >= _HEALTH_GOOD:
+        return "GOOD"
+    if rate >= _HEALTH_MODERATE:
+        return "MODERATE"
+    return "NEEDS_ATTENTION"
+
+
 def _print_run_summary(run_name: str, results_file: Path) -> None:
     """Print a one-line run summary without parsing the full JSON.
 
@@ -465,7 +482,7 @@ def _build_analysis_insights(sorted_metrics, item_failures: dict[str, list[str]]
     insights = []
 
     problem_metrics = [
-        (m, s) for m, s in sorted_metrics if s["failed"] / max(1, s["total"]) > 0.2
+        (m, s) for m, s in sorted_metrics if s["failed"] / max(1, s["total"]) > _PROBLEM_METRIC_THRESHOLD
     ]
     if problem_metrics:
         worst = problem_metrics[0]
@@ -499,14 +516,8 @@ def _build_analysis_insights(sorted_metrics, item_failures: dict[str, list[str]]
     total_evals = sum(s["total"] for _, s in sorted_metrics)
     total_passed = sum(s["passed"] for _, s in sorted_metrics)
     overall_rate = 100 * total_passed / max(1, total_evals)
-    health_status = (
-        "GOOD"
-        if overall_rate >= 90
-        else "MODERATE"
-        if overall_rate >= 70
-        else "NEEDS_ATTENTION"
-    )
-    insights.append(f"Overall health is {health_status} ({overall_rate:.0f}% pass rate)")
+    health = _health_status(overall_rate)
+    insights.append(f"Overall health is {health} ({overall_rate:.0f}% pass rate)")
 
     return {
         "insights": insights,
@@ -514,7 +525,7 @@ def _build_analysis_insights(sorted_metrics, item_failures: dict[str, list[str]]
         "multi_fail_items": multi_fail_items,
         "perfect_metrics": perfect_metrics,
         "overall_rate": overall_rate,
-        "health_status": health_status,
+        "health_status": health,
     }
 
 
@@ -580,14 +591,7 @@ def _print_analysis_table_output(
         print(f"  {ic} {metric_id:<25} {passed:>3}/{total:<3} {rate:>5.1f}%  avg {avg:.2f}")
 
     overall_rate = 100 * total_passed / max(1, total_evals)
-    health_status = (
-        "GOOD"
-        if overall_rate >= 90
-        else "MODERATE"
-        if overall_rate >= 70
-        else "NEEDS_ATTENTION"
-    )
-    print(f"\n  Overall: {progress_bar(total_passed, total_evals, label=health_status)}")
+    print(f"\n  Overall: {progress_bar(total_passed, total_evals, label=_health_status(overall_rate))}")
 
     has_alignment = any(a.total > 0 for a in alignment_stats.values())
     if has_alignment:
@@ -802,7 +806,7 @@ def cmd_compare(args: argparse.Namespace) -> None:
 
     Shows per-metric pass rate changes and overall delta.
     """
-    from ...analysis.core import find_eval_runs
+    from ...analysis.core import analyze_run, find_eval_runs
     from ...decorators import get_default_tracer
     from ...models import EvalRun
 
@@ -878,28 +882,18 @@ def cmd_compare(args: argparse.Namespace) -> None:
         ("Current", f"{run2.id[:12]}  ({run2.dataset_name})"),
     ]))
 
-    # Build metric stats for each run
-    def get_metric_stats(run):
-        stats = {}
-        for mr in run.metric_results:
-            metric_id = (
-                mr.metric_id
-                if hasattr(mr, "metric_id")
-                else mr.get("metric_id", "unknown")
-            )
-            if metric_id not in stats:
-                stats[metric_id] = {"total": 0, "passed": 0, "scores": []}
-            stats[metric_id]["total"] += 1
-            passed = mr.passed if hasattr(mr, "passed") else mr.get("passed", True)
-            if passed:
-                stats[metric_id]["passed"] += 1
-            score = mr.score if hasattr(mr, "score") else mr.get("score")
-            if score is not None:
-                stats[metric_id]["scores"].append(score)
-        return stats
+    # Build metric stats for each run using the canonical analysis engine
+    analysis1 = analyze_run(run1.as_dict())
+    analysis2 = analyze_run(run2.as_dict())
 
-    stats1 = get_metric_stats(run1)
-    stats2 = get_metric_stats(run2)
+    stats1 = {
+        mid: {"total": ms.count, "passed": ms.passed, "scores": list(ms.scores)}
+        for mid, ms in analysis1.metric_stats.items()
+    }
+    stats2 = {
+        mid: {"total": ms.count, "passed": ms.passed, "scores": list(ms.scores)}
+        for mid, ms in analysis2.metric_stats.items()
+    }
 
     # Get all metric IDs
     all_metrics = set(stats1.keys()) | set(stats2.keys())
@@ -958,26 +952,19 @@ def cmd_compare(args: argparse.Namespace) -> None:
     print(f"  {status_icon(regressions == 0)} Metrics regressed: {regressions}")
     print(f"  {icon('info')} Metrics unchanged: {len(all_metrics) - improvements - regressions}")
 
-    # Regression severity alerts from insights engine
+    # Regression severity alerts from insights engine (reuse already-computed analyses)
     if regressions > 0:
         try:
-            from ...analysis.core import analyze_run as _analyze_run
             from ...analysis.insights import detect_regressions as _detect_regressions
-        except ImportError:
-            _analyze_run = None
 
-        if _analyze_run is not None:
-            try:
-                a1 = _analyze_run(run1.as_dict())
-                a2 = _analyze_run(run2.as_dict())
-                alerts = _detect_regressions(a2, a1)
-                critical = [a for a in alerts if a.severity == "critical"]
-                if critical:
-                    print(f"\n{section('REGRESSION ALERTS')}\n")
-                    for alert in critical:
-                        print(f"  {icon('fail')} [CRITICAL] {alert.metric_id}: {abs(alert.delta) * 100:.0f}% drop")
-            except (KeyError, ValueError, TypeError):
-                pass
+            alerts = _detect_regressions(analysis2, analysis1)
+            critical = [a for a in alerts if a.severity == "critical"]
+            if critical:
+                print(f"\n{section('REGRESSION ALERTS')}\n")
+                for alert in critical:
+                    print(f"  {icon('fail')} [CRITICAL] {alert.metric_id}: {abs(alert.delta) * 100:.0f}% drop")
+        except (ImportError, KeyError, ValueError, TypeError):
+            pass
 
     print()
 

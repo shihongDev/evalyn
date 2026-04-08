@@ -8,6 +8,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+# Pass/fail boundary for compact status display
+_PASS_THRESHOLD = 0.5
+
+# Delta at or above this value is not a regression
+_REGRESSION_THRESHOLD = -0.05
+
 
 def format_run_compact(
     run_id: str,
@@ -33,7 +39,7 @@ def format_run_compact(
         Single-line summary string.
     """
     short_id = run_id[:8]
-    status = "PASS" if pass_rate >= 0.5 else "FAIL"
+    status = "PASS" if pass_rate >= _PASS_THRESHOLD else "FAIL"
     pct = f"{pass_rate * 100:.0f}%"
 
     parts = [f"RUN {short_id}"]
@@ -73,7 +79,7 @@ def format_compare_compact(
         Single-line comparison string.
     """
     direction = "+" if delta >= 0 else ""
-    status = "OK" if delta >= -0.05 else "REGRESSION"
+    status = "OK" if delta >= _REGRESSION_THRESHOLD else "REGRESSION"
     return (
         f"{metric_id}: {baseline_rate*100:.0f}% -> {current_rate*100:.0f}% "
         f"({direction}{delta*100:.1f}%) [{status}]"
@@ -106,7 +112,7 @@ def format_summary_compact(
         pr = data.get("pass_rate")
         count = data.get("count", 0)
         if pr is not None:
-            status = "PASS" if pr >= 0.5 else "FAIL"
+            status = "PASS" if pr >= _PASS_THRESHOLD else "FAIL"
             lines.append(f"  {mid}: {pr*100:.0f}% (n={count}) [{status}]")
         else:
             avg = data.get("avg_score")

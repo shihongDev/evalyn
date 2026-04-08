@@ -57,6 +57,9 @@ _DEFAULT_GEPA_NATIVE_TASK_MODEL = "gemini-2.5-flash"
 _DEFAULT_GEPA_NATIVE_REFLECTION_MODEL = "gemini-2.5-flash"
 _DEFAULT_GEPA_NATIVE_MAX_CALLS = 150
 _DEFAULT_GEPA_NATIVE_INITIAL_CANDIDATES = 5
+
+# Significance threshold for improvement/degradation in validation delta
+_IMPROVEMENT_SIGNIFICANCE = 0.05
 _DEFAULT_GEPA_NATIVE_BATCH_SIZE = 5
 _DEFAULT_EVO_POPULATION = 8
 _DEFAULT_EVO_GENERATIONS = 5
@@ -522,13 +525,13 @@ def _print_calibration_validation_section(record) -> None:
     recommendation = validation.get("recommendation", "uncertain")
     val_samples = validation.get("validation_samples", 0)
 
-    if is_better and improvement_delta > 0.05:
+    if is_better and improvement_delta > _IMPROVEMENT_SIGNIFICANCE:
         status_icon = "SUCCESS"
         status_msg = "Optimized prompt is SIGNIFICANTLY BETTER"
     elif is_better:
         status_icon = "SUCCESS"
         status_msg = "Optimized prompt is BETTER"
-    elif improvement_delta < -0.05:
+    elif improvement_delta < -_IMPROVEMENT_SIGNIFICANCE:
         status_icon = "DEGRADED"
         status_msg = "Optimized prompt is SIGNIFICANTLY WORSE"
     elif improvement_delta < 0:

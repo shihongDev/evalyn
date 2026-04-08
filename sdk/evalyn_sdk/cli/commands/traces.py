@@ -35,6 +35,7 @@ from ..utils.command_common import (
     try_resolve_call_id,
 )
 from ..utils.errors import fatal_error
+from ..utils.formatters import format_duration, trim_timestamp
 from ..utils.hints import HintCollector
 from ..utils.rich import banner, kv, section, table as rich_table, footer, icon, status_icon
 from ..utils.validation import extract_project_id
@@ -130,15 +131,6 @@ def _span_status(span: dict) -> str:
     if "OK" in text:
         return "OK"
     return text
-
-
-def _format_dur(ms: float | None) -> str:
-    """Format duration for display."""
-    if ms is None:
-        return "?"
-    if ms < 1000:
-        return f"{ms:.0f}ms"
-    return f"{ms / 1000:.1f}s"
 
 
 def _detect_call_turns(inputs: Any) -> tuple[str, int]:
@@ -419,7 +411,7 @@ def _call_span_tokens_info(attrs: dict) -> str:
 
 def _format_call_span_label(span) -> str:
     """Format a span label for show-call span tree."""
-    dur = _format_dur(span.duration_ms)
+    dur = format_duration(span.duration_ms)
     tokens = _call_span_tokens_info(span.attributes or {})
     if span.span_type == "llm_call":
         return f"llm: {span.name}{tokens} ({dur})"
@@ -611,20 +603,6 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
         return
 
     # Table output mode
-    def _format_duration(ms) -> str:
-        if ms is None:
-            return "N/A"
-        if ms < 1000:
-            return f"{ms:.0f}ms"
-        return f"{ms / 1000:.1f}s"
-
-    def _trim_timestamp(ts) -> str:
-        if not ts:
-            return ""
-        s = str(ts)
-        # Trim to YYYY-MM-DD HH:MM
-        return s[:16] if len(s) >= 16 else s
-
     headers = ["ID", "Function", "Project", "Status", "Duration", "Started"]
     align = ["left", "left", "left", "left", "left", "left"]
     rows = []
@@ -637,8 +615,8 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
             call.function_name or "",
             m["project"],
             status,
-            _format_duration(call.duration_ms),
-            _trim_timestamp(call.started_at),
+            format_duration(call.duration_ms),
+            trim_timestamp(call.started_at),
         ])
 
     print(banner("TRACED CALLS"))
@@ -741,7 +719,7 @@ def _show_trace_grounding_lines(attrs: dict, prefix: str) -> list[str]:
 
 def _print_show_trace_no_spans(call) -> None:
     """Fallback output when spans are unavailable."""
-    print(f"\nTrace: {call.function_name} ({_format_dur(call.duration_ms)})")
+    print(f"\nTrace: {call.function_name} ({format_duration(call.duration_ms)})")
     print("  <no spans captured>")
     print("\n  Tip: Re-run with latest evalyn_sdk to capture spans.")
     if call.trace:
@@ -842,7 +820,7 @@ def _count_show_trace_descendants(node: dict) -> int:
 
 def _show_trace_span_label(span) -> str:
     """Format span label for show-trace tree."""
-    duration = _format_dur(span.duration_ms)
+    duration = format_duration(span.duration_ms)
     status = _show_trace_status_icon(span.status)
     tokens = _show_trace_format_tokens(span.attributes or {})
 
@@ -909,7 +887,7 @@ def _print_show_trace_header(call) -> None:
     """Print show-trace header lines."""
     is_ok = not call.error
     si = status_icon(is_ok)
-    title = f"TRACE: {call.function_name} ({_format_dur(call.duration_ms)}) {si}"
+    title = f"TRACE: {call.function_name} ({format_duration(call.duration_ms)}) {si}"
     print()
     print(banner(title))
     pairs = [("Call ID", call.id)]
@@ -1158,12 +1136,6 @@ def cmd_show_projects(args: argparse.Namespace) -> None:
         if call.started_at and rec["last"] and call.started_at > rec["last"]:
             rec["last"] = call.started_at
 
-    def _trim_timestamp(ts) -> str:
-        if not ts:
-            return ""
-        s = str(ts)
-        return s[:16] if len(s) >= 16 else s
-
     headers = ["Project", "Calls", "Errors", "Last Active"]
     align = ["left", "right", "right", "left"]
     rows = []
@@ -1175,7 +1147,7 @@ def cmd_show_projects(args: argparse.Namespace) -> None:
             project,
             str(rec["total"]),
             str(rec["errors"]),
-            _trim_timestamp(rec["last"]),
+            trim_timestamp(rec["last"]),
         ])
 
     print(banner("PROJECTS"))

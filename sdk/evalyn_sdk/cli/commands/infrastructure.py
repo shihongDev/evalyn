@@ -29,11 +29,10 @@ Typical workflow:
 from __future__ import annotations
 
 import argparse
-import shutil
 from datetime import datetime
 from pathlib import Path
 
-from ..utils.config import load_config, get_config_default, find_project_root
+from ..utils.config import load_config, get_config_default, find_project_root, create_evalyn_yaml
 from ..utils.errors import fatal_error
 from ..utils.rich import banner, section, icon, footer
 
@@ -55,41 +54,10 @@ def cmd_init(args: argparse.Namespace) -> None:
     if output_path.exists() and not args.force:
         fatal_error(f"{output_path} already exists", "Use --force to overwrite")
 
-    # Find the example file - check multiple locations
-    example_paths = [
-        Path("evalyn.yaml.example"),  # Current directory
-        Path(__file__).parent.parent.parent.parent
-        / "evalyn.yaml.example",  # Project root
-    ]
-
-    example_path = None
-    for p in example_paths:
-        if p.exists():
-            example_path = p
-            break
-
-    if example_path:
-        shutil.copy(example_path, output_path)
-        print(f"{icon('pass')} Created {output_path} (from {example_path})")
+    _, from_example = create_evalyn_yaml(output_path, force=True)
+    if from_example:
+        print(f"{icon('pass')} Created {output_path} (from evalyn.yaml.example)")
     else:
-        # Fallback: create minimal config if example not found
-        minimal = """# Evalyn Configuration
-# See evalyn.yaml.example for all available options
-
-# API Keys - only set what you need
-api_keys:
-  gemini: "your-gemini-api-key-here"  # Required for example agent
-  # openai: "your-openai-key"         # Optional
-
-llm:
-  model: "gemini-2.5-flash-lite"
-
-defaults:
-  project: null
-  version: null
-"""
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(minimal)
         print(f"{icon('pass')} Created {output_path} (minimal config)")
         print("Note: evalyn.yaml.example not found for full template")
 

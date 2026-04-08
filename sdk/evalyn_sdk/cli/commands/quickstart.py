@@ -21,11 +21,11 @@ import argparse
 import os
 import re
 import shlex
-import shutil
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+from ..utils.config import create_evalyn_yaml
 from ..utils.errors import fatal_error
 from ..utils.hints import HintCollector
 from ..utils.rich import banner, section, icon, footer
@@ -243,46 +243,17 @@ def _print_instrumentation_snippet(framework: str) -> None:
 
 
 def _create_evalyn_yaml() -> None:
-    """Create evalyn.yaml using the same logic as cmd_init."""
+    """Create evalyn.yaml using the shared config helper."""
     output_path = Path("evalyn.yaml")
     if output_path.exists():
-        print(f"\n  evalyn.yaml already exists, skipping creation.")
+        print("\n  evalyn.yaml already exists, skipping creation.")
         return
 
-    # Find the example file - check multiple locations
-    example_paths = [
-        Path("evalyn.yaml.example"),
-        Path(__file__).parent.parent.parent.parent / "evalyn.yaml.example",
-    ]
-
-    example_path = None
-    for p in example_paths:
-        if p.exists():
-            example_path = p
-            break
-
-    if example_path:
-        shutil.copy(example_path, output_path)
-        print(f"\n  Created evalyn.yaml (from {example_path})")
+    _, from_example = create_evalyn_yaml(output_path, force=False)
+    if from_example:
+        print("\n  Created evalyn.yaml (from evalyn.yaml.example)")
     else:
-        minimal = """# Evalyn Configuration
-# See evalyn.yaml.example for all available options
-
-# API Keys - only set what you need
-api_keys:
-  gemini: "your-gemini-api-key-here"  # Required for example agent
-  # openai: "your-openai-key"         # Optional
-
-llm:
-  model: "gemini-2.5-flash-lite"
-
-defaults:
-  project: null
-  version: null
-"""
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(minimal)
-        print(f"\n  Created evalyn.yaml (minimal config)")
+        print("\n  Created evalyn.yaml (minimal config)")
 
 
 def _run_agent(run_cmd: str, timeout: int) -> bool:

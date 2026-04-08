@@ -28,7 +28,7 @@ import argparse
 import json
 
 from ..utils.errors import fatal_error
-from ..utils.formatters import print_token_usage_summary
+from ..utils.formatters import print_token_usage_summary, trim_timestamp
 from ..utils.hints import HintCollector
 from ..utils.rich import banner, kv, section, table as rich_table, footer, icon, status_icon
 
@@ -78,12 +78,6 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
         print(json.dumps(result, indent=2))
         return
 
-    def _trim_timestamp(ts) -> str:
-        if not ts:
-            return ""
-        s = str(ts)
-        return s[:16] if len(s) >= 16 else s
-
     headers = ["ID", "Dataset", "Metrics", "Results", "Name", "Created"]
     align = ["left", "left", "right", "right", "left", "left"]
     rows = []
@@ -100,7 +94,7 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
             str(len(run.metrics)),
             str(_results_count(run)),
             name_display,
-            _trim_timestamp(run.created_at),
+            trim_timestamp(run.created_at),
         ])
 
     print(banner("EVAL RUNS"))
