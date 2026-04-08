@@ -37,6 +37,14 @@ from ..utils.config import load_config, get_config_default, find_project_root
 from ..utils.errors import fatal_error
 from ..utils.rich import banner, section, icon, footer
 
+# Real defaults for one-click pipeline arguments.
+# Stored as constants so help text stays accurate when argparse defaults are None.
+_DEFAULT_DATASET_LIMIT = 100
+_DEFAULT_ANNOTATION_LIMIT = 20
+_DEFAULT_NUM_SIMILAR = 3
+_DEFAULT_NUM_OUTLIER = 2
+_DEFAULT_MAX_SIM_SEEDS = 10
+
 
 def cmd_init(args: argparse.Namespace) -> None:
     """Initialize configuration file by copying from evalyn.yaml.example."""
@@ -149,24 +157,26 @@ def _apply_config_defaults(args: argparse.Namespace, config: dict) -> None:
                 args, attr, get_config_default(config, section, key, default=fallback)
             )
 
-    # Handle defaults with special conditions (default values from argparse)
-    if args.dataset_limit == 100:
-        args.dataset_limit = get_config_default(config, "dataset", "limit", default=100)
-    if args.annotation_limit == 20:
+    # Handle defaults with special conditions (argparse defaults are None)
+    if args.dataset_limit is None:
+        args.dataset_limit = get_config_default(
+            config, "dataset", "limit", default=_DEFAULT_DATASET_LIMIT
+        )
+    if args.annotation_limit is None:
         args.annotation_limit = get_config_default(
-            config, "annotation", "limit", default=20
+            config, "annotation", "limit", default=_DEFAULT_ANNOTATION_LIMIT
         )
-    if args.num_similar == 3:
+    if args.num_similar is None:
         args.num_similar = get_config_default(
-            config, "simulation", "num_similar", default=3
+            config, "simulation", "num_similar", default=_DEFAULT_NUM_SIMILAR
         )
-    if args.num_outlier == 2:
+    if args.num_outlier is None:
         args.num_outlier = get_config_default(
-            config, "simulation", "num_outlier", default=1
+            config, "simulation", "num_outlier", default=_DEFAULT_NUM_OUTLIER
         )
-    if args.max_sim_seeds == 10:
+    if args.max_sim_seeds is None:
         args.max_sim_seeds = get_config_default(
-            config, "simulation", "max_seeds", default=50
+            config, "simulation", "max_seeds", default=_DEFAULT_MAX_SIM_SEEDS
         )
 
 
@@ -366,8 +376,8 @@ def register_commands(subparsers) -> None:
     oneclick_parser.add_argument(
         "--dataset-limit",
         type=int,
-        default=100,
-        help="Max dataset items (default: 100)",
+        default=None,
+        help=f"Max dataset items (default: {_DEFAULT_DATASET_LIMIT})",
     )
     oneclick_parser.add_argument(
         "--since", help="Filter traces since date (ISO format)"
@@ -402,8 +412,8 @@ def register_commands(subparsers) -> None:
     oneclick_parser.add_argument(
         "--annotation-limit",
         type=int,
-        default=20,
-        help="Max items to annotate (default: 20)",
+        default=None,
+        help=f"Max items to annotate (default: {_DEFAULT_ANNOTATION_LIMIT})",
     )
     oneclick_parser.add_argument(
         "--per-metric", action="store_true", help="Use per-metric annotation mode"
@@ -437,20 +447,20 @@ def register_commands(subparsers) -> None:
     oneclick_parser.add_argument(
         "--num-similar",
         type=int,
-        default=3,
-        help="Similar queries per seed (default: 3)",
+        default=None,
+        help=f"Similar queries per seed (default: {_DEFAULT_NUM_SIMILAR})",
     )
     oneclick_parser.add_argument(
         "--num-outlier",
         type=int,
-        default=2,
-        help="Outlier queries per seed (default: 2)",
+        default=None,
+        help=f"Outlier queries per seed (default: {_DEFAULT_NUM_OUTLIER})",
     )
     oneclick_parser.add_argument(
         "--max-sim-seeds",
         type=int,
-        default=10,
-        help="Max seeds for simulation (default: 10)",
+        default=None,
+        help=f"Max seeds for simulation (default: {_DEFAULT_MAX_SIM_SEEDS})",
     )
     oneclick_parser.add_argument(
         "--workers",

@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -294,8 +295,7 @@ def _run_agent(run_cmd: str, timeout: int) -> bool:
 
     try:
         result = subprocess.run(
-            run_cmd,
-            shell=True,
+            shlex.split(run_cmd),
             timeout=timeout,
             capture_output=False,
         )

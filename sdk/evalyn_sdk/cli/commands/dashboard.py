@@ -14,8 +14,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import platform
-import subprocess
+import webbrowser
 from pathlib import Path
 
 from ..utils.command_common import load_eval_run_for_command
@@ -26,18 +25,9 @@ from ..utils.rich import icon
 
 def _open_in_browser(file_path: Path) -> bool:
     """Try to open file in the default browser. Returns True on success."""
-    system = platform.system()
     try:
-        if system == "Darwin":
-            subprocess.run(["open", str(file_path)], check=True)
-        elif system == "Linux":
-            subprocess.run(["xdg-open", str(file_path)], check=True)
-        elif system == "Windows":
-            subprocess.run(["start", str(file_path)], check=True, shell=True)
-        else:
-            return False
-        return True
-    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return webbrowser.open(file_path.as_uri())
+    except Exception:
         return False
 
 

@@ -39,11 +39,7 @@ from ..utils.hints import HintCollector
 from ..utils.rich import banner, kv, section, table as rich_table, footer, icon, status_icon
 from ..utils.validation import extract_project_id
 
-# Database paths
-DB_PATHS = {
-    "prod": "data/prod/traces.sqlite",
-    "test": "data/test/traces.sqlite",
-}
+from ...storage.sqlite import DB_PATHS
 
 
 def _get_storage(args: argparse.Namespace) -> SQLiteStorage:

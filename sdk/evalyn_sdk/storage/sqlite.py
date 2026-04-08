@@ -18,6 +18,7 @@ from .migrations import run_migrations
 # Default paths for prod/test separation
 DEFAULT_PROD_DB = "data/prod/traces.sqlite"
 DEFAULT_TEST_DB = "data/test/traces.sqlite"
+DB_PATHS = {"prod": DEFAULT_PROD_DB, "test": DEFAULT_TEST_DB}
 
 
 @functools.lru_cache(maxsize=1)
@@ -263,36 +264,48 @@ class SQLiteStorage:
         )
         return {row["id"]: self._row_to_call(row) for row in cur.fetchall()}
 
+    # Columns needed for lightweight listing (skip large blobs)
+    _LIGHTWEIGHT_COLS = (
+        "id, function_name, session_id, started_at, ended_at, "
+        "duration_ms, error, metadata, parent_call_id"
+    )
+
     def list_calls(
         self,
         limit: int = 100,
         project: Optional[str] = None,
         lightweight: bool = False,
+        function_name: Optional[str] = None,
+        version: Optional[str] = None,
     ) -> List[FunctionCall]:
         cur = self.get_connection().cursor()
+        cols = self._LIGHTWEIGHT_COLS if lightweight else "*"
+
+        where_parts: list[str] = []
+        params: list = []
+
         if project:
-            # Filter by project in SQL using JSON metadata fields
-            cur.execute(
-                """
-                SELECT * FROM function_calls
-                WHERE (
-                    json_extract(metadata, '$.project_id') = ?
-                    OR json_extract(metadata, '$.project_name') = ?
-                )
-                ORDER BY started_at DESC
-                LIMIT ?
-                """,
-                (project, project, limit),
+            where_parts.append(
+                "(json_extract(metadata, '$.project_id') = ? "
+                "OR json_extract(metadata, '$.project_name') = ?)"
             )
-        else:
-            cur.execute(
-                """
-                SELECT * FROM function_calls
-                ORDER BY started_at DESC
-                LIMIT ?
-                """,
-                (limit,),
-            )
+            params.extend([project, project])
+
+        if function_name:
+            where_parts.append("function_name LIKE ?")
+            params.append(f"%{function_name}%")
+
+        if version:
+            where_parts.append("json_extract(metadata, '$.version') = ?")
+            params.append(version)
+
+        where_clause = f"WHERE {' AND '.join(where_parts)}" if where_parts else ""
+
+        params.append(limit)
+        cur.execute(
+            f"SELECT {cols} FROM function_calls {where_clause} ORDER BY started_at DESC LIMIT ?",
+            params,
+        )
         return [
             self._row_to_call(row, lightweight=lightweight)
             for row in cur.fetchall()
@@ -789,22 +802,39 @@ class SQLiteStorage:
     ) -> FunctionCall:
         # Handle new columns that may not exist in old databases
         parent_call_id = None
-        spans: list = []
         try:
             parent_call_id = row["parent_call_id"]
-            if not lightweight:
-                spans_raw = row["spans"]
-                if spans_raw:
-                    spans = json.loads(spans_raw)
         except (KeyError, IndexError):
-            # Old database without new columns
             pass
 
-        trace = (
-            []
-            if lightweight
-            else (json.loads(row["trace"]) if row["trace"] else [])
-        )
+        if lightweight:
+            # Skip deserializing inputs, output, trace, spans -
+            # they are not in the SELECT and not needed for listing.
+            return FunctionCall.from_dict(
+                {
+                    "id": row["id"],
+                    "function_name": row["function_name"],
+                    "session_id": row["session_id"],
+                    "started_at": row["started_at"],
+                    "ended_at": row["ended_at"],
+                    "duration_ms": row["duration_ms"],
+                    "inputs": {},
+                    "output": None,
+                    "error": row["error"],
+                    "trace": [],
+                    "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
+                    "parent_call_id": parent_call_id,
+                    "spans": [],
+                }
+            )
+
+        spans: list = []
+        try:
+            spans_raw = row["spans"]
+            if spans_raw:
+                spans = json.loads(spans_raw)
+        except (KeyError, IndexError):
+            pass
 
         return FunctionCall.from_dict(
             {
@@ -817,7 +847,7 @@ class SQLiteStorage:
                 "inputs": json.loads(row["inputs"]) if row["inputs"] else {},
                 "output": json.loads(row["output"]) if row["output"] else None,
                 "error": row["error"],
-                "trace": trace,
+                "trace": json.loads(row["trace"]) if row["trace"] else [],
                 "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
                 "parent_call_id": parent_call_id,
                 "spans": spans,

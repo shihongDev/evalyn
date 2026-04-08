@@ -6,6 +6,7 @@ Contains common functionality used across monkey-patch instrumentors.
 
 from __future__ import annotations
 
+import warnings
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
@@ -13,7 +14,10 @@ from ....models import Span
 from ... import context as span_context
 
 
-# Cost per 1M tokens (as of Jan 2025)
+# Last updated: 2026-04. If prices are stale, update this dict and bump the date.
+_COST_LAST_UPDATED = "2026-04"
+
+# Cost per 1M tokens
 # Format: {"input": X, "output": Y, "cache_write": Z, "cache_read": W}
 # cache_write is typically 1.25x input, cache_read is typically 0.1x input
 # Sources:
@@ -271,6 +275,11 @@ def calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
         return input_cost + output_cost
 
     # Default estimate if model not found: $1/1M tokens
+    warnings.warn(
+        f"No pricing data for model '{model}'. Using $1/1M estimate. "
+        f"Use register_cost_model() to set accurate pricing.",
+        stacklevel=2,
+    )
     return (input_tokens + output_tokens) / 1_000_000 * 1.0
 
 
@@ -309,6 +318,11 @@ def calculate_cost_with_cache(
         return input_cost + output_cost + cache_write_cost + cache_read_cost
 
     # Default estimate if model not found
+    warnings.warn(
+        f"No pricing data for model '{model}'. Using $1/1M estimate. "
+        f"Use register_cost_model() to set accurate pricing.",
+        stacklevel=2,
+    )
     total_tokens = (
         input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens
     )
