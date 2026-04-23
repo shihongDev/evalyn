@@ -1136,8 +1136,8 @@ def cmd_show_projects(args: argparse.Namespace) -> None:
         if call.started_at and rec["last"] and call.started_at > rec["last"]:
             rec["last"] = call.started_at
 
-    headers = ["Project", "Calls", "Errors", "Last Active"]
-    align = ["left", "right", "right", "left"]
+    headers = ["Project", "Version", "Calls", "Errors", "Last Active"]
+    align = ["left", "left", "right", "right", "left"]
     rows = []
     first_project = None
     for (project, version), rec in summary.items():
@@ -1145,6 +1145,7 @@ def cmd_show_projects(args: argparse.Namespace) -> None:
             first_project = project
         rows.append([
             project,
+            version or "-",
             str(rec["total"]),
             str(rec["errors"]),
             trim_timestamp(rec["last"]),

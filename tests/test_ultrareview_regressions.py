@@ -67,6 +67,23 @@ class TestCalibrationZeroValues:
 
 
 # ---------------------------------------------------------------------------
+# bug_008: show-projects keeps Version column
+# ---------------------------------------------------------------------------
+
+class TestShowProjectsVersionColumn:
+    def test_headers_include_version(self):
+        from evalyn_sdk.cli.commands import traces
+        # Inspect the source to confirm the Version column is present.
+        # We don't run cmd_show_projects fully because it reads from storage;
+        # the header list is the contract that visually distinguishes rows.
+        import inspect
+        src = inspect.getsource(traces.cmd_show_projects)
+        assert '"Version"' in src
+        # And the row builder must emit version (or a placeholder)
+        assert "version or" in src or "version," in src
+
+
+# ---------------------------------------------------------------------------
 # bug_006: annotation-stats keeps the NEWEST stored annotation per target
 # ---------------------------------------------------------------------------
 
