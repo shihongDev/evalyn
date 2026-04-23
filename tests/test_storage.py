@@ -261,6 +261,36 @@ class TestListCalls:
         calls = temp_db.list_calls(project="nonexistent")
         assert len(calls) == 0
 
+    def test_function_filter_underscore_is_literal(self, temp_db):
+        """Regression: --function 'run_agent' must not match 'runXagent'.
+
+        SQL LIKE treats `_` as a single-char wildcard. The substring filter
+        must use literal matching (e.g. instr) so dataset items with similar
+        names aren't silently included.
+        """
+        temp_db.store_call(_make_call("c1", function_name="run_agent"))
+        temp_db.store_call(_make_call("c2", function_name="runXagent"))
+        temp_db.store_call(_make_call("c3", function_name="run1agent"))
+        temp_db.store_call(_make_call("c4", function_name="myfunc"))
+
+        calls = temp_db.list_calls(function_name="run_agent")
+        names = {c.function_name for c in calls}
+        assert names == {"run_agent"}
+
+    def test_function_filter_percent_is_literal(self, temp_db):
+        """Regression: --function 'foo%bar' must not act as a wildcard."""
+        temp_db.store_call(_make_call("c1", function_name="foo%bar"))
+        temp_db.store_call(_make_call("c2", function_name="fooXXXbar"))
+
+        calls = temp_db.list_calls(function_name="foo%bar")
+        names = {c.function_name for c in calls}
+        assert names == {"foo%bar"}
+
+    def test_function_filter_case_insensitive(self, temp_db):
+        temp_db.store_call(_make_call("c1", function_name="RunAgent"))
+        calls = temp_db.list_calls(function_name="runagent")
+        assert len(calls) == 1
+
 
 # ---------------------------------------------------------------------------
 # delete_calls

@@ -292,8 +292,8 @@ class SQLiteStorage:
             params.extend([project, project])
 
         if function_name:
-            where_parts.append("function_name LIKE ?")
-            params.append(f"%{function_name}%")
+            where_parts.append("instr(LOWER(function_name), LOWER(?)) > 0")
+            params.append(function_name)
 
         if version:
             where_parts.append("json_extract(metadata, '$.version') = ?")
