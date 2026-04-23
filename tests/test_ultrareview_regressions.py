@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import shlex
 
 
 # ---------------------------------------------------------------------------
@@ -81,6 +82,33 @@ class TestShowProjectsVersionColumn:
         assert '"Version"' in src
         # And the row builder must emit version (or a placeholder)
         assert "version or" in src or "version," in src
+
+
+# ---------------------------------------------------------------------------
+# bug_010: quickstart --run preserves Windows backslash paths
+# ---------------------------------------------------------------------------
+
+class TestQuickstartShlexPosixMode:
+    def test_posix_mode_eats_backslashes(self):
+        """Document the underlying bug: POSIX shlex strips backslashes."""
+        argv = shlex.split(r"python C:\Users\foo\agent.py")
+        # POSIX mode: backslashes are escape characters, so they vanish
+        assert argv == ["python", "C:Usersfooagent.py"]
+
+    def test_non_posix_mode_preserves_backslashes(self):
+        """The fix: posix=False on Windows preserves the path."""
+        argv = shlex.split(r"python C:\Users\foo\agent.py", posix=False)
+        assert "\\" in argv[1]
+        assert argv[1] == r"C:\Users\foo\agent.py"
+
+    def test_run_agent_uses_platform_aware_split(self):
+        """Make sure _run_agent calls shlex.split with the right posix flag."""
+        from evalyn_sdk.cli.commands import quickstart
+        import inspect
+        src = inspect.getsource(quickstart._run_agent)
+        # Must branch on platform, not blindly use POSIX defaults
+        assert "posix=" in src
+        assert "win32" in src
 
 
 # ---------------------------------------------------------------------------

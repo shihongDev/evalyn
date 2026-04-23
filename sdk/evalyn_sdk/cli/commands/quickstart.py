@@ -22,6 +22,7 @@ import os
 import re
 import shlex
 import subprocess
+import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -265,8 +266,12 @@ def _run_agent(run_cmd: str, timeout: int) -> bool:
     print(f"  Timeout: {timeout}s\n")
 
     try:
+        # POSIX-mode shlex.split treats backslash as an escape character, which
+        # corrupts Windows paths like 'C:\Users\me\agent.py'. Disable POSIX mode
+        # on Windows so backslashes survive argv splitting.
+        argv = shlex.split(run_cmd, posix=(sys.platform != "win32"))
         result = subprocess.run(
-            shlex.split(run_cmd),
+            argv,
             timeout=timeout,
             capture_output=False,
         )
