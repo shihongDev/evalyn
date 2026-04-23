@@ -252,17 +252,28 @@ class SQLiteStorage:
             return None
         return self._row_to_call(row)
 
-    def get_calls_batch(self, call_ids: List[str]) -> Dict[str, FunctionCall]:
-        """Fetch multiple calls by ID in a single query. Returns {id: call}."""
+    def get_calls_batch(
+        self, call_ids: List[str], chunk_size: int = 500
+    ) -> Dict[str, FunctionCall]:
+        """Fetch multiple calls by ID. Returns {id: call}.
+
+        Chunks queries to stay below SQLITE_MAX_VARIABLE_NUMBER (999 on
+        SQLite <3.32, 32766 on newer builds).
+        """
         if not call_ids:
             return {}
         cur = self.get_connection().cursor()
-        placeholders = ",".join("?" for _ in call_ids)
-        cur.execute(
-            f"SELECT * FROM function_calls WHERE id IN ({placeholders})",
-            call_ids,
-        )
-        return {row["id"]: self._row_to_call(row) for row in cur.fetchall()}
+        result: Dict[str, FunctionCall] = {}
+        for i in range(0, len(call_ids), chunk_size):
+            chunk = call_ids[i : i + chunk_size]
+            placeholders = ",".join("?" for _ in chunk)
+            cur.execute(
+                f"SELECT * FROM function_calls WHERE id IN ({placeholders})",
+                chunk,
+            )
+            for row in cur.fetchall():
+                result[row["id"]] = self._row_to_call(row)
+        return result
 
     # Columns needed for lightweight listing (skip large blobs)
     _LIGHTWEIGHT_COLS = (

@@ -293,6 +293,43 @@ class TestListCalls:
 
 
 # ---------------------------------------------------------------------------
+# get_calls_batch
+# ---------------------------------------------------------------------------
+
+class TestGetCallsBatch:
+    def test_batch_returns_dict_keyed_by_id(self, temp_db):
+        temp_db.store_call(_make_call("c1"))
+        temp_db.store_call(_make_call("c2"))
+        result = temp_db.get_calls_batch(["c1", "c2", "missing"])
+        assert set(result.keys()) == {"c1", "c2"}
+
+    def test_batch_empty(self, temp_db):
+        assert temp_db.get_calls_batch([]) == {}
+
+    def test_batch_chunks_above_sqlite_variable_limit(self, temp_db):
+        """Regression: large batches must not raise 'too many SQL variables'.
+
+        SQLITE_MAX_VARIABLE_NUMBER is 999 on SQLite <3.32. Pass well above
+        that to ensure chunking kicks in.
+        """
+        ids = [f"c{i:05d}" for i in range(1500)]
+        for cid in ids:
+            temp_db.store_call(_make_call(cid))
+        # Should not raise sqlite3.OperationalError
+        result = temp_db.get_calls_batch(ids)
+        assert len(result) == 1500
+        assert set(result.keys()) == set(ids)
+
+    def test_batch_small_chunk_size(self, temp_db):
+        for i in range(10):
+            temp_db.store_call(_make_call(f"c{i}"))
+        ids = [f"c{i}" for i in range(10)]
+        # chunk_size=3 forces 4 chunks; verifies merge logic
+        result = temp_db.get_calls_batch(ids, chunk_size=3)
+        assert len(result) == 10
+
+
+# ---------------------------------------------------------------------------
 # delete_calls
 # ---------------------------------------------------------------------------
 
