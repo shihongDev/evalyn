@@ -289,37 +289,43 @@ def _build_calibration_optimizer_configs(args: argparse.Namespace) -> dict:
             mini_batch_size=args.gepa_native_batch_size,
         )
 
+    def _resolve(attr: str, default):
+        # Use `is not None` so explicit user-supplied 0/0.0 isn't treated as
+        # falsy and silently replaced by the default.
+        value = getattr(args, attr, None)
+        return value if value is not None else default
+
     # New optimizers use generic optimizer_config
     optimizer_config = None
     if args.optimizer == "evoprompt":
         from ...calibration.evoprompt import EvoPromptConfig
 
         optimizer_config = EvoPromptConfig(
-            population_size=getattr(args, "evo_population", None) or _DEFAULT_EVO_POPULATION,
-            generations=getattr(args, "evo_generations", None) or _DEFAULT_EVO_GENERATIONS,
-            mutation_rate=getattr(args, "evo_mutation_rate", None) or _DEFAULT_EVO_MUTATION_RATE,
+            population_size=_resolve("evo_population", _DEFAULT_EVO_POPULATION),
+            generations=_resolve("evo_generations", _DEFAULT_EVO_GENERATIONS),
+            mutation_rate=_resolve("evo_mutation_rate", _DEFAULT_EVO_MUTATION_RATE),
         )
     elif args.optimizer == "textgrad":
         from ...calibration.textgrad import TextGradConfig
 
         optimizer_config = TextGradConfig(
-            max_iterations=getattr(args, "textgrad_iterations", None) or _DEFAULT_TEXTGRAD_ITERATIONS,
-            improvement_threshold=getattr(args, "textgrad_threshold", None) or _DEFAULT_TEXTGRAD_THRESHOLD,
+            max_iterations=_resolve("textgrad_iterations", _DEFAULT_TEXTGRAD_ITERATIONS),
+            improvement_threshold=_resolve("textgrad_threshold", _DEFAULT_TEXTGRAD_THRESHOLD),
         )
     elif args.optimizer == "miprov2":
         from ...calibration.miprov2 import MIPROv2Config
 
         optimizer_config = MIPROv2Config(
-            num_instructions=getattr(args, "mipro_instructions", None) or _DEFAULT_MIPRO_INSTRUCTIONS,
-            num_demos=getattr(args, "mipro_demos", None) or _DEFAULT_MIPRO_DEMOS,
-            eval_samples=getattr(args, "mipro_eval_samples", None) or _DEFAULT_MIPRO_EVAL_SAMPLES,
+            num_instructions=_resolve("mipro_instructions", _DEFAULT_MIPRO_INSTRUCTIONS),
+            num_demos=_resolve("mipro_demos", _DEFAULT_MIPRO_DEMOS),
+            eval_samples=_resolve("mipro_eval_samples", _DEFAULT_MIPRO_EVAL_SAMPLES),
         )
     elif args.optimizer == "promptbreeder":
         from ...calibration.promptbreeder import PromptBreederConfig
 
         optimizer_config = PromptBreederConfig(
-            population_size=getattr(args, "pb_population", None) or _DEFAULT_PB_POPULATION,
-            generations=getattr(args, "pb_generations", None) or _DEFAULT_PB_GENERATIONS,
+            population_size=_resolve("pb_population", _DEFAULT_PB_POPULATION),
+            generations=_resolve("pb_generations", _DEFAULT_PB_GENERATIONS),
         )
 
     return {
