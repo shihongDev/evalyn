@@ -114,7 +114,11 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
         tracer = get_default_tracer()
         if tracer.storage:
             stored_anns = tracer.storage.list_annotations(limit=10000)
-            stored_by_target = {a.target_id: a for a in stored_anns}
+            # list_annotations returns newest-first; setdefault keeps the
+            # newest annotation per target when multiple exist.
+            stored_by_target: Dict[str, "Annotation"] = {}
+            for ann in stored_anns:
+                stored_by_target.setdefault(ann.target_id, ann)
             for item in items:
                 item_id = getattr(item, "id", "") or ""
                 if item_id in stored_by_target and not item.human_label:
