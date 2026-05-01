@@ -226,7 +226,11 @@ describe('sendChatMessage', () => {
 
     await useStore.getState().sendChatMessage('follow-up');
     expect(fetchMock).toHaveBeenCalledOnce();
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/agent/chat/th-existing');
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/agent/chat');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      message: 'follow-up',
+      thread_id: 'th-existing',
+    });
   });
 
   test('blank message is a no-op', async () => {
@@ -364,7 +368,7 @@ describe('settings actions', () => {
     const { settings } = useStore.getState();
     expect(settings.providers.openai.hasKey).toBe(true);
     expect(settings.providers.openai.model).toBe('gpt-5.1');
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/settings/providers/openai');
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/settings/openai');
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ api_key: 'sk-test' });
   });
 
