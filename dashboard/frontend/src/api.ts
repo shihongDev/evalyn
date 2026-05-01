@@ -22,11 +22,11 @@ const wsUrl = (path: string): string => {
   return `${proto}//${host}${path}`;
 };
 
-/** Read CSRF token from the `<meta name="csrf-token">` tag injected by the
+/** Read CSRF token from the `<meta name="workbench-token">` tag injected by the
  *  server (see spec §10). Returns null in test/SSR contexts. */
 const csrfToken = (): string | null => {
   if (typeof document === 'undefined') return null;
-  const meta = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]');
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="workbench-token"]');
   return meta?.content ?? null;
 };
 
@@ -38,7 +38,7 @@ async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
   };
   const token = csrfToken();
   if (token && init?.method && init.method !== 'GET') {
-    headers['X-CSRF-Token'] = token;
+    headers['X-Workbench-Token'] = token;
   }
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (!res.ok) {

@@ -52,7 +52,7 @@ export type JobWsEvent =
   | { type: 'stdout' | 'stderr' | 'info' | 'prompt' | 'ok' | 'warn' | 'fail'; line: string; ts?: string; event_id?: number }
   | { type: 'exit'; code: number; duration?: string; ts?: string; event_id?: number }
   | { type: 'progress'; progress: number; eta?: string; ts?: string; event_id?: number }
-  | { type: 'truncated'; dropped: number; ts?: string; event_id?: number };
+  | { type: 'truncated'; count: number; ts?: string; event_id?: number };
 
 export interface Tab {
   /** Stable tab id (e.g. `cli:run-eval`, `job:j-9282`, `82dddcc3.run`). */

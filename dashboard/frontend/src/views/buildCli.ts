@@ -57,7 +57,7 @@ export function buildCli(cli: CliSchema, values: CliFormValues): string {
     }
     if (p.kind === 'multiselect') {
       const arr = v as unknown[];
-      flags.push(`--${flagName(p.name)} ${arr.join(',')}`);
+      flags.push(`--${flagName(p.name)} ${arr.join(' ')}`);
       continue;
     }
     if (typeof v === 'number' && v === p.default) {

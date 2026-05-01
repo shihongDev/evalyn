@@ -373,7 +373,7 @@ export const useStore = create<StoreState>((set, get) => ({
         if (evt.type === 'truncated') {
           get().appendJobLine(
             jobId,
-            { kind: 'warn', text: `[truncated ${evt.dropped} lines]`, ts: evt.ts },
+            { kind: 'warn', text: `[truncated ${evt.count} lines]`, ts: evt.ts },
             eventId,
           );
           return;

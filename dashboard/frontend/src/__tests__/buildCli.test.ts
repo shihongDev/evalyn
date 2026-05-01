@@ -100,9 +100,9 @@ describe('buildCli - bool toggle', () => {
 });
 
 describe('buildCli - multiselect', () => {
-  test('comma-joined values', () => {
+  test('space-joined values (matches argparse nargs="*")', () => {
     const c = cli([{ name: 'tags', kind: 'multiselect', options: ['a', 'b', 'c'] }]);
-    expect(buildCli(c, { tags: ['a', 'c'] })).toBe('evalyn demo --tags a,c');
+    expect(buildCli(c, { tags: ['a', 'c'] })).toBe('evalyn demo --tags a c');
   });
 
   test('underscores kebab-cased', () => {
@@ -178,7 +178,7 @@ describe('buildCli - composition', () => {
       name: 'foo',
       tags: ['a', 'b'],
     });
-    expect(out).toBe('evalyn demo --workers 8 --verbose --name foo --tags a,b');
+    expect(out).toBe('evalyn demo --workers 8 --verbose --name foo --tags a b');
   });
 
   test('mixed defaults preserved', () => {

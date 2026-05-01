@@ -129,7 +129,7 @@ describe('store.subscribeJob', () => {
   test('truncated event appends a warn marker line', () => {
     useStore.getState().subscribeJob('j-1', { factory });
     const ws = MockWebSocket.instances.at(-1)!;
-    ws.sendFrame({ type: 'truncated', dropped: 1234, event_id: 7 });
+    ws.sendFrame({ type: 'truncated', count: 1234, event_id: 7 });
     const lines = useStore.getState().jobEvents.get('j-1') ?? [];
     expect(lines[0].kind).toBe('warn');
     expect(lines[0].text).toContain('1234');
