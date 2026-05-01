@@ -17,6 +17,9 @@ Usage:
 
 from __future__ import annotations
 
+# Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
+GROUP = "Quickstart"
+
 import argparse
 import os
 import re

@@ -21,6 +21,9 @@ Typical workflow:
 
 from __future__ import annotations
 
+# Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
+GROUP = "Dataset"
+
 import argparse
 import os
 from datetime import datetime, timezone
