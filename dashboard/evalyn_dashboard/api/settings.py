@@ -96,9 +96,10 @@ async def list_models(request: Request, provider: str) -> JSONResponse:
         try:
             import httpx
 
-            response = httpx.get(url, timeout=5.0)
-            response.raise_for_status()
-            data = response.json()
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, timeout=5.0)
+                response.raise_for_status()
+                data = response.json()
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=502, detail=f"ollama tags fetch failed: {exc}") from exc
         models = []

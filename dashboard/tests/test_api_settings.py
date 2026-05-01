@@ -138,18 +138,41 @@ def test_models_ollama_calls_local_tags(tmp_path: Path) -> None:
             {"name": "mistral:7b"},
         ]
     }
-    with patch("httpx.get", return_value=fake_response) as mock_get:
+
+    captured_url: dict[str, str] = {}
+
+    class _FakeAsyncClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc_info):
+            return False
+
+        async def get(self, url, timeout=None):
+            captured_url["url"] = url
+            return fake_response
+
+    with patch("httpx.AsyncClient", return_value=_FakeAsyncClient()):
         r = client.get("/api/settings/models/ollama")
     assert r.status_code == 200
     assert r.json()["models"] == ["llama3:70b", "mistral:7b"]
-    mock_get.assert_called_once()
-    args, _ = mock_get.call_args
-    assert args[0] == "http://localhost:11434/api/tags"
+    assert captured_url["url"] == "http://localhost:11434/api/tags"
 
 
 def test_models_ollama_failure_502(tmp_path: Path) -> None:
     client, _, _ = _make_client(tmp_path)
-    with patch("httpx.get", side_effect=RuntimeError("connection refused")):
+
+    class _FailingAsyncClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc_info):
+            return False
+
+        async def get(self, url, timeout=None):
+            raise RuntimeError("connection refused")
+
+    with patch("httpx.AsyncClient", return_value=_FailingAsyncClient()):
         r = client.get("/api/settings/models/ollama")
     assert r.status_code == 502
 

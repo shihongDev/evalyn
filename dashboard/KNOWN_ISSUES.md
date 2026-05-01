@@ -19,3 +19,21 @@ The close handler captures `conn` in its closure but `conn` is the same object m
 ## LOW
 
 (none currently)
+
+### 3. AgentRuntime.subscribe race (agent.py:700-713)
+
+Same pattern as #1: events emitted between replay and subscriber registration are dropped. Risk is higher here because confirmation_required events not reaching client cause stuck UI.
+
+**Fix sketch:** identical to #1.
+
+### 4. ToolCallCard confirm doesn't pass call.id (ChatPanel.tsx:208-219)
+
+`confirmAgent(approve)` reads `agent.pendingConfirmation.toolCallId` from store; the per-card button never passes its own `call.id`. With multiple stale confirmation cards (e.g. after WS replay), clicking any card confirms whatever is currently pending, not the card clicked.
+
+**Fix sketch:** add `tool_call_id` parameter to `confirmAgent`, validate it matches `pendingConfirmation.toolCallId`.
+
+### 5. /api/agent/chat/{thread_id}/confirm ignores tool_call_id (api/agent.py:57-65)
+
+Endpoint accepts `tool_call_id` in body but doesn't pass it to `AgentRuntime.confirm`. Currently safe (single asyncio.Event per thread), but a malicious concurrent request could inject a confirmation. Tied to #4.
+
+**Fix sketch:** plumb `tool_call_id` through `AgentRuntime.confirm` and validate against pending gate before setting Event.

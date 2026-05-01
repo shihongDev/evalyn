@@ -761,11 +761,16 @@ class AgentRuntime:
         for _ in range(self.tool_budget + 1):
             current_text = []
             pending_tool_calls: list[ProviderToolCall] = []
+            # Per-turn message id so the frontend can stitch text_deltas into one bubble.
+            assistant_msg_id = uuid.uuid4().hex
 
             async for evt in provider.stream_chat(thread.messages, canonical_tools):
                 if evt.kind == "text_delta" and evt.text:
                     current_text.append(evt.text)
-                    self._emit(thread, {"type": "text_delta", "text": evt.text})
+                    self._emit(
+                        thread,
+                        {"type": "text_delta", "text": evt.text, "message_id": assistant_msg_id},
+                    )
                 elif evt.kind == "tool_call" and evt.tool_call is not None:
                     pending_tool_calls.append(evt.tool_call)
                 elif evt.kind == "error":
@@ -803,10 +808,10 @@ class AgentRuntime:
                 return
 
             # Execute every tool call requested in this turn before looping
-            # back to the provider. Hard ceiling on cumulative calls.
+            # back to the provider. Hard ceiling on cumulative calls (check
+            # before increment so a batch return cannot overshoot the budget).
             for tc in pending_tool_calls:
-                tool_calls_used += 1
-                if tool_calls_used > self.tool_budget:
+                if tool_calls_used + 1 > self.tool_budget:
                     self._emit(
                         thread,
                         {
@@ -815,6 +820,7 @@ class AgentRuntime:
                         },
                     )
                     return
+                tool_calls_used += 1
 
                 ok, stdout, exit_code = await self._execute_tool_call(thread, tc)
                 # Feed the tool result back into the message log. Both the
