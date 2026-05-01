@@ -1,24 +1,18 @@
 /**
- * BottomPanel — Terminal / Jobs / Problems tab strip + placeholder panes.
+ * BottomPanel — Terminal / Jobs / Problems tab strip + live panes.
  *
- * Skeleton ported from /tmp/evalyn-dashboard-mock/wb-app.jsx (lines 425-518).
- * Inner views are placeholders; Lane B3 fills Terminal + Jobs with a real
- * ANSI parser + live job rows. Problems stays a stub through Phase 2.
+ * Tab strip ported from /tmp/evalyn-dashboard-mock/wb-app.jsx (lines 425-518).
+ * Inner Terminal + Jobs panes wired to real components in Lane B3 (this
+ * lane). Problems stays a stub through Phase 2.
  */
 
 import { useStore, type BottomTab } from '../store';
+import Terminal from './Terminal';
+import JobsList from './JobsList';
 
-const PlaceholderPane = ({ label }: { label: string }) => (
-  <div
-    className="mono text-3"
-    style={{
-      fontSize: 11,
-      lineHeight: 1.7,
-      padding: '6px 0',
-    }}
-  >
-    <div className="text-2">{label}</div>
-    <div style={{ marginTop: 6 }}>{'// Coming in Phase 2'}</div>
+const ProblemsPane = () => (
+  <div className="mono text-3" style={{ fontSize: 11, lineHeight: 1.7, padding: '6px 0' }}>
+    <div>{'// problems pane — not implemented in v1'}</div>
   </div>
 );
 
@@ -27,6 +21,8 @@ const BottomPanel = () => {
   const setTab = useStore((s) => s.setBottomTab);
   const jobs = useStore((s) => s.jobs);
   const jobsCount = jobs.size;
+  const runningCount = Array.from(jobs.values()).filter((j) => j.status === 'running').length;
+  const todayCount = jobsCount;
 
   const tabs: Array<[BottomTab, string]> = [
     ['terminal', 'Terminal'],
@@ -73,16 +69,16 @@ const BottomPanel = () => {
         ))}
         <span className="grow" />
         <span className="text-3 mono" style={{ fontSize: 10, marginRight: 8 }}>
-          0 running · 0 today
+          {runningCount} running · {todayCount} today
         </span>
         <button className="btn ghost icon" title="Clear" type="button">
           {'⊘'}
         </button>
       </div>
-      <div style={{ flex: 1, overflow: 'auto', padding: 14 }}>
-        {tab === 'terminal' && <PlaceholderPane label="terminal" />}
-        {tab === 'jobs' && <PlaceholderPane label="jobs" />}
-        {tab === 'problems' && <PlaceholderPane label="problems" />}
+      <div style={{ flex: 1, overflow: 'hidden', padding: 14 }}>
+        {tab === 'terminal' && <Terminal />}
+        {tab === 'jobs' && <JobsList />}
+        {tab === 'problems' && <ProblemsPane />}
       </div>
     </div>
   );
