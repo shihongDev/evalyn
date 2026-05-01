@@ -32,6 +32,8 @@ export interface Job {
   progress?: number;
   /** Wall-clock start time (HH:MM:SS) for display. */
   started?: string;
+  /** Epoch ms the job started — used for elapsed-time calc. */
+  startedAt?: number;
   /** Final duration string once complete. */
   duration?: string;
   /** Estimated time remaining while running. */
@@ -41,6 +43,16 @@ export interface Job {
   /** Captured output lines (cap enforced by backend). */
   lines?: JobLine[];
 }
+
+/**
+ * Wire format for events streamed over `/ws/jobs/{id}`. The backend
+ * (Lane B1) emits one of these per WS frame, JSON-encoded.
+ */
+export type JobWsEvent =
+  | { type: 'stdout' | 'stderr' | 'info' | 'prompt' | 'ok' | 'warn' | 'fail'; line: string; ts?: string; event_id?: number }
+  | { type: 'exit'; code: number; duration?: string; ts?: string; event_id?: number }
+  | { type: 'progress'; progress: number; eta?: string; ts?: string; event_id?: number }
+  | { type: 'truncated'; dropped: number; ts?: string; event_id?: number };
 
 export interface Tab {
   /** Stable tab id (e.g. `cli:run-eval`, `job:j-9282`, `82dddcc3.run`). */

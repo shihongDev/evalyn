@@ -18,8 +18,9 @@
 
 import { create } from 'zustand';
 import type { CliSchema } from './types/catalog';
-import type { Tab, Job, FileNode, RunMeta } from './types/jobs';
+import type { Tab, Job, JobLine, JobWsEvent, FileNode, RunMeta } from './types/jobs';
 import type { AgentState, SettingsState } from './types/agent';
+import { openJobWs } from './api';
 
 export type Theme = 'dark' | 'light';
 export type ChatPlacement = 'dock' | 'bottom' | 'bubble';
@@ -46,12 +47,23 @@ export const TWEAK_DEFAULTS: Tweaks = {
 export type SidebarView = 'files' | 'clis' | 'runs';
 export type BottomTab = 'terminal' | 'jobs' | 'problems';
 
+/**
+ * Cap on how many lines we keep in memory per job. The backend already
+ * enforces a hard cap (10000) but we keep a smaller window on the
+ * client so the Terminal stays cheap to re-render.
+ */
+export const MAX_JOB_LINES = 5000;
+
 export interface StoreState {
   /* === core data slices ================================================ */
   catalog: CliSchema[];
   tabs: Tab[];
   activeTabId: string | null;
   jobs: Map<string, Job>;
+  /** Per-job buffer of streamed lines (Terminal renders from here). */
+  jobEvents: Map<string, JobLine[]>;
+  /** Per-job last received `event_id` — used for `?since=` on reconnect. */
+  jobLastEventId: Map<string, number>;
   fileTree: FileNode[];
   runs: RunMeta[];
   agent: AgentState;
@@ -81,6 +93,12 @@ export interface StoreState {
   openFile: (name: string) => void;
   /** Insert or replace a job by id. */
   upsertJob: (job: Job) => void;
+  /** Append a streamed line to a job's buffer (capped to MAX_JOB_LINES). */
+  appendJobLine: (jobId: string, line: JobLine, eventId?: number) => void;
+  /** Open a `/ws/jobs/{id}` connection; returns an unsubscribe fn. Idempotent. */
+  subscribeJob: (jobId: string, options?: { factory?: (url: string) => WebSocket }) => () => void;
+  /** Close the WS for one job and free buffers. */
+  unsubscribeJob: (jobId: string) => void;
   /** Replace the file tree (called by Lane B2). */
   setFileTree: (tree: FileNode[]) => void;
   /** Replace the runs list (called by Lane B2). */
@@ -123,12 +141,50 @@ const kindForName = (name: string): Tab['kind'] => {
   return 'file';
 };
 
+/**
+ * Per-job WS connection bookkeeping. Lives outside the store so React
+ * doesn't re-render when sockets attach/detach. The keys are job ids.
+ */
+interface JobConn {
+  socket: WebSocket;
+  /** Reconnect attempt counter, used to back off. */
+  attempts: number;
+  /** Closed intentionally — skip reconnect. */
+  closed: boolean;
+  /** Backoff timer handle, when one is pending. */
+  retryTimer: ReturnType<typeof setTimeout> | null;
+  /** Override for tests. */
+  factory?: (url: string) => WebSocket;
+}
+
+const jobConns = new Map<string, JobConn>();
+
+const RECONNECT_DELAYS_MS = [500, 1000, 2000, 4000, 8000];
+
+const jobLineKindFromEvent = (type: JobWsEvent['type']): JobLine['kind'] => {
+  switch (type) {
+    case 'stdout':
+    case 'stderr':
+    case 'info':
+    case 'prompt':
+    case 'ok':
+    case 'warn':
+    case 'fail':
+    case 'exit':
+      return type;
+    default:
+      return 'info';
+  }
+};
+
 export const useStore = create<StoreState>((set, get) => ({
   /* === initial state =================================================== */
   catalog: [],
   tabs: [],
   activeTabId: null,
   jobs: new Map(),
+  jobEvents: new Map(),
+  jobLastEventId: new Map(),
   fileTree: [],
   runs: [],
   agent: initialAgent,
@@ -189,6 +245,137 @@ export const useStore = create<StoreState>((set, get) => ({
       return { jobs: next };
     }),
 
+  appendJobLine: (jobId, line, eventId) =>
+    set((s) => {
+      const next = new Map(s.jobEvents);
+      const prior = next.get(jobId) ?? [];
+      const buf = prior.length >= MAX_JOB_LINES
+        ? [...prior.slice(prior.length - MAX_JOB_LINES + 1), line]
+        : [...prior, line];
+      next.set(jobId, buf);
+      const updates: Partial<StoreState> = { jobEvents: next };
+      if (eventId != null) {
+        const ids = new Map(s.jobLastEventId);
+        ids.set(jobId, eventId);
+        updates.jobLastEventId = ids;
+      }
+      return updates;
+    }),
+
+  subscribeJob: (jobId, options = {}) => {
+    const existing = jobConns.get(jobId);
+    if (existing && !existing.closed) {
+      // Already subscribed — return an unsubscribe that closes it.
+      return () => get().unsubscribeJob(jobId);
+    }
+
+    const factory = options.factory;
+    const open = (attempts: number): void => {
+      const since = get().jobLastEventId.get(jobId) ?? null;
+      const socket = openJobWs(jobId, { sinceEventId: since, factory });
+      const conn: JobConn = { socket, attempts, closed: false, retryTimer: null, factory };
+      jobConns.set(jobId, conn);
+
+      socket.addEventListener('open', () => {
+        conn.attempts = 0;
+      });
+
+      socket.addEventListener('message', (ev: MessageEvent) => {
+        let evt: JobWsEvent;
+        try {
+          evt = JSON.parse(ev.data as string) as JobWsEvent;
+        } catch {
+          return;
+        }
+        // Update lastEventId and dispatch to job state.
+        const eventId = evt.event_id;
+        if (evt.type === 'exit') {
+          const job = get().jobs.get(jobId);
+          if (job) {
+            const code = evt.code;
+            const status: Job['status'] =
+              code === 0 ? 'complete' : code === 130 || code === -15 || code === 143 ? 'cancelled' : 'failed';
+            get().upsertJob({ ...job, status, exitCode: code, duration: evt.duration ?? job.duration });
+          }
+          get().appendJobLine(
+            jobId,
+            { kind: 'exit', text: `exit ${evt.code}${evt.duration ? ` · ${evt.duration}` : ''}`, ts: evt.ts },
+            eventId,
+          );
+          return;
+        }
+        if (evt.type === 'progress') {
+          const job = get().jobs.get(jobId);
+          if (job) {
+            get().upsertJob({ ...job, progress: evt.progress, eta: evt.eta ?? job.eta });
+          }
+          if (eventId != null) {
+            set((s) => {
+              const ids = new Map(s.jobLastEventId);
+              ids.set(jobId, eventId);
+              return { jobLastEventId: ids };
+            });
+          }
+          return;
+        }
+        if (evt.type === 'truncated') {
+          get().appendJobLine(
+            jobId,
+            { kind: 'warn', text: `[truncated ${evt.dropped} lines]`, ts: evt.ts },
+            eventId,
+          );
+          return;
+        }
+        // stdout/stderr/info/prompt/ok/warn/fail line event.
+        get().appendJobLine(
+          jobId,
+          { kind: jobLineKindFromEvent(evt.type), text: evt.line, ts: evt.ts },
+          eventId,
+        );
+      });
+
+      socket.addEventListener('close', () => {
+        if (conn.closed) return;
+        const job = get().jobs.get(jobId);
+        // If the job has finalized, don't reconnect.
+        if (job && (job.status === 'complete' || job.status === 'failed' || job.status === 'cancelled')) {
+          conn.closed = true;
+          jobConns.delete(jobId);
+          return;
+        }
+        const attempt = Math.min(conn.attempts, RECONNECT_DELAYS_MS.length - 1);
+        const delay = RECONNECT_DELAYS_MS[attempt];
+        conn.retryTimer = setTimeout(() => {
+          conn.retryTimer = null;
+          if (!conn.closed) open(attempt + 1);
+        }, delay);
+      });
+
+      socket.addEventListener('error', () => {
+        // Errors are followed by close events — let the close handler retry.
+      });
+    };
+
+    open(0);
+    return () => get().unsubscribeJob(jobId);
+  },
+
+  unsubscribeJob: (jobId) => {
+    const conn = jobConns.get(jobId);
+    if (!conn) return;
+    conn.closed = true;
+    if (conn.retryTimer) {
+      clearTimeout(conn.retryTimer);
+      conn.retryTimer = null;
+    }
+    try {
+      conn.socket.close();
+    } catch {
+      // ignore
+    }
+    jobConns.delete(jobId);
+  },
+
   setFileTree: (tree) => set({ fileTree: tree }),
   setRuns: (runs) => set({ runs }),
 
@@ -204,11 +391,26 @@ export const useStore = create<StoreState>((set, get) => ({
 
 /** Reset helper for tests; not used in app code. */
 export const __resetStore = (): void => {
+  // Tear down any live WS connections so tests don't leak handles.
+  for (const [id, conn] of jobConns.entries()) {
+    conn.closed = true;
+    if (conn.retryTimer) {
+      clearTimeout(conn.retryTimer);
+    }
+    try {
+      conn.socket.close();
+    } catch {
+      // ignore
+    }
+    jobConns.delete(id);
+  }
   useStore.setState({
     catalog: [],
     tabs: [],
     activeTabId: null,
     jobs: new Map(),
+    jobEvents: new Map(),
+    jobLastEventId: new Map(),
     fileTree: [],
     runs: [],
     agent: initialAgent,
@@ -221,3 +423,6 @@ export const __resetStore = (): void => {
     chatVisible: true,
   });
 };
+
+/** Test-only accessor for the WS connection registry. */
+export const __jobConnsForTest = jobConns;
