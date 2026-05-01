@@ -26,8 +26,11 @@ routers (A1.5) layer on top.
 from __future__ import annotations
 
 import secrets
+import threading
+import time
+import webbrowser
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
@@ -132,8 +135,87 @@ def build_app(token: Optional[str] = None) -> FastAPI:
     return app
 
 
+def _schedule_browser_open(
+    server: "uvicorn.Server",  # type: ignore[name-defined]
+    url: str,
+    *,
+    open_delay: float = 0.6,
+    timeout: float = 10.0,
+    opener: Callable[[str], bool] | None = None,
+) -> threading.Thread:
+    """Spawn a daemon thread that opens ``url`` once uvicorn signals ready.
+
+    Parameters are exposed for tests; production callers should use the
+    defaults.
+    """
+
+    open_fn = opener or webbrowser.open
+
+    def _wait_then_open() -> None:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if getattr(server, "started", False):
+                break
+            time.sleep(0.05)
+        if open_delay > 0:
+            time.sleep(open_delay)
+        try:
+            open_fn(url)
+        except Exception:
+            # Browser open is best-effort; never fatal.
+            pass
+
+    t = threading.Thread(target=_wait_then_open, daemon=True)
+    t.start()
+    return t
+
+
+def run_server(
+    *,
+    host: str = "127.0.0.1",
+    port: int = 7401,
+    no_browser: bool = False,
+    dev: bool = False,
+) -> int:
+    """Block running uvicorn. Opens a browser tab unless suppressed.
+
+    Skips the browser-open in two cases:
+    - ``no_browser=True`` (explicit operator opt-out).
+    - ``dev=True`` (frontend served by Vite on :5173).
+
+    Returns 0 on clean shutdown (uvicorn exits via SIGINT/SIGTERM).
+    """
+
+    import uvicorn  # imported lazily so unit tests can build_app cheaply.
+
+    app = build_app()
+    config = uvicorn.Config(app, host=host, port=port, log_level="info")
+    server = uvicorn.Server(config)
+
+    if not no_browser and not dev:
+        _schedule_browser_open(server, f"http://{host}:{port}/")
+
+    server.run()
+    return 0
+
+
+def main(
+    host: str = "127.0.0.1",
+    port: int = 7401,
+    no_browser: bool = False,
+    dev: bool = False,
+    agent_budget: float | None = None,
+) -> int:
+    """Spec-shaped entry point. ``agent_budget`` is reserved for Phase 3."""
+
+    del agent_budget  # unused in Phase 1
+    return run_server(host=host, port=port, no_browser=no_browser, dev=dev)
+
+
 __all__ = [
     "build_app",
+    "run_server",
+    "main",
     "CSRFMiddleware",
     "CSRF_HEADER",
     "CSRF_META_NAME",
