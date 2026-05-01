@@ -99,13 +99,14 @@ def _read_index_html(token: str) -> str:
     return meta + raw
 
 
-def _register_stub_api_routers(app: FastAPI) -> None:
-    """Register Phase 1 placeholder API routers.
+def _register_api_routers(app: FastAPI) -> None:
+    """Register API routers.
 
-    Each router under :mod:`evalyn_dashboard.api` returns 501 in Phase 1
-    and is replaced by Phase 2/3 lanes (B1, C1). The import is wrapped
-    in try/except so this function stays usable in early checkouts that
-    have not yet vendored the ``api`` package.
+    ``cli`` and ``jobs`` are wired to real implementations (Lane B1).
+    Remaining routers (``files``, ``runs``, ``agent``, ``settings``)
+    still return 501 in Phase 2 and are replaced by Phase 2/3 lanes.
+    The import is wrapped in try/except so this function stays usable in
+    early checkouts that have not yet vendored the ``api`` package.
     """
 
     try:
@@ -117,6 +118,7 @@ def _register_stub_api_routers(app: FastAPI) -> None:
             runs as runs_api,
             settings as settings_api,
         )
+        from .api.jobs_ws import register_ws_routes
     except ImportError:
         return
 
@@ -128,17 +130,33 @@ def _register_stub_api_routers(app: FastAPI) -> None:
     app.include_router(
         settings_api.router, prefix="/api/settings", tags=["settings"]
     )
+    register_ws_routes(app)
 
 
 def build_app(token: Optional[str] = None) -> FastAPI:
     """Construct the FastAPI app.
 
     ``token`` overrides the auto-generated CSRF token (test seam).
+
+    Wires two singletons onto ``app.state`` for the API routers to share:
+    - ``cli_catalog``: cached output of :func:`build_catalog` (computed
+      once at app construction; ~10ms).
+    - ``job_manager``: a single :class:`JobManager` shared across all
+      requests so subscribe/cancel can find the same job.
     """
 
     csrf_token = token or secrets.token_urlsafe(32)
     app = FastAPI(title="evalyn-dashboard", version="0.1.0")
     app.state.workbench_token = csrf_token
+
+    # Lazily imported to avoid making ``server.build_app`` pay the cost
+    # of catalog walking on every test that only touches healthcheck.
+    # Catalog and job manager are app-scoped singletons.
+    from .introspect import build_catalog
+    from .jobs import JobManager
+
+    app.state.cli_catalog = build_catalog()
+    app.state.job_manager = JobManager()
 
     app.add_middleware(CSRFMiddleware, token=csrf_token)
 
@@ -146,7 +164,7 @@ def build_app(token: Optional[str] = None) -> FastAPI:
     async def healthcheck() -> dict:
         return {"ok": True}
 
-    _register_stub_api_routers(app)
+    _register_api_routers(app)
 
     if STATIC_DIR.exists():
         app.mount(

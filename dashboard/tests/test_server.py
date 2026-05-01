@@ -100,14 +100,16 @@ def test_schedule_browser_open_times_out_when_server_never_starts() -> None:
     assert seen == ["http://127.0.0.1:7401/"]
 
 
-# ---- A1.5: stub API routers all return 501 --------------------------------
+# ---- A1.5: stub API routers (still 501 for Phase 1 lanes) ----------------
+#
+# Lane B1 wired ``/api/cli`` and ``/api/jobs/*`` to real implementations,
+# so they're excluded from the 501 list. The remaining lanes (B3 / C1 /
+# C2) are still stubs and continue to return 501.
 
 
 @pytest.mark.parametrize(
     "path",
     [
-        "/api/cli",
-        "/api/jobs/recent",
         "/api/files/tree",
         "/api/runs",
         "/api/settings",
@@ -141,8 +143,6 @@ def test_stub_post_routes_return_501_with_csrf() -> None:
     assert m
     token = m.group(1)
     for path in [
-        "/api/cli/run",
-        "/api/jobs/abc/cancel",
         "/api/agent/chat",
         "/api/settings/openai",
         "/api/settings/active",
