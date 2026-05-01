@@ -123,27 +123,223 @@ button {
   color: var(--text-0);
 }
 
-/* Phase 0 placeholder layout */
-.phase1-placeholder {
-  display: flex;
-  flex-direction: column;
+[data-theme='light'] ::-webkit-scrollbar-thumb {
+  border-color: var(--bg-0);
+}
+
+[data-theme='light'] .btn.primary {
+  color: #fbf6ec;
+}
+
+/* === shared atoms (ported from mock Evalyn Workbench.html) ============= */
+.chip {
+  display: inline-flex;
   align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--text-2);
+  white-space: nowrap;
+  line-height: 1;
+}
+.chip.dot::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.chip.pass {
+  color: var(--pass);
+  border-color: rgba(127, 198, 160, 0.3);
+  background: var(--pass-soft);
+}
+.chip.fail {
+  color: var(--fail);
+  border-color: rgba(232, 128, 114, 0.3);
+  background: var(--fail-soft);
+}
+.chip.warn {
+  color: var(--warn);
+  border-color: rgba(224, 178, 100, 0.3);
+  background: var(--warn-soft);
+}
+.chip.info {
+  color: var(--info);
+  border-color: rgba(95, 195, 212, 0.3);
+  background: var(--info-soft);
+}
+.chip.signal {
+  color: var(--accent);
+  border-color: rgba(255, 122, 61, 0.3);
+  background: var(--accent-soft);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg-3);
+  color: var(--text-1);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font-size: 12px;
+  line-height: 1;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+.btn:hover {
+  background: var(--bg-4);
+  border-color: var(--line-2);
+}
+.btn.primary {
+  background: var(--accent);
+  color: #1a1305;
+  border-color: var(--accent);
+  font-weight: 500;
+}
+.btn.primary:hover {
+  background: #ff8e5a;
+}
+.btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-2);
+}
+.btn.ghost:hover {
+  color: var(--text-1);
+  background: var(--bg-3);
+}
+.btn.sm {
+  padding: 4px 8px;
+  font-size: 11px;
+  height: 22px;
+}
+.btn.icon {
+  width: 26px;
+  height: 26px;
+  padding: 0;
   justify-content: center;
-  height: 100vh;
-  gap: 8px;
 }
 
-.phase1-placeholder h1 {
-  font-family: var(--serif);
-  font-style: italic;
-  font-size: 28px;
-  margin: 0;
-  color: var(--text-0);
-}
-
-.phase1-placeholder p {
+.input,
+.textarea,
+.select {
+  width: 100%;
+  padding: 7px 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
   font-family: var(--mono);
   font-size: 12px;
+  color: var(--text-1);
+  outline: none;
+  transition: border-color 0.12s;
+}
+.input:focus,
+.textarea:focus,
+.select:focus {
+  border-color: var(--accent);
+}
+.textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+.label {
+  font-size: 11px;
   color: var(--text-2);
-  margin: 0;
+  font-weight: 500;
+  margin-bottom: 4px;
+  display: block;
+}
+.hint {
+  font-size: 10.5px;
+  color: var(--text-3);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  font-family: var(--mono);
+  font-size: 10px;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  color: var(--text-2);
+  line-height: 1.4;
+}
+
+.bar {
+  position: relative;
+  height: 4px;
+  background: var(--bg-4);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.bar > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent);
+  display: block;
+  transition: width 0.3s ease;
+}
+.bar.pass > i {
+  background: var(--pass);
+}
+.bar.fail > i {
+  background: var(--fail);
+}
+.bar.warn > i {
+  background: var(--warn);
+}
+
+/* === utilities ========================================================= */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+}
+.grow {
+  flex: 1;
+}
+.mono {
+  font-family: var(--mono);
+}
+.text-2 {
+  color: var(--text-2);
+}
+.text-3 {
+  color: var(--text-3);
+}
+.accent {
+  color: var(--accent);
+}
+.pass {
+  color: var(--pass);
+}
+.fail {
+  color: var(--fail);
+}
+.warn {
+  color: var(--warn);
+}
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
