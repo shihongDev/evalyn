@@ -377,6 +377,11 @@ export const useStore = create<StoreState>((set, get) => ({
   runCli: async (cliId, args) => {
     const { job_id } = await api.runCli(cliId, args);
     get().openJobTab(job_id, `evalyn ${cliId}`, cliId);
+    // Open the WebSocket so streamed stdout/stderr/exit events reach the
+    // store. Without this hop the Terminal stays blank because no caller
+    // subscribes by default. Idempotent (subscribeJob short-circuits when
+    // a connection already exists).
+    get().subscribeJob(job_id);
     return job_id;
   },
 
