@@ -267,32 +267,29 @@ class SQLiteStorage:
         self,
         limit: int = 100,
         project: Optional[str] = None,
+        function_name: Optional[str] = None,
         lightweight: bool = False,
     ) -> List[FunctionCall]:
         cur = self.get_connection().cursor()
+        clauses: list[str] = []
+        params: list[object] = []
         if project:
-            # Filter by project in SQL using JSON metadata fields
-            cur.execute(
-                """
-                SELECT * FROM function_calls
-                WHERE (
-                    json_extract(metadata, '$.project_id') = ?
-                    OR json_extract(metadata, '$.project_name') = ?
-                )
-                ORDER BY started_at DESC
-                LIMIT ?
-                """,
-                (project, project, limit),
+            clauses.append(
+                "(json_extract(metadata, '$.project_id') = ? "
+                "OR json_extract(metadata, '$.project_name') = ?)"
             )
-        else:
-            cur.execute(
-                """
-                SELECT * FROM function_calls
-                ORDER BY started_at DESC
-                LIMIT ?
-                """,
-                (limit,),
-            )
+            params.extend([project, project])
+        if function_name:
+            clauses.append("function_name = ?")
+            params.append(function_name)
+
+        where = f"WHERE {' AND '.join(clauses)} " if clauses else ""
+        params.append(limit)
+        cur.execute(
+            f"SELECT * FROM function_calls {where}"
+            "ORDER BY started_at DESC LIMIT ?",
+            tuple(params),
+        )
         return [
             self._row_to_call(row, lightweight=lightweight)
             for row in cur.fetchall()

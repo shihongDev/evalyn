@@ -100,11 +100,7 @@ def test_schedule_browser_open_times_out_when_server_never_starts() -> None:
     assert seen == ["http://127.0.0.1:7401/"]
 
 
-# ---- A1.5: stub API routers (still 501 for Phase 2 lanes) ----------------
-#
-# Lane B1 wired ``/api/cli`` and ``/api/jobs/*`` to real implementations.
-# Lane C1 wired ``/api/agent/*`` and ``/api/settings/*``. Only ``/api/files``
-# and ``/api/runs`` remain as 501 stubs, owned by upcoming Phase 2 work.
+# ---- /api/files and /api/runs return empty arrays when .evalyn/ is absent --
 
 
 @pytest.mark.parametrize(
@@ -114,12 +110,12 @@ def test_schedule_browser_open_times_out_when_server_never_starts() -> None:
         "/api/runs",
     ],
 )
-def test_stub_get_routes_return_501(path: str) -> None:
+def test_files_and_runs_return_empty_when_no_evalyn(tmp_path, monkeypatch, path: str) -> None:
+    monkeypatch.chdir(tmp_path)
     client = TestClient(build_app())
     r = client.get(path)
-    assert r.status_code == 501
-    body = r.json()
-    assert body.get("error") == "not implemented"
+    assert r.status_code == 200
+    assert r.json() == []
 
 
 def test_stub_post_routes_require_csrf() -> None:
