@@ -102,9 +102,9 @@ def _read_index_html(token: str) -> str:
 def _register_api_routers(app: FastAPI) -> None:
     """Register API routers.
 
-    ``cli`` and ``jobs`` are wired to real implementations (Lane B1).
-    Remaining routers (``files``, ``runs``, ``agent``, ``settings``)
-    still return 501 in Phase 2 and are replaced by Phase 2/3 lanes.
+    All Phase 1-3 routers wire here. ``files`` and ``runs`` still return
+    501 (Phase 2 lane B1 territory) but the agent and settings routers
+    are real (Phase 3 Lane C1).
     The import is wrapped in try/except so this function stays usable in
     early checkouts that have not yet vendored the ``api`` package.
     """
@@ -118,6 +118,7 @@ def _register_api_routers(app: FastAPI) -> None:
             runs as runs_api,
             settings as settings_api,
         )
+        from .api.agent_ws import register_agent_ws_routes
         from .api.jobs_ws import register_ws_routes
     except ImportError:
         return
@@ -131,18 +132,33 @@ def _register_api_routers(app: FastAPI) -> None:
         settings_api.router, prefix="/api/settings", tags=["settings"]
     )
     register_ws_routes(app)
+    register_agent_ws_routes(app)
 
 
-def build_app(token: Optional[str] = None) -> FastAPI:
+def build_app(
+    token: Optional[str] = None,
+    *,
+    credential_store: Optional[object] = None,
+    agent_runtime: Optional[object] = None,
+) -> FastAPI:
     """Construct the FastAPI app.
 
     ``token`` overrides the auto-generated CSRF token (test seam).
+    ``credential_store`` and ``agent_runtime`` allow tests to inject
+    fakes; production callers leave them as ``None`` to use the
+    defaults (file-backed :class:`CredentialStore` and a real
+    :class:`AgentRuntime`).
 
-    Wires two singletons onto ``app.state`` for the API routers to share:
+    Wires four singletons onto ``app.state`` for the API routers to share:
     - ``cli_catalog``: cached output of :func:`build_catalog` (computed
       once at app construction; ~10ms).
     - ``job_manager``: a single :class:`JobManager` shared across all
       requests so subscribe/cancel can find the same job.
+    - ``credential_store``: file-backed credential store powering the
+      settings API and the agent provider factory.
+    - ``agent_runtime``: an :class:`AgentRuntime` whose provider factory
+      reads the active provider out of ``credential_store`` on each
+      turn (so settings changes take effect immediately).
     """
 
     csrf_token = token or secrets.token_urlsafe(32)
@@ -152,11 +168,21 @@ def build_app(token: Optional[str] = None) -> FastAPI:
     # Lazily imported to avoid making ``server.build_app`` pay the cost
     # of catalog walking on every test that only touches healthcheck.
     # Catalog and job manager are app-scoped singletons.
+    from .agent import AgentRuntime, make_provider_factory
+    from .credentials import CredentialStore
     from .introspect import build_catalog
     from .jobs import JobManager
 
     app.state.cli_catalog = build_catalog()
     app.state.job_manager = JobManager()
+    app.state.credential_store = credential_store or CredentialStore()
+    if agent_runtime is None:
+        agent_runtime = AgentRuntime(
+            provider_factory=make_provider_factory(app.state.credential_store),
+            catalog=app.state.cli_catalog,
+            job_manager=app.state.job_manager,
+        )
+    app.state.agent_runtime = agent_runtime
 
     app.add_middleware(CSRFMiddleware, token=csrf_token)
 

@@ -100,11 +100,11 @@ def test_schedule_browser_open_times_out_when_server_never_starts() -> None:
     assert seen == ["http://127.0.0.1:7401/"]
 
 
-# ---- A1.5: stub API routers (still 501 for Phase 1 lanes) ----------------
+# ---- A1.5: stub API routers (still 501 for Phase 2 lanes) ----------------
 #
-# Lane B1 wired ``/api/cli`` and ``/api/jobs/*`` to real implementations,
-# so they're excluded from the 501 list. The remaining lanes (B3 / C1 /
-# C2) are still stubs and continue to return 501.
+# Lane B1 wired ``/api/cli`` and ``/api/jobs/*`` to real implementations.
+# Lane C1 wired ``/api/agent/*`` and ``/api/settings/*``. Only ``/api/files``
+# and ``/api/runs`` remain as 501 stubs, owned by upcoming Phase 2 work.
 
 
 @pytest.mark.parametrize(
@@ -112,7 +112,6 @@ def test_schedule_browser_open_times_out_when_server_never_starts() -> None:
     [
         "/api/files/tree",
         "/api/runs",
-        "/api/settings",
     ],
 )
 def test_stub_get_routes_return_501(path: str) -> None:
@@ -131,21 +130,10 @@ def test_stub_post_routes_require_csrf() -> None:
     assert r.status_code == 403
 
 
-def test_stub_post_routes_return_501_with_csrf() -> None:
-    from evalyn_dashboard.server import CSRF_HEADER
-
+def test_settings_get_returns_redacted_view() -> None:
+    """``/api/settings`` is no longer a stub; it returns the public view."""
     client = TestClient(build_app())
-    # Pull token from served HTML.
-    import re
-
-    html = client.get("/").text
-    m = re.search(r'content="([^"]+)"', html)
-    assert m
-    token = m.group(1)
-    for path in [
-        "/api/agent/chat",
-        "/api/settings/openai",
-        "/api/settings/active",
-    ]:
-        r = client.post(path, json={}, headers={CSRF_HEADER: token})
-        assert r.status_code == 501, f"{path} returned {r.status_code}"
+    r = client.get("/api/settings")
+    assert r.status_code == 200
+    body = r.json()
+    assert "providers" in body and "active" in body
