@@ -17,6 +17,7 @@
  */
 
 import { create } from 'zustand';
+import { api } from './api';
 import type { CliSchema } from './types/catalog';
 import type { Tab, Job, FileNode, RunMeta } from './types/jobs';
 import type { AgentState, SettingsState } from './types/agent';
@@ -68,6 +69,12 @@ export interface StoreState {
   /* === actions ========================================================= */
   /** Replace the catalog (called once after `/api/cli` boot fetch). */
   setCatalog: (catalog: CliSchema[]) => void;
+  /** Fetch the catalog from `/api/cli` and store it. Safe to call repeatedly. */
+  loadCatalog: () => Promise<void>;
+  /** Fetch the file tree from `/api/files/tree` and store it. */
+  loadFileTree: () => Promise<void>;
+  /** Fetch the runs list from `/api/runs` and store it. */
+  loadRuns: () => Promise<void>;
   /** Add a new tab and make it active. No-op if the id already exists; in
    *  that case, just activate the existing tab. */
   addTab: (tab: Tab) => void;
@@ -79,6 +86,11 @@ export interface StoreState {
   openCli: (id: string) => void;
   /** Convenience helper: open a file/run tab by name. */
   openFile: (name: string) => void;
+  /** Open a job-output tab and insert a placeholder Job entry. */
+  openJobTab: (jobId: string, cmd?: string, cliId?: string) => void;
+  /** POST `/api/cli/run` with the given args; on success open a job tab and
+   *  return the assigned `jobId`. Throws on network/validation error. */
+  runCli: (cliId: string, args: Record<string, unknown>) => Promise<string>;
   /** Insert or replace a job by id. */
   upsertJob: (job: Job) => void;
   /** Replace the file tree (called by Lane B2). */
@@ -144,6 +156,21 @@ export const useStore = create<StoreState>((set, get) => ({
   /* === actions ========================================================= */
   setCatalog: (catalog) => set({ catalog }),
 
+  loadCatalog: async () => {
+    const catalog = await api.catalog();
+    set({ catalog });
+  },
+
+  loadFileTree: async () => {
+    const tree = await api.fileTree();
+    set({ fileTree: tree });
+  },
+
+  loadRuns: async () => {
+    const runs = await api.runs();
+    set({ runs });
+  },
+
   addTab: (tab) => {
     const existing = get().tabs.find((t) => t.id === tab.id);
     if (existing) {
@@ -180,6 +207,31 @@ export const useStore = create<StoreState>((set, get) => ({
       kind: kindForName(name),
       tone: toneForName(name),
     });
+  },
+
+  openJobTab: (jobId, cmd, cliId) => {
+    const tabId = `job:${jobId}`;
+    get().addTab({ id: tabId, title: jobId, kind: 'job', tone: 'var(--accent)' });
+    const existing = get().jobs.get(jobId);
+    if (!existing) {
+      set((s) => {
+        const next = new Map(s.jobs);
+        next.set(jobId, {
+          id: jobId,
+          cmd: cmd ?? '',
+          cliId,
+          status: 'pending',
+          lines: [],
+        });
+        return { jobs: next };
+      });
+    }
+  },
+
+  runCli: async (cliId, args) => {
+    const { job_id } = await api.runCli(cliId, args);
+    get().openJobTab(job_id, `evalyn ${cliId}`, cliId);
+    return job_id;
   },
 
   upsertJob: (job) =>
