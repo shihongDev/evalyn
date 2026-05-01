@@ -79,7 +79,7 @@ describe('SettingsModal - provider list', () => {
 });
 
 describe('SettingsModal - save api key', () => {
-  test('Save POSTs /api/settings/providers/{provider}', async () => {
+  test('Save POSTs /api/settings/{provider}', async () => {
     const fetchMock = vi
       .fn()
       // First call: loadSettings on open. Reject to skip the merge.
@@ -109,7 +109,7 @@ describe('SettingsModal - save api key', () => {
     });
 
     const saveCall = fetchMock.mock.calls.find(
-      (c) => c[0] === '/api/settings/providers/openai',
+      (c) => c[0] === '/api/settings/openai',
     );
     expect(saveCall).toBeTruthy();
     expect(JSON.parse(saveCall![1].body)).toEqual({ api_key: 'sk-test' });
@@ -134,7 +134,7 @@ describe('SettingsModal - test connection', () => {
     });
 
     const testCall = fetchMock.mock.calls.find(
-      (c) => c[0] === '/api/settings/providers/openai/test',
+      (c) => c[0] === '/api/settings/test/openai',
     );
     expect(testCall).toBeTruthy();
   });
