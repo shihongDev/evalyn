@@ -8,7 +8,7 @@
 
 import type { CliSchema } from './types/catalog';
 import type { FileNode, Job, RunMeta } from './types/jobs';
-import type { SettingsState } from './types/agent';
+import type { ProviderState, SettingsState } from './types/agent';
 
 /** Base URL for API requests. The dev server proxies `/api` to the FastAPI
  *  backend (see `vite.config.ts`); in production the bundle is served from
@@ -76,6 +76,66 @@ export const api = {
   /** POST /api/jobs/{id}/cancel — SIGTERM + 3s grace + SIGKILL. */
   cancelJob: (jobId: string): Promise<{ ok: boolean }> =>
     jsonFetch(`/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' }),
+
+  /* === agent endpoints (Lane C1) ===================================== */
+
+  /** POST /api/agent/chat — start a new agent thread; returns the assigned id. */
+  startAgentThread: (
+    message: string,
+    opts: { provider?: string; model?: string } = {},
+  ): Promise<{ thread_id: string }> =>
+    jsonFetch('/agent/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, ...opts }),
+    }),
+
+  /** POST /api/agent/chat/{thread_id} — append a user message to an existing thread. */
+  sendAgentMessage: (threadId: string, message: string): Promise<{ ok: boolean }> =>
+    jsonFetch(`/agent/chat/${encodeURIComponent(threadId)}`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    }),
+
+  /** POST /api/agent/chat/{thread_id}/confirm — approve or reject a pending tool call. */
+  confirmAgentTool: (
+    threadId: string,
+    approve: boolean,
+    toolCallId?: string,
+  ): Promise<{ ok: boolean }> =>
+    jsonFetch(`/agent/chat/${encodeURIComponent(threadId)}/confirm`, {
+      method: 'POST',
+      body: JSON.stringify({ approve, tool_call_id: toolCallId }),
+    }),
+
+  /* === settings endpoints (Lane C1) ================================== */
+
+  /** GET /api/settings/models/{provider} — list available models for a provider. */
+  listProviderModels: (provider: string): Promise<{ models: string[] }> =>
+    jsonFetch(`/settings/models/${encodeURIComponent(provider)}`),
+
+  /** POST /api/settings/providers/{provider} — save api key + model selection. */
+  saveProvider: (
+    provider: string,
+    payload: { api_key?: string; model?: string },
+  ): Promise<ProviderState> =>
+    jsonFetch(`/settings/providers/${encodeURIComponent(provider)}`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  /** POST /api/settings/providers/{provider}/test — 1-token connection test. */
+  testProvider: (provider: string): Promise<{ ok: boolean; error?: string }> =>
+    jsonFetch(`/settings/providers/${encodeURIComponent(provider)}/test`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+
+  /** POST /api/settings/active — set the active provider. */
+  setActiveProvider: (provider: string): Promise<{ ok: boolean }> =>
+    jsonFetch('/settings/active', {
+      method: 'POST',
+      body: JSON.stringify({ provider }),
+    }),
 };
 
 /* === WebSocket wrapper ================================================ */
@@ -140,3 +200,19 @@ export function openJobWs(
 /** Subscribe to the agent's chat thread. */
 export const subscribeAgent = <T>(threadId: string, handlers: WsHandlers<T>): { close: () => void } =>
   openWs<T>(`/ws/agent/${encodeURIComponent(threadId)}`, handlers);
+
+/**
+ * Open a raw WebSocket for an agent thread. Mirrors `openJobWs` so the
+ * store's reconnect logic can manage the underlying socket directly.
+ *
+ * `factory` is injected so tests can swap in a mock socket.
+ */
+export function openAgentWs(
+  threadId: string,
+  options: { factory?: (url: string) => WebSocket } = {},
+): WebSocket {
+  const { factory } = options;
+  const url = wsUrl(`/ws/agent/${encodeURIComponent(threadId)}`);
+  const ctor = factory ?? ((u) => new WebSocket(u));
+  return ctor(url);
+}

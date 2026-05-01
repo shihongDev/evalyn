@@ -33,7 +33,15 @@ describe('initial state', () => {
 
   test('settings slice initialized', () => {
     const s = useStore.getState();
-    expect(s.settings.providers).toEqual({});
+    // Lane C2 seeds the three known providers so the SettingsModal can
+    // render rows even before /api/settings completes its first fetch.
+    expect(Object.keys(s.settings.providers).sort()).toEqual([
+      'anthropic',
+      'ollama',
+      'openai',
+    ]);
+    expect(s.settings.providers.openai.testStatus).toBe('untested');
+    expect(s.settings.providers.openai.hasKey).toBe(false);
     expect(s.settings.active).toBeNull();
   });
 
