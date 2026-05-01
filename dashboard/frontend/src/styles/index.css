@@ -1,0 +1,149 @@
+/*
+ * CSS variables for the Evalyn Workbench, ported from the visual mock at
+ * /tmp/evalyn-dashboard-mock/Evalyn Workbench.html. Dark theme is the
+ * default; the [data-theme="light"] block on <body> swaps in the editorial
+ * cream/ink palette.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap');
+
+:root {
+  --mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: 'Geist', -apple-system, system-ui, sans-serif;
+  --serif: 'Instrument Serif', Georgia, serif;
+
+  /* dark theme (default) */
+  --bg-0: #0a0c10;
+  --bg-1: #0e1014;
+  --bg-2: #13161d;
+  --bg-3: #1a1d26;
+  --bg-4: #232735;
+  --line: #1f2530;
+  --line-2: #2a3040;
+  --text-0: #f0eee8;
+  --text-1: #cdd6e2;
+  --text-2: #8a93a3;
+  --text-3: #5b6678;
+  --accent: #ff7a3d;
+  --accent-soft: rgba(255, 122, 61, 0.12);
+  --pass: #7fc6a0;
+  --pass-soft: rgba(127, 198, 160, 0.12);
+  --fail: #e88072;
+  --fail-soft: rgba(232, 128, 114, 0.12);
+  --warn: #e0b264;
+  --warn-soft: rgba(224, 178, 100, 0.12);
+  --info: #5fc3d4;
+  --info-soft: rgba(95, 195, 212, 0.12);
+  --shadow:
+    0 24px 48px rgba(0, 0, 0, 0.45),
+    0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme='light'] {
+  /* Editorial light: cream paper, deep ink, warm accent */
+  --bg-0: #f4ebe1;
+  --bg-1: #ede3d4;
+  --bg-2: #fbf6ec;
+  --bg-3: #e8dccd;
+  --bg-4: #ddd0bb;
+  --line: #d8cebd;
+  --line-2: #c2b59c;
+  --text-0: #1a1815;
+  --text-1: #3a342d;
+  --text-2: #5a5147;
+  --text-3: #8e8479;
+  --accent: #c44918;
+  --accent-soft: rgba(196, 73, 24, 0.1);
+  --pass: #3a7a52;
+  --pass-soft: rgba(58, 122, 82, 0.1);
+  --fail: #b04a3a;
+  --fail-soft: rgba(176, 74, 58, 0.1);
+  --warn: #946322;
+  --warn-soft: rgba(148, 99, 34, 0.12);
+  --info: #2c6577;
+  --info-soft: rgba(44, 101, 119, 0.1);
+  --shadow:
+    0 18px 40px rgba(82, 67, 40, 0.1),
+    0 2px 6px rgba(82, 67, 40, 0.06);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg-0);
+  color: var(--text-1);
+  font-family: var(--sans);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body[data-mono='true'] {
+  font-family: var(--mono);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 6px;
+  border: 2px solid var(--bg-0);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--line-2);
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text-0);
+}
+
+/* Phase 0 placeholder layout */
+.phase1-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  gap: 8px;
+}
+
+.phase1-placeholder h1 {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 28px;
+  margin: 0;
+  color: var(--text-0);
+}
+
+.phase1-placeholder p {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-2);
+  margin: 0;
+}
