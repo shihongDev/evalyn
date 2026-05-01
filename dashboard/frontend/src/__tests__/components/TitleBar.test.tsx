@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, test, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import TitleBar from '../../components/TitleBar';
 import { __resetStore, useStore } from '../../store';
 
@@ -35,5 +35,12 @@ describe('TitleBar', () => {
     useStore.getState().addTab({ id: 'cli:run-eval', title: 'run-eval', kind: 'cli' });
     render(<TitleBar />);
     expect(screen.getByText(/run-eval/)).toBeInTheDocument();
+  });
+
+  test('clicking the gear opens the settings modal', () => {
+    render(<TitleBar />);
+    expect(useStore.getState().settingsOpen).toBe(false);
+    fireEvent.click(screen.getByLabelText('Workspace settings'));
+    expect(useStore.getState().settingsOpen).toBe(true);
   });
 });

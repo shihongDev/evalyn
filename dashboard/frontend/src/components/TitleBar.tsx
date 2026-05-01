@@ -12,6 +12,7 @@ const ACTIVE_RUN_DATASET = 'datasets/customer-support.jsonl';
 const TitleBar = () => {
   const setPaletteOpen = useStore((s) => s.setPaletteOpen);
   const setTweaksOpen = useStore((s) => s.setTweaksOpen);
+  const openSettings = useStore((s) => s.openSettings);
   const tabs = useStore((s) => s.tabs);
   const activeTabId = useStore((s) => s.activeTabId);
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
@@ -74,7 +75,13 @@ const TitleBar = () => {
           {'⌘K'}
         </span>
       </button>
-      <button className="btn ghost icon" title="Workspace settings" type="button">
+      <button
+        className="btn ghost icon"
+        title="Workspace settings"
+        aria-label="Workspace settings"
+        type="button"
+        onClick={() => openSettings()}
+      >
         {'⚙'}
       </button>
       <span className="chip pass dot" style={{ marginLeft: 6 }}>

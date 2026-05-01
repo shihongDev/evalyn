@@ -20,8 +20,15 @@ import { create } from 'zustand';
 import { api } from './api';
 import type { CliSchema } from './types/catalog';
 import type { Tab, Job, JobLine, JobWsEvent, FileNode, RunMeta } from './types/jobs';
-import type { AgentState, SettingsState } from './types/agent';
-import { openJobWs } from './api';
+import type {
+  AgentState,
+  AgentWsEvent,
+  ChatMessage,
+  ProviderState,
+  SettingsState,
+  ToolCall,
+} from './types/agent';
+import { openAgentWs, openJobWs } from './api';
 
 export type Theme = 'dark' | 'light';
 export type ChatPlacement = 'dock' | 'bottom' | 'bubble';
@@ -77,6 +84,8 @@ export interface StoreState {
   paletteOpen: boolean;
   tweaksOpen: boolean;
   chatVisible: boolean;
+  /** Settings modal open flag. */
+  settingsOpen: boolean;
 
   /* === actions ========================================================= */
   /** Replace the catalog (called once after `/api/cli` boot fetch). */
@@ -127,6 +136,34 @@ export interface StoreState {
   setTweaksOpen: (open: boolean) => void;
   /** Set chat panel visibility. */
   setChatVisible: (visible: boolean) => void;
+  /** Open / close the SettingsModal. */
+  openSettings: () => void;
+  closeSettings: () => void;
+  /** Initial fetch of /api/settings — populates the providers map. */
+  loadSettings: () => Promise<void>;
+  /** Save provider api key + model selection. */
+  saveProvider: (
+    provider: string,
+    payload: { api_key?: string; model?: string },
+  ) => Promise<void>;
+  /** 1-token connection test against a provider. */
+  testProvider: (provider: string) => Promise<void>;
+  /** Mark a provider active (server enforces single-active). */
+  setActiveProvider: (provider: string) => Promise<void>;
+  /** List models for a provider, caching the result on the provider state. */
+  listProviderModels: (provider: string) => Promise<string[]>;
+
+  /* === agent actions ================================================== */
+  /** Send a chat message. Starts a new thread on first send, reuses an
+   *  existing one otherwise. Opens the WS subscription on thread create. */
+  sendChatMessage: (message: string) => Promise<void>;
+  /** Approve or reject a pending tool call. */
+  confirmAgent: (approve: boolean) => Promise<void>;
+  /** Reset the chat: close socket, clear messages, drop thread id. */
+  resetChat: () => void;
+  /** Internal: dispatch a single agent WS event into the store. Exported
+   *  for tests; not used directly by components. */
+  dispatchAgentEvent: (evt: AgentWsEvent) => void;
 }
 
 const initialAgent: AgentState = {
@@ -134,12 +171,51 @@ const initialAgent: AgentState = {
   messages: [],
   status: 'idle',
   pendingConfirmation: null,
+  error: null,
 };
 
+const DEFAULT_PROVIDERS: ProviderState[] = [
+  { id: 'openai', name: 'OpenAI', hasKey: false, requiresKey: true, model: null, testStatus: 'untested' },
+  { id: 'anthropic', name: 'Anthropic', hasKey: false, requiresKey: true, model: null, testStatus: 'untested' },
+  { id: 'ollama', name: 'Ollama (local)', hasKey: false, requiresKey: false, model: null, testStatus: 'untested' },
+];
+
 const initialSettings: SettingsState = {
-  providers: {},
+  providers: Object.fromEntries(DEFAULT_PROVIDERS.map((p) => [p.id, p])),
   active: null,
 };
+
+/** Stable ids for client-assigned messages (user turns, fallback assistant ids). */
+let _msgCounter = 0;
+const newMsgId = (prefix: string): string => `${prefix}-${++_msgCounter}-${Date.now().toString(36)}`;
+
+const _seedProvider = (id: string): ProviderState => ({
+  id,
+  name: id,
+  hasKey: false,
+  requiresKey: true,
+  model: null,
+  testStatus: 'untested',
+});
+
+/**
+ * Returns a settings slice with a single provider patched. Centralises the
+ * `{ ...settings, providers: { ...providers, [id]: { ...prior, ...patch } } }`
+ * boilerplate that every settings action would otherwise repeat.
+ */
+const _withProviderPatch = (
+  s: StoreState,
+  id: string,
+  patch: Partial<ProviderState>,
+): { settings: SettingsState } => ({
+  settings: {
+    ...s.settings,
+    providers: {
+      ...s.settings.providers,
+      [id]: { ...(s.settings.providers[id] ?? _seedProvider(id)), ...patch, id },
+    },
+  },
+});
 
 const toneForName = (name: string): string | undefined => {
   if (name.endsWith('.run')) return 'var(--fail)';
@@ -172,6 +248,19 @@ interface JobConn {
 const jobConns = new Map<string, JobConn>();
 
 const RECONNECT_DELAYS_MS = [500, 1000, 2000, 4000, 8000];
+
+/**
+ * Singleton agent socket. Lives outside the store for the same reason as
+ * jobConns — we don't want React to re-render when the WS attaches/detaches.
+ */
+interface AgentConn {
+  socket: WebSocket;
+  threadId: string;
+  closed: boolean;
+  factory?: (url: string) => WebSocket;
+}
+
+let agentConn: AgentConn | null = null;
 
 const jobLineKindFromEvent = (type: JobWsEvent['type']): JobLine['kind'] => {
   switch (type) {
@@ -208,6 +297,7 @@ export const useStore = create<StoreState>((set, get) => ({
   paletteOpen: false,
   tweaksOpen: false,
   chatVisible: true,
+  settingsOpen: false,
 
   /* === actions ========================================================= */
   setCatalog: (catalog) => set({ catalog }),
@@ -439,7 +529,413 @@ export const useStore = create<StoreState>((set, get) => ({
   setPaletteOpen: (open) => set({ paletteOpen: open }),
   setTweaksOpen: (open) => set({ tweaksOpen: open }),
   setChatVisible: (visible) => set({ chatVisible: visible }),
+
+  openSettings: () => set({ settingsOpen: true }),
+  closeSettings: () => set({ settingsOpen: false }),
+
+  loadSettings: async () => {
+    try {
+      const fetched = await api.settings();
+      set((s) => {
+        // Merge server-side state into the seeded defaults so the UI keeps
+        // showing the three providers even if the server's response only
+        // covers a subset.
+        const merged: Record<string, ProviderState> = { ...s.settings.providers };
+        for (const [id, partial] of Object.entries(fetched.providers ?? {})) {
+          merged[id] = {
+            ...(merged[id] ?? _seedProvider(id)),
+            ...(partial as Partial<ProviderState>),
+            id,
+          };
+        }
+        return { settings: { providers: merged, active: fetched.active ?? s.settings.active } };
+      });
+    } catch (err) {
+      console.warn('loadSettings failed', err);
+    }
+  },
+
+  saveProvider: async (provider, payload) => {
+    const updated = await api.saveProvider(provider, payload);
+    set((s) => _withProviderPatch(s, provider, updated));
+  },
+
+  testProvider: async (provider) => {
+    set((s) => _withProviderPatch(s, provider, { testStatus: 'testing', testError: undefined }));
+    try {
+      const res = await api.testProvider(provider);
+      set((s) =>
+        _withProviderPatch(s, provider, {
+          testStatus: res.ok ? 'ok' : 'error',
+          testError: res.ok ? undefined : (res.error ?? 'Test failed'),
+        }),
+      );
+    } catch (err) {
+      set((s) =>
+        _withProviderPatch(s, provider, {
+          testStatus: 'error',
+          testError: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    }
+  },
+
+  setActiveProvider: async (provider) => {
+    await api.setActiveProvider(provider);
+    set((s) => ({ settings: { ...s.settings, active: provider } }));
+  },
+
+  listProviderModels: async (provider) => {
+    set((s) => _withProviderPatch(s, provider, { loadingModels: true }));
+    try {
+      const { models } = await api.listProviderModels(provider);
+      set((s) => _withProviderPatch(s, provider, { models, loadingModels: false }));
+      return models;
+    } catch (err) {
+      // Set models to an empty array so the load-on-expand effect doesn't
+      // retry on every re-render. A manual refresh is the recovery path.
+      set((s) => _withProviderPatch(s, provider, { models: [], loadingModels: false }));
+      throw err;
+    }
+  },
+
+  sendChatMessage: async (message) => {
+    const trimmed = message.trim();
+    if (!trimmed) return;
+    // Append user turn locally so the bubble shows up immediately.
+    const userMsg: ChatMessage = {
+      id: newMsgId('u'),
+      role: 'user',
+      text: trimmed,
+      ts: new Date().toISOString(),
+    };
+    set((s) => ({
+      agent: {
+        ...s.agent,
+        messages: [...s.agent.messages, userMsg],
+        status: 'streaming',
+        error: null,
+      },
+    }));
+
+    const existing = get().agent.threadId;
+    try {
+      if (!existing) {
+        const { thread_id } = await api.startAgentThread(trimmed);
+        set((s) => ({ agent: { ...s.agent, threadId: thread_id } }));
+        _attachAgentSocket(thread_id, get, set);
+      } else {
+        await api.sendAgentMessage(existing, trimmed);
+      }
+    } catch (err) {
+      set((s) => ({
+        agent: {
+          ...s.agent,
+          status: 'error',
+          error: {
+            kind: 'network',
+            message: err instanceof Error ? err.message : String(err),
+          },
+        },
+      }));
+    }
+  },
+
+  confirmAgent: async (approve) => {
+    const { agent } = get();
+    if (!agent.threadId || !agent.pendingConfirmation) return;
+    const toolCallId = agent.pendingConfirmation.toolCallId;
+    // Optimistically clear the pending confirmation; the server will push
+    // tool_call_running / tool_call_complete (or error) next.
+    set((s) => ({
+      agent: {
+        ...s.agent,
+        pendingConfirmation: null,
+        status: approve ? 'streaming' : 'idle',
+        messages: s.agent.messages.map((m) =>
+          m.toolCall && m.toolCall.id === toolCallId
+            ? {
+                ...m,
+                toolCall: {
+                  ...m.toolCall,
+                  status: approve ? 'running' : 'rejected',
+                },
+              }
+            : m,
+        ),
+      },
+    }));
+    try {
+      await api.confirmAgentTool(agent.threadId, approve, toolCallId);
+    } catch (err) {
+      set((s) => ({
+        agent: {
+          ...s.agent,
+          status: 'error',
+          error: {
+            kind: 'network',
+            message: err instanceof Error ? err.message : String(err),
+          },
+        },
+      }));
+    }
+  },
+
+  resetChat: () => {
+    if (agentConn) {
+      agentConn.closed = true;
+      try {
+        agentConn.socket.close();
+      } catch {
+        // ignore
+      }
+      agentConn = null;
+    }
+    set({ agent: { ...initialAgent } });
+  },
+
+  dispatchAgentEvent: (evt) => {
+    _dispatchAgentEvent(evt, get, set);
+  },
 }));
+
+/* ---------------------------------------------------------------------------
+ * Agent socket helpers. Module-private so the store action surface stays
+ * narrow and the connection bookkeeping doesn't leak into React state.
+ * ------------------------------------------------------------------------- */
+
+type AgentSetFn = (
+  partial: Partial<StoreState> | ((s: StoreState) => Partial<StoreState>),
+) => void;
+
+type AgentGetFn = () => StoreState;
+
+const _attachAgentSocket = (
+  threadId: string,
+  get: AgentGetFn,
+  set: AgentSetFn,
+  factory?: (url: string) => WebSocket,
+): void => {
+  // Tear down any prior conn first.
+  if (agentConn) {
+    agentConn.closed = true;
+    try {
+      agentConn.socket.close();
+    } catch {
+      // ignore
+    }
+    agentConn = null;
+  }
+  const socket = openAgentWs(threadId, { factory });
+  const conn: AgentConn = { socket, threadId, closed: false, factory };
+  agentConn = conn;
+  socket.addEventListener('message', (ev: MessageEvent) => {
+    let payload: AgentWsEvent;
+    try {
+      payload = JSON.parse(ev.data as string) as AgentWsEvent;
+    } catch {
+      return;
+    }
+    _dispatchAgentEvent(payload, get, set);
+  });
+  socket.addEventListener('close', () => {
+    if (agentConn === conn) {
+      agentConn = null;
+    }
+  });
+};
+
+/**
+ * Apply a single agent WS event to the store. Tagged-union dispatch keeps
+ * the message list and `pendingConfirmation` in sync with the runtime.
+ */
+const _dispatchAgentEvent = (
+  evt: AgentWsEvent,
+  _get: AgentGetFn,
+  set: AgentSetFn,
+): void => {
+  switch (evt.type) {
+    case 'text_delta': {
+      set((s) => {
+        const messages = [...s.agent.messages];
+        const idx = messages.findIndex((m) => m.id === evt.message_id);
+        if (idx >= 0) {
+          const prior = messages[idx];
+          messages[idx] = {
+            ...prior,
+            text: (prior.text ?? '') + evt.delta,
+            streaming: true,
+          };
+        } else {
+          messages.push({
+            id: evt.message_id,
+            role: 'assistant',
+            text: evt.delta,
+            streaming: true,
+            ts: evt.ts,
+          });
+        }
+        return { agent: { ...s.agent, messages, status: 'streaming' } };
+      });
+      return;
+    }
+    case 'tool_call_proposal': {
+      const card: ToolCall = {
+        id: evt.tool_call_id,
+        tool: evt.tool,
+        args: evt.args,
+        previewCmd: evt.preview_cmd,
+        status: 'proposed',
+      };
+      set((s) => ({
+        agent: {
+          ...s.agent,
+          messages: [
+            ...s.agent.messages,
+            {
+              id: `tc-${evt.tool_call_id}`,
+              role: 'assistant',
+              toolCall: card,
+              ts: evt.ts,
+            },
+          ],
+        },
+      }));
+      return;
+    }
+    case 'tool_call_running': {
+      set((s) => ({
+        agent: {
+          ...s.agent,
+          messages: s.agent.messages.map((m) =>
+            m.toolCall && m.toolCall.id === evt.tool_call_id
+              ? {
+                  ...m,
+                  toolCall: { ...m.toolCall, status: 'running', jobId: evt.job_id },
+                }
+              : m,
+          ),
+        },
+      }));
+      return;
+    }
+    case 'tool_call_complete': {
+      const errored = evt.exit_code != null && evt.exit_code !== 0;
+      set((s) => ({
+        agent: {
+          ...s.agent,
+          messages: s.agent.messages.map((m) =>
+            m.toolCall && m.toolCall.id === evt.tool_call_id
+              ? {
+                  ...m,
+                  toolCall: {
+                    ...m.toolCall,
+                    status: errored ? 'error' : 'complete',
+                    output: evt.output,
+                    error: errored ? `exit ${evt.exit_code}` : undefined,
+                  },
+                }
+              : m,
+          ),
+        },
+      }));
+      return;
+    }
+    case 'confirmation_required': {
+      // Find / create the matching ToolCall card; flip status to awaiting.
+      set((s) => {
+        const messages = [...s.agent.messages];
+        const idx = messages.findIndex(
+          (m) => m.toolCall && m.toolCall.id === evt.tool_call_id,
+        );
+        if (idx >= 0) {
+          const prior = messages[idx];
+          if (prior.toolCall) {
+            messages[idx] = {
+              ...prior,
+              toolCall: { ...prior.toolCall, status: 'awaiting_confirmation' },
+            };
+          }
+        } else {
+          messages.push({
+            id: `tc-${evt.tool_call_id}`,
+            role: 'assistant',
+            toolCall: {
+              id: evt.tool_call_id,
+              tool: evt.tool,
+              args: evt.args,
+              previewCmd: evt.preview_cmd,
+              status: 'awaiting_confirmation',
+            },
+            ts: evt.ts,
+          });
+        }
+        return {
+          agent: {
+            ...s.agent,
+            messages,
+            status: 'awaiting_confirmation',
+            pendingConfirmation: {
+              toolCallId: evt.tool_call_id,
+              tool: evt.tool,
+              args: evt.args,
+              previewCmd: evt.preview_cmd,
+            },
+          },
+        };
+      });
+      return;
+    }
+    case 'error': {
+      set((s) => ({
+        agent: {
+          ...s.agent,
+          status: 'error',
+          error: { kind: evt.kind, message: evt.message, provider: evt.provider },
+        },
+      }));
+      return;
+    }
+    case 'final': {
+      const suggestions = evt.suggestions?.map((s) => ({
+        label: s.label,
+        cliId: s.cli_id,
+        args: s.args,
+      }));
+      set((s) => {
+        const messages = [...s.agent.messages];
+        // If a streaming assistant message exists with the same id, finalize it.
+        const idx = evt.message_id
+          ? messages.findIndex((m) => m.id === evt.message_id)
+          : -1;
+        if (idx >= 0) {
+          messages[idx] = {
+            ...messages[idx],
+            text: evt.text || messages[idx].text,
+            streaming: false,
+            finalSuggestions: suggestions,
+          };
+        } else {
+          messages.push({
+            id: evt.message_id ?? newMsgId('a'),
+            role: 'assistant',
+            text: evt.text,
+            finalSuggestions: suggestions,
+            ts: evt.ts,
+          });
+        }
+        return {
+          agent: {
+            ...s.agent,
+            messages,
+            status: 'idle',
+          },
+        };
+      });
+      return;
+    }
+  }
+};
 
 /** Reset helper for tests; not used in app code. */
 export const __resetStore = (): void => {
@@ -456,6 +952,15 @@ export const __resetStore = (): void => {
     }
     jobConns.delete(id);
   }
+  if (agentConn) {
+    agentConn.closed = true;
+    try {
+      agentConn.socket.close();
+    } catch {
+      // ignore
+    }
+    agentConn = null;
+  }
   useStore.setState({
     catalog: [],
     tabs: [],
@@ -465,16 +970,43 @@ export const __resetStore = (): void => {
     jobLastEventId: new Map(),
     fileTree: [],
     runs: [],
-    agent: initialAgent,
-    settings: initialSettings,
+    agent: { ...initialAgent },
+    settings: {
+      providers: Object.fromEntries(DEFAULT_PROVIDERS.map((p) => [p.id, { ...p }])),
+      active: null,
+    },
     tweaks: { ...TWEAK_DEFAULTS },
     sidebarView: 'files',
     bottomTab: 'terminal',
     paletteOpen: false,
     tweaksOpen: false,
     chatVisible: true,
+    settingsOpen: false,
   });
 };
 
 /** Test-only accessor for the WS connection registry. */
 export const __jobConnsForTest = jobConns;
+
+/**
+ * Test-only injection: open the agent socket using a mock factory, without
+ * going through the POST /api/agent/chat round-trip.
+ */
+export const __attachAgentSocketForTest = (
+  threadId: string,
+  factory: (url: string) => WebSocket,
+): void => {
+  useStore.setState((s) => ({ agent: { ...s.agent, threadId } }));
+  _attachAgentSocket(
+    threadId,
+    () => useStore.getState(),
+    (partial) => {
+      if (typeof partial === 'function') {
+        useStore.setState(partial as (s: StoreState) => Partial<StoreState>);
+      } else {
+        useStore.setState(partial);
+      }
+    },
+    factory,
+  );
+};

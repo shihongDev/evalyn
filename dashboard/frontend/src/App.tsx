@@ -12,46 +12,11 @@ import TitleBar from './components/TitleBar';
 import EditorTabs from './components/EditorTabs';
 import Sidebar from './components/Sidebar';
 import BottomPanel from './components/BottomPanel';
+import ChatPanel from './components/ChatPanel';
+import SettingsModal from './components/SettingsModal';
 import Welcome from './views/Welcome';
 import CliForm from './views/CliForm';
 import { useStore } from './store';
-
-const ChatPanelPlaceholder = () => (
-  <aside
-    style={{
-      width: 420,
-      background: 'var(--bg-1)',
-      borderLeft: '1px solid var(--line)',
-      display: 'flex',
-      flexDirection: 'column',
-      minHeight: 0,
-    }}
-  >
-    <div
-      style={{
-        padding: '12px 16px',
-        borderBottom: '1px solid var(--line)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-      }}
-    >
-      <span className="accent mono" style={{ fontSize: 11 }}>
-        ✦ agent
-      </span>
-      <span className="grow" />
-      <span className="text-3 mono" style={{ fontSize: 10 }}>
-        Phase 3
-      </span>
-    </div>
-    <div
-      className="mono text-3"
-      style={{ padding: '24px 18px', fontSize: 11, lineHeight: 1.7 }}
-    >
-      {'// ChatPanel ships in Phase 3 (Lane C2)'}
-    </div>
-  </aside>
-);
 
 const TabContent = () => {
   const tabs = useStore((s) => s.tabs);
@@ -96,13 +61,13 @@ const App = () => {
   const theme = useStore((s) => s.tweaks.theme);
   const monoOnly = useStore((s) => s.tweaks.monoOnly);
   const showJobsPanel = useStore((s) => s.tweaks.showJobsPanel);
-  const chatPlacement = useStore((s) => s.tweaks.chatPlacement);
   const chatVisible = useStore((s) => s.chatVisible);
   const setChatVisible = useStore((s) => s.setChatVisible);
   const setPaletteOpen = useStore((s) => s.setPaletteOpen);
   const loadCatalog = useStore((s) => s.loadCatalog);
   const loadFileTree = useStore((s) => s.loadFileTree);
   const loadRuns = useStore((s) => s.loadRuns);
+  const loadSettings = useStore((s) => s.loadSettings);
 
   // Boot fetches: catalog / file tree / runs. Failures are non-fatal in Phase 2
   // because the corresponding endpoints land in Lane B1; the UI degrades to
@@ -117,7 +82,10 @@ const App = () => {
     loadRuns().catch((err) => {
       console.warn('loadRuns failed', err);
     });
-  }, [loadCatalog, loadFileTree, loadRuns]);
+    loadSettings().catch((err) => {
+      console.warn('loadSettings failed', err);
+    });
+  }, [loadCatalog, loadFileTree, loadRuns, loadSettings]);
 
   // Apply theme + mono toggle to <body>, mirroring the mock's effect.
   useEffect(() => {
@@ -140,8 +108,8 @@ const App = () => {
     return () => window.removeEventListener('keydown', onKey);
   }, [setPaletteOpen]);
 
-  const chatDocked = chatPlacement === 'dock' && chatVisible;
-
+  // Per spec §8 the dock-right placement is the only one shipped. We keep
+  // chatVisible as the toggle so the user can still hide the panel.
   return (
     <div
       style={{
@@ -157,7 +125,7 @@ const App = () => {
         style={{
           flex: 1,
           display: 'grid',
-          gridTemplateColumns: `auto 1fr ${chatDocked ? '420px' : ''}`,
+          gridTemplateColumns: `auto 1fr ${chatVisible ? '420px' : ''}`,
           minHeight: 0,
         }}
       >
@@ -178,7 +146,7 @@ const App = () => {
           {showJobsPanel && <BottomPanel />}
         </div>
 
-        {chatDocked && <ChatPanelPlaceholder />}
+        {chatVisible && <ChatPanel />}
       </div>
 
       {!chatVisible && (
@@ -200,6 +168,8 @@ const App = () => {
           ✦ Ask agent
         </button>
       )}
+
+      <SettingsModal />
     </div>
   );
 };
