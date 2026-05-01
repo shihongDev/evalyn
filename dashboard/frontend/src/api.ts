@@ -118,6 +118,25 @@ export function openWs<T>(path: string, handlers: WsHandlers<T>): { close: () =>
 export const subscribeJob = <T>(jobId: string, handlers: WsHandlers<T>): { close: () => void } =>
   openWs<T>(`/ws/jobs/${encodeURIComponent(jobId)}`, handlers);
 
+/**
+ * Open a raw WebSocket for a job, optionally resuming from a server-assigned
+ * `event_id`. Returns the underlying `WebSocket` so callers can manage
+ * reconnection (the store's `subscribeJob` slice does exactly that).
+ *
+ * `factory` is injected so tests can swap in a mock socket — when omitted
+ * the global `WebSocket` constructor is used.
+ */
+export function openJobWs(
+  jobId: string,
+  options: { sinceEventId?: number | null; factory?: (url: string) => WebSocket } = {},
+): WebSocket {
+  const { sinceEventId, factory } = options;
+  const qs = sinceEventId != null && sinceEventId >= 0 ? `?since=${encodeURIComponent(sinceEventId)}` : '';
+  const url = wsUrl(`/ws/jobs/${encodeURIComponent(jobId)}${qs}`);
+  const ctor = factory ?? ((u) => new WebSocket(u));
+  return ctor(url);
+}
+
 /** Subscribe to the agent's chat thread. */
 export const subscribeAgent = <T>(threadId: string, handlers: WsHandlers<T>): { close: () => void } =>
   openWs<T>(`/ws/agent/${encodeURIComponent(threadId)}`, handlers);
