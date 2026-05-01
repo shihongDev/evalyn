@@ -98,3 +98,54 @@ def test_schedule_browser_open_times_out_when_server_never_starts() -> None:
     # Even if the server never reports started, the opener still fires
     # after the timeout window so the operator at least gets a tab.
     assert seen == ["http://127.0.0.1:7401/"]
+
+
+# ---- A1.5: stub API routers all return 501 --------------------------------
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/cli",
+        "/api/jobs/recent",
+        "/api/files/tree",
+        "/api/runs",
+        "/api/settings",
+    ],
+)
+def test_stub_get_routes_return_501(path: str) -> None:
+    client = TestClient(build_app())
+    r = client.get(path)
+    assert r.status_code == 501
+    body = r.json()
+    assert body.get("error") == "not implemented"
+
+
+def test_stub_post_routes_require_csrf() -> None:
+    """Mutating stub routes still 403 without the workbench token."""
+
+    client = TestClient(build_app())
+    r = client.post("/api/cli/run", json={})
+    assert r.status_code == 403
+
+
+def test_stub_post_routes_return_501_with_csrf() -> None:
+    from evalyn_dashboard.server import CSRF_HEADER
+
+    client = TestClient(build_app())
+    # Pull token from served HTML.
+    import re
+
+    html = client.get("/").text
+    m = re.search(r'content="([^"]+)"', html)
+    assert m
+    token = m.group(1)
+    for path in [
+        "/api/cli/run",
+        "/api/jobs/abc/cancel",
+        "/api/agent/chat",
+        "/api/settings/openai",
+        "/api/settings/active",
+    ]:
+        r = client.post(path, json={}, headers={CSRF_HEADER: token})
+        assert r.status_code == 501, f"{path} returned {r.status_code}"

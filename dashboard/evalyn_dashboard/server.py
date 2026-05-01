@@ -99,6 +99,37 @@ def _read_index_html(token: str) -> str:
     return meta + raw
 
 
+def _register_stub_api_routers(app: FastAPI) -> None:
+    """Register Phase 1 placeholder API routers.
+
+    Each router under :mod:`evalyn_dashboard.api` returns 501 in Phase 1
+    and is replaced by Phase 2/3 lanes (B1, C1). The import is wrapped
+    in try/except so this function stays usable in early checkouts that
+    have not yet vendored the ``api`` package.
+    """
+
+    try:
+        from .api import (
+            agent as agent_api,
+            cli as cli_api,
+            files as files_api,
+            jobs as jobs_api,
+            runs as runs_api,
+            settings as settings_api,
+        )
+    except ImportError:
+        return
+
+    app.include_router(cli_api.router, prefix="/api/cli", tags=["cli"])
+    app.include_router(jobs_api.router, prefix="/api/jobs", tags=["jobs"])
+    app.include_router(files_api.router, prefix="/api/files", tags=["files"])
+    app.include_router(runs_api.router, prefix="/api/runs", tags=["runs"])
+    app.include_router(agent_api.router, prefix="/api/agent", tags=["agent"])
+    app.include_router(
+        settings_api.router, prefix="/api/settings", tags=["settings"]
+    )
+
+
 def build_app(token: Optional[str] = None) -> FastAPI:
     """Construct the FastAPI app.
 
@@ -114,6 +145,8 @@ def build_app(token: Optional[str] = None) -> FastAPI:
     @app.get("/api/health")
     async def healthcheck() -> dict:
         return {"ok": True}
+
+    _register_stub_api_routers(app)
 
     if STATIC_DIR.exists():
         app.mount(
