@@ -12,6 +12,9 @@ Invoking the alias prints a deprecation warning to stderr and forwards to
 
 from __future__ import annotations
 
+# Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
+GROUP = "Insights"
+
 import argparse
 import sys
 

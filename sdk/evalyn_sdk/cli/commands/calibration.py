@@ -29,6 +29,9 @@ Typical workflow:
 
 from __future__ import annotations
 
+# Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
+GROUP = "Annotation"
+
 import argparse
 import json
 from pathlib import Path

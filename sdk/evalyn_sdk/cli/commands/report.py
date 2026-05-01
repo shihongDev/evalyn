@@ -17,6 +17,9 @@ package; the legacy alias still forwards here with a deprecation warning.
 
 from __future__ import annotations
 
+# Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
+GROUP = "Insights"
+
 import argparse
 import platform
 import subprocess

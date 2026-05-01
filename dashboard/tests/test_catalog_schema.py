@@ -55,7 +55,10 @@ def test_build_catalog_validates_against_schema() -> None:
     """A2.4 deliverable: ``build_catalog()`` must produce schema-valid output."""
     pytest.importorskip("jsonschema")
     try:
-        from evalyn_dashboard.introspect import build_catalog  # type: ignore[attr-defined]
+        from evalyn_dashboard.introspect import (  # type: ignore[attr-defined]
+            build_catalog,
+            catalog_to_payload,
+        )
     except (ImportError, AttributeError):
         pytest.skip("build_catalog lands in Phase 1 lane A2.4")
 
@@ -63,8 +66,5 @@ def test_build_catalog_validates_against_schema() -> None:
 
     schema = _load_schema()
     catalog = build_catalog()
-    # `catalog` should be a list of dataclasses; convert to dict for jsonschema.
-    from dataclasses import asdict, is_dataclass
-
-    payload = [asdict(item) if is_dataclass(item) else item for item in catalog]
+    payload = catalog_to_payload(catalog)
     jsonschema.validate(instance=payload, schema=schema)
