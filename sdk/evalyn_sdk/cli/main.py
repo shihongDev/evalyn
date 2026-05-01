@@ -51,7 +51,8 @@ PIPELINE:
   quickstart       Detect framework, generate snippet, set up evaluation
   init             Initialize configuration file
   one-click        Run complete pipeline in one command
-  dashboard        Generate and open interactive HTML dashboard
+  report           Generate and open interactive HTML insights report
+                   (formerly 'dashboard'; the new IDE ships in evalyn-dashboard)
 """
 
 from __future__ import annotations
@@ -109,8 +110,12 @@ _COMMAND_MODULE_MAP: dict[str, str] = {
     "workflow": "infrastructure",
     "init": "infrastructure",
     "one-click": "infrastructure",
-    # dashboard
-    "dashboard": "dashboard",
+    # report (renamed from "dashboard"; static HTML insights report)
+    "report": "report",
+    # dashboard alias: prints deprecation warning, forwards to "report".
+    # Skipped at runtime when the evalyn-dashboard plugin is installed
+    # (plugin entry-point discovery takes precedence).
+    "dashboard": "dashboard_alias",
     # quickstart
     "quickstart": "quickstart",
 }
@@ -211,7 +216,7 @@ EVALUATION
   compare          Compare two evaluation runs
   trend            Show evaluation trends over time
   insights         Comprehensive diagnostic and prescriptive analysis
-  dashboard        Generate and open interactive HTML dashboard
+  report           Generate and open interactive HTML insights report
 
 ANNOTATION & CALIBRATION
   annotate         Interactive annotation interface

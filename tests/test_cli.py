@@ -976,25 +976,53 @@ class TestQuickstart:
 
 
 # ===========================================================================
-# Dashboard tests
+# Report tests (renamed from dashboard)
 # ===========================================================================
 
 
-class TestDashboard:
-    """Tests for dashboard command."""
+class TestReport:
+    """Tests for the renamed ``evalyn report`` command."""
 
-    def test_dashboard_help(self):
-        """dashboard --help shows key flags."""
-        result = run_cli("dashboard", "--help")
+    def test_report_help(self):
+        """report --help shows key flags."""
+        result = run_cli("report", "--help")
         result.assert_success()
         result.assert_output_contains("--run")
         result.assert_output_contains("--dataset")
         result.assert_output_contains("--output")
 
-    def test_dashboard_no_data(self):
-        """dashboard without data fails with appropriate message."""
-        result = run_cli("dashboard")
+    def test_report_no_data(self):
+        """report without data fails with appropriate message."""
+        result = run_cli("report")
         result.assert_failure()
+
+
+class TestDashboardAlias:
+    """Tests for the ``dashboard`` deprecation alias module.
+
+    When the ``evalyn-dashboard`` plugin is installed, the alias is
+    bypassed at the CLI level by entry-point discovery. The module is
+    still tested directly so the behavior is locked in for environments
+    without the plugin.
+    """
+
+    def test_alias_warns_and_runs_report(self, capsys, monkeypatch):
+        """Calling the alias prints deprecation to stderr and forwards to report."""
+        import argparse
+        from evalyn_sdk.cli.commands import dashboard_alias
+
+        called = {}
+
+        def fake_cmd_report(args: argparse.Namespace) -> None:
+            called["args"] = args
+
+        monkeypatch.setattr(dashboard_alias, "cmd_report", fake_cmd_report)
+        ns = argparse.Namespace(run=None, dataset=None, latest=False, output=None)
+        dashboard_alias.cmd_dashboard_alias(ns)
+        captured = capsys.readouterr()
+        assert "deprecated" in captured.err.lower()
+        assert "evalyn report" in captured.err
+        assert called["args"] is ns
 
 
 # ===========================================================================
@@ -1003,11 +1031,11 @@ class TestDashboard:
 
 
 class TestOpenInBrowser:
-    """Tests for the _open_in_browser helper."""
+    """Tests for the _open_in_browser helper (now in commands.report)."""
 
     def test_open_in_browser_returns_bool(self, tmp_path):
         """_open_in_browser should return a bool regardless of success."""
-        from evalyn_sdk.cli.commands.dashboard import _open_in_browser
+        from evalyn_sdk.cli.commands.report import _open_in_browser
 
         fake_file = tmp_path / "test.html"
         fake_file.write_text("<html></html>")
@@ -1017,23 +1045,23 @@ class TestOpenInBrowser:
     def test_open_in_browser_success(self, tmp_path):
         """Successful subprocess call returns True."""
         from unittest.mock import patch
-        from evalyn_sdk.cli.commands.dashboard import _open_in_browser
+        from evalyn_sdk.cli.commands.report import _open_in_browser
 
         fake_file = tmp_path / "test.html"
         fake_file.write_text("<html></html>")
-        with patch("evalyn_sdk.cli.commands.dashboard.subprocess.run"):
+        with patch("evalyn_sdk.cli.commands.report.subprocess.run"):
             assert _open_in_browser(fake_file) is True
 
     def test_open_in_browser_failure(self, tmp_path):
         """Failed subprocess call returns False."""
         from unittest.mock import patch
         import subprocess
-        from evalyn_sdk.cli.commands.dashboard import _open_in_browser
+        from evalyn_sdk.cli.commands.report import _open_in_browser
 
         fake_file = tmp_path / "test.html"
         fake_file.write_text("<html></html>")
         with patch(
-            "evalyn_sdk.cli.commands.dashboard.subprocess.run",
+            "evalyn_sdk.cli.commands.report.subprocess.run",
             side_effect=subprocess.CalledProcessError(1, "open"),
         ):
             assert _open_in_browser(fake_file) is False
