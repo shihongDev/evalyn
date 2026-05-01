@@ -8,6 +8,7 @@ Public API:
 - ``CredentialStore.get_provider`` - INTERNAL: returns full record incl key.
 - ``CredentialStore.public_view`` - safe shape for HTTP responses.
 - ``CredentialStore.set_active`` - choose default provider.
+- ``CredentialStore.test_provider`` - 1-token probe to verify credentials.
 
 The on-disk schema:
 
@@ -32,6 +33,8 @@ from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 
 
 def _default_path() -> Path:
@@ -189,3 +192,71 @@ class CredentialStore:
                 entry["base_url"] = rec["base_url"]
             out_providers[name] = entry
         return {"providers": out_providers, "active": data.get("active")}
+
+    # ------------------------------------------------------------------
+    # Connection probe
+    # ------------------------------------------------------------------
+
+    def test_provider(self, name: str) -> dict[str, Any]:
+        """Attempt a minimal 1-token call against ``name``.
+
+        Returns ``{"ok": True}`` on success or ``{"ok": False, "error": str}``
+        on any failure. Imports provider SDKs lazily so the dashboard works
+        even if optional dependencies are missing.
+        """
+        rec = self.get_provider(name)
+        if rec is None:
+            return {"ok": False, "error": f"provider {name!r} not configured"}
+
+        try:
+            if name == "openai":
+                return self._test_openai(rec)
+            if name == "anthropic":
+                return self._test_anthropic(rec)
+            if name == "ollama":
+                return self._test_ollama(rec)
+            return {"ok": False, "error": f"unknown provider {name!r}"}
+        except Exception as exc:  # noqa: BLE001 - surface any error verbatim
+            return {"ok": False, "error": str(exc)}
+
+    @staticmethod
+    def _test_openai(rec: dict[str, Any]) -> dict[str, Any]:
+        import openai  # type: ignore[import-not-found]
+
+        api_key = rec.get("api_key")
+        model = rec.get("model")
+        if not api_key or not model:
+            return {"ok": False, "error": "missing api_key or model"}
+        client = openai.OpenAI(api_key=api_key)
+        client.chat.completions.create(
+            model=model,
+            max_tokens=1,
+            messages=[{"role": "user", "content": "hi"}],
+        )
+        return {"ok": True}
+
+    @staticmethod
+    def _test_anthropic(rec: dict[str, Any]) -> dict[str, Any]:
+        import anthropic  # type: ignore[import-not-found]
+
+        api_key = rec.get("api_key")
+        model = rec.get("model")
+        if not api_key or not model:
+            return {"ok": False, "error": "missing api_key or model"}
+        client = anthropic.Anthropic(api_key=api_key)
+        client.messages.create(
+            model=model,
+            max_tokens=1,
+            messages=[{"role": "user", "content": "hi"}],
+        )
+        return {"ok": True}
+
+    @staticmethod
+    def _test_ollama(rec: dict[str, Any]) -> dict[str, Any]:
+        import httpx
+
+        base_url = rec.get("base_url") or DEFAULT_OLLAMA_BASE_URL
+        url = base_url.rstrip("/") + "/api/tags"
+        response = httpx.get(url, timeout=5.0)
+        response.raise_for_status()
+        return {"ok": True}

@@ -1,4 +1,8 @@
-"""Tests for ``evalyn_dashboard.credentials.CredentialStore`` (A4.1)."""
+"""Tests for ``evalyn_dashboard.credentials.CredentialStore``.
+
+Covers A4.1 (atomic write + chmod 600 + public_view safety) and
+A4.2 (provider connection test with mocked HTTP clients).
+"""
 
 from __future__ import annotations
 
@@ -7,10 +11,16 @@ import os
 import stat
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from evalyn_dashboard.credentials import CredentialStore
+
+
+# ---------------------------------------------------------------------------
+# A4.1: atomic write + chmod 600 + safe public view
+# ---------------------------------------------------------------------------
 
 
 def test_fresh_path_public_view_is_empty(tmp_path: Path) -> None:
@@ -129,3 +139,143 @@ def test_default_path_under_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
     cs = CredentialStore()
     assert cs.path == tmp_path / ".evalyn" / "credentials.json"
+
+
+# ---------------------------------------------------------------------------
+# A4.2: test_provider connection check (mocked)
+# ---------------------------------------------------------------------------
+
+
+def test_test_provider_unknown_returns_error(tmp_path: Path) -> None:
+    cs = CredentialStore(path=tmp_path / "cred.json")
+    result = cs.test_provider("openai")
+    assert result["ok"] is False
+    assert "error" in result
+
+
+def test_test_provider_openai_ok(tmp_path: Path) -> None:
+    cs = CredentialStore(path=tmp_path / "cred.json")
+    cs.set_provider("openai", api_key="sk-test", model="gpt-5.1")
+
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.return_value = MagicMock(
+        choices=[MagicMock(message=MagicMock(content="ok"))]
+    )
+    fake_module = MagicMock()
+    fake_module.OpenAI.return_value = fake_client
+
+    with patch.dict(sys.modules, {"openai": fake_module}):
+        result = cs.test_provider("openai")
+
+    assert result["ok"] is True
+    fake_module.OpenAI.assert_called_once_with(api_key="sk-test")
+    fake_client.chat.completions.create.assert_called_once()
+    kwargs = fake_client.chat.completions.create.call_args.kwargs
+    assert kwargs["model"] == "gpt-5.1"
+    assert kwargs["max_tokens"] == 1
+    assert kwargs["messages"] == [{"role": "user", "content": "hi"}]
+
+
+def test_test_provider_openai_failure(tmp_path: Path) -> None:
+    cs = CredentialStore(path=tmp_path / "cred.json")
+    cs.set_provider("openai", api_key="sk-test", model="gpt-5.1")
+
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.side_effect = RuntimeError("rate limited")
+    fake_module = MagicMock()
+    fake_module.OpenAI.return_value = fake_client
+
+    with patch.dict(sys.modules, {"openai": fake_module}):
+        result = cs.test_provider("openai")
+
+    assert result["ok"] is False
+    assert "rate limited" in result["error"]
+
+
+def test_test_provider_anthropic_ok(tmp_path: Path) -> None:
+    cs = CredentialStore(path=tmp_path / "cred.json")
+    cs.set_provider("anthropic", api_key="sk-ant", model="claude-sonnet-4-6")
+
+    fake_client = MagicMock()
+    fake_client.messages.create.return_value = MagicMock(
+        content=[MagicMock(text="ok")]
+    )
+    fake_module = MagicMock()
+    fake_module.Anthropic.return_value = fake_client
+
+    with patch.dict(sys.modules, {"anthropic": fake_module}):
+        result = cs.test_provider("anthropic")
+
+    assert result["ok"] is True
+    fake_module.Anthropic.assert_called_once_with(api_key="sk-ant")
+    kwargs = fake_client.messages.create.call_args.kwargs
+    assert kwargs["model"] == "claude-sonnet-4-6"
+    assert kwargs["max_tokens"] == 1
+
+
+def test_test_provider_anthropic_failure(tmp_path: Path) -> None:
+    cs = CredentialStore(path=tmp_path / "cred.json")
+    cs.set_provider("anthropic", api_key="sk-ant", model="claude-sonnet-4-6")
+
+    fake_client = MagicMock()
+    fake_client.messages.create.side_effect = RuntimeError("invalid key")
+    fake_module = MagicMock()
+    fake_module.Anthropic.return_value = fake_client
+
+    with patch.dict(sys.modules, {"anthropic": fake_module}):
+        result = cs.test_provider("anthropic")
+
+    assert result["ok"] is False
+    assert "invalid key" in result["error"]
+
+
+def test_test_provider_ollama_ok(tmp_path: Path) -> None:
+    cs = CredentialStore(path=tmp_path / "cred.json")
+    cs.set_provider("ollama", model="llama3", base_url="http://localhost:11434")
+
+    fake_response = MagicMock()
+    fake_response.status_code = 200
+    fake_response.raise_for_status.return_value = None
+
+    with patch("httpx.get", return_value=fake_response) as mock_get:
+        result = cs.test_provider("ollama")
+
+    assert result["ok"] is True
+    mock_get.assert_called_once()
+    args, kwargs = mock_get.call_args
+    assert args[0] == "http://localhost:11434/api/tags"
+
+
+def test_test_provider_ollama_failure(tmp_path: Path) -> None:
+    cs = CredentialStore(path=tmp_path / "cred.json")
+    cs.set_provider("ollama", model="llama3", base_url="http://localhost:11434")
+
+    with patch("httpx.get", side_effect=RuntimeError("connection refused")):
+        result = cs.test_provider("ollama")
+
+    assert result["ok"] is False
+    assert "connection refused" in result["error"]
+
+
+def test_test_provider_ollama_default_base_url(tmp_path: Path) -> None:
+    cs = CredentialStore(path=tmp_path / "cred.json")
+    # Provision ollama record without explicit base_url
+    cs.set_provider("ollama", model="llama3")
+
+    fake_response = MagicMock()
+    fake_response.raise_for_status.return_value = None
+
+    with patch("httpx.get", return_value=fake_response) as mock_get:
+        result = cs.test_provider("ollama")
+
+    assert result["ok"] is True
+    args, _ = mock_get.call_args
+    assert args[0] == "http://localhost:11434/api/tags"
+
+
+def test_test_provider_unknown_provider_name(tmp_path: Path) -> None:
+    cs = CredentialStore(path=tmp_path / "cred.json")
+    cs.set_provider("openai", api_key="sk", model="gpt-5.1")
+    result = cs.test_provider("mystery")
+    assert result["ok"] is False
+    assert "error" in result
