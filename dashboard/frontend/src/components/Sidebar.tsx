@@ -1,19 +1,20 @@
 /**
- * Sidebar — Files / CLIs / Runs tab strip + content panes.
+ * Sidebar - Files / CLIs / Runs tab strip + content panes.
  *
- * Skeleton ported from /tmp/evalyn-dashboard-mock/wb-app.jsx (lines 57-99).
- * The actual content of each pane (file tree, CLI catalog rows, run rows)
- * is filled in by Lane B2; this lane wires the tab strip + collapsible
- * icon rail and renders empty placeholders.
+ * Ported from /tmp/evalyn-dashboard-mock/wb-app.jsx (Sidebar). The tab strip
+ * + collapsible icon rail was scaffolded by Lane A5; this lane plugs in the
+ * three real inner views (FileTree, CliCatalog, RunsList).
  */
 
 import { useStore, type SidebarView } from '../store';
+import FileTree from './FileTree';
+import CliCatalog from './CliCatalog';
+import RunsList from './RunsList';
 
-const ICON_BY_VIEW: Record<SidebarView | 'search', string> = {
+const ICON_BY_VIEW: Record<SidebarView, string> = {
   files: '▤',
   clis: '$',
   runs: '▶',
-  search: '⌕',
 };
 
 const LABEL_BY_VIEW: Record<SidebarView, string> = {
@@ -21,20 +22,6 @@ const LABEL_BY_VIEW: Record<SidebarView, string> = {
   clis: 'CLIs',
   runs: 'Runs',
 };
-
-const EmptyPane = ({ label }: { label: string }) => (
-  <div
-    className="mono text-3"
-    style={{
-      padding: '24px 14px',
-      fontSize: 11,
-      lineHeight: 1.6,
-    }}
-  >
-    {label}
-    <div style={{ marginTop: 6 }}>{'// Phase 2 (Lane B2)'}</div>
-  </div>
-);
 
 const Sidebar = () => {
   const collapsed = useStore((s) => s.tweaks.sidebarCollapsed);
@@ -107,9 +94,9 @@ const Sidebar = () => {
         ))}
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '6px 0 12px' }}>
-        {view === 'files' && <EmptyPane label="// file tree" />}
-        {view === 'clis' && <EmptyPane label="// CLI catalog" />}
-        {view === 'runs' && <EmptyPane label="// runs list" />}
+        {view === 'files' && <FileTree />}
+        {view === 'clis' && <CliCatalog />}
+        {view === 'runs' && <RunsList />}
       </div>
     </div>
   );

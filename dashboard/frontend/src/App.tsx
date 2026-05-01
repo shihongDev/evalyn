@@ -13,6 +13,7 @@ import EditorTabs from './components/EditorTabs';
 import Sidebar from './components/Sidebar';
 import BottomPanel from './components/BottomPanel';
 import Welcome from './views/Welcome';
+import CliForm from './views/CliForm';
 import { useStore } from './store';
 
 const ChatPanelPlaceholder = () => (
@@ -55,16 +56,37 @@ const ChatPanelPlaceholder = () => (
 const TabContent = () => {
   const tabs = useStore((s) => s.tabs);
   const activeTabId = useStore((s) => s.activeTabId);
+  const catalog = useStore((s) => s.catalog);
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
 
   if (!activeTab) {
     return <Welcome />;
   }
+
+  if (activeTab.kind === 'cli') {
+    const id = activeTab.id.replace(/^cli:/, '');
+    const cli = catalog.find((c) => c.id === id);
+    if (!cli) {
+      return (
+        <div
+          className="mono text-3"
+          style={{ padding: 28, fontSize: 12, lineHeight: 1.7 }}
+        >
+          <div className="text-2">{activeTab.title}</div>
+          <div style={{ marginTop: 12 }}>
+            // CLI not in catalog (loading or unknown id)
+          </div>
+        </div>
+      );
+    }
+    return <CliForm cli={cli} />;
+  }
+
   return (
     <div className="mono text-3" style={{ padding: 28, fontSize: 12, lineHeight: 1.7 }}>
       <div className="text-2">{activeTab.title}</div>
       <div style={{ marginTop: 12 }}>
-        {`// ${activeTab.kind} content ships in Phase 2 (Lane B2)`}
+        {`// ${activeTab.kind} content ships in Phase 2 (Lane B2 / B3)`}
       </div>
     </div>
   );
@@ -78,6 +100,24 @@ const App = () => {
   const chatVisible = useStore((s) => s.chatVisible);
   const setChatVisible = useStore((s) => s.setChatVisible);
   const setPaletteOpen = useStore((s) => s.setPaletteOpen);
+  const loadCatalog = useStore((s) => s.loadCatalog);
+  const loadFileTree = useStore((s) => s.loadFileTree);
+  const loadRuns = useStore((s) => s.loadRuns);
+
+  // Boot fetches: catalog / file tree / runs. Failures are non-fatal in Phase 2
+  // because the corresponding endpoints land in Lane B1; the UI degrades to
+  // empty placeholders.
+  useEffect(() => {
+    loadCatalog().catch((err) => {
+      console.warn('loadCatalog failed', err);
+    });
+    loadFileTree().catch((err) => {
+      console.warn('loadFileTree failed', err);
+    });
+    loadRuns().catch((err) => {
+      console.warn('loadRuns failed', err);
+    });
+  }, [loadCatalog, loadFileTree, loadRuns]);
 
   // Apply theme + mono toggle to <body>, mirroring the mock's effect.
   useEffect(() => {
