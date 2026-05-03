@@ -25,12 +25,15 @@ routers (A1.5) layer on top.
 
 from __future__ import annotations
 
+import logging
 import secrets
 import threading
 import time
 import webbrowser
 from pathlib import Path
 from typing import Callable, Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
@@ -141,6 +144,47 @@ def _register_api_routers(app: FastAPI) -> None:
     app.include_router(threads_api.router, prefix="/api/threads", tags=["threads"])
     register_ws_routes(app)
     register_agent_ws_routes(app)
+    _register_v2_routers(app)
+
+
+def _register_v2_routers(app: FastAPI) -> None:
+    """Register ``/api/v2/*`` routers (the new dashboard surface).
+
+    Wrapped so a missing module fails for that prefix only - the rest of
+    the API stays online. Each module is independently importable.
+    """
+    try:
+        from .api.v2 import home as v2_home
+    except ImportError as exc:
+        logger.warning("v2 home router import failed; /api/v2/home will 404: %s", exc)
+        return
+
+    app.include_router(v2_home.router, prefix="/api/v2/home", tags=["v2"])
+
+    # Optional v2 modules. We log import failures (including transitive
+    # ones) so a dropped router shows up in startup logs instead of
+    # manifesting as mysterious 404s in the browser.
+    for module_name, prefix in (
+        ("experiments", "/api/v2/experiments"),
+        ("datasets", "/api/v2/datasets"),
+        ("rubrics", "/api/v2/rubrics"),
+        ("review", "/api/v2/review"),
+        ("reports", "/api/v2/reports"),
+    ):
+        try:
+            mod = __import__(
+                f"evalyn_dashboard.api.v2.{module_name}",
+                fromlist=["router"],
+            )
+            app.include_router(mod.router, prefix=prefix, tags=["v2"])
+        except ImportError as exc:
+            logger.warning(
+                "v2 %s router import failed; %s will 404: %s",
+                module_name,
+                prefix,
+                exc,
+            )
+            continue
 
 
 def build_app(

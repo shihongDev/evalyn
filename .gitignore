@@ -18,6 +18,9 @@ data/prod/
 data/test/
 data/test-output/
 
+# Evalyn runtime workspace (per-checkout state, not source).
+.evalyn/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

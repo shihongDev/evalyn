@@ -1,0 +1,309 @@
+/**
+ * FailureCluster - deep-dive on a single cluster of failed items.
+ * Wires v2.cluster(runId, clusterId) into the design from screens-4.jsx.
+ */
+
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { AppShell } from '../AppShell';
+import { Bar, Btn, Card, Eyebrow, LineChart, Pill } from '../ui';
+import { v2 } from '../api/client';
+import type { ClusterDetail } from '../api/types';
+import { E } from '../tokens';
+
+export default function FailureCluster() {
+  const params = useParams<{ runId: string; clusterId: string }>();
+  const navigate = useNavigate();
+  const runId = params.runId ?? '';
+  const clusterId = params.clusterId ?? '';
+
+  const [data, setData] = useState<ClusterDetail | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!runId || !clusterId) return;
+    v2.cluster(runId, clusterId)
+      .then(setData)
+      .catch((e: unknown) => setErr(String(e)));
+  }, [runId, clusterId]);
+
+  const triggerMax = data ? Math.max(...data.triggers.map((t) => t.count), 1) : 1;
+  const trendMax = data?.trend.y_max ?? 20;
+
+  return (
+    <AppShell
+      contextChip={{ name: 'Customer Support Agent', version: 'v0.3' }}
+      breadcrumb={['Experiments', runId, 'Failures', data?.label ?? clusterId]}
+    >
+      <div style={{ padding: '28px 36px' }}>
+        {err && (
+          <Card style={{ padding: 16, marginBottom: 16, borderColor: E.fail }}>
+            <Eyebrow style={{ color: E.fail }}>Error loading cluster</Eyebrow>
+            <div style={{ fontFamily: E.fMono, fontSize: 12, color: E.text2, marginTop: 6 }}>
+              {err}
+            </div>
+          </Card>
+        )}
+        {!data && !err && (
+          <div style={{ color: E.text3, fontSize: 13 }}>Loading...</div>
+        )}
+        {data && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                  <Pill mono color={E.fail} bg={E.failDim}>cluster - regression</Pill>
+                  <span style={{ fontSize: 11, color: E.text3, fontFamily: E.fMono }}>
+                    {data.total_in_cluster} of {data.total_failures_in_run} failures
+                    {data.total_items_in_run > 0
+                      ? ` - ${((data.total_in_cluster / data.total_items_in_run) * 100).toFixed(1)}% of all items`
+                      : ''}
+                  </span>
+                </div>
+                <h1
+                  style={{
+                    fontFamily: E.fSerif,
+                    fontSize: 34,
+                    fontWeight: 400,
+                    margin: 0,
+                    color: E.text0,
+                    letterSpacing: '-0.015em',
+                  }}
+                >
+                  {data.label}
+                </h1>
+                <p
+                  style={{
+                    fontSize: 13.5,
+                    color: E.text2,
+                    marginTop: 8,
+                    lineHeight: 1.55,
+                    maxWidth: 720,
+                  }}
+                >
+                  {data.pattern}
+                </p>
+              </div>
+              <Btn
+                kind="primary"
+                size="md"
+                onClick={() => navigate(`/copilot?context=cluster:${clusterId}`)}
+              >
+                Fix with co-pilot -&gt;
+              </Btn>
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 14,
+                marginTop: 22,
+              }}
+            >
+              <Card style={{ padding: 18 }}>
+                <Eyebrow>Pattern</Eyebrow>
+                <div style={{ marginTop: 10, fontSize: 13, color: E.text1, lineHeight: 1.6 }}>
+                  {data.pattern}
+                </div>
+                <div
+                  style={{
+                    marginTop: 14,
+                    padding: 12,
+                    background: E.panel2,
+                    borderRadius: 7,
+                    border: `1px solid ${E.hair}`,
+                  }}
+                >
+                  <Eyebrow style={{ marginBottom: 6 }}>Trigger phrase frequency</Eyebrow>
+                  {data.triggers.map((r) => (
+                    <div
+                      key={r.phrase}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '160px 1fr 30px',
+                        gap: 8,
+                        alignItems: 'center',
+                        marginTop: 6,
+                      }}
+                    >
+                      <span style={{ fontFamily: E.fMono, fontSize: 11, color: E.text2 }}>
+                        {r.phrase}
+                      </span>
+                      <Bar value={r.count} max={triggerMax} w={'100%'} h={4} color={E.fail} />
+                      <span
+                        style={{
+                          fontFamily: E.fMono,
+                          fontSize: 11,
+                          color: E.text3,
+                          textAlign: 'right',
+                        }}
+                      >
+                        {r.count}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <Card style={{ padding: 18 }}>
+                <Eyebrow>Trend across recent runs</Eyebrow>
+                <div style={{ marginTop: 14 }}>
+                  <LineChart
+                    w={420}
+                    h={150}
+                    yMin={0}
+                    yMax={trendMax}
+                    xLabels={data.trend.x_labels}
+                    series={[{ color: E.fail, fill: true, width: 2, data: data.trend.data }]}
+                  />
+                </div>
+              </Card>
+            </div>
+
+            <Card style={{ marginTop: 14, padding: 0, overflow: 'hidden' }}>
+              <div
+                style={{
+                  padding: '12px 18px',
+                  borderBottom: `1px solid ${E.hair}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                <span style={{ fontSize: 13, color: E.text0, fontWeight: 500 }}>
+                  All {data.items.length} items in this cluster
+                </span>
+                <span style={{ flex: 1 }} />
+                <Btn kind="ghost" size="sm">Send to review queue</Btn>
+                <Btn kind="ghost" size="sm">Export</Btn>
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '50px 1fr 1fr 90px 70px',
+                  padding: '10px 18px',
+                  borderBottom: `1px solid ${E.hair}`,
+                  fontFamily: E.fMono,
+                  fontSize: 10,
+                  color: E.text3,
+                  letterSpacing: '0.06em',
+                }}
+              >
+                <span>ID</span>
+                <span>USER</span>
+                <span>HALLUCINATED</span>
+                <span>TIER</span>
+                <span style={{ textAlign: 'right' }}>SCORE</span>
+              </div>
+              {data.items.map((s, i) => (
+                <div
+                  key={s.id}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '50px 1fr 1fr 90px 70px',
+                    padding: '10px 18px',
+                    borderTop: i ? `1px solid ${E.hair}` : 'none',
+                    alignItems: 'center',
+                    gap: 8,
+                    fontSize: 12,
+                  }}
+                >
+                  <span style={{ fontFamily: E.fMono, fontSize: 11, color: E.text3 }}>{s.id}</span>
+                  <span
+                    style={{
+                      color: E.text2,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {s.user}
+                  </span>
+                  <span
+                    style={{
+                      color: E.text1,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    "{s.hallucinated}"
+                  </span>
+                  <Pill mono color={E.fail} bg={E.failDim} style={{ fontSize: 10 }}>
+                    {s.tier}
+                  </Pill>
+                  <span
+                    style={{
+                      textAlign: 'right',
+                      fontFamily: E.fSerif,
+                      fontSize: 14,
+                      color: E.fail,
+                    }}
+                  >
+                    {s.score.toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </Card>
+
+            {data.suggested_fix && (
+              <Card
+                accent
+                style={{
+                  marginTop: 14,
+                  padding: 22,
+                  background: E.emberDim,
+                  border: `1px solid ${E.emberRim}`,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <span
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: 6,
+                      background: `linear-gradient(135deg, ${E.ember}, #b8501f)`,
+                      color: E.emberInk,
+                      fontWeight: 700,
+                      fontFamily: E.fSerif,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 14,
+                    }}
+                  >
+                    e
+                  </span>
+                  <Eyebrow style={{ color: E.ember }}>Co-pilot's suggested fix</Eyebrow>
+                </div>
+                <div style={{ fontSize: 14, color: E.text1, lineHeight: 1.6 }}>
+                  {data.suggested_fix.body_md}
+                </div>
+                <div
+                  style={{
+                    marginTop: 10,
+                    fontSize: 12,
+                    color: E.text2,
+                    fontFamily: E.fMono,
+                  }}
+                >
+                  Estimated impact: {data.suggested_fix.estimated_impact}
+                </div>
+                <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
+                  <Btn kind="primary" size="md">
+                    Run draft eval ({data.suggested_fix.cost}, {data.suggested_fix.duration}) -&gt;
+                  </Btn>
+                  <Btn kind="secondary" size="md">Review the change</Btn>
+                  <Btn kind="bare" size="md">Show as command</Btn>
+                </div>
+              </Card>
+            )}
+
+            <div style={{ height: 30 }} />
+          </>
+        )}
+      </div>
+    </AppShell>
+  );
+}
