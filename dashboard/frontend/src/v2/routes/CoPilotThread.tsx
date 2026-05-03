@@ -12,10 +12,10 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { E } from '../tokens';
-import { Btn, Eyebrow, Pill } from '../ui';
+import { Btn, Eyebrow } from '../ui';
 import { Bubble, PlanCard, ToolBlock } from '../copilot/atoms';
 import { useCoPilotThread } from '../copilot/useCoPilotThread';
 import {
@@ -23,6 +23,57 @@ import {
   upsertThread,
   type ThreadIndexEntry,
 } from '../copilot/threadHistory';
+import {
+  deriveContextChips,
+  prependContextTag,
+  type ContextKind,
+} from '../copilot/contextChips';
+
+const DISABLED_CHIP_TITLE =
+  'Open this on a run/cluster/dataset page to attach as context';
+
+interface ContextChipButtonProps {
+  label: string;
+  enabled: boolean;
+  title?: string;
+  onClick: () => void;
+}
+
+function ContextChipButton({ label, enabled, title, onClick }: ContextChipButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={enabled ? onClick : undefined}
+      disabled={!enabled}
+      title={enabled ? title : DISABLED_CHIP_TITLE}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
+        padding: '2px 8px',
+        borderRadius: 999,
+        fontSize: 10,
+        fontFamily: E.fMono,
+        color: enabled ? E.text2 : E.text3,
+        background: E.panel2,
+        border: 'none',
+        cursor: enabled ? 'pointer' : 'not-allowed',
+        opacity: enabled ? 1 : 0.55,
+        transition: 'color 120ms, background 120ms',
+      }}
+      onMouseEnter={(e) => {
+        if (!enabled) return;
+        e.currentTarget.style.color = E.text1;
+      }}
+      onMouseLeave={(e) => {
+        if (!enabled) return;
+        e.currentTarget.style.color = E.text2;
+      }}
+    >
+      {label}
+    </button>
+  );
+}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -80,6 +131,7 @@ export default function CoPilotThread() {
   const routeThreadId = params.threadId ?? null;
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { threadId, messages, pending, status, error, send, confirm, resetTo } =
     useCoPilotThread({ initialThreadId: routeThreadId });
@@ -93,6 +145,19 @@ export default function CoPilotThread() {
   const useSuggestion = (prompt: string) => {
     setDraft(prompt);
     requestAnimationFrame(() => textareaRef.current?.focus());
+  };
+
+  const contextChips = deriveContextChips(location.pathname);
+
+  const attachContext = (kind: ContextKind, id: string) => {
+    setDraft((d) => prependContextTag(d, kind, id));
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      const len = el.value.length;
+      el.setSelectionRange(len, len);
+    });
   };
 
   // ?prefill=... seeds the composer (e.g. from /commands "Ask co-pilot"
@@ -420,26 +485,20 @@ export default function CoPilotThread() {
                 maxWidth: 760,
               }}
             >
-              {/* Attach-chips are visual placeholders; first-class context attachment is post-v2. */}
+              {/* Attach-chips prepend a `[context: ...]` tag to the draft based on
+                  the current route. See ../copilot/contextChips.ts. */}
               <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-                <Pill
-                  mono
-                  style={{ fontSize: 10, padding: '2px 8px', background: E.panel2, color: E.text2 }}
-                >
-                  + this run
-                </Pill>
-                <Pill
-                  mono
-                  style={{ fontSize: 10, padding: '2px 8px', background: E.panel2, color: E.text2 }}
-                >
-                  ＠ dataset
-                </Pill>
-                <Pill
-                  mono
-                  style={{ fontSize: 10, padding: '2px 8px', background: E.panel2, color: E.text2 }}
-                >
-                  + rubric
-                </Pill>
+                {contextChips.map((c) => (
+                  <ContextChipButton
+                    key={c.kind}
+                    label={c.label}
+                    enabled={c.id != null}
+                    title={c.enabledTitle}
+                    onClick={() => {
+                      if (c.id) attachContext(c.kind, c.id);
+                    }}
+                  />
+                ))}
               </div>
               <textarea
                 ref={textareaRef}

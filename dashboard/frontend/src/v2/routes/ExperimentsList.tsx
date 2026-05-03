@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Card, Eyebrow, Pill, Btn, StatusDot, Spark, Skeleton, UpdatingChip } from '../ui';
 // Deep-link target for "+ New evaluation". Lane I of iter 4 ships a CLI
@@ -30,6 +30,10 @@ const COLS = '24px 2.4fr 90px 90px 80px 90px 110px';
 type StatusFilter = 'any' | 'completed' | 'running' | 'failed' | 'warn';
 type SortOrder = 'recent' | 'oldest' | 'pass-desc' | 'pass-asc';
 type ViewMode = 'flat' | 'grouped';
+
+const STATUS_VALUES: readonly StatusFilter[] = ['any', 'completed', 'running', 'failed', 'warn'];
+const SORT_VALUES: readonly SortOrder[] = ['recent', 'oldest', 'pass-desc', 'pass-asc'];
+const VIEW_VALUES: readonly ViewMode[] = ['flat', 'grouped'];
 
 const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'any', label: 'Status: Any' },
@@ -254,13 +258,43 @@ export default function ExperimentsList() {
     v2.experiments,
   );
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('any');
-  const [tagFilter, setTagFilter] = useState<string>('any');
-  const [authorFilter, setAuthorFilter] = useState<string>('any');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('recent');
-  // View mode state - null until we've seen the data, then we pick a default.
-  const [viewMode, setViewMode] = useState<ViewMode | null>(null);
+  // Filter / view state lives in the URL so refresh + back-button preserve it.
+  // Default values are stripped from the URL to keep it tidy. Unknown values
+  // fall back to defaults silently. View mode in URL = explicit override; if
+  // absent we fall back to the data-driven `suggestedMode` below.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const query = searchParams.get('q') ?? '';
+  const statusRaw = searchParams.get('status');
+  const statusFilter: StatusFilter = STATUS_VALUES.includes(statusRaw as StatusFilter)
+    ? (statusRaw as StatusFilter)
+    : 'any';
+  const tagFilter = searchParams.get('tag') ?? 'any';
+  const authorFilter = searchParams.get('author') ?? 'any';
+  const sortRaw = searchParams.get('sort');
+  const sortOrder: SortOrder = SORT_VALUES.includes(sortRaw as SortOrder)
+    ? (sortRaw as SortOrder)
+    : 'recent';
+  const viewRaw = searchParams.get('view');
+  const viewOverride: ViewMode | null = VIEW_VALUES.includes(viewRaw as ViewMode)
+    ? (viewRaw as ViewMode)
+    : null;
+
+  const updateParam = (key: string, value: string, isDefault: boolean) => {
+    const sp = new URLSearchParams(searchParams);
+    if (isDefault) sp.delete(key);
+    else sp.set(key, value);
+    setSearchParams(sp, { replace: true });
+  };
+  const setQuery = (next: string) => updateParam('q', next, next === '');
+  const setStatusFilter = (next: StatusFilter) =>
+    updateParam('status', next, next === 'any');
+  const setTagFilter = (next: string) => updateParam('tag', next, next === 'any');
+  const setAuthorFilter = (next: string) =>
+    updateParam('author', next, next === 'any');
+  const setSortOrder = (next: SortOrder) =>
+    updateParam('sort', next, next === 'recent');
+  const setViewMode = (next: ViewMode) => updateParam('view', next, false);
+
   // Per-group collapsed state. A group id present in the set is collapsed.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
@@ -290,7 +324,7 @@ export default function ExperimentsList() {
     return distinct >= 2 && maxCount >= 3 ? 'grouped' : 'flat';
   }, [rows]);
 
-  const view: ViewMode = viewMode ?? suggestedMode;
+  const view: ViewMode = viewOverride ?? suggestedMode;
 
   function toggle(id: string) {
     setSelected((prev) => {

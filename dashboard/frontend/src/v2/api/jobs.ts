@@ -117,6 +117,65 @@ export async function getJob(id: string): Promise<ApiJobRecord | null> {
   }
 }
 
+/** Outcome of a `fetchJobStatus` call. `notFound` means the job-record was
+ * evicted from the backend's in-memory store (the only place jobs live).
+ * Callers should treat that as a terminal "we lost track" signal and patch
+ * their local cache to reflect that. */
+export type JobStatusFetch =
+  | { kind: 'found'; status: JobStatusKind; exit_code?: number | null; duration?: number | null; cmd?: string }
+  | { kind: 'notFound' }
+  | { kind: 'error' };
+
+/** Map the backend's `state` string to our normalized `JobStatusKind`. */
+function normalizeJobState(state: string | undefined): JobStatusKind {
+  switch (state) {
+    case 'queued':
+      return 'queued';
+    case 'running':
+      return 'running';
+    case 'complete':
+    case 'completed':
+    case 'success':
+      return 'complete';
+    case 'failed':
+    case 'error':
+      return 'failed';
+    case 'cancelled':
+    case 'canceled':
+      return 'cancelled';
+    default:
+      // Unknown / future states get bucketed into `failed` so the UI surfaces
+      // them rather than silently treating them as success.
+      return 'failed';
+  }
+}
+
+/**
+ * Fetch a single job's snapshot and return a normalized status. Distinguishes
+ * `notFound` (404 - backend evicted the record) from `error` (network /
+ * parse) so the UI can react differently (the former is terminal, the latter
+ * is transient and worth retrying).
+ */
+export async function fetchJobStatus(id: string): Promise<JobStatusFetch> {
+  try {
+    const res = await fetch(`/api/jobs/${encodeURIComponent(id)}`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (res.status === 404) return { kind: 'notFound' };
+    if (!res.ok) return { kind: 'error' };
+    const body = (await res.json()) as ApiJobRecord;
+    return {
+      kind: 'found',
+      status: normalizeJobState(body.state),
+      exit_code: body.exit_code ?? undefined,
+      duration: body.duration ?? undefined,
+      cmd: Array.isArray(body.cmd) ? body.cmd.join(' ') : undefined,
+    };
+  } catch {
+    return { kind: 'error' };
+  }
+}
+
 interface SubscribeHandlers {
   onLine: (line: JobLine) => void;
   onStatus: (status: JobStatus) => void;

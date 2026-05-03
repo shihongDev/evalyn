@@ -3,7 +3,7 @@
  * Wires v2.reviewQueue() and v2.submitVerdict() into the design from screens-3.jsx.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Glossary, Pill, Skeleton, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
@@ -15,6 +15,27 @@ import { openCliRunner } from '../cliRunnerBridge';
 import { E } from '../tokens';
 
 type Verdict = 'pass' | 'fail' | 'skip';
+
+/**
+ * Transient feedback shown after a successful verdict submit.
+ *
+ * - `progress`: a verdict was added on a metric that is still below
+ *   threshold. Shows "+1 verdict on <metric> (X of N)".
+ * - `ready`: the verdict pushed the metric to/over the calibration
+ *   threshold. Shows a primary CTA that opens CliRunner pre-filled.
+ *
+ * Lives at the top of the page and auto-dismisses after 4s.
+ */
+interface FeedbackChipState {
+  kind: 'progress' | 'ready';
+  metric: string;
+  count: number;
+  threshold: number;
+  /** The matching suggestion - kept around so the "ready" CTA can deep-link. */
+  suggestion: CalibrationSuggestion | null;
+}
+
+const FEEDBACK_DISMISS_MS = 4000;
 
 function pillColor(kind: 'pass' | 'fail' | 'warn'): string {
   if (kind === 'pass') return E.pass;
@@ -68,6 +89,7 @@ export default function Review() {
     err: queueErr,
     reloading,
     isInitialLoad,
+    refetch: refetchQueue,
   } = useV2Resource<ReviewQueue>('reviewQueue', v2.reviewQueue);
   // Pull the CLI catalog so the calibration suggestion banner can open
   // the runner pre-filled. Cached at the module level by useV2Resource;
@@ -77,6 +99,8 @@ export default function Review() {
   const [idx, setIdx] = useState(0);
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [lastChip, setLastChip] = useState<FeedbackChipState | null>(null);
+  const dismissTimerRef = useRef<number | null>(null);
 
   const openCalibrate = useCallback(
     (s: CalibrationSuggestion) => {
@@ -106,9 +130,27 @@ export default function Review() {
   const items = queue?.items ?? [];
   const current: ReviewItem | null = items[idx] ?? null;
 
+  const scheduleChipDismiss = useCallback(() => {
+    if (dismissTimerRef.current != null) {
+      window.clearTimeout(dismissTimerRef.current);
+    }
+    dismissTimerRef.current = window.setTimeout(() => {
+      setLastChip(null);
+      dismissTimerRef.current = null;
+    }, FEEDBACK_DISMISS_MS);
+  }, []);
+
   const submit = useCallback(
     (verdict: Verdict) => {
       if (!current || submitting) return;
+      // The metric_id isn't on ReviewItem directly - it's the label of the
+      // first judge_breakdown entry (see backend _row_for_metric).
+      const itemMetric = current.judge_breakdown[0]?.label ?? null;
+      // Snapshot the suggestion for this metric BEFORE submit so we can
+      // tell whether verdict_count actually moved.
+      const beforeMatch =
+        queue?.calibration_suggestions.find((s) => s.metric_id === itemMetric) ?? null;
+
       setSubmitting(true);
       v2.submitVerdict({
         item_id: current.item_id,
@@ -116,16 +158,54 @@ export default function Review() {
         verdict,
         note: note.trim() ? note.trim() : null,
       })
-        .then(() => {
+        .then(async () => {
           setNote('');
           setSubmitErr(null);
           setIdx((i) => i + 1);
+
+          if (!itemMetric) return;
+
+          // Refetch the queue so the suggestions banner + counts update,
+          // then directly fetch a fresh snapshot to evaluate the post-state
+          // synchronously (the hook's `data` only updates on the next
+          // render). The `refetch` call de-dupes via the inflight map.
+          const [, fresh] = await Promise.all([
+            refetchQueue(),
+            v2.reviewQueue().catch(() => null),
+          ]);
+          if (!fresh) return;
+
+          const afterMatch =
+            fresh.calibration_suggestions.find((s) => s.metric_id === itemMetric) ?? null;
+          if (!afterMatch) return;
+
+          const beforeCount = beforeMatch?.verdict_count ?? 0;
+          if (afterMatch.verdict_count <= beforeCount) return;
+
+          const ready = afterMatch.verdict_count >= afterMatch.threshold;
+          setLastChip({
+            kind: ready ? 'ready' : 'progress',
+            metric: itemMetric,
+            count: afterMatch.verdict_count,
+            threshold: afterMatch.threshold,
+            suggestion: afterMatch,
+          });
+          scheduleChipDismiss();
         })
         .catch((e: unknown) => setSubmitErr(String(e)))
         .finally(() => setSubmitting(false));
     },
-    [current, note, submitting],
+    [current, note, submitting, queue, refetchQueue, scheduleChipDismiss],
   );
+
+  // Clear any pending dismiss timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (dismissTimerRef.current != null) {
+        window.clearTimeout(dismissTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -207,6 +287,71 @@ export default function Review() {
             </div>
           )}
         </div>
+
+        {lastChip && (
+          <div
+            style={{
+              marginTop: 14,
+              animation: 'eFadeIn 180ms ease',
+            }}
+          >
+            {lastChip.kind === 'progress' ? (
+              <Pill
+                mono
+                color={E.text1}
+                bg={E.passDim}
+                style={{
+                  fontSize: 11.5,
+                  padding: '6px 12px',
+                  border: `1px solid ${E.pass}33`,
+                }}
+              >
+                + 1 verdict on{' '}
+                <span style={{ color: E.text0, marginLeft: 4, marginRight: 4 }}>
+                  {lastChip.metric}
+                </span>
+                <span style={{ color: E.text3, marginLeft: 4 }}>
+                  ({lastChip.count} of {lastChip.threshold} - calibration unlocks at{' '}
+                  {lastChip.threshold})
+                </span>
+              </Pill>
+            ) : (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '8px 14px',
+                  borderRadius: 999,
+                  background: E.emberDim,
+                  border: `1px solid ${E.ember}55`,
+                  color: E.text0,
+                  fontSize: 12,
+                }}
+              >
+                <span style={{ fontFamily: E.fMono, color: E.ember }}>
+                  Calibration ready for{' '}
+                  <span style={{ color: E.text0 }}>{lastChip.metric}</span>
+                </span>
+                <Btn
+                  kind="primary"
+                  size="sm"
+                  onClick={() => {
+                    if (lastChip.suggestion) openCalibrate(lastChip.suggestion);
+                  }}
+                  disabled={!cmds || !lastChip.suggestion}
+                  title={
+                    cmds
+                      ? `Open the calibrate form pre-filled for ${lastChip.metric}`
+                      : 'Loading CLI catalog...'
+                  }
+                >
+                  Run it now -&gt;
+                </Btn>
+              </div>
+            )}
+          </div>
+        )}
 
         {queue?.calibration_suggestions && queue.calibration_suggestions.length > 0 && (
           <div

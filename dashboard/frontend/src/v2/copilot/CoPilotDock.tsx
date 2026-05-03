@@ -10,11 +10,12 @@
  */
 
 import { useRef, useState, type CSSProperties } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { E } from '../tokens';
 import { Btn, Pill } from '../ui';
 import { Bubble, PlanCard, ToolBlock } from './atoms';
 import { useCoPilotThread } from './useCoPilotThread';
+import { deriveContextChips, prependContextTag, type ContextKind } from './contextChips';
 
 export type CoPilotDockMode = 'docked' | 'overlay' | 'sheet';
 
@@ -23,6 +24,52 @@ const EXAMPLE_PROMPTS = [
   'Show me the worst failure cluster',
   'Explain my rubric',
 ];
+
+const DISABLED_CHIP_TITLE =
+  'Open this on a run/cluster/dataset page to attach as context';
+
+interface ContextChipButtonProps {
+  label: string;
+  enabled: boolean;
+  title?: string;
+  onClick: () => void;
+}
+
+function ContextChipButton({ label, enabled, title, onClick }: ContextChipButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={enabled ? onClick : undefined}
+      disabled={!enabled}
+      title={enabled ? title : DISABLED_CHIP_TITLE}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
+        padding: '2px 8px',
+        borderRadius: 999,
+        fontSize: 10,
+        fontFamily: E.fMono,
+        color: enabled ? E.text2 : E.text3,
+        background: E.panel3,
+        border: 'none',
+        cursor: enabled ? 'pointer' : 'not-allowed',
+        opacity: enabled ? 1 : 0.55,
+        transition: 'color 120ms, background 120ms',
+      }}
+      onMouseEnter={(e) => {
+        if (!enabled) return;
+        e.currentTarget.style.color = E.text1;
+      }}
+      onMouseLeave={(e) => {
+        if (!enabled) return;
+        e.currentTarget.style.color = E.text2;
+      }}
+    >
+      {label}
+    </button>
+  );
+}
 
 interface CoPilotDockProps {
   onClose: () => void;
@@ -34,11 +81,26 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
   const { messages, pending, send, confirm, status, threadId } = useCoPilotThread();
   const [draft, setDraft] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const useSuggestion = (prompt: string) => {
     setDraft(prompt);
     requestAnimationFrame(() => textareaRef.current?.focus());
+  };
+
+  const contextChips = deriveContextChips(location.pathname);
+
+  const attachContext = (kind: ContextKind, id: string) => {
+    setDraft((d) => prependContextTag(d, kind, id));
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      // Place cursor at the end so the user can keep typing immediately.
+      const len = el.value.length;
+      el.setSelectionRange(len, len);
+    });
   };
 
   const handleExpand = () => {
@@ -271,13 +333,18 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
               resize: 'none',
             }}
           />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-            <Pill mono style={{ fontSize: 10, padding: '2px 8px' }}>
-              + this run
-            </Pill>
-            <Pill mono style={{ fontSize: 10, padding: '2px 8px' }}>
-              ＠ dataset
-            </Pill>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+            {contextChips.map((c) => (
+              <ContextChipButton
+                key={c.kind}
+                label={c.label}
+                enabled={c.id != null}
+                title={c.enabledTitle}
+                onClick={() => {
+                  if (c.id) attachContext(c.kind, c.id);
+                }}
+              />
+            ))}
             <span style={{ flex: 1 }} />
             <Btn
               kind="primary"

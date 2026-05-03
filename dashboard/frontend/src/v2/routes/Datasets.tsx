@@ -6,8 +6,8 @@
  * and tag filter. Pattern mirrors ExperimentsList.tsx.
  */
 
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo, useState, type MouseEvent } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, StackBar, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
@@ -19,9 +19,13 @@ import { E } from '../tokens';
 const COVERAGE_COLORS = [E.ember, E.steel, '#a78bfa', E.warn, E.text3];
 const NEW_DATASET_HINT = 'Use `evalyn build-dataset` from the CLI';
 const IMPORT_CSV_HINT = 'No CSV importer yet - use `evalyn build-dataset` from the CLI';
-const COMING_SOON = 'Coming soon';
 
 type SortOrder = 'name' | 'n-desc' | 'recent';
+const SORT_VALUES: readonly SortOrder[] = ['name', 'n-desc', 'recent'];
+
+function buildEvalLink(name: string): string {
+  return `/commands?prefill=run-eval&dataset=${encodeURIComponent(name)}`;
+}
 
 const SORT_OPTIONS: { value: SortOrder; label: string }[] = [
   { value: 'recent', label: 'Sort: Recent' },
@@ -58,11 +62,33 @@ export default function Datasets() {
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoErr, setDemoErr] = useState<string | null>(null);
 
-  // Filter state.
-  const [query, setQuery] = useState('');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('recent');
-  const [hideEmpty, setHideEmpty] = useState(true);
-  const [tagFilter, setTagFilter] = useState<string>('any');
+  // Filter state - persisted in the URL so refresh + back-button keep filters.
+  // Defaults: query='', sort='recent', hideEmpty=true, tag='any'. Default
+  // values are stripped from the URL to keep it clean.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const query = searchParams.get('q') ?? '';
+  const rawSort = searchParams.get('sort');
+  const sortOrder: SortOrder = SORT_VALUES.includes(rawSort as SortOrder)
+    ? (rawSort as SortOrder)
+    : 'recent';
+  // hideEmpty defaults to true; URL stores '0' to mean "show empty".
+  const hideEmpty = searchParams.get('hideEmpty') !== '0';
+  const tagFilter = searchParams.get('tag') ?? 'any';
+
+  const updateParam = (key: string, value: string, isDefault: boolean) => {
+    const sp = new URLSearchParams(searchParams);
+    if (isDefault) sp.delete(key);
+    else sp.set(key, value);
+    setSearchParams(sp, { replace: true });
+  };
+
+  const setQuery = (next: string) => updateParam('q', next, next === '');
+  const setSortOrder = (next: SortOrder) =>
+    updateParam('sort', next, next === 'recent');
+  const setHideEmpty = (next: boolean) =>
+    updateParam('hideEmpty', next ? '1' : '0', next === true);
+  const setTagFilter = (next: string) =>
+    updateParam('tag', next, next === 'any');
 
   const handleLoadDemo = async () => {
     setDemoErr(null);
@@ -123,9 +149,12 @@ export default function Datasets() {
   const shownCount = filtered ? filtered.length : 0;
 
   const clearFilters = () => {
-    setQuery('');
-    setTagFilter('any');
-    setHideEmpty(false);
+    const sp = new URLSearchParams(searchParams);
+    sp.delete('q');
+    sp.delete('tag');
+    // Setting hideEmpty=false (show all) - that's a non-default state, persist.
+    sp.set('hideEmpty', '0');
+    setSearchParams(sp, { replace: true });
   };
 
   return (
@@ -204,7 +233,7 @@ export default function Datasets() {
             />
             <button
               type="button"
-              onClick={() => setHideEmpty((v) => !v)}
+              onClick={() => setHideEmpty(!hideEmpty)}
               aria-pressed={hideEmpty}
               title={
                 hideEmpty
@@ -357,6 +386,12 @@ export default function Datasets() {
                 color: COVERAGE_COLORS[i % COVERAGE_COLORS.length],
                 label: `${c.label}: ${c.value}`,
               }));
+              const hasItems = s.n > 0;
+              const neverEvaluated = hasItems && s.last_used_iso == null;
+              const goEvaluate = (e: MouseEvent<HTMLButtonElement>) => {
+                e.stopPropagation();
+                navigate(buildEvalLink(s.name));
+              };
               return (
                 <div
                   key={s.name}
@@ -388,13 +423,32 @@ export default function Datasets() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div
                         style={{
-                          fontFamily: E.fMono,
-                          fontSize: 13,
-                          color: E.text0,
-                          fontWeight: 500,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          flexWrap: 'wrap',
                         }}
                       >
-                        {s.name}
+                        <span
+                          style={{
+                            fontFamily: E.fMono,
+                            fontSize: 13,
+                            color: E.text0,
+                            fontWeight: 500,
+                          }}
+                        >
+                          {s.name}
+                        </span>
+                        {neverEvaluated && (
+                          <Pill
+                            mono
+                            color={E.ember}
+                            bg={E.emberDim}
+                            style={{ fontSize: 9.5, padding: '1px 7px' }}
+                          >
+                            Never evaluated
+                          </Pill>
+                        )}
                       </div>
                       <div style={{ fontSize: 11, color: E.text3, marginTop: 2 }}>
                         {s.source}
@@ -449,19 +503,38 @@ export default function Datasets() {
                     </>
                   )}
                   <div style={{ display: 'flex', gap: 6, marginTop: 14 }}>
-                    <Btn
-                      kind="secondary"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openDataset(s.name);
-                      }}
-                    >
-                      Open
-                    </Btn>
-                    <Btn kind="ghost" size="sm" disabled title={COMING_SOON}>
-                      Use in eval -&gt;
-                    </Btn>
+                    {neverEvaluated ? (
+                      <Btn kind="primary" size="sm" onClick={goEvaluate}>
+                        Evaluate this dataset -&gt;
+                      </Btn>
+                    ) : hasItems ? (
+                      <>
+                        <Btn
+                          kind="secondary"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDataset(s.name);
+                          }}
+                        >
+                          Open
+                        </Btn>
+                        <Btn kind="ghost" size="sm" onClick={goEvaluate}>
+                          Evaluate again -&gt;
+                        </Btn>
+                      </>
+                    ) : (
+                      <Btn
+                        kind="secondary"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDataset(s.name);
+                        }}
+                      >
+                        Open
+                      </Btn>
+                    )}
                   </div>
                 </Card>
                 </div>

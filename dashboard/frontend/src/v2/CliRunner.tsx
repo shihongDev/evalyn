@@ -28,6 +28,7 @@ import type { CliParam, CliParamKind, CliSchema } from './api/cli';
 import { commandSummary } from './api/cli';
 import {
   cancelJob,
+  fetchJobStatus,
   startJob,
   subscribeJob,
   type JobLine,
@@ -35,6 +36,12 @@ import {
   type JobStatusKind,
 } from './api/jobs';
 import { closeCliRunner, subscribeRunner } from './cliRunnerBridge';
+import {
+  loadJobsHistory,
+  patchJob,
+  upsertJob,
+  type JobHistoryEntry,
+} from './jobsHistory';
 
 // ---------------------------------------------------------------------------
 // Read-only allowlist (frontend mirror).
@@ -150,6 +157,7 @@ function statusPill(status: JobStatusKind): {
 export function CliRunner(): ReactElement | null {
   const [cli, setCli] = useState<CliSchema | null>(null);
   const [seed, setSeed] = useState<Record<string, unknown> | undefined>(undefined);
+  const [resumeJobId, setResumeJobId] = useState<string | undefined>(undefined);
   const [nonce, setNonce] = useState(0);
 
   useEffect(
@@ -157,6 +165,7 @@ export function CliRunner(): ReactElement | null {
       subscribeRunner((s) => {
         setCli(s.cli);
         setSeed(s.initialValues);
+        setResumeJobId(s.resumeJobId);
         setNonce(s.nonce);
       }),
     [],
@@ -172,6 +181,7 @@ export function CliRunner(): ReactElement | null {
       key={`${cli.id}:${nonce}`}
       cli={cli}
       seed={seed}
+      resumeJobId={resumeJobId}
       onClose={closeCliRunner}
     />
   );
@@ -180,10 +190,11 @@ export function CliRunner(): ReactElement | null {
 interface RunnerBodyProps {
   cli: CliSchema;
   seed?: Record<string, unknown>;
+  resumeJobId?: string;
   onClose: () => void;
 }
 
-function RunnerBody({ cli, seed, onClose }: RunnerBodyProps): ReactElement {
+function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): ReactElement {
   // --- form state ---
   // Order: schema default -> caller-provided seed -> user edits.
   // We don't coerce the seed values here; the per-kind input components
@@ -213,18 +224,106 @@ function RunnerBody({ cli, seed, onClose }: RunnerBodyProps): ReactElement {
   const [previewOpen, setPreviewOpen] = useState(false);
 
   // --- job state ---
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [status, setStatus] = useState<JobStatusKind>('queued');
+  // When `resumeJobId` is set, we boot in the OUTPUT view immediately and
+  // attach the WS to the existing job (no POST /api/cli/run). The form is
+  // never shown for resumed jobs - this is a "rejoin" flow, not "re-run"
+  // (the existing Re-run button handles re-runs once the job finishes).
+  // The lazy initializers below seed status / exitInfo from the cached
+  // history entry so a completed-job resume opens with its final pill in
+  // place rather than blinking through "queued".
+  const resumeEntry = useMemo(
+    () => (resumeJobId ? loadJobsHistory().find((e) => e.job_id === resumeJobId) : undefined),
+    [resumeJobId],
+  );
+  const [jobId, setJobId] = useState<string | null>(resumeJobId ?? null);
+  const [status, setStatus] = useState<JobStatusKind>(() => {
+    if (!resumeEntry) return 'queued';
+    return resumeEntry.status === 'unknown' ? 'failed' : resumeEntry.status;
+  });
   const [lines, setLines] = useState<JobLine[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [exitInfo, setExitInfo] = useState<{
     code?: number;
     duration?: number;
-  } | null>(null);
+  } | null>(() => {
+    if (!resumeEntry || resumeEntry.exit_code === undefined || resumeEntry.exit_code === null) {
+      return null;
+    }
+    return {
+      code: resumeEntry.exit_code,
+      duration: resumeEntry.duration ? Number(resumeEntry.duration) : undefined,
+    };
+  });
 
   const subRef = useRef<{ close: () => void } | null>(null);
   const outputRef = useRef<HTMLDivElement | null>(null);
+
+  // Resume mode: re-attach the WS to the existing job. We do a best-effort
+  // GET /api/jobs/{id} first so we can dim the row + show an error if the
+  // backend evicted the record (e.g. server restart killed the in-memory
+  // store), instead of staring at an empty terminal forever.
+  useEffect(() => {
+    if (!resumeJobId) return;
+    let cancelled = false;
+    void (async () => {
+      const snap = await fetchJobStatus(resumeJobId);
+      if (cancelled) return;
+      if (snap.kind === 'notFound') {
+        patchJob(resumeJobId, { status: 'unknown' });
+        setError('Backend no longer has this job in memory. Live tail unavailable.');
+        setStatus('failed');
+        return;
+      }
+      if (snap.kind === 'found') {
+        patchJob(resumeJobId, {
+          status: snap.status,
+          exit_code: snap.exit_code ?? undefined,
+          duration: snap.duration != null ? String(snap.duration) : undefined,
+        });
+        setStatus(snap.status);
+        if (snap.exit_code !== undefined && snap.exit_code !== null) {
+          setExitInfo({ code: snap.exit_code ?? undefined, duration: snap.duration ?? undefined });
+        }
+      }
+      // Open the WS regardless (even for terminal jobs - the backend will
+      // replay buffered lines from `?since=0`-style reconnect semantics).
+      subRef.current?.close();
+      subRef.current = subscribeJob(resumeJobId, {
+        onLine: (line) => {
+          setLines((prev) => {
+            const next = [...prev, line];
+            if (next.length > MAX_OUTPUT_LINES) {
+              return next.slice(next.length - MAX_OUTPUT_LINES);
+            }
+            return next;
+          });
+        },
+        onStatus: (s: JobStatus) => {
+          setStatus(s.status);
+          patchJob(resumeJobId, {
+            status: s.status,
+            exit_code: s.exit_code ?? undefined,
+            duration: s.duration != null ? String(s.duration) : undefined,
+          });
+          if (s.status === 'complete' || s.status === 'failed') {
+            setExitInfo({ code: s.exit_code, duration: s.duration });
+          }
+        },
+        onError: () => {
+          // Don't clobber a more-informative `notFound` error that may have
+          // already been set by the snapshot fetch above.
+          setError((prev) => prev ?? 'Lost connection to job stream.');
+        },
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally only on first mount; the parent re-keys this component
+    // when a new resume target arrives, so the effect re-runs naturally.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto-scroll the terminal to the bottom on every new line.
   useEffect(() => {
@@ -284,6 +383,17 @@ function RunnerBody({ cli, seed, onClose }: RunnerBodyProps): ReactElement {
       const { job_id } = await startJob(cli.id, submitArgs);
       setJobId(job_id);
       setStatus('running');
+      // Persist a `queued` entry to local history so the Recent Jobs drawer
+      // can surface this run if the user navigates away. Status is patched
+      // on every WS status event below.
+      const entry: JobHistoryEntry = {
+        job_id,
+        cli_id: cli.id,
+        cli_args: submitArgs,
+        started_at_iso: new Date().toISOString(),
+        status: 'queued',
+      };
+      upsertJob(entry);
       // Open the WS subscription. Hand the lines straight to setState; the
       // ring-buffer trim happens in the updater so we never keep more than
       // MAX_OUTPUT_LINES in memory.
@@ -300,6 +410,11 @@ function RunnerBody({ cli, seed, onClose }: RunnerBodyProps): ReactElement {
         },
         onStatus: (s: JobStatus) => {
           setStatus(s.status);
+          patchJob(job_id, {
+            status: s.status,
+            exit_code: s.exit_code ?? undefined,
+            duration: s.duration != null ? String(s.duration) : undefined,
+          });
           if (s.status === 'complete' || s.status === 'failed') {
             setExitInfo({ code: s.exit_code, duration: s.duration });
           }
@@ -322,6 +437,7 @@ function RunnerBody({ cli, seed, onClose }: RunnerBodyProps): ReactElement {
     try {
       await cancelJob(jobId);
       setStatus('cancelled');
+      patchJob(jobId, { status: 'cancelled' });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }

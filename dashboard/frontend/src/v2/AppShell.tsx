@@ -26,6 +26,12 @@ import { useV2Store } from './store/store';
 import { CoPilotDock } from './copilot/CoPilotDock';
 import { CommandPalette } from './CommandPalette';
 import { CliRunner } from './CliRunner';
+import { RecentJobsDrawer } from './RecentJobsDrawer';
+import {
+  activeJobCount,
+  loadJobsHistory,
+  subscribeJobsHistory,
+} from './jobsHistory';
 import { v2 } from './api/client';
 import { listCli } from './api/cli';
 import { prefetchV2 } from './hooks/useV2Resource';
@@ -147,6 +153,18 @@ export function AppShell({
   const vp = useViewport();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [jobsDrawerOpen, setJobsDrawerOpen] = useState(false);
+  // `runningCount` drives the badge on the floating + topbar Recent Jobs
+  // buttons. We re-read once on mount and on every history mutation -
+  // jobsHistory's notifier covers same-tab + cross-tab changes.
+  const [runningCount, setRunningCount] = useState<number>(() =>
+    activeJobCount(loadJobsHistory()),
+  );
+  useEffect(() => {
+    return subscribeJobsHistory(() => {
+      setRunningCount(activeJobCount(loadJobsHistory()));
+    });
+  }, []);
 
   // On viewport change, default the dock state to "closed" for narrow widths
   // so users do not land in an overlay-on-load state. Desktop keeps prior
@@ -341,6 +359,19 @@ export function AppShell({
         )}
         <span style={{ flex: 1 }} />
         {headerExtra}
+        {vp === 'desktop' && (
+          <Btn
+            kind="ghost"
+            size="sm"
+            onClick={() => setJobsDrawerOpen(true)}
+            title="Recent jobs"
+            style={{ gap: 6, position: 'relative' }}
+          >
+            <span style={{ fontSize: 13, lineHeight: 1 }}>⟳</span>
+            Jobs
+            {runningCount > 0 && <BadgeCount n={runningCount} inline />}
+          </Btn>
+        )}
         {vp !== 'mobile' && (
           <Btn
             kind="ghost"
@@ -433,6 +464,40 @@ export function AppShell({
             Ask co-pilot
           </button>
         )}
+
+        {/* Floating Recent Jobs button - bottom-left mirror of the co-pilot
+            FAB. Visible on every viewport. On desktop we offset past the
+            230px sidebar so the FAB doesn't land on top of it; on tablet
+            (56px icon-rail) we clear that, and mobile gets the natural
+            18px corner. Badge surfaces queued/running count from the
+            local jobsHistory ledger (hidden when 0). */}
+        <button
+          type="button"
+          onClick={() => setJobsDrawerOpen(true)}
+          aria-label="Open recent jobs"
+          style={{
+            position: 'fixed',
+            left: vp === 'desktop' ? 248 : vp === 'tablet' ? 74 : 18,
+            bottom: 18,
+            zIndex: 700,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '10px 14px',
+            borderRadius: 999,
+            background: E.panel,
+            color: E.text1,
+            border: `1px solid ${E.hair2}`,
+            cursor: 'pointer',
+            fontSize: 13,
+            fontWeight: 500,
+            boxShadow: '0 8px 24px rgba(26,24,18,0.18)',
+          }}
+        >
+          <span style={{ fontSize: 14, lineHeight: 1 }}>⟳</span>
+          Recent jobs
+          {runningCount > 0 && <BadgeCount n={runningCount} />}
+        </button>
       </div>
 
       {/* MOBILE NAV DRAWER - mounted always so the slide animation can play
@@ -489,7 +554,42 @@ export function AppShell({
           z-index 900 sits above the dock/nav (default) but below the palette
           modal (1000) so Cmd+K stays usable while a job is streaming. */}
       <CliRunner />
+      {/* RECENT JOBS DRAWER - z-index 880 sits below CliRunner (900) so a
+          drawer-launched resume reads naturally as "drawer hands off to runner". */}
+      <RecentJobsDrawer
+        open={jobsDrawerOpen}
+        onClose={() => setJobsDrawerOpen(false)}
+      />
     </div>
+  );
+}
+
+/** Compact numeric badge used by the Recent Jobs buttons. The `inline` variant
+ * sits on a Btn (less prominent) while the default ships on the floating
+ * pill. Number is clamped to "9+" past 9 to keep the pill round. */
+function BadgeCount({ n, inline }: { n: number; inline?: boolean }) {
+  const text = n > 9 ? '9+' : String(n);
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minWidth: inline ? 16 : 18,
+        height: inline ? 16 : 18,
+        padding: '0 5px',
+        borderRadius: 999,
+        background: E.ember,
+        color: E.emberInk,
+        fontSize: inline ? 10 : 11,
+        fontFamily: E.fMono,
+        fontWeight: 600,
+        marginLeft: 2,
+        lineHeight: 1,
+      }}
+    >
+      {text}
+    </span>
   );
 }
 

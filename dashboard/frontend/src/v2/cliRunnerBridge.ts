@@ -25,12 +25,23 @@ export interface RunnerOpenOptions {
    * stays fully editable - this is just a starting point.
    */
   initialValues?: Record<string, unknown>;
+  /**
+   * Resume mode: skip the form and re-attach the runner directly to an
+   * existing `job_id`. Used by the Recent Jobs drawer so the user can
+   * navigate back to a job they kicked off earlier (or one still running
+   * after a page reload). When set, the runner ignores `initialValues`
+   * for input rendering and instead reads the args off the local
+   * `jobsHistory` entry to display the original argv.
+   */
+  resumeJobId?: string;
 }
 
 /** Snapshot delivered to runner subscribers. `null` cli means closed. */
 export interface RunnerState {
   cli: CliSchema | null;
   initialValues?: Record<string, unknown>;
+  /** Job id to re-attach to instead of POST /api/cli/run. See RunnerOpenOptions. */
+  resumeJobId?: string;
   /**
    * Monotonic counter incremented on every `openCliRunner` call so the
    * subscriber can re-key its body even when the same `cli` is opened
@@ -49,6 +60,7 @@ export function openCliRunner(cli: CliSchema, opts?: RunnerOpenOptions): void {
   currentState = {
     cli,
     initialValues: opts?.initialValues,
+    resumeJobId: opts?.resumeJobId,
     nonce: currentState.nonce + 1,
   };
   for (const fn of listeners) fn(currentState);
