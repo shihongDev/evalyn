@@ -473,6 +473,14 @@ def _full_label(run: dict) -> str:
     return run_id(run)[:10]
 
 
+def _seconds_label(run: dict) -> str:
+    """Return ``MM-DD HH:MM:SS`` to disambiguate same-minute runs."""
+    ts = parse_iso(run.get("created_at"))
+    if ts is not None:
+        return ts.strftime("%m-%d %H:%M:%S")
+    return run_id(run)[:12]
+
+
 def _build_cluster_trend(
     dataset_runs: list[dict], metric_id: str
 ) -> tuple[list[int], list[str]]:
@@ -480,19 +488,25 @@ def _build_cluster_trend(
 
     Returns ``([], [])`` when fewer than 3 runs exist in the dataset - a 1- or
     2-point flat line reads as broken to users, so we let the frontend render
-    a "not enough history" sentence instead. When duplicate short labels would
-    appear (multiple runs on the same date), we widen labels to include time.
+    a "not enough history" sentence instead.
+
+    Label escalation (least to most precise) so the chart x-axis is
+    always unambiguous:
+      1. ``MM-DD`` when every run lands on a distinct day
+      2. ``MM-DD HH:MM`` when same-day duplicates appear
+      3. ``MM-DD HH:MM:SS`` when two runs share an HH:MM (same minute)
     """
     if len(dataset_runs) < 3:
         return [], []
     recent = dataset_runs[-4:]
     data = [len(_cluster_run(r).get(metric_id, [])) for r in recent]
     short_labels = [_short_label(r) for r in recent]
-    if len(set(short_labels)) < len(short_labels):
-        labels = [_full_label(r) for r in recent]
-    else:
-        labels = short_labels
-    return data, labels
+    if len(set(short_labels)) == len(short_labels):
+        return data, short_labels
+    full_labels = [_full_label(r) for r in recent]
+    if len(set(full_labels)) == len(full_labels):
+        return data, full_labels
+    return data, [_seconds_label(r) for r in recent]
 
 
 @router.get("/{exp_id}/cluster/{cluster_id}")

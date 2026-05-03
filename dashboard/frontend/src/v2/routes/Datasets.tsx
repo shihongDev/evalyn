@@ -7,11 +7,12 @@
  */
 
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, StackBar, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
 import { loadDemo } from '../api/demo';
-import { useV2Resource } from '../hooks/useV2Resource';
+import { useV2Resource, prefetchV2 } from '../hooks/useV2Resource';
 import { useProject } from '../hooks/useProject';
 import { E } from '../tokens';
 
@@ -42,10 +43,18 @@ const SELECT_STYLE = {
 
 export default function Datasets() {
   const project = useProject();
+  const navigate = useNavigate();
   const { data, err, reloading, isInitialLoad } = useV2Resource(
     'datasets',
     v2.datasets,
   );
+
+  const openDataset = (name: string) => {
+    navigate(`/datasets/${encodeURIComponent(name)}`);
+  };
+  const prefetchDetail = (name: string) => {
+    prefetchV2(`dataset:${name}`, () => v2.dataset(name));
+  };
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoErr, setDemoErr] = useState<string | null>(null);
 
@@ -349,7 +358,16 @@ export default function Datasets() {
                 label: `${c.label}: ${c.value}`,
               }));
               return (
-                <Card key={s.name} hover style={{ padding: 18 }}>
+                <div
+                  key={s.name}
+                  onMouseEnter={() => prefetchDetail(s.name)}
+                  onFocus={() => prefetchDetail(s.name)}
+                >
+                <Card
+                  hover
+                  style={{ padding: 18 }}
+                  onClick={() => openDataset(s.name)}
+                >
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                     <div
                       style={{
@@ -431,7 +449,14 @@ export default function Datasets() {
                     </>
                   )}
                   <div style={{ display: 'flex', gap: 6, marginTop: 14 }}>
-                    <Btn kind="secondary" size="sm" disabled title={COMING_SOON}>
+                    <Btn
+                      kind="secondary"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDataset(s.name);
+                      }}
+                    >
                       Open
                     </Btn>
                     <Btn kind="ghost" size="sm" disabled title={COMING_SOON}>
@@ -439,6 +464,7 @@ export default function Datasets() {
                     </Btn>
                   </div>
                 </Card>
+                </div>
               );
             })}
           </div>

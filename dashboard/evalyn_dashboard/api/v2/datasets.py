@@ -24,6 +24,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# The detail sub-router (``GET /{name}``) is mounted on the same prefix so
+# both ``/api/v2/datasets`` (list) and ``/api/v2/datasets/{name}`` (detail)
+# coexist. Imported below the helper definitions because the detail module
+# imports back into this module for ``_coverage`` / ``_meta`` reuse.
+
 # Mtime-keyed cache for ``_coverage`` results.
 # 445 dataset.jsonl files (~55MB) on prod take 7s+ to re-parse on every
 # /api/v2/datasets request; the file is read-mostly so cache by mtime.
@@ -193,6 +198,14 @@ def _response_cache_key() -> tuple | None:
         except OSError:
             return None
     return tuple(parts)
+
+
+# Mount the detail sub-router. Imported here (not at module top) so the
+# detail module's ``from .datasets import _coverage, _meta`` doesn't hit a
+# circular import at startup - by this point both are fully defined.
+from . import dataset_detail as _dataset_detail  # noqa: E402
+
+router.include_router(_dataset_detail.router)
 
 
 @router.get("")

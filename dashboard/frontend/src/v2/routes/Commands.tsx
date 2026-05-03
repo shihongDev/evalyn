@@ -20,6 +20,7 @@ import { Card, Eyebrow, Btn, Skeleton, UpdatingChip } from '../ui';
 import { listCli, commandGroup, commandSummary } from '../api/cli';
 import type { CliSchema } from '../api/cli';
 import { useV2Resource } from '../hooks/useV2Resource';
+import { openCliRunner } from '../cliRunnerBridge';
 import { E } from '../tokens';
 
 function groupCommands(cmds: CliSchema[]): { group: string; items: CliSchema[] }[] {
@@ -266,14 +267,31 @@ export default function Commands() {
                               </div>
                             )}
                           </div>
-                          <Btn
-                            kind="ghost"
-                            size="sm"
-                            onClick={() => askCoPilot(cmd.id)}
-                            style={{ flexShrink: 0, fontSize: 10.5 }}
+                          <div
+                            style={{
+                              display: 'flex',
+                              gap: 6,
+                              flexShrink: 0,
+                              alignItems: 'center',
+                            }}
                           >
-                            Ask co-pilot →
-                          </Btn>
+                            <Btn
+                              kind="ghost"
+                              size="sm"
+                              onClick={() => askCoPilot(cmd.id)}
+                              style={{ fontSize: 10.5 }}
+                            >
+                              Ask co-pilot →
+                            </Btn>
+                            <Btn
+                              kind="primary"
+                              size="sm"
+                              onClick={() => openCliRunner(cmd)}
+                              style={{ fontSize: 10.5 }}
+                            >
+                              Run
+                            </Btn>
+                          </div>
                         </div>
                       );
                     })}

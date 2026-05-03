@@ -42,6 +42,10 @@ _dataset_dirs_cache: dict[Path, tuple[float, list[Path]]] = {}
 # Whole-list cache for ``load_all_runs`` keyed on every dataset root's
 # mtime so add/remove of a dataset (or a new eval_runs subdir) busts it.
 _all_runs_cache: dict[tuple, list[dict]] = {}
+# Per-route response snapshot caches keyed on the same root-mtime
+# signature. Routers that compute heavy aggregates (home, etc.) read
+# from here on warm hits to avoid re-walking runs every request.
+_response_snapshot_cache: dict[str, dict[tuple, dict]] = {}
 
 
 def _caches_disabled() -> bool:
@@ -61,6 +65,7 @@ def _clear_caches_for_tests() -> None:
     _run_dirs_cache.clear()
     _dataset_dirs_cache.clear()
     _all_runs_cache.clear()
+    _response_snapshot_cache.clear()
     try:
         from . import datasets as _datasets_mod  # noqa: WPS433 - intentional
         _datasets_mod._coverage_cache.clear()
@@ -279,6 +284,50 @@ def _all_runs_cache_key(roots: list[Path]) -> tuple | None:
         except OSError:
             return None
     return tuple(parts)
+
+
+def roots_signature() -> tuple[tuple[str, float], ...]:
+    """Return ``((root_path_str, mtime), ...)`` snapshot of every dataset root.
+
+    Stable cache key for whole-route response snapshots (e.g. /home).
+    Roots that fail to stat are silently skipped so the key is still
+    formable. ``str(root)`` (not the ``Path``) makes the key picklable
+    and hashable in a portable form.
+    """
+    sig: list[tuple[str, float]] = []
+    for r in dataset_roots():
+        try:
+            sig.append((str(r), r.stat().st_mtime))
+        except OSError:
+            continue
+    return tuple(sig)
+
+
+def get_cached_snapshot(route: str) -> dict | None:
+    """Return a cached response snapshot for ``route`` or ``None``.
+
+    Returns ``None`` when caches are disabled (test seam) or when no
+    matching snapshot exists for the current roots signature. Caller
+    is expected to (re)compute and call :func:`set_cached_snapshot`.
+    """
+    if _caches_disabled():
+        return None
+    bucket = _response_snapshot_cache.get(route)
+    if not bucket:
+        return None
+    return bucket.get(roots_signature())
+
+
+def set_cached_snapshot(route: str, snapshot: dict) -> None:
+    """Store a fully-computed response ``snapshot`` for ``route``.
+
+    Keyed on the current :func:`roots_signature`; invalidates as soon as
+    any dataset root's mtime changes (new run dir created, dataset
+    added/removed). No-ops when caches are disabled.
+    """
+    if _caches_disabled():
+        return
+    _response_snapshot_cache.setdefault(route, {})[roots_signature()] = snapshot
 
 
 def load_all_runs(root: Path | None = None) -> list[dict]:

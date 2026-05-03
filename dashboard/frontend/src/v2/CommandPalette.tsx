@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listCli, commandGroup, commandSummary } from './api/cli';
 import type { CliSchema } from './api/cli';
+import { openCliRunner } from './cliRunnerBridge';
 import { E } from './tokens';
 
 interface CommandPaletteProps {
@@ -64,7 +65,15 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     if (activeIndex >= filtered.length) setActiveIndex(0);
   }, [filtered.length, activeIndex]);
 
-  function pickCommand(id: string) {
+  /** Default Enter action: open the CliRunner so the user can run the command
+   * directly from the palette. Cmd/Ctrl+Enter (or the footer link) keeps the
+   * legacy "ask co-pilot about this command" behavior. */
+  function runCommand(cmd: CliSchema) {
+    onClose();
+    openCliRunner(cmd);
+  }
+
+  function askCoPilot(id: string) {
     const prefill = `Run the \`${id}\` command and explain the output.`;
     onClose();
     navigate(`/copilot?prefill=${encodeURIComponent(prefill)}`);
@@ -85,7 +94,12 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     } else if (e.key === 'Enter') {
       e.preventDefault();
       const cmd = filtered[activeIndex];
-      if (cmd) pickCommand(cmd.id);
+      if (!cmd) return;
+      if (e.metaKey || e.ctrlKey) {
+        askCoPilot(cmd.id);
+      } else {
+        runCommand(cmd);
+      }
     }
   }
 
@@ -178,7 +192,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
               <button
                 key={cmd.id}
                 type="button"
-                onClick={() => pickCommand(cmd.id)}
+                onClick={() => runCommand(cmd)}
                 onMouseEnter={() => setActiveIndex(i)}
                 style={{
                   width: '100%',
@@ -249,7 +263,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           }}
         >
           <span>↑↓ navigate</span>
-          <span>↵ select</span>
+          <span>↵ run</span>
+          <span>⌘↵ ask co-pilot</span>
           <span>esc close</span>
           <span style={{ flex: 1 }} />
           <button

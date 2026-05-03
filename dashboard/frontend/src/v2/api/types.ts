@@ -222,6 +222,37 @@ export interface DatasetCard {
 }
 export type DatasetList = DatasetCard[];
 
+/** /api/v2/datasets/{name} - per-dataset detail page payload. */
+export interface DatasetDetail {
+  name: string;
+  n: number;
+  source: string;
+  tags: string[];
+  coverage: { label: string; value: number }[];
+  created_at_iso: string | null;
+  /** First N items (cap 50). total_items may be larger. */
+  items_preview: {
+    id: string;
+    input_preview: string;
+    expected_preview: string | null;
+  }[];
+  total_items: number;
+  /** Recent runs on this dataset, newest first, max 10. */
+  recent_runs: {
+    id: string;
+    created_at_iso: string;
+    pass: number | null;
+    status: string;
+    cost: string;
+  }[];
+  /** Metric definitions seen across this dataset's runs (deduped). */
+  observed_metrics: {
+    id: string;
+    kind: 'LLM judge' | 'Programmatic';
+    uses: number;
+  }[];
+}
+
 /** /api/v2/rubrics */
 export interface RubricRow {
   id: string;

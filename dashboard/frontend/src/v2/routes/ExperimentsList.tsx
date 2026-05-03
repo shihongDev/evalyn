@@ -10,9 +10,13 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Card, Eyebrow, Pill, Btn, StatusDot, Spark, Skeleton, UpdatingChip } from '../ui';
+// Deep-link target for "+ New evaluation". Lane I of iter 4 ships a CLI
+// runner consuming ``?prefill=run-eval``; until then the user lands on
+// the Commands page (graceful fallback over a dead-end "Wizard" card).
+const NEW_EVAL_TARGET = '/commands?prefill=run-eval';
 import { v2 } from '../api/client';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { E } from '../tokens';
@@ -259,9 +263,7 @@ export default function ExperimentsList() {
   const [viewMode, setViewMode] = useState<ViewMode | null>(null);
   // Per-group collapsed state. A group id present in the set is collapsed.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const isNew = searchParams.get('new') === '1';
 
   // Derive tag/author option lists from the row set.
   const tagOptions = useMemo(() => {
@@ -415,19 +417,10 @@ export default function ExperimentsList() {
           <Btn kind="secondary" size="md" disabled title="Coming soon">
             ↗ Export CSV
           </Btn>
-          <Btn kind="primary" size="md" onClick={() => navigate('/experiments?new=1')}>
+          <Btn kind="primary" size="md" onClick={() => navigate(NEW_EVAL_TARGET)}>
             ＋ New evaluation
           </Btn>
         </div>
-
-        {isNew && (
-          <Card style={{ marginTop: 14, padding: 14, borderColor: E.emberRim }}>
-            <Eyebrow style={{ color: E.ember }}>New evaluation</Eyebrow>
-            <div style={{ marginTop: 6, fontSize: 13, color: E.text2 }}>
-              Wizard coming soon. For now run evaluations from the CLI: <span style={{ fontFamily: E.fMono }}>evalyn run</span>.
-            </div>
-          </Card>
-        )}
 
         {err && (
           <Card style={{ marginTop: 14, padding: 16, borderColor: E.fail }}>
@@ -613,7 +606,7 @@ export default function ExperimentsList() {
               Run your first evaluation to see results here.
             </div>
             <div style={{ marginTop: 14 }}>
-              <Btn kind="primary" size="md" onClick={() => navigate('/experiments?new=1')}>
+              <Btn kind="primary" size="md" onClick={() => navigate(NEW_EVAL_TARGET)}>
                 Run your first eval
               </Btn>
             </div>

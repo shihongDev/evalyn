@@ -10,6 +10,7 @@ import ExperimentsList from './routes/ExperimentsList';
 import RunDetail from './routes/RunDetail';
 import FailureCluster from './routes/FailureCluster';
 import Datasets from './routes/Datasets';
+import DatasetDetail from './routes/DatasetDetail';
 import Metrics from './routes/Metrics';
 import Review from './routes/Review';
 import Reports from './routes/Reports';
@@ -29,6 +30,7 @@ export function V2App() {
           element={<FailureCluster />}
         />
         <Route path="/datasets" element={<Datasets />} />
+        <Route path="/datasets/:name" element={<DatasetDetail />} />
         <Route path="/metrics" element={<Metrics />} />
         <Route path="/review" element={<Review />} />
         <Route path="/reports" element={<Reports />} />

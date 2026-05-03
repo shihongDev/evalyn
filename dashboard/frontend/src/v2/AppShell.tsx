@@ -15,6 +15,7 @@ import { Btn, Eyebrow, Pill, StatusDot } from './ui';
 import { useV2Store } from './store/store';
 import { CoPilotDock } from './copilot/CoPilotDock';
 import { CommandPalette } from './CommandPalette';
+import { CliRunner } from './CliRunner';
 import { v2 } from './api/client';
 import { listCli } from './api/cli';
 import { prefetchV2 } from './hooks/useV2Resource';
@@ -443,6 +444,10 @@ export function AppShell({
 
       {/* COMMAND PALETTE - rendered last so it overlays the rest of the shell. */}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      {/* CLI RUNNER - global slide-over driven by openCliRunner() from any route.
+          z-index 900 sits above the dock/nav (default) but below the palette
+          modal (1000) so Cmd+K stays usable while a job is streaming. */}
+      <CliRunner />
     </div>
   );
 }

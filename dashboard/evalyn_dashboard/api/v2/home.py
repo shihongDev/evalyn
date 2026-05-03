@@ -18,6 +18,7 @@ from ._shared import (
     cumulative_pass_series,
     dataset_roots,
     fmt_cost,
+    get_cached_snapshot,
     has_any_calibration,
     is_inverse_metric,
     load_all_runs,
@@ -27,6 +28,7 @@ from ._shared import (
     run_id,
     run_pass_rate,
     run_status,
+    set_cached_snapshot,
     total_cost,
 )
 
@@ -525,7 +527,15 @@ def _brief_actions(attention: list[dict]) -> list[dict]:
 
 @router.get("")
 async def home() -> JSONResponse:
-    """Return the aggregated landing snapshot."""
+    """Return the aggregated landing snapshot.
+
+    Cached on the union of dataset-root mtimes so warm requests skip the
+    attention-detector walk (5 detectors + per-run scans add up to ~1s
+    cold). Cache invalidates the moment any root mtime bumps.
+    """
+    cached = get_cached_snapshot("home")
+    if cached is not None:
+        return JSONResponse(cached)
     project_name, project_version = project_meta()
     snap: dict = {
         "project": {"name": project_name, "version": project_version},
@@ -545,9 +555,11 @@ async def home() -> JSONResponse:
     }
 
     if not dataset_roots():
+        set_cached_snapshot("home", snap)
         return JSONResponse(snap)
     runs = load_all_runs()  # oldest first, walks every root
     if not runs:
+        set_cached_snapshot("home", snap)
         return JSONResponse(snap)
 
     runs_newest_first = list(reversed(runs))
@@ -592,4 +604,5 @@ async def home() -> JSONResponse:
     attention = _attention(runs_newest_first, anchor)
     snap["attention"] = attention
     snap["brief"] = _brief(latest, runs_30d, runs_newest_first, attention, anchor)
+    set_cached_snapshot("home", snap)
     return JSONResponse(snap)

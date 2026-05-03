@@ -14,6 +14,7 @@ import type {
   ExperimentItemsSort,
   ClusterDetail,
   DatasetList,
+  DatasetDetail,
   RubricList,
   RubricDetail,
   ReviewQueue,
@@ -84,6 +85,8 @@ export const v2 = {
       `/experiments/${encodeURIComponent(runId)}/cluster/${encodeURIComponent(clusterId)}`,
     ),
   datasets: (): Promise<DatasetList> => jget('/datasets'),
+  dataset: (name: string): Promise<DatasetDetail> =>
+    jget(`/datasets/${encodeURIComponent(name)}`),
   rubrics: (): Promise<RubricList> => jget('/rubrics'),
   rubric: (id: string): Promise<RubricDetail> =>
     jget(`/rubrics/${encodeURIComponent(id)}/calibration`),
