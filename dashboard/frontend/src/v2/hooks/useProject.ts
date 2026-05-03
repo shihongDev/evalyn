@@ -1,42 +1,18 @@
 /**
- * useProject - shared project meta (name + version) fetched once and cached
- * across every route that renders an AppShell context chip.
+ * useProject - shared project meta (name + version) for the AppShell context chip.
  *
- * Backed by /api/v2/home (the snapshot already exposes the resolved project
- * identity from evalyn.yaml or .evalyn/ inference). The hook keeps a module-
- * level cache so navigating between routes never re-fires the request.
+ * Implementation note: this used to maintain its own module-level cache. It now
+ * piggybacks on `useV2Resource('home', v2.home)` so the request is shared with
+ * the Home route and the nav prefetch path. The chip lights up the moment any
+ * caller has hydrated the home cache.
  */
 
-import { useEffect, useState } from 'react';
 import { v2 } from '../api/client';
+import { useV2Resource } from './useV2Resource';
 
 type Project = { name: string; version: string | null };
 
-let _cache: Project | null = null;
-const _subs: ((p: Project) => void)[] = [];
-
 export function useProject(): Project | null {
-  const [proj, setProj] = useState<Project | null>(_cache);
-  useEffect(() => {
-    if (_cache) {
-      setProj(_cache);
-      return;
-    }
-    v2
-      .home()
-      .then((s) => {
-        _cache = s.project;
-        setProj(s.project);
-        _subs.forEach((f) => f(s.project));
-      })
-      .catch(() => {
-        /* swallow - chip just stays unset */
-      });
-    _subs.push(setProj);
-    return () => {
-      const i = _subs.indexOf(setProj);
-      if (i >= 0) _subs.splice(i, 1);
-    };
-  }, []);
-  return proj;
+  const { data } = useV2Resource('home', v2.home);
+  return data ? data.project : null;
 }

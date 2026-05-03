@@ -4,15 +4,18 @@
  * with ?compare=<otherId>.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
-import { Card, Eyebrow, Pill, Btn, StatusDot, Spark } from '../ui';
+import { Card, Eyebrow, Pill, Btn, StatusDot, Spark, Skeleton, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
-import type { ExperimentRow } from '../api/types';
+import { useV2Resource } from '../hooks/useV2Resource';
 import { E } from '../tokens';
 
-const COLS = '24px 2.4fr 90px 90px 80px 70px 90px 110px';
+// Columns: select, name, pass, delta, items, cost, spark.
+// Duration column dropped - prod runs don't carry duration_s, every cell
+// rendered as "-" (UX walkthrough finding).
+const COLS = '24px 2.4fr 90px 90px 80px 90px 110px';
 
 type StatusFilter = 'any' | 'completed' | 'running' | 'failed' | 'warn';
 type SortOrder = 'recent' | 'oldest' | 'pass-desc' | 'pass-asc';
@@ -59,8 +62,10 @@ function sparkColor(status: string): string {
 }
 
 export default function ExperimentsList() {
-  const [rows, setRows] = useState<ExperimentRow[] | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const { data: rows, err, reloading, isInitialLoad } = useV2Resource(
+    'experiments',
+    v2.experiments,
+  );
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('any');
@@ -83,12 +88,6 @@ export default function ExperimentsList() {
     if (!rows) return [];
     return Array.from(new Set(rows.map((r) => r.author).filter(Boolean))).sort();
   }, [rows]);
-
-  useEffect(() => {
-    v2.experiments()
-      .then(setRows)
-      .catch((e) => setErr(String(e)));
-  }, []);
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -144,7 +143,10 @@ export default function ExperimentsList() {
       <div style={{ padding: '32px 36px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, marginBottom: 6 }}>
           <div>
-            <Eyebrow>All evaluations</Eyebrow>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Eyebrow>All evaluations</Eyebrow>
+              <UpdatingChip visible={reloading && !isInitialLoad} />
+            </div>
             <h1
               style={{
                 fontFamily: E.fSerif,
@@ -276,7 +278,39 @@ export default function ExperimentsList() {
         </div>
 
         {/* TABLE */}
-        {!rows && !err && <div style={{ marginTop: 14, color: E.text3, fontSize: 13 }}>Loading...</div>}
+        {!rows && !err && (
+          <Card style={{ marginTop: 14, padding: 0, overflow: 'hidden' }}>
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: COLS,
+                  padding: '14px 18px',
+                  borderTop: i ? `1px solid ${E.hair}` : 'none',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                <Skeleton w={14} h={14} />
+                <div>
+                  <Skeleton w={`${60 + ((i * 7) % 30)}%`} h={13} />
+                  <div style={{ marginTop: 6 }}>
+                    <Skeleton w={180} h={10} />
+                  </div>
+                </div>
+                <Skeleton w={40} h={14} />
+                <Skeleton w={30} h={11} />
+                <Skeleton w={36} h={11} />
+                <Skeleton w={28} h={11} />
+                <Skeleton w={40} h={11} />
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Skeleton w={70} h={20} />
+                </div>
+              </div>
+            ))}
+          </Card>
+        )}
 
         {rows && rows.length === 0 && (
           <Card style={{ marginTop: 14, padding: 28, textAlign: 'center' }}>
@@ -312,7 +346,6 @@ export default function ExperimentsList() {
               <span>Pass</span>
               <span>Δ</span>
               <span>Items</span>
-              <span>Dur</span>
               <span>Cost</span>
               <span style={{ textAlign: 'right' }}>Trend</span>
             </div>
@@ -371,7 +404,6 @@ export default function ExperimentsList() {
                   </div>
                   <div style={{ fontFamily: E.fMono, fontSize: 12, color: deltaColor(r.delta) }}>{r.delta}</div>
                   <div style={{ fontFamily: E.fMono, fontSize: 11, color: E.text2 }}>{r.items}</div>
-                  <div style={{ fontFamily: E.fMono, fontSize: 11, color: E.text2 }}>{r.duration}</div>
                   <div style={{ fontFamily: E.fMono, fontSize: 11, color: E.text2 }}>{r.cost}</div>
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     {r.spark && r.spark.length > 0 ? (

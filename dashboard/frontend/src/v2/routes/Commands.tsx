@@ -13,12 +13,13 @@
  * TODO: prefill the composer once CoPilotThread reads ?prefill=
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../AppShell';
-import { Card, Eyebrow, Btn } from '../ui';
+import { Card, Eyebrow, Btn, Skeleton, UpdatingChip } from '../ui';
 import { listCli, commandGroup, commandSummary } from '../api/cli';
 import type { CliSchema } from '../api/cli';
+import { useV2Resource } from '../hooks/useV2Resource';
 import { E } from '../tokens';
 
 function groupCommands(cmds: CliSchema[]): { group: string; items: CliSchema[] }[] {
@@ -70,16 +71,12 @@ function matchesQuery(cmd: CliSchema, q: string): boolean {
 }
 
 export default function Commands() {
-  const [cmds, setCmds] = useState<CliSchema[] | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const { data: cmds, err, reloading, isInitialLoad } = useV2Resource<CliSchema[]>(
+    'commands',
+    listCli,
+  );
   const [query, setQuery] = useState('');
   const navigate = useNavigate();
-
-  useEffect(() => {
-    listCli()
-      .then(setCmds)
-      .catch((e) => setErr(String(e)));
-  }, []);
 
   const grouped = useMemo(() => {
     if (!cmds) return null;
@@ -87,10 +84,9 @@ export default function Commands() {
     return groupCommands(filtered);
   }, [cmds, query]);
 
-  function askCoPilot(_id: string) {
-    // TODO: prefill the composer once CoPilotThread reads ?prefill=
-    // For now, just open the co-pilot route - user types the question.
-    navigate('/copilot');
+  function askCoPilot(id: string) {
+    const prefill = `Run the \`${id}\` command and explain the output.`;
+    navigate(`/copilot?prefill=${encodeURIComponent(prefill)}`);
   }
 
   const totalCount = cmds?.length ?? 0;
@@ -99,7 +95,10 @@ export default function Commands() {
   return (
     <AppShell contextChip={{ name: 'Commands', version: '' }}>
       <div style={{ padding: '32px 36px', maxWidth: 1100 }}>
-        <Eyebrow style={{ marginBottom: 8 }}>All evalyn commands</Eyebrow>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+          <Eyebrow>All evalyn commands</Eyebrow>
+          <UpdatingChip visible={reloading && !isInitialLoad} />
+        </div>
         <h1
           style={{
             fontFamily: E.fSerif,
@@ -128,7 +127,41 @@ export default function Commands() {
         )}
 
         {!cmds && !err && (
-          <div style={{ marginTop: 18, color: E.text3, fontSize: 13 }}>Loading...</div>
+          <div
+            style={{
+              marginTop: 18,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: 14,
+            }}
+          >
+            {[0, 1, 2, 3].map((i) => (
+              <Card key={i} style={{ padding: 0, overflow: 'hidden' }}>
+                <div
+                  style={{
+                    padding: '14px 18px',
+                    borderBottom: `1px solid ${E.hair}`,
+                  }}
+                >
+                  <Skeleton w={120} h={11} />
+                </div>
+                {[0, 1, 2].map((j) => (
+                  <div
+                    key={j}
+                    style={{
+                      padding: '12px 18px',
+                      borderTop: j ? `1px solid ${E.hair}` : 'none',
+                    }}
+                  >
+                    <Skeleton w="40%" h={13} />
+                    <div style={{ marginTop: 6 }}>
+                      <Skeleton w="80%" h={11} />
+                    </div>
+                  </div>
+                ))}
+              </Card>
+            ))}
+          </div>
         )}
 
         {cmds && (

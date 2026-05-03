@@ -5,9 +5,10 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { AppShell } from '../AppShell';
-import { Btn, Card, Eyebrow, Pill } from '../ui';
+import { Btn, Card, Eyebrow, Pill, Skeleton, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
 import type { ReviewItem, ReviewQueue } from '../api/types';
+import { useV2Resource } from '../hooks/useV2Resource';
 import { useProject } from '../hooks/useProject';
 import { E } from '../tokens';
 
@@ -60,17 +61,19 @@ function highlightedText(text: string, highlights: string[]) {
 
 export default function Review() {
   const project = useProject();
-  const [queue, setQueue] = useState<ReviewQueue | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const {
+    data: queue,
+    err: queueErr,
+    reloading,
+    isInitialLoad,
+  } = useV2Resource<ReviewQueue>('reviewQueue', v2.reviewQueue);
+  const [submitErr, setSubmitErr] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    v2.reviewQueue()
-      .then(setQueue)
-      .catch((e: unknown) => setErr(String(e)));
-  }, []);
+  // Submit errors take priority since they're the most recent user action.
+  const err = submitErr ?? queueErr;
 
   const items = queue?.items ?? [];
   const current: ReviewItem | null = items[idx] ?? null;
@@ -87,9 +90,10 @@ export default function Review() {
       })
         .then(() => {
           setNote('');
+          setSubmitErr(null);
           setIdx((i) => i + 1);
         })
-        .catch((e: unknown) => setErr(String(e)))
+        .catch((e: unknown) => setSubmitErr(String(e)))
         .finally(() => setSubmitting(false));
     },
     [current, note, submitting],
@@ -113,7 +117,10 @@ export default function Review() {
       <div style={{ padding: '32px 36px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end' }}>
           <div>
-            <Eyebrow>Where the judge wants a second opinion</Eyebrow>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Eyebrow>Where the judge wants a second opinion</Eyebrow>
+              <UpdatingChip visible={reloading && !isInitialLoad} />
+            </div>
             <h1
               style={{
                 fontFamily: E.fSerif,
@@ -175,7 +182,49 @@ export default function Review() {
         )}
 
         {!queue && !err && (
-          <div style={{ marginTop: 20, color: E.text3, fontSize: 13 }}>Loading...</div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 320px',
+              gap: 14,
+              marginTop: 18,
+            }}
+          >
+            <Card style={{ padding: 24 }}>
+              <Skeleton w={180} h={14} />
+              <div style={{ marginTop: 18 }}>
+                <Skeleton w={80} h={11} />
+                <div style={{ marginTop: 6 }}>
+                  <Skeleton w="100%" h={60} style={{ borderRadius: 8 }} />
+                </div>
+              </div>
+              <div style={{ marginTop: 18 }}>
+                <Skeleton w={120} h={11} />
+                <div style={{ marginTop: 6 }}>
+                  <Skeleton w="100%" h={80} style={{ borderRadius: 8 }} />
+                </div>
+              </div>
+              <div style={{ marginTop: 18 }}>
+                <Skeleton w={80} h={11} />
+                <div style={{ marginTop: 6 }}>
+                  <Skeleton w="100%" h={50} style={{ borderRadius: 8 }} />
+                </div>
+              </div>
+            </Card>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {[0, 1, 2].map((i) => (
+                <Card key={i} style={{ padding: 16 }}>
+                  <Skeleton w={120} h={11} />
+                  <div style={{ marginTop: 10 }}>
+                    <Skeleton w="100%" h={11} />
+                  </div>
+                  <div style={{ marginTop: 6 }}>
+                    <Skeleton w="80%" h={11} />
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
         )}
 
         {queue && (items.length === 0 || idx >= items.length) && (

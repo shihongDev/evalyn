@@ -18,11 +18,19 @@ from pathlib import Path
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-from ._shared import dataset_roots
+from ._shared import _caches_disabled, dataset_roots, list_dataset_dirs, load_all_runs
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Mtime-keyed cache for ``_coverage`` results.
+# 445 dataset.jsonl files (~55MB) on prod take 7s+ to re-parse on every
+# /api/v2/datasets request; the file is read-mostly so cache by mtime.
+_coverage_cache: dict[Path, tuple[float, tuple[int, list[dict]]]] = {}
+
+# Same trick for ``meta.json`` reads (445 files on prod, ~2s of stat+parse).
+_meta_cache: dict[Path, tuple[float | None, dict]] = {}
 
 
 def _category_of(item: dict) -> str:
@@ -45,8 +53,16 @@ def _coverage(jsonl_path: Path) -> tuple[int, list[dict]]:
     """Return ``(item_count, coverage_buckets)`` for the dataset.
 
     Always includes an ``uncategorized`` bucket if any items lack a
-    category.
+    category. Result is mtime-cached - on prod (~445 dataset.jsonl files,
+    55MB total) this cuts the per-request cost from ~7s to ~free.
     """
+    try:
+        mtime = jsonl_path.stat().st_mtime
+    except OSError:
+        return 0, []
+    cached = _coverage_cache.get(jsonl_path)
+    if cached and cached[0] == mtime:
+        return cached[1]
     counts: Counter = Counter()
     n = 0
     try:
@@ -71,57 +87,69 @@ def _coverage(jsonl_path: Path) -> tuple[int, list[dict]]:
         {"label": label, "value": value}
         for label, value in counts.most_common()
     ]
-    return n, coverage
+    result = (n, coverage)
+    _coverage_cache[jsonl_path] = (mtime, result)
+    return result
 
 
 def _meta(dataset_dir: Path) -> dict:
+    """Cached parse of ``dataset_dir/meta.json``.
+
+    A negative cache (``mtime=None``) records "no meta on disk" so we
+    skip the second ``stat()`` on every subsequent request - useful when
+    most prod datasets have no ``meta.json`` and the wall-clock cost was
+    dominated by repeated ``exists()`` checks.
+    """
     p = dataset_dir / "meta.json"
-    if not p.exists():
+    try:
+        mtime: float | None = p.stat().st_mtime
+    except OSError:
+        mtime = None
+    cached = _meta_cache.get(p)
+    if cached and cached[0] == mtime:
+        return cached[1]
+    if mtime is None:
+        _meta_cache[p] = (None, {})
         return {}
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
+        data = json.loads(p.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         logger.warning("meta.json read failed at %s: %s", p, exc)
-        return {}
+        data = {}
+    _meta_cache[p] = (mtime, data)
+    return data
 
 
-def _last_used_iso(dataset_dir: Path) -> str | None:
-    """Most-recent ``created_at`` across this dataset's runs, or ``None``."""
-    eval_runs = dataset_dir / "eval_runs"
-    if not eval_runs.is_dir():
-        return None
-    latest: str | None = None
-    for run_dir in eval_runs.iterdir():
-        if not run_dir.is_dir():
+def _last_used_index() -> dict[str, str]:
+    """Return ``{dataset_name: max(created_at)}`` from the cached runs.
+
+    Reuses the run cache populated by :func:`load_all_runs` instead of
+    re-reading every ``results.json`` per dataset (the original
+    implementation walked the eval_runs/ tree a second time and added
+    ~3.8s per request on prod data).
+    """
+    latest: dict[str, str] = {}
+    for run in load_all_runs():
+        ds = run.get("_dataset")
+        if not ds:
             continue
-        results = run_dir / "results.json"
-        if not results.exists():
+        ts = run.get("created_at")
+        if not ts:
             continue
-        try:
-            data = json.loads(results.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            logger.warning("results.json read failed at %s: %s", results, exc)
-            continue
-        ts = data.get("created_at")
-        if ts and (latest is None or ts > latest):
-            latest = ts
+        cur = latest.get(ds)
+        if cur is None or ts > cur:
+            latest[ds] = ts
     return latest
 
 
-@router.get("")
-async def list_datasets() -> JSONResponse:
-    """Return one card per dataset directory.
-
-    Walks every root from :func:`dataset_roots` so prod runs (under
-    ``data/prod/datasets/``) and demo fixture runs (under
-    ``.evalyn/data/datasets/``) both surface. First occurrence of a name
-    wins so prod entries shadow demo entries on collision.
-    """
+def _build_cards() -> list[dict]:
+    """Walk roots once and return the dataset cards list."""
     seen: set[str] = set()
     cards: list[dict] = []
+    last_used = _last_used_index()
     for root in dataset_roots():
-        for dataset_dir in sorted(root.iterdir()):
-            if not dataset_dir.is_dir() or dataset_dir.name in seen:
+        for dataset_dir in list_dataset_dirs(root):
+            if dataset_dir.name in seen:
                 continue
             jsonl = dataset_dir / "dataset.jsonl"
             if not jsonl.exists():
@@ -136,7 +164,55 @@ async def list_datasets() -> JSONResponse:
                     "source": meta.get("source") or "JSONL",
                     "tags": meta.get("tags") or [],
                     "coverage": coverage,
-                    "last_used_iso": _last_used_iso(dataset_dir),
+                    "last_used_iso": last_used.get(dataset_dir.name),
                 }
             )
+    return cards
+
+
+# Response-level cache: 491 dataset dirs => ~3-7s of stat()/parse() per
+# request even with per-file caches because each dataset still costs a
+# few hundred microseconds of dict lookups + path joins on WSL. We key
+# the cached payload by ``(root, root.stat().st_mtime)`` for every
+# dataset root - the mtime bumps when a dataset is added or removed,
+# which is the only mutation list_datasets cares about.
+_response_cache: dict[tuple, list[dict]] = {}
+
+
+def _response_cache_key() -> tuple | None:
+    """Return ``((root, mtime), ...)`` or ``None`` if any root is gone.
+
+    Using all roots' mtimes catches both prod and demo additions. We
+    return ``None`` (cache miss) on stat failures so we don't serve
+    stale data when something racy happens.
+    """
+    parts: list[tuple] = []
+    for root in dataset_roots():
+        try:
+            parts.append((root, root.stat().st_mtime))
+        except OSError:
+            return None
+    return tuple(parts)
+
+
+@router.get("")
+async def list_datasets() -> JSONResponse:
+    """Return one card per dataset directory.
+
+    Walks every root from :func:`dataset_roots` so prod runs (under
+    ``data/prod/datasets/``) and demo fixture runs (under
+    ``.evalyn/data/datasets/``) both surface. First occurrence of a name
+    wins so prod entries shadow demo entries on collision.
+
+    The whole response is mtime-cached on every dataset root - even with
+    per-file caches the per-dataset stat()+lookup cost dominates on prod
+    (~491 directories), so memoising the full response lets warm
+    requests skip the loop entirely.
+    """
+    key = _response_cache_key()
+    if key is not None and not _caches_disabled() and key in _response_cache:
+        return JSONResponse(_response_cache[key])
+    cards = _build_cards()
+    if key is not None and not _caches_disabled():
+        _response_cache[key] = cards
     return JSONResponse(cards)

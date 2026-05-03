@@ -3,14 +3,25 @@
  * failure clusters, sub-metric breakdown, confusion matrix, failed item preview.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
-import { Card, Eyebrow, Pill, Btn, StatusDot, Donut, LineChart } from '../ui';
+import {
+  Card,
+  Eyebrow,
+  Pill,
+  Btn,
+  StatusDot,
+  Donut,
+  LineChart,
+  Skeleton,
+  UpdatingChip,
+} from '../ui';
 import type { LineSeries } from '../ui';
 import { v2 } from '../api/client';
 import { runCli } from '../api/cli';
 import type { ExperimentDetail } from '../api/types';
+import { useV2Resource } from '../hooks/useV2Resource';
 import { useProject } from '../hooks/useProject';
 import { E } from '../tokens';
 
@@ -41,21 +52,17 @@ export default function RunDetail() {
   const compareWith = searchParams.get('compare');
   const navigate = useNavigate();
   const project = useProject();
-  const [detail, setDetail] = useState<ExperimentDetail | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const fetcher = useCallback(() => v2.experiment(runId ?? ''), [runId]);
+  const {
+    data: detail,
+    err,
+    reloading,
+    isInitialLoad,
+  } = useV2Resource<ExperimentDetail>(`experiment:${runId ?? ''}`, fetcher);
   const [activeTab, setActiveTab] = useState(0);
   const [rerunBusy, setRerunBusy] = useState(false);
 
-  useEffect(() => {
-    if (!runId) return;
-    setDetail(null);
-    setErr(null);
-    v2.experiment(runId)
-      .then(setDetail)
-      .catch((e) => setErr(String(e)));
-  }, [runId]);
-
-  if (err) {
+  if (err && !detail) {
     return (
       <AppShell breadcrumb={['Experiments', runId ?? '']}>
         <div style={{ padding: '32px 36px' }}>
@@ -76,7 +83,51 @@ export default function RunDetail() {
   if (!detail) {
     return (
       <AppShell breadcrumb={['Experiments', runId ?? '']}>
-        <div style={{ padding: '32px 36px', color: E.text3, fontSize: 13 }}>Loading...</div>
+        <div style={{ padding: '28px 36px' }}>
+          <Skeleton w={220} h={11} />
+          <div style={{ marginTop: 8 }}>
+            <Skeleton w={420} h={32} />
+          </div>
+          <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
+            <Skeleton w={120} h={20} style={{ borderRadius: 999 }} />
+            <Skeleton w={140} h={20} style={{ borderRadius: 999 }} />
+            <Skeleton w={100} h={20} style={{ borderRadius: 999 }} />
+          </div>
+          <div
+            style={{
+              marginTop: 24,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: 14,
+            }}
+          >
+            {[0, 1, 2, 3].map((i) => (
+              <Card key={i} style={{ padding: 16 }}>
+                <Skeleton w={100} h={11} />
+                <div style={{ marginTop: 10 }}>
+                  <Skeleton w={80} h={28} />
+                </div>
+                <div style={{ marginTop: 6 }}>
+                  <Skeleton w={120} h={11} />
+                </div>
+              </Card>
+            ))}
+          </div>
+          <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 14 }}>
+            <Card style={{ padding: 18 }}>
+              <Skeleton w={220} h={11} />
+              <div style={{ marginTop: 14 }}>
+                <Skeleton w="100%" h={200} style={{ borderRadius: 6 }} />
+              </div>
+            </Card>
+            <Card style={{ padding: 18 }}>
+              <Skeleton w={180} h={11} />
+              <div style={{ marginTop: 14 }}>
+                <Skeleton w={120} h={120} style={{ borderRadius: '50%' }} />
+              </div>
+            </Card>
+          </div>
+        </div>
       </AppShell>
     );
   }
@@ -153,6 +204,7 @@ export default function RunDetail() {
               <span style={{ fontFamily: E.fMono, fontSize: 11, color: E.text3 }}>
                 {detail.id} - {detail.status} {detail.finished_at_iso} - {detail.duration} - {detail.cost}
               </span>
+              <UpdatingChip visible={reloading && !isInitialLoad} />
             </div>
             <h1
               style={{

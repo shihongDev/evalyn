@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { E } from '../tokens';
 import { Btn, Eyebrow, Pill } from '../ui';
@@ -78,6 +78,7 @@ function formatRelative(iso: string, turnCount: number): string {
 export default function CoPilotThread() {
   const params = useParams<{ threadId?: string }>();
   const routeThreadId = params.threadId ?? null;
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const { threadId, messages, pending, status, error, send, confirm, resetTo } =
@@ -93,6 +94,20 @@ export default function CoPilotThread() {
     setDraft(prompt);
     requestAnimationFrame(() => textareaRef.current?.focus());
   };
+
+  // ?prefill=... seeds the composer (e.g. from /commands "Ask co-pilot"
+  // links). Only fires when the thread is empty so we don't overwrite an
+  // in-flight typed message. Strips the param from the URL after consuming
+  // it so a refresh doesn't re-prefill.
+  useEffect(() => {
+    const prefill = searchParams.get('prefill');
+    if (!prefill || messages.length > 0) return;
+    setDraft(prefill);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+    const next = new URLSearchParams(searchParams);
+    next.delete('prefill');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, messages.length]);
 
   // Reattach the hook when the URL thread id changes (sidebar click).
   useEffect(() => {

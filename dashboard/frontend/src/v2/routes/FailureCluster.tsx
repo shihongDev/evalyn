@@ -3,12 +3,13 @@
  * Wires v2.cluster(runId, clusterId) into the design from screens-4.jsx.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
-import { Bar, Btn, Card, Eyebrow, LineChart, Pill } from '../ui';
+import { Bar, Btn, Card, Eyebrow, LineChart, Pill, Skeleton, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
 import type { ClusterDetail } from '../api/types';
+import { useV2Resource } from '../hooks/useV2Resource';
 import { useProject } from '../hooks/useProject';
 import { E } from '../tokens';
 
@@ -19,15 +20,14 @@ export default function FailureCluster() {
   const runId = params.runId ?? '';
   const clusterId = params.clusterId ?? '';
 
-  const [data, setData] = useState<ClusterDetail | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!runId || !clusterId) return;
-    v2.cluster(runId, clusterId)
-      .then(setData)
-      .catch((e: unknown) => setErr(String(e)));
-  }, [runId, clusterId]);
+  const fetcher = useCallback(
+    () => v2.cluster(runId, clusterId),
+    [runId, clusterId],
+  );
+  const { data, err, reloading, isInitialLoad } = useV2Resource<ClusterDetail>(
+    `cluster:${runId}:${clusterId}`,
+    fetcher,
+  );
 
   const triggerMax = data ? Math.max(...data.triggers.map((t) => t.count), 1) : 1;
   const trendMax = data?.trend.y_max ?? 20;
@@ -47,7 +47,39 @@ export default function FailureCluster() {
           </Card>
         )}
         {!data && !err && (
-          <div style={{ color: E.text3, fontSize: 13 }}>Loading...</div>
+          <>
+            <Skeleton w={220} h={11} />
+            <div style={{ marginTop: 8 }}>
+              <Skeleton w={420} h={34} />
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <Skeleton w="80%" h={13} />
+            </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 14,
+                marginTop: 22,
+              }}
+            >
+              <Card style={{ padding: 18 }}>
+                <Skeleton w={100} h={11} />
+                <div style={{ marginTop: 14 }}>
+                  <Skeleton w="100%" h={14} />
+                  <div style={{ marginTop: 8 }}>
+                    <Skeleton w="90%" h={14} />
+                  </div>
+                </div>
+              </Card>
+              <Card style={{ padding: 18 }}>
+                <Skeleton w={180} h={11} />
+                <div style={{ marginTop: 14 }}>
+                  <Skeleton w="100%" h={150} style={{ borderRadius: 6 }} />
+                </div>
+              </Card>
+            </div>
+          </>
         )}
         {data && (
           <>
@@ -60,6 +92,7 @@ export default function FailureCluster() {
                       ? ` - ${((data.total_in_cluster / data.total_items_in_run) * 100).toFixed(1)}% of all items`
                       : ''}
                   </span>
+                  <UpdatingChip visible={reloading && !isInitialLoad} />
                 </div>
                 <h1
                   style={{

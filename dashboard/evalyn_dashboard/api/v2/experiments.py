@@ -65,13 +65,32 @@ def _tags(run: dict) -> list[str]:
 
 
 def _delta_str(curr: float | None, prev: float | None) -> str:
+    """Format a pass-rate delta. Returns ``"-"`` for moves <=0.05pts so the
+    Δ column doesn't read as "+0.0" noise on the 70%+ of consecutive runs
+    that are statistically identical (UX walkthrough finding).
+    """
     if prev is None:
         return "baseline"
     if curr is None:
         return "-"
     diff = round(100.0 * (curr - prev), 1)
-    sign = "+" if diff >= 0 else ""
+    if abs(diff) < 0.05:
+        return "-"
+    sign = "+" if diff > 0 else ""
     return f"{sign}{diff}"
+
+
+def _friendly_name(run: dict) -> str:
+    """Use the dataset folder name + version tag as a human label, falling
+    back to the raw run id. Avoids the "wall of identical timestamp ids"
+    table problem."""
+    ds = run.get("_dataset") or ""
+    rid = run_id(run)
+    if ds:
+        # Strip the trailing '-vNN' or timestamp tail when present so two
+        # runs on the same agent share a label.
+        return ds
+    return rid
 
 
 def _serialize_row(run: dict, prev: dict | None) -> dict:
@@ -79,7 +98,7 @@ def _serialize_row(run: dict, prev: dict | None) -> dict:
     summary = run.get("summary") or {}
     return {
         "id": run_id(run),
-        "name": run_id(run),
+        "name": _friendly_name(run),
         "author": "You",
         "when_iso": run.get("created_at") or "",
         "status": run_status(run),

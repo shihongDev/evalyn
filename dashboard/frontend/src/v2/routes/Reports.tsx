@@ -3,11 +3,10 @@
  * Wires v2.weeklyReport() into the design from screens-4.jsx.
  */
 
-import { useEffect, useState } from 'react';
 import { AppShell } from '../AppShell';
-import { Btn, Card, Eyebrow, Pill } from '../ui';
+import { Btn, Card, Eyebrow, Pill, Skeleton, Spinner, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
-import type { WeeklyReport } from '../api/types';
+import { useV2Resource } from '../hooks/useV2Resource';
 import { E } from '../tokens';
 
 function deltaPillColor(kind: 'pass' | 'fail' | 'warn' | 'info'): string {
@@ -25,19 +24,18 @@ function deltaPillBg(kind: 'pass' | 'fail' | 'warn' | 'info'): string {
 }
 
 export default function Reports() {
-  const [data, setData] = useState<WeeklyReport | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    v2.weeklyReport()
-      .then(setData)
-      .catch((e: unknown) => setErr(String(e)));
-  }, []);
+  const { data, err, refetch, reloading, isInitialLoad } = useV2Resource(
+    'weeklyReport',
+    v2.weeklyReport,
+  );
 
   return (
     <AppShell contextChip={{ name: data?.project_name ?? 'Loading', version: '' }}>
       <div style={{ padding: '32px 36px', maxWidth: 1080 }}>
-        <Eyebrow>Weekly summary - auto-generated</Eyebrow>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Eyebrow>Weekly summary - auto-generated</Eyebrow>
+          <UpdatingChip visible={reloading && !isInitialLoad} />
+        </div>
         <h1
           style={{
             fontFamily: E.fSerif,
@@ -48,7 +46,7 @@ export default function Reports() {
             letterSpacing: '-0.015em',
           }}
         >
-          {data ? `Week of ${data.week_label} - ${data.project_name}` : 'Loading...'}
+          {data ? `Week of ${data.week_label} - ${data.project_name}` : <Skeleton w={420} h={34} />}
         </h1>
         {data && (
           <p style={{ fontSize: 13, color: E.text2, marginTop: 6 }}>
@@ -76,10 +74,17 @@ export default function Reports() {
           <Btn
             kind="ghost"
             size="md"
-            onClick={() => window.location.reload()}
-            title="Re-fetch the weekly report - it's recomputed on each load"
+            onClick={() => void refetch()}
+            disabled={reloading}
+            title={reloading ? 'Regenerating...' : "Re-fetch the weekly report - it's recomputed on each load"}
           >
-            Regenerate
+            {reloading ? (
+              <>
+                <Spinner size={11} /> Regenerating
+              </>
+            ) : (
+              'Regenerate'
+            )}
           </Btn>
         </div>
 
@@ -93,7 +98,45 @@ export default function Reports() {
         )}
 
         {!data && !err && (
-          <div style={{ marginTop: 22, color: E.text3, fontSize: 13 }}>Loading...</div>
+          <>
+            <Card style={{ padding: 24, marginTop: 22 }}>
+              <Eyebrow>TL;DR</Eyebrow>
+              <div style={{ marginTop: 10 }}>
+                <Skeleton w="100%" h={22} />
+                <div style={{ marginTop: 8 }}>
+                  <Skeleton w="80%" h={22} />
+                </div>
+              </div>
+            </Card>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: 14,
+                marginTop: 14,
+              }}
+            >
+              {[0, 1, 2].map((i) => (
+                <Card key={i} style={{ padding: 18 }}>
+                  <Skeleton w={120} h={11} />
+                  <div style={{ marginTop: 10 }}>
+                    <Skeleton w={100} h={34} />
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    <Skeleton w={140} h={11} />
+                  </div>
+                </Card>
+              ))}
+            </div>
+            <Card style={{ padding: 24, marginTop: 14 }}>
+              <Skeleton w={200} h={22} />
+              <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {[0, 1, 2, 3].map((i) => (
+                  <Skeleton key={i} w={`${65 + ((i * 11) % 25)}%`} h={13} />
+                ))}
+              </div>
+            </Card>
+          </>
         )}
 
         {data && (

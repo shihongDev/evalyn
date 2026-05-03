@@ -3,12 +3,12 @@
  * Wires v2.datasets() into the design from screens-3.jsx.
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AppShell } from '../AppShell';
-import { Btn, Card, Eyebrow, Pill, StackBar } from '../ui';
+import { Btn, Card, Eyebrow, Pill, Skeleton, StackBar, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
 import { loadDemo } from '../api/demo';
-import type { DatasetCard } from '../api/types';
+import { useV2Resource } from '../hooks/useV2Resource';
 import { useProject } from '../hooks/useProject';
 import { E } from '../tokens';
 
@@ -19,16 +19,12 @@ const COMING_SOON = 'Coming soon';
 
 export default function Datasets() {
   const project = useProject();
-  const [data, setData] = useState<DatasetCard[] | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const { data, err, reloading, isInitialLoad } = useV2Resource(
+    'datasets',
+    v2.datasets,
+  );
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoErr, setDemoErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    v2.datasets()
-      .then(setData)
-      .catch((e: unknown) => setErr(String(e)));
-  }, []);
 
   const handleLoadDemo = async () => {
     setDemoErr(null);
@@ -49,7 +45,10 @@ export default function Datasets() {
       <div style={{ padding: '32px 36px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
           <div>
-            <Eyebrow>Evaluation inputs</Eyebrow>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Eyebrow>Evaluation inputs</Eyebrow>
+              <UpdatingChip visible={reloading && !isInitialLoad} />
+            </div>
             <h1
               style={{
                 fontFamily: E.fSerif,
@@ -86,7 +85,32 @@ export default function Datasets() {
         )}
 
         {!data && !err && (
-          <div style={{ marginTop: 22, color: E.text3, fontSize: 13 }}>Loading...</div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: 14,
+              marginTop: 22,
+            }}
+          >
+            {[0, 1, 2, 3].map((i) => (
+              <Card key={i} style={{ padding: 18 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <Skeleton w={32} h={32} style={{ borderRadius: 7 }} />
+                  <div style={{ flex: 1 }}>
+                    <Skeleton w="60%" h={13} />
+                    <div style={{ marginTop: 6 }}>
+                      <Skeleton w="40%" h={10} />
+                    </div>
+                  </div>
+                  <Skeleton w={36} h={22} />
+                </div>
+                <div style={{ marginTop: 14 }}>
+                  <Skeleton w="100%" h={7} />
+                </div>
+              </Card>
+            ))}
+          </div>
         )}
 
         {data && data.length === 0 && (

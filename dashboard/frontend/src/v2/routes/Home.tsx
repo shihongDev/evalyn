@@ -3,13 +3,25 @@
  * recent activity, attention queue, co-pilot brief. Sources from v2.home().
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../AppShell';
-import { Card, Eyebrow, Pill, Btn, StatusDot, Spark, Bar, LineChart } from '../ui';
+import {
+  Card,
+  Eyebrow,
+  Pill,
+  Btn,
+  StatusDot,
+  Spark,
+  Bar,
+  LineChart,
+  Skeleton,
+  Spinner,
+  UpdatingChip,
+} from '../ui';
 import { Welcome } from '../ui/Welcome';
 import { v2 } from '../api/client';
-import type { HomeSnapshot } from '../api/types';
+import { useV2Resource } from '../hooks/useV2Resource';
 import { E } from '../tokens';
 
 function formatDelta(d: number, inverse: boolean): string {
@@ -45,32 +57,18 @@ function shortTime(iso: string): string {
 }
 
 export default function Home() {
-  const [snap, setSnap] = useState<HomeSnapshot | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const [briefRefreshing, setBriefRefreshing] = useState(false);
+  const { data: snap, err, refetch, reloading, isInitialLoad } = useV2Resource(
+    'home',
+    v2.home,
+  );
   const navigate = useNavigate();
-
-  useEffect(() => {
-    v2.home()
-      .then(setSnap)
-      .catch((e) => setErr(String(e)));
-  }, []);
-
-  function refreshBrief() {
-    if (briefRefreshing) return;
-    setBriefRefreshing(true);
-    v2.home()
-      .then(setSnap)
-      .catch((e) => setErr(String(e)))
-      .finally(() => setBriefRefreshing(false));
-  }
 
   const briefTime = useMemo(() => {
     if (!snap?.brief) return '';
     return shortTime(snap.brief.generated_at_iso);
   }, [snap]);
 
-  if (err) {
+  if (err && !snap) {
     return (
       <AppShell>
         <div style={{ padding: '32px 36px', maxWidth: 1100 }}>
@@ -86,7 +84,46 @@ export default function Home() {
   if (!snap) {
     return (
       <AppShell>
-        <div style={{ padding: '32px 36px', color: E.text3, fontSize: 13 }}>Loading...</div>
+        <div style={{ padding: '32px 36px', maxWidth: 1100 }}>
+          <Eyebrow style={{ marginBottom: 8 }}>Project home</Eyebrow>
+          <Skeleton w={300} h={36} style={{ marginTop: 4 }} />
+          <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 18 }}>
+            <Card style={{ padding: 22 }}>
+              <Eyebrow>Overall quality - 30d</Eyebrow>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 10 }}>
+                <Skeleton w={120} h={56} />
+              </div>
+              <div style={{ marginTop: 14 }}>
+                <Skeleton w="100%" h={150} style={{ borderRadius: 8 }} />
+              </div>
+            </Card>
+            <Card style={{ padding: 22 }}>
+              <Eyebrow>Sub-metrics today</Eyebrow>
+              <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i}>
+                    <Skeleton w={140} h={11} />
+                    <div style={{ marginTop: 6 }}>
+                      <Skeleton w="100%" h={3} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+          <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 18 }}>
+            {[0, 1, 2].map((i) => (
+              <Card key={i} style={{ padding: 18 }}>
+                <Skeleton w={120} h={11} />
+                <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <Skeleton w="90%" h={12} />
+                  <Skeleton w="80%" h={12} />
+                  <Skeleton w="85%" h={12} />
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
       </AppShell>
     );
   }
@@ -138,7 +175,10 @@ export default function Home() {
   return (
     <AppShell contextChip={snap.project}>
       <div style={{ padding: '32px 36px', maxWidth: 1100 }}>
-        <Eyebrow style={{ marginBottom: 8 }}>Project home</Eyebrow>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+          <Eyebrow>Project home</Eyebrow>
+          <UpdatingChip visible={reloading && !isInitialLoad} />
+        </div>
         <h1
           style={{
             fontFamily: E.fSerif,
@@ -402,11 +442,11 @@ export default function Home() {
               <Btn
                 kind="bare"
                 size="sm"
-                onClick={refreshBrief}
-                disabled={briefRefreshing}
-                title={briefRefreshing ? 'Refreshing...' : 'Refetch the morning brief'}
+                onClick={() => void refetch()}
+                disabled={reloading}
+                title={reloading ? 'Refreshing...' : 'Refetch the morning brief'}
               >
-                ↻
+                {reloading ? <Spinner size={11} /> : '↻'}
               </Btn>
             </div>
             <div style={{ padding: '18px 22px', fontSize: 13.5, color: E.text1, lineHeight: 1.65 }}>

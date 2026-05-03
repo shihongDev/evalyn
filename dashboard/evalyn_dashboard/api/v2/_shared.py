@@ -4,12 +4,25 @@ Centralises path resolution, run loading, and common formatting so each
 router stays readable. The contract for each endpoint lives in
 ``dashboard/frontend/src/v2/api/types.ts`` - keep the JSON shapes there
 in sync with what these helpers feed back to the routers.
+
+Caching strategy
+----------------
+Several module-private mtime-keyed caches sit in front of the disk
+walks. They are intentionally process-scoped (no TTL, no eviction):
+``results.json``/``dataset.jsonl`` are read-mostly so a cache that
+invalidates only when the file's ``mtime`` changes is exactly right -
+fresh writes win automatically, repeated reads stay free.
+
+Tests that need a clean slate can call :func:`_clear_caches_for_tests`
+or set the ``EVALYN_DASHBOARD_TEST_NO_CACHE=1`` env var (every cache
+read short-circuits when the env var is set).
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable
@@ -17,6 +30,49 @@ from typing import Any, Iterable
 logger = logging.getLogger(__name__)
 
 INVERSE_HINTS = ("hallucin", "refus_incorrect")
+
+# ---------------------------------------------------------------------------
+# Module-private caches (mtime-keyed). See module docstring for semantics.
+# ---------------------------------------------------------------------------
+
+_run_cache: dict[Path, tuple[float, dict]] = {}
+_dataset_items_cache: dict[Path, tuple[float, dict[str, dict]]] = {}
+_run_dirs_cache: dict[Path, tuple[float, list[Path]]] = {}
+_dataset_dirs_cache: dict[Path, tuple[float, list[Path]]] = {}
+# Whole-list cache for ``load_all_runs`` keyed on every dataset root's
+# mtime so add/remove of a dataset (or a new eval_runs subdir) busts it.
+_all_runs_cache: dict[tuple, list[dict]] = {}
+
+
+def _caches_disabled() -> bool:
+    """True when tests have opted out of caching via env var."""
+    return os.environ.get("EVALYN_DASHBOARD_TEST_NO_CACHE") == "1"
+
+
+def _clear_caches_for_tests() -> None:
+    """Drop all cached state. Tests that mutate fixtures call this.
+
+    Also clears caches living in sibling modules (datasets.py, rubrics.py)
+    by importing them lazily; doing so here keeps the test seam in one
+    place rather than scattering ``import``s across every test file.
+    """
+    _run_cache.clear()
+    _dataset_items_cache.clear()
+    _run_dirs_cache.clear()
+    _dataset_dirs_cache.clear()
+    _all_runs_cache.clear()
+    try:
+        from . import datasets as _datasets_mod  # noqa: WPS433 - intentional
+        _datasets_mod._coverage_cache.clear()
+        _datasets_mod._meta_cache.clear()
+        _datasets_mod._response_cache.clear()
+    except ImportError:
+        pass
+    try:
+        from . import rubrics as _rubrics_mod  # noqa: WPS433 - intentional
+        _rubrics_mod._calibration_index_cache.clear()
+    except ImportError:
+        pass
 
 
 def parse_iso(ts: str | None) -> datetime | None:
@@ -103,6 +159,69 @@ def project_meta() -> tuple[str, str | None]:
     return name, version
 
 
+def list_dataset_dirs(root: Path) -> list[Path]:
+    """Return cached list of dataset subdirectories under ``root``.
+
+    Used by every endpoint that walks ``data/prod/datasets/*``. Prod has
+    491 dataset folders; raw ``iterdir()`` is ~1.9s on WSL/NTFS - so we
+    cache by the root's mtime (changes on add/remove of a dataset). The
+    list is sorted so callers don't have to.
+    """
+    if not root.is_dir():
+        return []
+    if _caches_disabled():
+        return sorted(p for p in root.iterdir() if p.is_dir())
+    try:
+        mtime = root.stat().st_mtime
+    except OSError:
+        return sorted(p for p in root.iterdir() if p.is_dir())
+    cached = _dataset_dirs_cache.get(root)
+    if cached and cached[0] == mtime:
+        return cached[1]
+    out = sorted(p for p in root.iterdir() if p.is_dir())
+    _dataset_dirs_cache[root] = (mtime, out)
+    return out
+
+
+def _list_run_dirs_for_root(root: Path) -> list[Path]:
+    """Return cached list of run dirs under ``root``, mtime-invalidated.
+
+    ``root.stat().st_mtime`` changes when a dataset directory is added
+    or removed - cheap signal that catches the only mutation we care
+    about (new dataset folders). Per-dataset run additions don't bump
+    the root mtime but a new dataset typically arrives before its first
+    run anyway, so the cache reaches steady state quickly. Callers that
+    need stronger freshness can invalidate via ``_clear_caches_for_tests``.
+    """
+    if not root.is_dir():
+        return []
+    if _caches_disabled():
+        return _walk_run_dirs(root)
+    try:
+        mtime = root.stat().st_mtime
+    except OSError:
+        return _walk_run_dirs(root)
+    cached = _run_dirs_cache.get(root)
+    if cached and cached[0] == mtime:
+        return cached[1]
+    out = _walk_run_dirs(root)
+    _run_dirs_cache[root] = (mtime, out)
+    return out
+
+
+def _walk_run_dirs(root: Path) -> list[Path]:
+    """Filesystem walk that ``_list_run_dirs_for_root`` memoizes."""
+    out: list[Path] = []
+    for dataset_dir in list_dataset_dirs(root):
+        eval_runs_dir = dataset_dir / "eval_runs"
+        if not eval_runs_dir.is_dir():
+            continue
+        for run_dir in eval_runs_dir.iterdir():
+            if run_dir.is_dir():
+                out.append(run_dir)
+    return out
+
+
 def iter_run_dirs(root: Path | None = None) -> Iterable[Path]:
     """Yield each ``<dataset>/eval_runs/<run>`` dir.
 
@@ -110,24 +229,22 @@ def iter_run_dirs(root: Path | None = None) -> Iterable[Path]:
     :func:`dataset_roots`. When a specific root is passed we only walk
     that one, preserving back-compat with callers that already scope
     themselves to one location.
+
+    Backed by a per-root mtime cache so repeat callers (every v2
+    endpoint) skip the directory walk entirely on warm requests.
     """
     roots = [root] if root is not None else dataset_roots()
     for r in roots:
-        if not r.is_dir():
-            continue
-        for dataset_dir in r.iterdir():
-            if not dataset_dir.is_dir():
-                continue
-            eval_runs_dir = dataset_dir / "eval_runs"
-            if not eval_runs_dir.is_dir():
-                continue
-            for run_dir in eval_runs_dir.iterdir():
-                if run_dir.is_dir():
-                    yield run_dir
+        for run_dir in _list_run_dirs_for_root(r):
+            yield run_dir
 
 
 def load_run(run_dir: Path) -> dict | None:
     """Parse ``run_dir/results.json``. Returns ``None`` on missing/invalid.
+
+    Cached by ``mtime`` of the file - a fresh write (run promoted, file
+    rewritten) invalidates automatically. Cold parse cost on prod data
+    is ~3s for 147 runs (~21MB); warm hit is dict lookup.
 
     A logged-but-skipped run silently shrinks aggregate denominators
     (Quality, item counts, sub-metrics). Logging at WARN gives operators
@@ -135,13 +252,33 @@ def load_run(run_dir: Path) -> dict | None:
     surface a per-route ``data_warnings`` field.
     """
     p = run_dir / "results.json"
-    if not p.exists():
-        return None
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
+        st = p.stat()
+    except OSError:
+        return None
+    if not _caches_disabled():
+        cached = _run_cache.get(p)
+        if cached and cached[0] == st.st_mtime:
+            return cached[1]
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         logger.warning("results.json read failed at %s: %s", p, exc)
         return None
+    if not _caches_disabled():
+        _run_cache[p] = (st.st_mtime, data)
+    return data
+
+
+def _all_runs_cache_key(roots: list[Path]) -> tuple | None:
+    """Return ``((root, mtime), ...)`` snapshot or ``None`` on stat failure."""
+    parts: list[tuple] = []
+    for r in roots:
+        try:
+            parts.append((r, r.stat().st_mtime))
+        except OSError:
+            return None
+    return tuple(parts)
 
 
 def load_all_runs(root: Path | None = None) -> list[dict]:
@@ -156,7 +293,19 @@ def load_all_runs(root: Path | None = None) -> list[dict]:
     so prod runs and demo fixture runs both surface in the dashboard.
 
     Sorted oldest first by ``created_at``; callers can re-sort.
+
+    Cached at the list level keyed on every dataset root's mtime. Even
+    with per-file ``load_run`` caching, the per-call ``stat()`` overhead
+    on 147 runs hits ~500ms on WSL; memoising the assembled list cuts
+    that to a dict lookup. The cache invalidates as soon as a dataset
+    is added or removed (root mtime bumps).
     """
+    roots = [root] if root is not None else dataset_roots()
+    key: tuple | None = None
+    if not _caches_disabled():
+        key = _all_runs_cache_key(roots)
+        if key is not None and key in _all_runs_cache:
+            return _all_runs_cache[key]
     out: list[dict] = []
     for run_dir in iter_run_dirs(root):
         data = load_run(run_dir)
@@ -167,6 +316,8 @@ def load_all_runs(root: Path | None = None) -> list[dict]:
         data["_run_dir_name"] = run_dir.name
         out.append(data)
     out.sort(key=lambda d: d.get("created_at") or "")
+    if key is not None and not _caches_disabled():
+        _all_runs_cache[key] = out
     return out
 
 
@@ -310,11 +461,18 @@ def load_dataset_items(dataset_dir: Path) -> dict[str, dict]:
 
     Empty dict if the file is missing or unreadable. Per-line parse
     failures are logged with line numbers so operators can spot a
-    corrupted dataset (silent-failure hunter punch list).
+    corrupted dataset (silent-failure hunter punch list). Cached by
+    file mtime for the same reasons as :func:`load_run`.
     """
     p = dataset_dir / "dataset.jsonl"
-    if not p.exists():
+    try:
+        st = p.stat()
+    except OSError:
         return {}
+    if not _caches_disabled():
+        cached = _dataset_items_cache.get(p)
+        if cached and cached[0] == st.st_mtime:
+            return cached[1]
     out: dict[str, dict] = {}
     try:
         with p.open(encoding="utf-8") as f:
@@ -333,6 +491,8 @@ def load_dataset_items(dataset_dir: Path) -> dict[str, dict]:
     except OSError as exc:
         logger.warning("dataset.jsonl read failed at %s: %s", p, exc)
         return {}
+    if not _caches_disabled():
+        _dataset_items_cache[p] = (st.st_mtime, out)
     return out
 
 

@@ -64,12 +64,10 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     if (activeIndex >= filtered.length) setActiveIndex(0);
   }, [filtered.length, activeIndex]);
 
-  function pickCommand(_id: string) {
-    // TODO: prefill the composer once CoPilotThread reads ?prefill=
-    // Lane 2 owns CoPilotThread.tsx; coordinate with them OR fall back to
-    // anchor + hash. For v2 first cut we just navigate to /copilot.
+  function pickCommand(id: string) {
+    const prefill = `Run the \`${id}\` command and explain the output.`;
     onClose();
-    navigate('/copilot');
+    navigate(`/copilot?prefill=${encodeURIComponent(prefill)}`);
   }
 
   function openCommandsPage() {

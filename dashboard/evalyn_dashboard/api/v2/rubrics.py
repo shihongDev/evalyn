@@ -22,11 +22,16 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
-from ._shared import dataset_roots, load_all_runs
+from ._shared import dataset_roots, list_dataset_dirs, load_all_runs
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Mtime-keyed cache. The walk over ``data/prod/datasets/`` is ~1s on
+# WSL even when zero calibrations exist (cost is in the dataset_dir
+# stat()s, not file reads). Cleared via ``_clear_caches_for_tests``.
+_calibration_index_cache: dict[tuple, dict[str, list[Path]]] = {}
 
 
 def _bool_verdict(v: object) -> bool | None:
@@ -82,27 +87,55 @@ def _kappa_from_annotations(annotations: list[dict]) -> tuple[float | None, int,
     return kappa, n, fp, fn
 
 
-def _calibration_paths(metric_id: str) -> list[Path]:
-    """All ``calibration.json`` files for ``metric_id`` across datasets.
+def _calibration_index() -> dict[str, list[Path]]:
+    """Walk dataset roots once and return ``{metric_id: [calibration.json, ...]}``.
 
-    Walks every root from :func:`dataset_roots` so prod and demo
-    fixture calibrations both contribute to the kappa aggregation.
+    The previous per-metric loop did ``iterdir()`` + ``cal.exists()`` for
+    every metric x every dataset dir. With 39 metrics and 491 dataset
+    dirs that's ~19k stat calls per request - measured at 76s on prod.
+    Inverting the walk drops it to one pass: list ``calibrations/``
+    once, bucket by the subdirectory name (which is the metric id).
+
+    Cached by every dataset root's mtime - new calibrations land via
+    ``evalyn calibrate`` which writes a new directory under
+    ``calibrations/`` (bumping the parent dataset's mtime, but not the
+    dataset *root's* mtime). For now we accept that new calibrations on
+    an existing dataset will not be visible until a server restart;
+    that mirrors how the v2 endpoints handled run additions before this
+    cache work and matches the read-mostly workload.
     """
-    out: list[Path] = []
-    for root in dataset_roots():
-        for dataset_dir in root.iterdir():
-            if not dataset_dir.is_dir():
+    from ._shared import _all_runs_cache_key, _caches_disabled  # local to avoid cycle
+
+    roots = dataset_roots()
+    key = _all_runs_cache_key(roots) if not _caches_disabled() else None
+    if key is not None and key in _calibration_index_cache:
+        return _calibration_index_cache[key]
+    index: dict[str, list[Path]] = defaultdict(list)
+    for root in roots:
+        for dataset_dir in list_dataset_dirs(root):
+            cal_root = dataset_dir / "calibrations"
+            if not cal_root.is_dir():
                 continue
-            cal = dataset_dir / "calibrations" / metric_id / "calibration.json"
-            if cal.exists():
-                out.append(cal)
-    return out
+            for metric_dir in cal_root.iterdir():
+                if not metric_dir.is_dir():
+                    continue
+                cal = metric_dir / "calibration.json"
+                if cal.is_file():
+                    index[metric_dir.name].append(cal)
+    if key is not None:
+        _calibration_index_cache[key] = dict(index)
+    return index
 
 
-def _load_calibration(metric_id: str) -> tuple[float | None, int, int, int]:
-    """Aggregate kappa across all calibration files for a metric."""
+def _calibration_paths(metric_id: str) -> list[Path]:
+    """Backwards-compat shim: cheap dict lookup against the prebuilt index."""
+    return _calibration_index().get(metric_id, [])
+
+
+def _load_calibration_from_paths(paths: list[Path]) -> tuple[float | None, int, int, int]:
+    """Aggregate kappa across the given calibration files."""
     annotations: list[dict] = []
-    for p in _calibration_paths(metric_id):
+    for p in paths:
         try:
             data = json.loads(p.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
@@ -112,6 +145,11 @@ def _load_calibration(metric_id: str) -> tuple[float | None, int, int, int]:
         if isinstance(anns, list):
             annotations.extend(a for a in anns if isinstance(a, dict))
     return _kappa_from_annotations(annotations)
+
+
+def _load_calibration(metric_id: str) -> tuple[float | None, int, int, int]:
+    """Aggregate kappa across all calibration files for a metric."""
+    return _load_calibration_from_paths(_calibration_index().get(metric_id, []))
 
 
 def _calibration_label(kappa: float | None) -> tuple[str, str]:
@@ -164,9 +202,14 @@ async def list_rubrics() -> JSONResponse:
     if not runs:
         return JSONResponse([])
     kind, uses, name = _metric_kinds_uses(runs)
+    # Build the calibration index once for all metrics. The previous
+    # implementation called ``_load_calibration`` per metric, which under
+    # the hood walked every dataset dir per metric (O(M*D)). One pass
+    # over the filesystem is enough.
+    cal_index = _calibration_index()
     rows: list[dict] = []
     for mid in sorted(uses):
-        kappa, _, _, _ = _load_calibration(mid)
+        kappa, _, _, _ = _load_calibration_from_paths(cal_index.get(mid, []))
         label, label_kind = _calibration_label(kappa)
         rows.append(
             {

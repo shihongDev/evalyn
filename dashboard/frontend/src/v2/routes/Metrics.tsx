@@ -3,12 +3,13 @@
  * Wires v2.rubrics() and v2.rubric(id) into the design from screens-3.jsx.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AppShell } from '../AppShell';
-import { Btn, Card, Eyebrow, Pill } from '../ui';
+import { Btn, Card, Eyebrow, Pill, Skeleton, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
 import { runCli } from '../api/cli';
 import type { RubricDetail, RubricRow } from '../api/types';
+import { useV2Resource } from '../hooks/useV2Resource';
 import { useProject } from '../hooks/useProject';
 import { E } from '../tokens';
 
@@ -34,12 +35,35 @@ function pillColor(kind: 'pass' | 'warn' | 'fail' | 'info'): string {
 
 export default function Metrics() {
   const project = useProject();
-  const [list, setList] = useState<RubricRow[] | null>(null);
-  const [listErr, setListErr] = useState<string | null>(null);
+  const {
+    data: list,
+    err: listErr,
+    reloading: listReloading,
+    isInitialLoad: listInitial,
+  } = useV2Resource<RubricRow[]>('rubrics', v2.rubrics);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<RubricDetail | null>(null);
-  const [detailErr, setDetailErr] = useState<string | null>(null);
   const [calibrateBusy, setCalibrateBusy] = useState(false);
+
+  // Auto-pick the first rubric once the list lands, but don't override an
+  // explicit user selection.
+  useEffect(() => {
+    if (selectedId === null && list && list.length > 0) {
+      setSelectedId(list[0].id);
+    }
+  }, [list, selectedId]);
+
+  const detailFetcher = useCallback(
+    () => v2.rubric(selectedId ?? ''),
+    [selectedId],
+  );
+  const {
+    data: detail,
+    err: detailErr,
+  } = useV2Resource<RubricDetail>(
+    `rubric:${selectedId ?? ''}`,
+    detailFetcher,
+    { enabled: !!selectedId },
+  );
 
   async function handleRecalibrate() {
     if (!detail || calibrateBusy) return;
@@ -60,30 +84,15 @@ export default function Metrics() {
     }
   }
 
-  useEffect(() => {
-    v2.rubrics()
-      .then((rows) => {
-        setList(rows);
-        if (rows.length > 0) setSelectedId(rows[0].id);
-      })
-      .catch((e: unknown) => setListErr(String(e)));
-  }, []);
-
-  useEffect(() => {
-    if (!selectedId) return;
-    setDetail(null);
-    setDetailErr(null);
-    v2.rubric(selectedId)
-      .then(setDetail)
-      .catch((e: unknown) => setDetailErr(String(e)));
-  }, [selectedId]);
-
   return (
     <AppShell contextChip={project ?? undefined}>
       <div style={{ padding: '32px 36px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end' }}>
           <div>
-            <Eyebrow>How quality is graded</Eyebrow>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Eyebrow>How quality is graded</Eyebrow>
+              <UpdatingChip visible={listReloading && !listInitial} />
+            </div>
             <h1
               style={{
                 fontFamily: E.fSerif,
@@ -140,7 +149,29 @@ export default function Metrics() {
               YOUR RUBRICS
             </div>
             {!list && !listErr && (
-              <div style={{ padding: 16, color: E.text3, fontSize: 13 }}>Loading...</div>
+              <div style={{ padding: 0 }}>
+                {[0, 1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: '14px 16px',
+                      borderTop: i ? `1px solid ${E.hair}` : 'none',
+                    }}
+                  >
+                    <Skeleton w={4} h={32} style={{ borderRadius: 2 }} />
+                    <div style={{ flex: 1 }}>
+                      <Skeleton w="60%" h={12} />
+                      <div style={{ marginTop: 6 }}>
+                        <Skeleton w="40%" h={10} />
+                      </div>
+                    </div>
+                    <Skeleton w={28} h={11} />
+                  </div>
+                ))}
+              </div>
             )}
             {list && list.length === 0 && (
               <div style={{ padding: 24, color: E.text3, fontSize: 13, textAlign: 'center' }}>
@@ -210,7 +241,27 @@ export default function Metrics() {
               </div>
             )}
             {selectedId && !detail && !detailErr && (
-              <div style={{ padding: 16, color: E.text3, fontSize: 13 }}>Loading...</div>
+              <div style={{ padding: 18 }}>
+                <Skeleton w="40%" h={14} />
+                <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      style={{
+                        padding: 12,
+                        background: E.panel2,
+                        borderRadius: 8,
+                        border: `1px solid ${E.hair}`,
+                      }}
+                    >
+                      <Skeleton w="50%" h={13} />
+                      <div style={{ marginTop: 6 }}>
+                        <Skeleton w="80%" h={11} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
             {detail && (
               <>

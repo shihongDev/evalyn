@@ -72,6 +72,30 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class TimingMiddleware(BaseHTTPMiddleware):
+    """Log ``method path -> status (Xms)`` for every ``/api/*`` request.
+
+    Cheap perf telemetry - one ``time.perf_counter`` pair per request.
+    Scoped to API routes so static asset noise stays out of the log.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if not path.startswith("/api/"):
+            return await call_next(request)
+        start = time.perf_counter()
+        response = await call_next(request)
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        logger.info(
+            "%s %s -> %s (%.1fms)",
+            request.method,
+            path,
+            response.status_code,
+            elapsed_ms,
+        )
+        return response
+
+
 def _read_index_html(token: str) -> str:
     """Return the bundled ``index.html`` with the CSRF meta tag injected.
 
@@ -237,6 +261,7 @@ def build_app(
     app.state.agent_runtime = agent_runtime
 
     app.add_middleware(CSRFMiddleware, token=csrf_token)
+    app.add_middleware(TimingMiddleware)
 
     @app.get("/api/health")
     async def healthcheck() -> dict:

@@ -15,6 +15,9 @@ import { Btn, Eyebrow, Pill, StatusDot } from './ui';
 import { useV2Store } from './store/store';
 import { CoPilotDock } from './copilot/CoPilotDock';
 import { CommandPalette } from './CommandPalette';
+import { v2 } from './api/client';
+import { listCli } from './api/cli';
+import { prefetchV2 } from './hooks/useV2Resource';
 
 interface AppShellProps {
   children: ReactNode;
@@ -25,14 +28,59 @@ interface AppShellProps {
   hideCoPilot?: boolean;
 }
 
-const NAV_ITEMS: { id: string; path: string; icon: string; label: string }[] = [
-  { id: 'home', path: '/', icon: '◐', label: 'Home' },
-  { id: 'experiments', path: '/experiments', icon: '◆', label: 'Experiments' },
-  { id: 'commands', path: '/commands', icon: '⌥', label: 'Commands' },
-  { id: 'datasets', path: '/datasets', icon: '◫', label: 'Datasets' },
-  { id: 'metrics', path: '/metrics', icon: '◈', label: 'Metrics & rubrics' },
-  { id: 'review', path: '/review', icon: '◉', label: 'Human review' },
-  { id: 'reports', path: '/reports', icon: '▤', label: 'Reports' },
+interface NavItem {
+  id: string;
+  path: string;
+  icon: string;
+  label: string;
+  /** Imperative warmup for hover/focus - kicks off the route's primary fetch. */
+  prefetch?: () => void;
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { id: 'home', path: '/', icon: '◐', label: 'Home', prefetch: () => prefetchV2('home', v2.home) },
+  {
+    id: 'experiments',
+    path: '/experiments',
+    icon: '◆',
+    label: 'Experiments',
+    prefetch: () => prefetchV2('experiments', v2.experiments),
+  },
+  {
+    id: 'commands',
+    path: '/commands',
+    icon: '⌥',
+    label: 'Commands',
+    prefetch: () => prefetchV2('commands', listCli),
+  },
+  {
+    id: 'datasets',
+    path: '/datasets',
+    icon: '◫',
+    label: 'Datasets',
+    prefetch: () => prefetchV2('datasets', v2.datasets),
+  },
+  {
+    id: 'metrics',
+    path: '/metrics',
+    icon: '◈',
+    label: 'Metrics & rubrics',
+    prefetch: () => prefetchV2('rubrics', v2.rubrics),
+  },
+  {
+    id: 'review',
+    path: '/review',
+    icon: '◉',
+    label: 'Human review',
+    prefetch: () => prefetchV2('reviewQueue', v2.reviewQueue),
+  },
+  {
+    id: 'reports',
+    path: '/reports',
+    icon: '▤',
+    label: 'Reports',
+    prefetch: () => prefetchV2('weeklyReport', v2.weeklyReport),
+  },
 ];
 
 const PINNED: { name: string; q: number; status: 'pass' | 'warn' | 'fail' }[] = [];
@@ -252,11 +300,15 @@ export function AppShell({
           <Eyebrow style={{ padding: '4px 10px', marginBottom: 4 }}>Workspace</Eyebrow>
           {NAV_ITEMS.map((item) => {
             const isActive = active === item.id;
+            const warm = item.prefetch ?? (() => {});
             return (
               <NavLink
                 key={item.id}
                 to={item.path}
                 end={item.path === '/'}
+                onMouseEnter={warm}
+                onFocus={warm}
+                onTouchStart={warm}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
