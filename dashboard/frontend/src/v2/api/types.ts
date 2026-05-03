@@ -314,10 +314,24 @@ export interface ReviewItem {
   judge_breakdown: { label: string; score: number; kind: 'pass' | 'fail' | 'warn' }[];
   judge_reasoning: string;
 }
+/**
+ * One per (dataset, metric_id) combo with enough verdicts to make
+ * `evalyn calibrate` worthwhile. The frontend renders these as a
+ * banner with a "Run calibrate" button that deep-links into the
+ * CliRunner with `cli_args` pre-filled.
+ */
+export interface CalibrationSuggestion {
+  metric_id: string;
+  dataset: string;
+  verdict_count: number;
+  threshold: number; // typically 10
+  cli_args: { metric_id: string; annotations: string };
+}
 export interface ReviewQueue {
   items: ReviewItem[];
   reviewers: { name: string; done: number; total: number; you: boolean }[];
   rationale: string; // why this batch
+  calibration_suggestions: CalibrationSuggestion[];
 }
 
 /** /api/v2/review/verdict */

@@ -7,9 +7,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Glossary, Pill, Skeleton, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
-import type { ReviewItem, ReviewQueue } from '../api/types';
+import type { CalibrationSuggestion, ReviewItem, ReviewQueue } from '../api/types';
+import { listCli, type CliSchema } from '../api/cli';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { useProject } from '../hooks/useProject';
+import { openCliRunner } from '../cliRunnerBridge';
 import { E } from '../tokens';
 
 type Verdict = 'pass' | 'fail' | 'skip';
@@ -67,10 +69,36 @@ export default function Review() {
     reloading,
     isInitialLoad,
   } = useV2Resource<ReviewQueue>('reviewQueue', v2.reviewQueue);
+  // Pull the CLI catalog so the calibration suggestion banner can open
+  // the runner pre-filled. Cached at the module level by useV2Resource;
+  // every other consumer that hits the catalog reuses this data.
+  const { data: cmds } = useV2Resource<CliSchema[]>('commands', listCli);
   const [submitErr, setSubmitErr] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const openCalibrate = useCallback(
+    (s: CalibrationSuggestion) => {
+      const cmd = cmds?.find((c) => c.id === 'calibrate');
+      if (!cmd) {
+        window.alert(
+          'Cannot open calibrate: the command is not in this build of the CLI catalog.',
+        );
+        return;
+      }
+      // Drop any keys the schema doesn't declare so the form doesn't
+      // surface ghost fields. The introspector normalises CLI flags to
+      // snake_case, matching the backend's `cli_args` keys directly.
+      const paramNames = new Set(cmd.params.map((p) => p.name));
+      const initialValues: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(s.cli_args)) {
+        if (paramNames.has(key)) initialValues[key] = value;
+      }
+      openCliRunner(cmd, { initialValues });
+    },
+    [cmds],
+  );
 
   // Submit errors take priority since they're the most recent user action.
   const err = submitErr ?? queueErr;
@@ -179,6 +207,67 @@ export default function Review() {
             </div>
           )}
         </div>
+
+        {queue?.calibration_suggestions && queue.calibration_suggestions.length > 0 && (
+          <div
+            style={{
+              marginTop: 18,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+            }}
+          >
+            {queue.calibration_suggestions.map((s) => (
+              <Card
+                key={`${s.dataset}-${s.metric_id}`}
+                accent
+                style={{ padding: 16 }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <Eyebrow style={{ color: E.ember }}>Calibration ready</Eyebrow>
+                    <div
+                      style={{
+                        marginTop: 4,
+                        fontSize: 13,
+                        color: E.text1,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {s.verdict_count} verdicts collected on{' '}
+                      <span style={{ fontFamily: E.fMono, color: E.text0 }}>
+                        {s.metric_id}
+                      </span>{' '}
+                      <span style={{ color: E.text3 }}>
+                        (threshold: {s.threshold}, dataset: {s.dataset})
+                      </span>
+                      .
+                    </div>
+                  </div>
+                  <Btn
+                    kind="primary"
+                    size="md"
+                    onClick={() => openCalibrate(s)}
+                    disabled={!cmds}
+                    title={
+                      cmds
+                        ? `Open the calibrate form pre-filled for ${s.metric_id}`
+                        : 'Loading CLI catalog...'
+                    }
+                  >
+                    Run calibrate -&gt;
+                  </Btn>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
 
         {err && (
           <Card style={{ padding: 16, marginTop: 18, borderColor: E.fail }}>

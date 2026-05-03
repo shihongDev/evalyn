@@ -78,6 +78,11 @@ def _clear_caches_for_tests() -> None:
         _rubrics_mod._calibration_index_cache.clear()
     except ImportError:
         pass
+    try:
+        from . import review as _review_mod  # noqa: WPS433 - intentional
+        _review_mod._clear_review_caches_for_tests()
+    except ImportError:
+        pass
 
 
 def parse_iso(ts: str | None) -> datetime | None:

@@ -4,10 +4,21 @@
 
 export interface ToolBlockEntry {
   tool_call_id: string;
+  /** Raw tool name (e.g. "list-runs"), separate from the formatted cmd. */
+  tool: string;
+  /** Formatted preview - "list-runs --dataset foo". */
   cmd: string;
+  /** Original args dict captured from the proposal event. */
+  args: Record<string, unknown>;
   status: 'proposed' | 'awaiting_confirmation' | 'running' | 'complete' | 'error';
   duration_s: number | null;
-  output_preview?: string;
+  /** First ~300 chars of stdout for the collapsed preview. */
+  output_preview: string;
+  /** Up to 4000 chars of stdout for the expanded view. */
+  output_full: string;
+  exit_code: number | null;
+  ts_started: number | null;
+  ts_completed: number | null;
 }
 
 export interface PendingConfirmation {

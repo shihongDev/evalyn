@@ -124,6 +124,7 @@ export function useViewport(): Viewport {
 
 function activeIdFromPath(pathname: string): string {
   if (pathname === '/' || pathname.startsWith('/copilot')) return 'home';
+  if (pathname === '/settings' || pathname.startsWith('/settings/')) return 'settings';
   for (const item of NAV_ITEMS) {
     if (item.id === 'home') continue;
     if (pathname === item.path || pathname.startsWith(`${item.path}/`)) return item.id;
@@ -628,8 +629,11 @@ function Sidebar({ mode, active, navigate, dockOpen, setDockOpen, onAfterNavigat
       {!isIcon && (
         <button
           type="button"
-          disabled
-          title="Settings page coming soon. Provider keys live in evalyn.yaml today."
+          onClick={() => {
+            navigate('/settings');
+            onAfterNavigate?.();
+          }}
+          title="Configure LLM providers and API keys"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -637,12 +641,11 @@ function Sidebar({ mode, active, navigate, dockOpen, setDockOpen, onAfterNavigat
             padding: '7px 10px',
             borderRadius: 6,
             fontSize: 12,
-            color: E.text3,
-            cursor: 'not-allowed',
-            background: 'transparent',
+            color: active === 'settings' ? E.text0 : E.text2,
+            cursor: 'pointer',
+            background: active === 'settings' ? E.panel3 : 'transparent',
             border: 'none',
             textAlign: 'left',
-            opacity: 0.55,
           }}
         >
           <span>⚙</span> Settings & keys

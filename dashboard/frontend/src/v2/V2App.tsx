@@ -15,6 +15,7 @@ import Metrics from './routes/Metrics';
 import Review from './routes/Review';
 import Reports from './routes/Reports';
 import Commands from './routes/Commands';
+import Settings from './routes/Settings';
 
 export function V2App() {
   return (
@@ -35,6 +36,7 @@ export function V2App() {
         <Route path="/review" element={<Review />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/commands" element={<Commands />} />
+        <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Home />} />
       </Routes>
     </BrowserRouter>

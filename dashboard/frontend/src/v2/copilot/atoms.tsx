@@ -5,7 +5,7 @@
  * Pure render-only - all state lives in useCoPilotThread.
  */
 
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { E } from '../tokens';
 import { Btn, Card, Eyebrow, Pill } from '../ui';
 import type { PendingConfirmation, ToolBlockEntry } from './types';
@@ -50,8 +50,244 @@ export function Bubble({ who, children }: { who: 'you' | 'agent'; children: Reac
   );
 }
 
+function statusGlyph(status: ToolBlockEntry['status']): { symbol: string; color: string } {
+  if (status === 'error') return { symbol: '✗', color: E.fail };
+  if (status === 'complete') return { symbol: '✓', color: E.pass };
+  if (status === 'running') return { symbol: '◐', color: E.ember };
+  return { symbol: '·', color: E.ember };
+}
+
+function ToolRow({
+  entry,
+  expanded,
+  onToggle,
+  isLast,
+}: {
+  entry: ToolBlockEntry;
+  expanded: boolean;
+  onToggle: () => void;
+  isLast: boolean;
+}) {
+  const [showFull, setShowFull] = useState(false);
+  const { symbol, color } = statusGlyph(entry.status);
+  const isRunning = entry.status === 'running';
+  const isAwaiting = entry.status === 'awaiting_confirmation';
+  const isProposed = entry.status === 'proposed';
+  const isError = entry.status === 'error';
+  const argEntries = Object.entries(entry.args ?? {});
+  const hasArgs = argEntries.length > 0;
+  const hasOutput = entry.output_full.length > 0 || entry.output_preview.length > 0;
+  const previewIsTruncated = entry.output_full.length > entry.output_preview.length;
+  const outputToShow = showFull ? entry.output_full : entry.output_preview;
+  return (
+    <div style={{ borderBottom: isLast ? 'none' : `1px solid ${E.hair}`, padding: '4px 0' }}>
+      <div
+        onClick={onToggle}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          minHeight: 22,
+          padding: '3px 0',
+          color: E.text2,
+          cursor: 'pointer',
+          userSelect: 'none',
+        }}
+      >
+        <span
+          style={{
+            color,
+            width: 12,
+            display: 'inline-flex',
+            justifyContent: 'center',
+            animation: isRunning ? 'eDotPulse 1.6s ease-in-out infinite' : 'none',
+          }}
+        >
+          {symbol}
+        </span>
+        <span
+          style={{
+            color: E.text3,
+            fontSize: 9,
+            width: 10,
+            display: 'inline-flex',
+            justifyContent: 'center',
+          }}
+        >
+          {expanded ? '▾' : '▸'}
+        </span>
+        <span
+          style={{
+            flex: 1,
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            color: E.text1,
+          }}
+        >
+          {entry.tool || entry.cmd}
+        </span>
+        {isAwaiting && (
+          <Pill mono color={E.warn} bg={E.warnDim} style={{ fontSize: 9.5 }}>
+            confirm
+          </Pill>
+        )}
+        {isRunning && (
+          <Pill mono color={E.ember} bg={E.emberDim} style={{ fontSize: 9.5 }}>
+            running
+          </Pill>
+        )}
+        {isProposed && (
+          <Pill mono color={E.text3} bg={E.panel3} style={{ fontSize: 9.5 }}>
+            proposed
+          </Pill>
+        )}
+        <span style={{ color: E.text3, fontSize: 10, minWidth: 32, textAlign: 'right' }}>
+          {entry.duration_s != null ? `${entry.duration_s.toFixed(1)}s` : ''}
+        </span>
+      </div>
+      {expanded && (
+        <div style={{ paddingLeft: 20, paddingTop: 6, paddingBottom: 6 }}>
+          <div
+            style={{
+              fontSize: 11,
+              color: E.text2,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              marginBottom: hasArgs || hasOutput || isError ? 8 : 0,
+            }}
+          >
+            {entry.cmd || entry.tool}
+          </div>
+          {hasArgs && (
+            <div style={{ marginBottom: hasOutput || isError ? 8 : 0 }}>
+              <Eyebrow style={{ marginBottom: 4 }}>Args</Eyebrow>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {argEntries.map(([k, v]) => (
+                  <div
+                    key={k}
+                    style={{
+                      display: 'flex',
+                      gap: 8,
+                      fontSize: 11,
+                      color: E.text2,
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    <span style={{ color: E.text3, minWidth: 70, flexShrink: 0 }}>{k}</span>
+                    <span
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        wordBreak: 'break-word',
+                        whiteSpace: 'pre-wrap',
+                        color: E.text1,
+                      }}
+                    >
+                      {typeof v === 'string' ? v : JSON.stringify(v)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {hasOutput && (
+            <div style={{ marginBottom: isError ? 8 : 0 }}>
+              <Eyebrow style={{ marginBottom: 4 }}>Output</Eyebrow>
+              <pre
+                style={{
+                  margin: 0,
+                  padding: '6px 8px',
+                  background: E.panel,
+                  border: `1px solid ${E.hair}`,
+                  borderRadius: 6,
+                  fontFamily: E.fMono,
+                  fontSize: 10.5,
+                  color: E.text2,
+                  maxHeight: showFull ? 240 : 120,
+                  overflow: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  lineHeight: 1.45,
+                }}
+              >
+                {outputToShow}
+              </pre>
+              {previewIsTruncated && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowFull((v) => !v);
+                  }}
+                  style={{
+                    marginTop: 4,
+                    padding: 0,
+                    background: 'transparent',
+                    border: 'none',
+                    color: E.ember,
+                    fontSize: 10.5,
+                    fontFamily: E.fMono,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {showFull ? 'Show less' : 'Show full'}
+                </button>
+              )}
+            </div>
+          )}
+          {isError && (
+            <div
+              style={{
+                fontSize: 11,
+                color: E.fail,
+                fontFamily: E.fMono,
+              }}
+            >
+              Failed{entry.exit_code != null ? ` (exit code ${entry.exit_code})` : ''}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ToolBlock({ entries }: { entries: ToolBlockEntry[] }) {
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+
+  // Drop expanded ids whose entries have disappeared (e.g. thread reset).
+  useEffect(() => {
+    setExpanded((prev) => {
+      const ids = new Set(entries.map((e) => e.tool_call_id));
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (ids.has(id)) next.add(id);
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [entries]);
+
   if (entries.length === 0) return null;
+  const toggle = (id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
   return (
     <div
       style={{
@@ -59,38 +295,20 @@ export function ToolBlock({ entries }: { entries: ToolBlockEntry[] }) {
         background: E.panel2,
         border: `1px solid ${E.hair}`,
         borderRadius: 8,
-        padding: 10,
+        padding: '4px 10px',
         fontFamily: E.fMono,
         fontSize: 11.5,
       }}
     >
-      {entries.map((e) => {
-        const ok = e.status === 'complete';
-        const err = e.status === 'error';
-        const running = e.status === 'running' || e.status === 'proposed';
-        const symbol = err ? '✗' : ok ? '✓' : '·';
-        const symbolColor = err ? E.fail : ok ? E.pass : E.ember;
-        return (
-          <div
-            key={e.tool_call_id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '3px 0',
-              color: E.text2,
-            }}
-          >
-            <span style={{ color: symbolColor }}>{symbol}</span>
-            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {e.cmd}
-            </span>
-            <span style={{ color: E.text3, fontSize: 10 }}>
-              {running ? 'running' : e.duration_s != null ? `${e.duration_s.toFixed(1)}s` : ''}
-            </span>
-          </div>
-        );
-      })}
+      {entries.map((e, i) => (
+        <ToolRow
+          key={e.tool_call_id}
+          entry={e}
+          expanded={expanded.has(e.tool_call_id)}
+          onToggle={() => toggle(e.tool_call_id)}
+          isLast={i === entries.length - 1}
+        />
+      ))}
     </div>
   );
 }

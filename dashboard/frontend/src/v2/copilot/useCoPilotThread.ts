@@ -23,6 +23,11 @@ interface UseCoPilotOptions {
   initialThreadId?: string | null;
 }
 
+/** Char limits for captured tool output. Backend caps stdout at MAX_TOOL_OUTPUT
+ * in api/threads.py (4000 chars); we match it here. */
+const MAX_OUTPUT_PREVIEW = 300;
+const MAX_OUTPUT_FULL = 4000;
+
 let _msgCounter = 0;
 const newMsgId = (prefix: string) => `${prefix}-${Date.now()}-${++_msgCounter}`;
 
@@ -104,21 +109,62 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
       return;
     }
 
-    if (evt.type === 'tool_call_proposal' || evt.type === 'tool_call_running') {
+    if (evt.type === 'tool_call_proposal') {
       setMessages((prev) => {
         const { next, bubble } = ensureAgentBubble(prev);
         const existing = bubble.tools.find((t) => t.tool_call_id === evt.tool_call_id);
-        const cmd =
-          evt.type === 'tool_call_proposal'
-            ? `${evt.tool} ${formatArgsShort(evt.args)}`.trim()
-            : existing?.cmd ?? evt.tool;
+        const cmd = evt.preview_cmd ?? `${evt.tool} ${formatArgsShort(evt.args)}`.trim();
         const newTool: ToolBlockEntry = existing
-          ? { ...existing, status: evt.type === 'tool_call_running' ? 'running' : existing.status }
+          ? {
+              ...existing,
+              tool: existing.tool || evt.tool,
+              cmd: existing.cmd || cmd,
+              args: Object.keys(existing.args).length > 0 ? existing.args : evt.args,
+              ts_started: existing.ts_started ?? evt.ts,
+            }
           : {
               tool_call_id: evt.tool_call_id,
+              tool: evt.tool,
               cmd,
-              status: evt.type === 'tool_call_running' ? 'running' : 'proposed',
+              args: evt.args,
+              status: 'proposed',
               duration_s: null,
+              output_preview: '',
+              output_full: '',
+              exit_code: null,
+              ts_started: evt.ts,
+              ts_completed: null,
+            };
+        const tools = existing
+          ? bubble.tools.map((t) => (t.tool_call_id === evt.tool_call_id ? newTool : t))
+          : [...bubble.tools, newTool];
+        return patchAgentBubble(next, bubble.id, (b) => ({ ...b, tools }));
+      });
+      return;
+    }
+
+    if (evt.type === 'tool_call_running') {
+      setMessages((prev) => {
+        const { next, bubble } = ensureAgentBubble(prev);
+        const existing = bubble.tools.find((t) => t.tool_call_id === evt.tool_call_id);
+        const newTool: ToolBlockEntry = existing
+          ? {
+              ...existing,
+              status: 'running',
+              ts_started: evt.ts,
+            }
+          : {
+              tool_call_id: evt.tool_call_id,
+              tool: evt.tool,
+              cmd: evt.tool,
+              args: {},
+              status: 'running',
+              duration_s: null,
+              output_preview: '',
+              output_full: '',
+              exit_code: null,
+              ts_started: evt.ts,
+              ts_completed: null,
             };
         const tools = existing
           ? bubble.tools.map((t) => (t.tool_call_id === evt.tool_call_id ? newTool : t))
@@ -132,16 +178,20 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
       const out = evt.output ?? evt.stdout ?? '';
       setMessages((prev) => {
         const { next, bubble } = ensureAgentBubble(prev);
-        const tools = bubble.tools.map((t) =>
-          t.tool_call_id === evt.tool_call_id
-            ? {
-                ...t,
-                status: evt.ok ? 'complete' : 'error',
-                duration_s: t.duration_s,
-                output_preview: out.slice(0, 200),
-              }
-            : t,
-        ) as ToolBlockEntry[];
+        const tools = bubble.tools.map((t) => {
+          if (t.tool_call_id !== evt.tool_call_id) return t;
+          const startTs = t.ts_started;
+          const duration = startTs != null ? Math.max(0, evt.ts - startTs) : null;
+          return {
+            ...t,
+            status: evt.ok ? 'complete' : 'error',
+            duration_s: duration,
+            output_preview: out.slice(0, MAX_OUTPUT_PREVIEW),
+            output_full: out.slice(0, MAX_OUTPUT_FULL),
+            exit_code: evt.exit_code ?? null,
+            ts_completed: evt.ts,
+          };
+        }) as ToolBlockEntry[];
         return patchAgentBubble(next, bubble.id, (b) => ({ ...b, tools }));
       });
       return;
@@ -159,7 +209,26 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
       setStatus('awaiting_confirmation');
       setMessages((prev) => {
         const { next, bubble } = ensureAgentBubble(prev);
-        return patchAgentBubble(next, bubble.id, (b) => ({ ...b, pending_confirm: conf }));
+        const existing = bubble.tools.find((t) => t.tool_call_id === evt.tool_call_id);
+        const entry: ToolBlockEntry = existing
+          ? { ...existing, status: 'awaiting_confirmation', args: existing.args ?? evt.args }
+          : {
+              tool_call_id: evt.tool_call_id,
+              tool: evt.tool,
+              cmd: evt.preview_cmd,
+              args: evt.args,
+              status: 'awaiting_confirmation',
+              duration_s: null,
+              output_preview: '',
+              output_full: '',
+              exit_code: null,
+              ts_started: evt.ts,
+              ts_completed: null,
+            };
+        const tools = existing
+          ? bubble.tools.map((t) => (t.tool_call_id === evt.tool_call_id ? entry : t))
+          : [...bubble.tools, entry];
+        return patchAgentBubble(next, bubble.id, (b) => ({ ...b, tools, pending_confirm: conf }));
       });
       return;
     }
