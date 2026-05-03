@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable
@@ -30,6 +31,16 @@ from typing import Any, Iterable
 logger = logging.getLogger(__name__)
 
 INVERSE_HINTS = ("hallucin", "refus_incorrect")
+
+# Calibration / review band thresholds. Kept here (not in review.py) so the
+# shared ``calibration_suggestions`` helper - consumed by both review.py and
+# home.py - has a single source of truth. review.py re-imports these.
+PRIMARY_LO = 0.35
+PRIMARY_HI = 0.65
+SOFT_LO = 0.3
+SOFT_HI = 0.7
+CALIBRATION_VERDICT_THRESHOLD = 10
+CALIBRATION_SUGGESTIONS_CAP = 5
 
 # ---------------------------------------------------------------------------
 # Module-private caches (mtime-keyed). See module docstring for semantics.
@@ -46,6 +57,15 @@ _all_runs_cache: dict[tuple, list[dict]] = {}
 # signature. Routers that compute heavy aggregates (home, etc.) read
 # from here on warm hits to avoid re-walking runs every request.
 _response_snapshot_cache: dict[str, dict[tuple, dict]] = {}
+# Per-reviews-file cache. Walking dataset dirs to find ``reviews/``
+# subdirs is expensive (~750ms cold on WSL); cache parsed verdict
+# tuples keyed on ``(path_str, mtime)`` so warm requests skip the read.
+# Verdicts are append-only so the file mtime catches every new line.
+_verdicts_file_cache: dict[tuple[str, float], list[dict]] = {}
+# Per-root list of ``(reviews_jsonl_path, dataset_name)`` keyed on the
+# root's mtime - saves thousands of ``scandir`` syscalls per warm request
+# when only a handful of dataset dirs actually have a ``reviews/`` subdir.
+_reviews_dirs_cache: dict[Path, tuple[float, list[tuple[Path, str]]]] = {}
 
 
 def _caches_disabled() -> bool:
@@ -66,6 +86,8 @@ def _clear_caches_for_tests() -> None:
     _dataset_dirs_cache.clear()
     _all_runs_cache.clear()
     _response_snapshot_cache.clear()
+    _verdicts_file_cache.clear()
+    _reviews_dirs_cache.clear()
     try:
         from . import datasets as _datasets_mod  # noqa: WPS433 - intentional
         _datasets_mod._coverage_cache.clear()
@@ -646,3 +668,196 @@ def input_text(item: dict | None) -> str:
                 if isinstance(v, str):
                     return v
     return ""
+
+
+# ---------------------------------------------------------------------------
+# Calibration suggestions (shared across review.py and home.py)
+# ---------------------------------------------------------------------------
+
+
+def _is_soft_score(score: float | int | None) -> bool:
+    """A score is soft (LLM-judge-style) when strictly between 0 and 1."""
+    if not isinstance(score, (int, float)):
+        return False
+    return 0.0 < float(score) < 1.0
+
+
+def _verdict_metric_id(
+    item_id: str,
+    run_metric_results_by_item: dict[str, list[dict]],
+) -> str | None:
+    """Pick the most likely calibration metric_id for ``item_id`` in a run.
+
+    Mirrors the review-queue cascade so a verdict is attributed to the
+    same metric the cascade would have surfaced. Returns ``None`` when
+    the item is missing from the run.
+    """
+    results = run_metric_results_by_item.get(item_id) or []
+    if not results:
+        return None
+    for mr in results:
+        details = mr.get("details") if isinstance(mr.get("details"), dict) else {}
+        jc = details.get("judge_confidence")
+        if isinstance(jc, (int, float)) and PRIMARY_LO <= jc <= PRIMARY_HI:
+            mid = mr.get("metric_id")
+            if mid:
+                return str(mid)
+    for mr in results:
+        score = mr.get("score")
+        if _is_soft_score(score) and SOFT_LO <= float(score) <= SOFT_HI:
+            mid = mr.get("metric_id")
+            if mid:
+                return str(mid)
+    for mr in results:
+        if mr.get("passed") is False:
+            mid = mr.get("metric_id")
+            if mid:
+                return str(mid)
+    mid = results[0].get("metric_id")
+    return str(mid) if mid else None
+
+
+def _read_verdicts(path: Path, mtime: float | None = None) -> list[dict]:
+    """Parse a reviews jsonl file. Bad lines are logged and skipped.
+
+    Cached by ``(path, mtime)`` - reviews files only grow (verdicts are
+    append-only) so the mtime check catches every new line.
+    """
+    if mtime is not None and not _caches_disabled():
+        cached = _verdicts_file_cache.get((str(path), mtime))
+        if cached is not None:
+            return cached
+    out: list[dict] = []
+    try:
+        with path.open(encoding="utf-8") as f:
+            for line_num, raw in enumerate(f, start=1):
+                line = raw.strip()
+                if not line:
+                    continue
+                try:
+                    out.append(json.loads(line))
+                except json.JSONDecodeError as exc:
+                    logger.warning(
+                        "verdicts jsonl line %d at %s: %s", line_num, path, exc
+                    )
+    except OSError as exc:
+        logger.warning("verdicts jsonl read failed at %s: %s", path, exc)
+    if mtime is not None and not _caches_disabled():
+        _verdicts_file_cache[(str(path), mtime)] = out
+    return out
+
+
+def _walk_reviews_files(root: Path) -> list[tuple[Path, str]]:
+    """Filesystem walk that ``_reviews_files_for_root`` memoizes."""
+    out: list[tuple[Path, str]] = []
+    for ds_dir in list_dataset_dirs(root):
+        reviews_dir = ds_dir / "reviews"
+        # ``glob`` returns ``[]`` silently when the dir is missing - one
+        # syscall vs the explicit ``is_dir`` + ``iterdir`` pair.
+        for path in sorted(reviews_dir.glob("*.jsonl")):
+            out.append((path, ds_dir.name))
+    return out
+
+
+def _reviews_files_for_root(root: Path) -> list[tuple[Path, str]]:
+    """Return ``[(jsonl_path, dataset_name), ...]`` under ``root``, mtime-cached."""
+    if not root.is_dir():
+        return []
+    if _caches_disabled():
+        return _walk_reviews_files(root)
+    try:
+        mtime = root.stat().st_mtime
+    except OSError:
+        return _walk_reviews_files(root)
+    cached = _reviews_dirs_cache.get(root)
+    if cached and cached[0] == mtime:
+        return cached[1]
+    out = _walk_reviews_files(root)
+    _reviews_dirs_cache[root] = (mtime, out)
+    return out
+
+
+def _latest_calibration_mtime(dataset_dir: Path, metric_id: str) -> float | None:
+    """Return the mtime of the metric's calibration file, or ``None`` if absent."""
+    cal = dataset_dir / "calibrations" / metric_id / "calibration.json"
+    try:
+        return cal.stat().st_mtime
+    except OSError:
+        return None
+
+
+def calibration_suggestions(runs: list[dict]) -> list[dict]:
+    """Walk every dataset's reviews/*.jsonl and emit calibration suggestions.
+
+    Aggregates verdicts by (dataset, metric_id). A suggestion fires when
+    the count crosses :data:`CALIBRATION_VERDICT_THRESHOLD` AND no existing
+    calibration file is newer than the most recent verdict for that metric.
+    Capped at :data:`CALIBRATION_SUGGESTIONS_CAP`. Output shape matches
+    what ``ReviewQueue.calibration_suggestions`` exposes.
+    """
+    # Build a per-run lookup (rid -> {item_id -> [metric_results]}) once
+    # so we don't re-walk metric_results per verdict.
+    run_lookup: dict[str, tuple[Path, dict[str, list[dict]]]] = {}
+    for run in runs:
+        rid = run_id(run)
+        ds_dir = run_dataset_dir(run)
+        per_item: dict[str, list[dict]] = defaultdict(list)
+        for mr in run.get("metric_results") or []:
+            iid = mr.get("item_id")
+            if iid:
+                per_item[iid].append(mr)
+        run_lookup[rid] = (ds_dir, per_item)
+        # Some runs also identify themselves by ``id`` (legacy).
+        legacy_id = run.get("id")
+        if isinstance(legacy_id, str) and legacy_id and legacy_id != rid:
+            run_lookup.setdefault(legacy_id, (ds_dir, per_item))
+
+    counts: dict[tuple[Path, str, str], int] = defaultdict(int)
+    latest_verdict_mtime: dict[tuple[Path, str], float] = {}
+
+    for root in dataset_roots():
+        for path, ds_name in _reviews_files_for_root(root):
+            try:
+                f_mtime = path.stat().st_mtime
+            except OSError:
+                f_mtime = 0.0
+            ds_dir = path.parent.parent
+            for verdict in _read_verdicts(path, mtime=f_mtime):
+                rid = verdict.get("source_run_id") or ""
+                iid = verdict.get("item_id") or ""
+                if not rid or not iid:
+                    continue
+                lookup = run_lookup.get(rid)
+                if lookup is None:
+                    continue
+                _, per_item = lookup
+                metric_id = _verdict_metric_id(iid, per_item)
+                if not metric_id:
+                    continue
+                counts[(ds_dir, ds_name, metric_id)] += 1
+                key = (ds_dir, metric_id)
+                if f_mtime > latest_verdict_mtime.get(key, 0.0):
+                    latest_verdict_mtime[key] = f_mtime
+
+    suggestions: list[dict] = []
+    for (ds_dir, ds_name, metric_id), count in counts.items():
+        if count < CALIBRATION_VERDICT_THRESHOLD:
+            continue
+        cal_mtime = _latest_calibration_mtime(ds_dir, metric_id)
+        v_mtime = latest_verdict_mtime.get((ds_dir, metric_id), 0.0)
+        if cal_mtime is not None and cal_mtime >= v_mtime:
+            # Already calibrated since the latest verdict landed.
+            continue
+        annotations_path = str(ds_dir / "reviews")
+        suggestions.append({
+            "metric_id": metric_id,
+            "dataset": ds_name,
+            "verdict_count": count,
+            "threshold": CALIBRATION_VERDICT_THRESHOLD,
+            "cli_args": {
+                "metric_id": metric_id,
+                "annotations": annotations_path,
+            },
+        })
+    suggestions.sort(key=lambda s: (-s["verdict_count"], s["dataset"], s["metric_id"]))
+    return suggestions[:CALIBRATION_SUGGESTIONS_CAP]

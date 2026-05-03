@@ -15,6 +15,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from ._shared import (
+    calibration_suggestions,
     cost_or_zero,
     cumulative_pass_series,
     daily_cost_buckets,
@@ -45,6 +46,8 @@ COST_OUTLIER_MULT = 2.0  # last-run cost > 2x median over last 7 → warn.
 COST_WINDOW = 7  # number of recent runs in the cost-median baseline.
 STALE_DAYS = 7  # no-runs-in-X-days threshold.
 ATTENTION_CAP = 5  # cap final attention list.
+CALIBRATION_READY_CAP = 3  # cap calibration-ready attention items.
+BRIEF_SENTENCE_CAP = 5  # max sentences in the composed brief body.
 SEVERITY_RANK = {"fail": 0, "warn": 1, "info": 2}
 
 
@@ -244,17 +247,48 @@ def _cost_outlier(runs_newest_first: list[dict]) -> tuple[float, float] | None:
     return None
 
 
+def _attention_calibration_ready(suggestions: list[dict]) -> list[dict]:
+    """Emit one ATTENTION item per ready calibration.
+
+    Severity ``info`` because a ready calibration is progress, not a
+    problem. The CTA navigates to ``/review`` where the user can click
+    "Run calibrate" (Lane I of iter 6 wired the actual deep-link).
+    Capped at :data:`CALIBRATION_READY_CAP` so the attention queue isn't
+    dominated by these.
+    """
+    out: list[dict] = []
+    for s in suggestions[:CALIBRATION_READY_CAP]:
+        out.append({
+            "severity": "info",
+            "title": f"Calibration ready for `{s['metric_id']}`",
+            "subtitle": (
+                f"{s['verdict_count']} verdicts collected "
+                f"(threshold: {s['threshold']})"
+            ),
+            "cta": "Open Review",
+            "cta_target": "/review",
+        })
+    return out
+
+
 def _attention(
-    runs_newest_first: list[dict], anchor: datetime
+    runs_newest_first: list[dict],
+    anchor: datetime,
+    calibration_ready: list[dict] | None = None,
 ) -> list[dict]:
     """Build the ``HomeSnapshot.attention`` list.
 
-    Five signals (each documented at its detector helper above):
+    Six signals (each documented at its detector helper above):
       1. quality regression (fail) - drop >= 5pts vs previous run in dataset
       2. struggling metric (warn) - <60% pass across recent 3 runs
       3. no calibration (info) - any runs but no calibrations dirs anywhere
       4. cost outlier (warn) - last run > 2x median of last 7
       5. stale workspace (info) - last run > 7 days ago
+      6. calibration-ready (info) - per-metric calibration suggestion fired
+
+    Suppresses signal #3 when calibration-ready items are present (the
+    brief would otherwise read contradictorily: "no calibration" plus
+    "calibration ready").
 
     The list is sorted ``fail > warn > info`` then by recency (latest
     first as a stable tiebreak so freshly-fired signals win) and capped
@@ -265,6 +299,7 @@ def _attention(
         return out
     latest = runs_newest_first[0]
     runs_by_ds = _runs_by_dataset(runs_newest_first)
+    cal_ready = calibration_ready or []
 
     # 1. Quality regression
     regression = _quality_regression(latest, runs_by_ds)
@@ -318,8 +353,9 @@ def _attention(
             })
 
     # 3. No calibration anywhere (only meaningful when runs exist - which
-    #    is the path we're on).
-    if not has_any_calibration():
+    #    is the path we're on). Suppressed when calibration-ready items
+    #    exist - they're contradictory (calibrations ARE coming).
+    if not has_any_calibration() and not cal_ready:
         out.append({
             "severity": "info",
             "title": "Judge has no human calibration",
@@ -327,6 +363,9 @@ def _attention(
             "cta": "Calibrate",
             "cta_target": "/metrics",
         })
+
+    # 6. Calibration-ready (per-metric).
+    out.extend(_attention_calibration_ready(cal_ready))
 
     out.sort(key=lambda a: (
         SEVERITY_RANK.get(a["severity"], 99),
@@ -453,6 +492,7 @@ def _brief(
     attention: list[dict],
     anchor: datetime,
     cost: dict | None = None,
+    calibration_ready_count: int = 0,
 ) -> dict:
     """Compose a 1-3 sentence brief grounded in disk data.
 
@@ -466,6 +506,9 @@ def _brief(
     Special cases:
       * No runs in 30d window     → empty-state CTA prompt.
       * Exactly one run in window → "first run captured" message.
+
+    When ``calibration_ready_count > 0`` an extra sentence is appended
+    pointing the user at /review (subject to :data:`BRIEF_SENTENCE_CAP`).
 
     Returns the full ``brief`` dict including ``actions`` derived from
     ``attention`` (regression → primary "Open run"; struggling metric
@@ -491,6 +534,12 @@ def _brief(
             f"First run captured: {run_id(only)} at {pct}. "
             "Run another to start tracking trends."
         )
+        if calibration_ready_count > 0:
+            plural = "s" if calibration_ready_count != 1 else ""
+            body += (
+                f" {calibration_ready_count} rubric calibration{plural} "
+                "ready - go to Review."
+            )
         return {
             "generated_at_iso": now_iso,
             "body_md": body,
@@ -547,7 +596,14 @@ def _brief(
         else:
             sentences.append(f"Spend this month: ${spend:.2f}.")
 
-    body = " ".join(sentences)
+    # Sentence 5: calibration ready (only when we have headroom).
+    if calibration_ready_count > 0 and len(sentences) < BRIEF_SENTENCE_CAP:
+        plural = "s" if calibration_ready_count != 1 else ""
+        sentences.append(
+            f"{calibration_ready_count} rubric calibration{plural} ready - go to Review."
+        )
+
+    body = " ".join(sentences[:BRIEF_SENTENCE_CAP])
     return {
         "generated_at_iso": now_iso,
         "body_md": body,
@@ -663,10 +719,19 @@ async def home() -> JSONResponse:
     snap["sub_metrics"] = _sub_metrics(latest, previous)
     snap["active_experiments"] = _active_experiments(runs_newest_first)
     snap["recent_activity"] = _recent_activity(runs_newest_first)
-    attention = _attention(runs_newest_first, anchor)
+    cal_ready = calibration_suggestions(runs)
+    attention = _attention(runs_newest_first, anchor, cal_ready)
     snap["attention"] = attention
     cost = _cost_summary(runs_30d, anchor)
     snap["cost"] = cost
-    snap["brief"] = _brief(latest, runs_30d, runs_newest_first, attention, anchor, cost)
+    snap["brief"] = _brief(
+        latest,
+        runs_30d,
+        runs_newest_first,
+        attention,
+        anchor,
+        cost,
+        calibration_ready_count=len(cal_ready),
+    )
     set_cached_snapshot("home", snap)
     return JSONResponse(snap)

@@ -272,7 +272,13 @@ def build_app(
     from .jobs import JobManager
 
     app.state.cli_catalog = build_catalog()
-    app.state.job_manager = JobManager()
+    # Attach the sqlite mirror so jobs survive restarts. Construction is
+    # cheap (no filesystem IO) -- the .evalyn/data/jobs.sqlite file is only
+    # created on the first persisted write, so tests that build_app() in a
+    # fresh tmp_path don't get a stray .evalyn/ directory.
+    from .jobs_persistence import JobPersistence
+
+    app.state.job_manager = JobManager(persistence=JobPersistence())
     app.state.credential_store = credential_store or CredentialStore()
     if agent_runtime is None:
         agent_runtime = AgentRuntime(

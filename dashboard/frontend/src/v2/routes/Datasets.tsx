@@ -6,12 +6,14 @@
  * and tag filter. Pattern mirrors ExperimentsList.tsx.
  */
 
-import { useMemo, useState, type MouseEvent } from 'react';
+import { useMemo, useState, type ChangeEvent, type MouseEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, StackBar, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
 import { loadDemo } from '../api/demo';
+import { runCli } from '../api/cli';
+import { upsertJob, type JobHistoryEntry } from '../jobsHistory';
 import { useV2Resource, prefetchV2 } from '../hooks/useV2Resource';
 import { useProject } from '../hooks/useProject';
 import { E } from '../tokens';
@@ -19,6 +21,10 @@ import { E } from '../tokens';
 const COVERAGE_COLORS = [E.ember, E.steel, '#a78bfa', E.warn, E.text3];
 const NEW_DATASET_HINT = 'Use `evalyn build-dataset` from the CLI';
 const IMPORT_CSV_HINT = 'No CSV importer yet - use `evalyn build-dataset` from the CLI';
+/** Above this many selected datasets, ask the user to confirm before firing. */
+const BULK_CONFIRM_THRESHOLD = 50;
+/** CLI id for the run-eval command spawned by the bulk toolbar. */
+const RUN_EVAL_CLI_ID = 'run-eval';
 
 type SortOrder = 'name' | 'n-desc' | 'recent';
 const SORT_VALUES: readonly SortOrder[] = ['name', 'n-desc', 'recent'];
@@ -61,6 +67,31 @@ export default function Datasets() {
   };
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoErr, setDemoErr] = useState<string | null>(null);
+
+  // Bulk-evaluate selection state. We track names (string ids) rather than
+  // indices because filter+sort can re-order the visible list at any time.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkErr, setBulkErr] = useState<string | null>(null);
+  const [bulkInfo, setBulkInfo] = useState<string | null>(null);
+
+  const toggleSelected = (name: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+    // Any user-driven selection change invalidates a previous result chip.
+    setBulkErr(null);
+    setBulkInfo(null);
+  };
+
+  const clearSelection = () => {
+    setSelected(new Set());
+    setBulkErr(null);
+    setBulkInfo(null);
+  };
 
   // Filter state - persisted in the URL so refresh + back-button keep filters.
   // Defaults: query='', sort='recent', hideEmpty=true, tag='any'. Default
@@ -155,6 +186,79 @@ export default function Datasets() {
     // Setting hideEmpty=false (show all) - that's a non-default state, persist.
     sp.set('hideEmpty', '0');
     setSearchParams(sp, { replace: true });
+  };
+
+  // Subset of `filtered` that is "never evaluated AND has items". This is
+  // the canonical bulk-eval target set - the user's 417-card backlog.
+  const visibleNeverEvaluated = useMemo(() => {
+    if (!filtered) return [];
+    return filtered.filter((d) => d.n > 0 && d.last_used_iso == null);
+  }, [filtered]);
+
+  const selectAllNeverEvaluatedVisible = () => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const d of visibleNeverEvaluated) next.add(d.name);
+      return next;
+    });
+    setBulkErr(null);
+    setBulkInfo(null);
+  };
+
+  // Fire one POST /api/cli/run per selected dataset (in parallel). On
+  // partial failure we report which datasets failed but never roll back
+  // already-spawned jobs - they're real backend work the user wanted.
+  const handleBulkEvaluate = async () => {
+    if (bulkBusy || selected.size === 0) return;
+    const targets = Array.from(selected);
+    if (
+      targets.length >= BULK_CONFIRM_THRESHOLD &&
+      typeof window !== 'undefined' &&
+      !window.confirm(
+        `This will start ${targets.length} evaluation jobs. LLM-judge runs may incur cost. Continue?`,
+      )
+    ) {
+      return;
+    }
+    setBulkBusy(true);
+    setBulkErr(null);
+    setBulkInfo(null);
+    const results = await Promise.allSettled(
+      targets.map(async (name) => {
+        const args: Record<string, unknown> = { dataset: name };
+        const { job_id } = await runCli(RUN_EVAL_CLI_ID, args);
+        const entry: JobHistoryEntry = {
+          job_id,
+          cli_id: RUN_EVAL_CLI_ID,
+          cli_args: args,
+          started_at_iso: new Date().toISOString(),
+          status: 'queued',
+        };
+        upsertJob(entry);
+        return name;
+      }),
+    );
+    const failed: string[] = [];
+    let started = 0;
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') started += 1;
+      else failed.push(targets[i]);
+    });
+    if (failed.length === 0) {
+      setBulkInfo(`Started ${started} job${started === 1 ? '' : 's'}. See Recent Jobs.`);
+      // Successful bulk fire clears the selection so the user can keep browsing.
+      setSelected(new Set());
+    } else {
+      const preview = failed.slice(0, 3).join(', ');
+      const more = failed.length > 3 ? ` +${failed.length - 3} more` : '';
+      setBulkErr(
+        `${started} of ${targets.length} spawned. Failed: ${preview}${more} - check Settings or Recent Jobs.`,
+      );
+      // Drop only the successfully-spawned ones; keep the failures so the
+      // user can retry without re-checking each box.
+      setSelected(new Set(failed));
+    }
+    setBulkBusy(false);
   };
 
   return (
@@ -293,6 +397,122 @@ export default function Datasets() {
           </div>
         )}
 
+        {/* SELECT-ALL-VISIBLE row: shows the bulk-eval entry point even when
+            nothing is selected yet. Mirrors the filter bar's compact style. */}
+        {data && data.length > 0 && visibleNeverEvaluated.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              marginTop: 8,
+              fontSize: 11,
+              color: E.text2,
+              fontFamily: E.fMono,
+            }}
+          >
+            <button
+              type="button"
+              onClick={selectAllNeverEvaluatedVisible}
+              style={{
+                ...SELECT_STYLE,
+                color: E.ember,
+                borderColor: E.emberRim,
+                background: E.emberDim,
+              }}
+              title="Tick the checkbox on every visible card that has items but has never been evaluated."
+            >
+              Select all visible ({visibleNeverEvaluated.length} never-evaluated)
+            </button>
+            {selected.size > 0 && (
+              <button type="button" onClick={clearSelection} style={SELECT_STYLE}>
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* BULK TOOLBAR: appears (slides in) only when selection is non-empty. */}
+        <div
+          style={{
+            overflow: 'hidden',
+            maxHeight: selected.size > 0 ? 140 : 0,
+            opacity: selected.size > 0 ? 1 : 0,
+            transition:
+              'max-height 180ms ease-out, opacity 140ms ease-out, margin-top 180ms ease-out',
+            marginTop: selected.size > 0 ? 10 : 0,
+          }}
+          aria-hidden={selected.size === 0}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '10px 12px',
+              background: E.emberDim,
+              border: `1px solid ${E.emberRim}`,
+              borderRadius: 10,
+              flexWrap: 'wrap',
+            }}
+          >
+            <span
+              style={{
+                fontFamily: E.fMono,
+                fontSize: 11,
+                color: E.ember,
+                letterSpacing: '0.04em',
+              }}
+            >
+              {selected.size} selected
+            </span>
+            <Btn kind="bare" size="sm" onClick={clearSelection} title="Clear selection">
+              Clear
+            </Btn>
+            <span style={{ flex: 1 }} />
+            {bulkErr && (
+              <span
+                style={{
+                  fontFamily: E.fMono,
+                  fontSize: 11,
+                  color: E.fail,
+                  background: E.failDim,
+                  border: `1px solid ${E.fail}33`,
+                  padding: '4px 8px',
+                  borderRadius: 6,
+                  maxWidth: 420,
+                }}
+              >
+                {bulkErr}
+              </span>
+            )}
+            {bulkInfo && !bulkErr && (
+              <span
+                style={{
+                  fontFamily: E.fMono,
+                  fontSize: 11,
+                  color: E.pass,
+                  background: E.passDim,
+                  padding: '4px 8px',
+                  borderRadius: 6,
+                }}
+              >
+                {bulkInfo}
+              </span>
+            )}
+            <Btn
+              kind="primary"
+              size="sm"
+              onClick={handleBulkEvaluate}
+              disabled={bulkBusy || selected.size === 0}
+            >
+              {bulkBusy
+                ? `Spawning ${selected.size}...`
+                : `Evaluate ${selected.size} selected ->`}
+            </Btn>
+          </div>
+        </div>
+
         {!data && !err && (
           <div
             style={{
@@ -388,21 +608,56 @@ export default function Datasets() {
               }));
               const hasItems = s.n > 0;
               const neverEvaluated = hasItems && s.last_used_iso == null;
+              const isSelected = selected.has(s.name);
               const goEvaluate = (e: MouseEvent<HTMLButtonElement>) => {
                 e.stopPropagation();
                 navigate(buildEvalLink(s.name));
+              };
+              const onCheckboxClick = (e: MouseEvent<HTMLInputElement>) => {
+                // Card has an onClick that navigates; the checkbox must NOT.
+                e.stopPropagation();
+              };
+              const onCheckboxChange = (_e: ChangeEvent<HTMLInputElement>) => {
+                toggleSelected(s.name);
               };
               return (
                 <div
                   key={s.name}
                   onMouseEnter={() => prefetchDetail(s.name)}
                   onFocus={() => prefetchDetail(s.name)}
+                  style={{ position: 'relative' }}
                 >
                 <Card
                   hover
-                  style={{ padding: 18 }}
+                  style={{
+                    padding: 18,
+                    background: isSelected ? E.emberDim : E.panel,
+                    borderColor: isSelected ? E.emberRim : E.hair,
+                    transition: 'background 140ms, border-color 140ms',
+                  }}
                   onClick={() => openDataset(s.name)}
                 >
+                  {/* Selection checkbox - top-right, always visible. Uses
+                      `position: absolute` so it sits over the card without
+                      shifting the existing flex layout below. */}
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={onCheckboxChange}
+                    onClick={onCheckboxClick}
+                    aria-label={`Select dataset ${s.name} for bulk evaluate`}
+                    title={isSelected ? 'Unselect' : 'Select for bulk evaluate'}
+                    style={{
+                      position: 'absolute',
+                      top: 10,
+                      right: 10,
+                      width: 16,
+                      height: 16,
+                      cursor: 'pointer',
+                      accentColor: E.ember,
+                      zIndex: 2,
+                    }}
+                  />
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                     <div
                       style={{
@@ -455,7 +710,18 @@ export default function Datasets() {
                         {s.last_used_iso ? ` - last used ${s.last_used_iso}` : ''}
                       </div>
                     </div>
-                    <div style={{ fontFamily: E.fSerif, fontSize: 22, color: E.text0 }}>{s.n}</div>
+                    <div
+                      style={{
+                        fontFamily: E.fSerif,
+                        fontSize: 22,
+                        color: E.text0,
+                        // Reserve space for the absolute-positioned checkbox so
+                        // the count never overlaps it on narrow cards.
+                        marginRight: 22,
+                      }}
+                    >
+                      {s.n}
+                    </div>
                   </div>
                   <div style={{ display: 'flex', gap: 5, marginTop: 10 }}>
                     {s.tags.map((t) => (
