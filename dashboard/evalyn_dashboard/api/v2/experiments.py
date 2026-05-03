@@ -28,6 +28,7 @@ from ._shared import (
     is_inverse_metric,
     load_all_runs,
     load_dataset_items,
+    parse_iso,
     run_dataset_dir,
     run_id,
     run_pass_rate,
@@ -456,6 +457,44 @@ def _trigrams(text: str) -> list[tuple[str, str, str]]:
     return [(toks[i], toks[i + 1], toks[i + 2]) for i in range(len(toks) - 2)]
 
 
+def _short_label(run: dict) -> str:
+    """Return ``MM-DD`` from ``created_at`` falling back to a short id."""
+    ts = parse_iso(run.get("created_at"))
+    if ts is not None:
+        return ts.strftime("%m-%d")
+    return run_id(run)[:8]
+
+
+def _full_label(run: dict) -> str:
+    """Return ``MM-DD HH:MM`` to disambiguate same-day runs."""
+    ts = parse_iso(run.get("created_at"))
+    if ts is not None:
+        return ts.strftime("%m-%d %H:%M")
+    return run_id(run)[:10]
+
+
+def _build_cluster_trend(
+    dataset_runs: list[dict], metric_id: str
+) -> tuple[list[int], list[str]]:
+    """Build a cluster-size trend across recent runs.
+
+    Returns ``([], [])`` when fewer than 3 runs exist in the dataset - a 1- or
+    2-point flat line reads as broken to users, so we let the frontend render
+    a "not enough history" sentence instead. When duplicate short labels would
+    appear (multiple runs on the same date), we widen labels to include time.
+    """
+    if len(dataset_runs) < 3:
+        return [], []
+    recent = dataset_runs[-4:]
+    data = [len(_cluster_run(r).get(metric_id, [])) for r in recent]
+    short_labels = [_short_label(r) for r in recent]
+    if len(set(short_labels)) < len(short_labels):
+        labels = [_full_label(r) for r in recent]
+    else:
+        labels = short_labels
+    return data, labels
+
+
 @router.get("/{exp_id}/cluster/{cluster_id}")
 async def get_cluster(exp_id: str, cluster_id: str) -> JSONResponse:
     """Return ClusterDetail for ``exp_id`` + ``cluster_id`` or 404."""
@@ -504,9 +543,10 @@ async def get_cluster(exp_id: str, cluster_id: str) -> JSONResponse:
     ]
 
     # Trend across last 4 runs in this dataset (dataset_runs is oldest first).
-    recent = dataset_runs[-4:]
-    trend_data = [len(_cluster_run(r).get(metric_id, [])) for r in recent]
-    trend_labels = [run_id(r)[:8] for r in recent]
+    # Skip the chart entirely when fewer than 3 runs exist; a 1- or 2-point
+    # "trend" is misleading and the frontend renders an explanatory sentence
+    # instead. Use date+time labels when bare-date duplicates would appear.
+    trend_data, trend_labels = _build_cluster_trend(dataset_runs, metric_id)
 
     total_items_in_run = len({mr.get("item_id") for mr in run.get("metric_results") or []})
     total_failures = sum(1 for mids in _failed_metric_ids_per_item(run).values() if mids)

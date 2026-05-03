@@ -9,6 +9,7 @@ import { AppShell } from '../AppShell';
 import {
   Card,
   Eyebrow,
+  Glossary,
   Pill,
   Btn,
   StatusDot,
@@ -237,7 +238,10 @@ export default function Home() {
                   </span>
                   <span style={{ color: E.steel, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                     <span style={{ width: 8, height: 0, borderTop: `2px dashed ${E.steel}` }} />
-                    Ship gate ({q.ship_gate}%)
+                    <Glossary term="Ship gate is the minimum quality threshold for shipping. Runs above it are deemed releasable.">
+                      Ship gate
+                    </Glossary>{' '}
+                    ({q.ship_gate}%)
                   </span>
                 </div>
               )}
@@ -458,8 +462,7 @@ export default function Home() {
                       key={act.label}
                       kind={act.kind}
                       size="sm"
-                      disabled
-                      title="Coming soon - one-click brief actions aren't wired yet"
+                      onClick={() => navigate(act.intent)}
                     >
                       {act.label}
                     </Btn>

@@ -1,6 +1,10 @@
 /**
  * RunDetail - the deepest read view: headline stats, pass-rate vs baseline,
  * failure clusters, sub-metric breakdown, confusion matrix, failed item preview.
+ *
+ * Compare overlay: when ?compare=<otherId> is in the URL, a second
+ * ExperimentDetail is fetched in parallel and several sections render
+ * side-by-side (headline, pass timeline legend, sub-metrics, failures donut).
  */
 
 import { useCallback, useState } from 'react';
@@ -9,6 +13,7 @@ import { AppShell } from '../AppShell';
 import {
   Card,
   Eyebrow,
+  Glossary,
   Pill,
   Btn,
   StatusDot,
@@ -44,6 +49,9 @@ const SERIES_COLOR: Record<string, string> = {
   fail: E.fail,
 };
 
+/** Numeric movement smaller than this is rendered as neutral (no win/loss). */
+const NEUTRAL_DELTA_EPS = 0.05;
+
 function deltaColor(kind: 'pass' | 'fail' | 'warn' | 'info'): string {
   if (kind === 'pass') return E.pass;
   if (kind === 'fail') return E.fail;
@@ -51,10 +59,39 @@ function deltaColor(kind: 'pass' | 'fail' | 'warn' | 'info'): string {
   return E.steel;
 }
 
+/** Format a numeric delta as "+1.2" / "-3.4" with neutral-zero smoothing. */
+function formatDelta(diff: number, suffix: string = ''): string {
+  if (Math.abs(diff) < NEUTRAL_DELTA_EPS) return `0${suffix}`;
+  const sign = diff > 0 ? '+' : '';
+  return `${sign}${diff.toFixed(1)}${suffix}`;
+}
+
+/**
+ * Color a numeric delta. inverse=true means lower-is-better
+ * (hallucination-style metrics).
+ */
+function numericDeltaColor(diff: number, inverse: boolean = false): string {
+  if (Math.abs(diff) < NEUTRAL_DELTA_EPS) return E.text3;
+  const better = inverse ? diff < 0 : diff > 0;
+  return better ? E.pass : E.fail;
+}
+
+/**
+ * Strip a trailing % off the headline value strings the backend returns
+ * ("89.3%") so we can compare numerically. Returns null if not a percent.
+ */
+function parseHeadlineNumber(s: string): number | null {
+  const m = s.match(/^(-?\d+(?:\.\d+)?)/);
+  return m ? Number(m[1]) : null;
+}
+
 export default function RunDetail() {
   const { runId } = useParams<{ runId: string }>();
   const [searchParams] = useSearchParams();
-  const compareWith = searchParams.get('compare');
+  const compareParam = searchParams.get('compare');
+  // Sanity: ignore compare param when it's the same id as the primary run.
+  const compareWith =
+    compareParam && compareParam !== runId ? compareParam : null;
   const navigate = useNavigate();
   const project = useProject();
   const fetcher = useCallback(() => v2.experiment(runId ?? ''), [runId]);
@@ -64,8 +101,33 @@ export default function RunDetail() {
     reloading,
     isInitialLoad,
   } = useV2Resource<ExperimentDetail>(`experiment:${runId ?? ''}`, fetcher);
+
+  // Compare-run fetch (parallel) - only enabled when compareWith is set.
+  const compareFetcher = useCallback(
+    () => v2.experiment(compareWith ?? ''),
+    [compareWith],
+  );
+  const {
+    data: compareDetail,
+    err: compareErr,
+  } = useV2Resource<ExperimentDetail>(
+    `experiment:${compareWith ?? ''}`,
+    compareFetcher,
+    { enabled: Boolean(compareWith) },
+  );
+  const compareActive = Boolean(compareWith && compareDetail && !compareErr);
   const [activeTab, setActiveTab] = useState(0);
   const [rerunBusy, setRerunBusy] = useState(false);
+
+  function clearCompare(): void {
+    navigate(`/experiments/${encodeURIComponent(runId ?? '')}`);
+  }
+  function swapCompare(): void {
+    if (!compareWith || !runId) return;
+    navigate(
+      `/experiments/${encodeURIComponent(compareWith)}?compare=${encodeURIComponent(runId)}`,
+    );
+  }
 
   if (err && !detail) {
     return (
@@ -188,11 +250,63 @@ export default function RunDetail() {
     data: s.data,
   }));
 
+  // When comparing, append the OTHER run's primary (ember-kind) series
+  // recolored steel so the timeline shows both lines on the same axes.
+  if (compareActive && compareDetail) {
+    const otherPrimary =
+      compareDetail.pass_timeline.series.find((s) => s.color_kind === 'ember') ??
+      compareDetail.pass_timeline.series[0];
+    if (otherPrimary && otherPrimary.data.length > 0) {
+      passSeries.push({
+        color: E.steel,
+        width: 1.75,
+        dashed: true,
+        data: otherPrimary.data,
+      });
+    }
+  }
+
   const donutSegments = detail.failure_clusters.clusters.map((c) => ({
     value: c.count,
     color: CLUSTER_COLOR[c.color_kind] ?? E.text3,
     label: c.label,
   }));
+
+  const compareDonutSegments = compareDetail
+    ? compareDetail.failure_clusters.clusters.map((c) => ({
+        value: c.count,
+        color: CLUSTER_COLOR[c.color_kind] ?? E.text3,
+        label: c.label,
+      }))
+    : [];
+
+  // Build a colour-coded view of clusters across both runs.
+  // ember = appears in this run only (introduced/persisting here)
+  // pass  = appears in other run only (we fixed it)
+  // steel = appears in both runs (shared / persistent)
+  type CompareCluster = {
+    label: string;
+    thisCount: number;
+    otherCount: number;
+    color: string;
+  };
+  const compareClusters: CompareCluster[] = (() => {
+    if (!compareDetail) return [];
+    const thisMap = new Map<string, number>();
+    const otherMap = new Map<string, number>();
+    for (const c of detail.failure_clusters.clusters) thisMap.set(c.label, c.count);
+    for (const c of compareDetail.failure_clusters.clusters) otherMap.set(c.label, c.count);
+    const keys = new Set<string>([...thisMap.keys(), ...otherMap.keys()]);
+    return Array.from(keys).map((label) => {
+      const thisCount = thisMap.get(label) ?? 0;
+      const otherCount = otherMap.get(label) ?? 0;
+      let color: string;
+      if (thisCount > 0 && otherCount === 0) color = E.ember;
+      else if (otherCount > 0 && thisCount === 0) color = E.pass;
+      else color = E.text3;
+      return { label, thisCount, otherCount, color };
+    }).sort((a, b) => b.thisCount + b.otherCount - (a.thisCount + a.otherCount));
+  })();
 
   return (
     <AppShell
@@ -253,6 +367,9 @@ export default function RunDetail() {
                   <Pill mono style={{ background: E.panel2, color: E.ember }}>
                     {compareWith}
                   </Pill>
+                  <Btn kind="bare" size="sm" onClick={clearCompare}>
+                    Clear
+                  </Btn>
                 </>
               )}
             </div>
@@ -315,9 +432,59 @@ export default function RunDetail() {
         </div>
       </div>
 
-      {activeTab === 1 && <ItemsTab runId={detail.id} />}
+      {activeTab === 1 && (
+        <ItemsTab runId={detail.id} compareActive={compareActive} onClearCompare={clearCompare} />
+      )}
 
       {activeTab === 0 && <div style={{ padding: '20px 36px' }}>
+        {/* COMPARE BADGE BAR */}
+        {compareWith && compareErr && !compareDetail && (
+          <Card style={{ padding: 12, marginBottom: 14, borderColor: E.fail }}>
+            <div style={{ fontSize: 12, color: E.fail, fontFamily: E.fMono }}>
+              Could not load compare run {compareWith}: not found
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <Btn kind="ghost" size="sm" onClick={clearCompare}>
+                Clear compare
+              </Btn>
+            </div>
+          </Card>
+        )}
+        {compareActive && compareDetail && (
+          <Card
+            style={{
+              padding: 12,
+              marginBottom: 14,
+              background: E.steelDim,
+              borderColor: E.steel,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <Eyebrow style={{ color: E.steel }}>Compare with</Eyebrow>
+              <StatusDot status={compareDetail.status} />
+              <span style={{ fontFamily: E.fMono, fontSize: 11, color: E.text2 }}>
+                {compareDetail.id}
+              </span>
+              <span style={{ fontSize: 12.5, color: E.text1, fontWeight: 500 }}>
+                {compareDetail.name}
+              </span>
+              <Pill mono style={{ background: E.panel2, color: E.text2 }}>
+                {compareDetail.dataset.name} - {compareDetail.dataset.n}
+              </Pill>
+              <span style={{ fontSize: 11, color: E.text3, fontFamily: E.fMono }}>
+                {compareDetail.finished_at_iso}
+              </span>
+              <span style={{ flex: 1 }} />
+              <Btn kind="ghost" size="sm" onClick={swapCompare} title="Swap A and B">
+                ↔ Swap A/B
+              </Btn>
+              <Btn kind="bare" size="sm" onClick={clearCompare}>
+                Clear compare
+              </Btn>
+            </div>
+          </Card>
+        )}
+
         {/* HEADLINE STAT ROW */}
         {detail.headline.length > 0 && (
           <div
@@ -327,16 +494,77 @@ export default function RunDetail() {
               gap: 14,
             }}
           >
-            {detail.headline.map((s) => (
-              <Card key={s.label} style={{ padding: 16 }}>
-                <Eyebrow>{s.label}</Eyebrow>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
-                  <span style={{ fontFamily: E.fSerif, fontSize: 28, color: E.text0 }}>{s.value}</span>
-                  <span style={{ fontFamily: E.fMono, fontSize: 11, color: deltaColor(s.delta_kind) }}>{s.delta}</span>
-                </div>
-                <div style={{ fontSize: 11, color: E.text3, marginTop: 4 }}>{s.sub}</div>
-              </Card>
-            ))}
+            {detail.headline.map((s, i) => {
+              const other =
+                compareActive && compareDetail
+                  ? compareDetail.headline[i] ?? null
+                  : null;
+              if (!other) {
+                return (
+                  <Card key={s.label} style={{ padding: 16 }}>
+                    <Eyebrow>{s.label}</Eyebrow>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
+                      <span style={{ fontFamily: E.fSerif, fontSize: 28, color: E.text0 }}>{s.value}</span>
+                      <span style={{ fontFamily: E.fMono, fontSize: 11, color: deltaColor(s.delta_kind) }}>{s.delta}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: E.text3, marginTop: 4 }}>{s.sub}</div>
+                  </Card>
+                );
+              }
+              const a = parseHeadlineNumber(s.value);
+              const b = parseHeadlineNumber(other.value);
+              const diff = a != null && b != null ? a - b : null;
+              const arrow =
+                diff == null
+                  ? '·'
+                  : Math.abs(diff) < NEUTRAL_DELTA_EPS
+                    ? '='
+                    : diff > 0
+                      ? '▲'
+                      : '▼';
+              const arrowColor =
+                diff == null ? E.text3 : numericDeltaColor(diff);
+              return (
+                <Card key={s.label} style={{ padding: 14 }}>
+                  <Eyebrow>{s.label}</Eyebrow>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      gap: 6,
+                      marginTop: 6,
+                      fontFamily: E.fSerif,
+                    }}
+                  >
+                    <span style={{ fontSize: 22, color: E.ember }}>{s.value}</span>
+                    <span
+                      style={{
+                        fontFamily: E.fMono,
+                        fontSize: 12,
+                        color: arrowColor,
+                      }}
+                      title={
+                        diff != null ? `Δ ${formatDelta(diff)}` : undefined
+                      }
+                    >
+                      {arrow}
+                    </span>
+                    <span style={{ fontSize: 22, color: E.steel }}>{other.value}</span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: E.text3,
+                      marginTop: 4,
+                      fontFamily: E.fMono,
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    this | other{diff != null ? ` - ${formatDelta(diff)}` : ''}
+                  </div>
+                </Card>
+              );
+            })}
           </div>
         )}
 
@@ -344,21 +572,33 @@ export default function RunDetail() {
         <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 14, marginTop: 14 }}>
           <Card style={{ padding: 18 }}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-              <Eyebrow>Pass rate - this run vs. baseline</Eyebrow>
+              <Eyebrow>
+                Pass rate - {compareActive ? 'this run vs. compare' : 'this run vs. baseline'}
+              </Eyebrow>
               <span style={{ flex: 1 }} />
-              <div style={{ display: 'flex', gap: 12, fontSize: 10, fontFamily: E.fMono }}>
+              <div style={{ display: 'flex', gap: 12, fontSize: 10, fontFamily: E.fMono, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 {detail.pass_timeline.series.map((s) => {
                   const c = SERIES_COLOR[s.color_kind] ?? E.text2;
+                  const label =
+                    compareActive && s.color_kind === 'ember' ? `${s.label} (${detail.id})` : s.label;
                   return (
                     <span key={s.label} style={{ color: c, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                       <span style={{ width: 8, height: 2, background: c }} />
-                      {s.label}
+                      {label}
                     </span>
                   );
                 })}
+                {compareActive && compareDetail && (
+                  <span style={{ color: E.steel, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 8, height: 0, borderTop: `1px dashed ${E.steel}` }} />
+                    {compareDetail.id}
+                  </span>
+                )}
                 <span style={{ color: E.text4, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                   <span style={{ width: 8, height: 0, borderTop: `1px dashed ${E.text4}` }} />
-                  ship gate
+                  <Glossary term="Ship gate is the minimum quality threshold for shipping. Runs above it are deemed releasable.">
+                    ship gate
+                  </Glossary>
                 </span>
               </div>
             </div>
@@ -381,7 +621,11 @@ export default function RunDetail() {
           <Card style={{ padding: 18 }}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
               <Eyebrow>
-                Failures by metric - {detail.failure_clusters.total_failures} of {detail.failure_clusters.total_items}
+                Failure{' '}
+                <Glossary term="A failure cluster groups items that failed for the same reason. v2 buckets by metric; LLM clustering coming.">
+                  clusters
+                </Glossary>{' '}
+                by metric - {detail.failure_clusters.total_failures} of {detail.failure_clusters.total_items}
               </Eyebrow>
               <span style={{ flex: 1 }} />
               <Btn
@@ -396,8 +640,102 @@ export default function RunDetail() {
                 Open all →
               </Btn>
             </div>
-            {detail.failure_clusters.clusters.length === 0 ? (
+            {detail.failure_clusters.clusters.length === 0 && !compareActive ? (
               <div style={{ fontSize: 12.5, color: E.text3, padding: '12px 0' }}>No failure clusters.</div>
+            ) : compareActive && compareDetail ? (
+              <div>
+                {/* Side-by-side donuts */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 10, color: E.ember, fontFamily: E.fMono, letterSpacing: '0.08em', marginBottom: 6 }}>
+                      THIS - {detail.id}
+                    </div>
+                    <Donut
+                      size={100}
+                      thick={14}
+                      segments={donutSegments}
+                      center={
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontFamily: E.fSerif, fontSize: 18, color: E.text0 }}>
+                            {detail.failure_clusters.total_failures}
+                          </div>
+                          <div style={{ fontSize: 8, color: E.text3, fontFamily: E.fMono, letterSpacing: '0.08em' }}>
+                            FAILS
+                          </div>
+                        </div>
+                      }
+                    />
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 10, color: E.steel, fontFamily: E.fMono, letterSpacing: '0.08em', marginBottom: 6 }}>
+                      OTHER - {compareDetail.id}
+                    </div>
+                    <Donut
+                      size={100}
+                      thick={14}
+                      segments={compareDonutSegments}
+                      center={
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontFamily: E.fSerif, fontSize: 18, color: E.text0 }}>
+                            {compareDetail.failure_clusters.total_failures}
+                          </div>
+                          <div style={{ fontSize: 8, color: E.text3, fontFamily: E.fMono, letterSpacing: '0.08em' }}>
+                            FAILS
+                          </div>
+                        </div>
+                      }
+                    />
+                  </div>
+                </div>
+                {/* Cluster diff list */}
+                <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {compareClusters.length === 0 ? (
+                    <div style={{ fontSize: 12.5, color: E.text3 }}>No failure clusters in either run.</div>
+                  ) : (
+                    compareClusters.slice(0, 6).map((c) => (
+                      <div
+                        key={c.label}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}
+                        title={
+                          c.color === E.ember
+                            ? 'Only in this run'
+                            : c.color === E.pass
+                              ? 'Only in other (we fixed it)'
+                              : 'In both runs'
+                        }
+                      >
+                        <span
+                          style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: 2,
+                            background: c.color,
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span
+                          style={{
+                            flex: 1,
+                            color: E.text1,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {c.label}
+                        </span>
+                        <span style={{ fontFamily: E.fMono, fontSize: 11, color: E.ember, width: 26, textAlign: 'right' }}>
+                          {c.thisCount}
+                        </span>
+                        <span style={{ fontFamily: E.fMono, fontSize: 10, color: E.text4 }}>|</span>
+                        <span style={{ fontFamily: E.fMono, fontSize: 11, color: E.steel, width: 26, textAlign: 'right' }}>
+                          {c.otherCount}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
                 <Donut
@@ -456,7 +794,13 @@ export default function RunDetail() {
                         {c.label}
                       </span>
                       {c.regression && (
-                        <Pill mono color={E.fail} bg={E.failDim} style={{ fontSize: 9 }}>
+                        <Pill
+                          mono
+                          color={E.fail}
+                          bg={E.failDim}
+                          style={{ fontSize: 9 }}
+                          title="A regression is a metric that got WORSE compared to the baseline run."
+                        >
                           regress
                         </Pill>
                       )}
@@ -476,18 +820,25 @@ export default function RunDetail() {
         {/* SUB-METRICS + CONFUSION */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 14 }}>
           <Card style={{ padding: 18 }}>
-            <Eyebrow>Sub-metric breakdown</Eyebrow>
+            <Eyebrow>
+              Sub-metric breakdown{compareActive ? ' - this vs. other' : ''}
+            </Eyebrow>
             {detail.sub_metrics.length === 0 ? (
               <div style={{ marginTop: 14, fontSize: 12.5, color: E.text3 }}>No sub-metrics.</div>
             ) : (
               <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {detail.sub_metrics.map((m) => {
+                  const otherMetric =
+                    compareActive && compareDetail
+                      ? compareDetail.sub_metrics.find((om) => om.label === m.label) ?? null
+                      : null;
                   const baseline = m.baseline ?? 0;
-                  const better = m.baseline == null
+                  const baselineRef = otherMetric ? otherMetric.value : m.baseline;
+                  const better = baselineRef == null
                     ? E.steel
                     : m.inverse
-                      ? m.value < m.baseline ? E.pass : E.fail
-                      : m.value > m.baseline ? E.pass : E.steel;
+                      ? m.value < baselineRef ? E.pass : E.fail
+                      : m.value > baselineRef ? E.pass : E.steel;
                   return (
                     <div key={m.label}>
                       <div
@@ -504,39 +855,82 @@ export default function RunDetail() {
                           {m.inverse ? ' (lower=better)' : ''}
                         </span>
                         <div style={{ display: 'flex', gap: 12, alignItems: 'baseline', fontFamily: E.fMono }}>
-                          {m.baseline != null && (
-                            <span style={{ color: E.steel, fontSize: 11 }}>base {m.baseline}%</span>
+                          {otherMetric ? (
+                            <>
+                              <span style={{ color: E.ember, fontSize: 12 }}>{m.value}%</span>
+                              <span style={{ color: E.text4, fontSize: 11 }}>|</span>
+                              <span style={{ color: E.steel, fontSize: 12 }}>{otherMetric.value}%</span>
+                            </>
+                          ) : (
+                            <>
+                              {m.baseline != null && (
+                                <span style={{ color: E.steel, fontSize: 11 }}>base {m.baseline}%</span>
+                              )}
+                              <span style={{ color: E.text0, fontSize: 13 }}>{m.value}%</span>
+                            </>
                           )}
-                          <span style={{ color: E.text0, fontSize: 13 }}>{m.value}%</span>
                         </div>
                       </div>
-                      <div style={{ position: 'relative', height: 6, background: E.panel2, borderRadius: 3 }}>
-                        {m.baseline != null && (
+                      {otherMetric ? (
+                        // Compare mode: two stacked bars (this ember, other steel).
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                          <div style={{ position: 'relative', height: 6, background: E.panel2, borderRadius: 3 }}>
+                            <div
+                              style={{
+                                position: 'absolute',
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: `${m.value}%`,
+                                background: better,
+                                borderRadius: 3,
+                              }}
+                            />
+                          </div>
+                          <div style={{ position: 'relative', height: 6, background: E.panel2, borderRadius: 3 }}>
+                            <div
+                              style={{
+                                position: 'absolute',
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: `${otherMetric.value}%`,
+                                background: E.steel,
+                                opacity: 0.7,
+                                borderRadius: 3,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ position: 'relative', height: 6, background: E.panel2, borderRadius: 3 }}>
+                          {m.baseline != null && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: `${baseline}%`,
+                                background: E.steel,
+                                opacity: 0.4,
+                                borderRadius: 3,
+                              }}
+                            />
+                          )}
                           <div
                             style={{
                               position: 'absolute',
                               left: 0,
                               top: 0,
                               bottom: 0,
-                              width: `${baseline}%`,
-                              background: E.steel,
-                              opacity: 0.4,
+                              width: `${m.value}%`,
+                              background: better,
                               borderRadius: 3,
                             }}
                           />
-                        )}
-                        <div
-                          style={{
-                            position: 'absolute',
-                            left: 0,
-                            top: 0,
-                            bottom: 0,
-                            width: `${m.value}%`,
-                            background: better,
-                            borderRadius: 3,
-                          }}
-                        />
-                      </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -792,9 +1186,11 @@ const FILTERS: { key: ExperimentItemsFilter; label: string }[] = [
 
 interface ItemsTabProps {
   runId: string;
+  compareActive?: boolean;
+  onClearCompare?: () => void;
 }
 
-function ItemsTab({ runId }: ItemsTabProps) {
+function ItemsTab({ runId, compareActive, onClearCompare }: ItemsTabProps) {
   const [offset, setOffset] = useState(0);
   const [filter, setFilter] = useState<ExperimentItemsFilter>('all');
   const [sort, setSort] = useState<ExperimentItemsSort>('item_id');
@@ -857,6 +1253,31 @@ function ItemsTab({ runId }: ItemsTabProps) {
 
   return (
     <div style={{ padding: '20px 36px' }}>
+      {compareActive && (
+        <Card
+          style={{
+            padding: 10,
+            marginBottom: 14,
+            background: E.steelDim,
+            borderColor: E.steel,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+            <span style={{ color: E.steel, fontFamily: E.fMono, fontSize: 10, letterSpacing: '0.08em' }}>
+              COMPARE MODE ACTIVE
+            </span>
+            <span style={{ color: E.text2 }}>
+              Per-item compare grid is not yet wired here - showing this run's items only.
+            </span>
+            <span style={{ flex: 1 }} />
+            {onClearCompare && (
+              <Btn kind="bare" size="sm" onClick={onClearCompare}>
+                Clear compare
+              </Btn>
+            )}
+          </div>
+        </Card>
+      )}
       {/* TOOLBAR */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 4 }}>

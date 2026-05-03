@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { AppShell } from '../AppShell';
-import { Btn, Card, Eyebrow, Pill, Skeleton, UpdatingChip } from '../ui';
+import { Btn, Card, Eyebrow, Glossary, Pill, Skeleton, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
 import type { ReviewItem, ReviewQueue } from '../api/types';
 import { useV2Resource } from '../hooks/useV2Resource';
@@ -134,7 +134,15 @@ export default function Review() {
               Human review
             </h1>
             <p style={{ fontSize: 13, color: E.text2, marginTop: 4 }}>
-              {items.length} items pending - sorted by judge uncertainty - your reviews calibrate the judge
+              {items.length} items pending - sorted by{' '}
+              <Glossary term="A judge is the rubric implementation that grades each item - usually an LLM, sometimes programmatic.">
+                judge
+              </Glossary>{' '}
+              uncertainty - your reviews{' '}
+              <Glossary term="Calibration compares judge verdicts to human verdicts to validate the rubric.">
+                calibrate
+              </Glossary>{' '}
+              the judge
             </p>
           </div>
           <span style={{ flex: 1 }} />
@@ -451,7 +459,12 @@ export default function Review() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <Card style={{ padding: 16 }}>
-                  <Eyebrow>Judge's reasoning</Eyebrow>
+                  <Eyebrow>
+                    <Glossary term="A judge is the rubric implementation that grades each item - usually an LLM, sometimes programmatic.">
+                      Judge's
+                    </Glossary>{' '}
+                    reasoning
+                  </Eyebrow>
                   <div
                     style={{
                       marginTop: 8,

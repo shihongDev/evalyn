@@ -3,9 +3,10 @@
  * Wires v2.rubrics() and v2.rubric(id) into the design from screens-3.jsx.
  */
 
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { AppShell } from '../AppShell';
-import { Btn, Card, Eyebrow, Pill, Skeleton, UpdatingChip } from '../ui';
+import { Btn, Card, Eyebrow, Glossary, Pill, Skeleton, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
 import { runCli } from '../api/cli';
 import type { RubricDetail, RubricRow } from '../api/types';
@@ -103,7 +104,10 @@ export default function Metrics() {
                 letterSpacing: '-0.015em',
               }}
             >
-              Metrics &amp; rubrics
+              Metrics &amp;{' '}
+              <Glossary term="A rubric is the set of dimensions used to grade an evaluation. Each dimension has a metric and a weight.">
+                rubrics
+              </Glossary>
             </h1>
           </div>
           <span style={{ flex: 1 }} />
@@ -375,7 +379,10 @@ export default function Metrics() {
                   </div>
 
                   <Eyebrow style={{ marginTop: 18, marginBottom: 8 }}>
-                    Calibration - last {detail.calibration.sample_size} human-reviewed items
+                    <Glossary term="Calibration compares judge verdicts to human verdicts to validate the rubric.">
+                      Calibration
+                    </Glossary>{' '}
+                    - last {detail.calibration.sample_size} human-reviewed items
                   </Eyebrow>
                   <div
                     style={{
@@ -385,7 +392,11 @@ export default function Metrics() {
                     }}
                   >
                     <CalibCell
-                      label="COHEN'S KAPPA"
+                      label={
+                        <Glossary term="Cohen's kappa measures judge-vs-human agreement. >=0.8 strong, 0.6-0.79 moderate, <0.6 weak.">
+                          COHEN'S KAPPA
+                        </Glossary>
+                      }
                       value={
                         detail.calibration.kappa != null
                           ? detail.calibration.kappa.toFixed(2)
@@ -433,7 +444,7 @@ function CalibCell({
   sub,
   color,
 }: {
-  label: string;
+  label: ReactNode;
   value: string;
   sub: string;
   color: string;

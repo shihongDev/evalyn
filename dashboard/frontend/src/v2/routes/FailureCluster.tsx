@@ -6,7 +6,7 @@
 import { useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
-import { Bar, Btn, Card, Eyebrow, LineChart, Pill, Skeleton, UpdatingChip } from '../ui';
+import { Bar, Btn, Card, Eyebrow, Glossary, LineChart, Pill, Skeleton, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
 import type { ClusterDetail } from '../api/types';
 import { useV2Resource } from '../hooks/useV2Resource';
@@ -182,16 +182,36 @@ export default function FailureCluster() {
               </Card>
 
               <Card style={{ padding: 18 }}>
-                <Eyebrow>Trend across recent runs</Eyebrow>
+                <Eyebrow>
+                  <Glossary term="A failure cluster groups items that failed for the same reason. v2 buckets by metric; LLM clustering coming.">
+                    Cluster
+                  </Glossary>{' '}
+                  trend across recent runs
+                </Eyebrow>
                 <div style={{ marginTop: 14 }}>
-                  <LineChart
-                    w={420}
-                    h={150}
-                    yMin={0}
-                    yMax={trendMax}
-                    xLabels={data.trend.x_labels}
-                    series={[{ color: E.fail, fill: true, width: 2, data: data.trend.data }]}
-                  />
+                  {data.trend.data.length >= 2 ? (
+                    <LineChart
+                      w={420}
+                      h={150}
+                      yMin={0}
+                      yMax={trendMax}
+                      xLabels={data.trend.x_labels}
+                      series={[{ color: E.fail, fill: true, width: 2, data: data.trend.data }]}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        fontSize: 12.5,
+                        color: E.text2,
+                        lineHeight: 1.55,
+                        padding: '24px 4px',
+                      }}
+                    >
+                      Cluster size: {data.total_in_cluster} items in this run.
+                      Not enough run history yet to chart a trend (need &gt;=3
+                      runs in this dataset).
+                    </div>
+                  )}
                 </div>
               </Card>
             </div>

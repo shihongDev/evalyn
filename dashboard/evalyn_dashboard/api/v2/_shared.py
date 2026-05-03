@@ -456,6 +456,42 @@ def run_dataset_dir(run: dict) -> Path:
     return rd.parent.parent
 
 
+def has_any_calibration() -> bool:
+    """True iff any dataset under any root has a ``calibrations/`` subdir.
+
+    Walks every dataset directory once; cheap (mtime-cached list) but not
+    memoised because callers (currently the home attention builder) only
+    call it once per request and it short-circuits on the first hit.
+    """
+    for root in dataset_roots():
+        for ds in list_dataset_dirs(root):
+            calib = ds / "calibrations"
+            if calib.is_dir():
+                try:
+                    if any(calib.iterdir()):
+                        return True
+                except OSError as exc:
+                    logger.warning("calibrations iter failed at %s: %s", calib, exc)
+                    continue
+    return False
+
+
+def median(values: list[float]) -> float | None:
+    """Return median of ``values`` or ``None`` for empty input.
+
+    Pure stdlib; we avoid ``statistics.median`` only to keep the import
+    surface tiny and the behavior on empty input explicit.
+    """
+    if not values:
+        return None
+    s = sorted(values)
+    n = len(s)
+    mid = n // 2
+    if n % 2:
+        return float(s[mid])
+    return (float(s[mid - 1]) + float(s[mid])) / 2.0
+
+
 def load_dataset_items(dataset_dir: Path) -> dict[str, dict]:
     """Return ``{item_id: item_dict}`` from ``dataset_dir/dataset.jsonl``.
 

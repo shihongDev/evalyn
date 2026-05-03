@@ -57,11 +57,13 @@ interface PillProps {
   bg?: string;
   mono?: boolean;
   style?: CSSProperties;
+  title?: string;
 }
 
-export function Pill({ children, color = E.text2, bg = E.panel3, mono, style }: PillProps) {
+export function Pill({ children, color = E.text2, bg = E.panel3, mono, style, title }: PillProps) {
   return (
     <span
+      title={title}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -72,6 +74,7 @@ export function Pill({ children, color = E.text2, bg = E.panel3, mono, style }: 
         fontFamily: mono ? E.fMono : E.fSans,
         color,
         background: bg,
+        cursor: title ? 'help' : undefined,
         ...style,
       }}
     >

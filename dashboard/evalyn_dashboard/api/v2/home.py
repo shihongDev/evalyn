@@ -8,6 +8,7 @@ shape with HTTP 200 when no data is on disk.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter
@@ -16,18 +17,31 @@ from fastapi.responses import JSONResponse
 from ._shared import (
     cumulative_pass_series,
     dataset_roots,
+    fmt_cost,
+    has_any_calibration,
     is_inverse_metric,
     load_all_runs,
+    median,
     parse_iso,
     project_meta,
     run_id,
     run_pass_rate,
     run_status,
+    total_cost,
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 SHIP_GATE = 90
+REGRESSION_PTS = 5.0  # severity threshold for "quality regression" attention.
+STRUGGLING_METRIC_PASS = 0.60  # metric < 60% pass across recent N runs.
+STRUGGLING_METRIC_WINDOW = 3  # runs to look at for struggling-metric signal.
+COST_OUTLIER_MULT = 2.0  # last-run cost > 2x median over last 7 → warn.
+COST_WINDOW = 7  # number of recent runs in the cost-median baseline.
+STALE_DAYS = 7  # no-runs-in-X-days threshold.
+ATTENTION_CAP = 5  # cap final attention list.
+SEVERITY_RANK = {"fail": 0, "warn": 1, "info": 2}
 
 
 def _short_label(run: dict) -> str:
@@ -108,20 +122,405 @@ def _recent_activity(runs_newest_first: list[dict]) -> list[dict]:
     ]
 
 
-def _brief(latest: dict, runs_30d: list[dict]) -> dict:
-    """One-paragraph deterministic summary of the 30d window."""
-    pr = run_pass_rate(latest)
-    pr_pct = f"{pr * 100:.1f}%" if pr is not None else "n/a"
-    n = len(runs_30d)
-    body = (
-        f"Quality is {pr_pct} over {n} run{'s' if n != 1 else ''} in the last 30 days. "
-        f"Most recent run: {run_id(latest)} at {pr_pct}."
+def _latest_per_dataset(runs_newest_first: list[dict]) -> dict[str, dict]:
+    """Return ``{dataset_name: most_recent_run_in_that_dataset}``.
+
+    Inspects: each run's ``_dataset`` and ``created_at``.
+    """
+    out: dict[str, dict] = {}
+    for r in runs_newest_first:
+        ds = r.get("_dataset")
+        if ds and ds not in out:
+            out[ds] = r
+    return out
+
+
+def _runs_by_dataset(runs_newest_first: list[dict]) -> dict[str, list[dict]]:
+    """Return ``{dataset_name: [runs newest first]}``.
+
+    Inspects: each run's ``_dataset``.
+    """
+    out: dict[str, list[dict]] = {}
+    for r in runs_newest_first:
+        ds = r.get("_dataset")
+        if not ds:
+            continue
+        out.setdefault(ds, []).append(r)
+    return out
+
+
+def _struggling_metric(runs_newest_first: list[dict]) -> tuple[str, float, int] | None:
+    """Find a metric with avg pass_rate < 60% across recent runs.
+
+    Inspects: ``summary.metrics[<id>].pass_rate`` (falls back to
+    ``avg_score``) on the last :data:`STRUGGLING_METRIC_WINDOW` runs
+    across all datasets.
+
+    Returns ``(metric_id, avg_pass_rate, n_runs_seen)`` for the worst
+    qualifying metric, or ``None`` when nothing crosses the threshold.
+    """
+    window = runs_newest_first[:STRUGGLING_METRIC_WINDOW]
+    if not window:
+        return None
+    sums: dict[str, list[float]] = {}
+    for r in window:
+        metrics = (r.get("summary") or {}).get("metrics") or {}
+        for mid, m in metrics.items():
+            if not isinstance(m, dict):
+                continue
+            pr = m.get("pass_rate")
+            if pr is None:
+                pr = m.get("avg_score")
+            if isinstance(pr, (int, float)):
+                sums.setdefault(mid, []).append(float(pr))
+    worst: tuple[str, float, int] | None = None
+    for mid, rates in sums.items():
+        if len(rates) < 1:
+            continue
+        avg = sum(rates) / len(rates)
+        if avg < STRUGGLING_METRIC_PASS:
+            if worst is None or avg < worst[1]:
+                worst = (mid, avg, len(rates))
+    return worst
+
+
+def _quality_regression(
+    latest: dict, runs_by_dataset: dict[str, list[dict]]
+) -> tuple[float, float, float] | None:
+    """Detect quality regression on the latest run vs previous in dataset.
+
+    Inspects: ``run_pass_rate(latest)`` and the previous run within the
+    same ``_dataset``. Returns ``(prev_pct, curr_pct, delta_pts)`` when
+    the drop is >= :data:`REGRESSION_PTS`. ``delta_pts`` is positive
+    (the magnitude of the drop).
+    """
+    ds = latest.get("_dataset")
+    if not ds:
+        return None
+    same_ds = runs_by_dataset.get(ds, [])
+    if len(same_ds) < 2:
+        return None
+    prev = same_ds[1]
+    curr_pr = run_pass_rate(latest)
+    prev_pr = run_pass_rate(prev)
+    if curr_pr is None or prev_pr is None:
+        return None
+    curr_pct = curr_pr * 100.0
+    prev_pct = prev_pr * 100.0
+    delta = prev_pct - curr_pct
+    if delta >= REGRESSION_PTS:
+        return prev_pct, curr_pct, delta
+    return None
+
+
+def _cost_outlier(runs_newest_first: list[dict]) -> tuple[float, float] | None:
+    """Detect last run > 2x median cost of the prior :data:`COST_WINDOW` runs.
+
+    Inspects: ``usage_summary.total_cost``/``total_cost_usd`` via
+    :func:`total_cost`. Returns ``(curr_cost, median_prior)`` when the
+    outlier fires; ``None`` otherwise (including when the median is 0
+    or fewer than 2 prior runs exist).
+    """
+    if not runs_newest_first:
+        return None
+    curr = total_cost(runs_newest_first[0])
+    if curr is None or curr <= 0:
+        return None
+    prior = [
+        c for c in (total_cost(r) for r in runs_newest_first[1 : 1 + COST_WINDOW])
+        if c is not None and c > 0
+    ]
+    if len(prior) < 2:
+        return None
+    med = median(prior)
+    if med is None or med <= 0:
+        return None
+    if curr > COST_OUTLIER_MULT * med:
+        return curr, med
+    return None
+
+
+def _attention(
+    runs_newest_first: list[dict], anchor: datetime
+) -> list[dict]:
+    """Build the ``HomeSnapshot.attention`` list.
+
+    Five signals (each documented at its detector helper above):
+      1. quality regression (fail) - drop >= 5pts vs previous run in dataset
+      2. struggling metric (warn) - <60% pass across recent 3 runs
+      3. no calibration (info) - any runs but no calibrations dirs anywhere
+      4. cost outlier (warn) - last run > 2x median of last 7
+      5. stale workspace (info) - last run > 7 days ago
+
+    The list is sorted ``fail > warn > info`` then by recency (latest
+    first as a stable tiebreak so freshly-fired signals win) and capped
+    at :data:`ATTENTION_CAP`.
+    """
+    out: list[dict] = []
+    if not runs_newest_first:
+        return out
+    latest = runs_newest_first[0]
+    runs_by_ds = _runs_by_dataset(runs_newest_first)
+
+    # 1. Quality regression
+    regression = _quality_regression(latest, runs_by_ds)
+    if regression is not None:
+        prev_pct, curr_pct, delta = regression
+        out.append({
+            "severity": "fail",
+            "title": f"Quality regression in {latest.get('_dataset', 'unknown')}",
+            "subtitle": (
+                f"{prev_pct:.1f}% → {curr_pct:.1f}% (-{delta:.1f} pts) in last run"
+            ),
+            "cta": "Investigate",
+            "cta_target": f"/experiments/{run_id(latest)}",
+        })
+
+    # 2. Struggling metric
+    struggling = _struggling_metric(runs_newest_first)
+    if struggling is not None:
+        mid, avg, n_seen = struggling
+        out.append({
+            "severity": "warn",
+            "title": f"Metric `{mid}` failing >{int(round((1 - avg) * 100))}% of items",
+            "subtitle": f"Across {n_seen} recent run{'s' if n_seen != 1 else ''}",
+            "cta": "Open metric",
+            "cta_target": "/metrics",
+        })
+
+    # 4. Cost outlier (number 4 in the spec but cheap to compute here)
+    cost_outlier = _cost_outlier(runs_newest_first)
+    if cost_outlier is not None:
+        curr_cost, med_cost = cost_outlier
+        out.append({
+            "severity": "warn",
+            "title": f"Last run cost {fmt_cost(curr_cost)} (2x median)",
+            "subtitle": f"Median {fmt_cost(med_cost)}",
+            "cta": "View run",
+            "cta_target": f"/experiments/{run_id(latest)}",
+        })
+
+    # 5. Stale: last run older than STALE_DAYS
+    last_dt = parse_iso(latest.get("created_at"))
+    if last_dt is not None:
+        age = anchor - last_dt
+        if age > timedelta(days=STALE_DAYS):
+            out.append({
+                "severity": "info",
+                "title": f"No new evaluations in {age.days} days",
+                "subtitle": f"Last: {last_dt.strftime('%Y-%m-%d')}",
+                "cta": "Run an eval",
+                "cta_target": "/commands",
+            })
+
+    # 3. No calibration anywhere (only meaningful when runs exist - which
+    #    is the path we're on).
+    if not has_any_calibration():
+        out.append({
+            "severity": "info",
+            "title": "Judge has no human calibration",
+            "subtitle": "Verdicts may drift from human judgment",
+            "cta": "Calibrate",
+            "cta_target": "/metrics",
+        })
+
+    out.sort(key=lambda a: (
+        SEVERITY_RANK.get(a["severity"], 99),
+        # Stable: items appended earlier (= more recently fired) keep order.
+    ))
+    return out[:ATTENTION_CAP]
+
+
+def _weekly_pass_rate(
+    runs_newest_first: list[dict], anchor: datetime
+) -> tuple[float | None, float | None]:
+    """Return ``(this_week_avg, last_week_avg)`` pass-rate percentages.
+
+    Inspects: ``run_pass_rate`` and ``created_at`` for runs falling
+    inside the two 7-day windows immediately preceding ``anchor``.
+    Each value is either a 0..100 percentage or ``None`` when the
+    window is empty.
+    """
+    this_start = anchor - timedelta(days=7)
+    last_start = anchor - timedelta(days=14)
+    this_rates: list[float] = []
+    last_rates: list[float] = []
+    for r in runs_newest_first:
+        dt = parse_iso(r.get("created_at"))
+        if dt is None:
+            continue
+        pr = run_pass_rate(r)
+        if pr is None:
+            continue
+        if dt >= this_start:
+            this_rates.append(pr * 100.0)
+        elif dt >= last_start:
+            last_rates.append(pr * 100.0)
+    this_avg = sum(this_rates) / len(this_rates) if this_rates else None
+    last_avg = sum(last_rates) / len(last_rates) if last_rates else None
+    return this_avg, last_avg
+
+
+def _largest_dataset_delta(
+    runs_by_dataset: dict[str, list[dict]], anchor: datetime
+) -> tuple[str, float] | None:
+    """Find the dataset whose week-over-week pass-rate moved the most.
+
+    Inspects: per-dataset run lists, comparing avg pass over the last 7
+    days vs the prior 7 days. Returns ``(dataset_name, delta_pts)``
+    with delta SIGNED (negative = drop, positive = gain) for the
+    dataset with the largest absolute delta. ``None`` when nothing
+    qualifies (e.g. no dataset has runs in both windows).
+    """
+    this_start = anchor - timedelta(days=7)
+    last_start = anchor - timedelta(days=14)
+    best: tuple[str, float] | None = None
+    for ds, runs in runs_by_dataset.items():
+        this_rates: list[float] = []
+        last_rates: list[float] = []
+        for r in runs:
+            dt = parse_iso(r.get("created_at"))
+            pr = run_pass_rate(r)
+            if dt is None or pr is None:
+                continue
+            if dt >= this_start:
+                this_rates.append(pr * 100.0)
+            elif dt >= last_start:
+                last_rates.append(pr * 100.0)
+        if not this_rates or not last_rates:
+            continue
+        delta = (sum(this_rates) / len(this_rates)) - (sum(last_rates) / len(last_rates))
+        if best is None or abs(delta) > abs(best[1]):
+            best = (ds, delta)
+    return best
+
+
+def _brief(
+    latest: dict,
+    runs_30d: list[dict],
+    runs_newest_first: list[dict],
+    attention: list[dict],
+    anchor: datetime,
+) -> dict:
+    """Compose a 1-3 sentence brief grounded in disk data.
+
+    Data sources (one per sentence so each line is falsifiable):
+      * S1 (overall):         ``run_pass_rate`` over ``runs_30d`` + count.
+      * S2 (week-over-week):  :func:`_weekly_pass_rate` and
+                              :func:`_largest_dataset_delta`.
+      * S3 (worst metric):    :func:`_struggling_metric` over the most
+                              recent :data:`STRUGGLING_METRIC_WINDOW` runs.
+
+    Special cases:
+      * No runs in 30d window     → empty-state CTA prompt.
+      * Exactly one run in window → "first run captured" message.
+
+    Returns the full ``brief`` dict including ``actions`` derived from
+    ``attention`` (regression → primary "Open run"; struggling metric
+    → secondary "Open metric"; always "Open co-pilot" bare).
+    """
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    # Empty 30d window.
+    if not runs_30d:
+        body = "No runs in the last 30 days. Run `evalyn run-eval` to populate this brief."
+        return {
+            "generated_at_iso": now_iso,
+            "body_md": body,
+            "actions": [{"label": "Open co-pilot", "kind": "bare", "intent": "/copilot"}],
+        }
+
+    # Single-run path.
+    if len(runs_30d) == 1:
+        only = runs_30d[0]
+        pr = run_pass_rate(only)
+        pct = f"{pr * 100:.1f}%" if pr is not None else "n/a"
+        body = (
+            f"First run captured: {run_id(only)} at {pct}. "
+            "Run another to start tracking trends."
+        )
+        return {
+            "generated_at_iso": now_iso,
+            "body_md": body,
+            "actions": _brief_actions(attention),
+        }
+
+    # Sentence 1: 30d window summary.
+    pr_latest = run_pass_rate(latest)
+    n_runs = len(runs_30d)
+    overall_rates = [
+        run_pass_rate(r) * 100.0 for r in runs_30d if run_pass_rate(r) is not None
+    ]
+    overall_avg = sum(overall_rates) / len(overall_rates) if overall_rates else None
+    pr_pct = f"{overall_avg:.1f}%" if overall_avg is not None else (
+        f"{pr_latest * 100:.1f}%" if pr_latest is not None else "n/a"
     )
+    sentences = [
+        f"Quality is {pr_pct} over {n_runs} run{'s' if n_runs != 1 else ''} in the last 30 days."
+    ]
+
+    # Sentence 2: week-over-week + dataset drift.
+    this_avg, last_avg = _weekly_pass_rate(runs_newest_first, anchor)
+    if this_avg is not None and last_avg is not None:
+        wow = this_avg - last_avg
+        arrow = "↓" if wow < 0 else ("↑" if wow > 0 else "→")
+        ds_drift = _largest_dataset_delta(_runs_by_dataset(runs_newest_first), anchor)
+        if ds_drift is not None:
+            ds_name, ds_delta = ds_drift
+            mover = (
+                f", mostly from the {ds_name} dataset" if abs(ds_delta) >= 1.0 else ""
+            )
+        else:
+            mover = ""
+        sentences.append(
+            f"{arrow} {abs(wow):.1f} pts vs last week{mover}."
+        )
+
+    # Sentence 3: worst metric across recent runs.
+    struggling = _struggling_metric(runs_newest_first)
+    if struggling is not None:
+        mid, avg, _ = struggling
+        sentences.append(
+            f"`{mid}` is the largest failure mode at {avg * 100:.1f}% pass."
+        )
+
+    body = " ".join(sentences)
     return {
-        "generated_at_iso": datetime.now(timezone.utc).isoformat(),
+        "generated_at_iso": now_iso,
         "body_md": body,
-        "actions": [],
+        "actions": _brief_actions(attention),
     }
+
+
+def _brief_actions(attention: list[dict]) -> list[dict]:
+    """Derive brief CTAs from attention items.
+
+    Rules:
+      * fail-severity item with ``cta_target`` starting ``/experiments/`` →
+        primary "Open run" pointing at that run.
+      * struggling-metric warn (``cta_target == "/metrics"``) → secondary
+        "Open metric".
+      * Always trailing bare "Open co-pilot" → ``/copilot``.
+    """
+    actions: list[dict] = []
+    for a in attention:
+        if a["severity"] == "fail" and a["cta_target"].startswith("/experiments/"):
+            actions.append({
+                "label": "Open run",
+                "kind": "primary",
+                "intent": a["cta_target"],
+            })
+            break
+    for a in attention:
+        if a["severity"] == "warn" and a["cta_target"] == "/metrics":
+            actions.append({
+                "label": "Open metric",
+                "kind": "secondary",
+                "intent": "/metrics",
+            })
+            break
+    actions.append({"label": "Open co-pilot", "kind": "bare", "intent": "/copilot"})
+    return actions
 
 
 @router.get("")
@@ -190,5 +589,7 @@ async def home() -> JSONResponse:
     snap["sub_metrics"] = _sub_metrics(latest, previous)
     snap["active_experiments"] = _active_experiments(runs_newest_first)
     snap["recent_activity"] = _recent_activity(runs_newest_first)
-    snap["brief"] = _brief(latest, runs_30d)
+    attention = _attention(runs_newest_first, anchor)
+    snap["attention"] = attention
+    snap["brief"] = _brief(latest, runs_30d, runs_newest_first, attention, anchor)
     return JSONResponse(snap)
