@@ -18,6 +18,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
+from . import experiments_items
 from ._shared import (
     cumulative_pass_series,
     dataset_roots,
@@ -35,6 +36,7 @@ from ._shared import (
 )
 
 router = APIRouter()
+experiments_items.register(router)
 
 
 def _items_string(run: dict) -> str:

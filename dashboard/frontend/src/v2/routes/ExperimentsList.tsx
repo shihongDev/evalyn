@@ -2,15 +2,21 @@
  * ExperimentsList - browseable table of all evaluation runs.
  * Selection state is client-side; "Compare 2 selected" routes to RunDetail
  * with ?compare=<otherId>.
+ *
+ * Two views: Flat (the original 7-column table) and Grouped (one
+ * collapsible section per dataset). Grouped is the default once the
+ * project has any meaningful repetition, since N runs on the same
+ * agent otherwise read as a wall of identical labels.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Card, Eyebrow, Pill, Btn, StatusDot, Spark, Skeleton, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { E } from '../tokens';
+import type { ExperimentRow } from '../api/types';
 
 // Columns: select, name, pass, delta, items, cost, spark.
 // Duration column dropped - prod runs don't carry duration_s, every cell
@@ -19,6 +25,7 @@ const COLS = '24px 2.4fr 90px 90px 80px 90px 110px';
 
 type StatusFilter = 'any' | 'completed' | 'running' | 'failed' | 'warn';
 type SortOrder = 'recent' | 'oldest' | 'pass-desc' | 'pass-asc';
+type ViewMode = 'flat' | 'grouped';
 
 const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'any', label: 'Status: Any' },
@@ -47,6 +54,8 @@ const SELECT_STYLE = {
   outline: 'none',
 } as const;
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 function deltaColor(d: string): string {
   if (d === 'baseline') return E.steel;
   if (d === '-' || d === '—' || d === '') return E.text3;
@@ -61,6 +70,180 @@ function sparkColor(status: string): string {
   return E.pass;
 }
 
+/**
+ * Run ids look like '20260330-012500_cd347c59'. Inside a dataset group
+ * the dataset name is redundant, so each row gets the parsed timestamp
+ * plus the short hash - "Mar 30, 01:25  cd347c59". Falls back to the
+ * raw id if the prefix doesn't parse.
+ */
+function friendlyRunLabel(id: string): string {
+  const m = id.match(/^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})(?:_(.+))?$/);
+  if (!m) return id;
+  const [, , mo, d, h, mi, , tail] = m;
+  const month = MONTHS[parseInt(mo, 10) - 1] ?? mo;
+  const day = parseInt(d, 10);
+  const hh = h;
+  const mm = mi;
+  const hash = tail ? ` ${tail}` : '';
+  return `${month} ${day}, ${hh}:${mm}${hash}`;
+}
+
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+interface RowProps {
+  r: ExperimentRow;
+  i: number;
+  isSelected: boolean;
+  onToggle: () => void;
+  onNavigate: () => void;
+  /** When true, hide the dataset name from the row label (it's in the group header). */
+  hideName?: boolean;
+}
+
+function Row({ r, i, isSelected, onToggle, onNavigate, hideName }: RowProps) {
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: COLS,
+        padding: '14px 18px',
+        borderTop: i ? `1px solid ${E.hair}` : 'none',
+        alignItems: 'center',
+        gap: 8,
+        background: isSelected ? E.emberDim : 'transparent',
+        cursor: 'pointer',
+      }}
+      onClick={(ev) => {
+        if ((ev.target as HTMLElement).tagName === 'INPUT') return;
+        onNavigate();
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={isSelected}
+        onChange={onToggle}
+        onClick={(ev) => ev.stopPropagation()}
+        style={{ accentColor: E.ember }}
+      />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <StatusDot status={r.status} animated={r.status === 'running'} />
+          <span style={{ fontSize: 13.5, color: E.text0, fontWeight: 500 }}>
+            {hideName ? friendlyRunLabel(r.id) : r.name}
+          </span>
+          {r.tags.map((t) => (
+            <Pill
+              key={t}
+              mono
+              style={{ fontSize: 9.5, padding: '1px 7px', background: E.panel3, color: E.text2 }}
+            >
+              {t}
+            </Pill>
+          ))}
+          {r.err && (
+            <Pill mono color={E.fail} bg={E.failDim} style={{ fontSize: 9.5 }}>
+              {r.err}
+            </Pill>
+          )}
+        </div>
+        <div style={{ fontSize: 11, color: E.text3, marginTop: 3, fontFamily: E.fMono }}>
+          {hideName ? `${r.author} - ${r.when_iso}` : `${r.id} - ${r.author} - ${r.when_iso}`}
+        </div>
+      </div>
+      <div style={{ fontFamily: E.fSerif, fontSize: 17, color: r.pass != null ? E.text0 : E.text3 }}>
+        {r.pass != null ? `${r.pass}%` : '-'}
+      </div>
+      <div style={{ fontFamily: E.fMono, fontSize: 12, color: deltaColor(r.delta) }}>{r.delta}</div>
+      <div style={{ fontFamily: E.fMono, fontSize: 11, color: E.text2 }}>{r.items}</div>
+      <div style={{ fontFamily: E.fMono, fontSize: 11, color: E.text2 }}>{r.cost}</div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        {r.spark && r.spark.length > 0 ? (
+          <Spark data={r.spark} color={sparkColor(r.status)} dot w={90} h={24} />
+        ) : (
+          <span style={{ fontSize: 10, color: E.text3, fontFamily: E.fMono }}>n/a</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TableHeader() {
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: COLS,
+        padding: '11px 18px',
+        borderBottom: `1px solid ${E.hair}`,
+        fontFamily: E.fMono,
+        fontSize: 10,
+        color: E.text3,
+        textTransform: 'uppercase',
+        letterSpacing: '0.08em',
+      }}
+    >
+      <span></span>
+      <span>Experiment</span>
+      <span>Pass</span>
+      <span>Δ</span>
+      <span>Items</span>
+      <span>Cost</span>
+      <span style={{ textAlign: 'right' }}>Trend</span>
+    </div>
+  );
+}
+
+interface DatasetGroup {
+  name: string;
+  runs: ExperimentRow[]; // sorted newest-first (matches default sort)
+  medianPass: number | null;
+  spark: number[]; // pass rates oldest -> newest (for trend)
+  latestStatus: string;
+}
+
+/**
+ * Build per-dataset groups from already-filtered+sorted rows. The input
+ * order is preserved within each group (so newest-first stays
+ * newest-first), but for the spark we re-derive an oldest-first
+ * sequence of pass rates so the trend reads left-to-right in time.
+ */
+function buildGroups(rows: ExperimentRow[]): DatasetGroup[] {
+  const map = new Map<string, ExperimentRow[]>();
+  for (const r of rows) {
+    const arr = map.get(r.name);
+    if (arr) arr.push(r);
+    else map.set(r.name, [r]);
+  }
+  const groups: DatasetGroup[] = [];
+  for (const [name, runs] of map) {
+    const passes = runs.map((r) => r.pass).filter((p): p is number => p != null);
+    const oldestFirst = [...runs].sort(
+      (a, b) => (Date.parse(a.when_iso) || 0) - (Date.parse(b.when_iso) || 0),
+    );
+    const spark = oldestFirst
+      .map((r) => r.pass)
+      .filter((p): p is number => p != null);
+    const latest = oldestFirst[oldestFirst.length - 1];
+    groups.push({
+      name,
+      runs,
+      medianPass: median(passes),
+      spark,
+      latestStatus: latest?.status ?? 'completed',
+    });
+  }
+  // Sort groups by run count desc - the noisy ones go first.
+  groups.sort((a, b) => b.runs.length - a.runs.length);
+  return groups;
+}
+
+const COLLAPSE_THRESHOLD = 20;
+
 export default function ExperimentsList() {
   const { data: rows, err, reloading, isInitialLoad } = useV2Resource(
     'experiments',
@@ -72,6 +255,10 @@ export default function ExperimentsList() {
   const [tagFilter, setTagFilter] = useState<string>('any');
   const [authorFilter, setAuthorFilter] = useState<string>('any');
   const [sortOrder, setSortOrder] = useState<SortOrder>('recent');
+  // View mode state - null until we've seen the data, then we pick a default.
+  const [viewMode, setViewMode] = useState<ViewMode | null>(null);
+  // Per-group collapsed state. A group id present in the set is collapsed.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const isNew = searchParams.get('new') === '1';
@@ -88,6 +275,20 @@ export default function ExperimentsList() {
     if (!rows) return [];
     return Array.from(new Set(rows.map((r) => r.author).filter(Boolean))).sort();
   }, [rows]);
+
+  // Default view mode: grouped if there are >= 2 distinct datasets AND
+  // at least one dataset has >= 3 runs. Otherwise flat.
+  const suggestedMode: ViewMode = useMemo(() => {
+    if (!rows || rows.length === 0) return 'flat';
+    const counts = new Map<string, number>();
+    for (const r of rows) counts.set(r.name, (counts.get(r.name) ?? 0) + 1);
+    const distinct = counts.size;
+    let maxCount = 0;
+    for (const c of counts.values()) if (c > maxCount) maxCount = c;
+    return distinct >= 2 && maxCount >= 3 ? 'grouped' : 'flat';
+  }, [rows]);
+
+  const view: ViewMode = viewMode ?? suggestedMode;
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -137,6 +338,55 @@ export default function ExperimentsList() {
     }
     return sorted;
   }, [rows, query, statusFilter, tagFilter, authorFilter, sortOrder]);
+
+  // Compute grouped view from filtered rows. Each group preserves the
+  // current sort order within it.
+  const groups = useMemo(() => {
+    if (!filtered) return null;
+    return buildGroups(filtered);
+  }, [filtered]);
+
+  function isGroupCollapsed(g: DatasetGroup): boolean {
+    // After seeding (see effect below), large groups are pre-added to
+    // `collapsed`. From then on the set is the single source of truth.
+    return collapsed.has(g.name);
+  }
+
+  function toggleGroup(name: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }
+
+  function expandAll() {
+    setCollapsed(new Set());
+  }
+
+  function collapseAll() {
+    if (!groups) return;
+    setCollapsed(new Set(groups.map((g) => g.name)));
+  }
+
+  // Per-group default-collapsed state for big groups. Seed once on
+  // first render that has groups, so the page doesn't render hundreds
+  // of rows on initial load. After that the user owns the set.
+  const [seededDefaults, setSeededDefaults] = useState(false);
+  useEffect(() => {
+    if (seededDefaults) return;
+    if (!groups || groups.length === 0) return;
+    const big = groups.filter((g) => g.runs.length > COLLAPSE_THRESHOLD).map((g) => g.name);
+    if (big.length > 0) {
+      setCollapsed((prev) => {
+        const next = new Set(prev);
+        for (const n of big) next.add(n);
+        return next;
+      });
+    }
+    setSeededDefaults(true);
+  }, [groups, seededDefaults]);
 
   return (
     <AppShell contextChip={{ name: 'Experiments', version: '' }}>
@@ -199,6 +449,50 @@ export default function ExperimentsList() {
             borderRadius: 10,
           }}
         >
+          {/* View toggle - segmented control */}
+          <div
+            style={{
+              display: 'inline-flex',
+              border: `1px solid ${E.hair2}`,
+              borderRadius: 6,
+              overflow: 'hidden',
+            }}
+            role="group"
+            aria-label="View mode"
+          >
+            {(['flat', 'grouped'] as const).map((m) => {
+              const active = view === m;
+              return (
+                <button
+                  key={m}
+                  onClick={() => setViewMode(m)}
+                  style={{
+                    background: active ? E.panel3 : 'transparent',
+                    color: active ? E.text0 : E.text2,
+                    border: 'none',
+                    padding: '4px 10px',
+                    fontSize: 11,
+                    fontFamily: E.fSans,
+                    cursor: 'pointer',
+                    fontWeight: active ? 500 : 400,
+                  }}
+                  aria-pressed={active}
+                >
+                  {m === 'flat' ? 'Flat' : 'Grouped'}
+                </button>
+              );
+            })}
+          </div>
+          {view === 'grouped' && groups && groups.length > 0 && (
+            <>
+              <Btn kind="secondary" size="sm" onClick={expandAll}>
+                Expand all
+              </Btn>
+              <Btn kind="secondary" size="sm" onClick={collapseAll}>
+                Collapse all
+              </Btn>
+            </>
+          )}
           <input
             placeholder="Search by name, author, tag..."
             value={query}
@@ -277,7 +571,7 @@ export default function ExperimentsList() {
           </Btn>
         </div>
 
-        {/* TABLE */}
+        {/* LOADING SKELETON */}
         {!rows && !err && (
           <Card style={{ marginTop: 14, padding: 0, overflow: 'hidden' }}>
             {[0, 1, 2, 3, 4].map((i) => (
@@ -326,98 +620,121 @@ export default function ExperimentsList() {
           </Card>
         )}
 
-        {filtered && filtered.length > 0 && (
+        {/* FLAT VIEW */}
+        {view === 'flat' && filtered && filtered.length > 0 && (
           <Card style={{ marginTop: 14, padding: 0, overflow: 'hidden' }}>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: COLS,
-                padding: '11px 18px',
-                borderBottom: `1px solid ${E.hair}`,
-                fontFamily: E.fMono,
-                fontSize: 10,
-                color: E.text3,
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-              }}
-            >
-              <span></span>
-              <span>Experiment</span>
-              <span>Pass</span>
-              <span>Δ</span>
-              <span>Items</span>
-              <span>Cost</span>
-              <span style={{ textAlign: 'right' }}>Trend</span>
-            </div>
-            {filtered.map((r, i) => {
-              const isSelected = selected.has(r.id);
-              return (
-                <div
-                  key={r.id}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: COLS,
-                    padding: '14px 18px',
-                    borderTop: i ? `1px solid ${E.hair}` : 'none',
-                    alignItems: 'center',
-                    gap: 8,
-                    background: isSelected ? E.emberDim : 'transparent',
-                    cursor: 'pointer',
-                  }}
-                  onClick={(ev) => {
-                    if ((ev.target as HTMLElement).tagName === 'INPUT') return;
-                    navigate(`/experiments/${encodeURIComponent(r.id)}`);
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => toggle(r.id)}
-                    onClick={(ev) => ev.stopPropagation()}
-                    style={{ accentColor: E.ember }}
-                  />
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <StatusDot status={r.status} animated={r.status === 'running'} />
-                      <span style={{ fontSize: 13.5, color: E.text0, fontWeight: 500 }}>{r.name}</span>
-                      {r.tags.map((t) => (
-                        <Pill
-                          key={t}
-                          mono
-                          style={{ fontSize: 9.5, padding: '1px 7px', background: E.panel3, color: E.text2 }}
-                        >
-                          {t}
-                        </Pill>
-                      ))}
-                      {r.err && (
-                        <Pill mono color={E.fail} bg={E.failDim} style={{ fontSize: 9.5 }}>
-                          {r.err}
-                        </Pill>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 11, color: E.text3, marginTop: 3, fontFamily: E.fMono }}>
-                      {r.id} - {r.author} - {r.when_iso}
-                    </div>
-                  </div>
-                  <div style={{ fontFamily: E.fSerif, fontSize: 17, color: r.pass != null ? E.text0 : E.text3 }}>
-                    {r.pass != null ? `${r.pass}%` : '-'}
-                  </div>
-                  <div style={{ fontFamily: E.fMono, fontSize: 12, color: deltaColor(r.delta) }}>{r.delta}</div>
-                  <div style={{ fontFamily: E.fMono, fontSize: 11, color: E.text2 }}>{r.items}</div>
-                  <div style={{ fontFamily: E.fMono, fontSize: 11, color: E.text2 }}>{r.cost}</div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    {r.spark && r.spark.length > 0 ? (
-                      <Spark data={r.spark} color={sparkColor(r.status)} dot w={90} h={24} />
-                    ) : (
-                      <span style={{ fontSize: 10, color: E.text3, fontFamily: E.fMono }}>n/a</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+            <TableHeader />
+            {filtered.map((r, i) => (
+              <Row
+                key={r.id}
+                r={r}
+                i={i}
+                isSelected={selected.has(r.id)}
+                onToggle={() => toggle(r.id)}
+                onNavigate={() => navigate(`/experiments/${encodeURIComponent(r.id)}`)}
+              />
+            ))}
           </Card>
         )}
 
+        {/* GROUPED VIEW */}
+        {view === 'grouped' && groups && groups.length > 0 && (
+          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {groups.map((g) => {
+              const isCollapsed = isGroupCollapsed(g);
+              const medianText =
+                g.medianPass != null ? `median ${g.medianPass.toFixed(1)}%` : 'median -';
+              return (
+                <Card key={g.name} style={{ padding: 0, overflow: 'hidden' }}>
+                  {/* Group header bar */}
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(g.name)}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background = E.panel2;
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                    }}
+                    aria-expanded={!isCollapsed}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: '14px 18px',
+                      minHeight: 52,
+                      background: 'transparent',
+                      border: 'none',
+                      borderBottom: !isCollapsed ? `1px solid ${E.hair}` : 'none',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'background 120ms',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: E.fMono,
+                        fontSize: 12,
+                        color: E.text3,
+                        width: 14,
+                        display: 'inline-block',
+                      }}
+                      aria-hidden
+                    >
+                      {isCollapsed ? '▸' : '▾'}
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: E.fMono,
+                        fontSize: 14,
+                        color: E.text0,
+                        fontWeight: 500,
+                      }}
+                    >
+                      {g.name}
+                    </span>
+                    <Pill
+                      mono
+                      style={{ fontSize: 10, padding: '1px 7px', background: E.panel3, color: E.text2 }}
+                    >
+                      {g.runs.length} {g.runs.length === 1 ? 'run' : 'runs'}
+                    </Pill>
+                    <span style={{ fontSize: 11, color: E.text3, fontFamily: E.fMono }}>
+                      {medianText}
+                    </span>
+                    <span style={{ flex: 1 }} />
+                    {g.spark.length > 0 ? (
+                      <Spark data={g.spark} color={sparkColor(g.latestStatus)} dot w={120} h={26} />
+                    ) : (
+                      <span style={{ fontSize: 10, color: E.text3, fontFamily: E.fMono }}>n/a</span>
+                    )}
+                  </button>
+
+                  {/* Group body */}
+                  {!isCollapsed && (
+                    <div>
+                      <TableHeader />
+                      {g.runs.map((r, i) => (
+                        <Row
+                          key={r.id}
+                          r={r}
+                          i={i}
+                          isSelected={selected.has(r.id)}
+                          onToggle={() => toggle(r.id)}
+                          onNavigate={() => navigate(`/experiments/${encodeURIComponent(r.id)}`)}
+                          hideName
+                        />
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
+        )}
+
+        {/* EMPTY FILTER RESULT */}
         {filtered && filtered.length === 0 && rows && rows.length > 0 && (
           <div style={{ marginTop: 14, padding: 18, fontSize: 13, color: E.text3 }}>
             No experiments match "{query}".

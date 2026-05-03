@@ -152,6 +152,32 @@ export interface ExperimentDetail {
   }[];
 }
 
+/** /api/v2/experiments/{id}/items - per-item read-deep grid. */
+export interface ExperimentItemPerMetric {
+  metric_id: string;
+  passed: boolean | null;
+  score: number | null;
+}
+export interface ExperimentItemRow {
+  id: string;
+  input_preview: string;
+  expected_preview: string | null;
+  output_preview: string | null;
+  per_metric: ExperimentItemPerMetric[];
+  any_failed: boolean;
+  passed_count: number;
+  failed_count: number;
+}
+export interface ExperimentItemsResponse {
+  total: number;
+  offset: number;
+  limit: number;
+  items: ExperimentItemRow[];
+  metric_ids: string[];
+}
+export type ExperimentItemsFilter = 'all' | 'passed' | 'failed';
+export type ExperimentItemsSort = 'item_id' | 'score';
+
 /** /api/v2/experiments/{id}/cluster/{cid} - cluster deep-dive. */
 export interface ClusterDetail {
   cluster_id: string;

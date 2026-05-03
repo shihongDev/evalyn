@@ -9,6 +9,9 @@ import type {
   HomeSnapshot,
   ExperimentList,
   ExperimentDetail,
+  ExperimentItemsResponse,
+  ExperimentItemsFilter,
+  ExperimentItemsSort,
   ClusterDetail,
   DatasetList,
   RubricList,
@@ -57,6 +60,25 @@ export const v2 = {
   experiments: (): Promise<ExperimentList> => jget('/experiments'),
   experiment: (id: string): Promise<ExperimentDetail> =>
     jget(`/experiments/${encodeURIComponent(id)}`),
+  experimentItems: (
+    runId: string,
+    opts: {
+      offset?: number;
+      limit?: number;
+      filter?: ExperimentItemsFilter;
+      sort?: ExperimentItemsSort;
+    } = {},
+  ): Promise<ExperimentItemsResponse> => {
+    const params = new URLSearchParams();
+    if (opts.offset != null) params.set('offset', String(opts.offset));
+    if (opts.limit != null) params.set('limit', String(opts.limit));
+    if (opts.filter) params.set('filter', opts.filter);
+    if (opts.sort) params.set('sort', opts.sort);
+    const qs = params.toString();
+    return jget(
+      `/experiments/${encodeURIComponent(runId)}/items${qs ? `?${qs}` : ''}`,
+    );
+  },
   cluster: (runId: string, clusterId: string): Promise<ClusterDetail> =>
     jget(
       `/experiments/${encodeURIComponent(runId)}/cluster/${encodeURIComponent(clusterId)}`,

@@ -72,11 +72,33 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+def _build_timing_logger() -> logging.Logger:
+    """Configure a stdout-attached logger for the timing middleware.
+
+    Uvicorn's default access logger uses a positional-arg formatter we
+    can't reuse, and the root logger has no handler in the bare uvicorn
+    config. So we attach our own ``StreamHandler`` once and disable
+    propagation - cheap, no third-party deps, works in tests.
+    """
+    log = logging.getLogger("evalyn.timing")
+    if not log.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("TIMING: %(message)s"))
+        log.addHandler(handler)
+        log.setLevel(logging.INFO)
+        log.propagate = False
+    return log
+
+
+_timing_logger = _build_timing_logger()
+
+
 class TimingMiddleware(BaseHTTPMiddleware):
     """Log ``method path -> status (Xms)`` for every ``/api/*`` request.
 
     Cheap perf telemetry - one ``time.perf_counter`` pair per request.
     Scoped to API routes so static asset noise stays out of the log.
+    Emits one line per request under the ``evalyn.timing`` logger.
     """
 
     async def dispatch(self, request: Request, call_next):
@@ -86,7 +108,7 @@ class TimingMiddleware(BaseHTTPMiddleware):
         start = time.perf_counter()
         response = await call_next(request)
         elapsed_ms = (time.perf_counter() - start) * 1000.0
-        logger.info(
+        _timing_logger.info(
             "%s %s -> %s (%.1fms)",
             request.method,
             path,
