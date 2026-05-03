@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -388,6 +388,45 @@ def fmt_cost(cost: float | None) -> str:
     if cost is None or cost <= 0:
         return "$0.00"
     return f"${cost:.2f}"
+
+
+def cost_or_zero(run: dict) -> float:
+    """Return ``total_cost(run)`` or ``0.0`` when missing.
+
+    Helper for aggregations where ``None`` cost should not propagate
+    (e.g. summing across runs, where missing == free run).
+    """
+    c = total_cost(run)
+    return float(c) if c is not None else 0.0
+
+
+def daily_cost_buckets(
+    runs: Iterable[dict], anchor: datetime, days: int
+) -> list[float]:
+    """Bucket per-run cost into ``days`` daily buckets ending at ``anchor``.
+
+    Each bucket sums ``cost_or_zero`` for runs whose ``created_at`` falls
+    on that calendar date (UTC). Returns a list of length ``days``,
+    oldest day first. Days with no runs contribute 0.0.
+
+    Inspects: ``created_at`` (parsed via :func:`parse_iso`); runs without
+    a parseable timestamp are skipped (not silently bucketed into "today")
+    so callers can spot data quality issues via run counts.
+    """
+    end_date = anchor.date()
+    start_date = end_date - timedelta(days=days - 1)
+    buckets = [0.0] * days
+    for run in runs:
+        dt = parse_iso(run.get("created_at"))
+        if dt is None:
+            logger.warning("daily_cost_buckets: run with unparseable created_at")
+            continue
+        run_date = dt.date()
+        if run_date < start_date or run_date > end_date:
+            continue
+        idx = (run_date - start_date).days
+        buckets[idx] += cost_or_zero(run)
+    return buckets
 
 
 def fmt_duration(seconds: float | None) -> str:

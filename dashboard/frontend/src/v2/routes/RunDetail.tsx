@@ -16,6 +16,7 @@ import {
   Glossary,
   Pill,
   Btn,
+  Spinner,
   StatusDot,
   Donut,
   LineChart,
@@ -24,15 +25,17 @@ import {
 } from '../ui';
 import type { LineSeries } from '../ui';
 import { v2 } from '../api/client';
-import { runCli } from '../api/cli';
+import { listCli } from '../api/cli';
+import type { CliSchema } from '../api/cli';
 import type {
   ExperimentDetail,
   ExperimentItemsFilter,
   ExperimentItemsResponse,
   ExperimentItemsSort,
 } from '../api/types';
-import { useV2Resource } from '../hooks/useV2Resource';
+import { useV2Resource, prefetchV2 } from '../hooks/useV2Resource';
 import { useProject } from '../hooks/useProject';
+import { openCliRunner } from '../cliRunnerBridge';
 import { E } from '../tokens';
 
 const CLUSTER_COLOR: Record<string, string> = {
@@ -211,13 +214,35 @@ export default function RunDetail() {
     if (!detail || rerunBusy) return;
     setRerunBusy(true);
     try {
-      const { job_id } = await runCli('run-eval', { dataset: detail.dataset.name });
-      window.alert(
-        `Started run ${job_id}. Open the co-pilot dock to stream progress; this run will appear under Experiments when it completes.`,
-      );
-      navigate('/experiments');
+      // Pull the catalog (cached after first hit) and look up `run-eval`.
+      // We can't reconstruct the original argv from disk - results.json
+      // doesn't carry the launching command - so we seed dataset + any
+      // model/rubric metadata we happen to know. The user edits in the
+      // form before clicking Run.
+      const cmds: CliSchema[] = await listCli();
+      const runEval = cmds.find((c) => c.id === 'run-eval');
+      if (!runEval) {
+        window.alert(
+          'Cannot re-run: the `run-eval` command is not in this build of the CLI catalog.',
+        );
+        return;
+      }
+      const initialValues: Record<string, unknown> = {
+        dataset: detail.dataset.name,
+      };
+      // Best-effort extras: only set fields that exist on the schema AND
+      // have a non-null value on the run record. Avoids polluting the
+      // form with empty strings or fields the schema doesn't declare.
+      const paramNames = new Set(runEval.params.map((p) => p.name));
+      if (detail.model?.id && paramNames.has('model')) {
+        initialValues.model = detail.model.id;
+      }
+      if (detail.rubric && paramNames.has('rubric')) {
+        initialValues.rubric = detail.rubric;
+      }
+      openCliRunner(runEval, { initialValues });
     } catch (e: unknown) {
-      window.alert(`Failed to start re-run:\n${String(e)}`);
+      window.alert(`Failed to open re-run form:\n${String(e)}`);
     } finally {
       setRerunBusy(false);
     }
@@ -235,10 +260,21 @@ export default function RunDetail() {
         kind="primary"
         size="sm"
         onClick={handleRerun}
+        onMouseEnter={() => prefetchV2('commands', listCli)}
         disabled={rerunBusy}
-        title={rerunBusy ? 'Starting...' : `Re-run evalyn on ${detail.dataset.name}`}
+        title={
+          rerunBusy
+            ? 'Loading...'
+            : `Open the run-eval form pre-filled for ${detail.dataset.name}`
+        }
       >
-        ↻ {rerunBusy ? 'Starting...' : 'Re-run'}
+        {rerunBusy ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Spinner size={10} /> Loading
+          </span>
+        ) : (
+          '↻ Re-run'
+        )}
       </Btn>
     </div>
   );

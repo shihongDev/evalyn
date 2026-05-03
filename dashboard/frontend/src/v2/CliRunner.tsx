@@ -149,37 +149,66 @@ function statusPill(status: JobStatusKind): {
 
 export function CliRunner(): ReactElement | null {
   const [cli, setCli] = useState<CliSchema | null>(null);
+  const [seed, setSeed] = useState<Record<string, unknown> | undefined>(undefined);
+  const [nonce, setNonce] = useState(0);
 
-  useEffect(() => subscribeRunner(setCli), []);
+  useEffect(
+    () =>
+      subscribeRunner((s) => {
+        setCli(s.cli);
+        setSeed(s.initialValues);
+        setNonce(s.nonce);
+      }),
+    [],
+  );
 
   if (!cli) return null;
-  // Re-keying on cli.id resets all internal state (form values, output)
-  // when the user closes one runner and opens another.
-  return <RunnerBody key={cli.id} cli={cli} onClose={closeCliRunner} />;
+  // Re-keying on (cli.id, nonce) resets all internal state (form values,
+  // output) when the user closes one runner and opens another - and also
+  // when the SAME command is re-opened with a different initialValues
+  // payload (deep-link refire from another route).
+  return (
+    <RunnerBody
+      key={`${cli.id}:${nonce}`}
+      cli={cli}
+      seed={seed}
+      onClose={closeCliRunner}
+    />
+  );
 }
 
 interface RunnerBodyProps {
   cli: CliSchema;
+  seed?: Record<string, unknown>;
   onClose: () => void;
 }
 
-function RunnerBody({ cli, onClose }: RunnerBodyProps): ReactElement {
+function RunnerBody({ cli, seed, onClose }: RunnerBodyProps): ReactElement {
   // --- form state ---
+  // Order: schema default -> caller-provided seed -> user edits.
+  // We don't coerce the seed values here; the per-kind input components
+  // render whatever raw shape we hand them (string for selects, boolean
+  // for checkboxes, array for multiselects). Callers building deep links
+  // are responsible for handing in compatible types.
   const initialValues = useMemo<Record<string, unknown>>(() => {
     const out: Record<string, unknown> = {};
     for (const p of cli.params) {
+      let v: unknown;
       if (p.default !== undefined) {
-        out[p.name] = p.default;
+        v = p.default;
       } else if (p.kind === 'bool') {
-        out[p.name] = false;
+        v = false;
       } else if (p.kind === 'multiselect') {
-        out[p.name] = [];
+        v = [];
       } else {
-        out[p.name] = '';
+        v = '';
       }
+      const seeded = seed?.[p.name];
+      if (seeded !== undefined) v = seeded;
+      out[p.name] = v;
     }
     return out;
-  }, [cli]);
+  }, [cli, seed]);
   const [values, setValues] = useState<Record<string, unknown>>(initialValues);
   const [previewOpen, setPreviewOpen] = useState(false);
 

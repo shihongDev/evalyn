@@ -6,9 +6,19 @@
  * `useNavigate()` powers nav clicks. The Co-pilot dock visibility is held
  * in the v2 store so other surfaces (e.g. the full-thread route) can hide
  * it when they take over the screen.
+ *
+ * Responsive behavior (three breakpoints, watched via `useViewport`):
+ *   - desktop  (>= 1100px): 230px nav + 1fr main + 420px dock when open.
+ *   - tablet   (700-1099px): 56px icon-only nav + 1fr main; dock hidden by
+ *     default and surfaced as a 420px right-side overlay when toggled.
+ *   - mobile   (< 700px): nav collapses; top bar gains a hamburger that
+ *     opens a slide-in drawer. Dock surfaces as a bottom sheet (~75vh).
+ *
+ * Route content padding is intentionally left to the routes themselves;
+ * this shell is responsible for chrome only.
  */
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { useLocation, useNavigate, NavLink } from 'react-router-dom';
 import { E } from './tokens';
 import { Btn, Eyebrow, Pill, StatusDot } from './ui';
@@ -86,6 +96,32 @@ const NAV_ITEMS: NavItem[] = [
 
 const PINNED: { name: string; q: number; status: 'pass' | 'warn' | 'fail' }[] = [];
 
+export type Viewport = 'mobile' | 'tablet' | 'desktop';
+
+const TABLET_MAX = 1099;
+const MOBILE_MAX = 699;
+
+function detectViewport(): Viewport {
+  if (typeof window === 'undefined') return 'desktop';
+  if (window.innerWidth <= MOBILE_MAX) return 'mobile';
+  if (window.innerWidth <= TABLET_MAX) return 'tablet';
+  return 'desktop';
+}
+
+/** Tracks viewport bucket via window.matchMedia. Re-renders on bucket change only. */
+export function useViewport(): Viewport {
+  const [vp, setVp] = useState<Viewport>(detectViewport);
+  useEffect(() => {
+    function handle() {
+      const next = detectViewport();
+      setVp((prev) => (prev === next ? prev : next));
+    }
+    window.addEventListener('resize', handle);
+    return () => window.removeEventListener('resize', handle);
+  }, []);
+  return vp;
+}
+
 function activeIdFromPath(pathname: string): string {
   if (pathname === '/' || pathname.startsWith('/copilot')) return 'home';
   for (const item of NAV_ITEMS) {
@@ -107,8 +143,26 @@ export function AppShell({
   const dockOpen = useV2Store((s) => s.dockOpen);
   const setDockOpen = useV2Store((s) => s.setDockOpen);
   const active = activeIdFromPath(location.pathname);
-  const showDock = !hideCoPilot && dockOpen;
+  const vp = useViewport();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // On viewport change, default the dock state to "closed" for narrow widths
+  // so users do not land in an overlay-on-load state. Desktop keeps prior
+  // value (which defaults to true in the store).
+  useEffect(() => {
+    if (vp !== 'desktop' && dockOpen) setDockOpen(false);
+    // Intentionally only run on viewport change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vp]);
+
+  // Close the mobile drawer whenever we leave mobile or the route changes.
+  useEffect(() => {
+    if (vp !== 'mobile' && drawerOpen) setDrawerOpen(false);
+  }, [vp, drawerOpen]);
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [location.pathname]);
 
   // Cmd+K (mac) / Ctrl+K (everywhere) toggles the command palette.
   // Esc closes it. We bind at the window level so it works from any focus.
@@ -122,14 +176,36 @@ export function AppShell({
       }
       if (e.key === 'Escape') {
         setPaletteOpen((v) => (v ? false : v));
+        setDrawerOpen((v) => (v ? false : v));
+        // Also close the dock when it is overlaying content (tablet/mobile).
+        if (vp !== 'desktop' && dockOpen) setDockOpen(false);
       }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [vp, dockOpen, setDockOpen]);
+
+  const showDock = !hideCoPilot && dockOpen;
+  // Dock layout mode: 'docked' takes a grid column on desktop; 'overlay' and
+  // 'sheet' position fixed and float above content.
+  const dockMode: 'docked' | 'overlay' | 'sheet' =
+    vp === 'desktop' ? 'docked' : vp === 'tablet' ? 'overlay' : 'sheet';
+
+  // Grid template per viewport. On tablet/mobile the dock is taken out of the
+  // grid (it overlays), so the column is removed entirely.
+  const gridTemplateColumns =
+    vp === 'desktop'
+      ? `230px 1fr ${showDock ? '420px' : '0px'}`
+      : vp === 'tablet'
+        ? '56px 1fr'
+        : '1fr';
+
+  const sidebarMode: 'full' | 'icon' | 'drawer' =
+    vp === 'desktop' ? 'full' : vp === 'tablet' ? 'icon' : 'drawer';
 
   return (
     <div
+      data-vp={vp}
       style={{
         width: '100%',
         height: '100%',
@@ -143,6 +219,10 @@ export function AppShell({
     >
       <style>{`
         @keyframes eDotPulse { 0%,100% { opacity: 1 } 50% { opacity: 0.4 } }
+        @keyframes eFadeIn { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes eSlideInLeft { from { transform: translateX(-100%) } to { transform: translateX(0) } }
+        @keyframes eSlideInRight { from { transform: translateX(100%) } to { transform: translateX(0) } }
+        @keyframes eSlideUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
         ::-webkit-scrollbar { width: 10px; height: 10px; }
         ::-webkit-scrollbar-thumb { background: ${E.panel3}; border-radius: 6px; }
         ::-webkit-scrollbar-thumb:hover { background: ${E.panel4}; }
@@ -157,11 +237,35 @@ export function AppShell({
           borderBottom: `1px solid ${E.hair}`,
           display: 'flex',
           alignItems: 'center',
-          gap: 16,
-          padding: '0 22px',
+          gap: vp === 'mobile' ? 10 : 16,
+          padding: vp === 'mobile' ? '0 12px' : '0 22px',
           flexShrink: 0,
         }}
       >
+        {vp === 'mobile' && (
+          <button
+            type="button"
+            onClick={() => setDrawerOpen((v) => !v)}
+            aria-label="Open navigation"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 34,
+              height: 34,
+              borderRadius: 6,
+              background: 'transparent',
+              border: `1px solid ${E.hair2}`,
+              color: E.text1,
+              cursor: 'pointer',
+              padding: 0,
+              fontSize: 16,
+              lineHeight: 1,
+            }}
+          >
+            ☰
+          </button>
+        )}
         <button
           type="button"
           onClick={() => navigate('/')}
@@ -187,7 +291,9 @@ export function AppShell({
             evalyn
           </span>
         </button>
-        {contextChip && (
+        {/* Context chip + breadcrumb hide on narrow widths to save space.
+            Tablet keeps the chip; mobile drops both. */}
+        {contextChip && vp !== 'mobile' && (
           <>
             <span style={{ color: E.text4 }}>·</span>
             {/* Project chip - currently a passive identity badge. Switching
@@ -211,7 +317,7 @@ export function AppShell({
             </span>
           </>
         )}
-        {breadcrumb && breadcrumb.length > 0 && (
+        {breadcrumb && breadcrumb.length > 0 && vp === 'desktop' && (
           <>
             <span style={{ color: E.text4 }}>·</span>
             <div
@@ -234,14 +340,16 @@ export function AppShell({
         )}
         <span style={{ flex: 1 }} />
         {headerExtra}
-        <Btn
-          kind="ghost"
-          size="sm"
-          onClick={() => setPaletteOpen(true)}
-          style={{ fontFamily: E.fMono, gap: 4 }}
-        >
-          ⌘K Search
-        </Btn>
+        {vp !== 'mobile' && (
+          <Btn
+            kind="ghost"
+            size="sm"
+            onClick={() => setPaletteOpen(true)}
+            style={{ fontFamily: E.fMono, gap: 4 }}
+          >
+            ⌘K Search
+          </Btn>
+        )}
         {/* User initials - decorative until a profile menu exists. */}
         <span
           style={{
@@ -268,179 +376,111 @@ export function AppShell({
         style={{
           flex: 1,
           display: 'grid',
-          gridTemplateColumns: `230px 1fr ${showDock ? '420px' : '0px'}`,
+          gridTemplateColumns,
           minHeight: 0,
+          position: 'relative',
         }}
       >
-        {/* SIDEBAR */}
-        <div
-          style={{
-            background: E.panel,
-            borderRight: `1px solid ${E.hair}`,
-            display: 'flex',
-            flexDirection: 'column',
-            padding: '16px 12px',
-            overflow: 'hidden',
-          }}
-        >
-          <Btn
-            kind="primary"
-            size="md"
-            onClick={() => navigate('/experiments?new=1')}
-            style={{
-              justifyContent: 'center',
-              padding: '10px 14px',
-              fontSize: 13,
-              marginBottom: 16,
-              boxShadow: `0 6px 20px rgba(255,140,77,0.22)`,
-            }}
-          >
-            <span style={{ fontSize: 14 }}>＋</span> New evaluation
-          </Btn>
-
-          <Eyebrow style={{ padding: '4px 10px', marginBottom: 4 }}>Workspace</Eyebrow>
-          {NAV_ITEMS.map((item) => {
-            const isActive = active === item.id;
-            const warm = item.prefetch ?? (() => {});
-            return (
-              <NavLink
-                key={item.id}
-                to={item.path}
-                end={item.path === '/'}
-                onMouseEnter={warm}
-                onFocus={warm}
-                onTouchStart={warm}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '7px 10px',
-                  borderRadius: 6,
-                  fontSize: 13,
-                  marginBottom: 1,
-                  cursor: 'pointer',
-                  background: isActive ? E.panel3 : 'transparent',
-                  color: isActive ? E.text0 : E.text2,
-                  fontWeight: isActive ? 500 : 400,
-                  border: 'none',
-                  textAlign: 'left',
-                  textDecoration: 'none',
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: isActive ? E.ember : E.text3,
-                    width: 14,
-                  }}
-                >
-                  {item.icon}
-                </span>
-                <span style={{ flex: 1 }}>{item.label}</span>
-              </NavLink>
-            );
-          })}
-
-          {PINNED.length > 0 && (
-            <>
-              <Eyebrow style={{ padding: '4px 10px', marginTop: 18, marginBottom: 4 }}>
-                Pinned runs
-              </Eyebrow>
-              {PINNED.map((p) => (
-                <button
-                  key={p.name}
-                  type="button"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '6px 10px',
-                    borderRadius: 6,
-                    fontSize: 12,
-                    color: E.text2,
-                    cursor: 'pointer',
-                    background: 'transparent',
-                    border: 'none',
-                    textAlign: 'left',
-                  }}
-                >
-                  <StatusDot status={p.status} />
-                  <span
-                    style={{
-                      flex: 1,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {p.name}
-                  </span>
-                  <span style={{ fontSize: 10, fontFamily: E.fMono, color: E.text3 }}>{p.q}</span>
-                </button>
-              ))}
-            </>
-          )}
-
-          <span style={{ flex: 1 }} />
-          <button
-            type="button"
-            disabled
-            title="Settings page coming soon. Provider keys live in evalyn.yaml today."
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '7px 10px',
-              borderRadius: 6,
-              fontSize: 12,
-              color: E.text3,
-              cursor: 'not-allowed',
-              background: 'transparent',
-              border: 'none',
-              textAlign: 'left',
-              opacity: 0.55,
-            }}
-          >
-            <span>⚙</span> Settings & keys
-          </button>
-          <button
-            type="button"
-            onClick={() => setDockOpen(!dockOpen)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '7px 10px',
-              borderRadius: 6,
-              fontSize: 12,
-              color: E.text3,
-              cursor: 'pointer',
-              background: 'transparent',
-              border: 'none',
-              textAlign: 'left',
-            }}
-          >
-            <span>◑</span> {dockOpen ? 'Hide' : 'Show'} co-pilot
-          </button>
-          <div
-            style={{
-              marginTop: 8,
-              padding: '6px 10px',
-              fontSize: 10,
-              color: E.text4,
-              fontFamily: E.fMono,
-            }}
-          >
-            Local · {(typeof window !== 'undefined' && window.location.port) || 'default'} · v2
-          </div>
-        </div>
+        {/* SIDEBAR - only rendered as a grid column on desktop/tablet.
+            On mobile it becomes a fixed slide-in drawer below. */}
+        {sidebarMode !== 'drawer' && (
+          <Sidebar
+            mode={sidebarMode}
+            active={active}
+            navigate={navigate}
+            dockOpen={dockOpen}
+            setDockOpen={setDockOpen}
+          />
+        )}
 
         {/* MAIN CONTENT */}
         <div style={{ overflow: 'auto', background: E.ink }}>{children}</div>
 
-        {/* CO-PILOT DOCK */}
-        {showDock && <CoPilotDock onClose={() => setDockOpen(false)} />}
+        {/* CO-PILOT DOCK - rendered only when open + not hidden by route.
+            Mode varies with viewport (docked column vs overlay vs sheet). */}
+        {showDock && (
+          <CoPilotDock onClose={() => setDockOpen(false)} mode={dockMode} />
+        )}
+
+        {/* Floating "Ask co-pilot" button on tablet/mobile when dock closed.
+            Sits inside the body so it visually belongs to the main area. */}
+        {!hideCoPilot && !showDock && vp !== 'desktop' && (
+          <button
+            type="button"
+            onClick={() => setDockOpen(true)}
+            aria-label="Open co-pilot"
+            style={{
+              position: 'fixed',
+              right: 18,
+              bottom: 18,
+              zIndex: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 14px',
+              borderRadius: 999,
+              background: E.ember,
+              color: E.emberInk,
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: 13,
+              fontWeight: 500,
+              boxShadow: `0 8px 24px rgba(217,106,44,0.32)`,
+            }}
+          >
+            <span style={{ fontFamily: E.fSerif, fontSize: 15 }}>e</span>
+            Ask co-pilot
+          </button>
+        )}
       </div>
+
+      {/* MOBILE NAV DRAWER - mounted always so the slide animation can play
+          on close. We drive it via transform + visibility so a closed drawer
+          is fully unreachable to keyboard nav. */}
+      {sidebarMode === 'drawer' && (
+        <>
+          {drawerOpen && (
+            <div
+              onClick={() => setDrawerOpen(false)}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                top: 56,
+                background: 'rgba(20, 18, 14, 0.45)',
+                zIndex: 850,
+                animation: 'eFadeIn 140ms ease',
+              }}
+            />
+          )}
+          <div
+            aria-hidden={!drawerOpen}
+            style={{
+              position: 'fixed',
+              top: 56,
+              left: 0,
+              bottom: 0,
+              width: 260,
+              maxWidth: '82vw',
+              background: E.panel,
+              borderRight: `1px solid ${E.hair}`,
+              zIndex: 860,
+              transform: drawerOpen ? 'translateX(0)' : 'translateX(-100%)',
+              transition: 'transform 220ms ease',
+              boxShadow: drawerOpen ? '4px 0 24px rgba(0,0,0,0.16)' : 'none',
+              visibility: drawerOpen ? 'visible' : 'hidden',
+            }}
+          >
+            <Sidebar
+              mode="full"
+              active={active}
+              navigate={navigate}
+              dockOpen={dockOpen}
+              setDockOpen={setDockOpen}
+              onAfterNavigate={() => setDrawerOpen(false)}
+            />
+          </div>
+        </>
+      )}
 
       {/* COMMAND PALETTE - rendered last so it overlays the rest of the shell. */}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
@@ -448,6 +488,201 @@ export function AppShell({
           z-index 900 sits above the dock/nav (default) but below the palette
           modal (1000) so Cmd+K stays usable while a job is streaming. */}
       <CliRunner />
+    </div>
+  );
+}
+
+interface SidebarProps {
+  mode: 'full' | 'icon';
+  active: string;
+  navigate: (to: string) => void;
+  dockOpen: boolean;
+  setDockOpen: (v: boolean) => void;
+  /** Called after a nav item is clicked - used by the mobile drawer to close. */
+  onAfterNavigate?: () => void;
+}
+
+function Sidebar({ mode, active, navigate, dockOpen, setDockOpen, onAfterNavigate }: SidebarProps) {
+  const isIcon = mode === 'icon';
+  const containerStyle: CSSProperties = {
+    background: E.panel,
+    borderRight: `1px solid ${E.hair}`,
+    display: 'flex',
+    flexDirection: 'column',
+    padding: isIcon ? '12px 6px' : '16px 12px',
+    overflow: 'hidden',
+    height: '100%',
+  };
+
+  return (
+    <div style={containerStyle}>
+      <Btn
+        kind="primary"
+        size="md"
+        onClick={() => {
+          navigate('/experiments?new=1');
+          onAfterNavigate?.();
+        }}
+        title="New evaluation"
+        style={{
+          justifyContent: 'center',
+          padding: isIcon ? '10px 0' : '10px 14px',
+          fontSize: 13,
+          marginBottom: 16,
+          boxShadow: `0 6px 20px rgba(255,140,77,0.22)`,
+        }}
+      >
+        <span style={{ fontSize: 14 }}>＋</span>
+        {!isIcon && ' New evaluation'}
+      </Btn>
+
+      {!isIcon && (
+        <Eyebrow style={{ padding: '4px 10px', marginBottom: 4 }}>Workspace</Eyebrow>
+      )}
+      {NAV_ITEMS.map((item) => {
+        const isActive = active === item.id;
+        const warm = item.prefetch ?? (() => {});
+        return (
+          <NavLink
+            key={item.id}
+            to={item.path}
+            end={item.path === '/'}
+            onMouseEnter={warm}
+            onFocus={warm}
+            onTouchStart={warm}
+            onClick={() => onAfterNavigate?.()}
+            title={isIcon ? item.label : undefined}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: isIcon ? 0 : 10,
+              justifyContent: isIcon ? 'center' : 'flex-start',
+              padding: isIcon ? '9px 0' : '7px 10px',
+              borderRadius: 6,
+              fontSize: 13,
+              marginBottom: 1,
+              cursor: 'pointer',
+              background: isActive ? E.panel3 : 'transparent',
+              color: isActive ? E.text0 : E.text2,
+              fontWeight: isActive ? 500 : 400,
+              border: 'none',
+              textAlign: 'left',
+              textDecoration: 'none',
+            }}
+          >
+            <span
+              style={{
+                fontSize: isIcon ? 14 : 12,
+                color: isActive ? E.ember : E.text3,
+                width: isIcon ? 'auto' : 14,
+              }}
+            >
+              {item.icon}
+            </span>
+            {!isIcon && <span style={{ flex: 1 }}>{item.label}</span>}
+          </NavLink>
+        );
+      })}
+
+      {!isIcon && PINNED.length > 0 && (
+        <>
+          <Eyebrow style={{ padding: '4px 10px', marginTop: 18, marginBottom: 4 }}>
+            Pinned runs
+          </Eyebrow>
+          {PINNED.map((p) => (
+            <button
+              key={p.name}
+              type="button"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '6px 10px',
+                borderRadius: 6,
+                fontSize: 12,
+                color: E.text2,
+                cursor: 'pointer',
+                background: 'transparent',
+                border: 'none',
+                textAlign: 'left',
+              }}
+            >
+              <StatusDot status={p.status} />
+              <span
+                style={{
+                  flex: 1,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {p.name}
+              </span>
+              <span style={{ fontSize: 10, fontFamily: E.fMono, color: E.text3 }}>{p.q}</span>
+            </button>
+          ))}
+        </>
+      )}
+
+      <span style={{ flex: 1 }} />
+      {!isIcon && (
+        <button
+          type="button"
+          disabled
+          title="Settings page coming soon. Provider keys live in evalyn.yaml today."
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '7px 10px',
+            borderRadius: 6,
+            fontSize: 12,
+            color: E.text3,
+            cursor: 'not-allowed',
+            background: 'transparent',
+            border: 'none',
+            textAlign: 'left',
+            opacity: 0.55,
+          }}
+        >
+          <span>⚙</span> Settings & keys
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => setDockOpen(!dockOpen)}
+        title={dockOpen ? 'Hide co-pilot' : 'Show co-pilot'}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: isIcon ? 'center' : 'flex-start',
+          gap: isIcon ? 0 : 8,
+          padding: isIcon ? '7px 0' : '7px 10px',
+          borderRadius: 6,
+          fontSize: 12,
+          color: E.text3,
+          cursor: 'pointer',
+          background: 'transparent',
+          border: 'none',
+          textAlign: 'left',
+        }}
+      >
+        <span>◑</span>
+        {!isIcon && ` ${dockOpen ? 'Hide' : 'Show'} co-pilot`}
+      </button>
+      {!isIcon && (
+        <div
+          style={{
+            marginTop: 8,
+            padding: '6px 10px',
+            fontSize: 10,
+            color: E.text4,
+            fontFamily: E.fMono,
+          }}
+        >
+          Local · {(typeof window !== 'undefined' && window.location.port) || 'default'} · v2
+        </div>
+      )}
     </div>
   );
 }

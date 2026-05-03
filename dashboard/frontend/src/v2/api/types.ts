@@ -65,6 +65,22 @@ export interface HomeSnapshot {
     body_md: string;
     actions: { label: string; kind: 'primary' | 'secondary' | 'bare'; intent: string }[];
   } | null;
+  /**
+   * 30-day spend summary. Null when no runs exist at all (empty workspace).
+   * total_30d/total_7d are USD sums where missing per-run cost is treated as 0.
+   * runs_with_cost counts only runs whose recorded cost > 0 (free runs excluded).
+   * daily_30d is one bucket per calendar day (UTC), oldest first.
+   * projected_monthly is a linear extrapolation from the 7d window;
+   * null when fewer than 3 distinct days had runs in the past 7d.
+   */
+  cost: {
+    total_30d: number;
+    total_7d: number;
+    runs_with_cost: number;
+    runs_total: number;
+    daily_30d: number[];
+    projected_monthly: number | null;
+  } | null;
 }
 
 /** /api/v2/experiments - list view rows. */

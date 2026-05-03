@@ -15,7 +15,9 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from ._shared import (
+    cost_or_zero,
     cumulative_pass_series,
+    daily_cost_buckets,
     dataset_roots,
     fmt_cost,
     get_cached_snapshot,
@@ -397,12 +399,60 @@ def _largest_dataset_delta(
     return best
 
 
+def _cost_summary(runs_30d: list[dict], anchor: datetime) -> dict | None:
+    """Build the ``HomeSnapshot.cost`` payload from the 30d run window.
+
+    Returns ``None`` when ``runs_30d`` is empty (no signal to surface).
+    Otherwise:
+      * ``total_30d`` / ``total_7d`` - sum of ``cost_or_zero`` per run.
+      * ``runs_with_cost`` - count of runs in the 30d window where
+        ``total_cost(run) > 0`` (None / 0 don't count).
+      * ``runs_total`` - len(runs_30d).
+      * ``daily_30d`` - 30-element list, one per calendar day (UTC),
+        oldest day first; built by :func:`daily_cost_buckets`.
+      * ``projected_monthly`` - simple linear projection from the 7d
+        window: ``(total_7d / actual_days_with_runs) * 30``. Set to
+        ``None`` when fewer than 3 distinct days had runs in 7d so the
+        UI doesn't extrapolate from a tiny sample.
+    """
+    if not runs_30d:
+        return None
+    week_start = anchor - timedelta(days=7)
+    total_30d = 0.0
+    total_7d = 0.0
+    runs_with_cost = 0
+    days_with_runs_7d: set = set()
+    for run in runs_30d:
+        c = cost_or_zero(run)
+        total_30d += c
+        original = total_cost(run)
+        if original is not None and original > 0:
+            runs_with_cost += 1
+        dt = parse_iso(run.get("created_at"))
+        if dt is not None and dt >= week_start:
+            total_7d += c
+            days_with_runs_7d.add(dt.date())
+    daily_30d = daily_cost_buckets(runs_30d, anchor, days=30)
+    projected: float | None = None
+    if len(days_with_runs_7d) >= 3:
+        projected = round((total_7d / len(days_with_runs_7d)) * 30.0, 2)
+    return {
+        "total_30d": round(total_30d, 4),
+        "total_7d": round(total_7d, 4),
+        "runs_with_cost": runs_with_cost,
+        "runs_total": len(runs_30d),
+        "daily_30d": [round(v, 4) for v in daily_30d],
+        "projected_monthly": projected,
+    }
+
+
 def _brief(
     latest: dict,
     runs_30d: list[dict],
     runs_newest_first: list[dict],
     attention: list[dict],
     anchor: datetime,
+    cost: dict | None = None,
 ) -> dict:
     """Compose a 1-3 sentence brief grounded in disk data.
 
@@ -486,6 +536,17 @@ def _brief(
             f"`{mid}` is the largest failure mode at {avg * 100:.1f}% pass."
         )
 
+    # Sentence 4: cost (only when meaningful and within 4-sentence cap).
+    if cost is not None and cost.get("total_30d", 0) > 0 and len(sentences) < 4:
+        spend = cost["total_30d"]
+        proj = cost.get("projected_monthly")
+        if proj is not None:
+            sentences.append(
+                f"Spend this month: ${spend:.2f} (projected ${proj:.2f})."
+            )
+        else:
+            sentences.append(f"Spend this month: ${spend:.2f}.")
+
     body = " ".join(sentences)
     return {
         "generated_at_iso": now_iso,
@@ -552,6 +613,7 @@ async def home() -> JSONResponse:
         "recent_activity": [],
         "attention": [],
         "brief": None,
+        "cost": None,
     }
 
     if not dataset_roots():
@@ -603,6 +665,8 @@ async def home() -> JSONResponse:
     snap["recent_activity"] = _recent_activity(runs_newest_first)
     attention = _attention(runs_newest_first, anchor)
     snap["attention"] = attention
-    snap["brief"] = _brief(latest, runs_30d, runs_newest_first, attention, anchor)
+    cost = _cost_summary(runs_30d, anchor)
+    snap["cost"] = cost
+    snap["brief"] = _brief(latest, runs_30d, runs_newest_first, attention, anchor, cost)
     set_cached_snapshot("home", snap)
     return JSONResponse(snap)

@@ -3,7 +3,12 @@
  * Ported 1:1 from /tmp/evalyn-v2/design-system.jsx.
  */
 
-import type { CSSProperties, MouseEventHandler, ReactNode } from 'react';
+import type {
+  CSSProperties,
+  FocusEventHandler,
+  MouseEventHandler,
+  ReactNode,
+} from 'react';
 import { E } from '../tokens';
 
 interface CardProps {
@@ -92,6 +97,10 @@ interface BtnProps {
   size?: BtnSize;
   style?: CSSProperties;
   onClick?: MouseEventHandler<HTMLButtonElement>;
+  /** Hover hook - useful for prefetching cached resources before a click. */
+  onMouseEnter?: MouseEventHandler<HTMLButtonElement>;
+  /** Focus hook - mirrors `onMouseEnter` for keyboard users. */
+  onFocus?: FocusEventHandler<HTMLButtonElement>;
   disabled?: boolean;
   type?: 'button' | 'submit' | 'reset';
   title?: string;
@@ -117,6 +126,8 @@ export function Btn({
   size = 'md',
   style,
   onClick,
+  onMouseEnter,
+  onFocus,
   disabled,
   type = 'button',
   title,
@@ -125,6 +136,8 @@ export function Btn({
     <button
       type={type}
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onFocus={onFocus}
       disabled={disabled}
       title={title}
       style={{

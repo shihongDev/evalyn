@@ -44,6 +44,10 @@ function severityColor(sev: 'fail' | 'warn' | 'info'): string {
   return E.steel;
 }
 
+function fmtUsd(n: number): string {
+  return `$${n.toFixed(2)}`;
+}
+
 function shortTime(iso: string): string {
   const then = Date.parse(iso);
   if (Number.isNaN(then)) return '';
@@ -88,7 +92,7 @@ export default function Home() {
         <div style={{ padding: '32px 36px', maxWidth: 1100 }}>
           <Eyebrow style={{ marginBottom: 8 }}>Project home</Eyebrow>
           <Skeleton w={300} h={36} style={{ marginTop: 4 }} />
-          <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 18 }}>
+          <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr', gap: 18 }}>
             <Card style={{ padding: 22 }}>
               <Eyebrow>Overall quality - 30d</Eyebrow>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 10 }}>
@@ -110,6 +114,12 @@ export default function Home() {
                   </div>
                 ))}
               </div>
+            </Card>
+            <Card style={{ padding: 22 }}>
+              <Eyebrow>Spend this month</Eyebrow>
+              <Skeleton w={100} h={36} style={{ marginTop: 10 }} />
+              <Skeleton w="80%" h={11} style={{ marginTop: 10 }} />
+              <Skeleton w="100%" h={28} style={{ marginTop: 12, borderRadius: 4 }} />
             </Card>
           </div>
           <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 18 }}>
@@ -197,8 +207,8 @@ export default function Home() {
           A jobs-to-be-done view of the assistant's quality. Last 30 days - {q.graded_items.toLocaleString()} graded items - {snap.active_experiments.length} active experiments.
         </p>
 
-        {/* HERO QUALITY */}
-        <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 18 }}>
+        {/* HERO QUALITY + SUB-METRICS + COST */}
+        <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: snap.cost ? '1.6fr 1fr 1fr' : '1.6fr 1fr', gap: 18 }}>
           <Card style={{ padding: 22 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
               <div>
@@ -293,6 +303,34 @@ export default function Home() {
               </div>
             )}
           </Card>
+
+          {snap.cost && (
+            <Card style={{ padding: 22 }}>
+              <Eyebrow>Spend this month</Eyebrow>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 10 }}>
+                <span style={{ fontFamily: E.fSerif, fontSize: 36, color: E.text0, lineHeight: 1, fontWeight: 400 }}>
+                  {fmtUsd(snap.cost.total_30d)}
+                </span>
+              </div>
+              <div style={{ marginTop: 8, fontSize: 11.5, color: E.text2, fontFamily: E.fMono, lineHeight: 1.5 }}>
+                {fmtUsd(snap.cost.total_7d)} last 7 days
+                {snap.cost.projected_monthly != null && (
+                  <>
+                    {' - '}
+                    <span style={{ color: E.text3 }}>Projected monthly: {fmtUsd(snap.cost.projected_monthly)}</span>
+                  </>
+                )}
+              </div>
+              {snap.cost.daily_30d.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <Spark data={snap.cost.daily_30d} color={E.steel} w={260} h={28} />
+                </div>
+              )}
+              <div style={{ marginTop: 10, fontSize: 11, color: E.text3, lineHeight: 1.45 }}>
+                {snap.cost.runs_with_cost} of {snap.cost.runs_total} runs incurred LLM-judge cost. Free runs use programmatic-only metrics.
+              </div>
+            </Card>
+          )}
         </div>
 
         {/* THREE-COL: Active experiments | Recent activity | Attention */}

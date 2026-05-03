@@ -1,14 +1,22 @@
 /**
- * CoPilotDock - the right-side 420px dock variant of the co-pilot.
+ * CoPilotDock - the right-side dock variant of the co-pilot.
+ *
+ * Layout adapts via the `mode` prop:
+ *   - 'docked'  : in-grid 420px column on desktop (default).
+ *   - 'overlay' : fixed 420px panel slid in from the right (tablet).
+ *   - 'sheet'   : fixed bottom sheet, ~75vh tall (mobile).
+ *
  * Wired to /api/agent/chat + /ws/agent/{tid} via useCoPilotThread.
  */
 
-import { useRef, useState } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { E } from '../tokens';
 import { Btn, Pill } from '../ui';
 import { Bubble, PlanCard, ToolBlock } from './atoms';
 import { useCoPilotThread } from './useCoPilotThread';
+
+export type CoPilotDockMode = 'docked' | 'overlay' | 'sheet';
 
 const EXAMPLE_PROMPTS = [
   "What's my pass rate trend?",
@@ -16,7 +24,13 @@ const EXAMPLE_PROMPTS = [
   'Explain my rubric',
 ];
 
-export function CoPilotDock({ onClose }: { onClose: () => void }) {
+interface CoPilotDockProps {
+  onClose: () => void;
+  /** Layout mode. Defaults to 'docked' for backwards compatibility. */
+  mode?: CoPilotDockMode;
+}
+
+export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
   const { messages, pending, send, confirm, status, threadId } = useCoPilotThread();
   const [draft, setDraft] = useState('');
   const navigate = useNavigate();
@@ -38,16 +52,72 @@ export function CoPilotDock({ onClose }: { onClose: () => void }) {
     void send(t);
   };
 
+  // Per-mode wrapper styles. The dock body markup itself is identical across
+  // modes; only positioning + animation change here.
+  const wrapperStyle: CSSProperties =
+    mode === 'overlay'
+      ? {
+          position: 'fixed',
+          top: 56,
+          right: 0,
+          bottom: 0,
+          width: 420,
+          maxWidth: '92vw',
+          background: E.panel,
+          borderLeft: `1px solid ${E.hair}`,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          zIndex: 800,
+          boxShadow: '-8px 0 24px rgba(0,0,0,0.16)',
+          animation: 'eSlideInRight 220ms ease',
+        }
+      : mode === 'sheet'
+        ? {
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: '75vh',
+            background: E.panel,
+            borderTop: `1px solid ${E.hair}`,
+            borderTopLeftRadius: 14,
+            borderTopRightRadius: 14,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            zIndex: 800,
+            boxShadow: '0 -8px 24px rgba(0,0,0,0.18)',
+            animation: 'eSlideUp 220ms ease',
+          }
+        : {
+            background: E.panel,
+            borderLeft: `1px solid ${E.hair}`,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          };
+
+  // Backdrop click closes the floating modes. Docked mode renders no backdrop.
+  const backdrop =
+    mode === 'docked' ? null : (
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          top: mode === 'overlay' ? 56 : 0,
+          background: 'rgba(20, 18, 14, 0.45)',
+          zIndex: 790,
+          animation: 'eFadeIn 140ms ease',
+        }}
+      />
+    );
+
   return (
-    <div
-      style={{
-        background: E.panel,
-        borderLeft: `1px solid ${E.hair}`,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
-    >
+    <>
+      {backdrop}
+      <div style={wrapperStyle}>
       <div
         style={{
           padding: '14px 18px',
@@ -232,6 +302,7 @@ export function CoPilotDock({ onClose }: { onClose: () => void }) {
           Read-only commands run automatically · writes ask first
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

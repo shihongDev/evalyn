@@ -13,15 +13,39 @@
  * TODO: prefill the composer once CoPilotThread reads ?prefill=
  */
 
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Card, Eyebrow, Btn, Skeleton, UpdatingChip } from '../ui';
 import { listCli, commandGroup, commandSummary } from '../api/cli';
-import type { CliSchema } from '../api/cli';
+import type { CliParam, CliSchema } from '../api/cli';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { openCliRunner } from '../cliRunnerBridge';
 import { E } from '../tokens';
+
+/**
+ * Coerce a string query-param value into the shape expected by a given
+ * `CliParam`. Best-effort: bool from "true|1|yes|on", number via Number,
+ * multiselect from comma-split. Strings/paths/long-text/select pass through
+ * unchanged - the existing CliRunner kind-dispatch handles those.
+ */
+function coerceParam(p: CliParam, raw: string): unknown {
+  if (p.kind === 'bool') {
+    const v = raw.trim().toLowerCase();
+    return v === 'true' || v === '1' || v === 'yes' || v === 'on';
+  }
+  if (p.kind === 'number') {
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : raw;
+  }
+  if (p.kind === 'multiselect') {
+    return raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return raw;
+}
 
 function groupCommands(cmds: CliSchema[]): { group: string; items: CliSchema[] }[] {
   const buckets = new Map<string, CliSchema[]>();
@@ -78,6 +102,40 @@ export default function Commands() {
   );
   const [query, setQuery] = useState('');
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Fire the deep-link auto-open at most once per page load. We can't rely
+  // on the URL being clean after we strip the params (replaceState races
+  // with the catalog fetch), so a ref is the cleanest one-shot guard.
+  const deepLinkFiredRef = useRef(false);
+
+  useEffect(() => {
+    if (deepLinkFiredRef.current) return;
+    if (!cmds) return;
+    const prefill = searchParams.get('prefill');
+    if (!prefill) return;
+    const cmd = cmds.find((c) => c.id === prefill);
+    if (!cmd) {
+      // Bad/unknown command id: drop the param so a reload doesn't loop.
+      deepLinkFiredRef.current = true;
+      const next = new URLSearchParams(searchParams);
+      next.delete('prefill');
+      setSearchParams(next, { replace: true });
+      return;
+    }
+    const initialValues: Record<string, unknown> = {};
+    for (const p of cmd.params) {
+      const v = searchParams.get(p.name);
+      if (v != null) initialValues[p.name] = coerceParam(p, v);
+    }
+    deepLinkFiredRef.current = true;
+    openCliRunner(cmd, { initialValues });
+    // Strip ?prefill= and any consumed param names so a reload (or a back
+    // nav into this page) doesn't re-fire the runner.
+    const next = new URLSearchParams(searchParams);
+    next.delete('prefill');
+    for (const p of cmd.params) next.delete(p.name);
+    setSearchParams(next, { replace: true });
+  }, [cmds, searchParams, setSearchParams]);
 
   const grouped = useMemo(() => {
     if (!cmds) return null;
