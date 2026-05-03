@@ -83,6 +83,11 @@ export interface PendingConfirmation {
   args: Record<string, unknown>;
   /** Equivalent shell command for preview. */
   previewCmd: string;
+  /** Plain-English bullets describing the side-effects of approving this
+   *  call (P1 spec §5.5). The runtime emits this on every
+   *  `confirmation_required` event keyed off `SIDE_EFFECTS` in agent.py;
+   *  unknown tools fall back to a generic "this is a write command" line. */
+  sideEffects?: string[];
 }
 
 export interface AgentState {
@@ -155,6 +160,8 @@ export interface AgentConfirmationRequiredEvent {
   tool: string;
   args: Record<string, unknown>;
   preview_cmd: string;
+  /** Curated "THIS WILL" bullets emitted by the runtime (P1 spec §5.5). */
+  side_effects?: string[];
   ts?: string;
 }
 

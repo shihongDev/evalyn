@@ -24,6 +24,11 @@ from __future__ import annotations
 # Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
 GROUP = "Dataset"
 
+# Non-required params worth exposing in the default form. build-dataset is
+# almost always scoped to a project and capped to a size. Read by
+# evalyn_dashboard.introspect.build_catalog.
+ESSENTIAL = {"project", "limit"}
+
 import argparse
 import os
 from datetime import datetime, timezone

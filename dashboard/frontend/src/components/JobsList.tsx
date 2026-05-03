@@ -21,6 +21,8 @@ import { useEffect, useState } from 'react';
 import { useStore } from '../store';
 import type { Job } from '../types/jobs';
 import { api } from '../api';
+import Skeleton from './Skeleton';
+import { useBootGrace } from '../lib/useBootGrace';
 
 const STATUS_LABEL: Record<Job['status'], string> = {
   pending: '… pending',
@@ -184,6 +186,7 @@ const JobsList = () => {
   const hasRunning = Array.from(jobs.values()).some((j) => j.status === 'running');
   // Tick every second while any job is running so elapsed-time labels update.
   const now = useNow(hasRunning, 1000);
+  const inBootGrace = useBootGrace(1500);
 
   // Most-recent first: by `startedAt`, falling back to insertion order.
   const rows = Array.from(jobs.values()).sort((a, b) => {
@@ -191,6 +194,11 @@ const JobsList = () => {
     const bt = b.startedAt ?? 0;
     return bt - at;
   });
+
+  // Skeleton: rendered when the jobs map is empty AND we're still inside the
+  // boot-fetch grace window. After the window expires, falls through to the
+  // existing "No jobs yet." empty state.
+  const showSkeleton = rows.length === 0 && inBootGrace;
 
   return (
     <div className="mono" style={{ fontSize: 11, height: '100%', overflow: 'auto' }}>
@@ -213,9 +221,11 @@ const JobsList = () => {
         <span>elapsed</span>
         <span />
       </div>
-      {rows.length === 0 ? (
-        <div className="text-3" style={{ padding: '12px 0', fontSize: 11 }}>
-          {'// no jobs yet — run a CLI from the catalog to start one'}
+      {showSkeleton ? (
+        <Skeleton rows={3} height={28} testId="jobs-list-skeleton" />
+      ) : rows.length === 0 ? (
+        <div className="text-3" style={{ padding: '12px 0', fontSize: 12 }}>
+          No jobs yet.
         </div>
       ) : (
         rows.map((job) => <JobRow key={job.id} job={job} now={now} />)

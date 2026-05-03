@@ -19,28 +19,57 @@ const renderField = (param: ParamSchema, value: unknown = '') => {
 };
 
 describe('ParamField - bool', () => {
-  test('renders true / false buttons', () => {
+  test('renders default / on / off buttons', () => {
     renderField({ name: 'verbose', kind: 'bool', default: false });
-    expect(screen.getByRole('button', { name: 'true' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'false' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'default' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'on' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'off' })).toBeInTheDocument();
   });
 
-  test('clicking true calls onChange(true)', () => {
+  test('clicking on calls onChange(true)', () => {
     const { onChange } = renderField(
       { name: 'verbose', kind: 'bool', default: false },
       false,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'true' }));
+    fireEvent.click(screen.getByRole('button', { name: 'on' }));
     expect(onChange).toHaveBeenCalledWith(true);
   });
 
-  test('clicking false calls onChange(false)', () => {
+  test('clicking off calls onChange(false)', () => {
     const { onChange } = renderField(
       { name: 'verbose', kind: 'bool', default: false },
       true,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'false' }));
+    fireEvent.click(screen.getByRole('button', { name: 'off' }));
     expect(onChange).toHaveBeenCalledWith(false);
+  });
+
+  test('clicking default calls onChange with the param default (so buildCli skips the flag)', () => {
+    const { onChange } = renderField(
+      { name: 'verbose', kind: 'bool', default: false },
+      true,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'default' }));
+    // default = false on this param, so "default" mode stores false to make
+    // buildCli's `cur === def` skip path fire.
+    expect(onChange).toHaveBeenCalledWith(false);
+  });
+
+  test('default mode reflected on first render when value equals param.default', () => {
+    renderField({ name: 'verbose', kind: 'bool', default: false }, false);
+    const def = screen.getByRole('button', { name: 'default' });
+    expect(def).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('on mode reflected when value differs from default', () => {
+    renderField({ name: 'verbose', kind: 'bool', default: false }, true);
+    const on = screen.getByRole('button', { name: 'on' });
+    expect(on).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('shows resolved default below the segment control', () => {
+    renderField({ name: 'verbose', kind: 'bool', default: true });
+    expect(screen.getByText(/default = true/)).toBeInTheDocument();
   });
 });
 
@@ -83,6 +112,46 @@ describe('ParamField - number', () => {
     const input = screen.getByLabelText(/workers/i) as HTMLInputElement;
     fireEvent.change(input, { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith('');
+  });
+
+  test('number kind WITH range renders slider + unit suffix', () => {
+    const { container } = renderField(
+      {
+        name: 'workers',
+        kind: 'number',
+        default: 4,
+        range: { min: 1, max: 16 },
+        unit: 'threads',
+      },
+      4,
+    );
+    // Numeric input still present (lookup by id since the unit suffix would
+    // otherwise also match a label-based query).
+    const input = container.querySelector('#p-workers') as HTMLInputElement;
+    expect(input).not.toBeNull();
+    expect(input.type).toBe('number');
+    // Slider rendered alongside, addressable by aria-label.
+    const slider = screen.getByLabelText(/workers slider/i) as HTMLInputElement;
+    expect(slider.type).toBe('range');
+    expect(slider.min).toBe('1');
+    expect(slider.max).toBe('16');
+    // Unit label is rendered as a suffix.
+    expect(screen.getByText('threads')).toBeInTheDocument();
+  });
+
+  test('slider drag fires onChange with the new numeric value', () => {
+    const { onChange } = renderField(
+      {
+        name: 'workers',
+        kind: 'number',
+        default: 4,
+        range: { min: 1, max: 16 },
+      },
+      4,
+    );
+    const slider = screen.getByLabelText(/workers slider/i) as HTMLInputElement;
+    fireEvent.change(slider, { target: { value: '8' } });
+    expect(onChange).toHaveBeenCalledWith(8);
   });
 });
 
@@ -142,7 +211,7 @@ describe('ParamField - path', () => {
   test('renders an input with path placeholder', () => {
     renderField({ name: 'dataset', kind: 'path' }, '');
     const input = screen.getByLabelText(/dataset/i) as HTMLInputElement;
-    expect(input.placeholder).toBe('./...');
+    expect(input.placeholder).toBe('path/to/file or directory');
   });
 });
 

@@ -18,7 +18,14 @@ The close handler captures `conn` in its closure but `conn` is the same object m
 
 ## LOW
 
-(none currently)
+### Compare-two-runs side-by-side view (deferred)
+
+The Workspace's run history feed renders one card per run with collapse/expand,
+Edit, Pin, and Remove actions. A side-by-side diff view ("compare run A vs run B,
+arg-diff + metric-diff + log-diff") is intentionally deferred. Sketch when picked
+up: pin two runs and add a "Compare" button on the Pinned row that opens a
+two-column panel; reuse the existing `diffArgs` helper in
+`views/Workspace.tsx` / `views/RunCard.tsx`. Layout TBD.
 
 ### 3. AgentRuntime.subscribe race (agent.py:700-713)
 
@@ -28,12 +35,8 @@ Same pattern as #1: events emitted between replay and subscriber registration ar
 
 ### 4. ToolCallCard confirm doesn't pass call.id (ChatPanel.tsx:208-219)
 
-`confirmAgent(approve)` reads `agent.pendingConfirmation.toolCallId` from store; the per-card button never passes its own `call.id`. With multiple stale confirmation cards (e.g. after WS replay), clicking any card confirms whatever is currently pending, not the card clicked.
-
-**Fix sketch:** add `tool_call_id` parameter to `confirmAgent`, validate it matches `pendingConfirmation.toolCallId`.
+RESOLVED 2026-05-01 (feat/dashboard-ux-p0). ToolCallCard now passes `call.id` to `confirmAgent(approve, toolCallId)`; the store validates it against `pendingConfirmation.toolCallId` before posting and refuses (with a console warning) on mismatch. Fixed in tandem with #5.
 
 ### 5. /api/agent/chat/{thread_id}/confirm ignores tool_call_id (api/agent.py:57-65)
 
-Endpoint accepts `tool_call_id` in body but doesn't pass it to `AgentRuntime.confirm`. Currently safe (single asyncio.Event per thread), but a malicious concurrent request could inject a confirmation. Tied to #4.
-
-**Fix sketch:** plumb `tool_call_id` through `AgentRuntime.confirm` and validate against pending gate before setting Event.
+RESOLVED 2026-05-01 (feat/dashboard-ux-p0). The route now reads `tool_call_id` from the body and forwards it to `AgentRuntime.confirm`, which validates against the per-thread `pending_tool_call_id` (set when the gate is armed in `_execute_tool_call`). Mismatches return HTTP 409 instead of silently flipping the wrong gate. The `tool_call_id` parameter remains optional in `AgentRuntime.confirm` to preserve backward compatibility with existing tests.

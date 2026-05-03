@@ -32,6 +32,25 @@ from __future__ import annotations
 # Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
 GROUP = "Simulation"
 
+# Non-required params worth exposing in the default dashboard form. The seed
+# dataset is required; --target wires the agent function and the two count
+# knobs are how you scale generation up or down.
+ESSENTIAL = {"target", "num_similar", "num_outlier"}
+
+# Slider hints for the integer count and float temperature knobs.
+RANGES = {
+    "num_similar": (0, 20, 1),
+    "num_outlier": (0, 20, 1),
+    "max_seeds": (1, 500, 1),
+    "temp_similar": (0.0, 2.0, 0.05),
+    "temp_outlier": (0.0, 2.0, 0.05),
+}
+UNITS = {
+    "num_similar": "per seed",
+    "num_outlier": "per seed",
+    "max_seeds": "seeds",
+}
+
 import argparse
 import json
 from datetime import datetime

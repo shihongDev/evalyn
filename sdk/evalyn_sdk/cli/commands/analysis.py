@@ -28,6 +28,12 @@ from __future__ import annotations
 # Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
 GROUP = "Analysis"
 
+# Non-required params worth exposing in the default dashboard form. Across the
+# five subcommands (status / validate / analyze / compare / trend), the names
+# below are the ones a beginner reaches for first — explicit dataset / run
+# selection plus the project filter for trend.
+ESSENTIAL = {"dataset", "run", "run1", "run2", "project"}
+
 import argparse
 import json
 import re

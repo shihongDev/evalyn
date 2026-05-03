@@ -1,8 +1,5 @@
 /**
  * Smoke test for TitleBar.
- *
- * Verifies the component mounts without throwing and exposes the
- * localhost chip + ⌘K palette button.
  */
 
 import { describe, expect, test, beforeEach } from 'vitest';
@@ -15,32 +12,26 @@ beforeEach(() => {
 });
 
 describe('TitleBar', () => {
-  test('renders localhost chip', () => {
+  test('renders local-server chip', () => {
     render(<TitleBar />);
-    expect(screen.getByText('localhost:7401')).toBeInTheDocument();
+    expect(screen.getByText(/Local · 7401/)).toBeInTheDocument();
   });
 
-  test('renders ⌘K kbd', () => {
+  test('renders evalyn brand mark', () => {
     render(<TitleBar />);
-    expect(screen.getByText('⌘K')).toBeInTheDocument();
+    expect(screen.getByText('evalyn')).toBeInTheDocument();
   });
 
-  test('renders evalyn workbench wordmark', () => {
-    render(<TitleBar />);
-    expect(screen.getByText(/evalyn/i)).toBeInTheDocument();
-    expect(screen.getByText(/workbench/i)).toBeInTheDocument();
-  });
-
-  test('breadcrumbs reflect active tab', () => {
+  test('shows active tab title in title bar', () => {
     useStore.getState().addTab({ id: 'cli:run-eval', title: 'run-eval', kind: 'cli' });
     render(<TitleBar />);
-    expect(screen.getByText(/run-eval/)).toBeInTheDocument();
+    expect(screen.getByText('run-eval')).toBeInTheDocument();
   });
 
-  test('clicking the gear opens the settings modal', () => {
+  test('clicking Settings opens the settings modal', () => {
     render(<TitleBar />);
     expect(useStore.getState().settingsOpen).toBe(false);
-    fireEvent.click(screen.getByLabelText('Workspace settings'));
+    fireEvent.click(screen.getByText('Settings'));
     expect(useStore.getState().settingsOpen).toBe(true);
   });
 });

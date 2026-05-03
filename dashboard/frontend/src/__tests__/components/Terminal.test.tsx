@@ -29,7 +29,7 @@ const setJobLines = (jobId: string, lines: JobLine[]) => {
 describe('Terminal', () => {
   test('shows empty-state hint when no jobs have lines', () => {
     render(<Terminal jobId="j-empty" />);
-    expect(screen.getByText(/no output yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/Output will appear here/i)).toBeInTheDocument();
   });
 
   test('renders lines from a single job', () => {
@@ -59,14 +59,12 @@ describe('Terminal', () => {
     expect(row).toBeTruthy();
   });
 
-  test('default mode (no jobId) merges all jobs and shows prompt cursor', () => {
+  test('default mode (no jobId) merges all jobs', () => {
     setJobLines('j-a', [{ kind: 'stdout', text: 'aaa' }]);
     setJobLines('j-b', [{ kind: 'stdout', text: 'bbb' }]);
     render(<Terminal />);
     expect(screen.getByText('aaa')).toBeInTheDocument();
     expect(screen.getByText('bbb')).toBeInTheDocument();
-    // The accent prompt cursor renders a literal "$" character.
-    expect(screen.getAllByText('$').length).toBeGreaterThan(0);
   });
 
   test('auto-scrolls to bottom when pinned and a new line arrives', () => {

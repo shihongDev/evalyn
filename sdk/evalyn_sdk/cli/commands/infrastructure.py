@@ -31,6 +31,17 @@ from __future__ import annotations
 # Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
 GROUP = "Infrastructure"
 
+# Non-required params worth exposing in the default dashboard form. one-click is
+# the highest-traffic command in this module: --target lets users point at their
+# agent, --dataset-limit caps the work, and --metric-mode picks the strategy.
+# init's useful default-visible knobs are --output (path to write the YAML)
+# and --dir (where to create it).
+ESSENTIAL = {"target", "dataset_limit", "metric_mode", "output", "dir"}
+
+# Slider hints for the common numeric knobs.
+RANGES = {"dataset_limit": (1, 1000, 10), "annotation_limit": (0, 200, 1)}
+UNITS = {"dataset_limit": "items", "annotation_limit": "items"}
+
 import argparse
 import shutil
 from datetime import datetime

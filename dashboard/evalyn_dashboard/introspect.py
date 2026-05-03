@@ -35,6 +35,126 @@ LONG_TEXT_NAMES = {
     "instructions",
 }
 
+# Range / unit extraction from argparse ``help=`` strings. Best-effort; both
+# fields are optional in the public schema and any failure to extract just
+# leaves the field None (CLIs without recognizable hints render the bare
+# numeric input).
+
+# Match patterns like "(>= 1)", "<=16", "min: 0", "max: 100", "range: 1-32",
+# "1-16", "1..16". Numbers may be ints or floats. We deliberately anchor on
+# explicit prefix tokens so a stray "...max 16 retries..." in prose doesn't
+# accidentally match — except for the bare "N-M" pattern which is parenthesised
+# below to reduce false positives.
+_RANGE_MIN_MAX_RE = re.compile(
+    r"\brange[:=]?\s*(-?\d+(?:\.\d+)?)\s*(?:-|to|\.\.|,)\s*(-?\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+_RANGE_PAREN_RE = re.compile(
+    r"\(\s*(-?\d+(?:\.\d+)?)\s*(?:-|to|\.\.)\s*(-?\d+(?:\.\d+)?)\s*\)"
+)
+_RANGE_GE_LE_RE = re.compile(
+    r"(>=|>|min[:=]?\s*)\s*(-?\d+(?:\.\d+)?)\b.*?(<=|<|max[:=]?\s*)\s*(-?\d+(?:\.\d+)?)\b",
+    re.IGNORECASE | re.DOTALL,
+)
+
+# Unit extraction: "default: 4 workers" -> "workers". Trailing word right
+# after the default literal. Restricted to a-z so we don't pick up trailing
+# punctuation, model names, or paths.
+_UNIT_AFTER_DEFAULT_RE = re.compile(
+    r"default[:=]?\s*-?\d+(?:\.\d+)?\s+([a-z][a-z\-]{1,16})\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_range_from_help(help_text: str) -> NumberRange | None:
+    """Best-effort range extraction from an argparse help string."""
+    if not help_text:
+        return None
+    # Prefer the explicit "range:" form, then parenthesised "(N-M)", then the
+    # min/max pair.
+    for regex in (_RANGE_MIN_MAX_RE, _RANGE_PAREN_RE):
+        m = regex.search(help_text)
+        if m:
+            try:
+                lo = float(m.group(1))
+                hi = float(m.group(2))
+            except ValueError:
+                continue
+            if hi > lo:
+                return NumberRange(min=lo, max=hi)
+    m = _RANGE_GE_LE_RE.search(help_text)
+    if m:
+        try:
+            lo = float(m.group(2))
+            hi = float(m.group(4))
+        except ValueError:
+            return None
+        if hi > lo:
+            return NumberRange(min=lo, max=hi)
+    return None
+
+
+def _extract_unit_from_help(help_text: str) -> str | None:
+    """Best-effort unit extraction from an argparse help string."""
+    if not help_text:
+        return None
+    m = _UNIT_AFTER_DEFAULT_RE.search(help_text)
+    if not m:
+        return None
+    unit = m.group(1).strip()
+    # Drop the obvious junk: "the", "a", "an" tend to slip in if a help string
+    # reads "default: 4 the something". Empty / single-char picks are dropped.
+    if not unit or len(unit) < 2:
+        return None
+    if unit.lower() in {"the", "and", "for", "of", "to", "with"}:
+        return None
+    return unit
+
+
+def _normalise_range(rng: NumberRange | tuple) -> NumberRange | None:
+    """Coerce a tuple-or-NumberRange to a validated NumberRange.
+
+    Tolerates 2-tuples ``(min, max)`` and 3-tuples ``(min, max, step)``.
+    Returns None if the result is invalid (min >= max, negative step, ...).
+    """
+    if isinstance(rng, NumberRange):
+        candidate = rng
+    elif isinstance(rng, (tuple, list)) and len(rng) in (2, 3):
+        try:
+            lo = float(rng[0])
+            hi = float(rng[1])
+        except (TypeError, ValueError):
+            return None
+        step: float | None = None
+        if len(rng) == 3 and rng[2] is not None:
+            try:
+                step = float(rng[2])
+            except (TypeError, ValueError):
+                step = None
+        candidate = NumberRange(min=lo, max=hi, step=step)
+    else:
+        return None
+    # Validation: reject min > max, NaN, and non-positive step.
+    if not (candidate.max > candidate.min):
+        return None
+    if candidate.step is not None and candidate.step <= 0:
+        return None
+    return candidate
+
+
+@dataclass
+class NumberRange:
+    """Optional numeric range hint for a number-kind parameter.
+
+    Mirrors the ``range`` field on ``ParamSchema`` in
+    ``dashboard/frontend/src/types/catalog.ts``. ``step`` is optional; the
+    frontend infers a sensible step from ``(max - min) / 100`` when absent.
+    """
+
+    min: float
+    max: float
+    step: float | None = None
+
 
 @dataclass
 class ParamSchema:
@@ -51,6 +171,9 @@ class ParamSchema:
     help: str | None = None
     required: bool = False
     advanced: bool = False
+    essential: bool = False
+    range: NumberRange | None = None
+    unit: str | None = None
 
 
 @dataclass
@@ -103,6 +226,9 @@ def introspect_parser(
     *,
     group: str = "Misc",
     advanced: Iterable[str] | None = None,
+    essential: Iterable[str] | None = None,
+    ranges: dict[str, Any] | None = None,
+    units: dict[str, str] | None = None,
 ) -> CliSchema:
     """Convert an ``argparse.ArgumentParser`` into a :class:`CliSchema`.
 
@@ -110,8 +236,16 @@ def introspect_parser(
     want the bare subcommand id (e.g. ``run-eval`` instead of
     ``evalyn run-eval``) should override after the call. ``build_catalog``
     does that.
+
+    ``ranges`` / ``units`` are optional per-module overrides keyed by argparse
+    ``dest``. When omitted, the introspector falls back to a help-string regex
+    sweep. Both fields are optional in the output schema; CLIs without
+    recognizable hints just render the bare numeric input.
     """
     advanced_set: set[str] = set(advanced or ())
+    essential_set: set[str] = set(essential or ())
+    ranges = ranges or {}
+    units = units or {}
     params: list[ParamSchema] = []
     for action in parser._actions:
         # Skip auto-generated --help / --version actions that argparse adds
@@ -129,6 +263,22 @@ def introspect_parser(
         is_positional = not action.option_strings
         required = bool(getattr(action, "required", False)) or is_positional
 
+        # Range + unit are number-only annotations. Per-module dicts win over
+        # help-string regex; both are best-effort and may stay None.
+        param_range: NumberRange | None = None
+        param_unit: str | None = None
+        if kind == "number":
+            if action.dest in ranges:
+                param_range = _normalise_range(ranges[action.dest])
+            if param_range is None:
+                param_range = _extract_range_from_help(action.help or "")
+            if action.dest in units:
+                raw_unit = units[action.dest]
+                if isinstance(raw_unit, str) and raw_unit.strip():
+                    param_unit = raw_unit.strip()
+            if param_unit is None:
+                param_unit = _extract_unit_from_help(action.help or "")
+
         params.append(
             ParamSchema(
                 name=action.dest,
@@ -138,6 +288,9 @@ def introspect_parser(
                 help=action.help,
                 required=required,
                 advanced=action.dest in advanced_set,
+                essential=action.dest in essential_set,
+                range=param_range,
+                unit=param_unit,
             )
         )
 
@@ -222,6 +375,9 @@ def build_catalog() -> list[CliSchema]:
         module_short = module_path.rsplit(".", 1)[-1]
         group = getattr(mod, "GROUP", None) or _DEFAULT_GROUPS.get(module_short, "Misc")
         advanced: Iterable[str] = getattr(mod, "ADVANCED", set())
+        essential: Iterable[str] = getattr(mod, "ESSENTIAL", set())
+        ranges: dict[str, Any] = getattr(mod, "RANGES", {}) or {}
+        units: dict[str, str] = getattr(mod, "UNITS", {}) or {}
 
         # Build a throwaway parser to capture whatever subparsers the module
         # registers. Multiple modules can register against the same root
@@ -242,7 +398,14 @@ def build_catalog() -> list[CliSchema]:
             # subparser.prog is "evalyn <sub_name>"; we want bare ``sub_name``
             # as the id (matches the `cli_id` used by /api/cli/run).
             help_text = _subparser_help(subs, sub_name)
-            schema = introspect_parser(sub_parser, group=group, advanced=advanced)
+            schema = introspect_parser(
+                sub_parser,
+                group=group,
+                advanced=advanced,
+                essential=essential,
+                ranges=ranges,
+                units=units,
+            )
             schema.id = sub_name
             schema.name = sub_name
             if not schema.blurb and help_text:
@@ -258,8 +421,10 @@ def schema_to_dict(item: CliSchema | ParamSchema) -> dict[str, Any]:
 
     Drops optional fields whose value is ``None`` so the output validates
     against ``catalog.schema.json``. Keeps ``help: null`` (the schema accepts
-    null for that field) but omits ``options`` and ``default`` when they
-    are ``None``.
+    null for that field) but omits ``options``, ``default``, ``range``, and
+    ``unit`` when they are ``None``. ``range`` (a nested dataclass) is
+    serialised by ``asdict`` automatically, then drops its own ``step`` if
+    None so the JSON Schema's ``additionalProperties: false`` can stay tight.
     """
     raw = asdict(item)
     # ``options`` schema is ``type: array``; null is invalid -> drop.
@@ -269,6 +434,14 @@ def schema_to_dict(item: CliSchema | ParamSchema) -> dict[str, Any]:
     # match the optional TS field.
     if "default" in raw and raw["default"] is None:
         del raw["default"]
+    # range / unit are optional ParamSchema annotations; drop when absent.
+    if "range" in raw:
+        if raw["range"] is None:
+            del raw["range"]
+        elif isinstance(raw["range"], dict) and raw["range"].get("step") is None:
+            raw["range"] = {k: v for k, v in raw["range"].items() if k != "step"}
+    if "unit" in raw and raw["unit"] is None:
+        del raw["unit"]
     if "params" in raw:
         raw["params"] = [
             schema_to_dict(p) if is_dataclass(p) else _drop_nones(p)
@@ -283,6 +456,12 @@ def _drop_nones(d: dict[str, Any]) -> dict[str, Any]:
         out.pop("options", None)
     if out.get("default") is None:
         out.pop("default", None)
+    if out.get("range") is None:
+        out.pop("range", None)
+    elif isinstance(out.get("range"), dict) and out["range"].get("step") is None:
+        out["range"] = {k: v for k, v in out["range"].items() if k != "step"}
+    if out.get("unit") is None:
+        out.pop("unit", None)
     return out
 
 

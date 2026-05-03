@@ -1,26 +1,28 @@
 /**
- * Sidebar - Files / CLIs / Runs tab strip + content panes.
+ * Sidebar - Commands / Eval runs / History tab strip + content panes.
  *
- * Ported from /tmp/evalyn-dashboard-mock/wb-app.jsx (Sidebar). The tab strip
- * + collapsible icon rail was scaffolded by Lane A5; this lane plugs in the
- * three real inner views (FileTree, CliCatalog, RunsList).
+ * The Files tab was hidden in the P0 trust pass: clicking files opened
+ * "coming soon" tabs. FileTree.tsx remains for when /api/files/read gets
+ * wired to a real viewer.
  */
 
 import { useStore, type SidebarView } from '../store';
-import FileTree from './FileTree';
 import CliCatalog from './CliCatalog';
 import RunsList from './RunsList';
+import JobsList from './JobsList';
 
 const ICON_BY_VIEW: Record<SidebarView, string> = {
   files: '▤',
   clis: '$',
   runs: '▶',
+  jobs: '◷',
 };
 
 const LABEL_BY_VIEW: Record<SidebarView, string> = {
   files: 'Files',
-  clis: 'CLIs',
-  runs: 'Runs',
+  clis: 'Commands',
+  runs: 'Eval runs',
+  jobs: 'History',
 };
 
 const Sidebar = () => {
@@ -43,7 +45,7 @@ const Sidebar = () => {
           flexShrink: 0,
         }}
       >
-        {(['files', 'clis', 'runs'] as const).map((id) => (
+        {(['clis', 'runs', 'jobs'] as const).map((id) => (
           <button
             key={id}
             type="button"
@@ -77,7 +79,7 @@ const Sidebar = () => {
       }}
     >
       <div style={{ display: 'flex', padding: '10px 12px 4px', gap: 4 }}>
-        {(['files', 'clis', 'runs'] as const).map((id) => (
+        {(['clis', 'runs', 'jobs'] as const).map((id) => (
           <button
             key={id}
             type="button"
@@ -94,9 +96,9 @@ const Sidebar = () => {
         ))}
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '6px 0 12px' }}>
-        {view === 'files' && <FileTree />}
         {view === 'clis' && <CliCatalog />}
         {view === 'runs' && <RunsList />}
+        {view === 'jobs' && <JobsList />}
       </div>
     </div>
   );

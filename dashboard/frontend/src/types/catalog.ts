@@ -33,6 +33,29 @@ export interface ParamSchema {
   required?: boolean;
   /** Hide behind an "Advanced" disclosure in the form view. */
   advanced?: boolean;
+  /**
+   * Render in the default form alongside required params even though
+   * argparse marks it optional. Curated per CLI module via the
+   * `ESSENTIAL = {...}` constant.
+   */
+  essential?: boolean;
+  /**
+   * Optional numeric range hint for `kind === 'number'`. When present the
+   * dashboard renders a slider alongside the numeric input. Curated per CLI
+   * module via the `RANGES = {...}` constant or auto-extracted from the
+   * argparse help string.
+   */
+  range?: {
+    min: number;
+    max: number;
+    step?: number;
+  };
+  /**
+   * Optional unit label for `kind === 'number'`. Rendered as a suffix next to
+   * the input (e.g. "workers", "seconds"). Best-effort extraction from the
+   * argparse help string with per-CLI overrides.
+   */
+  unit?: string;
 }
 
 export interface CliSchema {

@@ -312,8 +312,8 @@ const SettingsModal = () => {
           maxHeight: '80vh',
           background: 'var(--bg-1)',
           border: '1px solid var(--line-2)',
-          borderRadius: 10,
-          boxShadow: 'var(--shadow)',
+          borderRadius: 12,
+          boxShadow: 'var(--shadow-soft)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -333,7 +333,7 @@ const SettingsModal = () => {
             id="settings-modal-title"
             style={{ fontFamily: 'var(--serif)', fontSize: 18, color: 'var(--text-0)' }}
           >
-            workspace settings
+            Settings
           </span>
           <span className="grow" />
           <button

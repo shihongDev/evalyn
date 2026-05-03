@@ -42,7 +42,7 @@ describe('ChatPanel - empty state', () => {
 
   test('shows hint when message list is empty', () => {
     render(<ChatPanel />);
-    expect(screen.getByText(/Ask anything about your evals/)).toBeInTheDocument();
+    expect(screen.getByText(/Hi\. I can read your traces/)).toBeInTheDocument();
   });
 });
 
@@ -77,7 +77,7 @@ describe('ChatPanel - rendering messages', () => {
     setAgent({ messages });
     render(<ChatPanel />);
     expect(screen.getByTestId('tool-call-t1')).toBeInTheDocument();
-    expect(screen.getByText('running…')).toBeInTheDocument();
+    expect(screen.getByText('running...')).toBeInTheDocument();
   });
 
   test('renders captured stdout for a complete tool call', () => {
@@ -123,13 +123,48 @@ describe('ChatPanel - confirmation card', () => {
         tool: 'delete-run',
         args: { id: 'abc' },
         previewCmd: 'evalyn delete-run abc',
+        sideEffects: ['Permanently delete the run', 'Cannot be undone'],
       },
       status: 'awaiting_confirmation',
     });
     render(<ChatPanel />);
     expect(screen.getByTestId('approve-t1')).toBeInTheDocument();
     expect(screen.getByTestId('reject-t1')).toBeInTheDocument();
-    expect(screen.getByText(/Approve to run/i)).toBeInTheDocument();
+    expect(screen.getByTestId('approve-session-t1')).toBeInTheDocument();
+    // The redesigned card surfaces the COMMAND + THIS WILL bullets.
+    expect(screen.getByText('COMMAND')).toBeInTheDocument();
+    expect(screen.getByText('THIS WILL')).toBeInTheDocument();
+    expect(screen.getByText('Permanently delete the run')).toBeInTheDocument();
+  });
+
+  test('falls back to default side-effect copy when none supplied', () => {
+    const messages: ChatMessage[] = [
+      {
+        id: 'tc-1',
+        role: 'assistant',
+        toolCall: {
+          id: 't1',
+          tool: 'unknown-tool',
+          args: {},
+          previewCmd: 'evalyn unknown-tool',
+          status: 'awaiting_confirmation',
+        },
+      },
+    ];
+    setAgent({
+      messages,
+      pendingConfirmation: {
+        toolCallId: 't1',
+        tool: 'unknown-tool',
+        args: {},
+        previewCmd: 'evalyn unknown-tool',
+      },
+      status: 'awaiting_confirmation',
+    });
+    render(<ChatPanel />);
+    expect(screen.getByTestId('side-effects-t1')).toHaveTextContent(
+      /This is a write command/,
+    );
   });
 
   test('approve button posts to /api/agent/chat/{id}/confirm', async () => {
@@ -176,6 +211,108 @@ describe('ChatPanel - confirmation card', () => {
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body.approve).toBe(true);
     expect(body.tool_call_id).toBe('t1');
+    // Vanilla "Approve once" must NOT send the override fields.
+    expect(body.args_override).toBeUndefined();
+    expect(body.auto_approve_session).toBeUndefined();
+  });
+
+  test('edit args + Save + Approve sends args_override to the server', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({ ok: true }),
+      text: async () => '',
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    setAgent({
+      threadId: 'th-1',
+      messages: [
+        {
+          id: 'tc-1',
+          role: 'assistant',
+          toolCall: {
+            id: 't1',
+            tool: 'run-eval',
+            args: { dataset: 'wrong.jsonl', workers: 4 },
+            previewCmd: 'evalyn run-eval --dataset wrong.jsonl --workers 4',
+            status: 'awaiting_confirmation',
+          },
+        },
+      ],
+      pendingConfirmation: {
+        toolCallId: 't1',
+        tool: 'run-eval',
+        args: { dataset: 'wrong.jsonl', workers: 4 },
+        previewCmd: 'evalyn run-eval --dataset wrong.jsonl --workers 4',
+      },
+      status: 'awaiting_confirmation',
+    });
+
+    render(<ChatPanel />);
+    fireEvent.click(screen.getByTestId('edit-args-t1'));
+    const input = screen.getByTestId('args-editor-input-t1-dataset') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'evals/correct.jsonl' } });
+    fireEvent.click(screen.getByTestId('args-editor-save-t1'));
+    // After save, the chip shows we have edits.
+    expect(screen.getByTestId('args-edited-chip-t1')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('approve-t1'));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.approve).toBe(true);
+    expect(body.tool_call_id).toBe('t1');
+    expect(body.args_override).toEqual({ dataset: 'evals/correct.jsonl', workers: 4 });
+  });
+
+  test('Approve · session sends auto_approve_session=true', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({ ok: true }),
+      text: async () => '',
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    setAgent({
+      threadId: 'th-1',
+      messages: [
+        {
+          id: 'tc-1',
+          role: 'assistant',
+          toolCall: {
+            id: 't1',
+            tool: 'run-eval',
+            args: { dataset: 'd.jsonl' },
+            previewCmd: 'evalyn run-eval --dataset d.jsonl',
+            status: 'awaiting_confirmation',
+          },
+        },
+      ],
+      pendingConfirmation: {
+        toolCallId: 't1',
+        tool: 'run-eval',
+        args: { dataset: 'd.jsonl' },
+        previewCmd: 'evalyn run-eval --dataset d.jsonl',
+      },
+      status: 'awaiting_confirmation',
+    });
+
+    render(<ChatPanel />);
+    fireEvent.click(screen.getByTestId('approve-session-t1'));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.approve).toBe(true);
+    expect(body.tool_call_id).toBe('t1');
+    expect(body.auto_approve_session).toBe(true);
+    expect(body.args_override).toBeUndefined();
   });
 });
 
@@ -199,7 +336,7 @@ describe('ChatPanel - suggestion cards', () => {
     expect(tabs.find((t) => t.id === 'cli:annotate')).toBeTruthy();
   });
 
-  test('suggestion click stashes pre-fill args in sessionStorage', () => {
+  test('suggestion click seeds the form via activeFormSeed (openCli consumes the prefill)', () => {
     const messages: ChatMessage[] = [
       {
         id: 'a1',
@@ -212,8 +349,13 @@ describe('ChatPanel - suggestion cards', () => {
     setAgent({ messages });
     render(<ChatPanel />);
     fireEvent.click(screen.getByTestId('suggestion-calibrate'));
-    const stored = sessionStorage.getItem('cli:prefill:calibrate');
-    expect(stored).toBe(JSON.stringify({ iterations: 8 }));
+    // ChatPanel writes args to sessionStorage; openCli reads + clears them
+    // and routes them through activeFormSeed so the form picks them up.
+    const seed = useStore.getState().activeFormSeed;
+    expect(seed).toEqual({ cliId: 'calibrate', args: { iterations: 8 } });
+    expect(useStore.getState().activeCliId).toBe('calibrate');
+    // sessionStorage was consumed by openCli — should now be empty.
+    expect(sessionStorage.getItem('cli:prefill:calibrate')).toBeNull();
   });
 });
 
@@ -283,5 +425,95 @@ describe('ChatPanel - composer', () => {
     render(<ChatPanel />);
     fireEvent.click(screen.getByLabelText('Hide chat'));
     expect(useStore.getState().chatVisible).toBe(false);
+  });
+});
+
+describe('ChatPanel - P1 chat surface upgrades', () => {
+  test('completed tool call is collapsed by default and shows a peek', () => {
+    const messages: ChatMessage[] = [
+      {
+        id: 'tc-1',
+        role: 'assistant',
+        toolCall: {
+          id: 't1',
+          tool: 'list-runs',
+          args: {},
+          previewCmd: 'evalyn list-runs',
+          status: 'complete',
+          output: 'line1\nline2\nline3',
+        },
+      },
+    ];
+    setAgent({ messages });
+    render(<ChatPanel />);
+    // Peek is rendered (collapsed default for `complete`).
+    expect(screen.getByTestId('tool-call-peek-t1')).toBeInTheDocument();
+    // Clicking the header expands.
+    fireEvent.click(screen.getByTestId('tool-call-header-t1'));
+    expect(screen.queryByTestId('tool-call-peek-t1')).not.toBeInTheDocument();
+  });
+
+  test('errored tool call auto-expands and cannot be collapsed', () => {
+    const messages: ChatMessage[] = [
+      {
+        id: 'tc-1',
+        role: 'assistant',
+        toolCall: {
+          id: 't1',
+          tool: 'run-eval',
+          args: {},
+          previewCmd: 'evalyn run-eval',
+          status: 'error',
+          output: 'first\nsecond',
+          error: 'subprocess exited 1',
+        },
+      },
+    ];
+    setAgent({ messages });
+    render(<ChatPanel />);
+    // No peek means already expanded.
+    expect(screen.queryByTestId('tool-call-peek-t1')).not.toBeInTheDocument();
+    // Click header — still no peek (collapse is locked).
+    fireEvent.click(screen.getByTestId('tool-call-header-t1'));
+    expect(screen.queryByTestId('tool-call-peek-t1')).not.toBeInTheDocument();
+  });
+
+  test('streaming caret shows when message.streaming is true', () => {
+    const messages: ChatMessage[] = [
+      { id: 'a1', role: 'assistant', text: 'thinking', streaming: true },
+    ];
+    setAgent({ messages });
+    render(<ChatPanel />);
+    expect(screen.getByTestId('streaming-caret')).toBeInTheDocument();
+  });
+
+  test('cold-start empty state renders three suggestion chips', () => {
+    render(<ChatPanel />);
+    expect(screen.getByTestId('chip-Walk me through evalyn')).toBeInTheDocument();
+    expect(screen.getByTestId('chip-Show me what evalyn can do')).toBeInTheDocument();
+    expect(screen.getByTestId('chip-Help me instrument my agent')).toBeInTheDocument();
+  });
+
+  test('API key banner appears when no provider is active and dismisses on click', () => {
+    render(<ChatPanel />);
+    const banner = screen.getByTestId('api-key-banner');
+    expect(banner).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('api-key-banner-dismiss'));
+    expect(screen.queryByTestId('api-key-banner')).not.toBeInTheDocument();
+    expect(useStore.getState().chatBannerDismissed).toBe(true);
+  });
+
+  test('API key banner [Add key] opens settings', () => {
+    render(<ChatPanel />);
+    fireEvent.click(screen.getByTestId('api-key-banner-add'));
+    expect(useStore.getState().settingsOpen).toBe(true);
+  });
+
+  test('API key banner is hidden once a provider is active', () => {
+    useStore.setState((s) => ({
+      settings: { ...s.settings, active: 'openai' },
+    }));
+    render(<ChatPanel />);
+    expect(screen.queryByTestId('api-key-banner')).not.toBeInTheDocument();
   });
 });

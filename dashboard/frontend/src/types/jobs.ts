@@ -55,12 +55,13 @@ export type JobWsEvent =
   | { type: 'truncated'; count: number; ts?: string; event_id?: number };
 
 export interface Tab {
-  /** Stable tab id (e.g. `cli:run-eval`, `job:j-9282`, `82dddcc3.run`). */
+  /** Stable tab id (e.g. `cli:run-eval`, `job:j-9282`, `82dddcc3.run`,
+   *  `compare:<runA>:<runB>`). */
   id: string;
   /** Display title. */
   title: string;
   /** Tab kind drives the icon and content view. */
-  kind: 'cli' | 'run' | 'yaml' | 'file' | 'job' | 'welcome';
+  kind: 'cli' | 'run' | 'yaml' | 'file' | 'job' | 'welcome' | 'compare';
   /** Optional CSS color for the icon dot. */
   tone?: string;
   /** Unsaved-state indicator. */
