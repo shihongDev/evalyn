@@ -61,9 +61,16 @@ def test_list_runs_happy_path(page: Page, dashboard_server: str) -> None:
     page.get_by_role("button", name="Commands", exact=True).click()
 
     # Wait for the catalog to populate. ``CliCatalog.tsx`` shows
-    # ``// catalog loading…`` until the fetch flips the store; once
-    # populated, ``list-runs`` becomes a clickable row whose visible
-    # text matches its id.
+    # ``Loading commands...`` until the fetch flips the store; the
+    # default view is the 5-CLI STARTER set (quickstart, one-click,
+    # list-calls, status, workflow), so ``list-runs`` is hidden until
+    # the user either expands "Show all" or types into the filter.
+    # Typing in the filter is more robust because the filter view
+    # always renders the matched CLI as a row regardless of starter
+    # collapse state.
+    search = page.get_by_label("Search commands")
+    expect(search).to_be_visible(timeout=ACTION_TIMEOUT_MS)
+    search.fill("list-runs")
     list_runs_row = page.get_by_text("list-runs", exact=True).first
     expect(list_runs_row).to_be_visible(timeout=ACTION_TIMEOUT_MS)
     list_runs_row.click()
