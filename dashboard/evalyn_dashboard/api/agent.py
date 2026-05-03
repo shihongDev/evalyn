@@ -1,0 +1,108 @@
+"""``/api/agent`` router: chat + confirmation routes (Lane C1.5, C1.7).
+
+POST ``/api/agent/chat`` accepts ``{message, thread_id?}``. When
+``thread_id`` is omitted (or unknown) a fresh thread is created. The body
+is appended to the thread and the agent loop is scheduled as a fire-and-
+forget asyncio task. Returns ``{thread_id}`` immediately.
+
+POST ``/api/agent/chat/{thread_id}/confirm`` accepts ``{approve}`` and
+flips the per-thread :class:`asyncio.Event` so a paused tool call can
+proceed (or report ``user did not confirm``).
+
+The companion WebSocket route ``/ws/agent/{thread_id}`` lives in
+``api/agent_ws.py`` and is registered directly on the FastAPI app.
+"""
+
+from __future__ import annotations
+
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse
+
+router = APIRouter()
+
+
+async def _json_object_body(request: Request) -> dict:
+    """Parse the request body as a JSON object or raise HTTP 400."""
+    try:
+        body = await request.json()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"invalid json: {exc}") from exc
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="body must be a json object")
+    return body
+
+
+@router.post("/chat")
+async def chat(request: Request) -> JSONResponse:
+    body = await _json_object_body(request)
+
+    message = body.get("message")
+    if not isinstance(message, str) or not message:
+        raise HTTPException(status_code=400, detail="message must be a non-empty string")
+
+    runtime = getattr(request.app.state, "agent_runtime", None)
+    if runtime is None:
+        raise HTTPException(status_code=503, detail="agent runtime not configured")
+
+    thread_id = body.get("thread_id")
+    if not isinstance(thread_id, str) or not runtime.has_thread(thread_id):
+        thread_id = runtime.create_thread()
+
+    runtime.schedule_turn(thread_id, message)
+    return JSONResponse({"thread_id": thread_id})
+
+
+@router.post("/chat/{thread_id}/confirm")
+async def confirm(request: Request, thread_id: str) -> JSONResponse:
+    body = await _json_object_body(request)
+    approve = body.get("approve")
+    if not isinstance(approve, bool):
+        raise HTTPException(status_code=400, detail="approve must be a boolean")
+    # Optional in the wire protocol so older clients keep working, but the
+    # current dashboard always sends it. When supplied, AgentRuntime.confirm
+    # validates against the per-thread pending gate so a stale card cannot
+    # approve whatever happens to be pending now (KNOWN_ISSUES #4 + #5).
+    tool_call_id = body.get("tool_call_id")
+    if tool_call_id is not None and not isinstance(tool_call_id, str):
+        raise HTTPException(status_code=400, detail="tool_call_id must be a string")
+    # Optional inline-edit + per-session whitelist (P1 spec §5.5). The
+    # frontend's redesigned confirmation card may send either or both when
+    # the user clicks "Approve once" / "Approve - session" with edited args.
+    args_override = body.get("args_override")
+    if args_override is not None and not isinstance(args_override, dict):
+        raise HTTPException(
+            status_code=400, detail="args_override must be a json object"
+        )
+    auto_approve_session = body.get("auto_approve_session", False)
+    if not isinstance(auto_approve_session, bool):
+        raise HTTPException(
+            status_code=400, detail="auto_approve_session must be a boolean"
+        )
+
+    runtime = getattr(request.app.state, "agent_runtime", None)
+    if runtime is None:
+        raise HTTPException(status_code=503, detail="agent runtime not configured")
+    if not runtime.has_thread(thread_id):
+        raise HTTPException(status_code=404, detail=f"unknown thread: {thread_id}")
+    accepted = runtime.confirm(
+        thread_id,
+        approve,
+        tool_call_id=tool_call_id,
+        args_override=args_override,
+        auto_approve_session=auto_approve_session,
+    )
+    if not accepted:
+        # The thread exists but the tool_call_id didn't match the pending
+        # gate. Surface this clearly so the client can recover (e.g. resync
+        # by reading the next confirmation_required event) rather than
+        # silently approving the wrong call.
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "tool_call_id does not match the currently pending confirmation"
+            ),
+        )
+    return JSONResponse({"ok": True, "approved": approve})
+
+
+__all__ = ["router"]

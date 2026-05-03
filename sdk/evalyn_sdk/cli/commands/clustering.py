@@ -26,6 +26,14 @@ Misalignment clustering (after annotation):
 
 from __future__ import annotations
 
+# Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
+GROUP = "Analysis"
+
+# Non-required params worth exposing in the default form. cluster-failures
+# is almost always scoped to a specific metric. Read by
+# evalyn_dashboard.introspect.build_catalog.
+ESSENTIAL = {"metric_id"}
+
 import argparse
 import json
 from pathlib import Path

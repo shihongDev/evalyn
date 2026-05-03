@@ -28,6 +28,14 @@ Typical workflow:
 
 from __future__ import annotations
 
+# Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
+GROUP = "Annotation"
+
+# Non-required params worth exposing in the default dashboard form. The dataset
+# is the primary input; per-metric is the most-toggled mode flag for calibration
+# workflows.
+ESSENTIAL = {"dataset", "per_metric"}
+
 import argparse
 import json
 import logging

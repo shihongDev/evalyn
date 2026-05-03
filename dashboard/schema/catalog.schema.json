@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evalyn.dev/schemas/catalog.schema.json",
+  "title": "CliCatalog",
+  "description": "Shape returned by GET /api/cli: an array of CliSchema entries describing every evalyn CLI subcommand the dashboard knows about.",
+  "type": "array",
+  "items": { "$ref": "#/$defs/CliSchema" },
+  "$defs": {
+    "ParamKind": {
+      "type": "string",
+      "enum": [
+        "bool",
+        "string",
+        "number",
+        "select",
+        "multiselect",
+        "path",
+        "long-text"
+      ]
+    },
+    "ParamSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "argparse dest for the argument"
+        },
+        "kind": { "$ref": "#/$defs/ParamKind" },
+        "default": {
+          "description": "default value (any JSON type)"
+        },
+        "options": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "allowed values for select/multiselect kinds"
+        },
+        "help": {
+          "type": ["string", "null"],
+          "description": "argparse help string"
+        },
+        "required": { "type": "boolean", "default": false },
+        "advanced": {
+          "type": "boolean",
+          "default": false,
+          "description": "hide behind 'Advanced' disclosure in the form view"
+        },
+        "essential": {
+          "type": "boolean",
+          "default": false,
+          "description": "show in the default form (alongside required) even though argparse marks it optional"
+        },
+        "range": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "type": "number" },
+            "max": { "type": "number" },
+            "step": { "type": "number" }
+          },
+          "description": "optional numeric range hint for number-kind params; enables slider rendering in the dashboard"
+        },
+        "unit": {
+          "type": "string",
+          "description": "optional unit label for number-kind params (e.g. 'workers', 'seconds')"
+        }
+      }
+    },
+    "CliSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "group", "blurb", "params"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "unique CLI subcommand id (e.g. run-eval)"
+        },
+        "name": {
+          "type": "string",
+          "description": "human-readable name for display"
+        },
+        "group": {
+          "type": "string",
+          "description": "category bucket (Tracing, Dataset, Metrics, Eval, Analysis, ...)"
+        },
+        "blurb": {
+          "type": "string",
+          "description": "one-line description from argparse parser"
+        },
+        "params": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ParamSchema" }
+        }
+      }
+    }
+  }
+}

@@ -17,6 +17,19 @@ Usage:
 
 from __future__ import annotations
 
+# Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
+GROUP = "Quickstart"
+
+# Non-required params worth exposing in the default dashboard form. quickstart
+# is the canonical first-run path; pointing at the agent file and providing a
+# run command are the only two knobs a beginner ever needs.
+ESSENTIAL = {"agent_file", "run"}
+
+# Per-param numeric range hints. Surfaces a slider in the dashboard form for
+# --timeout. 600s upper bound matches the harness's hard cap.
+RANGES = {"timeout": (10, 600, 5)}
+UNITS = {"timeout": "seconds"}
+
 import argparse
 import os
 import re

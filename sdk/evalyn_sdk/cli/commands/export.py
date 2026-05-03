@@ -21,6 +21,9 @@ Typical workflow:
 
 from __future__ import annotations
 
+# Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
+GROUP = "Export"
+
 import argparse
 import csv
 import io

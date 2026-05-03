@@ -21,6 +21,14 @@ Typical workflow:
 
 from __future__ import annotations
 
+# Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
+GROUP = "Tracing"
+
+# Params that should appear in the dashboard form's "default visible" set
+# alongside required params. Curated per-module — non-required argparse args
+# users almost always set. Read by evalyn_dashboard.introspect.build_catalog.
+ESSENTIAL = {"limit"}
+
 import argparse
 import json
 import os

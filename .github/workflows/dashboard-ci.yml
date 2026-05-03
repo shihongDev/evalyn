@@ -1,0 +1,110 @@
+name: dashboard-ci
+
+# Triggered for any change inside dashboard/ or its sdk/ dependency on PRs,
+# and for every push to main so the trunk stays green. We only interpolate
+# safe contexts (github.workflow, github.ref, github.event_name) below;
+# untrusted inputs like PR titles/bodies are never expanded.
+on:
+  pull_request:
+    paths:
+      - 'dashboard/**'
+      - 'sdk/**'
+      - '.github/workflows/dashboard-ci.yml'
+  push:
+    branches: [main]
+
+# Avoid wasting runners on superseded commits in a PR.
+concurrency:
+  group: dashboard-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Backend pytest (excluding the e2e dir) + frontend Vitest + production
+  # build verification. Runs on a Python matrix because the dashboard's
+  # min floor is 3.10 and we ship support through 3.12.
+  dashboard-tests:
+    name: dashboard-tests (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          # cache npm at the dashboard frontend level so re-runs are fast
+          cache: 'npm'
+          cache-dependency-path: dashboard/frontend/package-lock.json
+
+      - name: Sync workspace (dev extras)
+        run: uv sync --extra dev --package evalyn-dashboard
+
+      - name: Backend pytest (skip e2e)
+        run: uv run pytest dashboard/tests/ --ignore=dashboard/tests/e2e -v
+
+      - name: Frontend install + build + Vitest
+        working-directory: dashboard/frontend
+        run: |
+          npm ci
+          npm run build
+          npm test
+
+  # E2E with a real browser. Path filter on the workflow itself gates this
+  # to dashboard-touching PRs (and trunk pushes), so SDK-only PRs do not
+  # pay the chromium tax.
+  dashboard-e2e:
+    name: dashboard-e2e
+    runs-on: ubuntu-latest
+    needs: dashboard-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: dashboard/frontend/package-lock.json
+
+      - name: Sync workspace (dev extras)
+        run: uv sync --extra dev --package evalyn-dashboard
+
+      - name: Build frontend bundle
+        working-directory: dashboard/frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install Playwright Chromium
+        run: uv run playwright install --with-deps chromium
+
+      - name: Run Playwright E2E
+        run: uv run pytest dashboard/tests/e2e -v
+
+      # Upload the Playwright trace dir if the run fails so authors can
+      # download a viewer-ready artifact and inspect the browser timeline.
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: |
+            test-results/
+            **/trace.zip
+          if-no-files-found: ignore

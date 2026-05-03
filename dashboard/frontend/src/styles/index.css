@@ -1,0 +1,375 @@
+/*
+ * CSS variables for the Evalyn Workbench, ported from the visual mock at
+ * /tmp/evalyn-dashboard-mock/Evalyn Workbench.html. Dark theme is the
+ * default; the [data-theme="light"] block on <body> swaps in the editorial
+ * cream/ink palette.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap');
+
+:root {
+  --mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: 'Geist', -apple-system, system-ui, sans-serif;
+  --serif: 'Instrument Serif', Georgia, serif;
+
+  /* dark theme (default) */
+  --bg-0: #0a0c10;
+  --bg-1: #0e1014;
+  --bg-2: #13161d;
+  --bg-3: #1a1d26;
+  --bg-4: #232735;
+  --line: #1f2530;
+  --line-2: #2a3040;
+  --text-0: #f0eee8;
+  --text-1: #cdd6e2;
+  --text-2: #8a93a3;
+  --text-3: #5b6678;
+  --accent: #ff7a3d;
+  --accent-soft: rgba(255, 122, 61, 0.12);
+  --pass: #7fc6a0;
+  --pass-soft: rgba(127, 198, 160, 0.12);
+  --fail: #e88072;
+  --fail-soft: rgba(232, 128, 114, 0.12);
+  --warn: #e0b264;
+  --warn-soft: rgba(224, 178, 100, 0.12);
+  --info: #5fc3d4;
+  --info-soft: rgba(95, 195, 212, 0.12);
+  --shadow:
+    0 24px 48px rgba(0, 0, 0, 0.45),
+    0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.035);
+
+  /* Motion (Claude DNA: one duration, one curve). */
+  --dur-base: 300ms;
+  --ease-soft: cubic-bezier(0.165, 0.85, 0.45, 1);
+}
+
+[data-theme='light'] {
+  /* Editorial light: cream paper, deep ink, warm accent */
+  --bg-0: #f4ebe1;
+  --bg-1: #ede3d4;
+  --bg-2: #fbf6ec;
+  --bg-3: #e8dccd;
+  --bg-4: #ddd0bb;
+  --line: #d8cebd;
+  --line-2: #c2b59c;
+  --text-0: #1a1815;
+  --text-1: #3a342d;
+  --text-2: #5a5147;
+  --text-3: #6b6258;
+  --accent: #c44918;
+  --accent-soft: rgba(196, 73, 24, 0.1);
+  --pass: #3a7a52;
+  --pass-soft: rgba(58, 122, 82, 0.1);
+  --fail: #b04a3a;
+  --fail-soft: rgba(176, 74, 58, 0.1);
+  --warn: #946322;
+  --warn-soft: rgba(148, 99, 34, 0.12);
+  --info: #2c6577;
+  --info-soft: rgba(44, 101, 119, 0.1);
+  --shadow:
+    0 18px 40px rgba(82, 67, 40, 0.1),
+    0 2px 6px rgba(82, 67, 40, 0.06);
+  --shadow-soft: 0 4px 20px rgba(82, 67, 40, 0.04);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg-0);
+  color: var(--text-1);
+  font-family: var(--sans);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body[data-mono='true'] {
+  font-family: var(--mono);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 6px;
+  border: 2px solid var(--bg-0);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--line-2);
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text-0);
+}
+
+[data-theme='light'] ::-webkit-scrollbar-thumb {
+  border-color: var(--bg-0);
+}
+
+[data-theme='light'] .btn.primary {
+  color: #fbf6ec;
+}
+
+/* === shared atoms (ported from mock Evalyn Workbench.html) ============= */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--text-2);
+  white-space: nowrap;
+  line-height: 1;
+}
+.chip.dot::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.chip.pass {
+  color: var(--pass);
+  border-color: rgba(127, 198, 160, 0.3);
+  background: var(--pass-soft);
+}
+.chip.fail {
+  color: var(--fail);
+  border-color: rgba(232, 128, 114, 0.3);
+  background: var(--fail-soft);
+}
+.chip.warn {
+  color: var(--warn);
+  border-color: rgba(224, 178, 100, 0.3);
+  background: var(--warn-soft);
+}
+.chip.info {
+  color: var(--info);
+  border-color: rgba(95, 195, 212, 0.3);
+  background: var(--info-soft);
+}
+.chip.signal {
+  color: var(--accent);
+  border-color: rgba(255, 122, 61, 0.3);
+  background: var(--accent-soft);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg-3);
+  color: var(--text-1);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font-size: 12px;
+  line-height: 1;
+  transition:
+    background var(--dur-base) var(--ease-soft),
+    border-color var(--dur-base) var(--ease-soft);
+}
+.btn:hover {
+  background: var(--bg-4);
+  border-color: var(--line-2);
+}
+.btn.primary {
+  background: var(--accent);
+  color: #1a1305;
+  border-color: var(--accent);
+  font-weight: 500;
+}
+.btn.primary:hover {
+  background: #ff8e5a;
+}
+.btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-2);
+}
+.btn.ghost:hover {
+  color: var(--text-1);
+  background: var(--bg-3);
+}
+.btn.sm {
+  padding: 4px 8px;
+  font-size: 11px;
+  height: 22px;
+}
+.btn.icon {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  justify-content: center;
+}
+
+.input,
+.textarea,
+.select {
+  width: 100%;
+  padding: 7px 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-1);
+  outline: none;
+  transition: border-color var(--dur-base) var(--ease-soft);
+}
+.input:focus,
+.textarea:focus,
+.select:focus {
+  border-color: var(--accent);
+}
+.textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+.label {
+  font-size: 11px;
+  color: var(--text-2);
+  font-weight: 500;
+  margin-bottom: 4px;
+  display: block;
+}
+.hint {
+  font-size: 10.5px;
+  color: var(--text-3);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  font-family: var(--mono);
+  font-size: 10px;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  color: var(--text-2);
+  line-height: 1.4;
+}
+
+.bar {
+  position: relative;
+  height: 4px;
+  background: var(--bg-4);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.bar > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent);
+  display: block;
+  transition: width 0.3s ease;
+}
+.bar.pass > i {
+  background: var(--pass);
+}
+.bar.fail > i {
+  background: var(--fail);
+}
+.bar.warn > i {
+  background: var(--warn);
+}
+
+/* === utilities ========================================================= */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+}
+.grow {
+  flex: 1;
+}
+.mono {
+  font-family: var(--mono);
+}
+.text-2 {
+  color: var(--text-2);
+}
+.text-3 {
+  color: var(--text-3);
+}
+.accent {
+  color: var(--accent);
+}
+.pass {
+  color: var(--pass);
+}
+.fail {
+  color: var(--fail);
+}
+.warn {
+  color: var(--warn);
+}
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* === streaming caret =================================================== */
+/*
+ * Single CSS animation, ~1 Hz blink. Used by ChatPanel to indicate the
+ * assistant message is still being streamed. Keep `display: inline-block`
+ * so the caret sits on the text baseline without forcing a line break.
+ */
+@keyframes caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.caret-streaming {
+  display: inline-block;
+  margin-left: 1px;
+  color: var(--accent);
+  animation: caret-blink 800ms steps(1, end) infinite;
+}

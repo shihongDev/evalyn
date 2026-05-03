@@ -24,6 +24,17 @@ Typical workflow:
 
 from __future__ import annotations
 
+# Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
+GROUP = "Eval"
+
+# Non-required params worth exposing in the default dashboard form. list-runs
+# wants a row count; show-run almost always wants either --id or --last.
+ESSENTIAL = {"limit", "id", "last"}
+
+# Slider hints for the only numeric param in this module.
+RANGES = {"limit": (1, 100, 1)}
+UNITS = {"limit": "runs"}
+
 import argparse
 import json
 

@@ -285,11 +285,16 @@ class SQLiteStorage:
         self,
         limit: int = 100,
         project: Optional[str] = None,
-        lightweight: bool = False,
         function_name: Optional[str] = None,
+        lightweight: bool = False,
         version: Optional[str] = None,
     ) -> List[FunctionCall]:
         cur = self.get_connection().cursor()
+        # Use lightweight column projection when possible (cli-rich-output
+        # perf path); function_name supports case-insensitive substring
+        # match (escaped against SQL LIKE wildcards via the cli-rich-output
+        # fix); version filter from cli-rich-output. Project clause shape
+        # is shared with the dashboard-workbench branch's logic.
         cols = self._LIGHTWEIGHT_COLS if lightweight else "*"
 
         where_parts: list[str] = []

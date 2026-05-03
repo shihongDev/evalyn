@@ -51,13 +51,15 @@ PIPELINE:
   quickstart       Detect framework, generate snippet, set up evaluation
   init             Initialize configuration file
   one-click        Run complete pipeline in one command
-  dashboard        Generate and open interactive HTML dashboard
+  report           Generate and open interactive HTML insights report
+                   (formerly 'dashboard'; the new IDE ships in evalyn-dashboard)
 """
 
 from __future__ import annotations
 
 import argparse
 import importlib
+import importlib.metadata as importlib_metadata
 import sys
 from typing import List, Optional
 
@@ -108,11 +110,58 @@ _COMMAND_MODULE_MAP: dict[str, str] = {
     "workflow": "infrastructure",
     "init": "infrastructure",
     "one-click": "infrastructure",
-    # dashboard
-    "dashboard": "dashboard",
+    # report (renamed from "dashboard"; static HTML insights report)
+    "report": "report",
+    # dashboard alias: prints deprecation warning, forwards to "report".
+    # Skipped at runtime when the evalyn-dashboard plugin is installed
+    # (plugin entry-point discovery takes precedence).
+    "dashboard": "dashboard_alias",
     # quickstart
     "quickstart": "quickstart",
 }
+
+
+def _discover_plugin_commands() -> dict[str, str]:
+    """Discover external command modules via the ``evalyn.commands`` entry point.
+
+    Each entry point's ``name`` is the CLI subcommand name (e.g. ``dashboard``)
+    and its ``value`` is a fully-qualified module path that exposes a
+    ``register_commands(subparsers)`` callable.
+
+    Returns a mapping ``{command_name: module_path}``. Failures during
+    discovery are silently skipped so a broken plugin cannot bring down the
+    core CLI.
+    """
+
+    plugins: dict[str, str] = {}
+    try:
+        eps = importlib_metadata.entry_points(group="evalyn.commands")
+    except Exception:
+        return plugins
+    for ep in eps:
+        try:
+            plugins[ep.name] = ep.value
+        except Exception:
+            continue
+    return plugins
+
+
+def _resolve_command_module(command: str) -> Optional[str]:
+    """Return the importable module path that owns ``command``.
+
+    Plugin entry points take precedence over the built-in command map. This
+    lets the ``evalyn-dashboard`` package replace the built-in ``dashboard``
+    command without touching this file.
+    """
+
+    plugins = _discover_plugin_commands()
+    if command in plugins:
+        return plugins[command]
+    static = _COMMAND_MODULE_MAP.get(command)
+    if static is None:
+        return None
+    # Static modules live under .commands.<name>; return absolute path.
+    return f"{__package__}.commands.{static}"
 
 
 def _print_ascii_help(parser: argparse.ArgumentParser) -> None:
@@ -167,7 +216,7 @@ EVALUATION
   compare          Compare two evaluation runs
   trend            Show evaluation trends over time
   insights         Comprehensive diagnostic and prescriptive analysis
-  dashboard        Generate and open interactive HTML dashboard
+  report           Generate and open interactive HTML insights report
 
 ANNOTATION & CALIBRATION
   annotate         Interactive annotation interface
@@ -267,14 +316,15 @@ def main(argv: Optional[List[str]] = None) -> None:
         return
 
     # --- Lazy-load only the module that owns this command ---
+    # Plugin entry points (group "evalyn.commands") win over static commands.
 
-    module_name = _COMMAND_MODULE_MAP.get(command)
-    if module_name is None:
+    module_path = _resolve_command_module(command)
+    if module_path is None:
         print(f"evalyn: unknown command '{command}'", file=sys.stderr)
         print("Run 'evalyn help' for a list of commands.", file=sys.stderr)
         sys.exit(2)
 
-    mod = importlib.import_module(f".commands.{module_name}", __package__)
+    mod = importlib.import_module(module_path)
 
     parser = _build_base_parser()
     subparsers = parser.add_subparsers(dest="command")
