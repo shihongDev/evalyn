@@ -35,6 +35,7 @@ import {
 import { v2 } from './api/client';
 import { listCli } from './api/cli';
 import { prefetchV2 } from './hooks/useV2Resource';
+import { startV2EventStream } from './api/v2ws';
 
 interface AppShellProps {
   children: ReactNode;
@@ -164,6 +165,13 @@ export function AppShell({
     return subscribeJobsHistory(() => {
       setRunningCount(activeJobCount(loadJobsHistory()));
     });
+  }, []);
+
+  // Open the shared /ws/v2/events socket once, app-wide. Idempotent
+  // and best-effort: if the WS fails to connect the FE falls back to
+  // useV2Resource's existing refresh-on-nav semantics.
+  useEffect(() => {
+    startV2EventStream();
   }, []);
 
   // On viewport change, default the dock state to "closed" for narrow widths

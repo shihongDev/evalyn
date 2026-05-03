@@ -8,6 +8,13 @@
  * Inflight de-duplication ensures hover-prefetch + click-on-the-same-route
  * fire only one network request even if both happen within milliseconds.
  *
+ * Live updates: each mounted resource subscribes once to ``/ws/v2/events``
+ * via subscribeV2Events. When the backend pushes a ``cache_invalidate``
+ * frame whose key list matches this resource's key (by prefix), the
+ * cache entry is dropped and a background refetch runs. Stale-while-
+ * revalidate semantics keep the UI smooth - the old data renders until
+ * the new payload lands.
+ *
  * Limits:
  * - Cache lives in module scope -> cleared on full page reload (acceptable
  *   for the v2 first cut; the route still loads fresh on refresh).
@@ -15,10 +22,30 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { subscribeV2Events, type V2Event } from '../api/v2ws';
 
 const _cache = new Map<string, { data: unknown; ts: number }>();
 const _inflight = new Map<string, Promise<unknown>>();
 const STALE_AFTER_MS = 30_000;
+
+/**
+ * Match a resource ``key`` against the invalidation ``keys`` set from
+ * the backend. The backend lists base names (``"experiments"``,
+ * ``"dataset"``, etc.); a resource key matches when it equals a base
+ * name OR when it starts with ``"<base>:"`` (the convention used by
+ * ``experiment:<id>``, ``dataset:<name>``, ``rubric:<id>``, and the
+ * paginated experiment-items keys).
+ */
+function keyMatchesInvalidation(
+  resourceKey: string,
+  invalidatedKeys: string[],
+): boolean {
+  for (const base of invalidatedKeys) {
+    if (resourceKey === base) return true;
+    if (resourceKey.startsWith(`${base}:`)) return true;
+  }
+  return false;
+}
 
 interface ResourceState<T> {
   /** Cached or freshly-loaded data; null until the first response lands. */
@@ -76,6 +103,20 @@ export function useV2Resource<T>(
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, enabled]);
+
+  // Subscribe once per mounted resource. The backend emits coarse
+  // ``cache_invalidate`` frames for any dataset-root mtime change; we
+  // drop our cache entry and refetch only when the keys overlap.
+  useEffect(() => {
+    if (!enabled) return;
+    const off = subscribeV2Events((evt: V2Event) => {
+      if (evt.type !== 'cache_invalidate') return;
+      if (!keyMatchesInvalidation(key, evt.keys)) return;
+      _cache.delete(key);
+      void refetch();
+    });
+    return off;
+  }, [key, enabled, refetch]);
 
   return { data, err, refetch, reloading, isInitialLoad: !cached };
 }

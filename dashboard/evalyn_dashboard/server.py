@@ -198,6 +198,9 @@ def _register_v2_routers(app: FastAPI) -> None:
 
     Wrapped so a missing module fails for that prefix only - the rest of
     the API stays online. Each module is independently importable.
+    Also mounts ``/ws/v2/events`` (the cache-bust event stream) and
+    schedules its dataset-roots watcher on app startup so the FE gets
+    push notifications when ``run-eval`` writes new runs to disk.
     """
     try:
         from .api.v2 import home as v2_home
@@ -231,6 +234,26 @@ def _register_v2_routers(app: FastAPI) -> None:
                 exc,
             )
             continue
+
+    # Mount the v2 event WS + start the cache-watcher loop. Both are
+    # independent of any individual /api/v2/* router (the event stream
+    # is useful even if some routers failed to import).
+    try:
+        from .api.v2.v2_ws import register_v2_ws_routes
+        from .api.v2._shared import start_watcher, stop_watcher
+    except ImportError as exc:
+        logger.warning("v2 ws wiring failed; /ws/v2/events will 404: %s", exc)
+        return
+
+    register_v2_ws_routes(app)
+
+    @app.on_event("startup")
+    async def _v2_start_watcher() -> None:
+        start_watcher()
+
+    @app.on_event("shutdown")
+    async def _v2_stop_watcher() -> None:
+        await stop_watcher()
 
 
 def build_app(

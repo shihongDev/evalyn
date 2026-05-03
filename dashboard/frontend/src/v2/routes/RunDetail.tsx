@@ -7,7 +7,7 @@
  * side-by-side (headline, pass timeline legend, sub-metrics, failures donut).
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import {
@@ -29,6 +29,7 @@ import { listCli } from '../api/cli';
 import type { CliSchema } from '../api/cli';
 import type {
   ExperimentDetail,
+  ExperimentItemRow,
   ExperimentItemsFilter,
   ExperimentItemsResponse,
   ExperimentItemsSort,
@@ -469,7 +470,16 @@ export default function RunDetail() {
       </div>
 
       {activeTab === 1 && (
-        <ItemsTab runId={detail.id} compareActive={compareActive} onClearCompare={clearCompare} />
+        compareWith ? (
+          <ItemsCompareTab
+            runId={detail.id}
+            otherId={compareWith}
+            onClearCompare={clearCompare}
+            onSwapCompare={swapCompare}
+          />
+        ) : (
+          <ItemsTab runId={detail.id} />
+        )
       )}
 
       {activeTab === 0 && <div style={{ padding: '20px 36px' }}>
@@ -1211,6 +1221,603 @@ export default function RunDetail() {
   );
 }
 
+// ---------- Items compare tab ----------
+
+/**
+ * Per-item side-by-side grid for compare mode. Aligns rows by item_id
+ * (same dataset → same item_ids), then for each metric computes a
+ * "fixed" / "regressed" / "unchanged" verdict against the other run.
+ *
+ * Fetches up to ITEMS_COMPARE_LIMIT items per side. If either side has
+ * more, a footer notes the cap; users can drill via filter pills.
+ */
+
+const ITEMS_COMPARE_LIMIT = 200;
+
+type CompareFilter = 'all' | 'regressed' | 'fixed' | 'unchanged';
+
+const COMPARE_FILTERS: { key: CompareFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'regressed', label: 'Regressed' },
+  { key: 'fixed', label: 'Fixed' },
+  { key: 'unchanged', label: 'Unchanged' },
+];
+
+interface CompareDiff {
+  fixed: number;
+  regressed: number;
+  unchanged: number;
+}
+
+interface CompareRow {
+  id: string;
+  thisRow: ExperimentItemRow;
+  otherRow: ExperimentItemRow | null;
+  diff: CompareDiff;
+}
+
+function computeDiff(
+  thisRow: ExperimentItemRow,
+  otherRow: ExperimentItemRow | null,
+): CompareDiff {
+  if (!otherRow) return { fixed: 0, regressed: 0, unchanged: 0 };
+  const otherByMetric = new Map(
+    otherRow.per_metric.map((pm) => [pm.metric_id, pm]),
+  );
+  let fixed = 0;
+  let regressed = 0;
+  let unchanged = 0;
+  for (const tpm of thisRow.per_metric) {
+    const opm = otherByMetric.get(tpm.metric_id);
+    if (!opm) {
+      unchanged += 1;
+      continue;
+    }
+    if (opm.passed === false && tpm.passed === true) fixed += 1;
+    else if (opm.passed === true && tpm.passed === false) regressed += 1;
+    else unchanged += 1;
+  }
+  return { fixed, regressed, unchanged };
+}
+
+interface ItemsCompareTabProps {
+  runId: string;
+  otherId: string;
+  onClearCompare: () => void;
+  onSwapCompare: () => void;
+}
+
+function ItemsCompareTab({
+  runId,
+  otherId,
+  onClearCompare,
+  onSwapCompare,
+}: ItemsCompareTabProps) {
+  const [filter, setFilter] = useState<CompareFilter>('all');
+
+  const thisFetcher = useCallback(
+    () =>
+      v2.experimentItems(runId, {
+        offset: 0,
+        limit: ITEMS_COMPARE_LIMIT,
+        filter: 'all',
+        sort: 'item_id',
+      }),
+    [runId],
+  );
+  const otherFetcher = useCallback(
+    () =>
+      v2.experimentItems(otherId, {
+        offset: 0,
+        limit: ITEMS_COMPARE_LIMIT,
+        filter: 'all',
+        sort: 'item_id',
+      }),
+    [otherId],
+  );
+  const {
+    data: thisItems,
+    err: thisErr,
+    reloading: thisReloading,
+    isInitialLoad: thisInitial,
+  } = useV2Resource<ExperimentItemsResponse>(
+    `experimentItems:${runId}:0:all:item_id`,
+    thisFetcher,
+  );
+  const {
+    data: otherItems,
+    err: otherErr,
+    reloading: otherReloading,
+    isInitialLoad: otherInitial,
+  } = useV2Resource<ExperimentItemsResponse>(
+    `experimentItems:${otherId}:0:all:item_id`,
+    otherFetcher,
+  );
+
+  // Aligned rows: one per item_id present in this run, sorted with
+  // regressed-first so the actionable cases jump to the top.
+  const allRows = useMemo<CompareRow[]>(() => {
+    if (!thisItems || !otherItems) return [];
+    const otherById = new Map(otherItems.items.map((i) => [i.id, i]));
+    const rows: CompareRow[] = thisItems.items.map((thisRow) => {
+      const otherRow = otherById.get(thisRow.id) ?? null;
+      return { id: thisRow.id, thisRow, otherRow, diff: computeDiff(thisRow, otherRow) };
+    });
+    rows.sort((a, b) => {
+      // regressed first (DESC), then fixed (DESC), then id
+      if (b.diff.regressed !== a.diff.regressed)
+        return b.diff.regressed - a.diff.regressed;
+      if (b.diff.fixed !== a.diff.fixed) return b.diff.fixed - a.diff.fixed;
+      return a.id.localeCompare(b.id);
+    });
+    return rows;
+  }, [thisItems, otherItems]);
+
+  // Apply filter pill on top of the aligned rows.
+  const visibleRows = useMemo<CompareRow[]>(() => {
+    if (filter === 'all') return allRows;
+    if (filter === 'regressed') return allRows.filter((r) => r.diff.regressed > 0);
+    if (filter === 'fixed') return allRows.filter((r) => r.diff.fixed > 0);
+    return allRows.filter((r) => r.diff.regressed === 0 && r.diff.fixed === 0);
+  }, [allRows, filter]);
+
+  // Loading / error gates -------------------------------------------------
+  if (thisErr && otherErr) {
+    return (
+      <div style={{ padding: '20px 36px' }}>
+        <Card style={{ padding: 16, borderColor: E.fail }}>
+          <Eyebrow style={{ color: E.fail }}>
+            Could not load items for compare
+          </Eyebrow>
+          <div style={{ fontFamily: E.fMono, fontSize: 11, color: E.text2, marginTop: 6 }}>
+            {runId}: {thisErr}
+          </div>
+          <div style={{ fontFamily: E.fMono, fontSize: 11, color: E.text2, marginTop: 4 }}>
+            {otherId}: {otherErr}
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <Btn kind="secondary" size="sm" onClick={onClearCompare}>
+              Clear compare
+            </Btn>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!thisItems || !otherItems) {
+    return (
+      <div style={{ padding: '20px 36px' }}>
+        <Skeleton w={320} h={28} />
+        <div style={{ marginTop: 14 }}>
+          <Skeleton w="100%" h={300} style={{ borderRadius: 6 }} />
+        </div>
+      </div>
+    );
+  }
+
+  // Empty-side guard: if either run has zero items we can't align.
+  if (thisItems.total === 0 || otherItems.total === 0) {
+    const emptyId = thisItems.total === 0 ? runId : otherId;
+    return (
+      <div style={{ padding: '20px 36px' }}>
+        <Card style={{ padding: 16, borderColor: E.warn }}>
+          <Eyebrow style={{ color: E.warn }}>Cannot compare</Eyebrow>
+          <div style={{ fontSize: 12.5, color: E.text2, marginTop: 6 }}>
+            Run <span style={{ fontFamily: E.fMono }}>{emptyId}</span> has no
+            items - cannot align side-by-side.
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <Btn kind="secondary" size="sm" onClick={onClearCompare}>
+              Clear compare
+            </Btn>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // Aggregate counts for the summary chip in the toolbar.
+  const totalsRegressed = allRows.filter((r) => r.diff.regressed > 0).length;
+  const totalsFixed = allRows.filter((r) => r.diff.fixed > 0).length;
+  const totalsUnchanged = allRows.length - totalsRegressed - totalsFixed;
+  const reloading = thisReloading || otherReloading;
+  const isInitialLoad = thisInitial || otherInitial;
+
+  // Soft "missing on the other side" notice: rows where the other
+  // run doesn't carry this item_id at all (e.g. dataset extended).
+  const missingOnOther = allRows.filter((r) => r.otherRow === null).length;
+
+  return (
+    <div style={{ padding: '20px 36px' }}>
+      {/* COMPARE BAR */}
+      <Card
+        style={{
+          padding: 10,
+          marginBottom: 14,
+          background: E.steelDim,
+          borderColor: E.steel,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, flexWrap: 'wrap' }}>
+          <span style={{ color: E.steel, fontFamily: E.fMono, fontSize: 10, letterSpacing: '0.08em' }}>
+            COMPARING
+          </span>
+          <span style={{ fontFamily: E.fMono, color: E.ember }}>{runId}</span>
+          <span style={{ color: E.text4 }}>vs</span>
+          <span style={{ fontFamily: E.fMono, color: E.steel }}>{otherId}</span>
+          <span style={{ flex: 1 }} />
+          <Btn kind="ghost" size="sm" onClick={onSwapCompare} title="Swap A and B">
+            ↔ Swap A/B
+          </Btn>
+          <Btn kind="bare" size="sm" onClick={onClearCompare}>
+            Clear compare
+          </Btn>
+        </div>
+      </Card>
+
+      {/* TOOLBAR: filter pills + summary */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {COMPARE_FILTERS.map((f) => {
+            const active = filter === f.key;
+            const count =
+              f.key === 'all'
+                ? allRows.length
+                : f.key === 'regressed'
+                  ? totalsRegressed
+                  : f.key === 'fixed'
+                    ? totalsFixed
+                    : totalsUnchanged;
+            return (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setFilter(f.key)}
+                style={{
+                  padding: '5px 12px',
+                  fontSize: 12,
+                  borderRadius: 999,
+                  border: `1px solid ${active ? E.ember : E.hair}`,
+                  background: active ? E.emberDim : E.panel,
+                  color: active ? E.ember : E.text2,
+                  cursor: 'pointer',
+                  fontFamily: E.fSans,
+                }}
+              >
+                {f.label}{' '}
+                <span style={{ fontFamily: E.fMono, color: active ? E.ember : E.text3, fontSize: 11 }}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <span style={{ flex: 1 }} />
+
+        {missingOnOther > 0 && (
+          <span
+            style={{
+              fontSize: 11,
+              color: E.warn,
+              fontFamily: E.fMono,
+            }}
+            title={`${missingOnOther} item(s) in this run are absent from ${otherId} - rendered with "missing" indicator on the other side`}
+          >
+            {missingOnOther} missing on other
+          </span>
+        )}
+        <span style={{ fontSize: 11.5, color: E.text2, fontFamily: E.fMono }}>
+          {visibleRows.length} of {allRows.length} rows
+        </span>
+        <UpdatingChip visible={reloading && !isInitialLoad} />
+      </div>
+
+      {visibleRows.length === 0 ? (
+        <Card style={{ padding: 24 }}>
+          <div style={{ fontSize: 13, color: E.text2 }}>
+            No items match this filter.
+          </div>
+        </Card>
+      ) : (
+        <Card style={{ padding: 0, overflow: 'hidden' }}>
+          <CompareTable
+            rows={visibleRows}
+            thisLabel={runId}
+            otherLabel={otherId}
+          />
+        </Card>
+      )}
+
+      {/* PAGINATION FOOTER (cap notice) */}
+      {(thisItems.total > ITEMS_COMPARE_LIMIT ||
+        otherItems.total > ITEMS_COMPARE_LIMIT) && (
+        <div
+          style={{
+            marginTop: 12,
+            padding: 10,
+            background: E.panel2,
+            borderRadius: 6,
+            fontSize: 11.5,
+            color: E.text2,
+            fontFamily: E.fMono,
+            textAlign: 'center',
+          }}
+        >
+          Showing {ITEMS_COMPARE_LIMIT} of {Math.max(thisItems.total, otherItems.total)} items - the
+          remainder is not aligned in this view. Filter the source runs to focus on a subset.
+        </div>
+      )}
+
+      <div style={{ height: 30 }} />
+    </div>
+  );
+}
+
+interface CompareTableProps {
+  rows: CompareRow[];
+  thisLabel: string;
+  otherLabel: string;
+}
+
+/**
+ * Three-column compare table: this | other | diff.
+ * Each side renders a row of small per-metric dots using the union
+ * of metric_ids across both rows so the dot positions line up.
+ */
+function CompareTable({ rows, thisLabel, otherLabel }: CompareTableProps) {
+  const gridCols = '110px 1fr 1px 1fr 90px';
+  return (
+    <div>
+      {/* HEADER */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: gridCols,
+          gap: 10,
+          padding: '10px 16px',
+          borderBottom: `1px solid ${E.hair}`,
+          fontSize: 10,
+          fontFamily: E.fMono,
+          color: E.text3,
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+          alignItems: 'center',
+        }}
+      >
+        <div>Item</div>
+        <div style={{ color: E.ember }} title={thisLabel}>
+          This - {thisLabel}
+        </div>
+        <div style={{ background: E.hair2, height: 14 }} />
+        <div style={{ color: E.steel }} title={otherLabel}>
+          Other - {otherLabel}
+        </div>
+        <div style={{ textAlign: 'right' }}>Diff</div>
+      </div>
+
+      {rows.map((r) => (
+        <CompareRowView key={r.id} row={r} gridCols={gridCols} />
+      ))}
+    </div>
+  );
+}
+
+interface CompareRowViewProps {
+  row: CompareRow;
+  gridCols: string;
+}
+
+function CompareRowView({ row, gridCols }: CompareRowViewProps) {
+  // Union of metric_ids across both sides, preserving this-side order
+  // first so the dominant run's metric layout determines the column order.
+  const metricIds = useMemo<string[]>(() => {
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    for (const pm of row.thisRow.per_metric) {
+      if (!seen.has(pm.metric_id)) {
+        seen.add(pm.metric_id);
+        ordered.push(pm.metric_id);
+      }
+    }
+    if (row.otherRow) {
+      for (const pm of row.otherRow.per_metric) {
+        if (!seen.has(pm.metric_id)) {
+          seen.add(pm.metric_id);
+          ordered.push(pm.metric_id);
+        }
+      }
+    }
+    return ordered;
+  }, [row]);
+
+  const otherByMetric = useMemo(() => {
+    if (!row.otherRow) return new Map<string, ExperimentItemRow['per_metric'][number]>();
+    return new Map(row.otherRow.per_metric.map((pm) => [pm.metric_id, pm]));
+  }, [row]);
+  const thisByMetric = useMemo(
+    () => new Map(row.thisRow.per_metric.map((pm) => [pm.metric_id, pm])),
+    [row],
+  );
+
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: gridCols,
+        gap: 10,
+        padding: '8px 16px',
+        borderTop: `1px solid ${E.hair}`,
+        alignItems: 'center',
+        minHeight: 36,
+      }}
+    >
+      {/* Item id (mono, narrow, sticky-feel via color) */}
+      <div
+        style={{
+          fontFamily: E.fMono,
+          fontSize: 11,
+          color: E.text2,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+        title={row.id}
+      >
+        {row.id.slice(0, 12)}
+      </div>
+
+      {/* This run dots */}
+      <DotRow
+        metricIds={metricIds}
+        byMetric={thisByMetric}
+        absentLabel="not graded in this run"
+      />
+
+      {/* Divider */}
+      <div style={{ background: E.hair2, alignSelf: 'stretch', width: 1 }} />
+
+      {/* Other run dots (or "missing" if no row at all) */}
+      {row.otherRow ? (
+        <DotRow
+          metricIds={metricIds}
+          byMetric={otherByMetric}
+          absentLabel="not graded in other run"
+        />
+      ) : (
+        <div
+          style={{
+            fontFamily: E.fMono,
+            fontSize: 10,
+            color: E.warn,
+            letterSpacing: '0.06em',
+          }}
+          title="This item id is not present in the other run"
+        >
+          missing
+        </div>
+      )}
+
+      {/* Diff cell */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <DiffChip diff={row.diff} hasOther={row.otherRow !== null} />
+      </div>
+    </div>
+  );
+}
+
+interface DotRowProps {
+  metricIds: string[];
+  byMetric: Map<string, ExperimentItemRow['per_metric'][number]>;
+  absentLabel: string;
+}
+
+/** A row of small per-metric status dots. Hover via title= for tooltip. */
+function DotRow({ metricIds, byMetric, absentLabel }: DotRowProps) {
+  return (
+    <div style={{ display: 'flex', gap: 3, alignItems: 'center', flexWrap: 'wrap' }}>
+      {metricIds.map((mid) => {
+        const pm = byMetric.get(mid);
+        let dotColor: string;
+        let titleText: string;
+        if (!pm) {
+          dotColor = E.text4;
+          titleText = `${mid}: ${absentLabel}`;
+        } else if (pm.passed === true) {
+          dotColor = E.pass;
+          titleText = `${mid}: passed${pm.score != null ? ` (${pm.score.toFixed(2)})` : ''}`;
+        } else if (pm.passed === false) {
+          dotColor = E.fail;
+          titleText = `${mid}: failed${pm.score != null ? ` (${pm.score.toFixed(2)})` : ''}`;
+        } else {
+          dotColor = E.text4;
+          titleText = `${mid}: no result`;
+        }
+        return (
+          <span
+            key={mid}
+            title={titleText}
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: dotColor,
+              display: 'inline-block',
+              flexShrink: 0,
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+interface DiffChipProps {
+  diff: CompareDiff;
+  hasOther: boolean;
+}
+
+/**
+ * Diff summary chip:
+ *   "+N" green when only fixed
+ *   "-N" red  when only regressed
+ *   "+N -M" mixed  when both
+ *   "·"  muted  when no change (or other side missing)
+ */
+function DiffChip({ diff, hasOther }: DiffChipProps) {
+  if (!hasOther) {
+    return (
+      <span style={{ fontFamily: E.fMono, fontSize: 11, color: E.text4 }}>-</span>
+    );
+  }
+  const { fixed, regressed } = diff;
+  if (fixed === 0 && regressed === 0) {
+    return (
+      <span
+        style={{ fontFamily: E.fMono, fontSize: 13, color: E.text4 }}
+        title="No metrics changed verdict"
+      >
+        ·
+      </span>
+    );
+  }
+  return (
+    <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+      {fixed > 0 && (
+        <span
+          title={`${fixed} metric(s) fixed (failed in other, passed here)`}
+          style={{
+            fontFamily: E.fMono,
+            fontSize: 11,
+            color: E.pass,
+            background: E.passDim,
+            padding: '1px 6px',
+            borderRadius: 3,
+          }}
+        >
+          +{fixed}
+        </span>
+      )}
+      {regressed > 0 && (
+        <span
+          title={`${regressed} metric(s) regressed (passed in other, failed here)`}
+          style={{
+            fontFamily: E.fMono,
+            fontSize: 11,
+            color: E.fail,
+            background: E.failDim,
+            padding: '1px 6px',
+            borderRadius: 3,
+          }}
+        >
+          -{regressed}
+        </span>
+      )}
+    </span>
+  );
+}
+
 // ---------- Items tab ----------
 
 const PAGE_SIZE = 50;
@@ -1222,11 +1829,9 @@ const FILTERS: { key: ExperimentItemsFilter; label: string }[] = [
 
 interface ItemsTabProps {
   runId: string;
-  compareActive?: boolean;
-  onClearCompare?: () => void;
 }
 
-function ItemsTab({ runId, compareActive, onClearCompare }: ItemsTabProps) {
+function ItemsTab({ runId }: ItemsTabProps) {
   const [offset, setOffset] = useState(0);
   const [filter, setFilter] = useState<ExperimentItemsFilter>('all');
   const [sort, setSort] = useState<ExperimentItemsSort>('item_id');
@@ -1289,31 +1894,6 @@ function ItemsTab({ runId, compareActive, onClearCompare }: ItemsTabProps) {
 
   return (
     <div style={{ padding: '20px 36px' }}>
-      {compareActive && (
-        <Card
-          style={{
-            padding: 10,
-            marginBottom: 14,
-            background: E.steelDim,
-            borderColor: E.steel,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
-            <span style={{ color: E.steel, fontFamily: E.fMono, fontSize: 10, letterSpacing: '0.08em' }}>
-              COMPARE MODE ACTIVE
-            </span>
-            <span style={{ color: E.text2 }}>
-              Per-item compare grid is not yet wired here - showing this run's items only.
-            </span>
-            <span style={{ flex: 1 }} />
-            {onClearCompare && (
-              <Btn kind="bare" size="sm" onClick={onClearCompare}>
-                Clear compare
-              </Btn>
-            )}
-          </div>
-        </Card>
-      )}
       {/* TOOLBAR */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 4 }}>

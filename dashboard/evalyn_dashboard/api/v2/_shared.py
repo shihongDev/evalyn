@@ -20,6 +20,7 @@ read short-circuits when the env var is set).
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -29,6 +30,29 @@ from pathlib import Path
 from typing import Any, Iterable
 
 logger = logging.getLogger(__name__)
+
+# Cache keys the FE uses with ``useV2Resource``. Listed centrally so
+# both the watcher loop and tests share the same vocabulary; the FE
+# matches by prefix so e.g. ``"experiments"`` invalidates both
+# ``"experiments"`` (list) and ``"experiment:<id>"`` (detail) entries.
+V2_CACHE_KEYS: tuple[str, ...] = (
+    "home",
+    "experiments",
+    "experiment",  # prefix matches "experiment:<id>" + items pages
+    "datasets",
+    "dataset",     # prefix matches "dataset:<name>"
+    "rubrics",
+    "rubric",      # prefix matches "rubric:<id>"
+    "reviewQueue",
+    "weeklyReport",
+)
+
+# Watcher state. ``_watcher_task`` is single-process so re-calling
+# ``start_watcher`` from a second ``build_app`` (e.g. in tests) is a
+# no-op rather than spawning duplicate pollers.
+_LAST_ROOTS_SIG: tuple[tuple[str, float], ...] | None = None
+_WATCHER_TASK: asyncio.Task | None = None
+_WATCHER_INTERVAL_S: float = 3.0
 
 INVERSE_HINTS = ("hallucin", "refus_incorrect")
 
@@ -861,3 +885,87 @@ def calibration_suggestions(runs: list[dict]) -> list[dict]:
         })
     suggestions.sort(key=lambda s: (-s["verdict_count"], s["dataset"], s["metric_id"]))
     return suggestions[:CALIBRATION_SUGGESTIONS_CAP]
+
+
+# ---------------------------------------------------------------------------
+# Background watcher: poll dataset_roots() mtimes and broadcast invalidations.
+# ---------------------------------------------------------------------------
+
+
+def _drop_response_caches() -> None:
+    """Clear in-memory v2 caches so the next request rebuilds.
+
+    Mirrors ``_clear_caches_for_tests`` minus the test-only sibling
+    invalidations: only the caches keyed on root mtimes are dropped
+    (per-file mtime caches stay because they self-invalidate).
+    """
+    _response_snapshot_cache.clear()
+    _run_dirs_cache.clear()
+    _dataset_dirs_cache.clear()
+    _all_runs_cache.clear()
+    _reviews_dirs_cache.clear()
+
+
+async def _watcher_loop() -> None:
+    """Periodically diff ``roots_signature()`` and broadcast on change.
+
+    Runs forever until cancelled. Imports :func:`broadcast` lazily to
+    avoid a circular import at module load (``v2_ws`` doesn't import
+    this module, but keeping the import lazy makes the dependency
+    direction obvious).
+    """
+    from .v2_ws import broadcast  # local import: avoid load-time cycle
+
+    global _LAST_ROOTS_SIG
+    # Seed the signature so the first iteration doesn't fire spuriously
+    # for a workspace that has been on disk all along.
+    _LAST_ROOTS_SIG = roots_signature()
+    while True:
+        try:
+            await asyncio.sleep(_WATCHER_INTERVAL_S)
+            sig = roots_signature()
+            if sig == _LAST_ROOTS_SIG:
+                continue
+            _LAST_ROOTS_SIG = sig
+            _drop_response_caches()
+            await broadcast(
+                {"type": "cache_invalidate", "keys": list(V2_CACHE_KEYS)}
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - never let the loop die
+            logger.warning("v2 watcher loop error: %s", exc)
+
+
+def start_watcher() -> None:
+    """Start the watcher task on the current event loop.
+
+    Idempotent: a second call while a task is alive is a no-op. Called
+    from FastAPI's ``startup`` hook so the loop is the same one the WS
+    handler runs on.
+    """
+    global _WATCHER_TASK
+    if _WATCHER_TASK is not None and not _WATCHER_TASK.done():
+        return
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop yet (e.g. called outside startup). Caller
+        # should retry from a coroutine; bail quietly rather than crash.
+        logger.debug("start_watcher called with no running loop; skipping")
+        return
+    _WATCHER_TASK = loop.create_task(_watcher_loop())
+
+
+async def stop_watcher() -> None:
+    """Cancel the watcher task and wait for it to exit (test seam)."""
+    global _WATCHER_TASK
+    if _WATCHER_TASK is None:
+        return
+    task = _WATCHER_TASK
+    _WATCHER_TASK = None
+    task.cancel()
+    try:
+        await task
+    except (asyncio.CancelledError, Exception):  # noqa: BLE001
+        pass
