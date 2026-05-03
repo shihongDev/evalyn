@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **CLI rich output** - unified visual system across all 34 CLI commands using box-drawing primitives in `cli/utils/rich.py` (`banner`, `section`, `table`, `kv`, `footer`, `progress_bar`, semantic icons). All list, detail, analysis, status, and action commands migrated. Falls back to plain text when stdout is not a TTY or `EVALYN_NO_COLOR` is set; `--format json` and `--compact` modes unchanged. See `docs/superpowers/specs/2026-04-07-cli-rich-output-design.md`.
+- **Hints system overhaul** - new `HintCollector` aggregates multiple hints per command for organized display; suggested commands are enriched with their key options.
+
+### Changed
+- CLI startup sets `EVALYN_OTEL=off` by default for read-only commands, removing a ~45ms import cost from the otel stack.
+- 23 medium-severity and 4 high-severity code issues resolved across the CLI and storage layers.
+
+### Fixed
+- `quickstart --run` preserves Windows backslash paths.
+- `show-projects` restores the Version column.
+- Calibration optimizer args preserve explicit zero values instead of dropping them.
+- `annotation-stats` uses the newest stored annotation per target, not an arbitrary one.
+- `get_calls_batch` chunks query parameters to stay under SQLite's parameter limit.
+- `list-calls --function` escapes SQL LIKE wildcards in the filter argument.
+- Clustering and trend hint output no longer leaks into JSON mode or uses stale args; `compare` now shows a hint when results are equal.
+
 ## [0.2.0] - 2026-03-29
 
 ### Added
