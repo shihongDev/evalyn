@@ -11,9 +11,7 @@
  * tolerance so accidental wheel-jitter doesn't pin the view mid-stream.
  *
  * If no `jobId` is supplied, the Terminal merges every active job's
- * lines in chronological order (the Bottom-panel default view). The
- * default mode also shows a `$ ` prompt cursor at the bottom for
- * mock parity (see /tmp/evalyn-dashboard-mock/wb-app.jsx:454).
+ * lines in chronological order (the Bottom-panel default view).
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -70,21 +68,30 @@ interface TerminalProps {
 const SCROLL_TOLERANCE_PX = 8;
 
 const Terminal = ({ jobId }: TerminalProps) => {
-  const jobEvents = useStore((s) => s.jobEvents);
+  // Per-jobId selector: we only re-render when this Terminal's buffer
+  // changes. The previous code subscribed to the entire `jobEvents` map
+  // so every Terminal re-rendered on every line of every job — fine when
+  // only one Terminal was mounted, but acute now that the Workspace
+  // renders one Terminal per expanded run card.
+  const ownLines = useStore((s) => (jobId ? s.jobEvents.get(jobId) : undefined));
+  // For the merge-all-jobs (no jobId) path we still need every buffer,
+  // so we subscribe to the map itself and reconstruct on each change.
+  const allEvents = useStore((s) => (jobId ? null : s.jobEvents));
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [pinned, setPinned] = useState(true);
 
   const lines = useMemo<JobLine[]>(() => {
-    if (jobId) return jobEvents.get(jobId) ?? [];
+    if (jobId) return ownLines ?? [];
+    if (!allEvents) return [];
     // Merge all jobs' buffers. We don't have global ordering across jobs
     // so we just concatenate by insertion order of the Map. This matches
     // the typical "1 job at a time" usage the bottom panel sees.
     const out: JobLine[] = [];
-    for (const buf of jobEvents.values()) {
+    for (const buf of allEvents.values()) {
       for (const line of buf) out.push(line);
     }
     return out;
-  }, [jobEvents, jobId]);
+  }, [ownLines, allEvents, jobId]);
 
   // Scroll to bottom whenever new lines arrive AND the user is pinned.
   useEffect(() => {
@@ -115,25 +122,11 @@ const Terminal = ({ jobId }: TerminalProps) => {
       }}
     >
       {lines.length === 0 ? (
-        <div className="text-3" style={{ fontSize: 11 }}>
-          {'// no output yet — run a CLI to see streamed stdout/stderr'}
+        <div className="text-3" style={{ fontSize: 12 }}>
+          Output will appear here once the job starts.
         </div>
       ) : (
         lines.map((line, i) => <AnsiLine key={i} line={line} />)
-      )}
-      {!jobId && (
-        <div style={{ marginTop: 8, color: 'var(--accent)' }}>
-          ${' '}
-          <span
-            style={{
-              background: 'var(--text-1)',
-              color: 'var(--bg-0)',
-              padding: '0 1px',
-            }}
-          >
-            &nbsp;
-          </span>
-        </div>
       )}
     </div>
   );

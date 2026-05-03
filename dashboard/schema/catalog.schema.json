@@ -45,6 +45,26 @@
           "type": "boolean",
           "default": false,
           "description": "hide behind 'Advanced' disclosure in the form view"
+        },
+        "essential": {
+          "type": "boolean",
+          "default": false,
+          "description": "show in the default form (alongside required) even though argparse marks it optional"
+        },
+        "range": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "type": "number" },
+            "max": { "type": "number" },
+            "step": { "type": "number" }
+          },
+          "description": "optional numeric range hint for number-kind params; enables slider rendering in the dashboard"
+        },
+        "unit": {
+          "type": "string",
+          "description": "optional unit label for number-kind params (e.g. 'workers', 'seconds')"
         }
       }
     },

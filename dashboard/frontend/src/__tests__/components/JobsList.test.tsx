@@ -30,9 +30,20 @@ afterEach(() => {
 const addJob = (job: Job) => useStore.getState().upsertJob(job);
 
 describe('JobsList', () => {
-  test('renders empty-state hint when no jobs', () => {
-    render(<JobsList />);
-    expect(screen.getByText(/no jobs yet/i)).toBeInTheDocument();
+  test('renders empty-state hint when no jobs (after boot grace)', () => {
+    vi.useFakeTimers();
+    try {
+      render(<JobsList />);
+      // During the first 1500ms boot-grace window the skeleton renders.
+      expect(screen.getByTestId('jobs-list-skeleton')).toBeInTheDocument();
+      // Once the grace window expires, the existing empty state takes over.
+      act(() => {
+        vi.advanceTimersByTime(1600);
+      });
+      expect(screen.getByText(/no jobs yet/i)).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test('renders one row per job in the store', () => {

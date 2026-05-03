@@ -210,6 +210,7 @@ def test_dataclasses_are_exported() -> None:
         "help",
         "required",
         "advanced",
+        "essential",
     }
     assert CliSchema.__dataclass_fields__.keys() >= {
         "id",
@@ -218,3 +219,51 @@ def test_dataclasses_are_exported() -> None:
         "blurb",
         "params",
     }
+
+
+# ---------------------------------------------------------------------------
+# essential flag (Approach D)
+# ---------------------------------------------------------------------------
+
+
+def test_essential_defaults_false() -> None:
+    """Without an explicit `essential=` set, every param is essential=False."""
+    schema = introspect_parser(make_string_parser())
+    for p in schema.params:
+        assert p.essential is False, f"{p.name} unexpectedly essential"
+
+
+def test_introspect_parser_respects_essential_arg() -> None:
+    """Names listed in `essential=` are flagged on the resulting params."""
+    p = argparse.ArgumentParser(prog="x")
+    p.add_argument("--limit", type=int, default=20)
+    p.add_argument("--project", default=None)
+    schema = introspect_parser(p, essential={"limit"})
+    by_name = {param.name: param for param in schema.params}
+    assert by_name["limit"].essential is True
+    assert by_name["project"].essential is False
+
+
+def test_build_catalog_reads_module_essential_constant() -> None:
+    """`build_catalog` honours the per-module ``ESSENTIAL`` constant.
+
+    `traces.py` declares ``ESSENTIAL = {"limit"}``; the resulting
+    ``list-calls`` schema must mark that param essential.
+    """
+    catalog = build_catalog()
+    list_calls = next(c for c in catalog if c.id == "list-calls")
+    by_name = {p.name: p for p in list_calls.params}
+    assert "limit" in by_name, "list-calls is expected to expose --limit"
+    assert by_name["limit"].essential is True
+    # Sanity: at least one other non-essential param exists in the same CLI so
+    # the form's "default visible" partition is meaningful.
+    assert any(not p.essential and not p.required for p in list_calls.params)
+
+
+def test_build_catalog_essential_payload_round_trip() -> None:
+    """``catalog_to_payload`` carries the `essential` flag through ``asdict``."""
+    catalog = build_catalog()
+    payload = catalog_to_payload(catalog)
+    list_calls = next(c for c in payload if c["id"] == "list-calls")
+    limit_param = next(p for p in list_calls["params"] if p["name"] == "limit")
+    assert limit_param["essential"] is True

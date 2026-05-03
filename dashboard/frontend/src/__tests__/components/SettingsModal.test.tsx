@@ -46,7 +46,7 @@ describe('SettingsModal - visibility', () => {
     useStore.getState().openSettings();
     render(<SettingsModal />);
     expect(screen.getByTestId('settings-modal')).toBeInTheDocument();
-    expect(screen.getByText('workspace settings')).toBeInTheDocument();
+    expect(screen.getByText('Settings')).toBeInTheDocument();
   });
 });
 

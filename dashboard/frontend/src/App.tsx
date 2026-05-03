@@ -1,9 +1,8 @@
 /**
- * App shell — IDE layout.
+ * App shell.
  *
- * Ported from /tmp/evalyn-dashboard-mock/wb-app.jsx (App, lines 573+).
- * Three-column grid: Sidebar | (EditorTabs / content / BottomPanel) | ChatPanel.
- * ChatPanel is a placeholder until Lane C2 ships in Phase 3.
+ * Two-column grid: Sidebar | (EditorTabs / TabContent) | ChatPanel.
+ * Job output renders inline inside its job tab (no bottom panel split).
  */
 
 import { useEffect } from 'react';
@@ -11,48 +10,84 @@ import './styles/index.css';
 import TitleBar from './components/TitleBar';
 import EditorTabs from './components/EditorTabs';
 import Sidebar from './components/Sidebar';
-import BottomPanel from './components/BottomPanel';
 import ChatPanel from './components/ChatPanel';
+import CommandPalette from './components/CommandPalette';
+import InlineChat from './components/InlineChat';
 import SettingsModal from './components/SettingsModal';
-import Welcome from './views/Welcome';
-import CliForm from './views/CliForm';
+import Terminal from './components/Terminal';
+import Workspace from './views/Workspace';
+import CompareView from './views/CompareView';
 import { useStore } from './store';
+
+const JobTabView = ({ jobId }: { jobId: string }) => {
+  const job = useStore((s) => s.jobs.get(jobId));
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div
+        style={{
+          padding: '14px 22px',
+          borderBottom: '1px solid var(--line)',
+          background: 'var(--bg-1)',
+          flexShrink: 0,
+        }}
+      >
+        <div className="mono text-3" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+          Output
+        </div>
+        <div className="mono" style={{ fontSize: 13, color: 'var(--text-0)', marginTop: 4 }}>
+          {job?.cmd ?? `evalyn (job ${jobId.slice(0, 8)})`}
+        </div>
+        <div className="text-3" style={{ fontSize: 11, marginTop: 4 }}>
+          status: <span className={
+            job?.status === 'complete' ? 'pass' :
+            job?.status === 'failed' || job?.status === 'cancelled' ? 'fail' :
+            'accent'
+          }>{job?.status ?? 'running'}</span>
+          {job?.exitCode != null ? <span className="text-3"> · exit {job.exitCode}</span> : null}
+          {job?.duration ? <span className="text-3"> · {job.duration}</span> : null}
+        </div>
+      </div>
+      <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+        <Terminal jobId={jobId} />
+      </div>
+    </div>
+  );
+};
 
 const TabContent = () => {
   const tabs = useStore((s) => s.tabs);
   const activeTabId = useStore((s) => s.activeTabId);
-  const catalog = useStore((s) => s.catalog);
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
 
-  if (!activeTab) {
-    return <Welcome />;
+  // Workspace is the default view. Sidebar CLI clicks set the active CLI
+  // via `selectActiveCli` rather than opening a tab. Chat-suggestion clicks
+  // open a `cli:` tab AND set the active CLI (see `openCli` in store.ts),
+  // so the Workspace renders the form for the opened tab in either case.
+  if (!activeTab || activeTab.kind === 'cli') {
+    return <Workspace />;
   }
 
-  if (activeTab.kind === 'cli') {
-    const id = activeTab.id.replace(/^cli:/, '');
-    const cli = catalog.find((c) => c.id === id);
-    if (!cli) {
-      return (
-        <div
-          className="mono text-3"
-          style={{ padding: 28, fontSize: 12, lineHeight: 1.7 }}
-        >
-          <div className="text-2">{activeTab.title}</div>
-          <div style={{ marginTop: 12 }}>
-            // CLI not in catalog (loading or unknown id)
-          </div>
-        </div>
-      );
-    }
-    return <CliForm cli={cli} />;
+  if (activeTab.kind === 'job') {
+    const jobId = activeTab.id.replace(/^job:/, '');
+    return <JobTabView jobId={jobId} />;
+  }
+
+  if (activeTab.kind === 'compare') {
+    // Tab id format: `compare:<runA>:<runB>`. Run ids may legitimately
+    // contain underscores or dashes but never colons, so a 3-part split is
+    // sufficient. A malformed id (missing B) renders an inline error.
+    const parts = activeTab.id.split(':');
+    const runA = parts[1] ?? '';
+    const runB = parts[2] ?? '';
+    return <CompareView runA={runA} runB={runB} />;
   }
 
   return (
-    <div className="mono text-3" style={{ padding: 28, fontSize: 12, lineHeight: 1.7 }}>
-      <div className="text-2">{activeTab.title}</div>
-      <div style={{ marginTop: 12 }}>
-        {`// ${activeTab.kind} content ships in Phase 2 (Lane B2 / B3)`}
+    <div style={{ padding: 28, color: 'var(--text-2)', fontSize: 13 }}>
+      <div style={{ fontSize: 16, color: 'var(--text-0)', marginBottom: 8 }}>
+        {activeTab.title}
       </div>
+      <div>This view is coming soon.</div>
     </div>
   );
 };
@@ -60,18 +95,18 @@ const TabContent = () => {
 const App = () => {
   const theme = useStore((s) => s.tweaks.theme);
   const monoOnly = useStore((s) => s.tweaks.monoOnly);
-  const showJobsPanel = useStore((s) => s.tweaks.showJobsPanel);
   const chatVisible = useStore((s) => s.chatVisible);
   const setChatVisible = useStore((s) => s.setChatVisible);
-  const setPaletteOpen = useStore((s) => s.setPaletteOpen);
   const loadCatalog = useStore((s) => s.loadCatalog);
   const loadFileTree = useStore((s) => s.loadFileTree);
   const loadRuns = useStore((s) => s.loadRuns);
   const loadSettings = useStore((s) => s.loadSettings);
+  const loadThreads = useStore((s) => s.loadThreads);
+  const setPaletteOpen = useStore((s) => s.setPaletteOpen);
 
   // Boot fetches: catalog / file tree / runs. Failures are non-fatal in Phase 2
   // because the corresponding endpoints land in Lane B1; the UI degrades to
-  // empty placeholders.
+  // empty placeholders. loadThreads reads from localStorage only — no network.
   useEffect(() => {
     loadCatalog().catch((err) => {
       console.warn('loadCatalog failed', err);
@@ -85,7 +120,8 @@ const App = () => {
     loadSettings().catch((err) => {
       console.warn('loadSettings failed', err);
     });
-  }, [loadCatalog, loadFileTree, loadRuns, loadSettings]);
+    loadThreads();
+  }, [loadCatalog, loadFileTree, loadRuns, loadSettings, loadThreads]);
 
   // Apply theme + mono toggle to <body>, mirroring the mock's effect.
   useEffect(() => {
@@ -93,14 +129,37 @@ const App = () => {
     document.body.dataset.mono = monoOnly ? 'true' : 'false';
   }, [theme, monoOnly]);
 
-  // Cmd/Ctrl-K opens the palette; Escape closes it.
+  // Cmd/Ctrl-K toggles the command palette; Cmd/Ctrl-I toggles the inline
+  // chat popover anchored to the focused element. Escape closes the palette.
+  // We intentionally toggle (not just open) so a second keypress dismisses
+  // the surface — matches Linear / Vercel / Raycast / Cursor.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
-        setPaletteOpen(true);
+        const { paletteOpen } = useStore.getState();
+        setPaletteOpen(!paletteOpen);
+        return;
       }
-      if (e.key === 'Escape') {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'i' || e.key === 'I')) {
+        e.preventDefault();
+        const { inlineChatOpen, openInlineChat, closeInlineChat } =
+          useStore.getState();
+        if (inlineChatOpen) {
+          closeInlineChat();
+          return;
+        }
+        const el = document.activeElement;
+        if (el && el !== document.body) {
+          const r = (el as HTMLElement).getBoundingClientRect();
+          openInlineChat({ x: r.left + r.width / 2, y: r.bottom + 8 });
+        } else {
+          openInlineChat(null);
+        }
+        return;
+      }
+      if (e.key === 'Escape' && useStore.getState().paletteOpen) {
+        e.preventDefault();
         setPaletteOpen(false);
       }
     };
@@ -134,16 +193,15 @@ const App = () => {
         <div
           style={{
             display: 'grid',
-            gridTemplateRows: showJobsPanel ? 'auto 1fr 220px' : 'auto 1fr',
+            gridTemplateRows: 'auto 1fr',
             minWidth: 0,
             minHeight: 0,
           }}
         >
           <EditorTabs />
-          <div style={{ overflow: 'auto', background: 'var(--bg-0)' }}>
+          <div style={{ overflow: 'auto', background: 'var(--bg-0)', minHeight: 0 }}>
             <TabContent />
           </div>
-          {showJobsPanel && <BottomPanel />}
         </div>
 
         {chatVisible && <ChatPanel />}
@@ -170,6 +228,8 @@ const App = () => {
       )}
 
       <SettingsModal />
+      <CommandPalette />
+      <InlineChat />
     </div>
   );
 };

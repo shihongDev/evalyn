@@ -15,6 +15,81 @@ import type { ProviderState, SettingsState } from './types/agent';
  *  the same origin so a relative path is correct. */
 const API_BASE = '/api';
 
+/* === Compare types ==================================================== */
+
+/** Per-run summary block returned by `/api/compare`. */
+export interface CompareRunSummary {
+  id: string;
+  dataset: string;
+  /** Pass rate 0..1 (NaN/missing -> null). */
+  pass: number | null;
+  /** Mean score per metric_id (null if unavailable). */
+  metrics: Record<string, number | null>;
+  /** Total cost across this run in USD, when available. */
+  cost?: number | null;
+}
+
+/** Per-row side data: pass flag, per-metric scores, output preview. */
+export interface CompareRowSide {
+  /** True when every metric on this side passed. Null when no metrics. */
+  pass: boolean | null;
+  /** Per-metric score (0..1). Missing metrics are absent. */
+  metrics: Record<string, number>;
+  /** First ~200 chars of output text, when available. */
+  output?: string | null;
+}
+
+/** Aligned per-input row from `/api/compare`. */
+export interface CompareRow {
+  /** Stable hash of the canonical input — alignment key. */
+  input_hash: string;
+  /** First ~200 chars of input. */
+  input_preview: string;
+  /** Side A (run_a) view. Null when this input only exists in B. */
+  a: CompareRowSide | null;
+  /** Side B (run_b) view. Null when this input only exists in A. */
+  b: CompareRowSide | null;
+  /** Sum of (b.metric - a.metric) over shared metrics. Negative = regression. */
+  delta: number;
+}
+
+/** Full payload returned by `/api/compare`. */
+export interface CompareResponse {
+  run_a: CompareRunSummary;
+  run_b: CompareRunSummary;
+  items: CompareRow[];
+}
+
+/* === Promote types ===================================================== */
+
+/** Per-row metric verdict surfaced inside the run-detail view. */
+export interface RunMetricResult {
+  metric_id?: string;
+  item_id: string;
+  call_id?: string;
+  score?: number;
+  passed?: boolean;
+  details?: { judge?: string; reason?: string } & Record<string, unknown>;
+  [k: string]: unknown;
+}
+
+/** Shape of `GET /api/runs/{id}` (subset that the dashboard cares about). */
+export interface RunDetail {
+  id?: string;
+  dataset_name?: string;
+  metric_results?: RunMetricResult[];
+  summary?: { pass_rate?: number } & Record<string, unknown>;
+  [k: string]: unknown;
+}
+
+/** 200 response from `POST /api/promote/run-failures`. */
+export interface PromoteResponse {
+  dataset_path: string;
+  dataset_name: string;
+  item_count: number;
+  skipped: string[];
+}
+
 /** Build a WebSocket URL for the same origin. Honors `wss://` for HTTPS. */
 const wsUrl = (path: string): string => {
   const proto = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -60,6 +135,31 @@ export const api = {
   /** GET /api/runs — return the runs list. */
   runs: (): Promise<RunMeta[]> => jsonFetch('/runs'),
 
+  /** GET /api/runs/{id} — return parsed results.json for a single run. */
+  runDetail: (runId: string): Promise<RunDetail> =>
+    jsonFetch(`/runs/${encodeURIComponent(runId)}`),
+
+  /** POST /api/promote/run-failures — promote selected rows to a new dataset. */
+  promoteRunFailures: (
+    runId: string,
+    rowHashes: string[],
+    datasetName?: string,
+  ): Promise<PromoteResponse> =>
+    jsonFetch('/promote/run-failures', {
+      method: 'POST',
+      body: JSON.stringify({
+        run_id: runId,
+        row_hashes: rowHashes,
+        ...(datasetName ? { dataset_name: datasetName } : {}),
+      }),
+    }),
+
+  /** GET /api/compare?run_a=&run_b= — return aligned per-row diff data. */
+  compare: (runA: string, runB: string): Promise<CompareResponse> =>
+    jsonFetch(
+      `/compare?run_a=${encodeURIComponent(runA)}&run_b=${encodeURIComponent(runB)}`,
+    ),
+
   /** GET /api/settings — provider keys + active provider. */
   settings: (): Promise<SettingsState> => jsonFetch('/settings'),
 
@@ -96,15 +196,32 @@ export const api = {
       body: JSON.stringify({ message, thread_id: threadId }),
     }),
 
-  /** POST /api/agent/chat/{thread_id}/confirm — approve or reject a pending tool call. */
+  /** POST /api/agent/chat/{thread_id}/confirm — approve or reject a pending tool call.
+   *
+   * `options.argsOverride` lets the user inline-edit the agent's argv before
+   * approving (P1 spec §5.5). `options.autoApproveSession` adds the tool's
+   * name to the per-thread whitelist so subsequent calls bypass the gate. */
   confirmAgentTool: (
     threadId: string,
     approve: boolean,
     toolCallId?: string,
+    options?: {
+      argsOverride?: Record<string, unknown>;
+      autoApproveSession?: boolean;
+    },
   ): Promise<{ ok: boolean }> =>
     jsonFetch(`/agent/chat/${encodeURIComponent(threadId)}/confirm`, {
       method: 'POST',
-      body: JSON.stringify({ approve, tool_call_id: toolCallId }),
+      body: JSON.stringify({
+        approve,
+        tool_call_id: toolCallId,
+        ...(options?.argsOverride !== undefined
+          ? { args_override: options.argsOverride }
+          : {}),
+        ...(options?.autoApproveSession
+          ? { auto_approve_session: true }
+          : {}),
+      }),
     }),
 
   /* === settings endpoints (Lane C1) ================================== */
@@ -135,6 +252,32 @@ export const api = {
     jsonFetch('/settings/active', {
       method: 'POST',
       body: JSON.stringify({ provider }),
+    }),
+
+  /* === demo endpoints (P0 onboarding) ================================== */
+
+  /** POST /api/demo/load — copy the bundled demo fixture into `.evalyn/`.
+   *
+   * Returns 200 ``{loaded: true, project: 'research-v1'}`` on success or
+   * if the demo was already loaded. Throws on 409 when `.evalyn/`
+   * contains non-demo content. */
+  demoLoad: (): Promise<{ loaded: boolean; project: string }> =>
+    jsonFetch('/demo/load', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+
+  /* === thread persistence (P2 polish) ================================ */
+
+  /** POST /api/threads/save — write a chat thread to disk as markdown. */
+  saveThreadToDisk: (payload: {
+    id: string;
+    title: string;
+    messages: unknown[];
+  }): Promise<{ path: string }> =>
+    jsonFetch('/threads/save', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     }),
 };
 

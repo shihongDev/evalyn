@@ -1,255 +1,166 @@
 /**
- * CliForm - the three-mode CLI invocation form.
+ * CliForm - the three-mode CLI invocation form (legacy tab-based view).
  *
- * Ported from /tmp/evalyn-dashboard-mock/wb-cli-forms.jsx (CliForm + CliFormBody).
- * Modes (from `tweaks.cliFormMode`, default `preview`):
- *   form     two-column field grid only
- *   preview  fields on the left, live command + cost/duration estimate on right
- *   raw      assembled command in a textarea
+ * Used when a CLI is opened as a separate tab. The Workspace view in
+ * `Workspace.tsx` uses `CliFormBody` directly via its active form panel.
  *
- * Submit -> `store.runCli(cli.id, values)` -> POST `/api/cli/run`.
- * On success the action opens a `job:<id>` tab; the form tab closes.
+ * Submit -> `runCli` schedules the run and opens a `job:<id>` tab. The form
+ * tab is NOT closed: instead the form-body region swaps to a "Run completed"
+ * card once the job reaches a terminal state. The user can re-run with the
+ * same args, switch to the job tab, or reset and start a new run.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CliSchema } from '../types/catalog';
 import { useStore } from '../store';
-import { buildCli, defaultValues, isFilled, type CliFormValues } from './buildCli';
-import ParamField from './ParamField';
+import { buildCli, defaultValues, type CliFormValues } from './buildCli';
+import CliFormBody from './CliFormBody';
+import RecentRunsStrip from './RecentRunsStrip';
+import SavedPresets from './SavedPresets';
 
 export interface CliFormProps {
   cli: CliSchema;
 }
 
-/* ---------- Highlighter for the assembled command ----------- */
-
-const CliHighlighted = ({ cmd }: { cmd: string }) => {
-  const tokens = cmd.split(/(\s+)/);
-  return (
-    <span>
-      {tokens.map((t, i) => {
-        if (/^\s+$/.test(t)) return <span key={i}>{t}</span>;
-        if (i === 0) return <span key={i} className="text-2">{t}</span>;
-        if (i === 2 && tokens[0] === 'evalyn')
-          return <span key={i} className="accent">{t}</span>;
-        if (t.startsWith('--'))
-          return <span key={i} style={{ color: 'var(--info)' }}>{t}</span>;
-        return <span key={i}>{t}</span>;
-      })}
-    </span>
-  );
-};
-
-/* ---------- Form body (mode-aware) -------------------------- */
-
-interface BodyProps {
-  cli: CliSchema;
-  values: CliFormValues;
-  setValues: (v: CliFormValues) => void;
-  mode: 'form' | 'preview' | 'raw';
+interface PostRunSummary {
+  jobId: string;
+  exitCode?: number;
+  duration?: string;
+  startedAt: number;
+  completedAt: number;
 }
 
-const CliFormBody = ({ cli, values, setValues, mode }: BodyProps) => {
-  const cmd = useMemo(() => buildCli(cli, values), [cli, values]);
-  const setVal = (name: string, v: unknown) => setValues({ ...values, [name]: v });
-  const basic = cli.params.filter((p) => !p.advanced);
-  const advanced = cli.params.filter((p) => p.advanced);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
-  if (mode === 'raw') {
-    return (
-      <div>
-        <div className="label" style={{ display: 'flex', alignItems: 'center' }}>
-          <span>raw command</span>
-          <span className="grow" />
-          <span className="kbd">⌘↵ to run</span>
-        </div>
-        <textarea
-          className="textarea"
-          rows={3}
-          style={{
-            fontSize: 13,
-            padding: '10px 12px',
-            background: 'var(--bg-1)',
-            borderColor: 'var(--line-2)',
-          }}
-          value={cmd}
-          onChange={() => {
-            /* read-only preview of the assembled command */
-          }}
-          aria-label="raw command"
-        />
-        <div className="hint">
-          Edit this string directly. Toggle to <b>form</b> or <b>preview</b> mode in Tweaks.
-        </div>
-      </div>
-    );
-  }
-
-  const filledCount = cli.params.filter((p) => isFilled(p, values[p.name])).length;
-
-  const fields = (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-      {basic.map((p) => (
-        <div
-          key={p.name}
-          style={{
-            gridColumn: ['multiselect', 'long-text'].includes(p.kind)
-              ? '1 / -1'
-              : undefined,
-          }}
-        >
-          <ParamField
-            param={p}
-            value={values[p.name]}
-            onChange={(v) => setVal(p.name, v)}
-          />
-        </div>
-      ))}
-      {advanced.length > 0 && (
-        <div style={{ gridColumn: '1 / -1' }}>
-          <button
-            type="button"
-            className="btn ghost sm"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-          >
-            {showAdvanced ? '▾' : '▸'} {advanced.length} advanced{' '}
-            {advanced.length === 1 ? 'param' : 'params'}
-          </button>
-        </div>
-      )}
-      {showAdvanced &&
-        advanced.map((p) => (
-          <div
-            key={p.name}
-            style={{
-              gridColumn: ['multiselect', 'long-text'].includes(p.kind)
-                ? '1 / -1'
-                : undefined,
-            }}
-          >
-            <ParamField
-              param={p}
-              value={values[p.name]}
-              onChange={(v) => setVal(p.name, v)}
-            />
-          </div>
-        ))}
-    </div>
-  );
-
-  if (mode === 'preview') {
-    return (
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0,1fr) 380px',
-          gap: 18,
-          alignItems: 'start',
-        }}
-      >
-        <div>{fields}</div>
-        <div style={{ position: 'sticky', top: 0 }}>
-          <div className="label">live command</div>
-          <div
-            style={{
-              background: 'var(--bg-0)',
-              border: '1px solid var(--line-2)',
-              borderRadius: 6,
-              padding: 14,
-              fontFamily: 'var(--mono)',
-              fontSize: 12,
-              lineHeight: 1.7,
-              wordBreak: 'break-word',
-            }}
-          >
-            <CliHighlighted cmd={cmd} />
-          </div>
-          <div
-            style={{
-              marginTop: 10,
-              padding: '10px 12px',
-              background: 'var(--bg-2)',
-              borderRadius: 6,
-              border: '1px solid var(--line)',
-            }}
-          >
-            <div
-              className="text-3 mono"
-              style={{
-                fontSize: 10,
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                marginBottom: 6,
-              }}
-            >
-              predicted
-            </div>
-            <div className="row" style={{ fontSize: 11 }}>
-              <span className="text-2">cost</span>
-              <span className="grow" />
-              <span className="mono">≈ ${(0.4 + filledCount * 0.18).toFixed(2)}</span>
-            </div>
-            <div className="row" style={{ fontSize: 11, marginTop: 4 }}>
-              <span className="text-2">duration</span>
-              <span className="grow" />
-              <span className="mono">~ {3 + Math.round(filledCount * 1.4)}m</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // mode === 'form'
-  return fields;
+/** Pretty wall-clock duration when the job didn't supply one. */
+const formatElapsed = (startedAt: number, completedAt: number): string => {
+  const ms = Math.max(0, completedAt - startedAt);
+  const sec = Math.round(ms / 1000);
+  if (sec < 60) return `${sec}s`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}m ${String(s).padStart(2, '0')}s`;
 };
 
-/* ---------- Top-level CliForm ------------------------------- */
+/** Required-field validation, factored so submit and the inline link agree. */
+const computeFieldErrors = (
+  cli: CliSchema,
+  values: CliFormValues,
+): Record<string, string> => {
+  const out: Record<string, string> = {};
+  for (const p of cli.params) {
+    if (!p.required) continue;
+    const v = values[p.name];
+    if (v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0)) {
+      out[p.name] = 'required';
+    }
+  }
+  return out;
+};
 
 const CliForm = ({ cli }: CliFormProps) => {
   const mode = useStore((s) => s.tweaks.cliFormMode);
   const runCli = useStore((s) => s.runCli);
   const closeTab = useStore((s) => s.closeTab);
+  const setActiveTab = useStore((s) => s.setActiveTab);
+  const tabs = useStore((s) => s.tabs);
+  const openJobTab = useStore((s) => s.openJobTab);
+  const jobs = useStore((s) => s.jobs);
 
   const [values, setValues] = useState<CliFormValues>(() => defaultValues(cli));
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Server-side error (non-2xx from /api/cli/run). Field-scoped errors live
+  // on individual ParamFields; this banner is reserved for transport-level
+  // failures that don't map to a single field.
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [postRunSummary, setPostRunSummary] = useState<PostRunSummary | null>(null);
+  // Triggered on submit attempt — until then we don't paint field-scoped
+  // errors so the user isn't yelled at on first paint.
+  const [validationActive, setValidationActive] = useState(false);
+  // Track the active submission so the post-run effect knows which job to
+  // watch and can ignore late events from earlier runs.
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  // Remember when this submission started so we can compute elapsed if the
+  // exit event omits duration.
+  const startedAtRef = useRef<number>(0);
 
   const cmd = buildCli(cli, values);
 
-  // Required-field client validation. Server re-validates per spec §10.
-  const missing = cli.params
-    .filter((p) => p.required)
-    .filter((p) => {
-      const v = values[p.name];
-      return v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
-    });
+  const fieldErrors = validationActive ? computeFieldErrors(cli, values) : {};
+  const errorCount = Object.keys(fieldErrors).length;
 
-  const onRun = async () => {
-    if (missing.length > 0) {
-      setError(`missing required: ${missing.map((p) => p.name).join(', ')}`);
+  // Watch the active job for completion; on terminal state, swap to the
+  // completion card. The job tab opened by `runCli` stays open.
+  useEffect(() => {
+    if (!activeJobId) return;
+    const job = jobs.get(activeJobId);
+    if (!job || job.status === 'pending' || job.status === 'running') return;
+    setPostRunSummary({
+      jobId: activeJobId,
+      exitCode: job.exitCode,
+      duration: job.duration,
+      startedAt: startedAtRef.current,
+      completedAt: Date.now(),
+    });
+    setActiveJobId(null);
+  }, [activeJobId, jobs]);
+
+  const submitRun = async () => {
+    setValidationActive(true);
+    const errs = computeFieldErrors(cli, values);
+    if (Object.keys(errs).length > 0) {
+      // Field-scoped errors render in the form; the "fields need attention"
+      // anchor lets the user jump to the first.
       return;
     }
-    setError(null);
+    setServerError(null);
     setSubmitting(true);
+    setPostRunSummary(null);
+    startedAtRef.current = Date.now();
     try {
-      await runCli(cli.id, values);
-      closeTab(`cli:${cli.id}`);
+      const jobId = await runCli(cli.id, values);
+      setActiveJobId(jobId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setServerError(err instanceof Error ? err.message : String(err));
     } finally {
       setSubmitting(false);
     }
   };
 
+  const onRun = () => void submitRun();
   const onCancel = () => closeTab(`cli:${cli.id}`);
   const onCopy = () => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(cmd).catch(() => {
-        /* ignore clipboard errors in restricted contexts */
-      });
-    }
+    // Ignore failures in restricted contexts (no clipboard API, denied perms).
+    if (typeof navigator === 'undefined') return;
+    navigator.clipboard?.writeText?.(cmd).catch(() => {});
+  };
+
+  /** "N fields need attention" anchor — scrolls the first errored field into view. */
+  const focusFirstError = () => {
+    if (errorCount === 0 || typeof document === 'undefined') return;
+    const first = cli.params.find((p) => fieldErrors[p.name]);
+    if (!first) return;
+    const el = document.querySelector<HTMLElement>(`[data-param-name="${first.name}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.querySelector<HTMLElement>('input, select, textarea, button')?.focus();
+  };
+
+  /** Re-run the same args without leaving the form. */
+  const onRerun = onRun;
+
+  /** Reset the form to defaults and swap back to the form-body view. */
+  const onNewRun = () => {
+    setValues(defaultValues(cli));
+    setPostRunSummary(null);
+    setActiveJobId(null);
+    setServerError(null);
+    setValidationActive(false);
+  };
+
+  /** Open the job tab (or activate it if already present). */
+  const onOpenJob = (jobId: string) => {
+    const tabId = `job:${jobId}`;
+    if (tabs.some((t) => t.id === tabId)) setActiveTab(tabId);
+    else openJobTab(jobId);
   };
 
   return (
@@ -281,6 +192,13 @@ const CliForm = ({ cli }: CliFormProps) => {
         {cli.blurb}
       </p>
 
+      {/* Saved presets strip lives ABOVE recent runs so starred (sticky)
+          items are the first thing the eye lands on. */}
+      {!postRunSummary && <SavedPresets cliId={cli.id} />}
+      {/* Recent runs strip lives between the header and the form body so
+          the user can seed args from a previous invocation in one click. */}
+      {!postRunSummary && <RecentRunsStrip cliId={cli.id} />}
+
       <div
         style={{
           background: 'var(--bg-2)',
@@ -289,10 +207,59 @@ const CliForm = ({ cli }: CliFormProps) => {
           padding: 22,
         }}
       >
-        <CliFormBody cli={cli} values={values} setValues={setValues} mode={mode} />
+        {postRunSummary ? (
+          <PostRunCard
+            summary={postRunSummary}
+            onOpenJob={() => onOpenJob(postRunSummary.jobId)}
+            onRerun={onRerun}
+            onNewRun={onNewRun}
+            rerunDisabled={submitting}
+          />
+        ) : (
+          <CliFormBody
+            cli={cli}
+            values={values}
+            setValues={setValues}
+            mode={mode}
+            fieldErrors={fieldErrors}
+          />
+        )}
       </div>
 
-      {error && (
+      {/* Field-scoped validation summary: a short anchor that jumps to the
+          first errored field. Replaces the previous "missing required: ..."
+          banner so the detail lives ON the field, not at the top. */}
+      {!postRunSummary && errorCount > 0 && (
+        <div
+          role="status"
+          style={{
+            marginTop: 12,
+            fontSize: 12,
+            color: 'var(--fail)',
+          }}
+        >
+          <button
+            type="button"
+            onClick={focusFirstError}
+            className="mono"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--fail)',
+              cursor: 'pointer',
+              padding: 0,
+              textDecoration: 'underline',
+              fontSize: 12,
+            }}
+          >
+            {errorCount} {errorCount === 1 ? 'field needs' : 'fields need'} attention →
+          </button>
+        </div>
+      )}
+
+      {/* Server-side errors (non-2xx response) keep the top-banner treatment
+          because they aren't field-scoped. */}
+      {serverError && !postRunSummary && (
         <div
           role="alert"
           style={{
@@ -304,41 +271,128 @@ const CliForm = ({ cli }: CliFormProps) => {
             fontSize: 12,
           }}
         >
-          {error}
+          {serverError}
         </div>
       )}
 
-      <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button
-          type="button"
-          className="btn primary"
-          onClick={onRun}
-          disabled={submitting}
-        >
-          {submitting ? '… running' : '▶ Run'}
-        </button>
-        <button type="button" className="btn" onClick={onCancel} disabled={submitting}>
-          Cancel
-        </button>
-        <span className="grow" />
-        <span className="text-3 mono" style={{ fontSize: 11 }}>
-          preview:
-        </span>
-        <code
-          className="mono"
+      {!postRunSummary && (
+        <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            type="button"
+            className="btn primary"
+            onClick={onRun}
+            disabled={submitting}
+          >
+            {submitting ? '… running' : '▶ Run'}
+          </button>
+          <button type="button" className="btn" onClick={onCancel} disabled={submitting}>
+            Cancel
+          </button>
+          {/* "Get CLI" promotes the existing copy-command affordance to a
+              first-class button — bridges dashboard users to terminal users
+              by giving them the literal `evalyn ...` invocation to paste
+              into a script or shell. */}
+          <button
+            type="button"
+            className="btn"
+            onClick={onCopy}
+            title="Copy the literal evalyn command for terminal use"
+            aria-label="Get CLI command"
+          >
+            Get CLI
+          </button>
+          <span className="grow" />
+          <code
+            className="mono"
+            title={cmd}
+            style={{
+              fontSize: 11,
+              color: 'var(--text-2)',
+              maxWidth: 560,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {cmd}
+          </code>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ---------- Post-run summary ----------------------------------------- */
+
+/**
+ * "Run completed" card. Replaces the form body (not the form tab) so the
+ * user can stay in the form context while still having one-click jumps to
+ * the job tab and a "rerun" / "new run" affordance.
+ *
+ * Note: the job tab opening behaviour from `runCli` is preserved — this
+ * card sits ALONGSIDE the existing job tab.
+ */
+const PostRunCard = ({
+  summary,
+  onOpenJob,
+  onRerun,
+  onNewRun,
+  rerunDisabled,
+}: {
+  summary: PostRunSummary;
+  onOpenJob: () => void;
+  onRerun: () => void;
+  onNewRun: () => void;
+  rerunDisabled: boolean;
+}) => {
+  const ok = summary.exitCode === 0;
+  const duration = summary.duration ?? formatElapsed(summary.startedAt, summary.completedAt);
+  return (
+    <div role="region" aria-label="run completed">
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: 10,
+          marginBottom: 8,
+        }}
+      >
+        <span
+          aria-hidden
           style={{
-            fontSize: 11,
-            color: 'var(--text-2)',
-            maxWidth: 560,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
+            color: ok ? 'var(--ok, #6fbf73)' : 'var(--fail)',
+            fontSize: 16,
           }}
         >
-          {cmd}
-        </code>
-        <button type="button" className="btn ghost icon" title="Copy" onClick={onCopy}>
-          ⎘
+          {ok ? '✓' : '✗'}
+        </span>
+        <span style={{ fontSize: 14, color: 'var(--text-0)', fontWeight: 500 }}>
+          {ok ? 'Run completed' : 'Run failed'}
+        </span>
+        <span className="text-3" style={{ fontSize: 12 }}>
+          · {duration}
+          {summary.exitCode != null && summary.exitCode !== 0
+            ? ` · exit ${summary.exitCode}`
+            : ''}
+        </span>
+      </div>
+      <div className="mono text-2" style={{ fontSize: 12, marginBottom: 16 }}>
+        {summary.jobId}
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        <button type="button" className="btn primary" onClick={onOpenJob}>
+          Open in Run viewer →
+        </button>
+        <button
+          type="button"
+          className="btn"
+          onClick={onRerun}
+          disabled={rerunDisabled}
+        >
+          Re-run with same args
+        </button>
+        <button type="button" className="btn ghost" onClick={onNewRun}>
+          New run
         </button>
       </div>
     </div>

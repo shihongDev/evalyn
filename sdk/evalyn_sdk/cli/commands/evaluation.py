@@ -31,6 +31,12 @@ from __future__ import annotations
 # Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
 GROUP = "Eval"
 
+# Non-required params that should still appear in the default form. Read by
+# evalyn_dashboard.introspect.build_catalog and merged with required params.
+# `dataset` + `metrics` cover the two knobs every run-eval invocation tunes;
+# other run-eval optionals stay behind the "Show all options" disclosure.
+ESSENTIAL = {"dataset", "metrics"}
+
 import argparse
 import json
 import os

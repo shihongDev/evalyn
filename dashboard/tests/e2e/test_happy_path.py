@@ -53,14 +53,24 @@ def test_list_runs_happy_path(page: Page, dashboard_server: str) -> None:
     meta = page.locator('meta[name="workbench-token"]')
     expect(meta).to_have_count(1)
 
-    # 2. The sidebar defaults to the Files tab. Switch to CLIs so the
-    #    ``CliCatalog`` component mounts and ``GET /api/cli`` resolves.
-    page.get_by_role("button", name="CLIs", exact=True).click()
+    # 2. The sidebar defaults to the Commands tab now (P0 fix; the Files
+    #    tab was hidden because clicking files opened "coming soon"
+    #    placeholders). The CliCatalog renders by default and ``GET /api/cli``
+    #    resolves on mount. Click is a no-op-but-harmless guard — if a
+    #    future change ever flips the default again, this still recovers.
+    page.get_by_role("button", name="Commands", exact=True).click()
 
     # Wait for the catalog to populate. ``CliCatalog.tsx`` shows
-    # ``// catalog loading…`` until the fetch flips the store; once
-    # populated, ``list-runs`` becomes a clickable row whose visible
-    # text matches its id.
+    # ``Loading commands...`` until the fetch flips the store; the
+    # default view is the 5-CLI STARTER set (quickstart, one-click,
+    # list-calls, status, workflow), so ``list-runs`` is hidden until
+    # the user either expands "Show all" or types into the filter.
+    # Typing in the filter is more robust because the filter view
+    # always renders the matched CLI as a row regardless of starter
+    # collapse state.
+    search = page.get_by_label("Search commands")
+    expect(search).to_be_visible(timeout=ACTION_TIMEOUT_MS)
+    search.fill("list-runs")
     list_runs_row = page.get_by_text("list-runs", exact=True).first
     expect(list_runs_row).to_be_visible(timeout=ACTION_TIMEOUT_MS)
     list_runs_row.click()
@@ -71,19 +81,29 @@ def test_list_runs_happy_path(page: Page, dashboard_server: str) -> None:
     expect(limit_input).to_be_visible(timeout=ACTION_TIMEOUT_MS)
     limit_input.fill("5")
 
-    # 4. Click Run. The button label is `▶ Run` while idle and
-    #    `… running` while the request is in flight. Use exact match
-    #    on the visible label to disambiguate from the sidebar's
-    #    ``Runs`` tab and the ``Close list-runs`` close-X.
-    run_button = page.get_by_role("button", name="▶ Run", exact=True)
+    # 4. Click Run. The Workspace button label is `Run` while idle and
+    #    `Running...` while the request is in flight (microcopy pass
+    #    dropped the legacy `▶ Run` arrow glyph from the inline form).
+    #    Exact match disambiguates from the sidebar's `Eval runs` tab.
+    run_button = page.get_by_role("button", name="Run", exact=True)
     run_button.click()
 
-    # 5. Streaming output assertion. The store appends an ``exit N`` line
-    #    when the subprocess terminates (see ``store.ts`` exit handler).
-    #    Asserting on the exit line covers both:
-    #      a) WebSocket streaming actually reached the browser, and
-    #      b) the process succeeded (exit 0 -> Job.status = 'complete',
-    #         which the prompt calls "tab title indicates pass").
-    terminal = page.locator('[data-testid="terminal-scroll"]')
+    # 5. Workspace's Run does NOT open a job tab; it appends a RunRecord
+    #    to runHistory which renders as a collapsed RunCard at the top of
+    #    the Workspace's run-history feed. Expand the newest card so its
+    #    inline Terminal is rendered, then assert on the streamed exit
+    #    line. The expand control is a button with aria-label "Expand run"
+    #    on collapsed cards (RunCard.tsx).
+    expand_button = page.get_by_role("button", name="Expand run").first
+    expect(expand_button).to_be_visible(timeout=ACTION_TIMEOUT_MS)
+    expand_button.click()
+
+    # Streaming output assertion. The store appends an ``exit N`` line
+    # when the subprocess terminates (see ``store.ts`` exit handler).
+    # Asserting on the exit line covers both:
+    #   a) WebSocket streaming actually reached the browser, and
+    #   b) the process succeeded (exit 0 -> Job.status = 'complete',
+    #      which the prompt calls "tab title indicates pass").
+    terminal = page.locator('[data-testid="terminal-scroll"]').first
     expect(terminal).to_be_visible(timeout=ACTION_TIMEOUT_MS)
     expect(terminal).to_contain_text("exit 0", timeout=EXIT_LINE_TIMEOUT_MS)

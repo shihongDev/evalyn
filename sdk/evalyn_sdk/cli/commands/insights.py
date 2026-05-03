@@ -24,6 +24,10 @@ from __future__ import annotations
 # Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
 GROUP = "Insights"
 
+# Non-required params worth exposing in the default dashboard form. Pointing at
+# a run or dataset is the everyday path; --deep is the most-toggled mode.
+ESSENTIAL = {"run", "dataset", "deep"}
+
 import argparse
 import json
 from dataclasses import asdict

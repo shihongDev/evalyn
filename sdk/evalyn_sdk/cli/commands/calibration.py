@@ -32,6 +32,11 @@ from __future__ import annotations
 # Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
 GROUP = "Annotation"
 
+# Non-required params worth exposing in the default dashboard form. A first-time
+# user calibrating a metric needs the metric id, the human annotations, and the
+# dataset to provide context — everything else is tunable advanced knobs.
+ESSENTIAL = {"metric_id", "annotations", "dataset"}
+
 import argparse
 import json
 from pathlib import Path

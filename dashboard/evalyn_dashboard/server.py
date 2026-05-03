@@ -113,10 +113,14 @@ def _register_api_routers(app: FastAPI) -> None:
         from .api import (
             agent as agent_api,
             cli as cli_api,
+            compare as compare_api,
+            demo as demo_api,
             files as files_api,
             jobs as jobs_api,
+            promote as promote_api,
             runs as runs_api,
             settings as settings_api,
+            threads as threads_api,
         )
         from .api.agent_ws import register_agent_ws_routes
         from .api.jobs_ws import register_ws_routes
@@ -127,10 +131,14 @@ def _register_api_routers(app: FastAPI) -> None:
     app.include_router(jobs_api.router, prefix="/api/jobs", tags=["jobs"])
     app.include_router(files_api.router, prefix="/api/files", tags=["files"])
     app.include_router(runs_api.router, prefix="/api/runs", tags=["runs"])
+    app.include_router(compare_api.router, prefix="/api/compare", tags=["compare"])
     app.include_router(agent_api.router, prefix="/api/agent", tags=["agent"])
     app.include_router(
         settings_api.router, prefix="/api/settings", tags=["settings"]
     )
+    app.include_router(promote_api.router, prefix="/api/promote", tags=["promote"])
+    app.include_router(demo_api.router, prefix="/api/demo", tags=["demo"])
+    app.include_router(threads_api.router, prefix="/api/threads", tags=["threads"])
     register_ws_routes(app)
     register_agent_ws_routes(app)
 

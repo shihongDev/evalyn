@@ -778,6 +778,336 @@ async def test_runtime_uses_job_manager_when_no_runner_provided() -> None:
 
 
 # ---------------------------------------------------------------------------
+# AgentRuntime: confirmation upgrades (P1 §5.5 - editable args + session
+# auto-approve + side-effects + stale id rejection)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_confirmation_required_includes_side_effects() -> None:
+    """`confirmation_required` events carry the SIDE_EFFECTS bullets so the
+    UI can render the "THIS WILL" copy without looking up tool metadata."""
+    tc = ProviderToolCall(
+        id="tc-1", name="run-eval", arguments={"dataset": "ds.json"}
+    )
+    provider = MockProvider(
+        [
+            [ProviderEvent(kind="tool_call", tool_call=tc), ProviderEvent(kind="finish")],
+            [ProviderEvent(kind="text_delta", text="ok"), ProviderEvent(kind="finish")],
+        ]
+    )
+
+    async def runner(argv: list[str]) -> tuple[str, int]:
+        return "ran", 0
+
+    runtime = AgentRuntime(
+        provider_factory=lambda: provider,
+        catalog=_sample_catalog(),
+        tool_runner=runner,
+        confirm_timeout=2.0,
+    )
+    thread_id = runtime.create_thread()
+    task = asyncio.create_task(runtime.start_turn(thread_id, "run it"))
+    for _ in range(50):
+        if any(
+            e["type"] == "confirmation_required"
+            for e in runtime._threads[thread_id].events
+        ):
+            break
+        await asyncio.sleep(0.02)
+    runtime.confirm(thread_id, approve=True, tool_call_id="tc-1")
+    await asyncio.wait_for(task, timeout=3.0)
+
+    confirm_evt = next(
+        e
+        for e in runtime._threads[thread_id].events
+        if e["type"] == "confirmation_required"
+    )
+    assert "side_effects" in confirm_evt
+    bullets = confirm_evt["side_effects"]
+    assert isinstance(bullets, list) and len(bullets) >= 1
+    # run-eval has a curated entry in the SIDE_EFFECTS dict.
+    assert any("run-eval" in b for b in bullets)
+
+
+@pytest.mark.asyncio
+async def test_args_override_changes_executed_argv() -> None:
+    """When the user edits args inline before approving, the runtime must
+    spawn the *edited* argv, not the agent's original."""
+    tc = ProviderToolCall(
+        id="tc-1", name="run-eval", arguments={"dataset": "wrong.jsonl"}
+    )
+    provider = MockProvider(
+        [
+            [ProviderEvent(kind="tool_call", tool_call=tc), ProviderEvent(kind="finish")],
+            [ProviderEvent(kind="text_delta", text="done"), ProviderEvent(kind="finish")],
+        ]
+    )
+    spawn_calls: list[list[str]] = []
+
+    async def runner(argv: list[str]) -> tuple[str, int]:
+        spawn_calls.append(argv)
+        return "ran", 0
+
+    runtime = AgentRuntime(
+        provider_factory=lambda: provider,
+        catalog=_sample_catalog(),
+        tool_runner=runner,
+        confirm_timeout=2.0,
+    )
+    thread_id = runtime.create_thread()
+    task = asyncio.create_task(runtime.start_turn(thread_id, "run it"))
+    for _ in range(50):
+        if any(
+            e["type"] == "confirmation_required"
+            for e in runtime._threads[thread_id].events
+        ):
+            break
+        await asyncio.sleep(0.02)
+    # Override only the EXISTING key the model proposed. Adding new
+    # keys via args_override is intentionally rejected — see the
+    # `test_args_override_rejects_new_keys` test below.
+    accepted = runtime.confirm(
+        thread_id,
+        approve=True,
+        tool_call_id="tc-1",
+        args_override={"dataset": "evals/correct.jsonl"},
+    )
+    assert accepted is True
+    await asyncio.wait_for(task, timeout=3.0)
+
+    assert spawn_calls, "runner was never invoked"
+    argv = spawn_calls[0]
+    # Original arg replaced by edited value.
+    assert "wrong.jsonl" not in argv
+    assert "evals/correct.jsonl" in argv
+
+
+@pytest.mark.asyncio
+async def test_args_override_rejects_new_keys() -> None:
+    """args_override may only edit values for keys the model proposed.
+
+    Adding a new key (e.g. ``--unsafe-flag`` after a benign confirmation
+    card) would let a confused-deputy attack escalate privileges past
+    the original allow-list check. The runtime must refuse such overrides.
+    """
+    tc = ProviderToolCall(
+        id="tc-1", name="run-eval", arguments={"dataset": "wrong.jsonl"}
+    )
+    provider = MockProvider(
+        [
+            [ProviderEvent(kind="tool_call", tool_call=tc), ProviderEvent(kind="finish")],
+            [ProviderEvent(kind="text_delta", text="done"), ProviderEvent(kind="finish")],
+        ]
+    )
+    spawn_calls: list[list[str]] = []
+
+    async def runner(argv: list[str]) -> tuple[str, int]:
+        spawn_calls.append(argv)
+        return "ran", 0
+
+    runtime = AgentRuntime(
+        provider_factory=lambda: provider,
+        catalog=_sample_catalog(),
+        tool_runner=runner,
+        confirm_timeout=2.0,
+    )
+    thread_id = runtime.create_thread()
+    asyncio.create_task(runtime.start_turn(thread_id, "run it"))
+    for _ in range(50):
+        if any(
+            e["type"] == "confirmation_required"
+            for e in runtime._threads[thread_id].events
+        ):
+            break
+        await asyncio.sleep(0.02)
+    # Add `dry_run` — a key the model did NOT propose. confirm() must
+    # return False without setting the gate, so the agent stays paused.
+    accepted = runtime.confirm(
+        thread_id,
+        approve=True,
+        tool_call_id="tc-1",
+        args_override={"dataset": "evals/correct.jsonl", "dry_run": True},
+    )
+    assert accepted is False
+    # Subprocess must NOT have run since the confirmation was refused.
+    assert spawn_calls == []
+
+
+@pytest.mark.asyncio
+async def test_auto_approve_session_skips_gate_for_same_tool() -> None:
+    """After `auto_approve_session=True` for run-eval, a *second* run-eval
+    call in the same thread executes without a fresh confirmation gate."""
+    tc1 = ProviderToolCall(
+        id="tc-1", name="run-eval", arguments={"dataset": "a.jsonl"}
+    )
+    tc2 = ProviderToolCall(
+        id="tc-2", name="run-eval", arguments={"dataset": "b.jsonl"}
+    )
+    provider = MockProvider(
+        [
+            [ProviderEvent(kind="tool_call", tool_call=tc1), ProviderEvent(kind="finish")],
+            [ProviderEvent(kind="tool_call", tool_call=tc2), ProviderEvent(kind="finish")],
+            [ProviderEvent(kind="text_delta", text="done"), ProviderEvent(kind="finish")],
+        ]
+    )
+    spawn_calls: list[list[str]] = []
+
+    async def runner(argv: list[str]) -> tuple[str, int]:
+        spawn_calls.append(argv)
+        return "ok", 0
+
+    runtime = AgentRuntime(
+        provider_factory=lambda: provider,
+        catalog=_sample_catalog(),
+        tool_runner=runner,
+        confirm_timeout=2.0,
+    )
+    thread_id = runtime.create_thread()
+
+    task = asyncio.create_task(runtime.start_turn(thread_id, "run it twice"))
+    # First call: wait for the gate, approve with auto_approve_session=True.
+    for _ in range(50):
+        if any(
+            e["type"] == "confirmation_required"
+            for e in runtime._threads[thread_id].events
+        ):
+            break
+        await asyncio.sleep(0.02)
+    runtime.confirm(
+        thread_id,
+        approve=True,
+        tool_call_id="tc-1",
+        auto_approve_session=True,
+    )
+    await asyncio.wait_for(task, timeout=3.0)
+
+    # The session whitelist now contains run-eval.
+    assert "run-eval" in runtime._threads[thread_id].session_auto_approved
+    # Both calls were executed; only ONE confirmation_required event should
+    # have been emitted (the second call bypassed the gate).
+    confirm_events = [
+        e
+        for e in runtime._threads[thread_id].events
+        if e["type"] == "confirmation_required"
+    ]
+    assert len(confirm_events) == 1
+    assert len(spawn_calls) == 2
+    assert spawn_calls[0] == ["evalyn", "run-eval", "--dataset", "a.jsonl"]
+    assert spawn_calls[1] == ["evalyn", "run-eval", "--dataset", "b.jsonl"]
+
+
+@pytest.mark.asyncio
+async def test_stale_tool_call_id_still_rejected() -> None:
+    """Regression test for KNOWN_ISSUES #4: a confirm POST with the wrong
+    tool_call_id must NOT release the gate, even with the new override
+    parameters in play."""
+    tc = ProviderToolCall(
+        id="tc-real", name="run-eval", arguments={"dataset": "ds.json"}
+    )
+    provider = MockProvider(
+        [
+            [ProviderEvent(kind="tool_call", tool_call=tc), ProviderEvent(kind="finish")],
+            [ProviderEvent(kind="text_delta", text="ok"), ProviderEvent(kind="finish")],
+        ]
+    )
+
+    async def runner(argv: list[str]) -> tuple[str, int]:
+        return "ran", 0
+
+    runtime = AgentRuntime(
+        provider_factory=lambda: provider,
+        catalog=_sample_catalog(),
+        tool_runner=runner,
+        confirm_timeout=0.3,
+    )
+    thread_id = runtime.create_thread()
+    task = asyncio.create_task(runtime.start_turn(thread_id, "run it"))
+    for _ in range(50):
+        if any(
+            e["type"] == "confirmation_required"
+            for e in runtime._threads[thread_id].events
+        ):
+            break
+        await asyncio.sleep(0.02)
+
+    # Stale id - even with args_override + auto_approve_session - must be
+    # refused and leave the gate untouched.
+    accepted = runtime.confirm(
+        thread_id,
+        approve=True,
+        tool_call_id="tc-OLD",
+        args_override={"dataset": "x.jsonl"},
+        auto_approve_session=True,
+    )
+    assert accepted is False
+    assert "run-eval" not in runtime._threads[thread_id].session_auto_approved
+    # Pending tool args still untouched.
+    pending_obj = runtime._threads[thread_id]._pending_tool_call_obj  # type: ignore[attr-defined]
+    assert pending_obj is not None
+    assert pending_obj.arguments == {"dataset": "ds.json"}
+
+    # Let the gate time out so the task completes.
+    await asyncio.wait_for(task, timeout=3.0)
+    complete = next(
+        e for e in runtime._threads[thread_id].events if e["type"] == "tool_call_complete"
+    )
+    assert complete["ok"] is False
+    assert "timeout" in complete["stdout"].lower()
+
+
+@pytest.mark.asyncio
+async def test_args_override_with_rejection_does_nothing() -> None:
+    """approve=False short-circuits any override - rejection wins, the tool
+    must NOT run regardless of args_override / auto_approve_session."""
+    tc = ProviderToolCall(
+        id="tc-1", name="run-eval", arguments={"dataset": "ds.json"}
+    )
+    provider = MockProvider(
+        [
+            [ProviderEvent(kind="tool_call", tool_call=tc), ProviderEvent(kind="finish")],
+            [ProviderEvent(kind="text_delta", text="ok"), ProviderEvent(kind="finish")],
+        ]
+    )
+
+    async def runner(argv: list[str]) -> tuple[str, int]:  # pragma: no cover
+        raise AssertionError("rejected tools must not run")
+
+    runtime = AgentRuntime(
+        provider_factory=lambda: provider,
+        catalog=_sample_catalog(),
+        tool_runner=runner,
+        confirm_timeout=2.0,
+    )
+    thread_id = runtime.create_thread()
+    task = asyncio.create_task(runtime.start_turn(thread_id, "run it"))
+    for _ in range(50):
+        if any(
+            e["type"] == "confirmation_required"
+            for e in runtime._threads[thread_id].events
+        ):
+            break
+        await asyncio.sleep(0.02)
+    accepted = runtime.confirm(
+        thread_id,
+        approve=False,
+        tool_call_id="tc-1",
+        args_override={"dataset": "ignored.jsonl"},
+        auto_approve_session=True,
+    )
+    assert accepted is True  # confirm itself accepts the message
+    await asyncio.wait_for(task, timeout=3.0)
+
+    # Whitelist NOT mutated on rejection.
+    assert "run-eval" not in runtime._threads[thread_id].session_auto_approved
+    complete = next(
+        e for e in runtime._threads[thread_id].events if e["type"] == "tool_call_complete"
+    )
+    assert complete["ok"] is False
+    assert "user did not confirm" in complete["stdout"]
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 

@@ -1,43 +1,31 @@
 /**
- * TitleBar — top chrome.
+ * TitleBar - friendly top chrome.
  *
- * Ported from /tmp/evalyn-dashboard-mock/wb-app.jsx (lines 28-55).
- * Replaces the mock's prop-based handlers with Zustand selectors.
+ * Audience includes non-coders, so we keep the brand mark + a simple settings
+ * button rather than the IDE-style traffic-lights + breadcrumb + ⌘K palette.
  */
 
 import { useStore } from '../store';
 
-const ACTIVE_RUN_DATASET = 'datasets/customer-support.jsonl';
-
 const TitleBar = () => {
-  const setPaletteOpen = useStore((s) => s.setPaletteOpen);
-  const setTweaksOpen = useStore((s) => s.setTweaksOpen);
   const openSettings = useStore((s) => s.openSettings);
   const tabs = useStore((s) => s.tabs);
   const activeTabId = useStore((s) => s.activeTabId);
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
 
-  const breadcrumbs = `${ACTIVE_RUN_DATASET} / runs / ${activeTab?.title ?? '—'}`;
-
   return (
     <div
       style={{
-        height: 38,
+        height: 44,
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
-        padding: '0 12px',
+        gap: 12,
+        padding: '0 16px',
         background: 'var(--bg-2)',
         borderBottom: '1px solid var(--line)',
         flexShrink: 0,
       }}
     >
-      <div style={{ display: 'flex', gap: 6 }}>
-        <span style={{ width: 12, height: 12, background: '#ff5f56', borderRadius: '50%' }} />
-        <span style={{ width: 12, height: 12, background: '#ffbd2e', borderRadius: '50%' }} />
-        <span style={{ width: 12, height: 12, background: '#27c93f', borderRadius: '50%' }} />
-      </div>
-      <div style={{ width: 1, height: 18, background: 'var(--line)', margin: '0 6px' }} />
       <div style={{ width: 22, height: 22, position: 'relative' }}>
         <div
           style={{
@@ -56,44 +44,29 @@ const TitleBar = () => {
           }}
         />
       </div>
-      <span style={{ fontFamily: 'var(--serif)', fontSize: 16, color: 'var(--text-0)' }}>
-        evalyn{' '}
-        <em className="text-2" style={{ fontSize: 13 }}>
-          workbench
-        </em>
+      <span style={{ fontFamily: 'var(--serif)', fontSize: 18, color: 'var(--text-0)' }}>
+        evalyn
       </span>
-      <span className="text-3" style={{ marginLeft: 14, fontSize: 11 }}>
-        {'›'}
-      </span>
-      <span className="mono text-2 truncate" style={{ fontSize: 11, maxWidth: 480 }}>
-        {breadcrumbs}
-      </span>
+      {activeTab ? (
+        <>
+          <span className="text-3" style={{ marginLeft: 6, fontSize: 12 }}>
+            {'·'}
+          </span>
+          <span className="text-2 truncate" style={{ fontSize: 13, maxWidth: 480 }}>
+            {activeTab.title}
+          </span>
+        </>
+      ) : null}
       <span className="grow" />
-      <button className="btn ghost sm" onClick={() => setPaletteOpen(true)}>
-        <span style={{ fontSize: 11 }}>Search files, runs, CLIs</span>
-        <span className="kbd" style={{ marginLeft: 8 }}>
-          {'⌘K'}
-        </span>
-      </button>
+      <span className="chip pass dot" style={{ marginRight: 4 }}>
+        Local · 7401
+      </span>
       <button
-        className="btn ghost icon"
-        title="Workspace settings"
-        aria-label="Workspace settings"
+        className="btn ghost sm"
         type="button"
         onClick={() => openSettings()}
       >
-        {'⚙'}
-      </button>
-      <span className="chip pass dot" style={{ marginLeft: 6 }}>
-        localhost:7401
-      </span>
-      <button
-        className="btn ghost icon"
-        title="Tweaks"
-        type="button"
-        onClick={() => setTweaksOpen(true)}
-      >
-        {'⌐'}
+        Settings
       </button>
     </div>
   );

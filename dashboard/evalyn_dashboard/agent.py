@@ -89,6 +89,92 @@ DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 
 
 # ---------------------------------------------------------------------------
+# Side-effects copy for the confirmation card.
+# ---------------------------------------------------------------------------
+#
+# The chat confirmation card surfaces a "THIS WILL" bullet list so the user
+# can see what they are about to approve in plain English (P1 spec §5.5).
+# Keys are evalyn CLI ids that are NOT in :data:`READ_ONLY_ALLOWLIST` (i.e.
+# write or potentially destructive commands). Anything missing falls back to
+# :data:`DEFAULT_SIDE_EFFECTS` so an unknown write tool still surfaces a
+# helpful warning.
+
+DEFAULT_SIDE_EFFECTS: list[str] = [
+    "This is a write command and may modify your project on disk.",
+]
+
+SIDE_EFFECTS: dict[str, list[str]] = {
+    "run-eval": [
+        "Spawn an evalyn run-eval subprocess",
+        "Write a new eval run under .evalyn/data/datasets/<dataset>/eval_runs/<new-id>/",
+        "Stream stdout to a job tab",
+    ],
+    "calibrate": [
+        "Spawn an evalyn calibrate subprocess",
+        "Write calibration record under .evalyn/data/datasets/<dataset>/calibrations/",
+        "May make many LLM calls (cost-relevant)",
+    ],
+    "delete-traces": [
+        "Permanently delete trace records from .evalyn/data/traces.sqlite",
+        "This action cannot be undone",
+    ],
+    "build-dataset": [
+        "Read traces from .evalyn/data/traces.sqlite",
+        "Write a new dataset directory under .evalyn/data/datasets/<dataset_name>/",
+    ],
+    "annotate": [
+        "Open an annotation session",
+        "Write annotations to disk",
+    ],
+    "import-annotations": [
+        "Read annotations from a JSONL file",
+        "Write/merge into .evalyn/data/datasets/<dataset>/annotations/",
+    ],
+    "simulate": [
+        "Generate synthetic traces",
+        "Write to .evalyn/data/traces.sqlite",
+    ],
+    "one-click": [
+        "Run the full pipeline (dataset -> eval -> judge)",
+        "Multiple write operations across .evalyn/",
+    ],
+    "export": [
+        "Read run results",
+        "Write export bundle to disk",
+    ],
+    "export-for-annotation": [
+        "Read traces",
+        "Write annotation queue file to disk",
+    ],
+    "init": [
+        "Create .evalyn/ directory structure if missing",
+        "Write evalyn.yaml",
+    ],
+    "quickstart": [
+        "Detect agent code",
+        "Add @eval decorator",
+        "Write evalyn.yaml",
+    ],
+    "report": [
+        "Generate static HTML report",
+        "Write to specified output path",
+    ],
+    "dashboard": [
+        "Generate static HTML report",
+        "Write to specified output path",
+    ],
+    "suggest-metrics": [
+        "May make LLM calls if --use-llm is set",
+    ],
+}
+
+
+def _side_effects_for(tool: str) -> list[str]:
+    """Return the bullet list for a tool name, falling back to a default."""
+    return list(SIDE_EFFECTS.get(tool, DEFAULT_SIDE_EFFECTS))
+
+
+# ---------------------------------------------------------------------------
 # Canonical tool format
 # ---------------------------------------------------------------------------
 
@@ -592,6 +678,22 @@ class _Thread:
     subscribers: set["_AgentEventStream"] = field(default_factory=set)
     confirm_event: asyncio.Event = field(default_factory=asyncio.Event)
     confirm_decision: bool = False
+    # Tool-call id currently waiting on user confirmation. Set when
+    # `_execute_tool_call` arms the gate; cleared once the gate fires.
+    # Used by `AgentRuntime.confirm` to reject stale confirmations from
+    # the UI (KNOWN_ISSUES #4 + #5).
+    pending_tool_call_id: str | None = None
+    # Live ProviderToolCall awaiting confirmation. Held so an `args_override`
+    # from the UI can mutate it in place before `_execute_tool_call` resumes.
+    # Underscore-prefixed because the WS event payload already exposes the id;
+    # this is the in-memory object tests reach into.
+    _pending_tool_call_obj: Optional["ProviderToolCall"] = None
+    # Per-session whitelist of tool names the user has chosen to auto-approve
+    # for the rest of this thread (P1 spec §5.5: "Approve - don't ask again
+    # this session for <tool>"). Populated by `AgentRuntime.confirm` when the
+    # caller passes `auto_approve_session=True`. Not persisted across thread
+    # resets; cleared whenever the thread is recreated.
+    session_auto_approved: set[str] = field(default_factory=set)
     _next_event_id: int = 1
     _turn_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     closed: bool = False
@@ -679,10 +781,76 @@ class AgentRuntime:
         thread = self._threads.get(thread_id)
         return list(thread.messages) if thread else []
 
-    def confirm(self, thread_id: str, approve: bool) -> bool:
+    def confirm(
+        self,
+        thread_id: str,
+        approve: bool,
+        tool_call_id: str | None = None,
+        args_override: dict[str, Any] | None = None,
+        auto_approve_session: bool = False,
+    ) -> bool:
+        """Resolve a pending confirmation gate.
+
+        ``tool_call_id`` (when supplied) MUST match the thread's currently
+        pending tool-call id. This guards against the UI race documented in
+        KNOWN_ISSUES #4 + #5: with multiple stale confirmation cards on
+        screen, a click on the wrong card would otherwise approve whatever
+        is now pending. Mismatches return ``False`` and leave the gate
+        untouched. ``tool_call_id`` of None preserves backward compatibility
+        with callers that don't track the id (legacy tests).
+
+        ``args_override`` (when provided alongside ``approve=True``) replaces
+        the pending tool call's arguments before the runtime resumes. The
+        in-flight ``_execute_tool_call`` reads ``tc.arguments`` after the
+        gate fires, so we mutate the live ``ProviderToolCall`` it's holding
+        via the per-thread ``_pending_tool_call_obj`` reference (set when
+        the gate was armed).
+
+        ``auto_approve_session=True`` adds the pending tool's *name* to the
+        per-thread :attr:`_Thread.session_auto_approved` whitelist so the
+        next call to the same tool in this thread skips the gate entirely.
+        Rejection (``approve=False``) ignores both override flags - a
+        rejection is a rejection.
+        """
         thread = self._threads.get(thread_id)
         if thread is None:
             return False
+        if tool_call_id is not None:
+            pending = thread.pending_tool_call_id
+            if pending is None or pending != tool_call_id:
+                logger.warning(
+                    "agent.confirm: stale tool_call_id %s (pending %s); refusing",
+                    tool_call_id,
+                    pending,
+                )
+                return False
+        if approve:
+            pending_tc = thread._pending_tool_call_obj
+            if args_override is not None and pending_tc is not None:
+                # Restrict overrides to the SET OF KEYS the model already
+                # proposed. Without this, a user could approve a benign
+                # `analyze --run X` confirmation while injecting an
+                # unrelated `--unsafe-flag` (or even pivot to writing a
+                # different output path the agent never asked about).
+                # The CSRF gate prevents cross-origin abuse, but a
+                # confused-deputy attack via a hijacked browser tab still
+                # warrants this defence-in-depth check.
+                proposed_keys = set(pending_tc.arguments.keys())
+                override_keys = set(args_override.keys())
+                extra = override_keys - proposed_keys
+                if extra:
+                    logger.warning(
+                        "agent.confirm: args_override adds keys the model "
+                        "did not propose: %s; refusing",
+                        sorted(extra),
+                    )
+                    return False
+                pending_tc.arguments = {
+                    **pending_tc.arguments,
+                    **args_override,
+                }
+            if auto_approve_session and pending_tc is not None and pending_tc.name:
+                thread.session_auto_approved.add(pending_tc.name)
         thread.confirm_decision = approve
         thread.confirm_event.set()
         return True
@@ -870,10 +1038,19 @@ class AgentRuntime:
             },
         )
 
-        if tc.name not in self.allowlist:
-            # Reset the confirm gate for this turn and wait.
+        if (
+            tc.name not in self.allowlist
+            and tc.name not in thread.session_auto_approved
+        ):
+            # Reset the confirm gate for this turn and wait. Track the
+            # tool_call_id so `AgentRuntime.confirm` can reject stale
+            # confirmations from the UI (KNOWN_ISSUES #4 + #5). Also stash
+            # the live `tc` so an `args_override` from the UI can mutate it
+            # in place before we resume.
             thread.confirm_event = asyncio.Event()
             thread.confirm_decision = False
+            thread.pending_tool_call_id = tc.id
+            thread._pending_tool_call_obj = tc
             self._emit(
                 thread,
                 {
@@ -882,6 +1059,7 @@ class AgentRuntime:
                     "tool": tc.name,
                     "args": tc.arguments,
                     "preview_cmd": preview,
+                    "side_effects": _side_effects_for(tc.name),
                 },
             )
             try:
@@ -890,6 +1068,13 @@ class AgentRuntime:
                 )
             except asyncio.TimeoutError:
                 return False, "user did not confirm (timeout)", -1
+            finally:
+                # Clear regardless of outcome so a later stale confirm
+                # cannot match this id again.
+                if thread.pending_tool_call_id == tc.id:
+                    thread.pending_tool_call_id = None
+                if thread._pending_tool_call_obj is tc:
+                    thread._pending_tool_call_obj = None
             if not thread.confirm_decision:
                 return False, "user did not confirm", -1
 
@@ -1004,6 +1189,8 @@ def make_provider_factory(
 
 __all__ = [
     "READ_ONLY_ALLOWLIST",
+    "SIDE_EFFECTS",
+    "DEFAULT_SIDE_EFFECTS",
     "DEFAULT_TOOL_BUDGET",
     "DEFAULT_CONFIRM_TIMEOUT",
     "DEFAULT_TOOL_OUTPUT_CAP",
