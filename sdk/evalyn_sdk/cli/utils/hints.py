@@ -5,19 +5,35 @@ from __future__ import annotations
 import os
 
 
-def print_hint(message: str, quiet: bool = False, format: str = "table") -> None:
-    """Print a hint message to guide users to the next step.
-
-    Args:
-        message: The hint message to display
-        quiet: If True, suppress the hint
-        format: Output format - hints are suppressed for 'json'
-
-    Environment:
-        EVALYN_NO_HINTS: Set to '1' or 'true' to suppress all hints globally
-    """
-    # Check global quiet setting from environment
+def _is_suppressed(quiet: bool = False, format: str = "table") -> bool:
+    """Check whether hints should be suppressed."""
     env_quiet = os.environ.get("EVALYN_NO_HINTS", "").lower() in ("1", "true")
-    if quiet or env_quiet or format == "json":
-        return
-    print(f"\nHint: {message}")
+    return quiet or env_quiet or format == "json"
+
+
+class HintCollector:
+    """Collects hints during command execution, renders them as a block."""
+
+    def __init__(self, quiet: bool = False, format: str = "table"):
+        self._hints: list[tuple[str, str]] = []  # (command, description)
+        self._quiet = quiet
+        self._format = format
+
+    def add(self, command: str, description: str) -> None:
+        """Add a hint with a command and short description."""
+        self._hints.append((command, description))
+
+    def render(self, max_hints: int = 3) -> None:
+        """Print collected hints as a formatted block."""
+        if _is_suppressed(self._quiet, self._format) or not self._hints:
+            return
+
+        to_show = self._hints[:max_hints]
+
+        # Compute column width for alignment
+        max_cmd_len = max(len(cmd) for cmd, _ in to_show)
+        pad = max_cmd_len + 4  # 4 chars gap between command and description
+
+        print("\nNext steps:")
+        for cmd, desc in to_show:
+            print(f"  {cmd:<{pad}}{desc}")

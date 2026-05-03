@@ -1,17 +1,24 @@
-"""Dashboard command: generate and open an HTML insights dashboard.
+"""Report command: generate and open a static HTML insights report.
 
-Opens a visual insights dashboard in the default browser, providing
+Opens a visual insights report in the default browser, providing
 a "local LangSmith" experience with one command.
 
 Usage:
-    evalyn dashboard
-    evalyn dashboard --output report.html
-    evalyn dashboard --dataset data/myapp/
-    evalyn dashboard --latest
-    evalyn dashboard --run <id>
+    evalyn report
+    evalyn report --output report.html
+    evalyn report --dataset data/myapp/
+    evalyn report --latest
+    evalyn report --run <id>
+
+Note: Previously named ``evalyn dashboard``. The ``dashboard`` name now
+refers to the new IDE shipped via the separate ``evalyn-dashboard``
+package; the legacy alias still forwards here with a deprecation warning.
 """
 
 from __future__ import annotations
+
+# Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
+GROUP = "Insights"
 
 import argparse
 import platform
@@ -20,7 +27,7 @@ from pathlib import Path
 
 from ..utils.command_common import load_eval_run_for_command
 from ..utils.config import load_config, resolve_dataset_path
-from ..utils.hints import print_hint
+from ..utils.hints import HintCollector
 
 
 def _open_in_browser(file_path: Path) -> bool:
@@ -40,8 +47,8 @@ def _open_in_browser(file_path: Path) -> bool:
         return False
 
 
-def cmd_dashboard(args: argparse.Namespace) -> None:
-    """Generate and open an HTML insights dashboard."""
+def cmd_report(args: argparse.Namespace) -> None:
+    """Generate and open an HTML insights report."""
     from ...analysis.insights_dashboard import generate_insights_html
 
     config = load_config()
@@ -71,31 +78,30 @@ def cmd_dashboard(args: argparse.Namespace) -> None:
         dataset_items=dataset_items or None,
     )
 
-    output_path = Path(getattr(args, "output", None) or ".evalyn/dashboard.html")
+    output_path = Path(getattr(args, "output", None) or ".evalyn/report.html")
     output_path = output_path.resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html_content, encoding="utf-8")
 
-    print(f"Dashboard saved to: {output_path}")
+    print(f"Report saved to: {output_path}")
 
     if _open_in_browser(output_path):
-        print("Opened dashboard in default browser.")
+        print("Opened report in default browser.")
     else:
         file_url = output_path.as_uri()
-        print(f"Could not open browser automatically.")
+        print("Could not open browser automatically.")
         print(f"Open this file in your browser: {file_url}")
 
-    print_hint(
-        "Run `evalyn insights --deep` for LLM expert panel analysis",
-        quiet=getattr(args, "quiet", False),
-    )
+    hints = HintCollector(quiet=getattr(args, "quiet", False))
+    hints.add("evalyn insights --deep", "Run LLM expert panel analysis")
+    hints.render()
 
 
 def register_commands(subparsers) -> None:
-    """Register dashboard command."""
+    """Register the ``report`` subcommand."""
     p = subparsers.add_parser(
-        "dashboard",
-        help="Generate and open an HTML insights dashboard in the browser",
+        "report",
+        help="Generate and open an HTML insights report in the browser",
     )
     p.add_argument("--run", help="Eval run ID to analyze")
     p.add_argument("--dataset", help="Dataset path (uses latest run)")
@@ -106,9 +112,9 @@ def register_commands(subparsers) -> None:
     )
     p.add_argument(
         "--output",
-        help="Output file path (default: .evalyn/dashboard.html)",
+        help="Output file path (default: .evalyn/report.html)",
     )
-    p.set_defaults(func=cmd_dashboard)
+    p.set_defaults(func=cmd_report)
 
 
-__all__ = ["cmd_dashboard", "register_commands"]
+__all__ = ["cmd_report", "register_commands", "_open_in_browser"]

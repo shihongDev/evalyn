@@ -21,6 +21,14 @@ Typical workflow:
 
 from __future__ import annotations
 
+# Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
+GROUP = "Dataset"
+
+# Non-required params worth exposing in the default form. build-dataset is
+# almost always scoped to a project and capped to a size. Read by
+# evalyn_dashboard.introspect.build_catalog.
+ESSENTIAL = {"project", "limit"}
+
 import argparse
 import os
 from datetime import datetime, timezone
@@ -28,7 +36,7 @@ from typing import Optional
 
 from ..utils.config import get_data_dir
 from ..utils.errors import fatal_error
-from ..utils.hints import print_hint
+from ..utils.hints import HintCollector
 from ..utils.validation import extract_project_id
 
 
@@ -165,10 +173,9 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
         items, dataset_dir, meta, dataset_filename=dataset_file
     )
     print(f"Wrote {len(items)} items to {dataset_path}")
-    print_hint(
-        f"To suggest metrics, run: evalyn suggest-metrics --dataset {dataset_dir} --mode basic",
-        quiet=getattr(args, "quiet", False),
-    )
+    hints = HintCollector(quiet=getattr(args, "quiet", False))
+    hints.add(f"evalyn suggest-metrics --dataset {dataset_dir} --mode basic", "Suggest evaluation metrics")
+    hints.render()
 
 
 def register_commands(subparsers) -> None:

@@ -29,6 +29,14 @@ Typical workflow:
 
 from __future__ import annotations
 
+# Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
+GROUP = "Annotation"
+
+# Non-required params worth exposing in the default dashboard form. A first-time
+# user calibrating a metric needs the metric id, the human annotations, and the
+# dataset to provide context — everything else is tunable advanced knobs.
+ESSENTIAL = {"metric_id", "annotations", "dataset"}
+
 import argparse
 import json
 from pathlib import Path
@@ -38,7 +46,7 @@ from ..utils.command_common import load_eval_run_for_command, try_resolve_datase
 from ..utils.config import load_config, resolve_dataset_path, get_config_default
 from ..utils.errors import fatal_error
 from ..utils.formatters import print_token_usage_summary
-from ..utils.hints import print_hint
+from ..utils.hints import HintCollector
 from ..utils.ui import Spinner
 
 
@@ -596,10 +604,9 @@ def _print_calibration_postamble(
     print(f"\n{'=' * 60}")
 
     if dataset_dir:
-        print_hint(
-            f"To re-run evaluation with calibrated prompts, run: evalyn run-eval --dataset {dataset_dir} --use-calibrated",
-            quiet=getattr(args, "quiet", False),
-        )
+        hints = HintCollector(quiet=getattr(args, "quiet", False))
+        hints.add(f"evalyn run-eval --dataset {dataset_dir} --use-calibrated", "Re-run with calibrated prompts")
+        hints.render()
 
 
 def calibrate_metric(
@@ -813,12 +820,11 @@ def cmd_list_calibrations(args: argparse.Namespace) -> None:
                 latest = sorted(full_prompts, reverse=True)[0]
                 print(f"  {metric_dir.name}: {latest}")
 
-    # Show hint for next step
+    # Show hints
     if calibrations:
-        print_hint(
-            f"To re-run evaluation with calibrated prompts, run: evalyn run-eval --dataset {dataset_path} --use-calibrated",
-            quiet=getattr(args, "quiet", False),
-        )
+        hints = HintCollector(quiet=getattr(args, "quiet", False))
+        hints.add(f"evalyn run-eval --dataset {dataset_path} --use-calibrated", "Re-run with calibrated prompts")
+        hints.render()
 
 
 def register_commands(subparsers) -> None:

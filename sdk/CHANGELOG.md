@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Entry-point plugin discovery** for the `evalyn` CLI. At startup, `evalyn_sdk.cli.main` reads the `evalyn.commands` entry-point group via `importlib.metadata` and merges discovered modules into the lazy command map. Third-party packages can register subcommands without modifying core. Used by the new `evalyn-dashboard` package to register the `dashboard` subcommand.
+
+### Changed
+- **`evalyn dashboard` renamed to `evalyn report`.** The static HTML insights report previously exposed as `evalyn dashboard` is now `evalyn report`. The implementation moved from `cli/commands/dashboard.py` to `cli/commands/report.py` (function renamed `cmd_dashboard` -> `cmd_report`).
+
+### Deprecated
+- **`evalyn dashboard` (static report alias).** When the `evalyn-dashboard` plugin is **not** installed, the `dashboard` subcommand prints a stderr deprecation warning and forwards to `cmd_report`. When `evalyn-dashboard` **is** installed, the entry-point plugin takes precedence and `evalyn dashboard` launches the new localhost IDE. The deprecation alias will be removed in evalyn v3.0. Migrate to either `evalyn report` (static HTML) or `pip install evalyn-dashboard` (interactive IDE).
+
 ## [0.2.0] - 2026-03-29
 
 ### Added

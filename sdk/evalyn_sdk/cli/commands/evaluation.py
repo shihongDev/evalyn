@@ -28,6 +28,15 @@ Typical workflow:
 
 from __future__ import annotations
 
+# Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
+GROUP = "Eval"
+
+# Non-required params that should still appear in the default form. Read by
+# evalyn_dashboard.introspect.build_catalog and merged with required params.
+# `dataset` + `metrics` cover the two knobs every run-eval invocation tunes;
+# other run-eval optionals stay behind the "Show all options" disclosure.
+ESSENTIAL = {"dataset", "metrics"}
+
 import argparse
 import json
 import os
@@ -42,7 +51,7 @@ from ..constants import BUNDLES
 from ..utils.config import load_config, get_config_default, resolve_dataset_path
 from ..utils.errors import fatal_error
 from ..utils.formatters import print_token_usage_summary
-from ..utils.hints import print_hint
+from ..utils.hints import HintCollector
 from ..utils.loaders import _load_callable
 from ..utils.validation import check_llm_api_keys
 from ..utils.dataset_utils import (
@@ -181,10 +190,9 @@ def _save_suggested_metrics(
 
     if output_format != "json":
         print(f"Saved metrics to {metrics_file}")
-        print_hint(
-            f"To run evaluation, run: evalyn run-eval --dataset {dataset_dir}",
-            quiet=quiet,
-        )
+        hints = HintCollector(quiet=quiet, format=output_format)
+        hints.add(f"evalyn run-eval --dataset {dataset_dir}", "Run evaluation with these metrics")
+        hints.render()
     return metrics_file
 
 
@@ -503,9 +511,16 @@ def _execute_run_eval(
                 )
 
             prepared = []
+            call_ids = []
+            item_call_id_pairs = []
             for item in dataset_list:
                 call_id = item.metadata.get("call_id") if isinstance(item.metadata, dict) else None
-                call = tracer.storage.get_call(call_id) if call_id else None
+                if call_id:
+                    call_ids.append(call_id)
+                    item_call_id_pairs.append((item, call_id))
+            calls_by_id = tracer.storage.get_calls_batch(call_ids) if call_ids else {}
+            for item, call_id in item_call_id_pairs:
+                call = calls_by_id.get(call_id)
                 if call:
                     prepared.append((item, call))
 
@@ -722,6 +737,7 @@ def _render_run_eval_output(
         print(f"Failed items: {failed_count}")
 
     quiet = getattr(args, "quiet", False)
+    hints = HintCollector(quiet=quiet, format=output_format)
     if failed_count >= 3:
         failed_metric = None
         for metric_id, stats in run.summary.get("metrics", {}).items():
@@ -729,17 +745,12 @@ def _render_run_eval_output(
                 failed_metric = metric_id
                 break
         if failed_metric:
-            print_hint(
-                f"To cluster failures by pattern: evalyn cluster-failures --metric-id {failed_metric}",
-                quiet=quiet,
-                format=output_format,
+            hints.add(
+                f"evalyn cluster-failures --metric-id {failed_metric}",
+                "Cluster failures by pattern",
             )
-
-    print_hint(
-        f"To analyze results, run: evalyn analyze --run {run.id}",
-        quiet=quiet,
-        format=output_format,
-    )
+    hints.add(f"evalyn analyze --run {run.id}", "Analyze results in detail")
+    hints.render()
 
 
 def _run_auto_insights(
@@ -1154,15 +1165,10 @@ def _load_suggest_metrics_project_context(
     if not tracer.storage:
         fatal_error("No storage configured", "Cannot load project traces")
 
-    all_calls = tracer.storage.list_calls(limit=500, project=args.project)
-    project_traces = []
-    for call in all_calls:
-        if args.version:
-            meta = call.metadata if isinstance(call.metadata, dict) else {}
-            call_version = meta.get("version") or ""
-            if call_version != args.version:
-                continue
-        project_traces.append(call)
+    version = getattr(args, "version", None) or None
+    project_traces = list(
+        tracer.storage.list_calls(limit=500, project=args.project, version=version)
+    )
 
     if not project_traces:
         version_hint = f" (version: {args.version})" if args.version else ""

@@ -21,6 +21,13 @@ Usage:
 
 from __future__ import annotations
 
+# Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
+GROUP = "Insights"
+
+# Non-required params worth exposing in the default dashboard form. Pointing at
+# a run or dataset is the everyday path; --deep is the most-toggled mode.
+ESSENTIAL = {"run", "dataset", "deep"}
+
 import argparse
 import json
 from dataclasses import asdict
@@ -31,7 +38,7 @@ from ..utils.config import load_config, resolve_dataset_path
 from ..utils.dataset_resolver import get_dataset
 from ..utils.errors import fatal_error
 from ..utils.formatters import output_json
-from ..utils.hints import print_hint
+from ..utils.hints import HintCollector
 
 
 def load_dataset_items(dataset_path: Path) -> list[dict]:
@@ -309,12 +316,10 @@ def cmd_insights(args: argparse.Namespace) -> None:
 
     _print_insights_table(report, run, previous_run_id, panel_discussion)
 
-    print_hint(
-        "To drill into failures, run: evalyn cluster-failures"
-        + (f" --dataset {dataset_path}" if dataset_path else " --latest"),
-        quiet=getattr(args, "quiet", False),
-        format=output_format,
-    )
+    hints = HintCollector(quiet=getattr(args, "quiet", False), format=output_format)
+    dataset_flag = f"--dataset {dataset_path}" if dataset_path else "--latest"
+    hints.add(f"evalyn cluster-failures {dataset_flag}", "Drill into failure patterns")
+    hints.render()
 
 
 def register_commands(subparsers) -> None:

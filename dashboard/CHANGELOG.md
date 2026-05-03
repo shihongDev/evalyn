@@ -1,0 +1,45 @@
+# Changelog
+
+All notable changes to `evalyn-dashboard` are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.1.0] - 2026-05-01
+
+Initial release. Localhost IDE for evalyn evaluations, distributed as a separate optional package.
+
+### Added
+
+- **CLI catalog** - all 35 evalyn CLIs introspected from their argparse parsers and exposed as auto-generated forms. Groups: Tracing, Dataset, Metrics, Eval, Analysis, Annotation, Insights, Export, Simulation, Infrastructure, Quickstart.
+- **Auto-form generation** - 7 param kinds (`bool`, `string`, `number`, `select`, `multiselect`, `path`, `long-text`) classified from argparse `Action` shape and dest-name heuristics. Three form modes: Form, Preview, Raw.
+- **Subprocess streaming** - `JobManager` spawns each CLI as `["evalyn", <cmd>, ...]` via `asyncio.create_subprocess_exec`. Per-line stdout/stderr capture, fanout subscribe for multiple WebSocket viewers, backpressure with truncation marker, SIGTERM + 3s grace + SIGKILL on cancel, 60min default timeout, last 100 jobs retained in memory.
+- **Terminal panel** - inline ~1KB ANSI parser, auto-scroll, one terminal view per job tab.
+- **Jobs panel** - live state of running and recent jobs, click-to-open, per-row cancel.
+- **AI chat agent** - dock-right `ChatPanel` with full agentic loop: text streaming, tool-call cards, confirmation cards (approve/reject), final-suggestion cards (clickable into pre-filled CLI form). Per-turn budget of 8 tool calls. Optional cost budget via `--agent-budget`.
+- **Multi-provider support** - `OpenAIProvider`, `AnthropicProvider`, `OllamaProvider` behind a shared `BaseProvider` interface. Provider-native tool-call streaming.
+- **Credentials store** - `~/.evalyn/credentials.json` with atomic write and `chmod 600`. API never returns plaintext keys to the frontend. Per-provider `test` endpoint makes a 1-token completion call.
+- **Settings UI** - `SettingsModal` with API-key input (password type), test button, model dropdown, active-provider radio.
+- **Read-only allowlist** - 19 commands auto-run by the agent without confirmation. All other commands require explicit user approval via a confirmation card; 5min timeout defaults to rejected.
+- **WebSocket transport** - `/ws/jobs/{id}` for job streams, `/ws/agent/{thread_id}` for agent events. Reconnect with `last_event_id`.
+- **Localhost binding** - bound to `127.0.0.1` by default. `--unsafe-bind` required to override, with stderr warning.
+- **CSRF protection** - per-server random token injected into served `index.html` as `<meta name="workbench-token">`. Required on all mutating routes via `X-Workbench-Token` header.
+- **Plugin discovery** - registers the `dashboard` subcommand on core evalyn via the `evalyn.commands` entry-point group. No core changes needed at install time.
+- **Pre-built frontend** - React 18 + TypeScript + Vite bundle vendored at `evalyn_dashboard/static/`. End users never run `npm`.
+
+### Notes
+
+- **Deprecation alias.** The previous `evalyn dashboard` command (a static HTML insights report) is renamed to `evalyn report`. When `evalyn-dashboard` is **not** installed, `evalyn dashboard` prints a stderr deprecation warning and forwards to `evalyn report`. The alias is removed in core evalyn v3.0.
+- **Known issues.** See [KNOWN_ISSUES.md](./KNOWN_ISSUES.md). Two `IMPORTANT` items are tracked: (1) subscriber race in `JobManager.subscribe()` between replay and registration; (2) WS reconnect close handler shares mutable connection ref. Both have fix sketches; neither blocks v0.1.
+- **State persistence.** Tabs, jobs, and chat threads are in-memory only. Server restart clears them. `.evalyn/` artifacts on disk are unaffected.
+- **No telemetry, no auto-update, no daemon mode.**
+
+### Implementation phases
+
+For maintainers: v0.1.0 was built in 5 phases.
+
+- Phase 0 - repo restructure: uv workspace, `dashboard/` package, Vite scaffold, shared `catalog.schema.json`, plugin entry-point on core CLI, rename `dashboard` -> `report` + deprecation alias.
+- Phase 1 - foundation (5 parallel lanes): FastAPI skeleton + CSRF + localhost guard, argparse introspector, `JobManager` (spawn / cancel / fanout / backpressure / history), `CredentialStore`, frontend shell (`App` / `TitleBar` / `EditorTabs` / `BottomPanel` / Zustand store).
+- Phase 2 - CLI execution (3 parallel lanes): `/api/cli` + `/api/cli/run` + `/api/jobs/*` + `/ws/jobs/{id}`, sidebar + `CliCatalog` + `CliForm` + `ParamField`, `Terminal` + `JobsList` + WS subscriber.
+- Phase 3 - agent runtime (2 parallel lanes): `AgentRuntime` + 3 providers + tool loop + allowlist + confirmation gate + `/api/agent/*` + `/ws/agent/{id}` + `/api/settings/*`, `ChatPanel` + `SettingsModal` + tool/confirmation/suggestion cards.
+- Phase 4 - polish (2 parallel lanes): Playwright E2E + CI matrix, docs + CHANGELOG + release.

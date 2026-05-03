@@ -17,6 +17,19 @@ Usage:
 
 from __future__ import annotations
 
+# Dashboard catalog group (used by evalyn_dashboard.introspect.build_catalog).
+GROUP = "Quickstart"
+
+# Non-required params worth exposing in the default dashboard form. quickstart
+# is the canonical first-run path; pointing at the agent file and providing a
+# run command are the only two knobs a beginner ever needs.
+ESSENTIAL = {"agent_file", "run"}
+
+# Per-param numeric range hints. Surfaces a slider in the dashboard form for
+# --timeout. 600s upper bound matches the harness's hard cap.
+RANGES = {"timeout": (10, 600, 5)}
+UNITS = {"timeout": "seconds"}
+
 import argparse
 import os
 import re
@@ -26,7 +39,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from ..utils.errors import fatal_error
-from ..utils.hints import print_hint
+from ..utils.hints import HintCollector
 
 
 # Framework detection patterns: framework name -> (compiled regex patterns, display name)
@@ -417,11 +430,9 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     print("  Ready! Run `evalyn run-eval` to evaluate.")
     print("=" * 60 + "\n")
 
-    if not quiet:
-        print_hint(
-            "Use `evalyn workflow` to see the full evaluation pipeline.",
-            quiet=quiet,
-        )
+    hints = HintCollector(quiet=quiet)
+    hints.add("evalyn workflow", "See the full evaluation pipeline")
+    hints.render()
 
 
 def register_commands(subparsers: argparse._SubParsersAction) -> None:

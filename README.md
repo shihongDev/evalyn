@@ -91,6 +91,19 @@ uv pip install -e "./sdk[llm]"
 uv pip install -e "./sdk[agent]"
 ```
 
+### Optional: Dashboard (localhost IDE)
+
+`evalyn-dashboard` is a separate optional package that ships a localhost web IDE for running any of the 35 evalyn CLIs from auto-generated forms, watching streamed subprocess output, and chatting with an AI agent that calls evalyn commands as tools. Distributed separately to keep core evalyn lightweight.
+
+```bash
+pip install evalyn-dashboard
+evalyn dashboard           # opens http://localhost:7401
+```
+
+See [`dashboard/README.md`](dashboard/README.md) for setup, provider configuration (OpenAI / Anthropic / Ollama), and the agent flow.
+
+Note: the previous `evalyn dashboard` command (a static HTML insights report) is renamed to `evalyn report`. The old name still works as a deprecation alias when `evalyn-dashboard` is not installed.
+
 ## Quick Start (Example Gemini Deep Research Agent)
 
 ### 1. Instrument Your Agent
