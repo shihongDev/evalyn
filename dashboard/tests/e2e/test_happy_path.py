@@ -81,11 +81,11 @@ def test_list_runs_happy_path(page: Page, dashboard_server: str) -> None:
     expect(limit_input).to_be_visible(timeout=ACTION_TIMEOUT_MS)
     limit_input.fill("5")
 
-    # 4. Click Run. The button label is `▶ Run` while idle and
-    #    `… running` while the request is in flight. Use exact match
-    #    on the visible label to disambiguate from the sidebar's
-    #    ``Runs`` tab and the ``Close list-runs`` close-X.
-    run_button = page.get_by_role("button", name="▶ Run", exact=True)
+    # 4. Click Run. The Workspace button label is `Run` while idle and
+    #    `Running...` while the request is in flight (microcopy pass
+    #    dropped the legacy `▶ Run` arrow glyph from the inline form).
+    #    Exact match disambiguates from the sidebar's `Eval runs` tab.
+    run_button = page.get_by_role("button", name="Run", exact=True)
     run_button.click()
 
     # 5. Streaming output assertion. The store appends an ``exit N`` line
