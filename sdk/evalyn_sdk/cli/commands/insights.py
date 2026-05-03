@@ -72,12 +72,14 @@ def load_previous_run(dataset_path: Path, current_run_path: Path) -> "EvalRun | 
 
 def _print_insights_table(report, run, previous_run_id=None, panel_discussion=None):
     """Print insights report in table format."""
-    print(f"\n{'=' * 70}")
-    print("  EVALYN INSIGHTS")
-    print(f"{'=' * 70}")
-    print(f"\n  Run: {run.id[:12]}... ({run.dataset_name})")
+    from ..utils.rich import banner, section, kv, icon
+
+    print()
+    print(banner("EVALYN INSIGHTS"))
+    pairs = [("Run", f"{run.id[:8]}  ({run.dataset_name})")]
     if previous_run_id:
-        print(f"  Compared to: {previous_run_id[:12]}...")
+        pairs.append(("Compared to", f"{previous_run_id[:8]}"))
+    print(kv(pairs))
 
     # Diagnostics
     has_diagnostics = (
@@ -86,57 +88,49 @@ def _print_insights_table(report, run, previous_run_id=None, panel_discussion=No
         or report.feature_insights
     )
     if has_diagnostics:
-        print(f"\n{'=' * 70}")
-        print("  DIAGNOSTICS")
-        print(f"{'=' * 70}")
+        print(f"\n{section('DIAGNOSTICS')}")
 
     if report.correlations:
         print("\n  Metric Correlations:")
         for c in report.correlations:
             label = "redundant" if c.relationship == "redundant" else "tradeoff"
-            print(f"    {c.metric_a} <-> {c.metric_b}  r={c.pearson} ({label})")
+            print(f"    {icon('info')} {c.metric_a} <-> {c.metric_b}  r={c.pearson} ({label})")
 
     if report.distribution_insights:
         print("\n  Score Distributions:")
         for d in report.distribution_insights:
-            print(f"    {d.metric_id}: {d.shape} - {d.finding}")
+            print(f"    {icon('info')} {d.metric_id}: {d.shape} - {d.finding}")
 
     if report.feature_insights:
         print("\n  Input Feature Analysis:")
         for feat in report.feature_insights:
-            print(f"    {feat.finding}")
+            print(f"    {icon('info')} {feat.finding}")
 
     # Regression alerts
     if report.regressions:
-        print(f"\n{'=' * 70}")
-        print("  REGRESSION ALERTS")
-        print(f"{'=' * 70}\n")
+        print(f"\n{section('REGRESSION ALERTS')}\n")
         for r in report.regressions:
             severity_tag = f"[{r.severity.upper()}]"
             delta_pct = abs(r.delta) * 100
+            sev_icon = icon("fail") if r.severity == "critical" else icon("warn")
             print(
-                f"  {severity_tag:10} {r.metric_id} dropped {delta_pct:.0f}% "
+                f"  {sev_icon} {severity_tag:10} {r.metric_id} dropped {delta_pct:.0f}% "
                 f"({r.previous_pass_rate * 100:.0f}% -> {r.current_pass_rate * 100:.0f}%)"
             )
 
     # Recommendations
     if report.recommendations:
-        print(f"\n{'=' * 70}")
-        print("  RECOMMENDATIONS (by priority)")
-        print(f"{'=' * 70}\n")
+        print(f"\n{section('RECOMMENDATIONS (by priority)')}\n")
         for rec in report.recommendations:
             print(f"  {rec.priority}. [{rec.category}] {rec.message}")
             print(f"     -> {rec.action}")
     elif not has_diagnostics and not report.regressions:
-        print(f"\n{'=' * 70}")
-        print("  No significant insights found - evaluation looks healthy!")
-        print(f"{'=' * 70}")
+        print(f"\n{section('ALL CLEAR')}")
+        print(f"  {icon('pass')} No significant insights found - evaluation looks healthy!")
 
     # Expert panel discussion
     if panel_discussion:
-        print(f"\n{'=' * 70}")
-        print("  EXPERT PANEL ANALYSIS")
-        print(f"{'=' * 70}")
+        print(f"\n{section('EXPERT PANEL ANALYSIS')}")
 
         for expert in panel_discussion.experts:
             role_display = expert.role.replace("_", " ").title()
@@ -318,7 +312,14 @@ def cmd_insights(args: argparse.Namespace) -> None:
 
     hints = HintCollector(quiet=getattr(args, "quiet", False), format=output_format)
     dataset_flag = f"--dataset {dataset_path}" if dataset_path else "--latest"
-    hints.add(f"evalyn cluster-failures {dataset_flag}", "Drill into failure patterns")
+    hints.add(
+        f"evalyn cluster-failures {dataset_flag}",
+        "Drill into failure patterns",
+        options=[
+            ("--metric-id <id>", "Focus on a specific failing metric"),
+            ("--top <N>", "Number of clusters to show (default: 5)"),
+        ],
+    )
     hints.render()
 
 

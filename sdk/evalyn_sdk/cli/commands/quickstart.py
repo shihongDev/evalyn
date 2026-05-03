@@ -33,13 +33,16 @@ UNITS = {"timeout": "seconds"}
 import argparse
 import os
 import re
-import shutil
+import shlex
 import subprocess
+import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+from ..utils.config import create_evalyn_yaml
 from ..utils.errors import fatal_error
 from ..utils.hints import HintCollector
+from ..utils.rich import banner, section, icon, footer
 
 
 # Framework detection patterns: framework name -> (compiled regex patterns, display name)
@@ -254,46 +257,17 @@ def _print_instrumentation_snippet(framework: str) -> None:
 
 
 def _create_evalyn_yaml() -> None:
-    """Create evalyn.yaml using the same logic as cmd_init."""
+    """Create evalyn.yaml using the shared config helper."""
     output_path = Path("evalyn.yaml")
     if output_path.exists():
-        print(f"\n  evalyn.yaml already exists, skipping creation.")
+        print("\n  evalyn.yaml already exists, skipping creation.")
         return
 
-    # Find the example file - check multiple locations
-    example_paths = [
-        Path("evalyn.yaml.example"),
-        Path(__file__).parent.parent.parent.parent / "evalyn.yaml.example",
-    ]
-
-    example_path = None
-    for p in example_paths:
-        if p.exists():
-            example_path = p
-            break
-
-    if example_path:
-        shutil.copy(example_path, output_path)
-        print(f"\n  Created evalyn.yaml (from {example_path})")
+    _, from_example = create_evalyn_yaml(output_path, force=False)
+    if from_example:
+        print("\n  Created evalyn.yaml (from evalyn.yaml.example)")
     else:
-        minimal = """# Evalyn Configuration
-# See evalyn.yaml.example for all available options
-
-# API Keys - only set what you need
-api_keys:
-  gemini: "your-gemini-api-key-here"  # Required for example agent
-  # openai: "your-openai-key"         # Optional
-
-llm:
-  model: "gemini-2.5-flash-lite"
-
-defaults:
-  project: null
-  version: null
-"""
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(minimal)
-        print(f"\n  Created evalyn.yaml (minimal config)")
+        print("\n  Created evalyn.yaml (minimal config)")
 
 
 def _run_agent(run_cmd: str, timeout: int) -> bool:
@@ -305,9 +279,12 @@ def _run_agent(run_cmd: str, timeout: int) -> bool:
     print(f"  Timeout: {timeout}s\n")
 
     try:
+        # POSIX-mode shlex.split treats backslash as an escape character, which
+        # corrupts Windows paths like 'C:\Users\me\agent.py'. Disable POSIX mode
+        # on Windows so backslashes survive argv splitting.
+        argv = shlex.split(run_cmd, posix=(sys.platform != "win32"))
         result = subprocess.run(
-            run_cmd,
-            shell=True,
+            argv,
             timeout=timeout,
             capture_output=False,
         )
@@ -370,9 +347,8 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     run_cmd = getattr(args, "run", None)
     timeout = getattr(args, "timeout", 120)
 
-    print("\n" + "=" * 60)
-    print("  EVALYN QUICKSTART")
-    print("=" * 60)
+    print()
+    print(banner("EVALYN QUICKSTART"))
 
     # Check idempotency: if evalyn.yaml exists and instrumentation present, skip setup
     yaml_exists = Path("evalyn.yaml").exists()
@@ -383,22 +359,24 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
         print("  Skipping to run step...\n")
     else:
         # Step 1: Detect framework
-        print("\n[1/3] Detecting agent framework...")
+        print()
+        print(section("STEP 1/3: DETECT FRAMEWORK"))
         framework, detected_file = _detect_framework(agent_file)
 
         # Step 2: Generate instrumentation snippet
-        print("\n[2/3] Instrumentation snippet")
+        print()
+        print(section("STEP 2/3: INSTRUMENTATION"))
         _print_instrumentation_snippet(framework)
 
         # Step 3: Create evalyn.yaml
-        print("\n[3/3] Setting up configuration...")
+        print()
+        print(section("STEP 3/3: CONFIGURATION"))
         _create_evalyn_yaml()
 
     # Step 4: Run the agent (optional)
     if run_cmd:
-        print("\n" + "-" * 60)
-        print("  RUNNING AGENT")
-        print("-" * 60)
+        print()
+        print(section("RUNNING AGENT"))
 
         traces_before = _check_traces_captured()
         success = _run_agent(run_cmd, timeout)
@@ -417,21 +395,31 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
                 print("    - Ensure your agent makes at least one LLM call")
                 print("    - Check that evalyn_sdk is installed: pip show evalyn-sdk")
     else:
-        print("\n" + "-" * 60)
-        print("  NEXT: Run your agent to capture traces")
-        print("-" * 60)
+        print()
+        print(section("NEXT: RUN YOUR AGENT"))
         print("\n  Run your agent with evalyn_sdk imported, then come back:")
         print("    python your_agent.py")
         print("\n  Or re-run quickstart with --run:")
         print('    evalyn quickstart --run "python your_agent.py"')
 
     # Final message
-    print("\n" + "=" * 60)
-    print("  Ready! Run `evalyn run-eval` to evaluate.")
-    print("=" * 60 + "\n")
+    print()
+    print(banner("READY"))
+    print("  Run `evalyn run-eval` to evaluate.\n")
 
     hints = HintCollector(quiet=quiet)
-    hints.add("evalyn workflow", "See the full evaluation pipeline")
+    hints.add(
+        "evalyn workflow",
+        "See the full evaluation pipeline",
+    )
+    hints.add(
+        "evalyn run-eval --dataset <path>",
+        "Jump straight to evaluation",
+        options=[
+            ("--provider gemini|openai|ollama", "LLM provider for judges (default: gemini)"),
+            ("--verbose", "Show detailed cost breakdown by metric"),
+        ],
+    )
     hints.render()
 
 

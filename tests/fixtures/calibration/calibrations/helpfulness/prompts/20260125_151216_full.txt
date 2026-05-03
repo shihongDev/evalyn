@@ -1,0 +1,7 @@
+
+
+Evaluate using this rubric (PASS only if all criteria met):
+- Does the response directly and comprehensively answer the user's question?
+- Is the information provided accurate and relevant?
+- Is the level of detail appropriate for the question asked, providing sufficient depth without being overly verbose?
+- Does the response guide the user toward productive research by suggesting further avenues or providing context for deeper understanding?

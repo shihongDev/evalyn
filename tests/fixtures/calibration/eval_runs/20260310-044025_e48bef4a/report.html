@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eval Dashboard - validation-test</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            /* Backgrounds - warm cream tones */
+            --bg-primary: #FFFBF7;
+            --bg-secondary: #FBF7F3;
+            --bg-tertiary: #F5EDE6;
+            --bg-hover: #F0E8E0;
+
+            /* Accents - terracotta and warm tones */
+            --accent-primary: #D4A27F;
+            --accent-secondary: #C4836A;
+            --accent-muted: #A89F97;
+            --accent-purple: #9B8AA6;
+
+            /* Status */
+            --status-pass: #6B8E8E;
+            --status-fail: #C97B63;
+            --status-warn: #D4A27F;
+
+            /* Text */
+            --text-primary: #1A1A1A;
+            --text-secondary: #555555;
+            --text-muted: #888888;
+
+            /* Borders */
+            --border-subtle: rgba(212, 162, 127, 0.2);
+            --border-strong: rgba(212, 162, 127, 0.4);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            font-size: 14px;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .dashboard {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* Header Bar */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            margin-bottom: 24px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .header-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .header-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .header-meta span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .header-meta .value {
+            color: var(--text-secondary);
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+        }
+
+        /* KPI Bar - horizontal, no cards */
+        .kpi-bar {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            margin-bottom: 24px;
+            overflow-x: auto;
+        }
+
+        .kpi-item {
+            flex: 1;
+            min-width: 120px;
+            padding: 0 24px;
+            border-right: 1px solid var(--border-subtle);
+            text-align: center;
+        }
+
+        .kpi-item:last-child {
+            border-right: none;
+        }
+
+        .kpi-value {
+            font-size: 32px;
+            font-weight: 700;
+            line-height: 1.1;
+            margin-bottom: 4px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .kpi-value.pass { color: var(--status-pass); }
+        .kpi-value.warn { color: var(--status-warn); }
+        .kpi-value.fail { color: var(--status-fail); }
+        .kpi-value.neutral { color: var(--text-primary); }
+
+        .kpi-unit {
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--text-muted);
+            margin-left: 2px;
+        }
+
+        .kpi-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        /* Section layout */
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section-header {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        /* Charts Grid */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .chart-box {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            padding: 20px;
+        }
+
+        .chart-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        /* Dense Table */
+        .table-wrapper {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        th {
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 500;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: var(--text-muted);
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-strong);
+            white-space: nowrap;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        th:hover {
+            color: var(--text-secondary);
+        }
+
+        /* Pinned average row */
+        tr.avg-row {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+        }
+
+        tr.avg-row td {
+            border-bottom: 2px solid var(--border-strong);
+            color: var(--accent-primary);
+        }
+
+        td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+        }
+
+        tr:hover {
+            background: var(--bg-hover);
+        }
+
+        /* Mini score bar */
+        .score-bar {
+            display: inline-block;
+            width: 40px;
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            overflow: hidden;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        .score-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+        }
+
+        .score-bar-fill.high { background: var(--status-pass); }
+        .score-bar-fill.mid { background: var(--status-warn); }
+        .score-bar-fill.low { background: var(--status-fail); }
+
+        /* Status indicators */
+        .status-pass { color: var(--status-pass); }
+        .status-fail { color: var(--status-fail); }
+        .status-warn { color: var(--status-warn); }
+
+        /* Failed Items Section */
+        .failed-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .failed-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .failed-header h3 {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .failed-count {
+            font-size: 12px;
+            color: var(--status-fail);
+            font-weight: 600;
+        }
+
+        .failed-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .failed-item {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .failed-item:last-child {
+            border-bottom: none;
+        }
+
+        .failed-item-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .failed-item-id {
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .failed-item-summary {
+            font-size: 12px;
+            color: var(--status-fail);
+        }
+
+        .failed-item-content {
+            display: none;
+        }
+
+        .failed-item.expanded .failed-item-content {
+            display: block;
+        }
+
+        .io-block {
+            margin-top: 12px;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+            font-size: 12px;
+            max-height: 150px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .io-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        }
+
+        .io-block.input {
+            border-left: 3px solid var(--accent-purple);
+        }
+
+        .io-block.output {
+            border-left: 3px solid var(--accent-secondary);
+        }
+
+        .expand-btn {
+            background: none;
+            border: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            padding: 4px 10px;
+            font-size: 11px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .expand-btn:hover {
+            border-color: var(--text-muted);
+            color: var(--text-secondary);
+        }
+
+        /* Enhanced failed item expansion */
+        .io-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 900px) {
+            .io-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .io-content {
+            margin: 0;
+            padding: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 12px;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+            color: var(--text-secondary);
+        }
+
+        .metric-details-section {
+            margin-top: 16px;
+        }
+
+        .metric-detail {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-left: 3px solid var(--status-fail);
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 8px;
+        }
+
+        .metric-detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .metric-detail-name {
+            font-weight: 600;
+            color: var(--status-fail);
+            font-size: 13px;
+        }
+
+        .metric-detail-score {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+        }
+
+        .metric-detail-reason {
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        /* Metadata footer */
+        .footer {
+            margin-top: 24px;
+            padding: 16px 0;
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            gap: 32px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .footer-item {
+            display: flex;
+            gap: 8px;
+        }
+
+        .footer-label {
+            color: var(--text-muted);
+        }
+
+        .footer-value {
+            color: var(--text-secondary);
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .kpi-bar {
+                flex-wrap: wrap;
+            }
+            .kpi-item {
+                flex: 1 1 45%;
+                border-right: none;
+                border-bottom: 1px solid var(--border-subtle);
+                padding: 16px;
+            }
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-strong);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header Bar -->
+        <div class="header">
+            <div class="header-left">
+                <div class="header-title">Evaluation Dashboard</div>
+                <div class="header-meta">
+                    <span>Dataset: <span class="value">validation-test</span></span>
+                    <span>Run: <span class="value">e48bef4a-a41...</span></span>
+                    <span>Time: <span class="value">2026-03-10T04:40:25</span></span>
+                </div>
+            </div>
+        </div>
+        <!-- KPI Bar -->
+        <div class="kpi-bar">
+            <div class="kpi-item">
+                <div class="kpi-value neutral">100</div>
+                <div class="kpi-label">Items</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value neutral">1</div>
+                <div class="kpi-label">Metrics</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value pass">100.0<span class="kpi-unit">%</span></div>
+                <div class="kpi-label">Pass Rate</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value pass">0</div>
+                <div class="kpi-label">Failed</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value pass">100</div>
+                <div class="kpi-label">All Passed</div>
+            </div>
+            
+            <div class="kpi-item">
+                <div class="kpi-value pass">100<span class="kpi-unit">%</span></div>
+                <div class="kpi-label">output_nonem</div>
+            </div>
+        </div>
+        <!-- Charts Grid -->
+        <div class="charts-grid">
+            <div class="chart-box">
+                <div class="chart-title">Pass Rate by Metric</div>
+                <div class="chart-container">
+                    <canvas id="passRateChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-box">
+                <div class="chart-title">Score Distribution</div>
+                <div class="chart-container">
+                    <canvas id="scoreDistChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <!-- Metric Details Table -->
+        <div class="section">
+            <div class="section-header">Metric Details</div>
+            <div class="table-wrapper">
+                <table id="metricsTable">
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Type</th>
+                            <th>Pass Rate</th>
+                            <th>Avg Score</th>
+                            <th>Min</th>
+                            <th>Max</th>
+                            <th>Std Dev</th>
+                            <th>Passed</th>
+                            <th>Failed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Average row pinned at top -->
+                        <tr class="avg-row">
+                            <td>AVG</td>
+                            <td>-</td>
+                            <td>100.0%</td>
+                            <td>1.000</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>100</td>
+                            <td>0</td>
+                        </tr>
+                        <tr>
+            <td style="color: var(--text-primary); font-weight: 500;">output_nonempty</td>
+            <td><span class="status-pass">obj</span></td>
+            <td><span class="score-bar"><span class="score-bar-fill high" style="width: 100.0%"></span></span><span class="status-pass">100.0%</span></td>
+            <td>1.000</td>
+            <td>1.000</td>
+            <td>1.000</td>
+            <td>0.000</td>
+            <td class="status-pass">100</td>
+            <td class="">0</td>
+        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <div class="footer-item">
+                <span class="footer-label">Run ID:</span>
+                <span class="footer-value">e48bef4a-a414-4d0e-9603-f4a6840d2eb8</span>
+            </div>
+            <div class="footer-item">
+                <span class="footer-label">Dataset:</span>
+                <span class="footer-value">validation-test</span>
+            </div>
+            <div class="footer-item">
+                <span class="footer-label">Created:</span>
+                <span class="footer-value">2026-03-10T04:40:25.912309+00:00</span>
+            </div>
+            <div class="footer-item">
+                <span class="footer-label">Passing All:</span>
+                <span class="footer-value">100/100</span>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Warm theme colors - Anthropic style
+        const colors = {
+            accent: '#D4A27F',
+            accentDim: 'rgba(212, 162, 127, 0.3)',
+            secondary: '#C4836A',
+            error: '#C97B63',
+            errorDim: 'rgba(201, 123, 99, 0.3)',
+            warning: '#D4A27F',
+            success: '#6B8E8E',
+            muted: '#A89F97',
+            border: 'rgba(212, 162, 127, 0.2)',
+            gridLine: 'rgba(212, 162, 127, 0.15)',
+            bg: '#FFFBF7',
+            text: '#1A1A1A',
+            textMuted: '#888888'
+        };
+
+        // Chart.js defaults for warm theme
+        Chart.defaults.font.family = "'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
+        Chart.defaults.color = colors.textMuted;
+        Chart.defaults.borderColor = colors.border;
+
+        // Toggle expand for failed items
+        function toggleExpand(idx) {
+            const item = document.getElementById('item-' + idx);
+            if (item) {
+                const content = item.querySelector('.failed-item-content');
+                const btn = item.querySelector('.expand-btn');
+                if (content.style.display === 'none' || !content.style.display) {
+                    content.style.display = 'block';
+                    btn.textContent = 'Collapse';
+                    item.classList.add('expanded');
+                } else {
+                    content.style.display = 'none';
+                    btn.textContent = 'Expand';
+                    item.classList.remove('expanded');
+                }
+            }
+        }
+
+        // Pass Rate Chart - horizontal bars with thin styling
+        const passRateCtx = document.getElementById('passRateChart').getContext('2d');
+        new Chart(passRateCtx, {
+            type: 'bar',
+            data: {
+                labels: ["output_nonempty"],
+                datasets: [{
+                    data: [100.0],
+                    backgroundColor: ["#6B8E8E"],
+                    borderColor: ["#6B8E8E"],
+                    borderWidth: 1,
+                    borderRadius: 2,
+                    borderSkipped: false,
+                    barThickness: 16,
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: colors.bg,
+                        titleColor: colors.text,
+                        bodyColor: colors.text,
+                        borderColor: colors.border,
+                        borderWidth: 1,
+                        padding: 10,
+                        callbacks: {
+                            label: (ctx) => ctx.raw.toFixed(1) + '%'
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: {
+                            color: colors.gridLine,
+                            lineWidth: 1
+                        },
+                        ticks: { color: colors.textMuted },
+                        title: { display: true, text: 'Pass Rate (%)', color: colors.muted }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: colors.text }
+                    }
+                }
+            }
+        });
+
+        // Score Distribution Chart
+        const scoreDistCtx = document.getElementById('scoreDistChart').getContext('2d');
+        const scoreDistData = [{"metric": "output_nonempty", "min": 1.0, "q1": 1.0, "median": 1.0, "q3": 1.0, "max": 1.0, "avg": 1.0}];
+        new Chart(scoreDistCtx, {
+            type: 'bar',
+            data: {
+                labels: scoreDistData.map(d => d.metric),
+                datasets: [
+                    {
+                        label: 'Score Range',
+                        data: scoreDistData.map(d => [d.min, d.max]),
+                        backgroundColor: colors.accentDim,
+                        borderColor: colors.accent,
+                        borderWidth: 2,
+                        borderRadius: 2,
+                        borderSkipped: false,
+                        barThickness: 8,
+                    },
+                    {
+                        label: 'Average',
+                        data: scoreDistData.map(d => d.avg),
+                        type: 'scatter',
+                        backgroundColor: colors.accent,
+                        borderColor: colors.bg,
+                        borderWidth: 2,
+                        pointRadius: 6,
+                        pointStyle: 'circle',
+                    }
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: colors.bg,
+                        titleColor: colors.text,
+                        bodyColor: colors.text,
+                        borderColor: colors.border,
+                        borderWidth: 1,
+                        padding: 10,
+                        callbacks: {
+                            label: (ctx) => {
+                                if (ctx.datasetIndex === 0) {
+                                    return `Range: ${ctx.raw[0].toFixed(3)} - ${ctx.raw[1].toFixed(3)}`;
+                                }
+                                return `Avg: ${ctx.raw.toFixed(3)}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        max: 1.1,
+                        grid: {
+                            color: colors.gridLine,
+                            lineWidth: 1
+                        },
+                        ticks: { color: colors.textMuted },
+                        title: { display: true, text: 'Score', color: colors.muted }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: colors.text }
+                    }
+                }
+            }
+        });
+
+        
+    </script>
+</body>
+</html>

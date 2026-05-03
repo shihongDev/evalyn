@@ -46,6 +46,23 @@ from ..utils.errors import fatal_error
 from ..utils.hints import HintCollector
 
 
+# Threshold for flagging a metric as a "problem" (failure rate > 20%)
+_PROBLEM_METRIC_THRESHOLD = 0.2
+
+# Overall health status boundaries (percent pass rate)
+_HEALTH_GOOD = 90
+_HEALTH_MODERATE = 70
+
+
+def _health_status(rate: float) -> str:
+    """Return a health label for the given pass rate (0-100 scale)."""
+    if rate >= _HEALTH_GOOD:
+        return "GOOD"
+    if rate >= _HEALTH_MODERATE:
+        return "MODERATE"
+    return "NEEDS_ATTENTION"
+
+
 def _print_run_summary(run_name: str, results_file: Path) -> None:
     """Print a one-line run summary without parsing the full JSON.
 
@@ -62,30 +79,89 @@ def _print_run_summary(run_name: str, results_file: Path) -> None:
 
 def cmd_status(args: argparse.Namespace) -> None:
     """Show status of a dataset including items, metrics, runs, annotations, and calibrations."""
+    from ..utils.rich import banner, footer, kv, section, status_icon
+
     ds = get_dataset(
         getattr(args, "dataset", None),
         getattr(args, "latest", False),
         require=True,
     )
 
-    print(f"\n{'=' * 60}")
-    print(f"DATASET STATUS: {ds.name}")
-    print(f"{'=' * 60}")
-    print(f"Path: {ds.path}")
-
-    # Dataset items
-    print("\n--- DATASET ---")
-    print(f"Items: {ds.item_count}")
+    print(banner("DATASET STATUS"))
+    info_pairs = [
+        ("Dataset", ds.name),
+        ("Path", str(ds.path)),
+        ("Items", str(ds.item_count)),
+    ]
     if ds.project:
-        print(f"Project: {ds.project}")
+        info_pairs.append(("Project", ds.project))
     if ds.version:
-        print(f"Version: {ds.version}")
+        info_pairs.append(("Version", ds.version))
+    print(kv(info_pairs))
 
-    # Metrics
-    print("\n--- METRICS ---")
+    # Gather pipeline info for summary
     metric_files = ds.list_metrics_files()
+    eval_runs = ds.list_eval_runs()
+    annotations_file = ds.path / "annotations.jsonl"
+    has_annotations = annotations_file.exists()
+    calibrations_dir = ds.path / "calibrations"
+    has_calibrations = calibrations_dir.exists() and any(
+        calibrations_dir.iterdir()
+    ) if calibrations_dir.exists() else False
+
+    # Metrics detail
     if metric_files:
-        print(f"Metric sets: {len(metric_files)}")
+        metrics_info = f"{len(metric_files)} set(s)"
+    else:
+        metrics_info = "none"
+
+    # Eval runs detail
+    if eval_runs:
+        run_count = sum(1 for d in eval_runs if list(d.glob("*.json")))
+        runs_info = f"{run_count} run(s)"
+    else:
+        runs_info = "none"
+
+    # Annotations detail
+    if has_annotations:
+        with open(annotations_file, encoding="utf-8") as f:
+            ann_count = sum(1 for _ in f)
+        coverage = (
+            f"{ann_count}/{ds.item_count}" if ds.item_count > 0 else str(ann_count)
+        )
+        pct = f" ({ann_count / ds.item_count:.0%})" if ds.item_count > 0 else ""
+        ann_info = f"{coverage}{pct}"
+    else:
+        ann_info = "none"
+
+    # Calibrations detail
+    cal_count = 0
+    metrics_with_cal: list[str] = []
+    if has_calibrations:
+        for metric_dir in calibrations_dir.iterdir():
+            if metric_dir.is_dir():
+                cals = list(metric_dir.glob("*.json"))
+                if cals:
+                    cal_count += len(cals)
+                    metrics_with_cal.append(metric_dir.name)
+    if cal_count > 0:
+        cal_info = f"{cal_count} across {len(metrics_with_cal)} metric(s)"
+    else:
+        cal_info = "none"
+        has_calibrations = False
+
+    # Pipeline summary
+    print()
+    print(section("PIPELINE"))
+    print(f"  {status_icon(bool(metric_files))}  Metrics       {metrics_info}")
+    print(f"  {status_icon(bool(eval_runs))}  Eval Runs     {runs_info}")
+    print(f"  {status_icon(has_annotations)}  Annotations   {ann_info}")
+    print(f"  {status_icon(has_calibrations)}  Calibrations  {cal_info}")
+
+    # Metric details
+    if metric_files:
+        print()
+        print(section("METRICS"))
         for mf in metric_files:
             try:
                 with open(mf, encoding="utf-8") as f:
@@ -94,18 +170,11 @@ def cmd_status(args: argparse.Namespace) -> None:
                     print(f"  {mf.name}: {count} metrics")
             except Exception:
                 print(f"  {mf.name}: (error reading)")
-    else:
-        print("No metrics defined yet")
-        print(f"  -> Run: evalyn suggest-metrics --dataset {ds.path}")
 
-    # Eval runs
-    print("\n--- EVAL RUNS ---")
-    eval_runs = ds.list_eval_runs()
+    # Eval run details
     if eval_runs:
-        # Count JSON files in each run dir
-        run_count = sum(1 for d in eval_runs if list(d.glob("*.json")))
-        print(f"Eval runs: {run_count}")
-        # Show latest 3 - use lightweight parsing to avoid loading full results
+        print()
+        print(section("EVAL RUNS"))
         for rd in eval_runs[:3]:
             results_file = rd / "results.json"
             if results_file.exists():
@@ -113,86 +182,56 @@ def cmd_status(args: argparse.Namespace) -> None:
                     _print_run_summary(rd.name, results_file)
                 except Exception:
                     pass
-    else:
-        print("No eval runs yet")
-        print(f"  -> Run: evalyn run-eval --dataset {ds.path}")
 
-    # Annotations
-    annotations_file = ds.path / "annotations.jsonl"
-    print("\n--- ANNOTATIONS ---")
-    if annotations_file.exists():
-        with open(annotations_file, encoding="utf-8") as f:
-            ann_count = sum(1 for _ in f)
-        coverage = (
-            f"{ann_count}/{ds.item_count}" if ds.item_count > 0 else str(ann_count)
-        )
-        pct = f" ({ann_count / ds.item_count:.0%})" if ds.item_count > 0 else ""
-        print(f"Annotated: {coverage}{pct}")
-    else:
-        print("No annotations yet")
-        print(f"  -> Run: evalyn annotate --dataset {ds.path}")
-
-    # Calibrations
-    calibrations_dir = ds.path / "calibrations"
-    print("\n--- CALIBRATIONS ---")
-    if calibrations_dir.exists():
-        cal_count = 0
-        metrics_with_cal = []
-        for metric_dir in calibrations_dir.iterdir():
-            if metric_dir.is_dir():
-                cals = list(metric_dir.glob("*.json"))
-                if cals:
-                    cal_count += len(cals)
-                    metrics_with_cal.append(metric_dir.name)
-        if cal_count > 0:
-            print(f"Calibrations: {cal_count} across {len(metrics_with_cal)} metrics")
-            for m in metrics_with_cal[:5]:
-                prompts_dir = calibrations_dir / m / "prompts"
-                has_prompt = (
-                    "(prompt)"
-                    if prompts_dir.exists() and list(prompts_dir.glob("*_full.txt"))
-                    else ""
-                )
-                print(f"  {m} {has_prompt}")
-        else:
-            print("No calibrations yet")
-    else:
-        print("No calibrations yet")
-        print(
-            f"  -> Run: evalyn calibrate --metric-id <metric> --annotations {ds.path / 'annotations.jsonl'} --dataset {ds.path}"
-        )
+    # Calibration details
+    if metrics_with_cal:
+        print()
+        print(section("CALIBRATIONS"))
+        for m in metrics_with_cal[:5]:
+            prompts_dir = calibrations_dir / m / "prompts"
+            has_prompt = (
+                "(prompt)"
+                if prompts_dir.exists() and list(prompts_dir.glob("*_full.txt"))
+                else ""
+            )
+            print(f"  {m} {has_prompt}")
 
     # Suggested next step
-    print(f"\n{'=' * 60}")
-    print("SUGGESTED NEXT STEP:")
+    print()
+    print(section("NEXT STEP"))
     if not metric_files:
-        print(f"  evalyn suggest-metrics --dataset {ds.path}")
+        next_cmd = (f"evalyn suggest-metrics --dataset {ds.path}", "Define metrics")
     elif not eval_runs:
-        print(f"  evalyn run-eval --dataset {ds.path}")
-    elif not annotations_file.exists():
-        print(f"  evalyn annotate --dataset {ds.path}")
-    elif not calibrations_dir.exists():
-        print(
-            f"  evalyn calibrate --metric-id <metric> --annotations {ds.path / 'annotations.jsonl'} --dataset {ds.path}"
+        next_cmd = (f"evalyn run-eval --dataset {ds.path}", "Run evaluation")
+    elif not has_annotations:
+        next_cmd = (f"evalyn annotate --dataset {ds.path}", "Add annotations")
+    elif not has_calibrations:
+        next_cmd = (
+            f"evalyn calibrate --metric-id <metric> --annotations {ds.path / 'annotations.jsonl'} --dataset {ds.path}",
+            "Calibrate metrics",
         )
     else:
-        print("  All steps complete! Consider:")
-        print("  - Re-run eval with optimized prompts")
-        print(f"  - Generate synthetic data: evalyn simulate --dataset {ds.path}")
+        next_cmd = (f"evalyn run-eval --dataset {ds.path}", "All steps complete - re-run eval with optimized prompts")
+    print(footer([next_cmd]))
 
 
 def cmd_validate(args: argparse.Namespace) -> None:
     """Validate dataset format and detect potential issues."""
+    from ..utils.rich import banner, icon, kv, section, status_icon
+
     config = load_config()
     dataset_dir, dataset_file = resolve_dataset_dir_and_file(
         args.dataset, args.latest, config=config
     )
 
-    print(f"\nValidating: {dataset_file}\n")
-    print("-" * 60)
+    print(banner("VALIDATION"))
+    print(kv([
+        ("File", str(dataset_file)),
+        ("Directory", str(dataset_dir)),
+    ]))
 
-    errors = []
-    warnings = []
+    errors: list[str] = []
+    warnings: list[str] = []
     stats = {
         "total_items": 0,
         "has_id": 0,
@@ -246,27 +285,33 @@ def cmd_validate(args: argparse.Namespace) -> None:
     for line_num, dup_id in stats["duplicate_ids"]:
         errors.append(f"Line {line_num}: Duplicate ID '{dup_id}'")
 
-    # Print results
-    print("VALIDATION RESULTS")
-    print("-" * 60)
-
+    # Print field summary with status icons
     total = stats["total_items"]
-    print(f"\n  Total items:        {total}")
-    print(
-        f"  With 'id':          {stats['has_id']} ({100 * stats['has_id'] // max(1, total)}%)"
-    )
-    print(
-        f"  With 'inputs':      {stats['has_inputs']} ({100 * stats['has_inputs'] // max(1, total)}%)"
-    )
-    print(
-        f"  With 'output':      {stats['has_output']} ({100 * stats['has_output'] // max(1, total)}%)"
-    )
-    print(
-        f"  With 'expected':    {stats['has_expected']} ({100 * stats['has_expected'] // max(1, total)}%)"
-    )
-    print(
-        f"  With 'metadata':    {stats['has_metadata']} ({100 * stats['has_metadata'] // max(1, total)}%)"
-    )
+
+    def _field_icon(count: int, total_n: int) -> str:
+        """Return pass for 100%, warn for 0%, info otherwise."""
+        if total_n == 0:
+            return icon("info")
+        pct = count / total_n
+        if pct >= 1.0:
+            return icon("pass")
+        if pct <= 0.0:
+            return icon("warn")
+        return icon("info")
+
+    print()
+    print(section("FIELDS"))
+    print(f"  Total items:        {total}")
+    fields = [
+        ("id", stats["has_id"]),
+        ("inputs", stats["has_inputs"]),
+        ("output", stats["has_output"]),
+        ("expected", stats["has_expected"]),
+        ("metadata", stats["has_metadata"]),
+    ]
+    for field_name, count in fields:
+        pct = 100 * count // max(1, total)
+        print(f"  {_field_icon(count, total)}  {field_name:<16} {count}/{total} ({pct}%)")
     print(f"  Unique IDs:         {len(stats['unique_ids'])}")
 
     # Warnings
@@ -288,11 +333,13 @@ def cmd_validate(args: argparse.Namespace) -> None:
         try:
             with open(meta_file, encoding="utf-8") as f:
                 meta = json.load(f)
-            print("\n  meta.json:          Found")
+            meta_pairs = [("meta.json", "Found")]
             if "project" in meta:
-                print(f"  Project:            {meta.get('project')}")
+                meta_pairs.append(("Project", str(meta.get("project"))))
             if "version" in meta:
-                print(f"  Version:            {meta.get('version')}")
+                meta_pairs.append(("Version", str(meta.get("version"))))
+            print()
+            print(kv(meta_pairs))
         except Exception as e:
             errors.append(f"meta.json: Invalid JSON - {e}")
     else:
@@ -302,7 +349,9 @@ def cmd_validate(args: argparse.Namespace) -> None:
     metrics_dir = dataset_dir / "metrics"
     if metrics_dir.exists():
         metric_files = list(metrics_dir.glob("*.json"))
-        print(f"\n  Metrics files:      {len(metric_files)}")
+        print()
+        print(section("METRICS"))
+        print(f"  Metrics files: {len(metric_files)}")
         for mf in metric_files[:5]:
             print(f"    - {mf.name}")
         if len(metric_files) > 5:
@@ -312,21 +361,29 @@ def cmd_validate(args: argparse.Namespace) -> None:
             "No metrics/ directory found. Run 'evalyn suggest-metrics' first."
         )
 
-    # Print warnings and errors
+    # Print warnings
     if warnings:
-        print(f"\nWARNINGS ({len(warnings)}):")
+        print()
+        print(section(f"WARNINGS ({len(warnings)})"))
         for w in warnings:
-            print(f"  - {w}")
+            print(f"  {icon('warn')} {w}")
 
+    # Print errors and final result
     if errors:
-        print(f"\nERRORS ({len(errors)}):")
+        print()
+        print(section(f"ERRORS ({len(errors)})"))
         for e in errors[:20]:
-            print(f"  - {e}")
+            print(f"  {icon('fail')} {e}")
         if len(errors) > 20:
             print(f"  ... and {len(errors) - 20} more errors")
+
+    print()
+    print(section("RESULT"))
+    if errors:
+        print(f"  {icon('fail')} Dataset is INVALID - {len(errors)} error(s) found")
         fatal_error(f"Dataset has {len(errors)} error(s)")
     else:
-        print("\nDataset is valid!")
+        print(f"  {icon('pass')} Dataset is valid!")
 
 
 def _load_analysis_run(
@@ -434,7 +491,7 @@ def _build_analysis_insights(sorted_metrics, item_failures: dict[str, list[str]]
     insights = []
 
     problem_metrics = [
-        (m, s) for m, s in sorted_metrics if s["failed"] / max(1, s["total"]) > 0.2
+        (m, s) for m, s in sorted_metrics if s["failed"] / max(1, s["total"]) > _PROBLEM_METRIC_THRESHOLD
     ]
     if problem_metrics:
         worst = problem_metrics[0]
@@ -468,14 +525,8 @@ def _build_analysis_insights(sorted_metrics, item_failures: dict[str, list[str]]
     total_evals = sum(s["total"] for _, s in sorted_metrics)
     total_passed = sum(s["passed"] for _, s in sorted_metrics)
     overall_rate = 100 * total_passed / max(1, total_evals)
-    health_status = (
-        "GOOD"
-        if overall_rate >= 90
-        else "MODERATE"
-        if overall_rate >= 70
-        else "NEEDS_ATTENTION"
-    )
-    insights.append(f"Overall health is {health_status} ({overall_rate:.0f}% pass rate)")
+    health = _health_status(overall_rate)
+    insights.append(f"Overall health is {health} ({overall_rate:.0f}% pass rate)")
 
     return {
         "insights": insights,
@@ -483,7 +534,7 @@ def _build_analysis_insights(sorted_metrics, item_failures: dict[str, list[str]]
         "multi_fail_items": multi_fail_items,
         "perfect_metrics": perfect_metrics,
         "overall_rate": overall_rate,
-        "health_status": health_status,
+        "health_status": health,
     }
 
 
@@ -524,39 +575,36 @@ def _print_analysis_table_output(
     """Print table-formatted evaluation analysis."""
     from ...calibration import AlignmentMetrics
 
-    print(f"\n{'=' * 70}")
-    print("  EVALUATION ANALYSIS")
-    print(f"{'=' * 70}")
-    print(f"\nRun ID:      {run.id}")
-    print(f"Dataset:     {run.dataset_name}")
-    print(f"Items:       {len(set(mr.item_id for mr in run.metric_results))}")
-    print(f"Created:     {run.created_at}")
+    from ..utils.rich import banner, section, kv, icon, status_icon, progress_bar, footer
 
-    print(f"\n{'=' * 70}")
-    print("  METRIC SUMMARY")
-    print(f"{'=' * 70}\n")
+    item_count = len(set(mr.item_id for mr in run.metric_results))
 
+    print(banner("EVALUATION ANALYSIS"))
+    print(kv([
+        ("Run", f"{run.id[:8]}  ({run.dataset_name}, {item_count} items)"),
+        ("Created", str(run.created_at)[:16]),
+    ]))
+
+    print(f"\n{section('METRIC SUMMARY')}\n")
+
+    total_evals = 0
+    total_passed = 0
     for metric_id, stats in sorted_metrics:
         total = stats["total"]
         passed = stats["passed"]
-        failed = stats["failed"]
-        pass_rate = 100 * passed / max(1, total)
-        status = "PASS" if failed == 0 else "FAIL"
+        total_evals += total
+        total_passed += passed
+        rate = 100 * passed / max(1, total)
+        ic = status_icon(stats["failed"] == 0)
+        avg = sum(stats["scores"]) / len(stats["scores"]) if stats["scores"] else 0
+        print(f"  {ic} {metric_id:<25} {passed:>3}/{total:<3} {rate:>5.1f}%  avg {avg:.2f}")
 
-        avg_score = ""
-        if stats["scores"]:
-            avg = sum(stats["scores"]) / len(stats["scores"])
-            avg_score = f"  avg={avg:.2f}"
-
-        print(
-            f"  [{status}] {metric_id:<30} {passed}/{total} passed ({pass_rate:.0f}%){avg_score}"
-        )
+    overall_rate = 100 * total_passed / max(1, total_evals)
+    print(f"\n  Overall: {progress_bar(total_passed, total_evals, label=_health_status(overall_rate))}")
 
     has_alignment = any(a.total > 0 for a in alignment_stats.values())
     if has_alignment:
-        print(f"\n{'=' * 70}")
-        print("  ALIGNMENT STATS (vs human annotations)")
-        print(f"{'=' * 70}\n")
+        print(f"\n{section('ALIGNMENT STATS (vs human annotations)')}\n")
         print(
             f"  {'Metric':<25} {'N':>4} {'Acc':>6} {'Prec':>6} {'Rec':>6} {'F1':>6} {'Kappa':>6}"
         )
@@ -585,23 +633,19 @@ def _print_analysis_table_output(
                 f"{total_align.recall:>5.0%} {total_align.f1:>5.0%} {total_align.cohens_kappa:>6.2f}"
             )
 
-    print(f"\n{'=' * 70}")
-    print("  INSIGHTS")
-    print(f"{'=' * 70}\n")
+    print(f"\n{section('INSIGHTS')}\n")
     for insight in insights:
-        print(f"  {insight}\n")
+        print(f"  {icon('info')} {insight}\n")
 
-    print(f"{'=' * 70}")
-    print("  RECOMMENDATIONS")
-    print(f"{'=' * 70}\n")
+    print(section("NEXT STEPS"))
 
     if problem_metrics:
-        print("  1. Run 'evalyn annotate' to provide human labels for failed items")
-        print("  2. Run 'evalyn calibrate' to improve metric alignment")
+        print(f"  {icon('next')} Run 'evalyn annotate' to provide human labels for failed items")
+        print(f"  {icon('next')} Run 'evalyn calibrate' to improve metric alignment")
 
     if not item_failures:
-        print("  All items passed! Consider adding more challenging test cases.")
-        print("    Run 'evalyn simulate --modes outlier' to generate edge cases.")
+        print(f"  {icon('info')} All items passed! Consider adding more challenging test cases.")
+        print(f"    Run 'evalyn simulate --modes outlier' to generate edge cases.")
 
     # Key findings from insights engine
     if run_analysis is not None:
@@ -620,11 +664,9 @@ def _print_analysis_table_output(
                 findings.append(f"{d.metric_id}: {d.shape} - {d.finding}")
 
             if findings:
-                print(f"\n{'=' * 70}")
-                print("  KEY FINDINGS")
-                print(f"{'=' * 70}\n")
+                print(f"\n{section('KEY FINDINGS')}\n")
                 for finding in findings[:5]:
-                    print(f"  - {finding}")
+                    print(f"  {icon('info')} {finding}")
                 print(f"\n  Run 'evalyn insights' for full diagnostic report.")
         except (KeyError, ValueError, TypeError):
             pass
@@ -654,10 +696,30 @@ def _print_analysis_next_hint(
 
     if subjective_problem_metrics:
         worst_metric = subjective_problem_metrics[0][0]
-        hints.add(f"evalyn annotate {dataset_flag}", f"Annotate to calibrate '{worst_metric}'")
+        hints.add(
+            f"evalyn annotate {dataset_flag}",
+            f"Annotate to calibrate '{worst_metric}'",
+            options=[
+                ("--metric-id <id>", "Annotate specific metric only"),
+                ("--count <N>", "Number of items to annotate"),
+            ],
+        )
     if problem_metrics or multi_fail_items:
-        hints.add(f"evalyn cluster-failures {dataset_flag}", "Cluster failures by pattern")
-    hints.add(f"evalyn trend --project {run.dataset_name}", "See trends over time")
+        hints.add(
+            f"evalyn cluster-failures {dataset_flag}",
+            "Cluster failures by pattern",
+            options=[
+                ("--metric-id <id>", "Focus on a specific failing metric"),
+                ("--top <N>", "Number of clusters to show (default: 5)"),
+            ],
+        )
+    hints.add(
+        f"evalyn trend --project {run.dataset_name}",
+        "See trends over time",
+        options=[
+            ("--limit <N>", "Max runs to analyze (default: 20)"),
+        ],
+    )
     hints.render()
 
 
@@ -753,7 +815,7 @@ def cmd_compare(args: argparse.Namespace) -> None:
 
     Shows per-metric pass rate changes and overall delta.
     """
-    from ...analysis.core import find_eval_runs
+    from ...analysis.core import analyze_run, find_eval_runs
     from ...decorators import get_default_tracer
     from ...models import EvalRun
 
@@ -820,44 +882,34 @@ def cmd_compare(args: argparse.Namespace) -> None:
         if not run2:
             fatal_error(f"Could not load run2: {args.run2}")
 
-    print(f"\n{'=' * 70}")
-    print("  EVALUATION COMPARISON")
-    print(f"{'=' * 70}")
+    from ..utils.rich import banner, section, kv, icon, status_icon, progress_bar
+    from ..utils.colors import delta_color
 
-    print(f"\n  Run 1: {run1.id[:12]}... ({run1.dataset_name})")
-    print(f"  Run 2: {run2.id[:12]}... ({run2.dataset_name})")
+    print(banner("RUN COMPARISON"))
+    print(kv([
+        ("Baseline", f"{run1.id[:12]}  ({run1.dataset_name})"),
+        ("Current", f"{run2.id[:12]}  ({run2.dataset_name})"),
+    ]))
 
-    # Build metric stats for each run
-    def get_metric_stats(run):
-        stats = {}
-        for mr in run.metric_results:
-            metric_id = (
-                mr.metric_id
-                if hasattr(mr, "metric_id")
-                else mr.get("metric_id", "unknown")
-            )
-            if metric_id not in stats:
-                stats[metric_id] = {"total": 0, "passed": 0, "scores": []}
-            stats[metric_id]["total"] += 1
-            passed = mr.passed if hasattr(mr, "passed") else mr.get("passed", True)
-            if passed:
-                stats[metric_id]["passed"] += 1
-            score = mr.score if hasattr(mr, "score") else mr.get("score")
-            if score is not None:
-                stats[metric_id]["scores"].append(score)
-        return stats
+    # Build metric stats for each run using the canonical analysis engine
+    analysis1 = analyze_run(run1.as_dict())
+    analysis2 = analyze_run(run2.as_dict())
 
-    stats1 = get_metric_stats(run1)
-    stats2 = get_metric_stats(run2)
+    stats1 = {
+        mid: {"total": ms.count, "passed": ms.passed, "scores": list(ms.scores)}
+        for mid, ms in analysis1.metric_stats.items()
+    }
+    stats2 = {
+        mid: {"total": ms.count, "passed": ms.passed, "scores": list(ms.scores)}
+        for mid, ms in analysis2.metric_stats.items()
+    }
 
     # Get all metric IDs
     all_metrics = set(stats1.keys()) | set(stats2.keys())
 
-    print(f"\n{'=' * 70}")
-    print("  METRIC COMPARISON")
-    print(f"{'=' * 70}\n")
+    print(f"\n{section('METRIC CHANGES')}\n")
 
-    print(f"  {'Metric':<25} {'Run 1':>12} {'Run 2':>12} {'Delta':>12}")
+    print(f"  {'Metric':<25} {'Baseline':>12} {'Current':>12} {'Delta':>12}")
     print(f"  {'-' * 25} {'-' * 12} {'-' * 12} {'-' * 12}")
 
     improvements = 0
@@ -873,24 +925,22 @@ def cmd_compare(args: argparse.Namespace) -> None:
         r1_str = f"{rate1:.0f}%" if rate1 is not None else "N/A"
         r2_str = f"{rate2:.0f}%" if rate2 is not None else "N/A"
 
-        delta = ""
+        delta_str = ""
         if rate1 is not None and rate2 is not None:
             diff = rate2 - rate1
             if diff > 0:
-                delta = f"+{diff:.0f}%"
                 improvements += 1
             elif diff < 0:
-                delta = f"{diff:.0f}%"
                 regressions += 1
-            else:
-                delta = "="
+            # Use delta_color for the formatted delta value
+            delta_str = delta_color(diff / 100)
+        else:
+            delta_str = "="
 
-        print(f"  {metric_id:<25} {r1_str:>12} {r2_str:>12} {delta:>12}")
+        print(f"  {metric_id:<25} {r1_str:>12} {r2_str:>12} {delta_str:>12}")
 
     # Summary
-    print(f"\n{'=' * 70}")
-    print("  SUMMARY")
-    print(f"{'=' * 70}\n")
+    print(f"\n{section('SUMMARY')}\n")
 
     total1 = sum(s["passed"] for s in stats1.values())
     total2 = sum(s["passed"] for s in stats2.values())
@@ -901,41 +951,29 @@ def cmd_compare(args: argparse.Namespace) -> None:
     overall2 = 100 * total2 / max(1, all2)
     overall_delta = overall2 - overall1
 
-    print("  Overall pass rate:")
-    print(f"    Run 1: {overall1:.1f}% ({total1}/{all1})")
-    print(f"    Run 2: {overall2:.1f}% ({total2}/{all2})")
+    print(kv([
+        ("Baseline pass rate", f"{overall1:.1f}% ({total1}/{all1})"),
+        ("Current pass rate", f"{overall2:.1f}% ({total2}/{all2})"),
+        ("Change", delta_color(overall_delta / 100)),
+    ]))
 
-    if overall_delta > 0:
-        print(f"    Change: +{overall_delta:.1f}% IMPROVED")
-    elif overall_delta < 0:
-        print(f"    Change: {overall_delta:.1f}% REGRESSED")
-    else:
-        print("    Change: No change")
+    print(f"\n  {status_icon(improvements > 0)} Metrics improved:  {improvements}")
+    print(f"  {status_icon(regressions == 0)} Metrics regressed: {regressions}")
+    print(f"  {icon('info')} Metrics unchanged: {len(all_metrics) - improvements - regressions}")
 
-    print(f"\n  Metrics improved:  {improvements}")
-    print(f"  Metrics regressed: {regressions}")
-    print(f"  Metrics unchanged: {len(all_metrics) - improvements - regressions}")
-
-    # Regression severity alerts from insights engine
+    # Regression severity alerts from insights engine (reuse already-computed analyses)
     if regressions > 0:
         try:
-            from ...analysis.core import analyze_run as _analyze_run
             from ...analysis.insights import detect_regressions as _detect_regressions
-        except ImportError:
-            _analyze_run = None
 
-        if _analyze_run is not None:
-            try:
-                a1 = _analyze_run(run1.as_dict())
-                a2 = _analyze_run(run2.as_dict())
-                alerts = _detect_regressions(a2, a1)
-                critical = [a for a in alerts if a.severity == "critical"]
-                if critical:
-                    print(f"\n  REGRESSION ALERTS:")
-                    for alert in critical:
-                        print(f"    [CRITICAL] {alert.metric_id}: {abs(alert.delta) * 100:.0f}% drop")
-            except (KeyError, ValueError, TypeError):
-                pass
+            alerts = _detect_regressions(analysis2, analysis1)
+            critical = [a for a in alerts if a.severity == "critical"]
+            if critical:
+                print(f"\n{section('REGRESSION ALERTS')}\n")
+                for alert in critical:
+                    print(f"  {icon('fail')} [CRITICAL] {alert.metric_id}: {abs(alert.delta) * 100:.0f}% drop")
+        except (ImportError, KeyError, ValueError, TypeError):
+            pass
 
     print()
 
@@ -943,9 +981,23 @@ def cmd_compare(args: argparse.Namespace) -> None:
     output_format = getattr(args, "format", "table")
     hints = HintCollector(quiet=getattr(args, "quiet", False), format=output_format)
     if regressions > improvements:
-        hints.add(f"evalyn analyze --run {run2.id}", "Investigate regression in detail")
+        hints.add(
+            f"evalyn analyze --run {run2.id}",
+            "Investigate regression in detail",
+            options=[("--format json", "Machine-readable output")],
+        )
     if improvements > 0:
-        hints.add(f"evalyn trend --project {run2.dataset_name}", "See trends over time")
+        hints.add(
+            f"evalyn trend --project {run2.dataset_name}",
+            "See trends over time",
+            options=[("--limit <N>", "Max runs to analyze (default: 20)")],
+        )
+    if not hints.has_hints:
+        hints.add(
+            f"evalyn analyze --run {run2.id}",
+            "Analyze run in detail",
+            options=[("--format json", "Machine-readable output")],
+        )
     hints.render()
 
 
@@ -1027,9 +1079,22 @@ def cmd_trend(args: argparse.Namespace) -> None:
         hints = HintCollector(quiet=getattr(args, "quiet", False), format=output_format)
         if trend.regressing_metrics:
             metrics_str = ", ".join(trend.regressing_metrics[:3])
-            hints.add(f"evalyn calibrate --metric-id <metric>", f"Calibrate regressing metrics: {metrics_str}")
-        project_name = getattr(args, "project", None) or ""
-        hints.add(f"evalyn insights --project {project_name}", "Deep-dive into results")
+            hints.add(
+                f"evalyn calibrate --metric-id <metric> --annotations <path>",
+                f"Calibrate regressing metrics: {metrics_str}",
+                options=[
+                    ("--optimizer basic|gepa|opro|ape", "Optimization method"),
+                    ("--dataset <path>", "Provide input/output context"),
+                    ("--show-examples", "Show disagreement cases"),
+                ],
+            )
+        hints.add(
+            f"evalyn insights --project {project_name}",
+            "Deep-dive into results",
+            options=[
+                ("--deep", "Run LLM expert panel analysis"),
+            ],
+        )
         hints.render()
 
 

@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from .pipeline import PipelineStep, StepResult
 from .config import get_config_default
 from .loaders import _load_callable
+from ...defaults import DEFAULT_EVAL_MODEL
 
 
 def _build_metrics_from_specs(
@@ -165,7 +166,7 @@ class SuggestMetricsStep(PipelineStep):
 
         # Suggest metrics based on mode
         mode = getattr(self.args, "metric_mode", "basic")
-        model = getattr(self.args, "model", "gemini-2.5-flash-lite")
+        model = getattr(self.args, "model", DEFAULT_EVAL_MODEL)
         llm_mode = getattr(self.args, "llm_mode", "api")
         bundle = getattr(self.args, "bundle", None)
 
@@ -512,7 +513,7 @@ class CalibrationStep(PipelineStep):
         print(f"  -> Calibrating {len(subj_metrics)} subjective metrics...\n")
 
         optimizer = getattr(self.args, "optimizer", "basic")
-        model = getattr(self.args, "model", "gemini-2.5-flash-lite")
+        model = getattr(self.args, "model", DEFAULT_EVAL_MODEL)
 
         calibrated_metrics = []
         failed_metrics = []
@@ -701,7 +702,7 @@ class SimulationStep(PipelineStep):
                 num_similar=getattr(self.args, "num_similar", 3),
                 num_outlier=getattr(self.args, "num_outlier", 2),
                 max_seeds=getattr(self.args, "max_sim_seeds", 10),
-                model=getattr(self.args, "model", "gemini-2.5-flash-lite"),
+                model=getattr(self.args, "model", DEFAULT_EVAL_MODEL),
             )
             print("  Simulations generated")
             print(f"  Saved to: {sim_dir}/\n")

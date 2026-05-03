@@ -80,3 +80,7 @@ docs/dev/
 .mcp.json
 
 user_behavior_data/
+
+# Local plans (not committed)
+docs/superpowers/plans/
+.gstack/

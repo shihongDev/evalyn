@@ -53,6 +53,7 @@ from ..utils.errors import fatal_error
 from ..utils.formatters import print_token_usage_summary
 from ..utils.hints import HintCollector
 from ..utils.loaders import _load_callable
+from ..utils.rich import banner, icon, kv, section, table as rich_table
 from ..utils.validation import check_llm_api_keys
 from ..utils.dataset_utils import (
     ProgressBar,
@@ -189,9 +190,19 @@ def _save_suggested_metrics(
     )
 
     if output_format != "json":
-        print(f"Saved metrics to {metrics_file}")
+        print(f"{icon('pass')} Saved metrics to {metrics_file}")
         hints = HintCollector(quiet=quiet, format=output_format)
-        hints.add(f"evalyn run-eval --dataset {dataset_dir}", "Run evaluation with these metrics")
+        hints.add(
+            f"evalyn run-eval --dataset {dataset_dir}",
+            "Run evaluation with these metrics",
+            options=[
+                ("--provider gemini|openai|ollama", "LLM provider for judges (default: gemini)"),
+                ("--workers <N>", "Parallel workers (default: 4)"),
+                ("--use-calibrated", "Use calibrated prompts if available"),
+                ("--confidence consistency", "Enable confidence scoring"),
+                ("--verbose", "Show detailed cost breakdown by metric"),
+            ],
+        )
         hints.render()
     return metrics_file
 
@@ -677,9 +688,11 @@ def _render_run_eval_output(
         print(json.dumps(result, indent=2))
         return
 
-    print(f"\nEval run {run.id}")
-    print(f"Dataset: {run.dataset_name}")
-    print(f"Run folder: {run_folder}")
+    print(f"\n{icon('pass')} Eval run {run.id}")
+    print(kv([
+        ("Dataset", run.dataset_name),
+        ("Run folder", str(run_folder)),
+    ]))
     print("  results.json - evaluation data")
     if report_path:
         print("  report.html  - analysis report")
@@ -748,8 +761,17 @@ def _render_run_eval_output(
             hints.add(
                 f"evalyn cluster-failures --metric-id {failed_metric}",
                 "Cluster failures by pattern",
+                options=[
+                    ("--top <N>", "Number of clusters to show (default: 5)"),
+                ],
             )
-    hints.add(f"evalyn analyze --run {run.id}", "Analyze results in detail")
+    hints.add(
+        f"evalyn analyze --run {run.id}",
+        "Analyze results in detail",
+        options=[
+            ("--format json", "Machine-readable output"),
+        ],
+    )
     hints.render()
 
 
@@ -1256,7 +1278,7 @@ def _print_suggested_metric_spec(spec: MetricSpec, output_format: str) -> None:
         return
     why = getattr(spec, "why", "") or ""
     suffix = f" | why: {why}" if why else ""
-    print(f"- {spec.id} [{spec.type}] :: {spec.description}{suffix}")
+    print(f"  {icon('info')} {spec.id} [{spec.type}] :: {spec.description}{suffix}")
 
 
 def _print_suggest_metrics_json(
@@ -1292,6 +1314,8 @@ def _finalize_suggest_metrics_output(
 ) -> None:
     """Apply limits, print specs, save, and emit JSON output when requested."""
     final_specs = specs[:max_metrics] if max_metrics else specs
+    if output_format != "json":
+        print(banner("SUGGESTED METRICS"))
     for spec in final_specs:
         _print_suggested_metric_spec(spec, output_format)
     saved_path = _save_suggested_metrics(
@@ -1452,45 +1476,12 @@ def cmd_list_metrics(args: argparse.Namespace) -> None:
         print(json.dumps(result, indent=2))
         return
 
-    def _compact(value, max_len: int = 60) -> str:
-        try:
-            text = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
-        except Exception:
-            text = str(value)
-        return text if len(text) <= max_len else text[: max_len - 3] + "..."
-
     def _compact_text(value: Any, max_len: int = 55) -> str:
         text = str(value or "")
         text = re.sub(r"\s+", " ", text).strip()
         return text if len(text) <= max_len else text[: max_len - 3] + "..."
 
-    def _config_summary(cfg: Any) -> str:
-        if not cfg:
-            return "{}"
-        if not isinstance(cfg, dict):
-            return _compact(cfg, 55)
-        parts: list[str] = []
-        for key in sorted(cfg.keys()):
-            val = cfg.get(key)
-            if key == "rubric" and isinstance(val, list):
-                parts.append(f"rubric[{len(val)}]")
-                continue
-            if key == "policy" and isinstance(val, str):
-                parts.append(f"policy[{len(val)}]")
-                continue
-            if key == "schema" and isinstance(val, dict):
-                parts.append(f"schema[{len(val)}]")
-                continue
-            if isinstance(val, (str, int, float, bool)) or val is None:
-                parts.append(f"{key}={_compact_text(val, 18)}")
-            else:
-                parts.append(f"{key}=...")
-        text = ", ".join(parts)
-        return text if text else "{}"
-
-    def _print_table(title: str, templates: list[dict]) -> None:
-        print(title)
-        headers = ["id", "scope", "category", "config", "desc"]
+    def _build_rows(templates: list[dict]) -> list[list[str]]:
         rows = []
         for tpl in templates:
             rows.append(
@@ -1498,24 +1489,19 @@ def cmd_list_metrics(args: argparse.Namespace) -> None:
                     tpl.get("id", ""),
                     tpl.get("scope", "overall"),
                     tpl.get("category", ""),
-                    _config_summary(tpl.get("config", {})),
                     _compact_text(tpl.get("description", ""), 50),
                 ]
             )
+        return rows
 
-        widths = [len(h) for h in headers]
-        for row in rows:
-            for i, cell in enumerate(row):
-                widths[i] = max(widths[i], len(str(cell)))
+    headers = ["ID", "Scope", "Category", "Description"]
+    align = ["left", "left", "left", "left"]
 
-        header_line = " | ".join(h.ljust(widths[i]) for i, h in enumerate(headers))
-        print(header_line)
-        print("-" * len(header_line))
-        for row in rows:
-            print(" | ".join(str(cell).ljust(widths[i]) for i, cell in enumerate(row)))
+    print(banner(f"OBJECTIVE METRICS ({len(OBJECTIVE_REGISTRY)})"))
+    print(rich_table(headers, _build_rows(OBJECTIVE_REGISTRY), align))
 
-    _print_table("\nObjective metrics:", OBJECTIVE_REGISTRY)
-    _print_table("\nSubjective metrics:", SUBJECTIVE_REGISTRY)
+    print(section(f"SUBJECTIVE METRICS ({len(SUBJECTIVE_REGISTRY)})"))
+    print(rich_table(headers, _build_rows(SUBJECTIVE_REGISTRY), align))
 
 
 def register_commands(subparsers) -> None:

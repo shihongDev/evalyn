@@ -47,7 +47,38 @@ from ..utils.config import load_config, resolve_dataset_path, get_config_default
 from ..utils.errors import fatal_error
 from ..utils.formatters import print_token_usage_summary
 from ..utils.hints import HintCollector
+from ..utils.rich import banner, table as rich_table, footer, icon, status_icon
 from ..utils.ui import Spinner
+
+# Real defaults for calibration arguments.
+# Stored as constants so help text stays accurate when argparse defaults are None.
+_DEFAULT_GEPA_TASK_LM = "gemini/gemini-2.5-flash"
+_DEFAULT_GEPA_REFLECTION_LM = "gemini/gemini-2.5-flash"
+_DEFAULT_GEPA_MAX_CALLS = 150
+_DEFAULT_OPRO_OPTIMIZER_MODEL = "gemini-2.5-flash"
+_DEFAULT_OPRO_ITERATIONS = 10
+_DEFAULT_OPRO_CANDIDATES = 4
+_DEFAULT_APE_CANDIDATES = 10
+_DEFAULT_APE_ROUNDS = 5
+_DEFAULT_APE_SAMPLES = 5
+_DEFAULT_GEPA_NATIVE_TASK_MODEL = "gemini-2.5-flash"
+_DEFAULT_GEPA_NATIVE_REFLECTION_MODEL = "gemini-2.5-flash"
+_DEFAULT_GEPA_NATIVE_MAX_CALLS = 150
+_DEFAULT_GEPA_NATIVE_INITIAL_CANDIDATES = 5
+
+# Significance threshold for improvement/degradation in validation delta
+_IMPROVEMENT_SIGNIFICANCE = 0.05
+_DEFAULT_GEPA_NATIVE_BATCH_SIZE = 5
+_DEFAULT_EVO_POPULATION = 8
+_DEFAULT_EVO_GENERATIONS = 5
+_DEFAULT_EVO_MUTATION_RATE = 0.3
+_DEFAULT_TEXTGRAD_ITERATIONS = 8
+_DEFAULT_TEXTGRAD_THRESHOLD = 0.01
+_DEFAULT_MIPRO_INSTRUCTIONS = 6
+_DEFAULT_MIPRO_DEMOS = 3
+_DEFAULT_MIPRO_EVAL_SAMPLES = 10
+_DEFAULT_PB_POPULATION = 6
+_DEFAULT_PB_GENERATIONS = 5
 
 
 def _apply_calibration_config_defaults(args: argparse.Namespace, config: dict) -> None:
@@ -65,29 +96,29 @@ def _apply_calibration_config_defaults(args: argparse.Namespace, config: dict) -
         )
 
     # GEPA settings
-    if args.gepa_task_lm == "gemini/gemini-2.5-flash":
+    if args.gepa_task_lm is None:
         args.gepa_task_lm = get_config_default(
-            config, "calibration", "gepa", "task_lm", default="gemini/gemini-2.5-flash"
+            config, "calibration", "gepa", "task_lm", default=_DEFAULT_GEPA_TASK_LM
         )
-    if args.gepa_reflection_lm == "gemini/gemini-2.5-flash":
+    if args.gepa_reflection_lm is None:
         args.gepa_reflection_lm = get_config_default(
             config,
             "calibration",
             "gepa",
             "reflection_lm",
-            default="gemini/gemini-2.5-flash",
+            default=_DEFAULT_GEPA_REFLECTION_LM,
         )
-    if args.gepa_max_calls == 150:
+    if args.gepa_max_calls is None:
         args.gepa_max_calls = get_config_default(
-            config, "calibration", "gepa", "max_calls", default=150
+            config, "calibration", "gepa", "max_calls", default=_DEFAULT_GEPA_MAX_CALLS
         )
 
     # OPRO settings
-    if args.opro_optimizer_model == "gemini-2.5-flash":
+    if args.opro_optimizer_model is None:
         args.opro_optimizer_model = get_config_default(
-            config, "calibration", "opro", "optimizer_model", default="gemini-2.5-flash"
+            config, "calibration", "opro", "optimizer_model", default=_DEFAULT_OPRO_OPTIMIZER_MODEL
         )
-    if args.opro_scorer_model == DEFAULT_EVAL_MODEL:
+    if args.opro_scorer_model is None:
         args.opro_scorer_model = get_config_default(
             config,
             "calibration",
@@ -95,57 +126,57 @@ def _apply_calibration_config_defaults(args: argparse.Namespace, config: dict) -
             "scorer_model",
             default=DEFAULT_EVAL_MODEL,
         )
-    if args.opro_iterations == 10:
+    if args.opro_iterations is None:
         args.opro_iterations = get_config_default(
-            config, "calibration", "opro", "iterations", default=10
+            config, "calibration", "opro", "iterations", default=_DEFAULT_OPRO_ITERATIONS
         )
-    if args.opro_candidates == 4:
+    if args.opro_candidates is None:
         args.opro_candidates = get_config_default(
-            config, "calibration", "opro", "candidates", default=4
+            config, "calibration", "opro", "candidates", default=_DEFAULT_OPRO_CANDIDATES
         )
 
     # APE settings
-    if args.ape_candidates == 10:
+    if args.ape_candidates is None:
         args.ape_candidates = get_config_default(
-            config, "calibration", "ape", "candidates", default=10
+            config, "calibration", "ape", "candidates", default=_DEFAULT_APE_CANDIDATES
         )
-    if args.ape_rounds == 5:
+    if args.ape_rounds is None:
         args.ape_rounds = get_config_default(
-            config, "calibration", "ape", "rounds", default=5
+            config, "calibration", "ape", "rounds", default=_DEFAULT_APE_ROUNDS
         )
-    if args.ape_samples == 5:
+    if args.ape_samples is None:
         args.ape_samples = get_config_default(
-            config, "calibration", "ape", "samples", default=5
+            config, "calibration", "ape", "samples", default=_DEFAULT_APE_SAMPLES
         )
 
     # GEPA-Native settings
-    if args.gepa_native_task_model == "gemini-2.5-flash":
+    if args.gepa_native_task_model is None:
         args.gepa_native_task_model = get_config_default(
             config,
             "calibration",
             "gepa_native",
             "task_model",
-            default="gemini-2.5-flash",
+            default=_DEFAULT_GEPA_NATIVE_TASK_MODEL,
         )
-    if args.gepa_native_reflection_model == "gemini-2.5-flash":
+    if args.gepa_native_reflection_model is None:
         args.gepa_native_reflection_model = get_config_default(
             config,
             "calibration",
             "gepa_native",
             "reflection_model",
-            default="gemini-2.5-flash",
+            default=_DEFAULT_GEPA_NATIVE_REFLECTION_MODEL,
         )
-    if args.gepa_native_max_calls == 150:
+    if args.gepa_native_max_calls is None:
         args.gepa_native_max_calls = get_config_default(
-            config, "calibration", "gepa_native", "max_calls", default=150
+            config, "calibration", "gepa_native", "max_calls", default=_DEFAULT_GEPA_NATIVE_MAX_CALLS
         )
-    if args.gepa_native_initial_candidates == 5:
+    if args.gepa_native_initial_candidates is None:
         args.gepa_native_initial_candidates = get_config_default(
-            config, "calibration", "gepa_native", "initial_candidates", default=5
+            config, "calibration", "gepa_native", "initial_candidates", default=_DEFAULT_GEPA_NATIVE_INITIAL_CANDIDATES
         )
-    if args.gepa_native_batch_size == 5:
+    if args.gepa_native_batch_size is None:
         args.gepa_native_batch_size = get_config_default(
-            config, "calibration", "gepa_native", "batch_size", default=5
+            config, "calibration", "gepa_native", "batch_size", default=_DEFAULT_GEPA_NATIVE_BATCH_SIZE
         )
 
 
@@ -266,37 +297,43 @@ def _build_calibration_optimizer_configs(args: argparse.Namespace) -> dict:
             mini_batch_size=args.gepa_native_batch_size,
         )
 
+    def _resolve(attr: str, default):
+        # Use `is not None` so explicit user-supplied 0/0.0 isn't treated as
+        # falsy and silently replaced by the default.
+        value = getattr(args, attr, None)
+        return value if value is not None else default
+
     # New optimizers use generic optimizer_config
     optimizer_config = None
     if args.optimizer == "evoprompt":
         from ...calibration.evoprompt import EvoPromptConfig
 
         optimizer_config = EvoPromptConfig(
-            population_size=getattr(args, "evo_population", 8),
-            generations=getattr(args, "evo_generations", 5),
-            mutation_rate=getattr(args, "evo_mutation_rate", 0.3),
+            population_size=_resolve("evo_population", _DEFAULT_EVO_POPULATION),
+            generations=_resolve("evo_generations", _DEFAULT_EVO_GENERATIONS),
+            mutation_rate=_resolve("evo_mutation_rate", _DEFAULT_EVO_MUTATION_RATE),
         )
     elif args.optimizer == "textgrad":
         from ...calibration.textgrad import TextGradConfig
 
         optimizer_config = TextGradConfig(
-            max_iterations=getattr(args, "textgrad_iterations", 8),
-            improvement_threshold=getattr(args, "textgrad_threshold", 0.01),
+            max_iterations=_resolve("textgrad_iterations", _DEFAULT_TEXTGRAD_ITERATIONS),
+            improvement_threshold=_resolve("textgrad_threshold", _DEFAULT_TEXTGRAD_THRESHOLD),
         )
     elif args.optimizer == "miprov2":
         from ...calibration.miprov2 import MIPROv2Config
 
         optimizer_config = MIPROv2Config(
-            num_instructions=getattr(args, "mipro_instructions", 6),
-            num_demos=getattr(args, "mipro_demos", 3),
-            eval_samples=getattr(args, "mipro_eval_samples", 10),
+            num_instructions=_resolve("mipro_instructions", _DEFAULT_MIPRO_INSTRUCTIONS),
+            num_demos=_resolve("mipro_demos", _DEFAULT_MIPRO_DEMOS),
+            eval_samples=_resolve("mipro_eval_samples", _DEFAULT_MIPRO_EVAL_SAMPLES),
         )
     elif args.optimizer == "promptbreeder":
         from ...calibration.promptbreeder import PromptBreederConfig
 
         optimizer_config = PromptBreederConfig(
-            population_size=getattr(args, "pb_population", 6),
-            generations=getattr(args, "pb_generations", 5),
+            population_size=_resolve("pb_population", _DEFAULT_PB_POPULATION),
+            generations=_resolve("pb_generations", _DEFAULT_PB_GENERATIONS),
         )
 
     return {
@@ -502,13 +539,13 @@ def _print_calibration_validation_section(record) -> None:
     recommendation = validation.get("recommendation", "uncertain")
     val_samples = validation.get("validation_samples", 0)
 
-    if is_better and improvement_delta > 0.05:
+    if is_better and improvement_delta > _IMPROVEMENT_SIGNIFICANCE:
         status_icon = "SUCCESS"
         status_msg = "Optimized prompt is SIGNIFICANTLY BETTER"
     elif is_better:
         status_icon = "SUCCESS"
         status_msg = "Optimized prompt is BETTER"
-    elif improvement_delta < -0.05:
+    elif improvement_delta < -_IMPROVEMENT_SIGNIFICANCE:
         status_icon = "DEGRADED"
         status_msg = "Optimized prompt is SIGNIFICANTLY WORSE"
     elif improvement_delta < 0:
@@ -605,7 +642,15 @@ def _print_calibration_postamble(
 
     if dataset_dir:
         hints = HintCollector(quiet=getattr(args, "quiet", False))
-        hints.add(f"evalyn run-eval --dataset {dataset_dir} --use-calibrated", "Re-run with calibrated prompts")
+        hints.add(
+            f"evalyn run-eval --dataset {dataset_dir} --use-calibrated",
+            "Re-run with calibrated prompts",
+            options=[
+                ("--provider gemini|openai|ollama", "LLM provider for judges (default: gemini)"),
+                ("--workers <N>", "Parallel workers (default: 4)"),
+                ("--verbose", "Show detailed cost breakdown by metric"),
+            ],
+        )
         hints.render()
 
 
@@ -649,38 +694,38 @@ def calibrate_metric(
         verbose=verbose,
         quiet=False,
         # GEPA defaults
-        gepa_task_lm="gemini/gemini-2.5-flash",
-        gepa_reflection_lm="gemini/gemini-2.5-flash",
-        gepa_max_calls=150,
+        gepa_task_lm=_DEFAULT_GEPA_TASK_LM,
+        gepa_reflection_lm=_DEFAULT_GEPA_REFLECTION_LM,
+        gepa_max_calls=_DEFAULT_GEPA_MAX_CALLS,
         # OPRO defaults
-        opro_iterations=10,
-        opro_candidates=4,
-        opro_optimizer_model="gemini-2.5-flash",
+        opro_iterations=_DEFAULT_OPRO_ITERATIONS,
+        opro_candidates=_DEFAULT_OPRO_CANDIDATES,
+        opro_optimizer_model=_DEFAULT_OPRO_OPTIMIZER_MODEL,
         opro_scorer_model=DEFAULT_EVAL_MODEL,
         # APE defaults
-        ape_candidates=10,
-        ape_rounds=5,
-        ape_samples=5,
+        ape_candidates=_DEFAULT_APE_CANDIDATES,
+        ape_rounds=_DEFAULT_APE_ROUNDS,
+        ape_samples=_DEFAULT_APE_SAMPLES,
         # GEPA-Native defaults
-        gepa_native_task_model="gemini-2.5-flash",
-        gepa_native_reflection_model="gemini-2.5-flash",
-        gepa_native_max_calls=150,
-        gepa_native_initial_candidates=5,
-        gepa_native_batch_size=5,
+        gepa_native_task_model=_DEFAULT_GEPA_NATIVE_TASK_MODEL,
+        gepa_native_reflection_model=_DEFAULT_GEPA_NATIVE_REFLECTION_MODEL,
+        gepa_native_max_calls=_DEFAULT_GEPA_NATIVE_MAX_CALLS,
+        gepa_native_initial_candidates=_DEFAULT_GEPA_NATIVE_INITIAL_CANDIDATES,
+        gepa_native_batch_size=_DEFAULT_GEPA_NATIVE_BATCH_SIZE,
         # EvoPrompt defaults
-        evo_population=8,
-        evo_generations=5,
-        evo_mutation_rate=0.3,
+        evo_population=_DEFAULT_EVO_POPULATION,
+        evo_generations=_DEFAULT_EVO_GENERATIONS,
+        evo_mutation_rate=_DEFAULT_EVO_MUTATION_RATE,
         # TextGrad defaults
-        textgrad_iterations=8,
-        textgrad_threshold=0.01,
+        textgrad_iterations=_DEFAULT_TEXTGRAD_ITERATIONS,
+        textgrad_threshold=_DEFAULT_TEXTGRAD_THRESHOLD,
         # MIPROv2 defaults
-        mipro_instructions=6,
-        mipro_demos=3,
-        mipro_eval_samples=10,
+        mipro_instructions=_DEFAULT_MIPRO_INSTRUCTIONS,
+        mipro_demos=_DEFAULT_MIPRO_DEMOS,
+        mipro_eval_samples=_DEFAULT_MIPRO_EVAL_SAMPLES,
         # PromptBreeder defaults
-        pb_population=6,
-        pb_generations=5,
+        pb_population=_DEFAULT_PB_POPULATION,
+        pb_generations=_DEFAULT_PB_GENERATIONS,
     )
 
     _, run = _load_calibration_run(args)
@@ -795,21 +840,25 @@ def cmd_list_calibrations(args: argparse.Namespace) -> None:
         return
 
     # Table format
-    print(f"\nCalibrations in {dataset_path.name}:")
-    print(f"{'=' * 80}")
-    print(
-        f"{'Metric':<25} {'Timestamp':<17} {'Optimizer':<8} {'Acc':<7} {'F1':<7} {'Kappa':<7} {'N':<5}"
-    )
-    print(f"{'-' * 80}")
+    headers = ["Metric", "Timestamp", "Optimizer", "Acc", "F1", "Kappa", "N"]
+    align = ["left", "left", "left", "right", "right", "right", "right"]
+    rows = []
     for cal in calibrations:
-        print(
-            f"{cal['metric_id']:<25} {cal['timestamp']:<17} {cal['optimizer']:<8} "
-            f"{cal['accuracy']:.1%}   {cal['f1']:.1%}   {cal['kappa']:.3f}  {cal['samples']:<5}"
-        )
+        rows.append([
+            cal["metric_id"],
+            cal["timestamp"],
+            cal["optimizer"],
+            f"{cal['accuracy']:.1%}",
+            f"{cal['f1']:.1%}",
+            f"{cal['kappa']:.3f}",
+            str(cal["samples"]),
+        ])
+
+    print(banner("CALIBRATIONS"))
+    print(rich_table(headers, rows, align=align))
 
     # Show prompt files if any
-    print(f"\n{'=' * 80}")
-    print("Optimized prompts:")
+    has_prompts = False
     for metric_dir in calibrations_dir.iterdir():
         if not metric_dir.is_dir():
             continue
@@ -817,14 +866,18 @@ def cmd_list_calibrations(args: argparse.Namespace) -> None:
         if prompts_dir.exists():
             full_prompts = list(prompts_dir.glob("*_full.txt"))
             if full_prompts:
+                if not has_prompts:
+                    print("\nOptimized prompts:")
+                    has_prompts = True
                 latest = sorted(full_prompts, reverse=True)[0]
                 print(f"  {metric_dir.name}: {latest}")
 
     # Show hints
     if calibrations:
-        hints = HintCollector(quiet=getattr(args, "quiet", False))
-        hints.add(f"evalyn run-eval --dataset {dataset_path} --use-calibrated", "Re-run with calibrated prompts")
-        hints.render()
+        hint_items = [(f"evalyn run-eval --dataset {dataset_path} --use-calibrated", "Re-run with calibrated prompts")]
+        hint_text = footer(hint_items, quiet=getattr(args, "quiet", False))
+        if hint_text:
+            print(hint_text)
 
 
 def register_commands(subparsers) -> None:
@@ -874,134 +927,134 @@ def register_commands(subparsers) -> None:
     )
     calibrate_parser.add_argument(
         "--gepa-task-lm",
-        default="gemini/gemini-2.5-flash",
-        help="Task model for GEPA (model being optimized)",
+        default=None,
+        help=f"Task model for GEPA (model being optimized) (default: {_DEFAULT_GEPA_TASK_LM})",
     )
     calibrate_parser.add_argument(
         "--gepa-reflection-lm",
-        default="gemini/gemini-2.5-flash",
-        help="Reflection model for GEPA (strong model for reflection)",
+        default=None,
+        help=f"Reflection model for GEPA (strong model for reflection) (default: {_DEFAULT_GEPA_REFLECTION_LM})",
     )
     calibrate_parser.add_argument(
         "--gepa-max-calls",
         type=int,
-        default=150,
-        help="Max metric calls budget for GEPA optimization",
+        default=None,
+        help=f"Max metric calls budget for GEPA optimization (default: {_DEFAULT_GEPA_MAX_CALLS})",
     )
     # OPRO-specific arguments
     calibrate_parser.add_argument(
         "--opro-iterations",
         type=int,
-        default=10,
-        help="Max iterations for OPRO optimization",
+        default=None,
+        help=f"Max iterations for OPRO optimization (default: {_DEFAULT_OPRO_ITERATIONS})",
     )
     calibrate_parser.add_argument(
         "--opro-candidates",
         type=int,
-        default=4,
-        help="Number of candidate prompts per OPRO iteration",
+        default=None,
+        help=f"Number of candidate prompts per OPRO iteration (default: {_DEFAULT_OPRO_CANDIDATES})",
     )
     calibrate_parser.add_argument(
         "--opro-optimizer-model",
-        default="gemini-2.5-flash",
-        help="Model for generating OPRO candidates",
+        default=None,
+        help=f"Model for generating OPRO candidates (default: {_DEFAULT_OPRO_OPTIMIZER_MODEL})",
     )
     calibrate_parser.add_argument(
         "--opro-scorer-model",
-        default=DEFAULT_EVAL_MODEL,
+        default=None,
         help=f"Model for scoring OPRO candidates (default: {DEFAULT_EVAL_MODEL})",
     )
     # APE-specific arguments
     calibrate_parser.add_argument(
         "--ape-candidates",
         type=int,
-        default=10,
-        help="Number of candidate prompts for APE (default: 10)",
+        default=None,
+        help=f"Number of candidate prompts for APE (default: {_DEFAULT_APE_CANDIDATES})",
     )
     calibrate_parser.add_argument(
         "--ape-rounds",
         type=int,
-        default=5,
-        help="UCB evaluation rounds for APE (default: 5)",
+        default=None,
+        help=f"UCB evaluation rounds for APE (default: {_DEFAULT_APE_ROUNDS})",
     )
     calibrate_parser.add_argument(
         "--ape-samples",
         type=int,
-        default=5,
-        help="Samples per candidate per UCB round (default: 5)",
+        default=None,
+        help=f"Samples per candidate per UCB round (default: {_DEFAULT_APE_SAMPLES})",
     )
     # GEPA-Native specific arguments
     calibrate_parser.add_argument(
         "--gepa-native-task-model",
-        default="gemini-2.5-flash",
-        help="Task model for GEPA-Native evaluation (default: gemini-2.5-flash)",
+        default=None,
+        help=f"Task model for GEPA-Native evaluation (default: {_DEFAULT_GEPA_NATIVE_TASK_MODEL})",
     )
     calibrate_parser.add_argument(
         "--gepa-native-reflection-model",
-        default="gemini-2.5-flash",
-        help="Reflection model for GEPA-Native mutations (default: gemini-2.5-flash)",
+        default=None,
+        help=f"Reflection model for GEPA-Native mutations (default: {_DEFAULT_GEPA_NATIVE_REFLECTION_MODEL})",
     )
     calibrate_parser.add_argument(
         "--gepa-native-max-calls",
         type=int,
-        default=150,
-        help="Max metric calls budget for GEPA-Native (default: 150)",
+        default=None,
+        help=f"Max metric calls budget for GEPA-Native (default: {_DEFAULT_GEPA_NATIVE_MAX_CALLS})",
     )
     calibrate_parser.add_argument(
         "--gepa-native-initial-candidates",
         type=int,
-        default=5,
-        help="Number of initial candidates for GEPA-Native (default: 5)",
+        default=None,
+        help=f"Number of initial candidates for GEPA-Native (default: {_DEFAULT_GEPA_NATIVE_INITIAL_CANDIDATES})",
     )
     calibrate_parser.add_argument(
         "--gepa-native-batch-size",
         type=int,
-        default=5,
-        help="Mini-batch size for GEPA-Native feedback (default: 5)",
+        default=None,
+        help=f"Mini-batch size for GEPA-Native feedback (default: {_DEFAULT_GEPA_NATIVE_BATCH_SIZE})",
     )
     # EvoPrompt-specific arguments
     calibrate_parser.add_argument(
-        "--evo-population", type=int, default=8,
-        help="Population size for EvoPrompt (default: 8)",
+        "--evo-population", type=int, default=None,
+        help=f"Population size for EvoPrompt (default: {_DEFAULT_EVO_POPULATION})",
     )
     calibrate_parser.add_argument(
-        "--evo-generations", type=int, default=5,
-        help="Number of generations for EvoPrompt (default: 5)",
+        "--evo-generations", type=int, default=None,
+        help=f"Number of generations for EvoPrompt (default: {_DEFAULT_EVO_GENERATIONS})",
     )
     calibrate_parser.add_argument(
-        "--evo-mutation-rate", type=float, default=0.3,
-        help="Mutation rate for EvoPrompt (default: 0.3)",
+        "--evo-mutation-rate", type=float, default=None,
+        help=f"Mutation rate for EvoPrompt (default: {_DEFAULT_EVO_MUTATION_RATE})",
     )
     # TextGrad-specific arguments
     calibrate_parser.add_argument(
-        "--textgrad-iterations", type=int, default=8,
-        help="Max iterations for TextGrad (default: 8)",
+        "--textgrad-iterations", type=int, default=None,
+        help=f"Max iterations for TextGrad (default: {_DEFAULT_TEXTGRAD_ITERATIONS})",
     )
     calibrate_parser.add_argument(
-        "--textgrad-threshold", type=float, default=0.01,
-        help="Min F1 improvement threshold for TextGrad (default: 0.01)",
+        "--textgrad-threshold", type=float, default=None,
+        help=f"Min F1 improvement threshold for TextGrad (default: {_DEFAULT_TEXTGRAD_THRESHOLD})",
     )
     # MIPROv2-specific arguments
     calibrate_parser.add_argument(
-        "--mipro-instructions", type=int, default=6,
-        help="Number of instruction candidates for MIPROv2 (default: 6)",
+        "--mipro-instructions", type=int, default=None,
+        help=f"Number of instruction candidates for MIPROv2 (default: {_DEFAULT_MIPRO_INSTRUCTIONS})",
     )
     calibrate_parser.add_argument(
-        "--mipro-demos", type=int, default=3,
-        help="Number of few-shot demos for MIPROv2 (default: 3)",
+        "--mipro-demos", type=int, default=None,
+        help=f"Number of few-shot demos for MIPROv2 (default: {_DEFAULT_MIPRO_DEMOS})",
     )
     calibrate_parser.add_argument(
-        "--mipro-eval-samples", type=int, default=10,
-        help="Evaluation samples per candidate for MIPROv2 (default: 10)",
+        "--mipro-eval-samples", type=int, default=None,
+        help=f"Evaluation samples per candidate for MIPROv2 (default: {_DEFAULT_MIPRO_EVAL_SAMPLES})",
     )
     # PromptBreeder-specific arguments
     calibrate_parser.add_argument(
-        "--pb-population", type=int, default=6,
-        help="Population size for PromptBreeder (default: 6)",
+        "--pb-population", type=int, default=None,
+        help=f"Population size for PromptBreeder (default: {_DEFAULT_PB_POPULATION})",
     )
     calibrate_parser.add_argument(
-        "--pb-generations", type=int, default=5,
-        help="Number of generations for PromptBreeder (default: 5)",
+        "--pb-generations", type=int, default=None,
+        help=f"Number of generations for PromptBreeder (default: {_DEFAULT_PB_GENERATIONS})",
     )
     calibrate_parser.add_argument(
         "--show-examples", action="store_true", help="Show example disagreement cases"

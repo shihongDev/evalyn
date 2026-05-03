@@ -688,7 +688,7 @@ class TestGenerateTrendTextReport:
         run = _make_eval_run(run_id="solo", items=4)
         trend = analyze_trends([run])
         report = generate_trend_text_report(trend)
-        assert "EVALUATION TRENDS" in report
+        assert "EVALUATION TREND" in report
         assert "RUN OVERVIEW" in report
         assert "METRIC TRENDS" in report
         assert "SUMMARY" in report
@@ -705,7 +705,7 @@ class TestGenerateTrendTextReport:
         ]
         trend = analyze_trends(runs)
         report = generate_trend_text_report(trend)
-        assert "EVALUATION TRENDS" in report
+        assert "EVALUATION TREND" in report
         assert "RUN OVERVIEW" in report
         assert "METRIC TRENDS" in report
         assert "SUMMARY" in report

@@ -295,7 +295,7 @@ _gemini_client_cache: dict[tuple[str, float], GeminiClient] = {}
 
 def call_gemini_api(
     prompt: str,
-    model: str = "gemini-2.5-flash-lite",
+    model: str = DEFAULT_EVAL_MODEL,
     api_key: Optional[str] = None,
     temperature: float = 0.0,
 ) -> str:
@@ -306,7 +306,7 @@ def call_gemini_api(
 
     Args:
         prompt: The prompt to send to the model
-        model: Gemini model name (default: gemini-2.5-flash-lite)
+        model: Gemini model name (default: DEFAULT_EVAL_MODEL)
         api_key: Optional API key (default: from GEMINI_API_KEY env var)
         temperature: Generation temperature (default: 0.0)
 

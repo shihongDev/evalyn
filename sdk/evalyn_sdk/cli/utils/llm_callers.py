@@ -51,8 +51,9 @@ def _openai_caller(
     def _call(prompt: str) -> List[dict]:
         config = load_config()
 
-        # Gemini shortcut using google-genai if model name starts with "gemini"
-        if model.lower().startswith("gemini"):
+        # Gemini shortcut using google-genai if model name starts with a gemini prefix
+        _GEMINI_PREFIXES = ("gemini-", "gemini/", "gemini:")
+        if any(model.lower().startswith(p) for p in _GEMINI_PREFIXES):
             key = (
                 api_key
                 or get_config_default(config, "api_keys", "gemini")

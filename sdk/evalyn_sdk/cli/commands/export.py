@@ -35,6 +35,7 @@ from ..utils.command_common import load_eval_run_for_command
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.errors import fatal_error
 from ..utils.hints import HintCollector
+from ..utils.rich import icon
 
 
 def cmd_export_for_annotation(args: argparse.Namespace) -> None:
@@ -126,10 +127,13 @@ def cmd_export_for_annotation(args: argparse.Namespace) -> None:
                 + "\n"
             )
 
-    print(f"Exported {len(output_items)} items to {output_path}")
+    print(f"{icon('pass')} Exported {len(output_items)} items to {output_path}")
 
     hints = HintCollector(quiet=getattr(args, "quiet", False))
-    hints.add(f"evalyn import-annotations --path {output_path}", "Import annotations after review")
+    hints.add(
+        f"evalyn import-annotations --path {output_path}",
+        "Import annotations after review",
+    )
     hints.render()
 
 
@@ -151,7 +155,7 @@ def _write_or_print_export(content: str, output_path: Path | None, *, message: s
     """Write export content to file or print to stdout."""
     if output_path:
         output_path.write_text(content, encoding="utf-8")
-        print(message.format(path=output_path))
+        print(f"{icon('pass')} {message.format(path=output_path)}")
     else:
         print(content)
 
@@ -186,7 +190,7 @@ def _export_csv(run_data: dict, output_path: Path | None) -> None:
                 writer = csv.DictWriter(f, fieldnames=rows[0].keys())
                 writer.writeheader()
                 writer.writerows(rows)
-        print(f"Exported {len(rows)} rows to: {output_path}")
+        print(f"{icon('pass')} Exported {len(rows)} rows to: {output_path}")
         return
 
     output = io.StringIO()

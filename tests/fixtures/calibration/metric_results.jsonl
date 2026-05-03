@@ -1,0 +1,10 @@
+{"metric_id": "helpfulness", "item_id": "1", "call_id": "call-1", "score": 0.8, "passed": true, "details": {"reason": "Good greeting with capability explanation"}}
+{"metric_id": "helpfulness", "item_id": "2", "call_id": "call-2", "score": 0.9, "passed": true, "details": {"reason": "Comprehensive overview of advances"}}
+{"metric_id": "helpfulness", "item_id": "3", "call_id": "call-3", "score": 0.85, "passed": true, "details": {"reason": "Technical explanation with formula"}}
+{"metric_id": "helpfulness", "item_id": "4", "call_id": "call-4", "score": 0.75, "passed": true, "details": {"reason": "Clear RLHF explanation"}}
+{"metric_id": "helpfulness", "item_id": "5", "call_id": "call-5", "score": 0.45, "passed": false, "details": {"reason": "Too brief on CoT mechanics"}}
+{"metric_id": "helpfulness", "item_id": "6", "call_id": "call-6", "score": 0.3, "passed": false, "details": {"reason": "Response too brief"}}
+{"metric_id": "helpfulness", "item_id": "7", "call_id": "call-7", "score": 0.7, "passed": true, "details": {"reason": "Good RAG overview"}}
+{"metric_id": "helpfulness", "item_id": "8", "call_id": "call-8", "score": 0.4, "passed": false, "details": {"reason": "Comparison lacks depth"}}
+{"metric_id": "helpfulness", "item_id": "9", "call_id": "call-9", "score": 0.35, "passed": false, "details": {"reason": "Just asks for more input"}}
+{"metric_id": "helpfulness", "item_id": "10", "call_id": "call-10", "score": 0.65, "passed": true, "details": {"reason": "Lists embedding models and uses"}}

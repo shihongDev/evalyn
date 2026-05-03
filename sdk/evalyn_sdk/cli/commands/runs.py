@@ -39,8 +39,9 @@ import argparse
 import json
 
 from ..utils.errors import fatal_error
-from ..utils.formatters import print_token_usage_summary
+from ..utils.formatters import print_token_usage_summary, trim_timestamp
 from ..utils.hints import HintCollector
+from ..utils.rich import banner, kv, section, table as rich_table, footer, icon, status_icon
 
 
 def cmd_list_runs(args: argparse.Namespace) -> None:
@@ -88,31 +89,34 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
         print(json.dumps(result, indent=2))
         return
 
-    headers = ["id", "dataset", "created_at", "metrics", "results", "name"]
-    print(" | ".join(headers))
-    print("-" * 120)
+    headers = ["ID", "Dataset", "Metrics", "Results", "Name", "Created"]
+    align = ["left", "left", "right", "right", "left", "left"]
+    rows = []
     first_run_id = None
     for run in runs:
         if first_run_id is None:
-            first_run_id = run.id[:8]  # Use short ID for hint
-        # Use short ID (first 8 chars) for easier copy-paste
+            first_run_id = run.id[:8]
         short_id = run.id[:8]
         pin_marker = "[*] " if run.pinned else ""
         name_display = run.name or ""
-        row = [
+        rows.append([
             pin_marker + short_id,
             run.dataset_name,
-            str(run.created_at),
             str(len(run.metrics)),
             str(_results_count(run)),
             name_display,
-        ]
-        print(" | ".join(row))
+            trim_timestamp(run.created_at),
+        ])
 
-    hints = HintCollector(quiet=getattr(args, "quiet", False))
+    print(banner("EVAL RUNS"))
+    print(rich_table(headers, rows, align=align))
+
+    hint_items = []
     if first_run_id:
-        hints.add(f"evalyn show-run --id {first_run_id}", "See run details")
-    hints.render()
+        hint_items.append((f"evalyn show-run --id {first_run_id}", "See run details"))
+    hint_text = footer(hint_items, quiet=getattr(args, "quiet", False))
+    if hint_text:
+        print(hint_text)
 
 
 def cmd_show_run(args: argparse.Namespace) -> None:
@@ -182,26 +186,36 @@ def cmd_show_run(args: argparse.Namespace) -> None:
         return
 
     # Table output mode
-    print(f"\n=== Eval Run {run.id} ===")
-    print(f"Dataset: {run.dataset_name}")
-    print("Metrics summary:")
+    print()
+    print(banner("EVAL RUN"))
+    print(kv([
+        ("ID", run.id),
+        ("Dataset", run.dataset_name),
+    ]))
+
+    print()
+    print(section("METRICS SUMMARY"))
     for mid, stats in (run.summary or {}).get("metrics", {}).items():
+        pr = stats.get("pass_rate")
+        si = status_icon(pr is not None and pr >= 0.5) if pr is not None else ""
         print(
-            f" - {mid:<18} count={stats['count']:<3} "
-            f"avg_score={stats['avg_score']!s:<10} pass_rate={stats['pass_rate']!s:<10}"
+            f"  {si} {mid:<18} count={stats['count']:<3} "
+            f"avg_score={stats['avg_score']!s:<10} pass_rate={pr!s:<10}"
         )
     if (run.summary or {}).get("failed_items"):
-        print(f"Failed items: {run.summary['failed_items']}")
+        print(f"  Failed items: {run.summary['failed_items']}")
 
     # Show token usage and cost summary if available
     print_token_usage_summary(
         run.usage_summary, verbose=getattr(args, "verbose", False)
     )
 
-    print("\nMetric results:")
+    print()
+    print(section("METRIC RESULTS"))
     for res in run.metric_results:
+        si = status_icon(res.passed) if res.passed is not None else ""
         print(
-            f" [{res.metric_id}] item={res.item_id} call={res.call_id} "
+            f"  {si} [{res.metric_id}] item={res.item_id} call={res.call_id} "
             f"score={res.score} passed={res.passed} details={res.details}"
         )
 

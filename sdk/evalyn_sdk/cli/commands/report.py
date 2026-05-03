@@ -21,29 +21,20 @@ from __future__ import annotations
 GROUP = "Insights"
 
 import argparse
-import platform
-import subprocess
+import webbrowser
 from pathlib import Path
 
 from ..utils.command_common import load_eval_run_for_command
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.hints import HintCollector
+from ..utils.rich import icon
 
 
 def _open_in_browser(file_path: Path) -> bool:
     """Try to open file in the default browser. Returns True on success."""
-    system = platform.system()
     try:
-        if system == "Darwin":
-            subprocess.run(["open", str(file_path)], check=True)
-        elif system == "Linux":
-            subprocess.run(["xdg-open", str(file_path)], check=True)
-        elif system == "Windows":
-            subprocess.run(["start", str(file_path)], check=True, shell=True)
-        else:
-            return False
-        return True
-    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return webbrowser.open(file_path.as_uri())
+    except Exception:
         return False
 
 
@@ -83,17 +74,24 @@ def cmd_report(args: argparse.Namespace) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html_content, encoding="utf-8")
 
-    print(f"Report saved to: {output_path}")
+    print(f"{icon('pass')} Report saved to: {output_path}")
 
     if _open_in_browser(output_path):
-        print("Opened report in default browser.")
+        print(f"{icon('pass')} Opened report in default browser.")
     else:
         file_url = output_path.as_uri()
-        print("Could not open browser automatically.")
+        print(f"{icon('warn')} Could not open browser automatically.")
         print(f"Open this file in your browser: {file_url}")
 
     hints = HintCollector(quiet=getattr(args, "quiet", False))
-    hints.add("evalyn insights --deep", "Run LLM expert panel analysis")
+    hints.add(
+        "evalyn insights --deep",
+        "Run LLM expert panel analysis",
+        options=[
+            ("--project <name>", "Analyze a specific project"),
+            ("--format json", "Machine-readable output"),
+        ],
+    )
     hints.render()
 
 

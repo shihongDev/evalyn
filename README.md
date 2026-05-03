@@ -325,6 +325,14 @@ evalyn run-eval --dataset <dataset-path>/simulations/sim-similar-...
 | `OPENAI_API_KEY` | OpenAI API key for judges when using `--provider openai` |
 | `EVALYN_NO_HINTS` | Set to `1` to suppress hint messages |
 | `EVALYN_AUTO_INSTRUMENT` | Set to `off` to disable auto-patching |
+| `EVALYN_DB` | Custom path for the SQLite trace database |
+| `EVALYN_ENV` | Environment name (`development`, `production`) for conditional tracing |
+| `EVALYN_NO_COLOR` | Disable colored CLI output |
+| `EVALYN_LOG_LEVEL` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+| `EVALYN_LOG_FILE` | Path to write log output to a file |
+| `EVALYN_LOG_FORMAT` | Set to `json` for JSON-formatted logs |
+| `EVALYN_OTEL` | Set to `off` to disable OpenTelemetry tracing (default `on`) |
+| `EVALYN_PROFILE` | Select a config profile (e.g., `ci`, `local`) |
 
 
 ## Documentation
@@ -435,7 +443,7 @@ uv run pytest tests/ --cov=evalyn_sdk --cov-report=term-missing
 uv run pytest tests/test_analysis.py tests/test_models_extended.py tests/test_storage.py tests/test_cli_utils.py tests/test_metrics_extended.py tests/test_cli_export.py tests/test_insights.py
 ```
 
-The test suite has 17,300+ tests across 460 files covering analysis engine, model serialization, storage, CLI commands, export formats, metrics, tracing, instrumentation, calibration, sampling, simulation, integration, and more. See [CONTRIBUTING.md](CONTRIBUTING.md) for details on the test structure and writing tests.
+The test suite has 17,400+ tests across 460+ files covering analysis engine, model serialization, storage, CLI commands, export formats, metrics, tracing, instrumentation, calibration, sampling, simulation, integration, and more. See [CONTRIBUTING.md](CONTRIBUTING.md) for details on the test structure and writing tests.
 
 ## Example
 

@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from ..calibration.models import DisagreementAnalysis, DisagreementCase
+from ..defaults import DEFAULT_EVAL_MODEL
 from ..utils.api_client import GeminiClient
 
 if TYPE_CHECKING:
@@ -162,7 +163,7 @@ class ReasonClusterer:
 
     def __init__(
         self,
-        model: str = "gemini-2.5-flash-lite",
+        model: str = DEFAULT_EVAL_MODEL,
         api_key: Optional[str] = None,
         cache_dir: Optional[Path] = None,
     ):

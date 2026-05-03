@@ -1,0 +1,440 @@
+{
+  "false_positive_clusters": [
+    {
+      "cluster_id": "false_positive_0",
+      "label": "Comprehensive and Accurate Explanations",
+      "count": 42,
+      "reasons": [
+        "The response directly answers the question about gene therapy, provides accurate and relevant information, is appropriately detailed, and guides the user toward productive research activities by offering a comprehensive overview of the topic, its mechanisms, applications, challenges, and future directions, all supported by citations.",
+        "The response directly answers the question about gravitational waves, provides accurate and relevant information with appropriate detail, and guides the user toward productive research activities by citing numerous reputable sources and mentioning ongoing research and future projects.",
+        "The response directly answers the question about how radar works, provides accurate and relevant information, is appropriately detailed, and guides the user toward productive research activities by suggesting areas for further exploration and providing numerous links for deeper dives.",
+        "The response directly answers the question about the Higgs boson, provides accurate and relevant information with appropriate detail, and guides the user toward further research by mentioning ongoing studies and potential connections to other areas of physics.",
+        "The response provides a comprehensive and accurate definition of machine vision, detailing its components, recent advancements, and applications. It is appropriately detailed and guides the user toward understanding the field and its future trends, which is beneficial for research.",
+        "The response directly answers the question about how submarines work, providing accurate and relevant information on buoyancy control, propulsion, navigation, and hull structure. The level of detail is appropriate for a general understanding, and it guides the user toward further research by explaining the core principles and mentioning recent developments. The inclusion of citations also supports productive research activities.",
+        "The response directly answers the question about stem cells, provides accurate and relevant information, is appropriately detailed, and guides the user toward productive research activities by offering classifications and current research trends.",
+        "The response directly answers the question about the ozone layer, provides accurate and relevant information, is appropriately detailed, and guides the user toward productive research by offering links to credible sources and discussing the current status and future projections of ozone layer recovery.",
+        "The response directly answers the question about how neural networks learn, providing accurate and relevant information. It is appropriately detailed, explaining key concepts like weights, biases, forward propagation, loss calculation, backpropagation, and gradient descent. The response also guides the user toward productive research activities by mentioning recent advancements and related techniques like AGOP, guidance, Nested Learning, and Neuro-Symbolic AI, with links to further information.",
+        "The response directly answers the question about how solar panels work, providing accurate and relevant information in a detailed yet concise manner. It also guides the user toward productive research by offering further avenues of exploration regarding efficiency, lifespan, and emerging technologies like perovskite solar cells.",
+        "The response directly answers the question about string theory, provides accurate and relevant information, is appropriately detailed, and guides the user toward productive research activities by highlighting areas of ongoing research and potential experimental verification.",
+        "The response directly answers the question about the causes of earthquakes, providing accurate and relevant information. It is detailed enough to be informative without being overly verbose and guides the user towards productive research by offering specific areas of focus (tectonic plates, volcanic activity, human-induced seismicity) and mentioning ongoing research trends and tools like AI. The inclusion of numerous links to reputable sources further supports its helpfulness for research.",
+        "The response directly answers the question about how the stock market works, provides accurate and relevant information, is appropriately detailed, and guides the user toward productive research activities by suggesting key factors to consider and fundamental principles for investors.",
+        "The response accurately and comprehensively explains the greenhouse effect, including its natural role, the mechanism of heat trapping by specific gases, the molecular basis for this, and the impact of human activities. It is appropriately detailed and provides relevant information for a research assistant context, guiding them towards understanding the core concepts and the anthropogenic influence.",
+        "The response directly answers the question about how antibiotics work, provides accurate and relevant information with multiple mechanisms and examples, is appropriately detailed, and guides the user toward productive research by citing numerous sources for further exploration.",
+        "The response directly answers the question about DNA replication, provides accurate and relevant information, is appropriately detailed with clear explanations of stages and enzymes, and guides the user toward productive research by citing multiple sources and mentioning recent advancements.",
+        "The response directly answers the question about the Big Bang theory, provides accurate and relevant information with appropriate detail, and guides the user toward productive research by highlighting key evidence, current research challenges (like the Hubble tension and JWST findings), and ongoing theoretical explorations. The inclusion of multiple reputable sources further enhances its helpfulness for a research assistant.",
+        "The response directly answers the question about photosynthesis, provides accurate and relevant information including the chemical equation and its importance, is appropriately detailed, and guides the user toward productive research by highlighting recent advancements and areas of ongoing research in both natural and artificial photosynthesis.",
+        "The response directly answers the question about how electric vehicles work, provides accurate and relevant information with appropriate detail, and guides the user toward productive research by highlighting advancements and areas of ongoing research in battery technology, propulsion, and charging. The inclusion of citations also supports further research.",
+        "The response directly answers the question by explaining the water cycle, providing accurate and relevant information with appropriate detail. It also guides the user toward productive research by highlighting the impact of climate change and human activities on the water cycle, suggesting areas for further investigation.",
+        "The response accurately defines black holes and comprehensively explains their formation through various theories, including stellar, supermassive, and primordial black holes. It provides sufficient detail without being overly verbose and guides the user toward productive research by highlighting current areas of investigation and recent observational evidence from JWST and gravitational wave detections.",
+        "The response directly answers the question about how vaccines work, provides accurate and relevant information with appropriate detail, and guides the user toward productive research by offering a comprehensive explanation and listing different vaccine platforms and their mechanisms. The inclusion of numerous citations also supports further research.",
+        "The response directly answers the question about the history of the internet, providing accurate and relevant information in a well-structured and detailed manner. It guides the user by highlighting key milestones and concepts, implicitly encouraging further research into these areas.",
+        "The response provides a comprehensive and accurate explanation of how machine learning works, covering its core principles, different learning paradigms (supervised, unsupervised, reinforcement learning), and related concepts like deep learning and current trends. It is appropriately detailed for a research assistant context, offering a solid foundation for further exploration. The inclusion of numerous citations also guides the user toward productive research activities by pointing to relevant sources.",
+        "The response directly answers the question by explaining the theory of relativity in simple terms, breaking it down into special and general relativity. It provides accurate and relevant information, is appropriately detailed, and guides the user toward further research by providing links to external resources for each concept.",
+        "The response directly answers the question about quantum computing and its differences from classical computing. It provides accurate and relevant information, explaining key concepts like qubits, superposition, and entanglement. The level of detail is appropriate for an introductory explanation, and it guides the user toward productive research by mentioning current trends, challenges, and future applications, implicitly suggesting areas for further investigation.",
+        "The response directly answers the question about how computer memory works, providing accurate and relevant information about different types of memory (registers, cache, RAM) and how they interact. The level of detail is appropriate for a general explanation, and it guides the user toward productive research by explaining the hierarchy and mentioning emerging technologies, which could be further explored.",
+        "The response provides a comprehensive definition of machine vision, details its key applications across various industries, and discusses emerging trends. It is well-structured, accurate, and offers sufficient detail without being overly verbose. The inclusion of numerous links to relevant sources guides the user toward productive research activities.",
+        "The response directly answers the question about how 5G technology works by detailing its network architecture, signal transmission principles, spectrum usage, and physical layer advancements. It provides accurate and relevant information with appropriate detail, including explanations of key components and technologies. The response also guides the user toward productive research by offering numerous links to external resources for further exploration.",
+        "The response directly answers the question about stem cells, provides accurate and relevant information, is appropriately detailed, and guides the user toward productive research activities by offering a comprehensive overview and highlighting areas of ongoing research and challenges.",
+        "The response directly answers the question about string theory, provides accurate and relevant information, is appropriately detailed, and guides the user toward productive research activities by listing key mathematical frameworks and potential experimental avenues.",
+        "The response directly answers the question about how computers store data, provides accurate and relevant information with appropriate detail, and guides the user toward productive research by categorizing storage types and mentioning emerging technologies.",
+        "The response directly answers the question about the causes of earthquakes, provides accurate and relevant information supported by citations, is appropriately detailed, and guides the user toward productive research by highlighting ongoing research areas and specific mechanisms.",
+        "The response directly answers the question about CRISPR gene editing, provides accurate and relevant information with appropriate detail, and guides the user toward productive research by outlining the process, recent advancements, therapeutic applications, and ethical considerations, all supported by citations.",
+        "The response directly answers the question by explaining the four forces of flight and how they interact. It provides accurate and relevant information, is appropriately detailed, and guides the user toward further research by citing multiple sources.",
+        "The response directly answers the question about how electric vehicles work, provides accurate and relevant information on the core technologies, is appropriately detailed, and guides the user toward productive research by highlighting key components and emerging trends with citations.",
+        "The response directly answers the question about renewable energy sources, provides accurate and relevant information with appropriate detail, and guides the user toward productive research activities by listing key types, discussing their benefits, challenges, and technological advancements, all supported by citations.",
+        "The response directly answers the question by defining quantum computing and contrasting it with classical computing. It provides accurate and relevant information, explaining key concepts like qubits, superposition, and entanglement. The level of detail is appropriate, offering a good overview without being overly technical or too brief. Furthermore, it guides the user toward productive research by highlighting key differences, advantages, and future outlooks, implicitly suggesting areas for further investigation.",
+        "The response directly answers the question about how machine learning works, providing accurate and relevant information. It is appropriately detailed, covering the core concepts, types of algorithms, advanced techniques, and evolving trends. The response also guides the user toward productive research by offering a comprehensive overview and suggesting areas for further exploration.",
+        "The response directly answers the question about the water cycle, provides accurate and relevant information with appropriate detail, and guides the user toward productive research by including recent research and mentioning relevant satellite missions.",
+        "The response directly answers the question about the history of the internet, provides accurate and relevant information with citations, is appropriately detailed, and guides the user by presenting a chronological overview of key developments.",
+        "The response directly addresses the user's request by explaining the theory of relativity in simple terms. It provides accurate and relevant information, breaking down both special and general relativity with clear explanations and examples. The level of detail is appropriate, not too brief or overly verbose. The inclusion of links to further resources guides the user toward productive research activities."
+      ],
+      "representative_example": {
+        "call_id": "13386ae4-af8c-413d-b753-82b5148794f1",
+        "input": "{\"args\": [], \"kwargs\": {\"question\": \"What is gene therapy?\", \"initial_queries\": 1, \"max_loops\": 1, \"reasoning_model\": \"gemini-2.5-flash-lite\"}}",
+        "output": "Gene therapy is a medical technology that aims to treat or prevent diseases by modifying gene expression or altering the biological properties of living cells [wikipedia](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHBxbGnLpIx6PAb5_Bcdqs57pWqBnDgIvsR5FpQ4_Yh4DV4z7YP1wotDT6iB2p6l6PZ1loFQDnNEeWCvQN-pfZvVSy7Lgi7L65ujrmacZrrF8BgNda7qZO_elTz0Q4yc4npKRnN). This innovative approach addresses the root cause of diseases at the genetic level [forbes](https://vertexaisearch.cloud.go",
+        "judge_passed": true,
+        "judge_reason": "The response directly answers the question about gene therapy, provides accurate and relevant information, is appropriately detailed, and guides the user toward productive research activities by offering a comprehensive overview of the topic, its mechanisms, applications, challenges, and future directions, all supported by citations.",
+        "human_passed": false,
+        "human_notes": "Response lacks sufficient detail",
+        "type": "false_positive"
+      },
+      "disagreement_type": "false_positive"
+    }
+  ],
+  "false_negative_clusters": [
+    {
+      "cluster_id": "false_negative_0",
+      "label": "The response does not directly address the user's...",
+      "count": 1,
+      "reasons": [
+        "The response does not directly address the user's question about how the stock market works. Instead, it provides an analysis of the stock market's performance and trends in 2025-2026, which is a different topic."
+      ],
+      "representative_example": {
+        "call_id": "de0eed9c-4821-4f47-abb1-310d07ea6a25",
+        "input": "{\"args\": [], \"kwargs\": {\"question\": \"How does the stock market work?\", \"initial_queries\": 1, \"max_loops\": 1, \"reasoning_model\": \"gemini-2.5-flash-lite\"}}",
+        "output": "The stock market in 2025 and looking ahead to 2026 is characterized by a shift from broad market rallies to a more selective investment environment. While Artificial Intelligence (AI) has been a major driver of growth, there's an increasing focus on specific sectors, careful stock selection, and managing potential volatility [youtube](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEYzfwck2MyX_gT8zL2qzEET72UjBb5kKD9GTKUr9LceeGhlTlZXk0tbf7XddUmozDOmWw4fGoJAsHxN6E8EfhAkpBkKcET",
+        "judge_passed": false,
+        "judge_reason": "The response does not directly address the user's question about how the stock market works. Instead, it provides an analysis of the stock market's performance and trends in 2025-2026, which is a different topic.",
+        "human_passed": true,
+        "human_notes": "Response is helpful and addresses the query",
+        "type": "false_negative"
+      },
+      "disagreement_type": "false_negative"
+    }
+  ],
+  "total_cases": 43,
+  "coordinates_2d": [
+    [
+      8.640111923217773,
+      12.923741340637207
+    ],
+    [
+      8.745293617248535,
+      10.632966995239258
+    ],
+    [
+      6.77064323425293,
+      11.561574935913086
+    ],
+    [
+      7.818170547485352,
+      11.11328125
+    ],
+    [
+      5.694304466247559,
+      11.008983612060547
+    ],
+    [
+      7.512637615203857,
+      12.571999549865723
+    ],
+    [
+      8.138413429260254,
+      12.429513931274414
+    ],
+    [
+      6.53248929977417,
+      14.034613609313965
+    ],
+    [
+      6.248980522155762,
+      11.191655158996582
+    ],
+    [
+      7.194774150848389,
+      13.4302339553833
+    ],
+    [
+      8.17734146118164,
+      11.061405181884766
+    ],
+    [
+      6.3651299476623535,
+      12.483829498291016
+    ],
+    [
+      8.012263298034668,
+      11.709266662597656
+    ],
+    [
+      6.923234462738037,
+      13.941490173339844
+    ],
+    [
+      8.616338729858398,
+      13.505207061767578
+    ],
+    [
+      8.901468276977539,
+      13.01904296875
+    ],
+    [
+      8.299488067626953,
+      10.510523796081543
+    ],
+    [
+      6.65798282623291,
+      13.6981840133667
+    ],
+    [
+      7.427681922912598,
+      13.196868896484375
+    ],
+    [
+      6.376254558563232,
+      13.21703815460205
+    ],
+    [
+      8.928003311157227,
+      10.387228012084961
+    ],
+    [
+      8.227194786071777,
+      13.334117889404297
+    ],
+    [
+      7.166654586791992,
+      11.49003791809082
+    ],
+    [
+      6.013879776000977,
+      10.77791976928711
+    ],
+    [
+      8.741950988769531,
+      10.971922874450684
+    ],
+    [
+      7.586052894592285,
+      10.552040100097656
+    ],
+    [
+      7.069747447967529,
+      10.70773696899414
+    ],
+    [
+      5.91947078704834,
+      11.257186889648438
+    ],
+    [
+      6.797179222106934,
+      11.024703025817871
+    ],
+    [
+      8.188549041748047,
+      12.877485275268555
+    ],
+    [
+      8.608548164367676,
+      11.266600608825684
+    ],
+    [
+      6.648355007171631,
+      10.574421882629395
+    ],
+    [
+      6.846704483032227,
+      12.520318031311035
+    ],
+    [
+      8.563933372497559,
+      12.764055252075195
+    ],
+    [
+      8.498578071594238,
+      11.680827140808105
+    ],
+    [
+      7.162693500518799,
+      12.828264236450195
+    ],
+    [
+      6.925641059875488,
+      13.281558990478516
+    ],
+    [
+      7.264238357543945,
+      10.350167274475098
+    ],
+    [
+      6.2690911293029785,
+      10.619695663452148
+    ],
+    [
+      6.178342342376709,
+      13.430282592773438
+    ],
+    [
+      7.01724910736084,
+      12.009552001953125
+    ],
+    [
+      9.069689750671387,
+      10.938911437988281
+    ],
+    [
+      7.713289260864258,
+      11.614518165588379
+    ]
+  ],
+  "case_labels": [
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "Comprehensive and Accurate Explanations",
+    "The response does not directly address the user's..."
+  ],
+  "case_types": [
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_positive",
+    "false_negative"
+  ],
+  "case_reasons": [
+    "The response directly answers the question about gene therapy, provides accurate and relevant information, is appropriately detailed, and guides the user toward productive research activities by offering a comprehensive overview of the topic, its mechanisms, applications, challenges, and future directions, all supported by citations.",
+    "The response directly answers the question about gravitational waves, provides accurate and relevant information with appropriate detail, and guides the user toward productive research activities by citing numerous reputable sources and mentioning ongoing research and future projects.",
+    "The response directly answers the question about how radar works, provides accurate and relevant information, is appropriately detailed, and guides the user toward productive research activities by suggesting areas for further exploration and providing numerous links for deeper dives.",
+    "The response directly answers the question about the Higgs boson, provides accurate and relevant information with appropriate detail, and guides the user toward further research by mentioning ongoing studies and potential connections to other areas of physics.",
+    "The response provides a comprehensive and accurate definition of machine vision, detailing its components, recent advancements, and applications. It is appropriately detailed and guides the user toward understanding the field and its future trends, which is beneficial for research.",
+    "The response directly answers the question about how submarines work, providing accurate and relevant information on buoyancy control, propulsion, navigation, and hull structure. The level of detail is appropriate for a general understanding, and it guides the user toward further research by explaining the core principles and mentioning recent developments. The inclusion of citations also supports productive research activities.",
+    "The response directly answers the question about stem cells, provides accurate and relevant information, is appropriately detailed, and guides the user toward productive research activities by offering classifications and current research trends.",
+    "The response directly answers the question about the ozone layer, provides accurate and relevant information, is appropriately detailed, and guides the user toward productive research by offering links to credible sources and discussing the current status and future projections of ozone layer recovery.",
+    "The response directly answers the question about how neural networks learn, providing accurate and relevant information. It is appropriately detailed, explaining key concepts like weights, biases, forward propagation, loss calculation, backpropagation, and gradient descent. The response also guides the user toward productive research activities by mentioning recent advancements and related techniques like AGOP, guidance, Nested Learning, and Neuro-Symbolic AI, with links to further information.",
+    "The response directly answers the question about how solar panels work, providing accurate and relevant information in a detailed yet concise manner. It also guides the user toward productive research by offering further avenues of exploration regarding efficiency, lifespan, and emerging technologies like perovskite solar cells.",
+    "The response directly answers the question about string theory, provides accurate and relevant information, is appropriately detailed, and guides the user toward productive research activities by highlighting areas of ongoing research and potential experimental verification.",
+    "The response directly answers the question about the causes of earthquakes, providing accurate and relevant information. It is detailed enough to be informative without being overly verbose and guides the user towards productive research by offering specific areas of focus (tectonic plates, volcanic activity, human-induced seismicity) and mentioning ongoing research trends and tools like AI. The inclusion of numerous links to reputable sources further supports its helpfulness for research.",
+    "The response directly answers the question about how the stock market works, provides accurate and relevant information, is appropriately detailed, and guides the user toward productive research activities by suggesting key factors to consider and fundamental principles for investors.",
+    "The response accurately and comprehensively explains the greenhouse effect, including its natural role, the mechanism of heat trapping by specific gases, the molecular basis for this, and the impact of human activities. It is appropriately detailed and provides relevant information for a research assistant context, guiding them towards understanding the core concepts and the anthropogenic influence.",
+    "The response directly answers the question about how antibiotics work, provides accurate and relevant information with multiple mechanisms and examples, is appropriately detailed, and guides the user toward productive research by citing numerous sources for further exploration.",
+    "The response directly answers the question about DNA replication, provides accurate and relevant information, is appropriately detailed with clear explanations of stages and enzymes, and guides the user toward productive research by citing multiple sources and mentioning recent advancements.",
+    "The response directly answers the question about the Big Bang theory, provides accurate and relevant information with appropriate detail, and guides the user toward productive research by highlighting key evidence, current research challenges (like the Hubble tension and JWST findings), and ongoing theoretical explorations. The inclusion of multiple reputable sources further enhances its helpfulness for a research assistant.",
+    "The response directly answers the question about photosynthesis, provides accurate and relevant information including the chemical equation and its importance, is appropriately detailed, and guides the user toward productive research by highlighting recent advancements and areas of ongoing research in both natural and artificial photosynthesis.",
+    "The response directly answers the question about how electric vehicles work, provides accurate and relevant information with appropriate detail, and guides the user toward productive research by highlighting advancements and areas of ongoing research in battery technology, propulsion, and charging. The inclusion of citations also supports further research.",
+    "The response directly answers the question by explaining the water cycle, providing accurate and relevant information with appropriate detail. It also guides the user toward productive research by highlighting the impact of climate change and human activities on the water cycle, suggesting areas for further investigation.",
+    "The response accurately defines black holes and comprehensively explains their formation through various theories, including stellar, supermassive, and primordial black holes. It provides sufficient detail without being overly verbose and guides the user toward productive research by highlighting current areas of investigation and recent observational evidence from JWST and gravitational wave detections.",
+    "The response directly answers the question about how vaccines work, provides accurate and relevant information with appropriate detail, and guides the user toward productive research by offering a comprehensive explanation and listing different vaccine platforms and their mechanisms. The inclusion of numerous citations also supports further research.",
+    "The response directly answers the question about the history of the internet, providing accurate and relevant information in a well-structured and detailed manner. It guides the user by highlighting key milestones and concepts, implicitly encouraging further research into these areas.",
+    "The response provides a comprehensive and accurate explanation of how machine learning works, covering its core principles, different learning paradigms (supervised, unsupervised, reinforcement learning), and related concepts like deep learning and current trends. It is appropriately detailed for a research assistant context, offering a solid foundation for further exploration. The inclusion of numerous citations also guides the user toward productive research activities by pointing to relevant sources.",
+    "The response directly answers the question by explaining the theory of relativity in simple terms, breaking it down into special and general relativity. It provides accurate and relevant information, is appropriately detailed, and guides the user toward further research by providing links to external resources for each concept.",
+    "The response directly answers the question about quantum computing and its differences from classical computing. It provides accurate and relevant information, explaining key concepts like qubits, superposition, and entanglement. The level of detail is appropriate for an introductory explanation, and it guides the user toward productive research by mentioning current trends, challenges, and future applications, implicitly suggesting areas for further investigation.",
+    "The response directly answers the question about how computer memory works, providing accurate and relevant information about different types of memory (registers, cache, RAM) and how they interact. The level of detail is appropriate for a general explanation, and it guides the user toward productive research by explaining the hierarchy and mentioning emerging technologies, which could be further explored.",
+    "The response provides a comprehensive definition of machine vision, details its key applications across various industries, and discusses emerging trends. It is well-structured, accurate, and offers sufficient detail without being overly verbose. The inclusion of numerous links to relevant sources guides the user toward productive research activities.",
+    "The response directly answers the question about how 5G technology works by detailing its network architecture, signal transmission principles, spectrum usage, and physical layer advancements. It provides accurate and relevant information with appropriate detail, including explanations of key components and technologies. The response also guides the user toward productive research by offering numerous links to external resources for further exploration.",
+    "The response directly answers the question about stem cells, provides accurate and relevant information, is appropriately detailed, and guides the user toward productive research activities by offering a comprehensive overview and highlighting areas of ongoing research and challenges.",
+    "The response directly answers the question about string theory, provides accurate and relevant information, is appropriately detailed, and guides the user toward productive research activities by listing key mathematical frameworks and potential experimental avenues.",
+    "The response directly answers the question about how computers store data, provides accurate and relevant information with appropriate detail, and guides the user toward productive research by categorizing storage types and mentioning emerging technologies.",
+    "The response directly answers the question about the causes of earthquakes, provides accurate and relevant information supported by citations, is appropriately detailed, and guides the user toward productive research by highlighting ongoing research areas and specific mechanisms.",
+    "The response directly answers the question about CRISPR gene editing, provides accurate and relevant information with appropriate detail, and guides the user toward productive research by outlining the process, recent advancements, therapeutic applications, and ethical considerations, all supported by citations.",
+    "The response directly answers the question by explaining the four forces of flight and how they interact. It provides accurate and relevant information, is appropriately detailed, and guides the user toward further research by citing multiple sources.",
+    "The response directly answers the question about how electric vehicles work, provides accurate and relevant information on the core technologies, is appropriately detailed, and guides the user toward productive research by highlighting key components and emerging trends with citations.",
+    "The response directly answers the question about renewable energy sources, provides accurate and relevant information with appropriate detail, and guides the user toward productive research activities by listing key types, discussing their benefits, challenges, and technological advancements, all supported by citations.",
+    "The response directly answers the question by defining quantum computing and contrasting it with classical computing. It provides accurate and relevant information, explaining key concepts like qubits, superposition, and entanglement. The level of detail is appropriate, offering a good overview without being overly technical or too brief. Furthermore, it guides the user toward productive research by highlighting key differences, advantages, and future outlooks, implicitly suggesting areas for further investigation.",
+    "The response directly answers the question about how machine learning works, providing accurate and relevant information. It is appropriately detailed, covering the core concepts, types of algorithms, advanced techniques, and evolving trends. The response also guides the user toward productive research by offering a comprehensive overview and suggesting areas for further exploration.",
+    "The response directly answers the question about the water cycle, provides accurate and relevant information with appropriate detail, and guides the user toward productive research by including recent research and mentioning relevant satellite missions.",
+    "The response directly answers the question about the history of the internet, provides accurate and relevant information with citations, is appropriately detailed, and guides the user by presenting a chronological overview of key developments.",
+    "The response directly addresses the user's request by explaining the theory of relativity in simple terms. It provides accurate and relevant information, breaking down both special and general relativity with clear explanations and examples. The level of detail is appropriate, not too brief or overly verbose. The inclusion of links to further resources guides the user toward productive research activities.",
+    "The response does not directly address the user's question about how the stock market works. Instead, it provides an analysis of the stock market's performance and trends in 2025-2026, which is a different topic."
+  ],
+  "case_ids": [
+    "13386ae4-af8c-413d-b753-82b5148794f1",
+    "0751d154-4e87-4d02-8b50-bcc2045506a1",
+    "ddedeea8-bf14-4b14-800b-c3ebc3b607ca",
+    "2bcdd814-40e3-4303-a5b0-8d549740d438",
+    "4c45ea69-f5de-42b2-8fe0-10da4a02ef24",
+    "3a34684c-8e7d-4122-b89b-6dd8161ee77f",
+    "df9f8e32-c340-4f7a-93d1-38bf52410d12",
+    "6b3c8f17-d31c-4a6e-b4bb-1a5a1b78de68",
+    "3a6820f0-d9e5-4d09-bb60-193ac63e2150",
+    "b26596f1-450a-41f5-a028-e71648b05ae8",
+    "90560da1-8afb-4c08-ad5e-f2259d664576",
+    "893ad2d6-12b7-4b84-8587-60376bedc31f",
+    "76891d88-91ab-4648-a594-2365feccedb2",
+    "33227441-9225-41ae-ab47-c49edf735558",
+    "1d94a94d-30ce-416b-9351-54e37a30bd6b",
+    "80ebffcf-83bf-41b9-8f90-92a573fe25c4",
+    "4ebeccba-29f6-4844-abea-829bee4ef926",
+    "e08581ab-1524-4e19-9110-ec42d77c6e54",
+    "451e6b6c-b9a7-4e26-a314-71d94de0b8e0",
+    "124e7cc0-ebea-40a9-8b44-c1d175d54d66",
+    "b1ac4182-1bc5-4654-b088-2a5b2c690395",
+    "596fa01e-9346-49a5-b462-64ded93efb59",
+    "3c99ce80-b1ac-4d6d-831f-58f9d7cf4fc5",
+    "f8479ffc-1972-45ff-b317-192286a78de7",
+    "a030eac2-7d5c-4b54-b1d3-9a9a8e9c1c55",
+    "daa1a036-0a3f-44a0-9052-74750610bde7",
+    "5ab480c6-4b8d-478e-9ac5-6184051cc7ab",
+    "35e005f0-d5d2-4b9a-989a-193664023fb9",
+    "5aaa4971-21c2-435d-8f47-2f861a2618d1",
+    "c483172d-8535-4b5e-853a-abde0901d816",
+    "9e4818e6-d3d9-4432-a921-c16c458ca801",
+    "57ec770a-cbfd-4b1b-abba-d723b641d97e",
+    "f5080350-17fa-4c5f-8774-60e6b183eb5d",
+    "4cf9fbd1-3dba-44be-b4e5-f9088ef6e1ee",
+    "903c9619-87d5-4e84-afa5-58d4db347382",
+    "675fd9cf-f2fd-459e-a5f2-0f5d31b39f66",
+    "94a3dbec-0c94-47e4-983d-24af471f7d49",
+    "387ef356-b39f-4f38-9ed8-14a0479131ec",
+    "3d89d495-c3e6-43fa-b863-82f22f93d9c3",
+    "ef85a096-691a-4996-8a82-dd6a3b60b487",
+    "df48997c-5fe6-458b-a42d-54b6f25fc4aa",
+    "818e3cbd-bbbd-4d33-8bbe-22b89b81e299",
+    "de0eed9c-4821-4f47-abb1-310d07ea6a25"
+  ]
+}

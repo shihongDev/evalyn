@@ -43,12 +43,20 @@ RANGES = {"dataset_limit": (1, 1000, 10), "annotation_limit": (0, 200, 1)}
 UNITS = {"dataset_limit": "items", "annotation_limit": "items"}
 
 import argparse
-import shutil
 from datetime import datetime
 from pathlib import Path
 
-from ..utils.config import load_config, get_config_default, find_project_root
+from ..utils.config import load_config, get_config_default, find_project_root, create_evalyn_yaml
 from ..utils.errors import fatal_error
+from ..utils.rich import banner, section, icon, footer
+
+# Real defaults for one-click pipeline arguments.
+# Stored as constants so help text stays accurate when argparse defaults are None.
+_DEFAULT_DATASET_LIMIT = 100
+_DEFAULT_ANNOTATION_LIMIT = 20
+_DEFAULT_NUM_SIMILAR = 3
+_DEFAULT_NUM_OUTLIER = 2
+_DEFAULT_MAX_SIM_SEEDS = 10
 
 
 def cmd_init(args: argparse.Namespace) -> None:
@@ -60,42 +68,11 @@ def cmd_init(args: argparse.Namespace) -> None:
     if output_path.exists() and not args.force:
         fatal_error(f"{output_path} already exists", "Use --force to overwrite")
 
-    # Find the example file - check multiple locations
-    example_paths = [
-        Path("evalyn.yaml.example"),  # Current directory
-        Path(__file__).parent.parent.parent.parent
-        / "evalyn.yaml.example",  # Project root
-    ]
-
-    example_path = None
-    for p in example_paths:
-        if p.exists():
-            example_path = p
-            break
-
-    if example_path:
-        shutil.copy(example_path, output_path)
-        print(f"Created {output_path} (from {example_path})")
+    _, from_example = create_evalyn_yaml(output_path, force=True)
+    if from_example:
+        print(f"{icon('pass')} Created {output_path} (from evalyn.yaml.example)")
     else:
-        # Fallback: create minimal config if example not found
-        minimal = """# Evalyn Configuration
-# See evalyn.yaml.example for all available options
-
-# API Keys - only set what you need
-api_keys:
-  gemini: "your-gemini-api-key-here"  # Required for example agent
-  # openai: "your-openai-key"         # Optional
-
-llm:
-  model: "gemini-2.5-flash-lite"
-
-defaults:
-  project: null
-  version: null
-"""
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(minimal)
-        print(f"Created {output_path} (minimal config)")
+        print(f"{icon('pass')} Created {output_path} (minimal config)")
         print("Note: evalyn.yaml.example not found for full template")
 
     print("\nSet your API key:")
@@ -162,24 +139,26 @@ def _apply_config_defaults(args: argparse.Namespace, config: dict) -> None:
                 args, attr, get_config_default(config, section, key, default=fallback)
             )
 
-    # Handle defaults with special conditions (default values from argparse)
-    if args.dataset_limit == 100:
-        args.dataset_limit = get_config_default(config, "dataset", "limit", default=100)
-    if args.annotation_limit == 20:
+    # Handle defaults with special conditions (argparse defaults are None)
+    if args.dataset_limit is None:
+        args.dataset_limit = get_config_default(
+            config, "dataset", "limit", default=_DEFAULT_DATASET_LIMIT
+        )
+    if args.annotation_limit is None:
         args.annotation_limit = get_config_default(
-            config, "annotation", "limit", default=20
+            config, "annotation", "limit", default=_DEFAULT_ANNOTATION_LIMIT
         )
-    if args.num_similar == 3:
+    if args.num_similar is None:
         args.num_similar = get_config_default(
-            config, "simulation", "num_similar", default=3
+            config, "simulation", "num_similar", default=_DEFAULT_NUM_SIMILAR
         )
-    if args.num_outlier == 2:
+    if args.num_outlier is None:
         args.num_outlier = get_config_default(
-            config, "simulation", "num_outlier", default=1
+            config, "simulation", "num_outlier", default=_DEFAULT_NUM_OUTLIER
         )
-    if args.max_sim_seeds == 10:
+    if args.max_sim_seeds is None:
         args.max_sim_seeds = get_config_default(
-            config, "simulation", "max_seeds", default=50
+            config, "simulation", "max_seeds", default=_DEFAULT_MAX_SIM_SEEDS
         )
 
 
@@ -249,58 +228,49 @@ def _create_output_dir(args: argparse.Namespace) -> Path:
 def cmd_workflow(args: argparse.Namespace) -> None:
     """Show the evaluation workflow and next steps."""
     # NOTE: This workflow text is manually maintained. Update when adding/removing commands.
-    workflow = """
-EVALYN WORKFLOW
-===============
+    print()
+    print(banner("EVALYN WORKFLOW"))
+    print("\n  The evaluation pipeline has 3 phases:\n")
 
-The evaluation pipeline has 3 phases:
+    print(section("PHASE 1: COLLECT"))
+    print("  1. Add @eval decorator to your agent function")
+    print("  2. Run your agent to collect traces")
+    print("  3. Build a dataset from traces")
+    print()
+    print(f"  {icon('next')} evalyn list-calls              # View captured traces")
+    print(f"  {icon('next')} evalyn show-projects           # See project summary")
+    print(f"  {icon('next')} evalyn build-dataset --project <name>  # Create dataset")
+    print()
 
-PHASE 1: COLLECT
-----------------
-  1. Add @eval decorator to your agent function
-  2. Run your agent to collect traces
-  3. Build a dataset from traces
+    print(section("PHASE 2: EVALUATE"))
+    print("  4. Select metrics for evaluation")
+    print("  5. Run evaluation")
+    print("  6. Analyze results")
+    print()
+    print(f"  {icon('next')} evalyn suggest-metrics --dataset <path> --mode basic")
+    print(f"  {icon('next')} evalyn run-eval --dataset <path>")
+    print(f"  {icon('next')} evalyn analyze --dataset <path>")
+    print()
 
-  Commands:
-    evalyn list-calls              # View captured traces
-    evalyn show-projects           # See project summary
-    evalyn build-dataset --project <name>  # Create dataset
+    print(section("PHASE 3: CALIBRATE (OPTIONAL)"))
+    print("  7. Annotate results (human feedback)")
+    print("  8. Calibrate LLM judges")
+    print("  9. Re-evaluate with calibrated prompts")
+    print()
+    print(f"  {icon('next')} evalyn annotate --dataset <path>")
+    print(f"  {icon('next')} evalyn calibrate --dataset <path> --metric-id <id>")
+    print(f"  {icon('next')} evalyn run-eval --dataset <path> --use-calibrated")
+    print()
 
-PHASE 2: EVALUATE
------------------
-  4. Select metrics for evaluation
-  5. Run evaluation
-  6. Analyze results
-
-  Commands:
-    evalyn suggest-metrics --dataset <path> --mode basic
-    evalyn run-eval --dataset <path>
-    evalyn analyze --dataset <path>
-
-PHASE 3: CALIBRATE (optional)
------------------------------
-  7. Annotate results (human feedback)
-  8. Calibrate LLM judges
-  9. Re-evaluate with calibrated prompts
-
-  Commands:
-    evalyn annotate --dataset <path>
-    evalyn calibrate --dataset <path> --metric-id <id>
-    evalyn run-eval --dataset <path> --use-calibrated
-
-ONE-CLICK OPTION
-----------------
-  Run the entire pipeline automatically:
-    evalyn one-click --project <name>
-
-NEXT STEPS
-----------
-"""
-    print(workflow)
+    print(section("ONE-CLICK OPTION"))
+    print("  Run the entire pipeline automatically:")
+    print(f"  {icon('next')} evalyn one-click --project <name>")
+    print()
 
     # Show context-aware next steps
     from ...decorators import get_default_tracer
 
+    next_steps = []
     tracer = get_default_tracer()
     if tracer.storage:
         calls = tracer.storage.list_calls(limit=10, lightweight=True)
@@ -315,13 +285,18 @@ NEXT STEPS
                         projects.add(proj)
             if projects:
                 print(f"  You have traces for: {', '.join(sorted(projects))}")
-                print(f"  Try: evalyn build-dataset --project {sorted(projects)[0]}")
+                next_steps.append(
+                    (f"evalyn build-dataset --project {sorted(projects)[0]}", "Build dataset from traces")
+                )
             else:
-                print("  You have traces. Try: evalyn build-dataset")
+                next_steps.append(("evalyn build-dataset", "Build dataset from traces"))
         else:
             print("  No traces yet. Add @eval decorator to your agent and run it.")
     else:
         print("  No storage configured. Run your @eval-decorated agent first.")
+
+    if next_steps:
+        print(footer(next_steps))
 
 
 def register_commands(subparsers) -> None:
@@ -383,8 +358,8 @@ def register_commands(subparsers) -> None:
     oneclick_parser.add_argument(
         "--dataset-limit",
         type=int,
-        default=100,
-        help="Max dataset items (default: 100)",
+        default=None,
+        help=f"Max dataset items (default: {_DEFAULT_DATASET_LIMIT})",
     )
     oneclick_parser.add_argument(
         "--since", help="Filter traces since date (ISO format)"
@@ -419,8 +394,8 @@ def register_commands(subparsers) -> None:
     oneclick_parser.add_argument(
         "--annotation-limit",
         type=int,
-        default=20,
-        help="Max items to annotate (default: 20)",
+        default=None,
+        help=f"Max items to annotate (default: {_DEFAULT_ANNOTATION_LIMIT})",
     )
     oneclick_parser.add_argument(
         "--per-metric", action="store_true", help="Use per-metric annotation mode"
@@ -454,20 +429,20 @@ def register_commands(subparsers) -> None:
     oneclick_parser.add_argument(
         "--num-similar",
         type=int,
-        default=3,
-        help="Similar queries per seed (default: 3)",
+        default=None,
+        help=f"Similar queries per seed (default: {_DEFAULT_NUM_SIMILAR})",
     )
     oneclick_parser.add_argument(
         "--num-outlier",
         type=int,
-        default=2,
-        help="Outlier queries per seed (default: 2)",
+        default=None,
+        help=f"Outlier queries per seed (default: {_DEFAULT_NUM_OUTLIER})",
     )
     oneclick_parser.add_argument(
         "--max-sim-seeds",
         type=int,
-        default=10,
-        help="Max seeds for simulation (default: 10)",
+        default=None,
+        help=f"Max seeds for simulation (default: {_DEFAULT_MAX_SIM_SEEDS})",
     )
     oneclick_parser.add_argument(
         "--workers",

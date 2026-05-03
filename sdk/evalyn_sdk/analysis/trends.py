@@ -127,15 +127,27 @@ def analyze_trends(runs: List["EvalRun"]) -> TrendAnalysis:
 
 
 def generate_trend_text_report(trend: TrendAnalysis) -> str:
-    """Generate an ASCII text report showing evaluation trends over time."""
+    """Generate a text report showing evaluation trends over time."""
+    from ..cli.utils.rich import banner, section, kv
+
     if not trend.runs:
         return "  No runs found for analysis."
 
-    lines = _trend_report_header(trend)
-    lines.extend(_trend_run_overview_lines(trend))
-    lines.extend(_trend_metric_table_lines(trend))
-    lines.extend(_trend_summary_lines(trend))
-    lines.append("=" * 70)
+    lines = [""]
+    lines.append(banner("EVALUATION TREND"))
+
+    # Metadata as key-value block
+    pairs = [("Project", trend.project_name), ("Runs", f"{len(trend.runs)} (oldest to newest)")]
+    if len(trend.timestamps) >= 2:
+        first_date = trend.timestamps[0][:10] if trend.timestamps[0] else "unknown"
+        last_date = trend.timestamps[-1][:10] if trend.timestamps[-1] else "unknown"
+        pairs.append(("Period", f"{first_date} to {last_date}"))
+    lines.append(kv(pairs))
+    lines.append("")
+
+    lines.extend(_trend_run_overview_lines(trend, section))
+    lines.extend(_trend_metric_table_lines(trend, section))
+    lines.extend(_trend_summary_lines(trend, section))
     return "\n".join(lines)
 
 
@@ -153,32 +165,16 @@ def _short_metric_name(metric_id: str, width: int = 20) -> str:
     return metric_id[:width] + ".." if len(metric_id) > width else metric_id
 
 
-def _trend_report_header(trend: TrendAnalysis) -> list[str]:
-    """Build report header and summary metadata lines."""
-    lines = [
-        "=" * 70,
-        f"  EVALUATION TRENDS - {trend.project_name}",
-        "=" * 70,
-        "",
-        f"  Runs analyzed: {len(trend.runs)} (oldest to newest)",
-    ]
-    if len(trend.timestamps) >= 2:
-        first_date = trend.timestamps[0][:10] if trend.timestamps[0] else "unknown"
-        last_date = trend.timestamps[-1][:10] if trend.timestamps[-1] else "unknown"
-        lines.append(f"  Time range: {first_date} to {last_date}")
-    lines.append("")
-    return lines
-
-
-def _trend_run_overview_lines(trend: TrendAnalysis) -> list[str]:
+def _trend_run_overview_lines(trend: TrendAnalysis, section_fn=None) -> list[str]:
     """Build run overview table lines."""
-    lines = [
-        "-" * 70,
-        "  RUN OVERVIEW",
-        "-" * 70,
+    if section_fn:
+        lines = [section_fn("RUN OVERVIEW")]
+    else:
+        lines = ["-" * 70, "  RUN OVERVIEW", "-" * 70]
+    lines.extend([
         f"  {'Run ID':<14} {'Date':<18} {'Items':>8} {'Pass Rate':>12} {'Delta':>10}",
         f"  {'-' * 14} {'-' * 18} {'-' * 8} {'-' * 12} {'-' * 10}",
-    ]
+    ])
 
     prev_rate = None
     for run in trend.runs:
@@ -197,9 +193,12 @@ def _trend_run_overview_lines(trend: TrendAnalysis) -> list[str]:
     return lines
 
 
-def _trend_metric_table_lines(trend: TrendAnalysis) -> list[str]:
+def _trend_metric_table_lines(trend: TrendAnalysis, section_fn=None) -> list[str]:
     """Build metric trend table lines."""
-    lines = ["-" * 70, "  METRIC TRENDS (Pass Rate %)", "-" * 70]
+    if section_fn:
+        lines = [section_fn("METRIC TRENDS (Pass Rate %)")]
+    else:
+        lines = ["-" * 70, "  METRIC TRENDS (Pass Rate %)", "-" * 70]
     num_runs = len(trend.runs)
     if num_runs <= 5:
         lines.extend(_trend_metric_table_lines_compact(trend, num_runs))
@@ -266,9 +265,12 @@ def _trend_metric_group_summary(
     return lines
 
 
-def _trend_summary_lines(trend: TrendAnalysis) -> list[str]:
+def _trend_summary_lines(trend: TrendAnalysis, section_fn=None) -> list[str]:
     """Build report summary and metric group summary lines."""
-    lines = ["-" * 70, "  SUMMARY", "-" * 70]
+    if section_fn:
+        lines = [section_fn("SUMMARY")]
+    else:
+        lines = ["-" * 70, "  SUMMARY", "-" * 70]
 
     if len(trend.overall_trends) >= 2:
         first_rate = trend.overall_trends[0] * 100

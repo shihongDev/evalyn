@@ -289,6 +289,13 @@ def main(argv: Optional[List[str]] = None) -> None:
     Uses lazy imports: only the command module needed for the invoked
     subcommand is loaded, keeping startup fast for every path.
     """
+    import os
+
+    # CLI commands only read from storage; they never write traces.
+    # Disable OpenTelemetry to avoid importing the otel stack (~45ms)
+    # when get_default_tracer() is called by command functions.
+    os.environ.setdefault("EVALYN_OTEL", "off")
+
     effective_argv = argv if argv is not None else sys.argv[1:]
     command = _find_command(effective_argv)
 

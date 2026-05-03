@@ -205,6 +205,63 @@ def resolve_dataset_path(
     return None
 
 
+_MINIMAL_CONFIG = """\
+# Evalyn Configuration
+# See evalyn.yaml.example for all available options
+
+# API Keys - only set what you need
+api_keys:
+  gemini: "your-gemini-api-key-here"  # Required for example agent
+  # openai: "your-openai-key"         # Optional
+
+llm:
+  model: "gemini-2.5-flash-lite"
+
+defaults:
+  project: null
+  version: null
+"""
+
+
+def create_evalyn_yaml(
+    output_path: Optional[Path] = None,
+    force: bool = False,
+) -> tuple[Path, bool]:
+    """Create evalyn.yaml from the example template or a minimal fallback.
+
+    Args:
+        output_path: Where to write the config. Defaults to ./evalyn.yaml.
+        force: Overwrite if the file already exists.
+
+    Returns:
+        (path, from_example) - the path written and whether the example was used.
+        If the file already exists and force is False, returns (path, False) without writing.
+    """
+    import shutil
+
+    if output_path is None:
+        output_path = Path("evalyn.yaml")
+
+    if output_path.exists() and not force:
+        return output_path, False
+
+    # Find the example file - check multiple locations
+    example_paths = [
+        Path("evalyn.yaml.example"),  # Current directory
+        Path(__file__).parent.parent.parent / "evalyn.yaml.example",  # Project root
+    ]
+
+    for p in example_paths:
+        if p.exists():
+            shutil.copy(p, output_path)
+            return output_path, True
+
+    # Fallback: create minimal config if example not found
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(_MINIMAL_CONFIG)
+    return output_path, False
+
+
 __all__ = [
     "_expand_env_vars",
     "find_project_root",
@@ -214,4 +271,6 @@ __all__ = [
     "get_config_default",
     "find_latest_dataset",
     "resolve_dataset_path",
+    "create_evalyn_yaml",
+    "_MINIMAL_CONFIG",
 ]

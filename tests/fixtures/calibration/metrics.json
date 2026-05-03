@@ -1,0 +1,16 @@
+[
+  {
+    "id": "helpfulness",
+    "type": "llm_judge",
+    "config": {
+      "prompt": "Evaluate whether the response is helpful for a research assistant context.",
+      "rubric": [
+        "Response directly addresses the user's question or request",
+        "Response provides accurate and relevant information",
+        "Response is appropriately detailed (not too brief, not overly verbose)",
+        "Response guides the user toward productive research activities"
+      ],
+      "threshold": 0.5
+    }
+  }
+]

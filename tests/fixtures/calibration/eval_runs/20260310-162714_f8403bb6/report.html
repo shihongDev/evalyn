@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eval Dashboard - test-llm-judge</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            /* Backgrounds - warm cream tones */
+            --bg-primary: #FFFBF7;
+            --bg-secondary: #FBF7F3;
+            --bg-tertiary: #F5EDE6;
+            --bg-hover: #F0E8E0;
+
+            /* Accents - terracotta and warm tones */
+            --accent-primary: #D4A27F;
+            --accent-secondary: #C4836A;
+            --accent-muted: #A89F97;
+            --accent-purple: #9B8AA6;
+
+            /* Status */
+            --status-pass: #6B8E8E;
+            --status-fail: #C97B63;
+            --status-warn: #D4A27F;
+
+            /* Text */
+            --text-primary: #1A1A1A;
+            --text-secondary: #555555;
+            --text-muted: #888888;
+
+            /* Borders */
+            --border-subtle: rgba(212, 162, 127, 0.2);
+            --border-strong: rgba(212, 162, 127, 0.4);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            font-size: 14px;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .dashboard {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* Header Bar */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            margin-bottom: 24px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .header-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .header-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .header-meta span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .header-meta .value {
+            color: var(--text-secondary);
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+        }
+
+        /* KPI Bar - horizontal, no cards */
+        .kpi-bar {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            margin-bottom: 24px;
+            overflow-x: auto;
+        }
+
+        .kpi-item {
+            flex: 1;
+            min-width: 120px;
+            padding: 0 24px;
+            border-right: 1px solid var(--border-subtle);
+            text-align: center;
+        }
+
+        .kpi-item:last-child {
+            border-right: none;
+        }
+
+        .kpi-value {
+            font-size: 32px;
+            font-weight: 700;
+            line-height: 1.1;
+            margin-bottom: 4px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .kpi-value.pass { color: var(--status-pass); }
+        .kpi-value.warn { color: var(--status-warn); }
+        .kpi-value.fail { color: var(--status-fail); }
+        .kpi-value.neutral { color: var(--text-primary); }
+
+        .kpi-unit {
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--text-muted);
+            margin-left: 2px;
+        }
+
+        .kpi-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        /* Section layout */
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section-header {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        /* Charts Grid */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .chart-box {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            padding: 20px;
+        }
+
+        .chart-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        /* Dense Table */
+        .table-wrapper {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        th {
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 500;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: var(--text-muted);
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-strong);
+            white-space: nowrap;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        th:hover {
+            color: var(--text-secondary);
+        }
+
+        /* Pinned average row */
+        tr.avg-row {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+        }
+
+        tr.avg-row td {
+            border-bottom: 2px solid var(--border-strong);
+            color: var(--accent-primary);
+        }
+
+        td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+        }
+
+        tr:hover {
+            background: var(--bg-hover);
+        }
+
+        /* Mini score bar */
+        .score-bar {
+            display: inline-block;
+            width: 40px;
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            overflow: hidden;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        .score-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+        }
+
+        .score-bar-fill.high { background: var(--status-pass); }
+        .score-bar-fill.mid { background: var(--status-warn); }
+        .score-bar-fill.low { background: var(--status-fail); }
+
+        /* Status indicators */
+        .status-pass { color: var(--status-pass); }
+        .status-fail { color: var(--status-fail); }
+        .status-warn { color: var(--status-warn); }
+
+        /* Failed Items Section */
+        .failed-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .failed-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .failed-header h3 {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .failed-count {
+            font-size: 12px;
+            color: var(--status-fail);
+            font-weight: 600;
+        }
+
+        .failed-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .failed-item {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .failed-item:last-child {
+            border-bottom: none;
+        }
+
+        .failed-item-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .failed-item-id {
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .failed-item-summary {
+            font-size: 12px;
+            color: var(--status-fail);
+        }
+
+        .failed-item-content {
+            display: none;
+        }
+
+        .failed-item.expanded .failed-item-content {
+            display: block;
+        }
+
+        .io-block {
+            margin-top: 12px;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+            font-size: 12px;
+            max-height: 150px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .io-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        }
+
+        .io-block.input {
+            border-left: 3px solid var(--accent-purple);
+        }
+
+        .io-block.output {
+            border-left: 3px solid var(--accent-secondary);
+        }
+
+        .expand-btn {
+            background: none;
+            border: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            padding: 4px 10px;
+            font-size: 11px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .expand-btn:hover {
+            border-color: var(--text-muted);
+            color: var(--text-secondary);
+        }
+
+        /* Enhanced failed item expansion */
+        .io-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 900px) {
+            .io-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .io-content {
+            margin: 0;
+            padding: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 12px;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+            color: var(--text-secondary);
+        }
+
+        .metric-details-section {
+            margin-top: 16px;
+        }
+
+        .metric-detail {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-left: 3px solid var(--status-fail);
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 8px;
+        }
+
+        .metric-detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .metric-detail-name {
+            font-weight: 600;
+            color: var(--status-fail);
+            font-size: 13px;
+        }
+
+        .metric-detail-score {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+        }
+
+        .metric-detail-reason {
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        /* Metadata footer */
+        .footer {
+            margin-top: 24px;
+            padding: 16px 0;
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            gap: 32px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .footer-item {
+            display: flex;
+            gap: 8px;
+        }
+
+        .footer-label {
+            color: var(--text-muted);
+        }
+
+        .footer-value {
+            color: var(--text-secondary);
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, monospace;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .kpi-bar {
+                flex-wrap: wrap;
+            }
+            .kpi-item {
+                flex: 1 1 45%;
+                border-right: none;
+                border-bottom: 1px solid var(--border-subtle);
+                padding: 16px;
+            }
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-strong);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header Bar -->
+        <div class="header">
+            <div class="header-left">
+                <div class="header-title">Evaluation Dashboard</div>
+                <div class="header-meta">
+                    <span>Dataset: <span class="value">test-llm-judge</span></span>
+                    <span>Run: <span class="value">f8403bb6-47c...</span></span>
+                    <span>Time: <span class="value">2026-03-10T16:27:14</span></span>
+                </div>
+            </div>
+        </div>
+        <!-- KPI Bar -->
+        <div class="kpi-bar">
+            <div class="kpi-item">
+                <div class="kpi-value neutral">100</div>
+                <div class="kpi-label">Items</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value neutral">1</div>
+                <div class="kpi-label">Metrics</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value pass">93.0<span class="kpi-unit">%</span></div>
+                <div class="kpi-label">Pass Rate</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value fail">7</div>
+                <div class="kpi-label">Failed</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value pass">93</div>
+                <div class="kpi-label">All Passed</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value neutral">$0.0917</div>
+                <div class="kpi-label">Judge Cost</div>
+            </div>
+            <div class="kpi-item">
+                <div class="kpi-value pass">93<span class="kpi-unit">%</span></div>
+                <div class="kpi-label">helpfulness</div>
+            </div>
+        </div>
+        <!-- Charts Grid -->
+        <div class="charts-grid">
+            <div class="chart-box">
+                <div class="chart-title">Pass Rate by Metric</div>
+                <div class="chart-container">
+                    <canvas id="passRateChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-box">
+                <div class="chart-title">Score Distribution</div>
+                <div class="chart-container">
+                    <canvas id="scoreDistChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <!-- Metric Details Table -->
+        <div class="section">
+            <div class="section-header">Metric Details</div>
+            <div class="table-wrapper">
+                <table id="metricsTable">
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Type</th>
+                            <th>Pass Rate</th>
+                            <th>Avg Score</th>
+                            <th>Min</th>
+                            <th>Max</th>
+                            <th>Std Dev</th>
+                            <th>Passed</th>
+                            <th>Failed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Average row pinned at top -->
+                        <tr class="avg-row">
+                            <td>AVG</td>
+                            <td>-</td>
+                            <td>93.0%</td>
+                            <td>0.930</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>93</td>
+                            <td>7</td>
+                        </tr>
+                        <tr>
+            <td style="color: var(--text-primary); font-weight: 500;">helpfulness</td>
+            <td><span class="status-warn">sub</span></td>
+            <td><span class="score-bar"><span class="score-bar-fill high" style="width: 93.0%"></span></span><span class="status-pass">93.0%</span></td>
+            <td>0.930</td>
+            <td>0.000</td>
+            <td>1.000</td>
+            <td>0.255</td>
+            <td class="status-pass">93</td>
+            <td class="status-fail">7</td>
+        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <!-- Failed Items Section -->
+        <div class="section">
+            <div class="section-header">Failed Items</div>
+            <div class="failed-section">
+                <div class="failed-header">
+                    <h3>Items with metric failures</h3>
+                    <span class="failed-count">7 items</span>
+                </div>
+                <div class="failed-list">
+                    <div class="failed-item" id="item-0">
+            <div class="failed-item-header">
+                <div>
+                    <span class="failed-item-id">7678048e-803d-4dd1-9dd0-...</span>
+                    <span class="failed-item-summary">1/1 failed</span>
+                </div>
+                <button class="expand-btn" onclick="toggleExpand(0)">Expand</button>
+            </div>
+            <div class="failed-item-content">
+                <div class="io-section">
+                    <div class="io-block input">
+                        <div class="io-label">INPUT</div>
+                        <pre class="io-content">{
+  &quot;args&quot;: [],
+  &quot;kwargs&quot;: {
+    &quot;question&quot;: &quot;How does 5G technology work?&quot;,
+    &quot;initial_queries&quot;: 1,
+    &quot;max_loops&quot;: 1,
+    &quot;reasoning_model&quot;: &quot;gemini-2.5-flash-lite&quot;
+  }
+}</pre>
+                    </div>
+                    <div class="io-block output">
+                        <div class="io-label">OUTPUT</div>
+                        <pre class="io-content">5G technology represents a significant advancement over previous generations of mobile networks, offering faster speeds, lower latency, and the capacity to connect a vastly larger number of devices. Its functionality is enabled by a combination of operating across multiple frequency bands and utilizing sophisticated technologies.
+
+**How 5G Works:**
+
+5G operates across three primary ranges of the radio spectrum, each with its own characteristics:
+*   **Low-band (Sub-6 GHz, below 1 GHz):** Provides extensive coverage and good signal penetration through buildings, making it suitable for broad, foundational coverage, though speeds are comparable to 4G LTE [wikipedia](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGhwUMSH8Ua2GNeiup0gZR8Qd2d__o_h92COdlNeJkHjQln0ojdnd7VjAtJ28dcERIQ3y_osbxZjmrQeKOoFQh2rqv8voxuWW8B8FT9JkvIvIcA3WakvaKTxJPU) [cablefree](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGNNjaIGK3xgzMO97MliMXb98Uo5bXWkSpZsN-nyv_7lXoSPdJDlIajMWB_5inPYY-sLbtaVzJpYtGCws5mZH1_Cj3w_1vYli_WVlbOW7-xaOExFMAGvxBtV29CI9bUVkVw8qo3RQeqjzWFSjxFCI3qAmPtp76wbIbkOd_UuQcnixDo7M8k) [puretalk](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEQdCVXWUQ_OjKtLz016A22U8jJCJOUDYw-CBVa23plItuux-lPpavyd6iS1q5toos7cKsHa1n3Ooo6x9WJCRPTOAlhTi1yL_L-17VtGQjsoB7nMyAXvWLmE-jfIYrG7VDu8FKClVEHsfm68pgC400aD4hANQcYlC9CvL-ipqhq1NLmww==) [rethinkresearch](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGTdJz8MqZPR6kk1mU6HwNRHWiNkY7bXliYaTY9Qtn4ewZSvrS4n5Y3AY_lgGsVvFaGwzB2onbYKrgJBtv5witjMAbX9Qmt0NPdx7el4cnUcnpQpDECJe2fwheLkPa6AYrSDepTozphARbAYTkLU5PcnFoA8JBuGugE7Pkp0JVN) [geeksforgeeks](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE9TsIEK5Oxwy6SPba4AFQ0DuFjyxkX6mh1ya3HhY4EBqCdwQPdR4hZQbyfLvEs91fOValptiJlWOddUpOzqVpeAi9iZixWmqkveNJBq8LHJdde_iH0I51Tbl_jb7gnhk4V9_tBP8uYzNaRBkZ8oa55-brbd08nh9Tw2AKWlcDiK1adyhilPnEVs0r2PbhUWw==) [router-switch](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQELYkMDebjH2iyMbHYgoaFxdVnwwMdFg_f4ozsNZk4Weh_2e3YQDwGPmCxxciwSN8pIkHHSHdAGDnq57rC9K0lKN7jgSVDd8eDTHeETNfWjs0rkNnGoRNdPv4dUtszrKGK6WguB4U5gLSRJkgpgB1XIcxIsFckEkoHMJAJ715yXZPLvoNLJpT9J2RkymU8FUuGAtQAEXY_C8WNaJre_EH6kQXE=) [nokia](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGoa7FIDXD2O3DkUyCgVdDg_OujTUb59TLSShF0D7hhvJnqoHo7bwhP5K8dvCAGpWIuiPqmZYx3NY2OwPWKiGMaMWv7Rf3fuKjKrJVb0flkXc5ROqBqDksfEaPhnDxr0guSQi2S3lMTPkjAhY5Crf0XwSUYdMDK-wrbGHFRAni3yd7AEGjP) [orange](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFuUnjJft21nAxXwi6csO-VFpOE0coD7GkClHwA9-hylRR_80DFMpKXoeWHbcJksO1oJ8KZrphkS3tNNGMdrraIiMum3eZf1YOOCy9WVgTFRg1K51XdQzG6WXmXdRKnYvhf4J8QyCfgsxI7Uj6-_qDOJJl6ROULIDA0CzH8GrxKgb8ehMtWMwJ7OJC5enLq_9K8q56Hl6XGA4zHW7N6HQ==) [westbase](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE8L8WMMqXGvF-rtLa53jb9H85k_kj29oD7eAjjsdW9D0eCapTl5UG7Wh4jauRiC_UVl6e3XN2zytug0PqFjt9-p0ecCvVXpmFlBvur5kX3l4j09CM4OUiW6D2ohbW2rGX_YNdUCDs-WfEW4suTdv0yspesTCkJ_CcvFG2ckLPsBYKrbdjEtAE0r8HfoXCQu8edVw==) [verizon](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHAoRr421nk_c52-IBXz5yienO3FcrkGNLZ4G3ResXTOpnUFDF24PkuCEMHbM2qxCkjm5TR6FTp_MFmnHhW7L6RtAHVVX8L2dAnqZa1Eb8jGmCXTE7T6PNS-6-FnSxWP_5WQ_VARZ2CYEzQwG3XDfHcrjQcloVy9yWNCQ==) [ibm](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGNNjaIGK3xgzMO97MliMXb98Uo5bXWkSpZsN-nyv_7lXoSPdJDlIajMWB_5inPYY-sLbtaVzJpYtGCws5mZH1_Cj3w_1vYli_WVlbOW7-xaOExFMAGvxBtV29CI9bUVkVw8qo3RQeqjzWFSjxFCI3qAmPtp76wbIbkOd_UuQcnixDo7M8k0).
+*   **Mid-band (1 GHz to 6 GHz):** Offers a balance between coverage and speed, carrying more data than low-band frequencies and covering larger areas than high-band. It is ideal for urban and suburban deployments [wikipedia](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGhwUMSH8Ua2GNeiup0gZR8Qd2d__o_h92COdlNeJkHjQln0ojdnd7VjAtJ28dcERIQ3y_osbxZjmrQeKOoFQh2rqv8voxuWW8B8FT9JkvIvIcA3WakvaKTxJPU) [cablefree](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGNNjaIGK3xgzMO97MliMXb98Uo5bXWkSpZsN-nyv_7lXoSPdJDlIajMWB_5inPYY-sLbtaVzJpYtGCws5mZH1_Cj3w_1vYli_WVlbOW7-xaOExFMAGvxBtV29CI9bUVkVw8qo3RQeqjzWFSjxFCI3qAmPtp76wbIbkOd_UuQcnixDo7M8k) [puretalk](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEQdCVXWUQ_OjKtLz016A22U8jJCJOUDYw-CBVa23plItuux-lPpavyd6iS1q5toos7cKsHa1n3Ooo6x9WJCRPTOAlhTi1yL_L-17VtGQjsoB7nMyAXvWLmE-jfIYrG7VDu8FKClVEHsfm68pgC400aD4hANQcYlC9CvL-ipqhq1NLmww==) [rethinkresearch](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGTdJz8MqZPR6kk1mU6HwNRHWiNkY7bXliYaTY9Qtn4ewZSvrS4n5Y3AY_lgGsVvFaGwzB2onbYKrgJBtv5witjMAbX9Qmt0NPdx7el4cnUcnpQpDECJe2fwheLkPa6AYrSDepTozphARbAYTkLU5PcnFoA8JBuGugE7Pkp0JVN) [geeksforgeeks](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE9TsIEK5Oxwy6SPba4AFQ0DuFjyxkX6mh1ya3HhY4EBqCdwQPdR4hZQbyfLvEs91fOValptiJlWOddUpOzqVpeAi9iZixWmqkveNJBq8LHJdde_iH0I51Tbl_jb7gnhk4V9_tBP8uYzNaRBkZ8oa55-brbd08nh9Tw2AKWlcDiK1adyhilPnEVs0r2PbhUWw==) [router-switch](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQELYkMDebjH2iyMbHYgoaFxdVnwwMdFg_f4ozsNZk4Weh_2e3YQDwGPmCxxciwSN8pIkHHSHdAGDnq57rC9K0lKN7jgSVDd8eDTHeETNfWjs0rkNnGoRNdPv4dUtszrKGK6WguB4U5gLSRJkgpgB1XIcxIsFckEkoHMJAJ715yXZPLvoNLJpT9J2RkymU8FUuGAtQAEXY_C8WNaJre_EH6kQXE=) [nokia](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGoa7FIDXD2O3DkUyCgVdDg_OujTUb59TLSShF0D7hhvJnqoHo7bwhP5K8dvCAGpWIuiPqmZYx3NY2OwPWKiGMaMWv7Rf3fuKjKrJVb0flkXc5ROqBqDksfEaPhnDxr0guSQi2S3lMTPkjAhY5Crf0XwSUYdMDK-wrbGHFRAni3yd7AEGjP) [orange](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFuUnjJft21nAxXwi6csO-VFpOE0coD7GkClHwA9-hylRR_80DFMpKXoeWHbcJksO1oJ8KZrphkS3tNNGMdrraIiMum3eZf1YOOCy9WVgTFRg1K51XdQzG6WXmXdRKnYvhf4J8QyCfgsxI7Uj6-_qDOJJl6ROULIDA0CzH8GrxKgb8ehMtWMwJ7OJC5enLq_9K8q56Hl6XGA4zHW7N6HQ==) [westbase](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE8L8WMMqXGvF-rtLa53jb9H85k_kj29oD7eAjjsdW9D0eCapTl5UG7Wh4jauRiC_UVl6e3XN2zytug0PqFjt9-p0ecCvVXpmFlBvur5kX3l4j09CM4OUiW6D2ohbW2rGX_YNdUCDs-WfEW4suTdv0yspesTCkJ_CcvFG2ckLPsBYKrbdjEtAE0r8HfoXCQu8edVw==) [verizon](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHAoRr421nk_c52-IBXz5yienO3FcrkGNLZ4G3ResXTOpnUFDF24PkuCEMHbM2qxCkjm5TR6FTp_MFmnHhW7L6RtAHVVX8L2dAnqZa1Eb8jGmCXTE7T6PNS-6-FnSxWP_5WQ_VARZ2CYEzQwG3XDfHcrjQcloVy9yWNCQ==) [ibm](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGNNjaIGK3xgzMO97MliMXb98Uo5bXWkSpZsN-nyv_7lXoSPdJDlIajMWB_5inPYY-sLbtaVzJpYtGCws5mZH1_Cj3w_1vYli_WVlbOW7-xaOExFMAGvxBtV29CI9bUVkVw8qo3RQeqjzWFSjxFCI3qAmPtp76wbIbkOd_UuQcnixDo7M8k0).
+*   **High-band (Millimeter Wave or mmWave, 24 GHz to 71 GHz):** Delivers extremely high speeds and massive capacity but has a limited range and is easily obstructed. It&#x27;s best suited for dense urban areas and requires small cells for coverage [wikipedia](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGhwUMSH8Ua2GNeiup0gZR8Qd2d__o_h92COdlNeJkHjQln0ojdnd7VjAtJ28dcERIQ3y_osbxZjmrQeKOoFQh2rqv8voxuWW8B8FT9JkvIvIcA3WakvaKTxJPU) [ni](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGNNjaIGK3xgzMO97MliMXb98Uo5bXWkSpZsN-nyv_7lXoSPdJDlIajMWB_5inPYY-sLbtaVzJpYtGCws5mZH1_Cj3w_1vYli_WVlbOW7-xaOExFMAGvxBtV29CI9bUVkVw8qo3RQeqjzWFSjxFCI3qAmPtp76wbIbkOd_UuQcnixDo7M8k1) [cablefree](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGNNjaIGK3xgzMO97MliMXb98Uo5bXWkSpZsN-nyv_7lXoSPdJDlIajMWB_5inPYY-sLbtaVzJpYtGCws5mZH1_Cj3w_1vYli_WVlbOW7-xaOExFMAGvxBtV29CI9bUVkVw8qo3RQeqjzWFSjxFCI3qAmPtp76wbIbkOd_UuQcnixDo7M8k) [puretalk](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEQdCVXWUQ_OjKtLz016A22U8jJCJOUDYw-CBVa23plItuux-lPpavyd6iS1q5toos7cKsHa1n3Ooo6x9WJCRPTOAlhTi1yL_L-17VtGQjsoB7nMyAXvWLmE-jfIYrG7VDu8FKClVEHsfm68pgC400aD4hANQcYlC9CvL-ipqhq1NLmww==) [rethinkresearch](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGTdJz8MqZPR6kk1mU6HwNRHWiNkY7bXliYaTY9Qtn4ewZSvrS4n5Y3AY_lgGsVvFaGwzB2onbYKrgJBtv5witjMAbX9Qmt0NPdx7el4cnUcnpQpDECJe2fwheLkPa6AYrSDepTozphARbAYTkLU5PcnFoA8JBuGugE7Pkp0JVN) [geeksforgeeks](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE9TsIEK5Oxwy6SPba4AFQ0DuFjyxkX6mh1ya3HhY4EBqCdwQPdR4hZQbyfLvEs91fOValptiJlWOddUpOzqVpeAi9iZixWmqkveNJBq8LHJdde_iH0I51Tbl_jb7gnhk4V9_tBP8uYzNaRBkZ8oa55-brbd08nh9Tw2AKWlcDiK1adyhilPnEVs0r2PbhUWw==) [router-switch](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQELYkMDebjH2iyMbHYgoaFxdVnwwMdFg_f4ozsNZk4Weh_2e3YQDwGPmCxxciwSN8pIkHHSHdAGDnq57rC9K0lKN7jgSVDd8eDTHeETNfWjs0rkNnGoRNdPv4dUtszrKGK6WguB4U5gLSRJkgpgB1XIcxIsFckEkoHMJAJ715yXZPLvoNLJpT9J2RkymU8FUuGAtQAEXY_C8WNaJre_EH6kQXE=) [stl](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGNNjaIGK3xgzMO97MliMXb98Uo5bXWkSpZsN-nyv_7lXoSPdJDlIajMWB_5inPYY-sLbtaVzJpYtGCws5mZH1_Cj3w_1vYli_WVlbOW7-xaOExFMAGvxBtV29CI9bUVkVw8qo3RQeqjzWFSjxFCI3qAmPtp76wbIbkOd_UuQcnixDo7M8k2) [celona](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGNNjaIGK3xgzMO97MliMXb98Uo5bXWkSpZsN-nyv_7lXoSPdJDlIajMWB_5inPYY-sLbtaVzJpYtGCws5mZH1_Cj3w_1vYli_WVlbOW7-xaOExFMAGvxBtV29CI9bUVkVw8qo3RQeqjzWFSjxFCI3qAmPtp76wbIbkOd_UuQcnixDo7M8k3) [nokia](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGoa7FIDXD2O3DkUyCgVdDg_OujTUb59TLSShF0D7hhvJnqoHo7bwhP5K8dvCAGpWIuiPqmZYx3NY2OwPWKiGMaMWv7Rf3fuKjKrJVb0flkXc5ROqBqDksfEaPhnDxr0guSQi2S3lMTPkjAhY5Crf0XwSUYdMDK-wrbGHFRAni3yd7AEGjP) [orange](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFuUnjJft21nAxXwi6csO-VFpOE0coD7GkClHwA9-hylRR_80DFMpKXoeWHbcJksO1oJ8KZrphkS3tNNGMdrraIiMum3eZf1YOOCy9WVgTFRg1K51XdQzG6WXmXdRKnYvhf4J8QyCfgsxI7Uj6-_qDOJJl6ROULIDA0CzH8GrxKgb8ehMtWMwJ7OJC5enLq_9K8q56Hl6XGA4zHW7N6HQ==) [ericsson](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGNNjaIGK3xgzMO97MliMXb98Uo5bXWkSpZsN-nyv_7lXoSPdJDlIajMWB_5inPYY-sLbtaVzJpYtGCws5mZH1_Cj3w_1vYli_W
+... (truncated)</pre>
+                    </div>
+                </div>
+                <div class="metric-details-section">
+                    <div class="io-label">FAILED METRICS</div>
+                    <div class="metric-detail">
+                    <div class="metric-detail-header">
+                        <span class="metric-detail-name">✗ helpfulness</span>
+                        <span class="metric-detail-score">(0.00)</span>
+                    </div>
+                    <div class="metric-detail-reason">API call failed: Gemini API error (503): {
+  &quot;error&quot;: {
+    &quot;code&quot;: 503,
+    &quot;message&quot;: &quot;This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.&quot;,
+    &quot;status&quot;: &quot;UNAVAILABLE&quot;
+  }
+}
+</div>
+                </div>
+                </div>
+            </div>
+        </div><div class="failed-item" id="item-1">
+            <div class="failed-item-header">
+                <div>
+                    <span class="failed-item-id">893ad2d6-12b7-4b84-8587-...</span>
+                    <span class="failed-item-summary">1/1 failed</span>
+                </div>
+                <button class="expand-btn" onclick="toggleExpand(1)">Expand</button>
+            </div>
+            <div class="failed-item-content">
+                <div class="io-section">
+                    <div class="io-block input">
+                        <div class="io-label">INPUT</div>
+                        <pre class="io-content">{
+  &quot;args&quot;: [],
+  &quot;kwargs&quot;: {
+    &quot;question&quot;: &quot;What causes earthquakes?&quot;,
+    &quot;initial_queries&quot;: 1,
+    &quot;max_loops&quot;: 1,
+    &quot;reasoning_model&quot;: &quot;gemini-2.5-flash-lite&quot;
+  }
+}</pre>
+                    </div>
+                    <div class="io-block output">
+                        <div class="io-label">OUTPUT</div>
+                        <pre class="io-content">Earthquakes are primarily caused by the natural movement of Earth&#x27;s tectonic plates, volcanic activity, and, increasingly, by human activities. While seismic activity has not slowed down, some regions are experiencing more frequent tremors due to these factors [medium](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGT3YOIyVqdgnSYuCnjGfuCJU_d2gDTH-kgGZE_Vmt22JMw-ENkyzBr0ZLZnyqNBoOvK9gVJZuKUQ0LxAAdfgHy_nYcXdsu1JEFgDBY451Up9NjjTJ3X-df9ClFYQGxtDR_mUSL-REkq-70vDiDA25KnBtgcWuGGzQM4BOcKkbhEB2IvxzoBNTKW9b52E-R9OLHfa7826WgyiHJ8DzpW47yQA==) [eurasiareview](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEHYUduYQD7baq6vcuoCGfEbC5euIe9ea_TqLwm3_9oDVqeAbkZiQ5WP_Jl4TBoLsoPcqYI5Ca3hrv1rks1dIcv7tV9ZBYG4n3Iq6AAqZhHDYeQ6L7ONLf3aXXIAZMlh-D_5Tb1zRCrjHvpZR2-vEpRw4Qe-O_JM7pHd7Uvbdjm5gvWWOQcdsjB-_g9DXByhnFXhG5QAToC0cmvwGBQ7nioVJGkyCExDN0ic1WSW6o=).
+
+**Tectonic Plate Movement:**
+The fundamental cause of earthquakes is the continuous, slow movement of Earth&#x27;s tectonic plates. Stress accumulates as these plates interact at their boundaries and is eventually released as seismic waves. Subduction zones, where one plate is forced beneath another, are particularly prone to powerful earthquakes [medium](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGT3YOIyVqdgnSYuCnjGfuCJU_d2gDTH-kgGZE_Vmt22JMw-ENkyzBr0ZLZnyqNBoOvK9gVJZuKUQ0LxAAdfgHy_nYcXdsu1JEFgDBY451Up9NjjTJ3X-df9ClFYQGxtDR_mUSL-REkq-70vDiDA25KnBtgcWuGGzQM4BOcKkbhEB2IvxzoBNTKW9b52E-R9OLHfa7826WgyiHJ8DzpW47yQA==) [geoquake](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFvkLxMWBYm2j-YtXyN_OPCtmHg5AEtAWpKIx9ByPV4ZVsrkptQqKb_JkX8zMbmEcms_F7LMEscHiW_p1m6Jt_-8MOFM_2WkNof3BqSWCUeogrVhuZBzZ-9w1tnrQ2Mxmyh_Mmngzuxp4ABZuG5ggLjQ-0u9jygvhR9tI86DMoCGFKxNvFPrEs=) [britannica](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHx25ZM1XmRSsmfZNVTHD9Mt83BjoUqJgfgp9uhKwzOxMGu_W_VVUu47ansBFgbuC9J2x7MXA-02KhQH_KS0U2eQWkQY0n_d6ZDGweGIf6KqBXT8iwWZblrHEf8oPV9P2VNH0hc3aeCWARyuj7OZUs=). The &quot;Ring of Fire,&quot; a horseshoe-shaped belt around the Pacific Ocean, is a high-risk area for global earthquakes, including regions like Japan and California [geoquake](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFvkLxMWBYm2j-YtXyN_OPCtmHg5AEtAWpKIx9ByPV4ZVsrkptQqKb_JkX8zMbmEcms_F7LMEscHiW_p1m6Jt_-8MOFM_2WkNof3BqSWCUeogrVhuZBzZ-9w1tnrQ2Mxmyh_Mmngzuxp4ABZuG5ggLjQ-0u9jygvhR9tI86DMoCGFKxNvFPrEs=) [britannica](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHx25ZM1XmRSsmfZNVTHD9Mt83BjoUqJgfgp9uhKwzOxMGu_W_VVUu47ansBFgbuC9J2x7MXA-02KhQH_KS0U2eQWkQY0n_d6ZDGweGIf6KqBXT8iwWZblrHEf8oPV9P2VNH0hc3aeCWARyuj7OZUs=). Scientists are also observing complex tectonic processes, such as the fragmentation of subducting plates, which can lead to the formation of new microplates and boundaries that influence earthquake generation [forbes](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFpZoLOpvqVIjD5UGsOq8ekb7SMISXrhyeWxTvhVuKyxgoLoRWwFOjg-9xuBwWvy1jVFbnZfHzNxDXelYm38oyeAwJjoCOkmOxJk7rKpyHnW2u50PX9MNhPB71YR5FbMvWu5IpqJ-Ch5TaMPYAQFei3X3zjeyub6aE8NJ50aoobQUOikDzRH9sV0OYZwanRSBSJAu22tUs9KjObd86NaK2JgKtq0e5-cayno54lc9X8FI1SDigL_VTeXgr0c2_fuA==). Recent scientific reviews highlight the complexity of plate interactions at triple junctions and the fact that oceanic plates are not as rigid as previously thought and can fracture due to internal forces, potentially linking to seismic activity [utoronto](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFd-4YeyEnfakNvhPr9mqX2A1cdYPmDeOXuzorX43z9eXbTisfsKFVCYReVjcg88iifRrXw8VLROlXTma8XEAJjHRF6RTLfrnBpNLwq2LF9P0fkS_56XoOfguJyJhuhZ0gasEWLpymVE6Xutg9wZngio3NZK3aQ0XFrzpLS8A0cxqF4eZh0YQM_aOn55meXVR3wnOm9p_mPG42G9TWjyH7G97EGkpyy47juTr2Y2B-3B0G8EAxciwsvdxuh2WzLCh3Jyjit4Isr) [utoronto](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQExcirErQPKn2pifdiPQojyTaE7FWUOHjwtGnZSh3I3hvX7-KYMNBFUfV8k4rtLOfxyKIMz1fRZdlM7sZdqxrV6VfOd4y-4P5-ek4GsMb5-T7FLtxo2n3G5eUhJW6t4RzzG8dQwI7VaktXXEsZ2DkChugY9dhUYWQ8lvo12bI2P0LF7RFVA5BnhIl2FHgSi5qIPG86O3I0_LLJSV5ADRNTfZIle5Oq7BHc0tf1gku2fwKiwZa_QO-4uCDwLTB429U_vgII=) [ucdavis](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHOGSz8TkbAc0R9pyAq-SiV3pmhxAf6kLUBJvgtIfjFYjFDC_pT28wx4zZYvZDxXt3iU2nVs9wTyRMEPbz2UmICOWmB23VPAQNM1z0XYkoTkvmlSkDe2l7cPwSkb7AHClY8XijCFQegCJ4mVbuHvpwQ81oDv8k5XbHXnQBl9SOxG2LOnhlk7croiPBUQKcITa_uilDTkd2b) [discovermagazine](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGOvG8WiEnUl5Vh4EOnqDzvWal_cVFNn_GnzX1HS98uO5bfCAMD_IvmciAd8fpestckFQ8qgrvHuwyPjbMioqU_qUeb5x4Ri7p1JiMfgbDuavb3zeHeICDjpwnWMPdtSpFbvUfqFZq2NuE9VzExlqmRF4jo_sO260IrMT_YEGOZUGMD9KC8n51amUDpzVKPedR1-4WVDBapbOVSb3yvqjM9K9M7v7t5KXbXGTzqUj6RzA0=). Advanced kinematic models are being developed for plate boundaries to improve fault slip rate estimations and earthquake risk assessments [eos](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGW9XpFeGH4cfHE9WMuCRCioFMjPsE3fXdxhloiEaINj8PCXRJ5jyb9J3gKSWQXbj6-N7XeslV2jxigp8t_Gxw15jnHkWPwG1pt8bd0-1z2Svks7CT_Jl-KUjSSHHLYhpXzuz5CpTj3cSP1RT74D0WsItxL4HhBliAomW0sBBzVwUbNP0PrM17LbJjVbm7-V5NzxpfuC9a5JQYqeiVqPK0G).
+
+**Volcanic Activity:**
+Volcanic activity is another significant cause of earthquakes. The movement of magma beneath a volcano can fracture rock and generate tremors. This is common in the Pacific Ring of Fire [medium](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGT3YOIyVqdgnSYuCnjGfuCJU_d2gDTH-kgGZE_Vmt22JMw-ENkyzBr0ZLZnyqNBoOvK9gVJZuKUQ0LxAAdfgHy_nYcXdsu1JEFgDBY451Up9NjjTJ3X-df9ClFYQGxtDR_mUSL-REkq-70vDiDA25KnBtgcWuGGzQM4BOcKkbhEB2IvxzoBNTKW9b52E-R9OLHfa7826WgyiHJ8DzpW47yQA==) [geologyscience](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEeWhQwU7nL8YvYm-p6cnmi8FA60THgZ5zwb3lX4Dd4NSTIjVBdmBVupmt7NIoylOanuI83-AYRe2RCDnjawcWnEiB24N4zsi0IRwB4qGXHaY3YjGil4MCJPOa96DR2924ds79xkit9_nSOr9xPO8qrvH-pto10-qw8_hbYdHeVexuw7KDNN_BIGgzwsaeH0AbHAoGgt9QO2dfaHAMruz_2z1QV6TJgV4xmybw-99ueig==). Increased volcanic activity, such as in Iceland and Indonesia in 2025, has led to more frequent earthquake swarms [medium](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGT3YOIyVqdgnSYuCnjGfuCJU_d2gDTH-kgGZE_Vmt22JMw-ENkyzBr0ZLZnyqNBoOvK9gVJZuKUQ0LxAAdfgHy_nYcXdsu1JEFgDBY451Up9NjjTJ3X-df9ClFYQGxtDR_mUSL-REkq-70vDiDA25KnBtgcWuGGzQM4BOcKkbhEB2IvxzoBNTKW9b52E-R9OLHfa7826WgyiHJ8DzpW47yQA==). Volcanic earthquakes are primarily driven by the movement of magma, volcanic fluids, and gases beneath the Earth&#x27;s surface, which creates stress changes leading to rock fracturing [usgs](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFS1lmzzT8qRQXiXZorV7bZ7mApiMit3ZVPUH-OoK-UmgqLLwhyL-99rx74Gu_EHzC0SRZoANW4RbtyW28gyq3KlzBBcTI02r1t5xt-gffqOmXfrL35__6pFourw8AnWzeOjJxhiW__WRxMFg1ag6LnGpl0EFgAaaeI2-WpF_85LxYL7xCEcbY9mwKwyx0GydY3C_ytYNnpBCYxvpRt) [wikipedia](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGiXihgLVKu93j245L-C03_lWhcRPZKVlfvNhdBj_ODVYMDv5S0Ogb_RXnc-jNUX-EanJLzOIUywH0CdbuKC8CQWx1wrRtJrm5-MOHtEwKvI9-RqUrno_mvBMIF4eqU2ZmhKJLTuPj-KYzqR8Hr5D4arlUb) [gfz](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGaCWO7Ls2AgTXQhRkSed5xfaRiD2FVdLZcsaFCK6djReK0cJ1vMClvinWZrgXjzhiH0tgh03xWRdupYZ9-EywGuqA8l-irulq3ecsjFC0T1Y5RUwgAq6Mz9TBiX668S4HivFGuK0r7VEuNSkazyXoLyUz01EYFJtceMXH2SM-4FTgOL-Gcjx4Cs26yG7GhfFLUqyE7kFQGQiOB7iWENPWIj3O9). Large tectonic earthquakes can also trigger volcanic activity by altering stress fields around volcanoes, potentially opening new pathways for magma [researchgate](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEo9DfZKNSox1MSHCoD9AFwKRcBybURsDaWU8tsbyrVI1pTONx2kbLEE_cj2FxfeBRP8dgY5fhNldYe8ogyahfT7Ro-bAqhzzb6N_-uAyAxvRLYJZ8dOt8dPwL15xpTmwHqSpEzylfQL9u6YOEZQsRkmwflV0pL89WRCRieeYhJiXbEdJ4gu-eEMhs=1) [gfz](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGaCWO7Ls2AgTXQhRkSed5xfaRiD2FVdLZcsaFCK6djReK0cJ1vMClvinWZrgXjzhiH0tgh03xWRdupYZ9-EywGuqA8l-irulq3ecsjFC0T1Y5RUwgAq6Mz9TBiX668S4HivFGuK0r7VEuNSkazyXoLyUz01EYFJtceMXH2SM-4FTgOL-Gcjx4Cs26yG7GhfFLUqyE7kFQGQiOB7iWENPWIj3O9). Advancements in volcano seismology, including seismic networks and data analysis, are improving the understanding of subsurface structures and seismic sources [iavceivolcano](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFoFNGBTIELoYwrXWn7fhORuR4tuBiTCiU4vhSn3JWA3MGX-qlx2Hal16oCh-5HaRq188O1Ds44iWX3aJcXHjrWum5uo3QdnkWBVieV8fpLo6Bi9Z8yNcOIJHw-hZKbM2GXSPD3FTw_2cbobsG_zFhJh6op_zt90ICszZ09nQy-b9mHDrrVQPQWgkH2PRB7yFO6D_qvL6nDiUJXr9S3JV5e) [usgs](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEo9DfZKNSox1MSHCoD9AFwKRcBybURsDaWU8tsbyrVI1pTONx2kbLEE_cj2FxfeBRP8dgY5fhNldYe8ogyahfT7Ro-bAqhzzb6N_-uAyAxvRLYJZ8dOt8dPwL15xpTmwHqSpEzylfQL9u6YOEZQsRkmwflV0pL89WRCRieeYhJiXbEdJ4gu-eEMhs=).
+
+**Human-Induced Earthquakes (Induced Seismicity):**
+Human activities are increasingly contributing to seismic events. Industrial processes like hydraulic fracturing (fracking), wastewater injection, geothermal energy production, and carbon storage projects can lubricate fault lines or alter pore pressure, leading to earthquakes [medium](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGT3YOIyVqdgnSYuCnjGfuCJU_d2gDTH-kgGZE_Vmt22JMw-ENkyzBr0ZLZnyqNBoOvK9gVJZuKUQ0LxAAdfgHy_nYcXdsu1JEFgDBY451Up9NjjTJ3X-df9ClFYQGxtDR_mUSL-REkq-70vDiDA25KnBtgcWuGGzQM4BOcKkbhEB2IvxzoBNTKW9b52E-R9OLHfa7826WgyiHJ8DzpW47yQA==) [sciencedaily](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGD7XBiaPDzqWhV1LkJHULVHH6mdF_laL0pQR4Wp7d2PuEWhnJF4jw6Dws-ySjNmdF15-IbNsLG8KSCKOPeHlcQStMDKxvC4B5uggBjIk4oOzBuU1d0brc9JD6kVs-CqnKafrs2eNIQvv9ynfSM5hu2V_VXro5u9T4=) [myscience](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEHYUduYQD7baq6vcuoCGfEbC5euIe9ea_TqLwm3_9oDVqeAbkZiQ5WP_Jl4TBoLsoPcqYI5Ca3hrv1rks1dIcv7tV9ZBYG4n3Iq6AAqZhHDYeQ6L7ONLf3aXXIAZMlh-D_5Tb1zRCrjHvp
+... (truncated)</pre>
+                    </div>
+                </div>
+                <div class="metric-details-section">
+                    <div class="io-label">FAILED METRICS</div>
+                    <div class="metric-detail">
+                    <div class="metric-detail-header">
+                        <span class="metric-detail-name">✗ helpfulness</span>
+                        <span class="metric-detail-score">(0.00)</span>
+                    </div>
+                    <div class="metric-detail-reason">API call failed: Gemini API error (503): {
+  &quot;error&quot;: {
+    &quot;code&quot;: 503,
+    &quot;message&quot;: &quot;This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.&quot;,
+    &quot;status&quot;: &quot;UNAVAILABLE&quot;
+  }
+}
+</div>
+                </div>
+                </div>
+            </div>
+        </div><div class="failed-item" id="item-2">
+            <div class="failed-item-header">
+                <div>
+                    <span class="failed-item-id">f8479ffc-1972-45ff-b317-...</span>
+                    <span class="failed-item-summary">1/1 failed</span>
+                </div>
+                <button class="expand-btn" onclick="toggleExpand(2)">Expand</button>
+            </div>
+            <div class="failed-item-content">
+                <div class="io-section">
+                    <div class="io-block input">
+                        <div class="io-label">INPUT</div>
+                        <pre class="io-content">{
+  &quot;args&quot;: [],
+  &quot;kwargs&quot;: {
+    &quot;question&quot;: &quot;How does machine learning work?&quot;,
+    &quot;initial_queries&quot;: 1,
+    &quot;max_loops&quot;: 1,
+    &quot;reasoning_model&quot;: &quot;gemini-2.5-flash-lite&quot;
+  }
+}</pre>
+                    </div>
+                    <div class="io-block output">
+                        <div class="io-label">OUTPUT</div>
+                        <pre class="io-content">Machine learning (ML) is a branch of artificial intelligence that empowers systems to learn from data and make predictions or decisions without being explicitly programmed for every scenario [syracuse](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHETdpqxcGEcLmr2ftWFGbGb5IjezzrH7LnpBPcwF87kvC2la-vNcrRPtdm9nF6xdNc_O6fC3J_9Tql04fd2ijsuMrGO1UW_SmOIBwY9vI5P1DBiTufs1tffkdN2B3hUhLgKHmSWHch38Gql8tJut7FGg==) [ibm](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6ioX10a0p_-vKKdiFnf0a3jyrhmgaryvaQl_GshP3zNPgwR5trwQUs3R-Gjvog1cb7X0MW6uS8usWo-V2UGKvDwmFpYhQIzVZxHFRsDr4hfAeGgfJgEIkIhIOjEPNDeU62QAvST9fYCxUVKU=) [coralogix](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFpLpTmuEFIGZcKrtnCkodA1q0EDmGDv7z4hwh8-VD0KzD-0P8VKKrFi0S75zCnkM6tIWfWh_zJmKLEhW7NZna25YUUW6Wzu2CMpYA2XvB8hbMJWXIOJueDWq8pnwVaRP8K3dKf13U6e_uFNUmiGS72bw5DsMrzkGmu6DTSBmnmUEdqmFUWArxmIX2TneRY3TBTWUuvEY5JXu2N) [datacamp](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE1X1Fd5QdAbYgiM-8Cfwn56fDrgiFCWP8BcGlaTHfLGBvG4JtND5JC2xHuLLycVAGZFBfn7K5AXmKc_MBvgQ87zje7k2eyatwGV4RguOy9psYT1RFv86PWPxRqgVGPtNXZO_-xYlETL-gBE6ocmhWbZAhS6kdm0YAroq6LiuRhTQZGxHH1ug==). Instead of relying on rigid rules, ML algorithms are trained on data, allowing them to improve their performance and adapt through experience [syracuse](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHETdpqxcGEcLmr2ftWFGbGb5IjezzrH7LnpBPcwF87kvC2la-vNcrRPtdm9nF6xdNc_O6fC3J_9Tql04fd2ijsuMrGO1UW_SmOIBwY9vI5P1DBiTufs1tffkdN2B3hUhLgKHmSWHch38Gql8tJut7FGg==) [domo](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFC32aIzurOHmCXHnFDWJMG-myszDMFH0ndtW37xTiC0h8nHb2Ph8D_b5e2HwevTxp8yT7KLP9ULn70Be3LuvX4nvgjSTRbf3XTqsNaYCGmg1UZOMa6ySOiAjrZVtDRfiWVYREFJzudFfknjowwvIXl0YRRFsN-1Q1d) [ibm](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6ioX10a0p_-vKKdiFnf0a3jyrhmgaryvaQl_GshP3zNPgwR5trwQUs3R-Gjvog1cb7X0MW6uS8usWo-V2UGKvDwmFpYhQIzVZxHFRsDr4hfAeGgfJgEIkIhIOjEPNDeU62QAvST9fYCxUVKU=). This capability enables computers to tackle complex tasks that previously required human intuition [syracuse](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHETdpqxcGEcLmr2ftWFGbGb5IjezzrH7LnpBPcwF87kvC2la-vNcrRPtdm9nF6xdNc_O6fC3J_9Tql04fd2ijsuMrGO1UW_SmOIBwY9vI5P1DBiTufs1tffkdN2B3hUhLgKHmSWHch38Gql8tJut7FGg==).
+
+The field of machine learning is broadly categorized into three main types of learning paradigms:
+
+*   **Supervised Learning:** This approach involves training a model using a dataset where each input is paired with its correct output or label [seldon](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6ioX10a0p_-vKKdiFnf0a3jyrhmgaryvaQl_GshP3zNPgwR5trwQUs3R-Gjvog1cb7X0MW6uS8usWo-V2UGKvDwmFpYhQIzVZxHFRsDr4hfAeGgfJgEIkIhIOjEPNDeU62QAvST9fYCxUVKU=0) [wikipedia](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGX9ga8h6XdHtKAj6bUygvf3ZBduR8Ll2pJCe-jjxlaTgy43C3Gcqy64_1qlWUTYrpAkuVsEmrFm19jHi4HJHl514tTAYrCt0eBXp2-E4EDMiq6A-fbaxiiahAiBjEOkZwETmfcJwFWVgM=) [medium](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6ioX10a0p_-vKKdiFnf0a3jyrhmgaryvaQl_GshP3zNPgwR5trwQUs3R-Gjvog1cb7X0MW6uS8usWo-V2UGKvDwmFpYhQIzVZxHFRsDr4hfAeGgfJgEIkIhIOjEPNDeU62QAvST9fYCxUVKU=1) [artiba](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6ioX10a0p_-vKKdiFnf0a3jyrhmgaryvaQl_GshP3zNPgwR5trwQUs3R-Gjvog1cb7X0MW6uS8usWo-V2UGKvDwmFpYhQIzVZxHFRsDr4hfAeGgfJgEIkIhIOjEPNDeU62QAvST9fYCxUVKU=2) [google](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6ioX10a0p_-vKKdiFnf0a3jyrhmgaryvaQl_GshP3zNPgwR5trwQUs3R-Gjvog1cb7X0MW6uS8usWo-V2UGKvDwmFpYhQIzVZxHFRsDr4hfAeGgfJgEIkIhIOjEPNDeU62QAvST9fYCxUVKU=3) [coralogix](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFpLpTmuEFIGZcKrtnCkodA1q0EDmGDv7z4hwh8-VD0KzD-0P8VKKrFi0S75zCnkM6tIWfWh_zJmKLEhW7NZna25YUUW6Wzu2CMpYA2XvB8hbMJWXIOJueDWq8pnwVaRP8K3dKf13U6e_uFNUmiGS72bw5DsMrzkGmu6DTSBmnmUEdqmFUWArxmIX2TneRY3TBTWUuvEY5JXu2N) [ibm](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQG9sYz73w47piS5QkYMoY39JfXGIVz0Y0jxHnUX7MKYBzeJZhvkUJ85xnq_R610AMBZrD5_UKrcSD9TCTk7sVt3Nvu779t6yHw68QwpW2-bKaUl5T6fVlQ97eU1ExSJhdLRR_MkZNc17XMXiEB4osyS5ztKgY51Yg==) [analyticsvidhya](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE_KH_LOekqzd1EurfwHcwG6CQ-Qsw14GUC8TNHRbRz0Z8IrteHDRweqOo4-qfDMzR7SiJ2vL0VBNGwUwQmNrjFhLb8syQ7dPUtqViGN_9PxCMQiRWVl0KW-o7Tta5ER6FULnyZY-zm2tuqFYga1O9KTa_h2xjTJAPVBGZcTPjOZDfiQVGEozsGs0Yq) [pwskills](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHHtqHlxMvHP9bNdBpv_AgAxkGydbv7dwlhZHUOnUayy1Ob8rNX5s5cCG3dZ8VZo19Mg5mpTYJOoRaz9Wp7BUaksjc0jEOgkI_3GFTyxbrs8tIef-YtYYyq4NbKsOolM3J0Kt4472rVV0kHjwxlPcjed20AAt_s). The model learns the relationship between these inputs and outputs to make predictions or classifications on new, unseen data [seldon](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6ioX10a0p_-vKKdiFnf0a3jyrhmgaryvaQl_GshP3zNPgwR5trwQUs3R-Gjvog1cb7X0MW6uS8usWo-V2UGKvDwmFpYhQIzVZxHFRsDr4hfAeGgfJgEIkIhIOjEPNDeU62QAvST9fYCxUVKU=0) [wikipedia](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGX9ga8h6XdHtKAj6bUygvf3ZBduR8Ll2pJCe-jjxlaTgy43C3Gcqy64_1qlWUTYrpAkuVsEmrFm19jHi4HJHl514tTAYrCt0eBXp2-E4EDMiq6A-fbaxiiahAiBjEOkZwETmfcJwFWVgM=) [medium](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6ioX10a0p_-vKKdiFnf0a3jyrhmgaryvaQl_GshP3zNPgwR5trwQUs3R-Gjvog1cb7X0MW6uS8usWo-V2UGKvDwmFpYhQIzVZxHFRsDr4hfAeGgfJgEIkIhIOjEPNDeU62QAvST9fYCxUVKU=1) [artiba](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6ioX10a0p_-vKKdiFnf0a3jyrhmgaryvaQl_GshP3zNPgwR5trwQUs3R-Gjvog1cb7X0MW6uS8usWo-V2UGKvDwmFpYhQIzVZxHFRsDr4hfAeGgfJgEIkIhIOjEPNDeU62QAvST9fYCxUVKU=2) [google](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6ioX10a0p_-vKKdiFnf0a3jyrhmgaryvaQl_GshP3zNPgwR5trwQUs3R-Gjvog1cb7X0MW6uS8usWo-V2UGKvDwmFpYhQIzVZxHFRsDr4hfAeGgfJgEIkIhIOjEPNDeU62QAvST9fYCxUVKU=3) [coralogix](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFpLpTmuEFIGZcKrtnCkodA1q0EDmGDv7z4hwh8-VD0KzD-0P8VKKrFi0S75zCnkM6tIWfWh_zJmKLEhW7NZna25YUUW6Wzu2CMpYA2XvB8hbMJWXIOJueDWq8pnwVaRP8K3dKf13U6e_uFNUmiGS72bw5DsMrzkGmu6DTSBmnmUEdqmFUWArxmIX2TneRY3TBTWUuvEY5JXu2N). Common applications include classification tasks like spam detection and regression tasks like sales revenue prediction [medium](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6ioX10a0p_-vKKdiFnf0a3jyrhmgaryvaQl_GshP3zNPgwR5trwQUs3R-Gjvog1cb7X0MW6uS8usWo-V2UGKvDwmFpYhQIzVZxHFRsDr4hfAeGgfJgEIkIhIOjEPNDeU62QAvST9fYCxUVKU=1) [artiba](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6ioX10a0p_-vKKdiFnf0a3jyrhmgaryvaQl_GshP3zNPgwR5trwQUs3R-Gjvog1cb7X0MW6uS8usWo-V2UGKvDwmFpYhQIzVZxHFRsDr4hfAeGgfJgEIkIhIOjEPNDeU62QAvST9fYCxUVKU=2) [ibm](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6ioX10a0p_-vKKdiFnf0a3jyrhmgaryvaQl_GshP3zNPgwR5trwQUs3R-Gjvog1cb7X0MW6uS8usWo-V2UGKvDwmFpYhQIzVZxHFRsDr4hfAeGgfJgEIkIhIOjEPNDeU62QAvST9fYCxUVKU=). Supervised learning requires a substantial amount of labeled data, but it generally leads to high accuracy for well-defined tasks [medium](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGJvO20SM3IB25S3AdoTjaz-lCOtIs0cZlOnyIZsFZHUKVvosWLpquppjmgwcG_BBE_sAlzoPPmL89leH0pNGf8uofI01nq11ivizR8du8mCfaIW6bz1m3H23nkzta8qfC1E_7ZMhmB7NHyZ_fGpNLaRRcDS-Ky-EmAC8p1pPDh-Jx9da0HAi9MF6QaabfCcD7j4bylsG3FfZeQi2XuJ8KcZ-kNfDxoifFFKYntNcTFtqufNzU=).
+
+*   **Unsupervised Learning:** In contrast to supervised learning, unsupervised learning utilizes unlabeled data. Algorithms in this paradigm work independently to discover inherent patterns, structures, and relationships within the data without explicit guidance [seldon](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6ioX10a0p_-vKKdiFnf0a3jyrhmgaryvaQl_GshP3zNPgwR5trwQUs3R-Gjvog1cb7X0MW6uS8usWo-V2UGKvDwmFpYhQIzVZxHFRsDr4hfAeGgfJgEIkIhIOjEPNDeU62QAvST9fYCxUVKU=0) [wikipedia](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGX9ga8h6XdHtKAj6bUygvf3ZBduR8Ll2pJCe-jjxlaTgy43C3Gcqy64_1qlWUTYrpAkuVsEmrFm19jHi4HJHl514tTAYrCt0eBXp2-E4EDMiq6A-fbaxiiahAiBjEOkZwETmfcJwFWVgM=) [medium](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6ioX10a0p_-vKKdiFnf0a3jyrhmgaryvaQl_GshP3zNPgwR5trwQUs3R-Gjvog1cb7X0MW6uS8usWo-V2UGKvDwmFpYhQIzVZxHFRsDr4hfAeGgfJgEIkIhIOjEPNDeU62QAvST9fYCxUVKU=1) [artiba](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6ioX10a0p_-vKKdiFnf0a3jyrhmgaryvaQl_GshP3zNPgwR5trwQUs3R-Gjvog1cb7X0MW6uS8usWo-V2UGKvDwmFpYhQIzVZxHFRsDr4hfAeGgfJgEIkIhIOjEPNDeU62QAvST9fYCxUVKU=2) [google](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6ioX10a0p_-vKKdiFnf0a3jyrhmgaryvaQl_GshP3zNPgwR5trwQUs3R-Gjvog1cb7X0MW6uS8usWo-V2UGKvDwmFpYhQIzVZxHFRsDr4hfAeGgfJgEIkIhIOjEPNDeU62QAvST9fYCxUVKU=3) [analyticsvidhya](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE_KH_LOekqzd1EurfwHcwG6CQ-Qsw14GUC8TNHRbRz0Z8IrteHDRweqOo4-qfDMzR7SiJ2vL0VBNGwUwQmNrjFhLb8syQ7dPUtqViGN_9PxCMQiRWVl0KW-o7Tta5ER6FULnyZY-zm2tuqFYga1O9KTa_h2xjTJAPVBGZcTPjOZDfiQVGEozsGs0Yq) [ibm](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6ioX10a0p_-vKKdiFnf0a3jyrhmgaryvaQl_GshP3zNPgwR5trwQUs3R-Gjvog1cb7X0MW6uS8usWo-V2UGKvDwmFpYhQIzVZxHFRsDr4hfAeGgfJgEIkIhIOjEPNDeU62QAvST9fYCxUVKU=4). This method is valuable for exploratory data analysis, clustering (grouping similar data points), and dimensionality reduction [seldon](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6ioX10a0p_-vKKdiFnf0a3jyrhmgaryvaQl_GshP3zNPgwR5trwQUs3R-Gjvog1cb7X0MW6uS8usWo-V2UGKvDwmFpYhQIzVZxHFRsDr4hfAeGgfJgEIkIhIOjEPNDeU62QAvST9fYCxUVKU=0) [wikipedia](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGX9ga8h6XdHtKAj6bUygvf3ZBduR8Ll2pJCe-jjxlaTgy43C3Gcqy64_1qlWUTY
+... (truncated)</pre>
+                    </div>
+                </div>
+                <div class="metric-details-section">
+                    <div class="io-label">FAILED METRICS</div>
+                    <div class="metric-detail">
+                    <div class="metric-detail-header">
+                        <span class="metric-detail-name">✗ helpfulness</span>
+                        <span class="metric-detail-score">(0.00)</span>
+                    </div>
+                    <div class="metric-detail-reason">API call failed: Gemini API error (503): {
+  &quot;error&quot;: {
+    &quot;code&quot;: 503,
+    &quot;message&quot;: &quot;This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.&quot;,
+    &quot;status&quot;: &quot;UNAVAILABLE&quot;
+  }
+}
+</div>
+                </div>
+                </div>
+            </div>
+        </div><div class="failed-item" id="item-3">
+            <div class="failed-item-header">
+                <div>
+                    <span class="failed-item-id">de0eed9c-4821-4f47-abb1-...</span>
+                    <span class="failed-item-summary">1/1 failed</span>
+                </div>
+                <button class="expand-btn" onclick="toggleExpand(3)">Expand</button>
+            </div>
+            <div class="failed-item-content">
+                <div class="io-section">
+                    <div class="io-block input">
+                        <div class="io-label">INPUT</div>
+                        <pre class="io-content">{
+  &quot;args&quot;: [],
+  &quot;kwargs&quot;: {
+    &quot;question&quot;: &quot;How does the stock market work?&quot;,
+    &quot;initial_queries&quot;: 1,
+    &quot;max_loops&quot;: 1,
+    &quot;reasoning_model&quot;: &quot;gemini-2.5-flash-lite&quot;
+  }
+}</pre>
+                    </div>
+                    <div class="io-block output">
+                        <div class="io-label">OUTPUT</div>
+                        <pre class="io-content">The stock market in 2025 and looking ahead to 2026 is characterized by a shift from broad market rallies to a more selective investment environment. While Artificial Intelligence (AI) has been a major driver of growth, there&#x27;s an increasing focus on specific sectors, careful stock selection, and managing potential volatility [youtube](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEYzfwck2MyX_gT8zL2qzEET72UjBb5kKD9GTKUr9LceeGhlTlZXk0tbf7XddUmozDOmWw4fGoJAsHxN6E8EfhAkpBkKcET3X_zsGAIzi0maYrriZ_PbHyyREfCfy2ZadP3e2PcVzM=) [ameriprise](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEQ1zvWMYoO6Ji85Tnp2VM5BDwKnAmitdGrFy9qANJc9ZjfCost08cfPywaaImfE-PMAwm-9a25xlCiaCr_nLAN0db0Sy5dgeEp2gWer458E5hX9xSUPbBhRSH6nkrRG3MQa0LWItqOTeu8nTOkgflP8cNB4X7T4jIqeyyF3ef-UzX0Y5lDzHP-1KoXt_JROqkJ5Q==).
+
+**Key Principles and Market Dynamics:**
+
+*   **Selective Environment:** The market is moving away from a broad rally seen in previous years (2020-2024) to a more discerning phase. Thoughtful position sizing and a focus on high-probability outcomes are becoming crucial [blackrock](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF9TAhczQiUMNoM0TnyYPZ752NXU88YO69Z36JIAQyhbmSh-aazCk9PHaqkYAhIC8lcEBzoB__w4z1s7y0_KifKjx6GLbgf91BrxPs2_MoF8NEUwR2yIOpf2lNEYIv93CMjQ4MjgKLad0YeXkLgvXDLUqfp-j5a46rr_OTE9lJigejOqKVBY4cb_QQ=). The S&amp;P 500 saw a 16% gain in 2025, marking its third consecutive year of double-digit returns, but there are indicators suggesting a potential pullback in early 2026 [fool](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHRVhDMGjahPnEoaBXxkIyqg3Ls0_EyVXyfjKQdDXVrNBczh5QRp5GtBU3CtVvCZ8tGguXBxSOSKIYi7PkSUmJA1Hq_6v4BXJZ4BCaoJ0cFRk7bhmNLXVkQZ2ODwWZ1Wmc9-ssEkX-4vjmnFxwwY86FPIDSuNzr_zxlvA3UaNR_FgPA_uLpxgsqk_7PdiRjQYaIfx6D0DJLLw==).
+*   **AI as a Dominant Theme:** Enthusiasm for AI infrastructure and technology has been a significant market narrative, driving substantial stock gains. While concerns about spending and monetization exist, the long-term outlook for AI-related companies remains strong [ameriprise](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEQ1zvWMYoO6Ji85Tnp2VM5BDwKnAmitdGrFy9qANJc9ZjfCost08cfPywaaImfE-PMAwm-9a25xlCiaCr_nLAN0db0Sy5dgeEp2gWer458E5hX9xSUPbBhRSH6nkrRG3MQa0LWItqOTeu8nTOkgflP8cNB4X7T4jIqeyyF3ef-UzX0Y5lDzHP-1KoXt_JROqkJ5Q==]. AI is also a primary catalyst for innovations in application-specific semiconductors due to increased demand for computing power [mckinsey](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGvFqHGgrfqdYc5W51Hyt-AMT9cMK9vP8j6UQA3jLHfYA4Dli9I9nhVa1nxUnpxN027TBf45GujT3Z1Q8e7rjvy4w6PkQaFMFRS3h07JKLw_54O_eWoWU7kVAUCp7cJuktEXAhJ1XsdnDsD_xJTc-2A8VUjW6v3X6Yh04UiQIYCvuqxhwne5bVnVovbMJZWtK0=).
+*   **Sector Performance and Trends:**
+    *   The **technology sector** has seen faster growth than the S&amp;P 500 in late 2025 [jpmorgan](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQG-jx9ngo1B-PtdxDU1L30imDHrKDx8nx3HGWCZ3BXkKC0DZo333RtMu7rpyXDQjxT709ktB3zqyY48mmeqPTgvPFgeyalOIkYwpMVeNfwoM1bMYFafTS5Ph7scL5jDNk_xMkBI6s5DMKkuaRt2sIw9-LuplTutHpBF3mvSfWwy3JnkYWQHSdRovUHcQ3uBQTn4vHkKzoKQZHKgyNmWIGxRKwVS9owplv4c2laP-SSt_eE8km6pTxV9Ks4=). However, questions arise about whether the AI boom is entering bubble territory, with some drawing comparisons to the dot-com bubble, though others point to solid earnings growth in current AI leaders [capitalgroup](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQH3gntODHAg0Ui28hF0XdbrlybkkdRCGC9A-7QeYh8lb8BE1MYJZggyd_QFVtV7wXQtfb1Q6L4NxXP-7Sp2KE9ojuf5sSOP0cY0AzQj6IMFYkd3u7ERVJCTHWDEGmgT-2eI8Hl81-RgCT4ODJI2y29dl15FNT5fV86BOIO1jXx2ENidAO0y6rgKWm5JzHroWFg=).
+    *   **Energy equities** are noted as an underperforming sector due to shifts in global energy supply [ml](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEOGFhCrDj2U9RgtyUsKe6AL5wYOdRwcI3Dr-SLvg1IFOBGIwVkmzokBYcriZS1gONc2fZzSPgHAOdkLfXWS6e86wIQdLKacigMUoeGfrrr92sVaS_7pKUBoHDUfg7JWoKIk8oXLmNiBgpz5Z4J7HrC81V73P0ji4yu5Hh4).
+    *   Areas like **innovative infrastructure, domestic manufacturing, and cybersecurity** are identified as emerging leaders in a new profit cycle [ml](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEOGFhCrDj2U9RgtyUsKe6AL5wYOdRwcI3Dr-SLvg1IFOBGIwVkmzokBYcriZS1gONc2fZzSPgHAOdkLfXWS6e86wIQdLKacigMUoeGfrrr92sVaS_7pKUBoHDUfg7JWoKIk8oXLmNiBgpz5Z4J7HrC81V73P0ji4yu5Hh4).
+*   **SPAC Market Rebound:** Special Purpose Acquisition Companies (SPACs) experienced a notable rebound in IPO activity in 2025, driven by a better balance between SPACs and available targets, and private equity and venture-backed companies seeking liquidity [ajg](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQG7eowWBdXL5lDfC0XI_lFSggk5jUUAkonBZ7K-mgt2C4Dtc4kjq_itjtEZtaGyZ72DTIzFkBZO5gA2cSGIkM4JnSa-2vKR53fhNgP-9znA86qBxjALQ2NhWdACTDRd86w_iWpWp7nNxlKkQRJQUf8rfwx6JhqZ6CEaeT3AeNgL6Ksfyfk-FyKu6_sZdXvoKjdvmhyXraQ=).
+
+**Economic and Policy Influences:**
+
+*   **Moderating Inflation and Focus on Labor:** Inflation appears to be easing, with a focus shifting to the labor market. While economic growth remains resilient, there&#x27;s potential for softening labor markets [blackrock](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF9TAhczQiUMNoM0TnyYPZ752NXU88YO69Z36JIAQyhbmSh-aazCk9PHaqkYAhIC8lcEBzoB__w4z1s7y0_KifKjx6GLbgf91BrxPs2_MoF8NEUwR2yIOpf2lNEYIv93CMjQ4MjgKLad0YeXkLgvXDLUqfp-j5a46rr_OTE9lJigejOqKVBY4cb_QQ=).
+*   **Interest Rate Cuts Anticipated:** Interest rate cuts are expected in 2026, though it&#x27;s unlikely to represent a full &quot;rate cutting cycle&quot; [youtube](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEYzfwck2MyX_gT8zL2qzEET72UjBb5kKD9GTKUr9LceeGhlTlZXk0tbf7XddUmozDOmWw4fGoJAsHxN6E8EfhAkpBkKcET3X_zsGAIzi0maYrriZ_PbHyyREfCfy2ZadP3e2PcVzM=).
+*   **Supportive Fiscal Policy:** Fiscal deficits remain substantial, and policy continues to be broadly supportive, with potential for increased fiscal stimulus in some regions [blackrock](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF9TAhczQiUMNoM0TnyYPZ752NXU88YO69Z36JIAQyhbmSh-aazCk9PHaqkYAhIC8lcEBzoB__w4z1s7y0_KifKjx6GLbgf91BrxPs2_MoF8NEUwR2yIOpf2lNEYIv93CMjQ4MjgKLad0YeXkLgvXDLUqfp-j5a46rr_OTE9lJigejOqKVBY4cb_QQ=) [gs](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGZi_1KD_GeGuwsr003IgFi--9aRo0VZa98D50dtQr7HaEniw-B59nB2h20nfu0hmMbf-NMI4AJW_aMEJaW19ExooAdO1ngSb4SWWMqBSk1oz1vnDzoM9CPWfdnkHCHXlABHVN-z72iRhEksg8E7XUmAbqDACNzwGCeTJH9HSN-YUtP7XnjWbX3j1rMACkTRPJsRKU=).
+*   **Geopolitical and Trade Shifts:** Geopolitical tensions, evolving supply chains, and stricter national regulations are reshaping global trade flows [unctad](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEQ1zvWMYoO6Ji85Tnp2VM5BDwKnAmitdGrFy9qANJc9ZjfCost08cfPywaaImfE-PMAwm-9a25xlCiaCr_nLAN0db0Sy5dgeEp2gWer458E5hX9xSUPbBhRSH6nkrRG3MQa0LWItqOTeu8nTOkgflP8cNB4X7T4jIqeyyF3ef-UzX0Y5lDzHP-1KoXt_JROqkJ5Q==0). Tariffs are creating challenges for supply chains and consumer sentiment [paulhastings](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEQ1zvWMYoO6Ji85Tnp2VM5BDwKnAmitdGrFy9qANJc9ZjfCost08cfPywaaImfE-PMAwm-9a25xlCiaCr_nLAN0db0Sy5dgeEp2gWer458E5hX9xSUPbBhRSH6nkrRG3MQa0LWItqOTeu8nTOkgflP8cNB4X7T4jIqeyyF3ef-UzX0Y5lDzHP-1KoXt_JROqkJ5Q==1).
+
+**Investment Principles and Strategies:**
+
+*   **Diversification:** A balanced asset allocation, including international investments with emerging growth catalysts in Asia and Europe, is recommended [capitalgroup](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQH3gntODHAg0Ui28hF0XdbrlybkkdRCGC9A-7QeYh8lb8BE1MYJZggyd_QFVtV7wXQtfb1Q6L4NxXP-7Sp2KE9ojuf5sSOP0cY0AzQj6IMFYkd3u7ERVJCTHWDEGmgT-2eI8Hl81-RgCT4ODJI2y29dl15FNT5fV86BOIO1jXx2ENidAO0y6rgKWm5JzHroWFg=). Investors are advised to consider a broader financial planning framework focusing on after-inflation wealth preservation [morganstanley](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEQ1zvWMYoO6Ji85Tnp2VM5BDwKnAmitdGrFy9qANJc9ZjfCost08cfPywaaImfE-PMAwm-9a25xlCiaCr_nLAN0db0Sy5dgeEp2gWer458E5hX9xSUPbBhRSH6nkrRG3MQa0LWItqOTeu8nTOkgflP8cNB4X7T4jIqeyyF3ef-UzX0Y5lDzHP-1KoXt_JROqkJ5Q==3).
+*   **Active Management and Stock Selection:** In a less straightforward market, active management and careful stock selection are becoming increasingly important [youtube](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEYzfwck2MyX_gT8zL2qzEET72UjBb5kKD9GTKUr9LceeGhlTlZXk0tbf7XddUmozDOmWw4fGoJAsHxN6E8EfhAkpBkKcET3X_zsGAIzi0maYrriZ_PbHyyREfCfy2ZadP3e2PcVzM=).
+*   **Cash as a Strategic Option:** Holding a higher level of cash can serve as a hedge against volatility and provide purchasing power during market downturns [realinvestmentadvice](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEQ1zvWMYoO6Ji85Tnp2VM5BDwKnAmitdGrFy9qANJc9ZjfCost08cfPywaaImfE-PMAwm-9a25xlCiaCr_nLAN0db0Sy5dgeEp2gWer458E5hX9xSUPbBhRSH6nkrRG3MQa0LWItqOTeu8nTOkgflP8cNB4X7T4jIqeyyF3ef-UzX0Y5lDzHP-1KoXt_JROqkJ5Q==2).
+*   **Revisiting Goals and Portfolio Scrutiny:** Investors should review their financial goals and scrutinize their portfolios for diversification across geography, sectors, and asset types [fidelity](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEQ1zvWMYoO6Ji85Tnp2VM5BDwKnAmitdGrFy9qANJc9ZjfCost08cfPywaaImfE-PMAwm-9a25xlCiaCr_nLAN0db0Sy5dgeEp2gWer458E5hX9xSUPbBhRSH6nkrRG3MQa0LWItqOTeu8nTOkgflP8cNB4X7T4jIqeyyF3ef-UzX0Y5lDzHP-1KoXt_JROqkJ5Q==4).
+*   **Tax Efficiency:** Utilizing tax-efficient accounts and allowances is crucial for optimizing investment returns [fidelity](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEQ1zvWMYoO6Ji85Tnp2VM5BDwKnAmitdGrFy9qANJc9ZjfCost08cfPywaaImfE-PMAwm-9a25xlCiaCr_nLAN0db0Sy5dgeEp2gWer458E5hX9xSUPbBhRSH6nkrRG3MQa0LWItqOTeu8nTOkgflP8cNB4X7T4jIqeyyF3ef-UzX0Y5lDzHP-1KoXt_JROqkJ5Q==4).
+*   **
+... (truncated)</pre>
+                    </div>
+                </div>
+                <div class="metric-details-section">
+                    <div class="io-label">FAILED METRICS</div>
+                    <div class="metric-detail">
+                    <div class="metric-detail-header">
+                        <span class="metric-detail-name">✗ helpfulness</span>
+                        <span class="metric-detail-score">(0.00)</span>
+                    </div>
+                    <div class="metric-detail-reason">The response does not directly address the user&#x27;s question about how the stock market works. Instead, it provides an analysis of the stock market&#x27;s performance and trends in 2025-2026, which is a different topic.</div>
+                </div>
+                </div>
+            </div>
+        </div><div class="failed-item" id="item-4">
+            <div class="failed-item-header">
+                <div>
+                    <span class="failed-item-id">c006ec67-c8d8-4e46-b3a8-...</span>
+                    <span class="failed-item-summary">1/1 failed</span>
+                </div>
+                <button class="expand-btn" onclick="toggleExpand(4)">Expand</button>
+            </div>
+            <div class="failed-item-content">
+                <div class="io-section">
+                    <div class="io-block input">
+                        <div class="io-label">INPUT</div>
+                        <pre class="io-content">{
+  &quot;args&quot;: [],
+  &quot;kwargs&quot;: {
+    &quot;question&quot;: &quot;Explain the concept of infinity.&quot;,
+    &quot;initial_queries&quot;: 1,
+    &quot;max_loops&quot;: 1,
+    &quot;reasoning_model&quot;: &quot;gemini-2.5-flash-lite&quot;
+  }
+}</pre>
+                    </div>
+                    <div class="io-block output">
+                        <div class="io-label">OUTPUT</div>
+                        <pre class="io-content">The concept of infinity refers to the idea of something without any limit or end. While traditionally understood as a single, albeit vast, concept, recent mathematical discoveries have revealed that infinity is more complex, with different &quot;sizes&quot; and properties.
+
+**New Types of Infinities:**
+In late 2024 and early 2025, mathematicians discovered two new types of infinities, termed &quot;exacting&quot; and &quot;ultra-exacting&quot; cardinals [zmescience](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFFQNK6r6bqGLVhP5a9-NXrNe9s6td6YdONhC52wpyGVRLJlV4xdH14kOEjp9Rsj3Sv5d0QL5Aotm1lOkg3yDNqrqEZo87gk_KdwZj3KJCfKTHM2h6UZ4GUmKnYY09K1EVbClRw5grxFaKhL6Fz0Cax4yIOAgFJGZOJkSgvILf8l2uvZlC7GOA=) [popularmechanics](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQErqnQ_X4foY--nKMt5Fc94-y4ZRI_0pivWT4Qxa8RBSrtzXAjO1Qp0aEUwpLH8u2anDBk_Fn6DDBgxPaLCjwK8h9kx7cAhW4CTwGnI31g4jrXsOx5AhGvGrMZmrYnXH5NjGqJ62KlSDNKc5zJ5C7iwAdl1yOuT4CCBW8i1cOwEKcgl_jADBsyFFnnBbrf-MTk=) [rollingout](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFlwHfOLfx-xWZiSRCtihTNwHeI-AfQZgykb_MH9Rb-w24_yOlrExxVKkK_kNL4pYydHYGn-ljbQ1zvDt5UCzNJwDKqy8lN5OUwnP2oeQo3-Va7yOye2UCLKknELJurGgNhRhRm-ySZL3azmV4GPcqCvMXOi2UhI2KANo5aM6gxFxUe) [rahulanand](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFR2K7L2tRG-VWeHlEnuSad_d8gxUYKHML9p1eUwUZB1NW-lj9KlePJZlJvVywyIrkklNGM6z72DvPvYap5nh_UDXVgJu6UHzYTDdp6I4opPk_Jpn4qqslZh1KGYyBiVESqW5m3f7WjHmOhr7GvbqDXysx_FL8Gf5o7ru30HCxHYOHKXDx5ho40uw-j_WhzgeEc8g==). These new infinities do not fit into the established hierarchy of infinities, which has been understood as a ladder of increasing sizes [zmescience](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFFQNK6r6bqGLVhP5a9-NXrNe9s6td6YdONhC52wpyGVRLJlV4xdH14kOEjp9Rsj3Sv5d0QL5Aotm1lOkg3yDNqrqEZo87gk_KdwZj3KJCfKTHM2h6UZ4GUmKnYY09K1EVbClRw5grxFaKhL6Fz0Cax4yIOAgFJGZOJkSgvILf8l2uvZlC7GOA=) [popularmechanics](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQErqnQ_X4foY--nKMt5Fc94-y4ZRI_0pivWT4Qxa8RBSrtzXAjO1Qp0aEUwpLH8u2anDBk_Fn6DDBgxPaLCjwK8h9kx7cAhW4CTwGnI31g4jrXsOx5AhGvGrMZmrYnXH5NjGqJ62KlSDNKc5zJ5C7iwAdl1yOuT4CCBW8i1cOwEKcgl_jADBsyFFnnBbrf-MTk=) [rollingout](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFlwHfOLfx-xWZiSRCtihTNwHeI-AfQZgykb_MH9Rb-w24_yOlrExxVKkK_kNL4pYydHYGn-ljbQ1zvDt5UCzNJwDKqy8lN5OUwnP2oeQo3-Va7yOye2UCLKknELJurGgNhRhRm-ySZL3azmV4GPcqCvMXOi2UhI2KANo5aM6gxFxUe). A unique characteristic of these new cardinals is their ability to contain perfect replicas of themselves [rollingout](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFlwHfOLfx-xWZiSRCtihTNwHeI-AfQZgykb_MH9Rb-w24_yOlrExxVKkK_kNL4pYydHYGn-ljbQ1zvDt5UCzNJwDKqy8lN5OUwnP2oeQo3-Va7yOye2UCLKknELJurGgNhRhRm-ySZL3azmV4GPcqCvMXOi2UhI2KANo5aM6gxFxUe) [rahulanand](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFR2K7L2tRG-VWeHlEnuSad_d8gxUYKHML9p1eUwUZB1NW-lj9KlePJZlJvVywyIrkklNGM6z72DvPvYap5nh_UDXVgJu6UHzYTDdp6I4opPk_Jpn4qqslZh1KGYyBiVESqW5m3f7WjHmOhr7GvbqDXysx_FL8Gf5o7ru30HCxHYOHKXDx5ho40uw-j_WhzgeEc8g==). Ultra-exacting cardinals are considered an even more powerful and restrictive version, possessing additional &quot;superpowers&quot; that amplify their impact on the mathematical universe [zmescience](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFFQNK6r6bqGLVhP5a9-NXrNe9s6td6YdONhC52wpyGVRLJlV4xdH14kOEjp9Rsj3Sv5d0QL5Aotm1lOkg3yDNqrqEZo87gk_KdwZj3KJCfKTHM2h6UZ4GUmKnYY09K1EVbClRw5grxFaKhL6Fz0Cax4yIOAgFJGZOJkSgvILf8l2uvZlC7GOA=).
+
+**Challenging Mathematical Frameworks:**
+The existence of these novel infinities challenges traditional mathematical theories. For instance, they question the Hereditarily Ordinal Definable (HOD) theory, which suggests that extremely large infinities align with the ordering principles of the Axiom of Choice [rollingout](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFlwHfOLfx-xWZiSRCtihTNwHeI-AfQZgykb_MH9Rb-w24_yOlrExxVKkK_kNL4pYydHYGn-ljbQ1zvDt5UCzNJwDKqy8lN5OUwnP2oeQo3-Va7yOye2UCLKknELJurGgNhRhRm-ySZL3azmV4GPcqCvMXOi2UhI2KANo5aM6gxFxUe) [rahulanand](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFR2K7L2tRG-VWeHlEnuSad_d8gxUYKHML9p1eUwUZB1NW-lj9KlePJZlJvVywyIrkklNGM6z72DvPvYap5nh_UDXVgJu6UHzYTDdp6I4opPk_Jpn4qqslZh1KGYyBiVESqW5m3f7WjHmOhr7GvbqDXysx_FL8Gf5o7ru30HCxHYOHKXDx5ho40uw-j_WhzgeEc8g==). The new cardinals suggest that some infinities might not adhere to this framework, potentially introducing a degree of unpredictability or &quot;chaos&quot; into the mathematical universe [zmescience](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFFQNK6r6bqGLVhP5a9-NXrNe9s6td6YdONhC52wpyGVRLJlV4xdH14kOEjp9Rsj3Sv5d0QL5Aotm1lOkg3yDNqrqEZo87gk_KdwZj3KJCfKTHM2h6UZ4GUmKnYY09K1EVbClRw5grxFaKhL6Fz0Cax4yIOAgFJGZOJkSgvILf8l2uvZlC7GOA=) [rollingout](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFlwHfOLfx-xWZiSRCtihTNwHeI-AfQZgykb_MH9Rb-w24_yOlrExxVKkK_kNL4pYydHYGn-ljbQ1zvDt5UCzNJwDKqy8lN5OUwnP2oeQo3-Va7yOye2UCLKknELJurGgNhRhRm-ySZL3azmV4GPcqCvMXOi2UhI2KANo5aM6gxFxUe). This prompts a re-evaluation of the fundamental nature of infinity [zmescience](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFFQNK6r6bqGLVhP5a9-NXrNe9s6td6YdONhC52wpyGVRLJlV4xdH14kOEjp9Rsj3Sv5d0QL5Aotm1lOkg3yDNqrqEZo87gk_KdwZj3KJCfKTHM2h6UZ4GUmKnYY09K1EVbClRw5grxFaKhL6Fz0Cax4yIOAgFJGZOJkSgvILf8l2uvZlC7GOA=).
+
+**Implications for Physics and Beyond:**
+These mathematical advancements have far-reaching implications, extending beyond pure mathematics into theoretical physics, potentially influencing theories about the universe&#x27;s origins and structure [travelingintuscany](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHxY4I2FHhRREGcMiID1xo5qzADWgMcPTFVKpH2LEEhdggJNN35DMX2rxzobKh9I9Eq9ljNoHSdsTBLFvJ6fUCfqZ27MMdg7dzwwH2AMzP-RD7Swf6UrWkANNw9QxYcScAjBR0aa34wBr0P0jRZLnEi0oHOjfnv4NTGJwNGDxsQxS7_YR4cd3_BMzLKH6vEzAsmN8361Qhn2UhMZjRL-8ipXC1pAw0WTYPMSnbXUs2yDag-xcOuuEmZPPjf9giYDfPyoQrxp7jRHZ8bHFYsks8NNkNAB9v2bSIdYcrIWa9Z_vCtFkF47081rsqDbGj2ei_ikJvEyfI4I-WisoaL4p_0Kc8vQseAQlSyKEYCWOQ=). Some experts believe that understanding these new infinities could help resolve ongoing issues in cosmology and quantum physics [travelingintuscany](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHxY4I2FHhRREGcMiID1xo5qzADWgMcPTFVKpH2LEEhdggJNN35DMX2rxzobKh9I9Eq9ljNoHSdsTBLFvJ6fUCfqZ27MMdg7dzwwH2AMzP-RD7Swf6UrWkANNw9QxYcScAjBR0aa34wBr0P0jRZLnEi0oHOjfnv4NTGJwNGDxsQxS7_YR4cd3_BMzLKH6vEzAsmN8361Qhn2UhMZjRL-8ipXC1pAw0WTYPMSnbXUs2yDag-xcOuuEmZPPjf9giYDfPyoQrxp7jRHZ8bHFYsks8NNkNAB9v2bSIdYcrIWa9Z_vCtFkF47081rsqDbGj2ei_ikJvEyfI4I-WisoaL4p_0Kc8vQseAQlSyKEYCWOQ=). The discoveries also test the limits of the logic underpinning modern computer science [zmescience](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFFQNK6r6bqGLVhP5a9-NXrNe9s6td6YdONhC52wpyGVRLJlV4xdH14kOEjp9Rsj3Sv5d0QL5Aotm1lOkg3yDNqrqEZo87gk_KdwZj3KJCfKTHM2h6UZ4GUmKnYY09K1EVbClRw5grxFaKhL6Fz0Cax4yIOAgFJGZOJkSgvILf8l2uvZlC7GOA=).
+
+**Human Perception of Infinity:**
+Interestingly, research suggests that humans often struggle to intuitively grasp the concept of infinity. A 2024 study indicated that people tend to perceive the infinity symbol (∞) as a concrete number rather than a representation of an endless concept, highlighting the abstract nature of infinity and the difficulty in comprehending ideas without direct physical counterparts [psypost](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGGtF2wjtNXOjTYU4rd6LPsuqqwcmgWRZQzfYac5idA1RvGaX022Q15EaqqbfEcOU2eBPOT5D2QLlLR7QqTR0V5V19O7mBm8yHtdOq0FQm7krte_nFSzCqdiYpFJzWv_wlzjCnpAtlVWwMiSyrlfxgA4TnoSJvj0xWu6HlJLhER-gCStjt323h5EnDRRXridu2InTLoqOY=).
+
+**Philosophical and Cosmological Perspectives:**
+Philosophical debates in 2025 and 2026 continue to explore infinity&#x27;s implications for cosmology, metaphysics, and logic [preprints](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHVHMGtZAAvvCF_kuEyqzAPCYxSZiLsLj2QBCdCPtmKdkWr3oa9fP87PudxhaBp9hNQREk3nodHD0b8KCsCmSn_sASNZHibY-UCI_6r9TmLr5FMuTC4gxZIXbXzgNCRYxfeDiVQg1o5yrJUqQ==) [reapress](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF_hMWgQUrW-djyxMPZRTdjOhHv6mcvnURQLywXDWXTHQU4ecilXWxqdOmXqMrXupFUfb44i9dbutUxZx1iWh6j-TOp9wuKpCgnOgHtD1rozDLG4mjHVrUXUzkGH7dlpR0-gHhGB7I7oqcmNg==) [researchgate](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFvP_RK58z8lV-9WTTuui16dniaspQfUBhAjKrcpeiHs3Ljr1HUXqSiBvsMB5ugyBPeJLXbXryUdU5GSymCoVx6128FjU-3yTkSL_nllpCryfjcpSAwV-1NWq6AweFKWQeHgSb1dJMA84TF5XmlFTnnKWQSV3Ugkya89G9zdhmFtxAvrwxhURAnrMEM10c-6uW17uNv6wjZukFsc2DYR7Oi10wdV_LWZPGoWKCBQwkRYsnn52tXmOpO) [researchgate](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFKRqeJ9PJOJ6jUWFeHYZBDcrcVvCzIzadhNiia1uILkesLdbTq-RXeDPjy1S4YwoncgiJqqFKuOQxpavIyKZtmy0MB-Sozx7J-h3B7tXvxzWkcLFZxMdEre4IvbOll5ItyK0ODs9RzTXEFySR_IxKZStRsMC5VXhlm0goRIPErwCGKI-EHf6Yz7pETr7v3DFZspilt6mijMqGkTK430KOP4nHbjA03usUaK74M5wO9X8CCAFGlsQ==). Questions persist about whether the universe is infinite and the philosophical weight of a finite versus an infinite cosmos [planksip](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEYFgIElYqs4QASkAEJ5Zf1svLhumFFdcvvaBB8_hVdRHl5aBCW-5SABNJmUHWEEtCZYNAOqSL3YDDxaFJYofIhz1LATlv8BB3RY78xLO5-cNypmBH6NkJjCeRP6LqgfBPKT1X64UGro0ahJOIV4hQXeBfnldvr5t0EV3bowN6_5L8eGCjNUzT1DqCTxeqA9-rWrd2MOYxQ) [planksip](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGELQGkiMEKcgObKjxZGsf9Eog-VHe1u5TZMHTCUBd99fqUB-Bi7c4uo8bSjnd3PnpeT9ByeMh5tPyo5nqrPRPVT3wY6Es6TTVIEYw-0EuGY__od90elf7v1zL_GlyhLsGmH2G6TZPcXrR5zLjkM_PYRvOgspG1FuLgWeddPm74SafmKFwqMaKblmizdE2lMqPxP5DVDR0Y) [bisquecoffee](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHchcz1omVI0SE2MGfZoHlxw0ZNteZG4C8WMteJYjMJpdpPM9QtjvZ8DQ9R4yZvcpd23TK2uHsqODKC9tvn77PdXSKeKWC6quNDOPkz0-oby0yghAL0yvB76WwMfArRtml2k4OQFSx6VFAUoR6IatbSslRLr8
+... (truncated)</pre>
+                    </div>
+                </div>
+                <div class="metric-details-section">
+                    <div class="io-label">FAILED METRICS</div>
+                    <div class="metric-detail">
+                    <div class="metric-detail-header">
+                        <span class="metric-detail-name">✗ helpfulness</span>
+                        <span class="metric-detail-score">(0.00)</span>
+                    </div>
+                    <div class="metric-detail-reason">The response provides information about new types of infinities discovered in late 2024 and early 2025. However, this information appears to be fabricated or based on misinformation, as there are no widely recognized mathematical discoveries of &#x27;exacting&#x27; and &#x27;ultra-exacting&#x27; cardinals in that timeframe. This makes the core of the response inaccurate and potentially misleading for research purposes. While it attempts to explain the concept of infinity, its reliance on unsubstantiated claims renders it unhelpful for a research assistant.</div>
+                </div>
+                </div>
+            </div>
+        </div><div class="failed-item" id="item-5">
+            <div class="failed-item-header">
+                <div>
+                    <span class="failed-item-id">fa0555b1-e557-432e-8018-...</span>
+                    <span class="failed-item-summary">1/1 failed</span>
+                </div>
+                <button class="expand-btn" onclick="toggleExpand(5)">Expand</button>
+            </div>
+            <div class="failed-item-content">
+                <div class="io-section">
+                    <div class="io-block input">
+                        <div class="io-label">INPUT</div>
+                        <pre class="io-content">{
+  &quot;args&quot;: [],
+  &quot;kwargs&quot;: {
+    &quot;question&quot;: &quot;What are the effects of deforestation?&quot;,
+    &quot;initial_queries&quot;: 1,
+    &quot;max_loops&quot;: 1,
+    &quot;reasoning_model&quot;: &quot;gemini-2.5-flash-lite&quot;
+  }
+}</pre>
+                    </div>
+                    <div class="io-block output">
+                        <div class="io-label">OUTPUT</div>
+                        <pre class="io-content">Deforestation has multifaceted and severe effects, impacting climate change, biodiversity, soil and water resources, and leading to significant economic and social consequences, particularly in developing countries.
+
+**Climate Change and Greenhouse Gas Emissions:**
+Deforestation is a substantial contributor to climate change, primarily by releasing stored carbon dioxide (CO2) into the atmosphere. In 2022, deforestation accounted for approximately 7% of global emissions [worldwildlife](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGojM2nPur85es7ui9b4gv1RM1oTp44pgd5QH_i3xDJ2nbdy7K6gK8ZF1sPaUgxrswADwaylrYx4lALm76Lea4Ish8giFYbXj0GPMIF0oYd4wb5yQV6WpKFFUluczGNPXSEp9JuUHizaAxrEZ0UUyJYGRW6iN3xwmiYjPZTKx0I9xEK4815NChlu5RaBLkHFQ==), and in 2023, tropical forest loss alone contributed about 6% of estimated global CO2 emissions [climatecouncil](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHoIbNqg9jyBVDEPCi3Siu0k_8Wxh6sDLt0dWZF9G1Vy2jYKmaiCWZ2Ge8_avMdvM3aCT8G8tNt_FpnAzV2Yosr3mEW5o98ENok7t_UUtljglwmyWO3b7Fs-Svo84FEMYgVHiL-oh7Hsi_9OA==). The clearing or burning of forests releases the carbon stored in trees and soil, intensifying the greenhouse effect and driving global warming [fsc](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFfIswsH1Own-sk82XK6WhLMK60-e8wqLRfDQDAK0XlFgFWF_wz5t3ezyX7tZh637LGPC77qhF3eqx9pF7RQP6lodRp9cWy1wmcL8yy1NGqtAjOpAcrKVohqbwVPLV8BEqeKglzhtnWzyCXuMN8UG8oSeV580MI5oorYq8=) [climatecouncil](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHoIbNqg9jyBVDEPCi3Siu0k_8Wxh6sDLt0dWZF9G1Vy2jYKmaiCWZ2Ge8_avMdvM3aCT8G8tNt_FpnAzV2Yosr3mEW5o98ENok7t_UUtljglwmyWO3b7Fs-Svo84FEMYgVHiL-oh7Hsi_9OA==). Estimates suggest that deforestation is responsible for 12-20% of all global greenhouse gas emissions [climateimpact](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGXmaX97qlF63Tu3Wxwc8rWXKyrrxM_yw7b3Em139Xcw1Fk_1wc7hL4LXzk7EMaSMuUxksoRPB2OT8Rk_JN5YMefF7hi2ncmCTtks5jWti63THUXS2_w4P6Xuy61xxqI4tTa-DCtxnOjL35TB8-_i7XR2LxmC8d2TtLyhDdtDWIRtzYk_ffKRNcnQ==). Furthermore, climate change itself, through hotter and drier conditions, weakens forests&#x27; ability to absorb carbon and increases wildfire risk, creating a detrimental feedback loop [wri](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHBCRS5F-ldcTBgoPE51_SBG4Evbu1EqJFuBJKLgnvPnoP1horaGWbv-Ekf5Z2mxryTp0uNzULN3rZWWZ_6Nmu5S45F4iCZBQllsNLmBhtCTB7xk3j-5TDNDrGK9QpIKOir0e2b4Xgc_xYKGvMs0n2_Jgsu) [carbonbrief](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQG-3xH4yxWn-n1Fw1WuK1_6ulytnfQtT2cPZI923QehBKo6ih7X5VI1Xrwt6gAwq6x4ai1eRiV318Rvm93d77vXC16IldckC0NoIZRilJGthtr64Ewn5QM5imI-O26CmaG6FPpli1RZIkbjlJlP55VYgUvz3jgGhVtl7d4-6IF5546qTT65aC9XxC80_bKRiQvbnlGg4Kt5R38_dg==) [apesreportingproject](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHH5S8dpTaMQWGzodaDjsgNITRWBIme8GtHcuwL5mWbCvyQmZEYs-klL5ekXEEyy5-_mFWLS2txClbnPwedhWWm5EhloC-UYv4E45JR5AeI2C_dU3ZE1qbS0c67FmRsemJ-mVoOTGFfYY36E9Zu0RodOYQAR0LoR1scVDs2-uMcbt_Pdsq94ayiLIjg).
+
+**Biodiversity Loss:**
+Forests are critical habitats for the majority of terrestrial species, making deforestation a leading cause of biodiversity loss [earth](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGuEMDSanJ4iUSP4gZm2dOMaHOcdx9npRKOI91gE8V_fi31WKheAQvLzjkrQzAtKe2xkiOllwWp75gMH0qI-q_Z5KlYjc4k_DpNG4Dh_2D3jXYP-Q7i_OcInRhecJ0uQQzf5zaDUJiyPhGv6JLspNFbLWLurknDYgx978g=) [climateimpact](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGXmaX97qlF63Tu3Wxwc8rWXKyrrxM_yw7b3Em139Xcw1Fk_1wc7hL4LXzk7EMaSMuUxksoRPB2OT8Rk_JN5YMefF7hi2ncmCTtks5jWti63THUXS2_w4P6Xuy61xxqI4tTa-DCtxnOjL35TB8-_i7XR2LxmC8d2TtLyhDdtDWIRtzYk_ffKRNcnQ==). The destruction of forests results in habitat fragmentation and loss, pushing species toward extinction [climateimpact](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGXmaX97qlF63Tu3Wxwc8rWXKyrrxM_yw7b3Em139Xcw1Fk_1wc7hL4LXzk7EMaSMuUxksoRPB2OT8Rk_JN5YMefF7hi2ncmCTtks5jWti63THUXS2_w4P6Xuy61xxqI4tTa-DCtxnOjL35TB8-_i7XR2LxmC8d2TtLyhDdtDWIRtzYk_ffKRNcnQ==) [ourworldindata](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEG_MHhT-ZvNyJdIvAydJSjjBJC6mClSbGXP251Cy58HIAd7XuBeHMRvWZ2s9LDcIiHmhGsex4A8pU8uGdDzUsRsGMMAEgwQ8DdST_ca7fLCOvjl7ZaeO3BgzubwvAPrD3Surk=). Studies indicate a significant decline in species populations, with deforestation being a major factor [carbonbrief](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFT3Kd0PeUhi7I6bD-GHBOoU53XkPFmyeSLoQFGDjM157hGV7Q8-3Ek6_TlzbAQm9OmDX7DVlyRRqNi5xx3hBRVchw0JdNG7Okh8berI0O4AA8q9vYH86FXdvOd_M9UBtgwVjQFROo_upRtfkFMHnkOAvP7uFmBP3X415zP3Z25n1GmWxbjz6YUeyvRu91h7NjdECB-x_hI5nDPKkE_26yLUF-1TqZitBjeoBttnZnhaY0ihcc3mpd31rY=). Consumption patterns in high-income nations also drive deforestation and biodiversity loss in other countries, with international impacts often outweighing domestic ones [princeton](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHoIbNqg9jyBVDEPCi3Siu0k_8Wxh6sDLt0dWZF9G1Vy2jYKmaiCWZ2Ge8_avMdvM3aCT8G8tNt_FpnAzV2Yosr3mEW5o98ENok7t_UUtljglwmyWO3b7Fs-Svo84FEMYgVHiL-oh7Hsi_9OA==0). For instance, deforestation driven by consumption in 24 developed countries was responsible for 13.3% of global range loss for forest-dependent vertebrates [princeton](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHoIbNqg9jyBVDEPCi3Siu0k_8Wxh6sDLt0dWZF9G1Vy2jYKmaiCWZ2Ge8_avMdvM3aCT8G8tNt_FpnAzV2Yosr3mEW5o98ENok7t_UUtljglwmyWO3b7Fs-Svo84FEMYgVHiL-oh7Hsi_9OA==0).
+
+**Soil and Water Resources:**
+Deforestation significantly disrupts hydrological cycles, leading to reduced rainfall, altered river flow, and diminished water availability [earth](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGuEMDSanJ4iUSP4gZm2dOMaHOcdx9npRKOI91gE8V_fi31WKheAQvLzjkrQzAtKe2xkiOllwWp75gMH0qI-q_Z5KlYjc4k_DpNG4Dh_2D3jXYP-Q7i_OcInRhecJ0uQQzf5zaDUJiyPhGv6JLspNFbLWLurknDYgx978g=) [earthday](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHoIbNqg9jyBVDEPCi3Siu0k_8Wxh6sDLt0dWZF9G1Vy2jYKmaiCWZ2Ge8_avMdvM3aCT8G8tNt_FpnAzV2Yosr3mEW5o98ENok7t_UUtljglwmyWO3b7Fs-Svo84FEMYgVHiL-oh7Hsi_9OA==1) [consultqe](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHoIbNqg9jyBVDEPCi3Siu0k_8Wxh6sDLt0dWZF9G1Vy2jYKmaiCWZ2Ge8_avMdvM3aCT8G8tNt_FpnAzV2Yosr3mEW5o98ENok7t_UUtljglwmyWO3b7Fs-Svo84FEMYgVHiL-oh7Hsi_9OA==2). Forests are essential for maintaining soil health by preventing erosion and retaining moisture. When cleared, soil is exposed, leading to increased erosion, loss of topsoil, and poorer water quality [earth](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGuEMDSanJ4iUSP4gZm2dOMaHOcdx9npRKOI91gE8V_fi31WKheAQvLzjkrQzAtKe2xkiOllwWp75gMH0qI-q_Z5KlYjc4k_DpNG4Dh_2D3jXYP-Q7i_OcInRhecJ0uQQzf5zaDUJiyPhGv6JLspNFbLWLurknDYgx978g=) [earthday](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHoIbNqg9jyBVDEPCi3Siu0k_8Wxh6sDLt0dWZF9G1Vy2jYKmaiCWZ2Ge8_avMdvM3aCT8G8tNt_FpnAzV2Yosr3mEW5o98ENok7t_UUtljglwmyWO3b7Fs-Svo84FEMYgVHiL-oh7Hsi_9OA==1) [researchgate](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHoIbNqg9jyBVDEPCi3Siu0k_8Wxh6sDLt0dWZF9G1Vy2jYKmaiCWZ2Ge8_avMdvM3aCT8G8tNt_FpnAzV2Yosr3mEW5o98ENok7t_UUtljglwmyWO3b7Fs-Svo84FEMYgVHiL-oh7Hsi_9OA==3). In the Amazon, research suggests that at least 80% of trees are needed to sustain the hydrological cycle, and substantial forest loss is pushing the region towards a tipping point [earth](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGuEMDSanJ4iUSP4gZm2dOMaHOcdx9npRKOI91gE8V_fi31WKheAQvLzjkrQzAtKe2xkiOllwWp75gMH0qI-q_Z5KlYjc4k_DpNG4Dh_2D3jXYP-Q7i_OcInRhecJ0uQQzf5zaDUJiyPhGv6JLspNFbLWLurknDYgx978g=). Deforestation also negatively impacts soil biodiversity and its ability to regulate nutrients, store carbon, and decompose organic matter, with these effects being most severe when forests are converted to croplands [nih](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHoIbNqg9jyBVDEPCi3Siu0k_8Wxh6sDLt0dWZF9G1Vy2jYKmaiCWZ2Ge8_avMdvM3aCT8G8tNt_FpnAzV2Yosr3mEW5o98ENok7t_UUtljglwmyWO3b7Fs-Svo84FEMYgVHiL-oh7Hsi_9OA==4).
+
+**Economic and Social Consequences in Developing Countries:**
+Deforestation in developing countries leads to the loss of livelihoods and essential resources for millions, particularly in rural and indigenous communities [climateimpact](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQH8AmjRc9sYEqrciSNDieUJ-cytI0TIPQat1g0vAiqDXubVLKzq3w_V6I1eqI4IXAzSQuP321GUbqkf1BpVkKE2NNcfRf7MY8Mna1LvvxZ5EG1WjwLne7dZgqv_H9rO2ZI6MiXQunpbhcUiYRDPk3rakyBQiY-53VNBz_BdKvlpwpLqIMhk4hc-pA==) [worldwildlife](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFRdv-yhbK1N-tRPZtUD9qUoRsuzOXREd54T8FvSc20vVoltRRsWm-mG7UjniZg2LcoDN_p68mYiBxC3iiu7rXXGrO5_licwCRY_Hw_YFL-3fwwIEl2KX4bhbDrhDyNqxGyraO2Y9eFcHLWP4lnAn0ZVgVEdnkJyr7JCj_azSPfGXAVG_j4l2uqWQOeIsRVkg==) [climatetransform](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEuKJr7P_1BVGisfx0G87dg5n4coHCTlxny2glsuoSXsjTKYeLBZBmfM46CNtKA2lPMlaZmj4-WLVY9KJKP_RpnqhG8xe-eViyFrEk4vO57x2s14jbSPDtRNli06lHqUdk0u8YIoYPYDj58d1B8BxYVNH5FZspfBTdB) [iucn](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQG0WalaQoJTNW02RqhJ38QIs6P-fChohnL7XIZ05KqtDXgXM0dMyzMG_slIbYn-siz13L3H-NcAaQlUAdE8L3Tif7fZCqoDfxvKxS1MtJ2_u7dh7a5mnZhSosig-CKRMKMwboSB7GfZNFSB1pYHioHDZAXNi5cniX4hsCZOgbUiVUsovoFWsrs=) [sustainability-directory](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEuuRWIHjkiv2botUmAxpnTpUzGznnOzc0PEBM51fThpg59pbFyKDjxQaYz0YctHagLgvcfAkKj0vOL44UoYHuHD2UGCwrCvePNyfYfODsIPW_CtiPjvhV8Z6vi7wOPpsCbA74hevdUfx3Jas2kyNkcfAEKnEu57W-AdxOUlWdorGH0SHulHR9s3QvRbMRmroARyscibvLl71uFnPWdGalZ). This can result in increased poverty and inequality [timberandthrive](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGI8xTmSHkHb0H8ZrY5xzm1Jr-wkplBkxuwvD_UqY
+... (truncated)</pre>
+                    </div>
+                </div>
+                <div class="metric-details-section">
+                    <div class="io-label">FAILED METRICS</div>
+                    <div class="metric-detail">
+                    <div class="metric-detail-header">
+                        <span class="metric-detail-name">✗ helpfulness</span>
+                        <span class="metric-detail-score">(0.00)</span>
+                    </div>
+                    <div class="metric-detail-reason">API call failed: Gemini API error (503): {
+  &quot;error&quot;: {
+    &quot;code&quot;: 503,
+    &quot;message&quot;: &quot;This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.&quot;,
+    &quot;status&quot;: &quot;UNAVAILABLE&quot;
+  }
+}
+</div>
+                </div>
+                </div>
+            </div>
+        </div><div class="failed-item" id="item-6">
+            <div class="failed-item-header">
+                <div>
+                    <span class="failed-item-id">43b51561-22ea-4454-8ec3-...</span>
+                    <span class="failed-item-summary">1/1 failed</span>
+                </div>
+                <button class="expand-btn" onclick="toggleExpand(6)">Expand</button>
+            </div>
+            <div class="failed-item-content">
+                <div class="io-section">
+                    <div class="io-block input">
+                        <div class="io-label">INPUT</div>
+                        <pre class="io-content">{
+  &quot;args&quot;: [],
+  &quot;kwargs&quot;: {
+    &quot;question&quot;: &quot;What is blockchain technology?&quot;,
+    &quot;initial_queries&quot;: 1,
+    &quot;max_loops&quot;: 1,
+    &quot;reasoning_model&quot;: &quot;gemini-2.5-flash-lite&quot;
+  }
+}</pre>
+                    </div>
+                    <div class="io-block output">
+                        <div class="io-label">OUTPUT</div>
+                        <pre class="io-content">Blockchain technology is a decentralized, immutable, and transparent digital ledger that records transactions across a network of computers, known as nodes [simplilearn](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6efxhNy-QZZCovaWLIyZskFuX2qy7ClrIKmOILDHzaj5zW6SczSRaFbPkgtAArFzat588d9UD-dvnY32IdGOPV3JSp8kNP74N8CPHwMiyoEccAXFlhazMNV-crt2H8Mq364CuclAKhaSP2FNisOcXAy1Qzme1XoCFjtprTd4g9GpDhKY-jiDqG70=) [grapestechsolutions](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHDvRxyJiqNfZgPQm5i7Ib523At_aQ_t9kR10Kgatii3CgPUErrfuoWF9YLHYBn5CqRGApJGJDYeMevWk8HWwdwlcIrhNIrFUFiOqYJK4zqp9yR_UKe4N8t1m_-ROgBqlWsoHgdwE_1MbjUFLcrCoUWaR7kwMhs25DVZKOjrBENYzpgi4I=) [geeksforgeeks](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEDyP0njqJs6n2wbN5BFzuS66qnlsQ67vMp7Ia9p24fgVP5gPqsHT0Cm7vkYrjAvonm00mPLvSK99VeF1pxjLNHS4pilSoZgqqhdWzKa58M-vSmiHamfEqERHfQXv4yEGWXGLr_tEGQ-MdB5Hlfn-lBfD9gMRrwyUyy2bKFFpfnQvOh0UWrR6NkL36FeA==) [crustlab](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEEdSMwQOCEDZK3YfrE_tI_FaSpluPCXcUUpg-dEy8udO_4V8fLa4hK4hHKkfoCfHp8hIJjF-gvJ01n6rTNSXc4FYIWd2ZMOIGWR_b_RkVChBIA3wOnfyHaqQBUgpuEAOi7ctrfDh0inLCbb6ZTkU4nd5Q_A5mf) [metana](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFnbSwzOaRDOvMxqbMva4Gu3-zjMeViTZTIeA31LFnjtgExZDP6P2vF720ftCVhTqREw8z_LauGPaCSn9VJSQmjQkpRpy9siCBFwW2yHjmixOESbAL667qDITtQ-nXRjTb6hw8JQxYd_x_yuRS1tP0h9o26MZ_oLaw=). Instead of relying on a single central authority, it operates on a peer-to-peer network, distributing data across multiple nodes [simplilearn](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6efxhNy-QZZCovaWLIyZskFuX2qy7ClrIKmOILDHzaj5zW6SczSRaFbPkgtAArFzat588d9UD-dvnY32IdGOPV3JSp8kNP74N8CPHwMiyoEccAXFlhazMNV-crt2H8Mq364CuclAKhaSP2FNisOcXAy1Qzme1XoCFjtprTd4g9GpDhKY-jiDqG70=) [cryptoanimatics](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGNn5RzBg78sla287KVZNI8y1Rz-aNwRhkUpKSgxFWckjSlqrDC2Jz1Kv2EkdO55_2uSoXUfe3ZY-VdpvYDlI7ox_JW7z-uFB2jIKmk1kspepOy234cwkbkzYbr704MPMtG5nSSR7iXW-CXSqPwQQeKj2_0oOcNPCCw9SQ6JAX7VFk5EYIJJOTKMLPGdB_MnA==) [techhack](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQERnl_9ethx3_lRD3aVQ4AF-62C-tPrPZgYdxIhxNkRywficcrvWdWm8uvkj8_nKM3DefHT8YmVrxSD7nYvwp8pGXV4ygxcrO-vC6FSln2a8C_xImtFxtski5qEBMt1wiurlKRlFbJ17Lnru931WWVF2YTJrCrKyTnXbc5PBHxR3EzfNQO8irv5FXPbrAI=) [crustlab](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEEdSMwQOCEDZK3YfrE_tI_FaSpluPCXcUUpg-dEy8udO_4V8fLa4hK4hHKkfoCfHp8hIJjF-gvJ01n6rTNSXc4FYIWd2ZMOIGWR_b_RkVChBIA3wOnfyHaqQBUgpuEAOi7ctrfDh0inLCbb6ZTkU4nd5Q_A5mf). This decentralized nature makes the data secure, transparent, and tamper-proof, rendering it virtually impossible to alter or delete once recorded [simplilearn](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6efxhNy-QZZCovaWLIyZskFuX2qy7ClrIKmOILDHzaj5zW6SczSRaFbPkgtAArFzat588d9UD-dvnY32IdGOPV3JSp8kNP74N8CPHwMiyoEccAXFlhazMNV-crt2H8Mq364CuclAKhaSP2FNisOcXAy1Qzme1XoCFjtprTd4g9GpDhKY-jiDqG70=) [grapestechsolutions](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHDvRxyJiqNfZgPQm5i7Ib523At_aQ_t9kR10Kgatii3CgPUErrfuoWF9YLHYBn5CqRGApJGJDYeMevWk8HWwdwlcIrhNIrFUFiOqYJK4zqp9yR_UKe4N8t1m_-ROgBqlWsoHgdwE_1MbjUFLcrCoUWaR7kwMhs25DVZKOjrBENYzpgi4I=) [geeksforgeeks](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEDyP0njqJs6n2wbN5BFzuS66qnlsQ67vMp7Ia9p24fgVP5gPqsHT0Cm7vkYrjAvonm00mPLvSK99VeF1pxjLNHS4pilSoZgqqhdWzKa58M-vSmiHamfEqERHfQXv4yEGWXGLr_tEGQ-MdB5Hlfn-lBfD9gMRrwyUyy2bKFFpfnQvOh0UWrR6NkL36FeA==) [crustlab](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEEdSMwQOCEDZK3YfrE_tI_FaSpluPCXcUUpg-dEy8udO_4V8fLa4hK4hHKkfoCfHp8hIJjF-gvJ01n6rTNSXc4FYIWd2ZMOIGWR_b_RkVChBIA3wOnfyHaqQBUgpuEAOi7ctrfDh0inLCbb6ZTkU4nd5Q_A5mf) [metana](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFnbSwzOaRDOvMxqbMva4Gu3-zjMeViTZTIeA31LFnjtgExZDP6P2vF720ftCVhTqREw8z_LauGPaCSn9VJSQmjQkpRpy9siCBFwW2yHjmixOESbAL667qDITtQ-nXRjTb6hw8JQxYd_x_yuRS1tP0h9o26MZ_oLaw=).
+
+The fundamental structure of blockchain involves data being organized into &quot;blocks,&quot; which are chronologically linked together to form a &quot;chain&quot; [brightstudyworld](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEpCTBkKpR36ZqJjXKT4s_zcVvi1h614TsEyw0IfWKypX9TKJ1wL85CAUk-4Akt9qx5kG552doez_ATHgalW4tJ26Zzpb_ZPCnLE5OP4eRfV0xY21qOyeaPqoCfQbrEGE8C-LKKl4owcM-SQWE3f0qqQ1n50jqtlpdOcHy52-xCr3PQzFIt08ucQ-vkC02L) [geeksforgeeks](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEDyP0njqJs6n2wbN5BFzuS66qnlsQ67vMp7Ia9p24fgVP5gPqsHT0Cm7vkYrjAvonm00mPLvSK99VeF1pxjLNHS4pilSoZgqqhdWzKa58M-vSmiHamfEqERHfQXv4yEGWXGLr_tEGQ-MdB5Hlfn-lBfD9gMRrwyUyy2bKFFpfnQvOh0UWrR6NkL36FeA==). Each block contains a set of data (like transactions), a timestamp, and a unique digital identifier known as a cryptographic hash [brightstudyworld](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEpCTBkKpR36ZqJjXKT4s_zcVvi1h614TsEyw0IfWKypX9TKJ1wL85CAUk-4Akt9qx5kG552doez_ATHgalW4tJ26Zzpb_ZPCnLE5OP4eRfV0xY21qOyeaPqoCfQbrEGE8C-LKKl4owcM-SQWE3f0qqQ1n50jqtlpdOcHy52-xCr3PQzFIt08ucQ-vkC02L) [cryptoanimatics](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGNn5RzBg78sla287KVZNI8y1Rz-aNwRhkUpKSgxFWckjSlqrDC2Jz1Kv2EkdO55_2uSoXUfe3ZY-VdpvYDlI7ox_JW7z-uFB2jIKmk1kspepOy234cwkbkzYbr704MPMtG5nSSR7iXW-CXSqPwQQeKj2_0oOcNPCCw9SQ6JAX7VFk5EYIJJOTKMLPGdB_MnA==) [geeksforgeeks](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEDyP0njqJs6n2wbN5BFzuS66qnlsQ67vMp7Ia9p24fgVP5gPqsHT0Cm7vkYrjAvonm00mPLvSK99VeF1pxjLNHS4pilSoZgqqhdWzKa58M-vSmiHamfEqERHfQXv4yEGWXGLr_tEGQ-MdB5Hlfn-lBfD9gMRrwyUyy2bKFFpfnQvOh0UWrR6NkL36FeA==). This hash also incorporates the hash of the preceding block, creating a secure and unbreakable chain [brightstudyworld](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEpCTBkKpR36ZqJjXKT4s_zcVvi1h614TsEyw0IfWKypX9TKJ1wL85CAUk-4Akt9qx5kG552doez_ATHgalW4tJ26Zzpb_ZPCnLE5OP4eRfV0xY21qOyeaPqoCfQbrEGE8C-LKKl4owcM-SQWE3f0qqQ1n50jqtlpdOcHy52-xCr3PQzFIt08ucQ-vkC02L) [geeksforgeeks](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEDyP0njqJs6n2wbN5BFzuS66qnlsQ67vMp7Ia9p24fgVP5gPqsHT0Cm7vkYrjAvonm00mPLvSK99VeF1pxjLNHS4pilSoZgqqhdWzKa58M-vSmiHamfEqERHfQXv4yEGWXGLr_tEGQ-MdB5Hlfn-lBfD9gMRrwyUyy2bKFFpfnQvOh0UWrR6NkL36FeA==).
+
+The process of how blockchain operates generally involves the following steps:
+1.  **Transaction Initiation:** A user starts a transaction [grapestechsolutions](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHDvRxyJiqNfZgPQm5i7Ib523At_aQ_t9kR10Kgatii3CgPUErrfuoWF9YLHYBn5CqRGApJGJDYeMevWk8HWwdwlcIrhNIrFUFiOqYJK4zqp9yR_UKe4N8t1m_-ROgBqlWsoHgdwE_1MbjUFLcrCoUWaR7kwMhs25DVZKOjrBENYzpgi4I=).
+2.  **Transaction Verification:** The transaction is broadcast to the network of nodes for verification of its authenticity [brightstudyworld](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEpCTBkKpR36ZqJjXKT4s_zcVvi1h614TsEyw0IfWKypX9TKJ1wL85CAUk-4Akt9qx5kG552doez_ATHgalW4tJ26Zzpb_ZPCnLE5OP4eRfV0xY21qOyeaPqoCfQbrEGE8C-LKKl4owcM-SQWE3f0qqQ1n50jqtlpdOcHy52-xCr3PQzFIt08ucQ-vkC02L) [grapestechsolutions](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHDvRxyJiqNfZgPQm5i7Ib523At_aQ_t9kR10Kgatii3CgPUErrfuoWF9YLHYBn5CqRGApJGJDYeMevWk8HWwdwlcIrhNIrFUFiOqYJK4zqp9yR_UKe4N8t1m_-ROgBqlWsoHgdwE_1MbjUFLcrCoUWaR7kwMhs25DVZKOjrBENYzpgi4I=). This typically includes checking if the sender possesses the required assets or permissions [brightstudyworld](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEpCTBkKpR36ZqJjXKT4s_zcVvi1h614TsEyw0IfWKypX9TKJ1wL85CAUk-4Akt9qx5kG552doez_ATHgalW4tJ26Zzpb_ZPCnLE5OP4eRfV0xY21qOyeaPqoCfQbrEGE8C-LKKl4owcM-SQWE3f0qqQ1n50jqtlpdOcHy52-xCr3PQzFIt08ucQ-vkC02L).
+3.  **Block Creation:** Verified transactions are bundled into a new block [brightstudyworld](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEpCTBkKpR36ZqJjXKT4s_zcVvi1h614TsEyw0IfWKypX9TKJ1wL85CAUk-4Akt9qx5kG552doez_ATHgalW4tJ26Zzpb_ZPCnLE5OP4eRfV0xY21qOyeaPqoCfQbrEGE8C-LKKl4owcM-SQWE3f0qqQ1n50jqtlpdOcHy52-xCr3PQzFIt08ucQ-vkC02L) [grapestechsolutions](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHDvRxyJiqNfZgPQm5i7Ib523At_aQ_t9kR10Kgatii3CgPUErrfuoWF9YLHYBn5CqRGApJGJDYeMevWk8HWwdwlcIrhNIrFUFiOqYJK4zqp9yR_UKe4N8t1m_-ROgBqlWsoHgdwE_1MbjUFLcrCoUWaR7kwMhs25DVZKOjrBENYzpgi4I=).
+4.  **Consensus Mechanism:** Before a new block is added to the chain, network participants must agree on its validity through a consensus mechanism, such as Proof of Work (PoW) or Proof of Stake (PoS) [simplilearn](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF6efxhNy-QZZCovaWLIyZskFuX2qy7ClrIKmOILDHzaj5zW6SczSRaFbPkgtAArFzat588d9UD-dvnY32IdGOPV3JSp8kNP74N8CPHwMiyoEccAXFlhazMNV-crt2H8Mq364CuclAKhaSP2FNisOcXAy1Qzme1XoCFjtprTd4g9GpDhKY-jiDqG70=) [grapestechsolutions](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHDvRxyJiqNfZgPQm5i7Ib523At_aQ_t9kR10Kgatii3CgPUErrfuoWF9YLHYBn5CqRGApJGJDYeMevWk8HWwdwlcIrhNIrFUFiOqYJK4zqp9yR_UKe4N8t1m_-ROgBqlWsoHgdwE_1MbjUFLcrCoUWaR7kwMhs25DVZKOjrBENYzpgi4I=) [youtube](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGHInj3gOHlpvBwCBt1W8ZgF_MlSiC9LbXHaMzRbY1k0CTiYf62FjZwbIWTOn7VtCRvrwXRPBpIq0IwLVnzUXXAQmBclZ_Kd0jWeJpIq_-S5ziqWQbz4NIQL2tSo8iDAl_4Zlwg8ro=).
+5.  **Adding the Block:** Once consensus is reached, the block is appended to the existing chain [grapestechsolutions](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHDvRxyJiqNfZgPQm5i7Ib523At_aQ_t9kR10Kgatii3CgPUErrfuoWF9YLHYBn5CqRGApJGJDYeMevWk8HWwdwlcIrhNIrFUFiOqYJK4zqp9yR_UKe4N8t1m_-ROgBqlWsoHgdwE_1MbjUFLcrCoUWaR7kwMhs25DVZKOjrBENYzpgi4I=).
+6.  **Completion:** The transaction is finalized and permanently recorded on the blockchain, ensuring its immutability [brightstudyworld](http
+... (truncated)</pre>
+                    </div>
+                </div>
+                <div class="metric-details-section">
+                    <div class="io-label">FAILED METRICS</div>
+                    <div class="metric-detail">
+                    <div class="metric-detail-header">
+                        <span class="metric-detail-name">✗ helpfulness</span>
+                        <span class="metric-detail-score">(0.00)</span>
+                    </div>
+                    <div class="metric-detail-reason">API call failed: Gemini API error (503): {
+  &quot;error&quot;: {
+    &quot;code&quot;: 503,
+    &quot;message&quot;: &quot;This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.&quot;,
+    &quot;status&quot;: &quot;UNAVAILABLE&quot;
+  }
+}
+</div>
+                </div>
+                </div>
+            </div>
+        </div>
+                    
+                </div>
+            </div>
+        </div>
+        <!-- Footer -->
+        <div class="footer">
+            <div class="footer-item">
+                <span class="footer-label">Run ID:</span>
+                <span class="footer-value">f8403bb6-47ca-4b41-ba77-0086a3d81187</span>
+            </div>
+            <div class="footer-item">
+                <span class="footer-label">Dataset:</span>
+                <span class="footer-value">test-llm-judge</span>
+            </div>
+            <div class="footer-item">
+                <span class="footer-label">Created:</span>
+                <span class="footer-value">2026-03-10T16:27:14.391691+00:00</span>
+            </div>
+            <div class="footer-item">
+                <span class="footer-label">Passing All:</span>
+                <span class="footer-value">93/100</span>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Warm theme colors - Anthropic style
+        const colors = {
+            accent: '#D4A27F',
+            accentDim: 'rgba(212, 162, 127, 0.3)',
+            secondary: '#C4836A',
+            error: '#C97B63',
+            errorDim: 'rgba(201, 123, 99, 0.3)',
+            warning: '#D4A27F',
+            success: '#6B8E8E',
+            muted: '#A89F97',
+            border: 'rgba(212, 162, 127, 0.2)',
+            gridLine: 'rgba(212, 162, 127, 0.15)',
+            bg: '#FFFBF7',
+            text: '#1A1A1A',
+            textMuted: '#888888'
+        };
+
+        // Chart.js defaults for warm theme
+        Chart.defaults.font.family = "'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
+        Chart.defaults.color = colors.textMuted;
+        Chart.defaults.borderColor = colors.border;
+
+        // Toggle expand for failed items
+        function toggleExpand(idx) {
+            const item = document.getElementById('item-' + idx);
+            if (item) {
+                const content = item.querySelector('.failed-item-content');
+                const btn = item.querySelector('.expand-btn');
+                if (content.style.display === 'none' || !content.style.display) {
+                    content.style.display = 'block';
+                    btn.textContent = 'Collapse';
+                    item.classList.add('expanded');
+                } else {
+                    content.style.display = 'none';
+                    btn.textContent = 'Expand';
+                    item.classList.remove('expanded');
+                }
+            }
+        }
+
+        // Pass Rate Chart - horizontal bars with thin styling
+        const passRateCtx = document.getElementById('passRateChart').getContext('2d');
+        new Chart(passRateCtx, {
+            type: 'bar',
+            data: {
+                labels: ["helpfulness"],
+                datasets: [{
+                    data: [93.0],
+                    backgroundColor: ["#6B8E8E"],
+                    borderColor: ["#6B8E8E"],
+                    borderWidth: 1,
+                    borderRadius: 2,
+                    borderSkipped: false,
+                    barThickness: 16,
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: colors.bg,
+                        titleColor: colors.text,
+                        bodyColor: colors.text,
+                        borderColor: colors.border,
+                        borderWidth: 1,
+                        padding: 10,
+                        callbacks: {
+                            label: (ctx) => ctx.raw.toFixed(1) + '%'
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: {
+                            color: colors.gridLine,
+                            lineWidth: 1
+                        },
+                        ticks: { color: colors.textMuted },
+                        title: { display: true, text: 'Pass Rate (%)', color: colors.muted }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: colors.text }
+                    }
+                }
+            }
+        });
+
+        // Score Distribution Chart
+        const scoreDistCtx = document.getElementById('scoreDistChart').getContext('2d');
+        const scoreDistData = [{"metric": "helpfulness", "min": 0.0, "q1": 1.0, "median": 1.0, "q3": 1.0, "max": 1.0, "avg": 0.93}];
+        new Chart(scoreDistCtx, {
+            type: 'bar',
+            data: {
+                labels: scoreDistData.map(d => d.metric),
+                datasets: [
+                    {
+                        label: 'Score Range',
+                        data: scoreDistData.map(d => [d.min, d.max]),
+                        backgroundColor: colors.accentDim,
+                        borderColor: colors.accent,
+                        borderWidth: 2,
+                        borderRadius: 2,
+                        borderSkipped: false,
+                        barThickness: 8,
+                    },
+                    {
+                        label: 'Average',
+                        data: scoreDistData.map(d => d.avg),
+                        type: 'scatter',
+                        backgroundColor: colors.accent,
+                        borderColor: colors.bg,
+                        borderWidth: 2,
+                        pointRadius: 6,
+                        pointStyle: 'circle',
+                    }
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: colors.bg,
+                        titleColor: colors.text,
+                        bodyColor: colors.text,
+                        borderColor: colors.border,
+                        borderWidth: 1,
+                        padding: 10,
+                        callbacks: {
+                            label: (ctx) => {
+                                if (ctx.datasetIndex === 0) {
+                                    return `Range: ${ctx.raw[0].toFixed(3)} - ${ctx.raw[1].toFixed(3)}`;
+                                }
+                                return `Avg: ${ctx.raw.toFixed(3)}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        max: 1.1,
+                        grid: {
+                            color: colors.gridLine,
+                            lineWidth: 1
+                        },
+                        ticks: { color: colors.textMuted },
+                        title: { display: true, text: 'Score', color: colors.muted }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: colors.text }
+                    }
+                }
+            }
+        });
+
+        
+    </script>
+</body>
+</html>

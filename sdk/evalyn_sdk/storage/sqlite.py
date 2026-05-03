@@ -18,6 +18,7 @@ from .migrations import run_migrations
 # Default paths for prod/test separation
 DEFAULT_PROD_DB = "data/prod/traces.sqlite"
 DEFAULT_TEST_DB = "data/test/traces.sqlite"
+DB_PATHS = {"prod": DEFAULT_PROD_DB, "test": DEFAULT_TEST_DB}
 
 
 @functools.lru_cache(maxsize=1)
@@ -251,17 +252,34 @@ class SQLiteStorage:
             return None
         return self._row_to_call(row)
 
-    def get_calls_batch(self, call_ids: List[str]) -> Dict[str, FunctionCall]:
-        """Fetch multiple calls by ID in a single query. Returns {id: call}."""
+    def get_calls_batch(
+        self, call_ids: List[str], chunk_size: int = 500
+    ) -> Dict[str, FunctionCall]:
+        """Fetch multiple calls by ID. Returns {id: call}.
+
+        Chunks queries to stay below SQLITE_MAX_VARIABLE_NUMBER (999 on
+        SQLite <3.32, 32766 on newer builds).
+        """
         if not call_ids:
             return {}
         cur = self.get_connection().cursor()
-        placeholders = ",".join("?" for _ in call_ids)
-        cur.execute(
-            f"SELECT * FROM function_calls WHERE id IN ({placeholders})",
-            call_ids,
-        )
-        return {row["id"]: self._row_to_call(row) for row in cur.fetchall()}
+        result: Dict[str, FunctionCall] = {}
+        for i in range(0, len(call_ids), chunk_size):
+            chunk = call_ids[i : i + chunk_size]
+            placeholders = ",".join("?" for _ in chunk)
+            cur.execute(
+                f"SELECT * FROM function_calls WHERE id IN ({placeholders})",
+                chunk,
+            )
+            for row in cur.fetchall():
+                result[row["id"]] = self._row_to_call(row)
+        return result
+
+    # Columns needed for lightweight listing (skip large blobs)
+    _LIGHTWEIGHT_COLS = (
+        "id, function_name, session_id, started_at, ended_at, "
+        "duration_ms, error, metadata, parent_call_id"
+    )
 
     def list_calls(
         self,
@@ -269,26 +287,40 @@ class SQLiteStorage:
         project: Optional[str] = None,
         function_name: Optional[str] = None,
         lightweight: bool = False,
+        version: Optional[str] = None,
     ) -> List[FunctionCall]:
         cur = self.get_connection().cursor()
-        clauses: list[str] = []
-        params: list[object] = []
+        # Use lightweight column projection when possible (cli-rich-output
+        # perf path); function_name supports case-insensitive substring
+        # match (escaped against SQL LIKE wildcards via the cli-rich-output
+        # fix); version filter from cli-rich-output. Project clause shape
+        # is shared with the dashboard-workbench branch's logic.
+        cols = self._LIGHTWEIGHT_COLS if lightweight else "*"
+
+        where_parts: list[str] = []
+        params: list = []
+
         if project:
-            clauses.append(
+            where_parts.append(
                 "(json_extract(metadata, '$.project_id') = ? "
                 "OR json_extract(metadata, '$.project_name') = ?)"
             )
             params.extend([project, project])
+
         if function_name:
-            clauses.append("function_name = ?")
+            where_parts.append("instr(LOWER(function_name), LOWER(?)) > 0")
             params.append(function_name)
 
-        where = f"WHERE {' AND '.join(clauses)} " if clauses else ""
+        if version:
+            where_parts.append("json_extract(metadata, '$.version') = ?")
+            params.append(version)
+
+        where_clause = f"WHERE {' AND '.join(where_parts)}" if where_parts else ""
+
         params.append(limit)
         cur.execute(
-            f"SELECT * FROM function_calls {where}"
-            "ORDER BY started_at DESC LIMIT ?",
-            tuple(params),
+            f"SELECT {cols} FROM function_calls {where_clause} ORDER BY started_at DESC LIMIT ?",
+            params,
         )
         return [
             self._row_to_call(row, lightweight=lightweight)
@@ -786,22 +818,39 @@ class SQLiteStorage:
     ) -> FunctionCall:
         # Handle new columns that may not exist in old databases
         parent_call_id = None
-        spans: list = []
         try:
             parent_call_id = row["parent_call_id"]
-            if not lightweight:
-                spans_raw = row["spans"]
-                if spans_raw:
-                    spans = json.loads(spans_raw)
         except (KeyError, IndexError):
-            # Old database without new columns
             pass
 
-        trace = (
-            []
-            if lightweight
-            else (json.loads(row["trace"]) if row["trace"] else [])
-        )
+        if lightweight:
+            # Skip deserializing inputs, output, trace, spans -
+            # they are not in the SELECT and not needed for listing.
+            return FunctionCall.from_dict(
+                {
+                    "id": row["id"],
+                    "function_name": row["function_name"],
+                    "session_id": row["session_id"],
+                    "started_at": row["started_at"],
+                    "ended_at": row["ended_at"],
+                    "duration_ms": row["duration_ms"],
+                    "inputs": {},
+                    "output": None,
+                    "error": row["error"],
+                    "trace": [],
+                    "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
+                    "parent_call_id": parent_call_id,
+                    "spans": [],
+                }
+            )
+
+        spans: list = []
+        try:
+            spans_raw = row["spans"]
+            if spans_raw:
+                spans = json.loads(spans_raw)
+        except (KeyError, IndexError):
+            pass
 
         return FunctionCall.from_dict(
             {
@@ -814,7 +863,7 @@ class SQLiteStorage:
                 "inputs": json.loads(row["inputs"]) if row["inputs"] else {},
                 "output": json.loads(row["output"]) if row["output"] else None,
                 "error": row["error"],
-                "trace": trace,
+                "trace": json.loads(row["trace"]) if row["trace"] else [],
                 "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
                 "parent_call_id": parent_call_id,
                 "spans": spans,

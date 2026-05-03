@@ -56,6 +56,7 @@ from ..utils.input_helpers import (
 )
 from ..utils.command_common import resolve_dataset_dir_and_file
 from ..utils.hints import HintCollector
+from ..utils.rich import banner, icon, section, kv, table, progress_bar
 
 
 def cmd_import_annotations(args: argparse.Namespace) -> None:
@@ -69,10 +70,16 @@ def cmd_import_annotations(args: argparse.Namespace) -> None:
         return
     anns = import_annotations(args.path)
     tracer.storage.store_annotations(anns)
-    print(f"Imported {len(anns)} annotations into storage.")
+    print(f"{icon('pass')} Imported {len(anns)} annotations into storage.")
 
     hints = HintCollector(quiet=getattr(args, "quiet", False))
-    hints.add("evalyn annotation-stats --dataset <path>", "View annotation statistics")
+    hints.add(
+        "evalyn annotation-stats --dataset <path>",
+        "View annotation statistics",
+        options=[
+            ("--format json", "Machine-readable output"),
+        ],
+    )
     hints.render()
 
 
@@ -115,7 +122,11 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
         tracer = get_default_tracer()
         if tracer.storage:
             stored_anns = tracer.storage.list_annotations(limit=10000)
-            stored_by_target = {a.target_id: a for a in stored_anns}
+            # list_annotations returns newest-first; setdefault keeps the
+            # newest annotation per target when multiple exist.
+            stored_by_target: Dict[str, "Annotation"] = {}
+            for ann in stored_anns:
+                stored_by_target.setdefault(ann.target_id, ann)
             for item in items:
                 item_id = getattr(item, "id", "") or ""
                 if item_id in stored_by_target and not item.human_label:
@@ -174,44 +185,61 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
                     agreement_stats[metric_id]["fn"] += 1  # LLM=FAIL, Human=PASS
 
     # Print report
-    print("\n" + "=" * 60)
-    print("ANNOTATION COVERAGE REPORT")
-    print("=" * 60)
-    print(f"\nTotal items:        {total}")
-    print(f"With human labels:  {with_labels} ({coverage * 100:.1f}%)")
-    print(f"With eval results:  {with_evals}")
-    print(f"Awaiting annotation: {total - with_labels}")
+    print()
+    print(banner("ANNOTATION COVERAGE"))
+    print()
+    print(kv([
+        ("Total items", str(total)),
+        ("With human labels", f"{with_labels} ({coverage * 100:.1f}%)"),
+        ("With eval results", str(with_evals)),
+        ("Awaiting annotation", str(total - with_labels)),
+    ]))
+    print()
+    print(f"  {progress_bar(with_labels, total, label='Coverage')}")
 
     if metric_stats:
-        print("\n" + "-" * 60)
-        print("EVAL RESULTS BY METRIC")
-        print("-" * 60)
-        print(f"{'Metric':<25} {'Total':<8} {'Pass':<8} {'Fail':<8} {'Pass %':<8}")
-        print("-" * 60)
+        print()
+        print(section("EVAL RESULTS BY METRIC"))
+        rows = []
         for metric_id, stats in sorted(metric_stats.items()):
             pass_rate = stats["passed"] / stats["total"] if stats["total"] > 0 else 0
-            print(
-                f"{metric_id:<25} {stats['total']:<8} {stats['passed']:<8} {stats['failed']:<8} {pass_rate * 100:.1f}%"
-            )
+            rows.append([
+                metric_id,
+                str(stats["total"]),
+                str(stats["passed"]),
+                str(stats["failed"]),
+                f"{pass_rate * 100:.1f}%",
+            ])
+        print(table(
+            ["Metric", "Total", "Pass", "Fail", "Pass %"],
+            rows,
+            align=["left", "right", "right", "right", "right"],
+        ))
 
     if agreement_stats:
-        print("\n" + "-" * 60)
-        print("HUMAN vs LLM AGREEMENT")
-        print("-" * 60)
-        print(
-            f"{'Metric':<25} {'Agree':<8} {'Disagree':<8} {'FP':<8} {'FN':<8} {'Agr %':<8}"
-        )
-        print("-" * 60)
+        print()
+        print(section("HUMAN VS LLM AGREEMENT"))
+        rows = []
         for metric_id, stats in sorted(agreement_stats.items()):
             total_compared = stats["agree"] + stats["disagree"]
             agr_rate = stats["agree"] / total_compared if total_compared > 0 else 0
-            print(
-                f"{metric_id:<25} {stats['agree']:<8} {stats['disagree']:<8} {stats['fp']:<8} {stats['fn']:<8} {agr_rate * 100:.1f}%"
-            )
-        print("\nFP = False Positive (LLM=PASS, Human=FAIL)")
-        print("FN = False Negative (LLM=FAIL, Human=PASS)")
+            rows.append([
+                metric_id,
+                str(stats["agree"]),
+                str(stats["disagree"]),
+                str(stats["fp"]),
+                str(stats["fn"]),
+                f"{agr_rate * 100:.1f}%",
+            ])
+        print(table(
+            ["Metric", "Agree", "Disagree", "FP", "FN", "Agr %"],
+            rows,
+            align=["left", "right", "right", "right", "right", "right"],
+        ))
+        print("\n  FP = False Positive (LLM=PASS, Human=FAIL)")
+        print("  FN = False Negative (LLM=FAIL, Human=PASS)")
 
-    print("\n" + "=" * 60)
+    print()
 
     # Show hint for next step
     if agreement_stats:
@@ -223,6 +251,10 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
             hints.add(
                 f"evalyn calibrate --metric-id <metric> --annotations {annotations_path} --dataset {dataset_path}",
                 "Calibrate LLM judges",
+                options=[
+                    ("--optimizer basic|gepa|opro|ape", "Optimization method"),
+                    ("--show-examples", "Show disagreement cases"),
+                ],
             )
             hints.render()
 
@@ -1025,6 +1057,11 @@ def cmd_annotate(args: argparse.Namespace) -> None:
     hints.add(
         f"evalyn calibrate --metric-id <metric> --annotations {output_path} --dataset {dataset_dir}",
         "Calibrate LLM judges",
+        options=[
+            ("--optimizer basic|gepa|opro|ape", "Optimization method"),
+            ("--show-examples", "Show disagreement cases"),
+            ("--verbose", "Show detailed cost breakdown"),
+        ],
     )
     hints.render()
 
