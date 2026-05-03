@@ -3,17 +3,29 @@
  * Wired to /api/agent/chat + /ws/agent/{tid} via useCoPilotThread.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { E } from '../tokens';
 import { Btn, Pill } from '../ui';
 import { Bubble, PlanCard, ToolBlock } from './atoms';
 import { useCoPilotThread } from './useCoPilotThread';
 
+const EXAMPLE_PROMPTS = [
+  "What's my pass rate trend?",
+  'Show me the worst failure cluster',
+  'Explain my rubric',
+];
+
 export function CoPilotDock({ onClose }: { onClose: () => void }) {
   const { messages, pending, send, confirm, status, threadId } = useCoPilotThread();
   const [draft, setDraft] = useState('');
   const navigate = useNavigate();
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const useSuggestion = (prompt: string) => {
+    setDraft(prompt);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  };
 
   const handleExpand = () => {
     navigate(threadId ? `/copilot/${threadId}` : '/copilot');
@@ -101,9 +113,44 @@ export function CoPilotDock({ onClose }: { onClose: () => void }) {
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '18px 18px 8px' }}>
         {messages.length === 0 && (
-          <div style={{ color: E.text3, fontSize: 12.5, padding: '20px 4px', lineHeight: 1.55 }}>
-            Ask anything about your evals. The co-pilot can read runs, datasets, and rubrics on
-            its own. Anything that writes will pause for your confirmation first.
+          <div style={{ padding: '20px 4px' }}>
+            <div style={{ color: E.text3, fontSize: 12.5, lineHeight: 1.55 }}>
+              Ask anything about your evals. The co-pilot can read runs, datasets, and rubrics on
+              its own. Anything that writes will pause for your confirmation first.
+            </div>
+            <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {EXAMPLE_PROMPTS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => useSuggestion(p)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    alignSelf: 'flex-start',
+                    padding: '4px 10px',
+                    borderRadius: 999,
+                    fontSize: 11,
+                    fontFamily: E.fMono,
+                    color: E.text2,
+                    background: E.panel2,
+                    border: `1px solid ${E.hair2}`,
+                    cursor: 'pointer',
+                    transition: 'border-color 120ms, color 120ms',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = E.ember;
+                    e.currentTarget.style.color = E.text1;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = E.hair2;
+                    e.currentTarget.style.color = E.text2;
+                  }}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {messages.map((m) => (
@@ -131,6 +178,7 @@ export function CoPilotDock({ onClose }: { onClose: () => void }) {
           }}
         >
           <textarea
+            ref={textareaRef}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {

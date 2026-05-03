@@ -26,6 +26,12 @@ import {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+const EXAMPLE_PROMPTS = [
+  "What's my pass rate trend?",
+  'Show me the worst failure cluster',
+  'Explain my rubric',
+];
+
 function inferTitle(firstUserText: string | null): string {
   if (!firstUserText) return 'New thread';
   const trimmed = firstUserText.trim().replace(/\s+/g, ' ');
@@ -81,6 +87,12 @@ export default function CoPilotThread() {
   const [historyTick, setHistoryTick] = useState(0);
   const [index, setIndex] = useState<ThreadIndexEntry[]>(() => loadThreadIndex());
   const createdAtRef = useRef<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const useSuggestion = (prompt: string) => {
+    setDraft(prompt);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  };
 
   // Reattach the hook when the URL thread id changes (sidebar click).
   useEffect(() => {
@@ -304,17 +316,50 @@ export default function CoPilotThread() {
           <div style={{ flex: 1, overflowY: 'auto', padding: '24px 36px' }}>
             <div style={{ maxWidth: 720 }}>
               {messages.length === 0 && (
-                <div
-                  style={{
-                    color: E.text3,
-                    fontSize: 13,
-                    lineHeight: 1.6,
-                    padding: '12px 4px',
-                  }}
-                >
-                  Ask anything about your evals. The co-pilot can read runs, datasets,
-                  and rubrics on its own. Anything that writes will pause for your
-                  confirmation first.
+                <div style={{ padding: '12px 4px' }}>
+                  <div
+                    style={{
+                      color: E.text3,
+                      fontSize: 13,
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    Ask anything about your evals. The co-pilot can read runs, datasets,
+                    and rubrics on its own. Anything that writes will pause for your
+                    confirmation first.
+                  </div>
+                  <div style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {EXAMPLE_PROMPTS.map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => useSuggestion(p)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          padding: '5px 12px',
+                          borderRadius: 999,
+                          fontSize: 12,
+                          fontFamily: E.fMono,
+                          color: E.text2,
+                          background: E.panel2,
+                          border: `1px solid ${E.hair2}`,
+                          cursor: 'pointer',
+                          transition: 'border-color 120ms, color 120ms',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = E.ember;
+                          e.currentTarget.style.color = E.text1;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = E.hair2;
+                          e.currentTarget.style.color = E.text2;
+                        }}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
               {messages.map((m) => (
@@ -382,6 +427,7 @@ export default function CoPilotThread() {
                 </Pill>
               </div>
               <textarea
+                ref={textareaRef}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {

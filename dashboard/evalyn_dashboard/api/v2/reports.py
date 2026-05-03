@@ -14,7 +14,6 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from ._shared import (
-    datasets_root,
     fmt_cost,
     load_all_runs,
     parse_iso,
@@ -106,7 +105,7 @@ def _blocking(failed: list[dict]) -> dict | None:
 @router.get("/weekly")
 async def get_weekly() -> JSONResponse:
     """Return the weekly report aggregated from runs on disk."""
-    runs = load_all_runs(datasets_root())
+    runs = load_all_runs()
     anchor = (
         parse_iso(runs[-1].get("created_at")) if runs else None
     ) or datetime.now(timezone.utc)

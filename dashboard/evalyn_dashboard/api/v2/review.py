@@ -21,7 +21,6 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from ._shared import (
-    datasets_root,
     input_text,
     load_all_runs,
     load_dataset_items,
@@ -66,7 +65,7 @@ def _confidence(mr: dict, judge_ids: set[str]) -> float | None:
 @router.get("/queue")
 async def get_queue() -> JSONResponse:
     """Return up to 50 uncertain items, closest to 0.5 first."""
-    runs = load_all_runs(datasets_root())
+    runs = load_all_runs()
     candidates: list[tuple[float, dict]] = []
     items_cache: dict[Path, dict[str, dict]] = {}
     for run in runs:
@@ -146,7 +145,7 @@ class VerdictBody(BaseModel):
 
 def _resolve_run_dataset_dir(source_run_id: str) -> Path | None:
     """Return the dataset dir containing ``source_run_id`` or ``None``."""
-    for run in load_all_runs(datasets_root()):
+    for run in load_all_runs():
         if run_id(run) == source_run_id or run.get("id") == source_run_id:
             return run_dataset_dir(run)
     return None

@@ -52,19 +52,35 @@ export default function Reports() {
         </h1>
         {data && (
           <p style={{ fontSize: 13, color: E.text2, marginTop: 6 }}>
-            Drafted by co-pilot - {data.generated_at_iso} - review and send to{' '}
-            <b>#agent-quality</b>
+            Drafted by co-pilot - {data.generated_at_iso}
           </p>
         )}
 
         <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-          <Btn kind="primary" size="md" disabled title="Coming soon">
+          <Btn
+            kind="primary"
+            size="md"
+            disabled
+            title="Coming soon - post the rendered report to a Slack channel"
+          >
             Send to Slack
           </Btn>
-          <Btn kind="secondary" size="md" disabled title="Coming soon">
+          <Btn
+            kind="secondary"
+            size="md"
+            disabled
+            title="Coming soon - export the report as a PDF you can share"
+          >
             Export PDF
           </Btn>
-          <Btn kind="ghost" size="md">Regenerate</Btn>
+          <Btn
+            kind="ghost"
+            size="md"
+            onClick={() => window.location.reload()}
+            title="Re-fetch the weekly report - it's recomputed on each load"
+          >
+            Regenerate
+          </Btn>
         </div>
 
         {err && (

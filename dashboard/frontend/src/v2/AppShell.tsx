@@ -8,12 +8,13 @@
  * it when they take over the screen.
  */
 
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, NavLink } from 'react-router-dom';
 import { E } from './tokens';
 import { Btn, Eyebrow, Pill, StatusDot } from './ui';
 import { useV2Store } from './store/store';
 import { CoPilotDock } from './copilot/CoPilotDock';
+import { CommandPalette } from './CommandPalette';
 
 interface AppShellProps {
   children: ReactNode;
@@ -27,6 +28,7 @@ interface AppShellProps {
 const NAV_ITEMS: { id: string; path: string; icon: string; label: string }[] = [
   { id: 'home', path: '/', icon: '◐', label: 'Home' },
   { id: 'experiments', path: '/experiments', icon: '◆', label: 'Experiments' },
+  { id: 'commands', path: '/commands', icon: '⌥', label: 'Commands' },
   { id: 'datasets', path: '/datasets', icon: '◫', label: 'Datasets' },
   { id: 'metrics', path: '/metrics', icon: '◈', label: 'Metrics & rubrics' },
   { id: 'review', path: '/review', icon: '◉', label: 'Human review' },
@@ -57,6 +59,25 @@ export function AppShell({
   const setDockOpen = useV2Store((s) => s.setDockOpen);
   const active = activeIdFromPath(location.pathname);
   const showDock = !hideCoPilot && dockOpen;
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Cmd+K (mac) / Ctrl+K (everywhere) toggles the command palette.
+  // Esc closes it. We bind at the window level so it works from any focus.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const isToggle = (e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K');
+      if (isToggle) {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+        return;
+      }
+      if (e.key === 'Escape') {
+        setPaletteOpen((v) => (v ? false : v));
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   return (
     <div
@@ -120,8 +141,10 @@ export function AppShell({
         {contextChip && (
           <>
             <span style={{ color: E.text4 }}>·</span>
-            <button
-              type="button"
+            {/* Project chip - currently a passive identity badge. Switching
+                projects from the UI is on the roadmap; until then, render as
+                a non-clickable <span> so the caret doesn't imply a dropdown. */}
+            <span
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -132,13 +155,11 @@ export function AppShell({
                 border: `1px solid ${E.hair2}`,
                 color: E.text1,
                 fontSize: 12.5,
-                cursor: 'pointer',
               }}
             >
               <span style={{ fontWeight: 500 }}>{contextChip.name}</span>
               <span style={{ color: E.text3, fontSize: 11 }}>{contextChip.version ?? '-'}</span>
-              <span style={{ color: E.text3, fontSize: 11, marginLeft: 2 }}>▾</span>
-            </button>
+            </span>
           </>
         )}
         {breadcrumb && breadcrumb.length > 0 && (
@@ -164,12 +185,20 @@ export function AppShell({
         )}
         <span style={{ flex: 1 }} />
         {headerExtra}
-        <Btn kind="ghost" size="sm" style={{ fontFamily: E.fMono, gap: 4 }}>
+        <Btn
+          kind="ghost"
+          size="sm"
+          onClick={() => setPaletteOpen(true)}
+          style={{ fontFamily: E.fMono, gap: 4 }}
+        >
           ⌘K Search
         </Btn>
-        <button
-          type="button"
+        {/* User initials - decorative until a profile menu exists. */}
+        <span
           style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             width: 30,
             height: 30,
             borderRadius: '50%',
@@ -177,12 +206,12 @@ export function AppShell({
             color: E.text0,
             fontSize: 11,
             fontWeight: 600,
-            cursor: 'pointer',
             border: `1px solid ${E.hair2}`,
           }}
+          title="Signed in (profile menu coming soon)"
         >
           SK
-        </button>
+        </span>
       </div>
 
       {/* BODY */}
@@ -302,6 +331,8 @@ export function AppShell({
           <span style={{ flex: 1 }} />
           <button
             type="button"
+            disabled
+            title="Settings page coming soon. Provider keys live in evalyn.yaml today."
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -310,10 +341,11 @@ export function AppShell({
               borderRadius: 6,
               fontSize: 12,
               color: E.text3,
-              cursor: 'pointer',
+              cursor: 'not-allowed',
               background: 'transparent',
               border: 'none',
               textAlign: 'left',
+              opacity: 0.55,
             }}
           >
             <span>⚙</span> Settings & keys
@@ -346,7 +378,7 @@ export function AppShell({
               fontFamily: E.fMono,
             }}
           >
-            Local · 7401 · v2
+            Local · {(typeof window !== 'undefined' && window.location.port) || 'default'} · v2
           </div>
         </div>
 
@@ -356,6 +388,9 @@ export function AppShell({
         {/* CO-PILOT DOCK */}
         {showDock && <CoPilotDock onClose={() => setDockOpen(false)} />}
       </div>
+
+      {/* COMMAND PALETTE - rendered last so it overlays the rest of the shell. */}
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   );
 }

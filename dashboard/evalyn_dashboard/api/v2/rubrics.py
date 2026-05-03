@@ -22,7 +22,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
-from ._shared import datasets_root, load_all_runs
+from ._shared import dataset_roots, load_all_runs
 
 logger = logging.getLogger(__name__)
 
@@ -83,17 +83,19 @@ def _kappa_from_annotations(annotations: list[dict]) -> tuple[float | None, int,
 
 
 def _calibration_paths(metric_id: str) -> list[Path]:
-    """All ``calibration.json`` files for ``metric_id`` across datasets."""
-    root = datasets_root()
-    if not root.exists():
-        return []
+    """All ``calibration.json`` files for ``metric_id`` across datasets.
+
+    Walks every root from :func:`dataset_roots` so prod and demo
+    fixture calibrations both contribute to the kappa aggregation.
+    """
     out: list[Path] = []
-    for dataset_dir in root.iterdir():
-        if not dataset_dir.is_dir():
-            continue
-        cal = dataset_dir / "calibrations" / metric_id / "calibration.json"
-        if cal.exists():
-            out.append(cal)
+    for root in dataset_roots():
+        for dataset_dir in root.iterdir():
+            if not dataset_dir.is_dir():
+                continue
+            cal = dataset_dir / "calibrations" / metric_id / "calibration.json"
+            if cal.exists():
+                out.append(cal)
     return out
 
 
@@ -158,7 +160,7 @@ def _metric_kinds_uses(runs: list[dict]) -> tuple[dict[str, str], dict[str, int]
 @router.get("")
 async def list_rubrics() -> JSONResponse:
     """Return one row per discovered metric id."""
-    runs = load_all_runs(datasets_root())
+    runs = load_all_runs()
     if not runs:
         return JSONResponse([])
     kind, uses, name = _metric_kinds_uses(runs)
@@ -183,7 +185,7 @@ async def list_rubrics() -> JSONResponse:
 @router.get("/{rubric_id}/calibration")
 async def get_rubric_calibration(rubric_id: str) -> JSONResponse:
     """Return ``RubricDetail`` for ``rubric_id`` or 404."""
-    runs = load_all_runs(datasets_root())
+    runs = load_all_runs()
     kind, _, name = _metric_kinds_uses(runs) if runs else ({}, {}, {})
     # Always 404 unknown rubrics. Without the runs guard a fresh workspace
     # would echo the URL slug back as a fabricated rubric (silent-failure

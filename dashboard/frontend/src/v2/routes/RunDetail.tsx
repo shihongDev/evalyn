@@ -9,7 +9,9 @@ import { AppShell } from '../AppShell';
 import { Card, Eyebrow, Pill, Btn, StatusDot, Donut, LineChart } from '../ui';
 import type { LineSeries } from '../ui';
 import { v2 } from '../api/client';
+import { runCli } from '../api/cli';
 import type { ExperimentDetail } from '../api/types';
+import { useProject } from '../hooks/useProject';
 import { E } from '../tokens';
 
 const CLUSTER_COLOR: Record<string, string> = {
@@ -38,9 +40,11 @@ export default function RunDetail() {
   const [searchParams] = useSearchParams();
   const compareWith = searchParams.get('compare');
   const navigate = useNavigate();
+  const project = useProject();
   const [detail, setDetail] = useState<ExperimentDetail | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(0);
+  const [rerunBusy, setRerunBusy] = useState(false);
 
   useEffect(() => {
     if (!runId) return;
@@ -85,16 +89,38 @@ export default function RunDetail() {
     'Trace',
   ];
 
+  async function handleRerun() {
+    if (!detail || rerunBusy) return;
+    setRerunBusy(true);
+    try {
+      const { job_id } = await runCli('run-eval', { dataset: detail.dataset.name });
+      window.alert(
+        `Started run ${job_id}. Open the co-pilot dock to stream progress; this run will appear under Experiments when it completes.`,
+      );
+      navigate('/experiments');
+    } catch (e: unknown) {
+      window.alert(`Failed to start re-run:\n${String(e)}`);
+    } finally {
+      setRerunBusy(false);
+    }
+  }
+
   const headerExtra = (
     <div style={{ display: 'flex', gap: 6 }}>
-      <Btn kind="ghost" size="sm" disabled title="Coming soon">
+      <Btn kind="ghost" size="sm" disabled title="Coming soon - export run as a shareable link">
         ↗ Share
       </Btn>
-      <Btn kind="ghost" size="sm" disabled title="Coming soon">
+      <Btn kind="ghost" size="sm" disabled title="Coming soon - clone this run's config as a new evaluation">
         ⎘ Duplicate
       </Btn>
-      <Btn kind="primary" size="sm" disabled title="Coming soon">
-        ↻ Re-run
+      <Btn
+        kind="primary"
+        size="sm"
+        onClick={handleRerun}
+        disabled={rerunBusy}
+        title={rerunBusy ? 'Starting...' : `Re-run evalyn on ${detail.dataset.name}`}
+      >
+        ↻ {rerunBusy ? 'Starting...' : 'Re-run'}
       </Btn>
     </div>
   );
@@ -114,7 +140,7 @@ export default function RunDetail() {
 
   return (
     <AppShell
-      contextChip={{ name: 'Customer Support Agent', version: 'v0.3' }}
+      contextChip={project ?? undefined}
       breadcrumb={['Experiments', detail.name]}
       headerExtra={headerExtra}
     >
@@ -180,21 +206,48 @@ export default function RunDetail() {
         <div style={{ display: 'flex', gap: 2, marginTop: 22, borderBottom: `1px solid ${E.hair}` }}>
           {tabs.map((t, i) => {
             const isActive = i === activeTab;
+            // Only "Summary" (0) is implemented today. "Failures" (2) deep-links
+            // into the first cluster if one exists; the others honest-stub.
+            const firstCluster = detail.failure_clusters.clusters[0];
+            const isSummary = i === 0;
+            const isFailures = i === 2;
+            const isComingSoon = !isSummary && !isFailures;
+            const failuresDisabled = isFailures && !firstCluster;
+            const disabled = isComingSoon || failuresDisabled;
+            const title = isComingSoon
+              ? 'Coming soon - the Summary tab covers this surface today'
+              : failuresDisabled
+                ? 'No failures in this run'
+                : isFailures
+                  ? `Open the first failure cluster (${firstCluster?.label ?? ''})`
+                  : undefined;
             return (
               <button
                 key={t}
                 type="button"
-                onClick={() => setActiveTab(i)}
+                disabled={disabled}
+                title={title}
+                onClick={() => {
+                  if (disabled) return;
+                  if (isFailures && firstCluster) {
+                    navigate(
+                      `/experiments/${encodeURIComponent(detail.id)}/cluster/${encodeURIComponent(firstCluster.id)}`,
+                    );
+                    return;
+                  }
+                  setActiveTab(i);
+                }}
                 style={{
                   padding: '9px 14px',
                   fontSize: 12.5,
-                  cursor: 'pointer',
+                  cursor: disabled ? 'not-allowed' : 'pointer',
                   background: 'transparent',
                   border: 'none',
-                  color: isActive ? E.text0 : E.text2,
+                  color: disabled ? E.text3 : isActive ? E.text0 : E.text2,
                   fontWeight: isActive ? 500 : 400,
                   borderBottom: `2px solid ${isActive ? E.ember : 'transparent'}`,
                   marginBottom: -1,
+                  opacity: disabled ? 0.55 : 1,
                 }}
               >
                 {t}
@@ -268,7 +321,7 @@ export default function RunDetail() {
           <Card style={{ padding: 18 }}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
               <Eyebrow>
-                Failure clusters - {detail.failure_clusters.total_failures} of {detail.failure_clusters.total_items}
+                Failures by metric - {detail.failure_clusters.total_failures} of {detail.failure_clusters.total_items}
               </Eyebrow>
               <span style={{ flex: 1 }} />
               <Btn
@@ -599,10 +652,10 @@ export default function RunDetail() {
                 {detail.failure_clusters.total_failures}
               </Pill>
               <span style={{ flex: 1 }} />
-              <Btn kind="ghost" size="sm" disabled title="Coming soon">
+              <Btn kind="ghost" size="sm" disabled title="Coming soon - filter failed items by cluster, severity, or rubric">
                 Filter ▾
               </Btn>
-              <Btn kind="ghost" size="sm" disabled title="Coming soon">
+              <Btn kind="ghost" size="sm" disabled title="Coming soon - regroup the failed-items list by cluster, rubric, or input pattern">
                 Group: cluster ▾
               </Btn>
             </div>
@@ -650,7 +703,12 @@ export default function RunDetail() {
                 justifyContent: 'center',
               }}
             >
-              <Btn kind="bare" size="sm" disabled title="Coming soon">
+              <Btn
+                kind="bare"
+                size="sm"
+                disabled
+                title="Coming soon - a flat all-failures view; for now drill into a specific cluster from the donut above"
+              >
                 View all {detail.failure_clusters.total_failures} failures →
               </Btn>
             </div>

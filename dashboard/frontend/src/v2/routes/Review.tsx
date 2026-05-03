@@ -8,6 +8,7 @@ import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill } from '../ui';
 import { v2 } from '../api/client';
 import type { ReviewItem, ReviewQueue } from '../api/types';
+import { useProject } from '../hooks/useProject';
 import { E } from '../tokens';
 
 type Verdict = 'pass' | 'fail' | 'skip';
@@ -58,6 +59,7 @@ function highlightedText(text: string, highlights: string[]) {
 }
 
 export default function Review() {
+  const project = useProject();
   const [queue, setQueue] = useState<ReviewQueue | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);
@@ -107,7 +109,7 @@ export default function Review() {
   }, [submit]);
 
   return (
-    <AppShell contextChip={{ name: 'Customer Support Agent', version: 'v0.3' }}>
+    <AppShell contextChip={project ?? undefined}>
       <div style={{ padding: '32px 36px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end' }}>
           <div>
@@ -379,7 +381,7 @@ export default function Review() {
                   <textarea
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    placeholder="e.g. add policy.md grounding for tier-related questions..."
+                    placeholder="Optional - leave a note for the team about this verdict"
                     style={{
                       width: '100%',
                       marginTop: 6,
@@ -485,7 +487,13 @@ export default function Review() {
                   >
                     {queue.rationale}
                   </div>
-                  <Btn kind="bare" size="sm" style={{ marginTop: 8 }}>
+                  <Btn
+                    kind="bare"
+                    size="sm"
+                    style={{ marginTop: 8 }}
+                    disabled
+                    title="Coming soon - a glossary entry on uncertainty sampling and reviewer rotation"
+                  >
                     How sampling works -&gt;
                   </Btn>
                 </Card>

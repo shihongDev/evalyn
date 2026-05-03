@@ -18,7 +18,7 @@ from pathlib import Path
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-from ._shared import datasets_root
+from ._shared import dataset_roots
 
 logger = logging.getLogger(__name__)
 
@@ -110,28 +110,33 @@ def _last_used_iso(dataset_dir: Path) -> str | None:
 
 @router.get("")
 async def list_datasets() -> JSONResponse:
-    """Return one card per dataset directory."""
-    root = datasets_root()
-    if not root.exists():
-        return JSONResponse([])
+    """Return one card per dataset directory.
 
+    Walks every root from :func:`dataset_roots` so prod runs (under
+    ``data/prod/datasets/``) and demo fixture runs (under
+    ``.evalyn/data/datasets/``) both surface. First occurrence of a name
+    wins so prod entries shadow demo entries on collision.
+    """
+    seen: set[str] = set()
     cards: list[dict] = []
-    for dataset_dir in sorted(root.iterdir()):
-        if not dataset_dir.is_dir():
-            continue
-        jsonl = dataset_dir / "dataset.jsonl"
-        if not jsonl.exists():
-            continue
-        n, coverage = _coverage(jsonl)
-        meta = _meta(dataset_dir)
-        cards.append(
-            {
-                "name": dataset_dir.name,
-                "n": n,
-                "source": meta.get("source") or "JSONL",
-                "tags": meta.get("tags") or [],
-                "coverage": coverage,
-                "last_used_iso": _last_used_iso(dataset_dir),
-            }
-        )
+    for root in dataset_roots():
+        for dataset_dir in sorted(root.iterdir()):
+            if not dataset_dir.is_dir() or dataset_dir.name in seen:
+                continue
+            jsonl = dataset_dir / "dataset.jsonl"
+            if not jsonl.exists():
+                continue
+            seen.add(dataset_dir.name)
+            n, coverage = _coverage(jsonl)
+            meta = _meta(dataset_dir)
+            cards.append(
+                {
+                    "name": dataset_dir.name,
+                    "n": n,
+                    "source": meta.get("source") or "JSONL",
+                    "tags": meta.get("tags") or [],
+                    "coverage": coverage,
+                    "last_used_iso": _last_used_iso(dataset_dir),
+                }
+            )
     return JSONResponse(cards)

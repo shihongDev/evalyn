@@ -9,11 +9,13 @@ import { AppShell } from '../AppShell';
 import { Bar, Btn, Card, Eyebrow, LineChart, Pill } from '../ui';
 import { v2 } from '../api/client';
 import type { ClusterDetail } from '../api/types';
+import { useProject } from '../hooks/useProject';
 import { E } from '../tokens';
 
 export default function FailureCluster() {
   const params = useParams<{ runId: string; clusterId: string }>();
   const navigate = useNavigate();
+  const project = useProject();
   const runId = params.runId ?? '';
   const clusterId = params.clusterId ?? '';
 
@@ -32,7 +34,7 @@ export default function FailureCluster() {
 
   return (
     <AppShell
-      contextChip={{ name: 'Customer Support Agent', version: 'v0.3' }}
+      contextChip={project ?? undefined}
       breadcrumb={['Experiments', runId, 'Failures', data?.label ?? clusterId]}
     >
       <div style={{ padding: '28px 36px' }}>
@@ -52,7 +54,6 @@ export default function FailureCluster() {
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                  <Pill mono color={E.fail} bg={E.failDim}>cluster - regression</Pill>
                   <span style={{ fontSize: 11, color: E.text3, fontFamily: E.fMono }}>
                     {data.total_in_cluster} of {data.total_failures_in_run} failures
                     {data.total_items_in_run > 0
@@ -87,7 +88,8 @@ export default function FailureCluster() {
               <Btn
                 kind="primary"
                 size="md"
-                onClick={() => navigate(`/copilot?context=cluster:${clusterId}`)}
+                onClick={() => navigate('/copilot')}
+                title="Open the co-pilot - paste this cluster's pattern to get started"
               >
                 Fix with co-pilot -&gt;
               </Btn>
@@ -115,7 +117,7 @@ export default function FailureCluster() {
                     border: `1px solid ${E.hair}`,
                   }}
                 >
-                  <Eyebrow style={{ marginBottom: 6 }}>Trigger phrase frequency</Eyebrow>
+                  <Eyebrow style={{ marginBottom: 6 }}>Common 3-word fragments</Eyebrow>
                   {data.triggers.map((r) => (
                     <div
                       key={r.phrase}
@@ -174,8 +176,22 @@ export default function FailureCluster() {
                   All {data.items.length} items in this cluster
                 </span>
                 <span style={{ flex: 1 }} />
-                <Btn kind="ghost" size="sm">Send to review queue</Btn>
-                <Btn kind="ghost" size="sm">Export</Btn>
+                <Btn
+                  kind="ghost"
+                  size="sm"
+                  disabled
+                  title="Coming soon - push these failed items to the human review queue"
+                >
+                  Send to review queue
+                </Btn>
+                <Btn
+                  kind="ghost"
+                  size="sm"
+                  disabled
+                  title="Coming soon - per-cluster export; today, use `evalyn export` from the CLI"
+                >
+                  Export
+                </Btn>
               </div>
               <div
                 style={{
@@ -191,8 +207,8 @@ export default function FailureCluster() {
               >
                 <span>ID</span>
                 <span>USER</span>
-                <span>HALLUCINATED</span>
-                <span>TIER</span>
+                <span>OUTPUT</span>
+                <span>METRIC</span>
                 <span style={{ textAlign: 'right' }}>SCORE</span>
               </div>
               {data.items.map((s, i) => (
@@ -225,10 +241,9 @@ export default function FailureCluster() {
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
-                      fontStyle: 'italic',
                     }}
                   >
-                    "{s.hallucinated}"
+                    {s.hallucinated}
                   </span>
                   <Pill mono color={E.fail} bg={E.failDim} style={{ fontSize: 10 }}>
                     {s.tier}
@@ -291,11 +306,30 @@ export default function FailureCluster() {
                   Estimated impact: {data.suggested_fix.estimated_impact}
                 </div>
                 <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
-                  <Btn kind="primary" size="md">
+                  <Btn
+                    kind="primary"
+                    size="md"
+                    disabled
+                    title="Coming soon - the co-pilot suggested-fix runner isn't wired yet"
+                  >
                     Run draft eval ({data.suggested_fix.cost}, {data.suggested_fix.duration}) -&gt;
                   </Btn>
-                  <Btn kind="secondary" size="md">Review the change</Btn>
-                  <Btn kind="bare" size="md">Show as command</Btn>
+                  <Btn
+                    kind="secondary"
+                    size="md"
+                    disabled
+                    title="Coming soon - inline diff view for proposed prompt/code changes"
+                  >
+                    Review the change
+                  </Btn>
+                  <Btn
+                    kind="bare"
+                    size="md"
+                    disabled
+                    title="Coming soon - show the equivalent `evalyn` CLI invocation"
+                  >
+                    Show as command
+                  </Btn>
                 </div>
               </Card>
             )}

@@ -17,6 +17,7 @@ import type {
   ReviewVerdictPayload,
   WeeklyReport,
 } from './types';
+import { loadDemo as demoLoadHelper } from './demo';
 
 const BASE = '/api/v2';
 
@@ -68,4 +69,5 @@ export const v2 = {
   submitVerdict: (p: ReviewVerdictPayload): Promise<{ ok: true }> =>
     jpost('/review/verdict', p),
   weeklyReport: (): Promise<WeeklyReport> => jget('/reports/weekly'),
+  demoLoad: (): Promise<{ loaded: boolean; project: string }> => demoLoadHelper(),
 };

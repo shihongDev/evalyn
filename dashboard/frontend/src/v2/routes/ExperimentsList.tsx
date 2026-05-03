@@ -4,7 +4,7 @@
  * with ?compare=<otherId>.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Card, Eyebrow, Pill, Btn, StatusDot, Spark } from '../ui';
@@ -13,7 +13,36 @@ import type { ExperimentRow } from '../api/types';
 import { E } from '../tokens';
 
 const COLS = '24px 2.4fr 90px 90px 80px 70px 90px 110px';
-const FILTERS = ['Status: Any', 'Tag: Any', 'Author: Any', 'Sort: Recent'];
+
+type StatusFilter = 'any' | 'completed' | 'running' | 'failed' | 'warn';
+type SortOrder = 'recent' | 'oldest' | 'pass-desc' | 'pass-asc';
+
+const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: 'any', label: 'Status: Any' },
+  { value: 'completed', label: 'Status: Completed' },
+  { value: 'running', label: 'Status: Running' },
+  { value: 'failed', label: 'Status: Failed' },
+  { value: 'warn', label: 'Status: Warn' },
+];
+
+const SORT_OPTIONS: { value: SortOrder; label: string }[] = [
+  { value: 'recent', label: 'Sort: Recent' },
+  { value: 'oldest', label: 'Sort: Oldest' },
+  { value: 'pass-desc', label: 'Sort: Pass ↓' },
+  { value: 'pass-asc', label: 'Sort: Pass ↑' },
+];
+
+const SELECT_STYLE = {
+  background: 'transparent',
+  color: E.text2,
+  border: `1px solid ${E.hair2}`,
+  borderRadius: 6,
+  padding: '4px 8px',
+  fontSize: 11,
+  fontFamily: E.fSans,
+  cursor: 'pointer',
+  outline: 'none',
+} as const;
 
 function deltaColor(d: string): string {
   if (d === 'baseline') return E.steel;
@@ -34,9 +63,26 @@ export default function ExperimentsList() {
   const [err, setErr] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('any');
+  const [tagFilter, setTagFilter] = useState<string>('any');
+  const [authorFilter, setAuthorFilter] = useState<string>('any');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('recent');
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const isNew = searchParams.get('new') === '1';
+
+  // Derive tag/author option lists from the row set.
+  const tagOptions = useMemo(() => {
+    if (!rows) return [];
+    const seen = new Set<string>();
+    for (const r of rows) for (const t of r.tags) seen.add(t);
+    return Array.from(seen).sort();
+  }, [rows]);
+
+  const authorOptions = useMemo(() => {
+    if (!rows) return [];
+    return Array.from(new Set(rows.map((r) => r.author).filter(Boolean))).sort();
+  }, [rows]);
 
   useEffect(() => {
     v2.experiments()
@@ -59,17 +105,39 @@ export default function ExperimentsList() {
     navigate(`/experiments/${encodeURIComponent(a)}?compare=${encodeURIComponent(b)}`);
   }
 
-  const filtered = rows
-    ? rows.filter((r) => {
-        if (!query.trim()) return true;
-        const q = query.toLowerCase();
-        return (
+  const filtered = useMemo(() => {
+    if (!rows) return null;
+    const q = query.trim().toLowerCase();
+    const matched = rows.filter((r) => {
+      if (q) {
+        const hit =
           r.name.toLowerCase().includes(q) ||
           r.author.toLowerCase().includes(q) ||
-          r.tags.some((t) => t.toLowerCase().includes(q))
-        );
-      })
-    : null;
+          r.tags.some((t) => t.toLowerCase().includes(q));
+        if (!hit) return false;
+      }
+      if (statusFilter !== 'any' && r.status !== statusFilter) return false;
+      if (tagFilter !== 'any' && !r.tags.includes(tagFilter)) return false;
+      if (authorFilter !== 'any' && r.author !== authorFilter) return false;
+      return true;
+    });
+    // Sort in-place on a fresh copy.
+    const sorted = [...matched];
+    if (sortOrder === 'recent' || sortOrder === 'oldest') {
+      sorted.sort((a, b) => {
+        const at = Date.parse(a.when_iso) || 0;
+        const bt = Date.parse(b.when_iso) || 0;
+        return sortOrder === 'recent' ? bt - at : at - bt;
+      });
+    } else {
+      sorted.sort((a, b) => {
+        const ap = a.pass ?? -1;
+        const bp = b.pass ?? -1;
+        return sortOrder === 'pass-desc' ? bp - ap : ap - bp;
+      });
+    }
+    return sorted;
+  }, [rows, query, statusFilter, tagFilter, authorFilter, sortOrder]);
 
   return (
     <AppShell contextChip={{ name: 'Experiments', version: '' }}>
@@ -143,11 +211,64 @@ export default function ExperimentsList() {
               padding: '4px 10px',
             }}
           />
-          {FILTERS.map((f) => (
-            <Btn key={f} kind="ghost" size="sm" style={{ fontSize: 11 }} disabled title="Coming soon">
-              {f} ▾
-            </Btn>
-          ))}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            style={SELECT_STYLE}
+            aria-label="Filter by status"
+          >
+            {STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value} style={{ background: E.panel }}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={tagFilter}
+            onChange={(e) => setTagFilter(e.target.value)}
+            style={SELECT_STYLE}
+            disabled={tagOptions.length === 0}
+            aria-label="Filter by tag"
+            title={tagOptions.length === 0 ? 'No tags on any run yet' : 'Filter by tag'}
+          >
+            <option value="any" style={{ background: E.panel }}>
+              Tag: Any
+            </option>
+            {tagOptions.map((t) => (
+              <option key={t} value={t} style={{ background: E.panel }}>
+                Tag: {t}
+              </option>
+            ))}
+          </select>
+          <select
+            value={authorFilter}
+            onChange={(e) => setAuthorFilter(e.target.value)}
+            style={SELECT_STYLE}
+            disabled={authorOptions.length === 0}
+            aria-label="Filter by author"
+            title={authorOptions.length === 0 ? 'No authors recorded yet' : 'Filter by author'}
+          >
+            <option value="any" style={{ background: E.panel }}>
+              Author: Any
+            </option>
+            {authorOptions.map((a) => (
+              <option key={a} value={a} style={{ background: E.panel }}>
+                Author: {a}
+              </option>
+            ))}
+          </select>
+          <select
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value as SortOrder)}
+            style={SELECT_STYLE}
+            aria-label="Sort order"
+          >
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value} style={{ background: E.panel }}>
+                {o.label}
+              </option>
+            ))}
+          </select>
           <span style={{ width: 1, height: 20, background: E.hair2 }} />
           <Btn kind="secondary" size="sm" disabled={selected.size !== 2} onClick={compareSelected}>
             Compare {selected.size} selected →

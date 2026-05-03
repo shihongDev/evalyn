@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 
 from ._shared import (
     cumulative_pass_series,
-    datasets_root,
+    dataset_roots,
     is_inverse_metric,
     load_all_runs,
     parse_iso,
@@ -145,7 +145,9 @@ async def home() -> JSONResponse:
         "brief": None,
     }
 
-    runs = load_all_runs(datasets_root())  # oldest first
+    if not dataset_roots():
+        return JSONResponse(snap)
+    runs = load_all_runs()  # oldest first, walks every root
     if not runs:
         return JSONResponse(snap)
 

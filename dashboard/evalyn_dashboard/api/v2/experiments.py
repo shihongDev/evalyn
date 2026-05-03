@@ -20,7 +20,7 @@ from fastapi.responses import JSONResponse
 
 from ._shared import (
     cumulative_pass_series,
-    datasets_root,
+    dataset_roots,
     fmt_cost,
     fmt_duration,
     input_text,
@@ -97,10 +97,9 @@ def _serialize_row(run: dict, prev: dict | None) -> dict:
 @router.get("")
 async def list_experiments() -> JSONResponse:
     """Return one row per run, newest first, with delta vs previous run."""
-    root = datasets_root()
-    if not root.exists():
+    if not dataset_roots():
         return JSONResponse([])
-    runs = load_all_runs(root)  # oldest first
+    runs = load_all_runs()  # oldest first, walks every root
     if not runs:
         return JSONResponse([])
 
@@ -130,7 +129,7 @@ def _locate_run(run_id_query: str) -> tuple[dict | None, dict | None, list[dict]
     is every run in the same dataset, oldest first - reused by the cluster
     handler to compute its trend without a second disk scan.
     """
-    all_runs = load_all_runs(datasets_root())  # oldest first
+    all_runs = load_all_runs()  # oldest first, walks every root
     target = next(
         (r for r in all_runs if run_id(r) == run_id_query or r.get("id") == run_id_query),
         None,
@@ -267,6 +266,13 @@ def _pass_timeline(run: dict, baseline: dict | None) -> dict:
 
 
 def _failure_clusters(run: dict, baseline: dict | None) -> dict:
+    """Per-metric failure buckets (NOT semantic clusters).
+
+    Each entry's ``label`` is the metric_id verbatim - the v2 first cut buckets
+    failed items by their first failing metric. The frontend is expected to
+    render this as a per-metric grouping; future LLM-driven clustering may
+    repurpose the same shape.
+    """
     clusters_now = _cluster_run(run)
     clusters_base = _cluster_run(baseline) if baseline else {}
     palette = ["fail", "warn", "violet", "steel", "text3"]

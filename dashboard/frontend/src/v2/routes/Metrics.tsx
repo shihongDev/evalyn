@@ -7,7 +7,9 @@ import { useEffect, useState } from 'react';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill } from '../ui';
 import { v2 } from '../api/client';
+import { runCli } from '../api/cli';
 import type { RubricDetail, RubricRow } from '../api/types';
+import { useProject } from '../hooks/useProject';
 import { E } from '../tokens';
 
 const KIND_COLOR: Record<RubricRow['kind'], string> = {
@@ -31,11 +33,32 @@ function pillColor(kind: 'pass' | 'warn' | 'fail' | 'info'): string {
 }
 
 export default function Metrics() {
+  const project = useProject();
   const [list, setList] = useState<RubricRow[] | null>(null);
   const [listErr, setListErr] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<RubricDetail | null>(null);
   const [detailErr, setDetailErr] = useState<string | null>(null);
+  const [calibrateBusy, setCalibrateBusy] = useState(false);
+
+  async function handleRecalibrate() {
+    if (!detail || calibrateBusy) return;
+    setCalibrateBusy(true);
+    try {
+      // The calibrate CLI also requires --annotations; if the user hasn't
+      // produced one yet the backend will surface "missing required args".
+      const { job_id } = await runCli('calibrate', { 'metric-id': detail.id });
+      window.alert(
+        `Started calibration job ${job_id}. Open the co-pilot dock to stream progress.`,
+      );
+    } catch (e: unknown) {
+      window.alert(
+        `Could not start calibration:\n${String(e)}\n\nTip: 'evalyn calibrate' needs an annotations JSONL. Run 'evalyn annotate' first to produce one.`,
+      );
+    } finally {
+      setCalibrateBusy(false);
+    }
+  }
 
   useEffect(() => {
     v2.rubrics()
@@ -56,7 +79,7 @@ export default function Metrics() {
   }, [selectedId]);
 
   return (
-    <AppShell contextChip={{ name: 'Customer Support Agent', version: 'v0.3' }}>
+    <AppShell contextChip={project ?? undefined}>
       <div style={{ padding: '32px 36px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end' }}>
           <div>
@@ -75,7 +98,14 @@ export default function Metrics() {
             </h1>
           </div>
           <span style={{ flex: 1 }} />
-          <Btn kind="primary" size="md">+ New rubric</Btn>
+          <Btn
+            kind="primary"
+            size="md"
+            disabled
+            title="Define rubrics in evalyn.yaml or run `evalyn select-metrics` from the CLI"
+          >
+            + New rubric
+          </Btn>
         </div>
 
         {listErr && (
@@ -204,8 +234,27 @@ export default function Metrics() {
                     {detail.calibration.label}
                   </Pill>
                   <span style={{ flex: 1 }} />
-                  <Btn kind="ghost" size="sm">Duplicate</Btn>
-                  <Btn kind="ghost" size="sm">Re-calibrate</Btn>
+                  <Btn
+                    kind="ghost"
+                    size="sm"
+                    disabled
+                    title="Coming soon - copy this rubric as a starting point for a new one"
+                  >
+                    Duplicate
+                  </Btn>
+                  <Btn
+                    kind="ghost"
+                    size="sm"
+                    onClick={handleRecalibrate}
+                    disabled={calibrateBusy}
+                    title={
+                      calibrateBusy
+                        ? 'Starting calibration...'
+                        : `Spawn 'evalyn calibrate --metric-id ${detail.id}'`
+                    }
+                  >
+                    {calibrateBusy ? 'Starting...' : 'Re-calibrate'}
+                  </Btn>
                 </div>
                 <div style={{ padding: 18 }}>
                   <Eyebrow>Dimensions - weighted</Eyebrow>

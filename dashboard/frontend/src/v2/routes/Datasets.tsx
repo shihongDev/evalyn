@@ -7,14 +7,22 @@ import { useEffect, useState } from 'react';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, StackBar } from '../ui';
 import { v2 } from '../api/client';
+import { loadDemo } from '../api/demo';
 import type { DatasetCard } from '../api/types';
+import { useProject } from '../hooks/useProject';
 import { E } from '../tokens';
 
 const COVERAGE_COLORS = [E.ember, E.steel, '#a78bfa', E.warn, E.text3];
+const NEW_DATASET_HINT = 'Use `evalyn build-dataset` from the CLI';
+const IMPORT_CSV_HINT = 'No CSV importer yet - use `evalyn build-dataset` from the CLI';
+const COMING_SOON = 'Coming soon';
 
 export default function Datasets() {
+  const project = useProject();
   const [data, setData] = useState<DatasetCard[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoErr, setDemoErr] = useState<string | null>(null);
 
   useEffect(() => {
     v2.datasets()
@@ -22,10 +30,22 @@ export default function Datasets() {
       .catch((e: unknown) => setErr(String(e)));
   }, []);
 
+  const handleLoadDemo = async () => {
+    setDemoErr(null);
+    setDemoLoading(true);
+    try {
+      await loadDemo();
+      window.location.reload();
+    } catch (e) {
+      setDemoErr(e instanceof Error ? e.message : String(e));
+      setDemoLoading(false);
+    }
+  };
+
   const totalItems = data ? data.reduce((s, d) => s + d.n, 0) : 0;
 
   return (
-    <AppShell contextChip={{ name: 'Customer Support Agent', version: 'v0.3' }}>
+    <AppShell contextChip={project ?? undefined}>
       <div style={{ padding: '32px 36px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
           <div>
@@ -48,8 +68,12 @@ export default function Datasets() {
             </p>
           </div>
           <span style={{ flex: 1 }} />
-          <Btn kind="secondary" size="md">Import CSV</Btn>
-          <Btn kind="primary" size="md">+ New dataset</Btn>
+          <Btn kind="secondary" size="md" disabled title={IMPORT_CSV_HINT}>
+            Import CSV
+          </Btn>
+          <Btn kind="primary" size="md" disabled title={NEW_DATASET_HINT}>
+            + New dataset
+          </Btn>
         </div>
 
         {err && (
@@ -68,12 +92,34 @@ export default function Datasets() {
         {data && data.length === 0 && (
           <Card style={{ padding: 32, marginTop: 22, textAlign: 'center' }}>
             <div style={{ fontSize: 14, color: E.text1, marginBottom: 14 }}>
-              No datasets yet. Import a JSONL or load the demo.
+              No datasets yet. Load the demo to explore, or build one from the CLI.
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-              <Btn kind="primary" size="md">Import CSV</Btn>
-              <Btn kind="secondary" size="md">Load demo</Btn>
+              <Btn kind="primary" size="md" onClick={handleLoadDemo} disabled={demoLoading}>
+                {demoLoading ? 'Loading...' : 'Load demo'}
+              </Btn>
+              <Btn kind="secondary" size="md" disabled title={IMPORT_CSV_HINT}>
+                Import CSV
+              </Btn>
             </div>
+            {demoErr && (
+              <div
+                style={{
+                  marginTop: 14,
+                  padding: '8px 12px',
+                  background: E.failDim,
+                  border: `1px solid ${E.fail}33`,
+                  borderRadius: 6,
+                  color: E.fail,
+                  fontSize: 12,
+                  fontFamily: E.fMono,
+                  textAlign: 'left',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {demoErr}
+              </div>
+            )}
           </Card>
         )}
 
@@ -175,8 +221,12 @@ export default function Datasets() {
                     </>
                   )}
                   <div style={{ display: 'flex', gap: 6, marginTop: 14 }}>
-                    <Btn kind="secondary" size="sm">Open</Btn>
-                    <Btn kind="ghost" size="sm">Use in eval -&gt;</Btn>
+                    <Btn kind="secondary" size="sm" disabled title={COMING_SOON}>
+                      Open
+                    </Btn>
+                    <Btn kind="ghost" size="sm" disabled title={COMING_SOON}>
+                      Use in eval -&gt;
+                    </Btn>
                   </div>
                 </Card>
               );

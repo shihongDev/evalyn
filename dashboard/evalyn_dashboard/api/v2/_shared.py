@@ -29,9 +29,36 @@ def parse_iso(ts: str | None) -> datetime | None:
         return None
 
 
+def dataset_roots() -> list[Path]:
+    """Return every dataset root the dashboard should read from.
+
+    Two SDK conventions exist in the wild:
+      * ``data/prod/datasets/<name>/`` - the canonical SDK production
+        layout (see ``sdk/evalyn_sdk/api.py``); this is where ``run-eval``
+        actually writes when no override is set.
+      * ``.evalyn/data/datasets/<name>/`` - the dashboard demo fixture
+        layout used by ``POST /api/demo/load``.
+
+    We walk both. Order is prod-first so that a dataset name colliding
+    across both locations resolves to the prod copy. Non-existent roots
+    are filtered out so callers can blindly iterate.
+    """
+    cwd = Path.cwd()
+    candidates = [
+        cwd / "data" / "prod" / "datasets",
+        cwd / ".evalyn" / "data" / "datasets",
+    ]
+    return [p.resolve() for p in candidates if p.is_dir()]
+
+
 def datasets_root() -> Path:
-    """Resolve ``.evalyn/data/datasets/`` against ``Path.cwd()``."""
-    return (Path.cwd() / ".evalyn" / "data" / "datasets").resolve()
+    """First existing dataset root, or the demo path as a placeholder.
+
+    Kept for legacy callers that need a single ``Path`` (e.g. for 404
+    error messages). New code should prefer ``dataset_roots()``.
+    """
+    roots = dataset_roots()
+    return roots[0] if roots else (Path.cwd() / ".evalyn" / "data" / "datasets").resolve()
 
 
 def evalyn_yaml_path() -> Path:
@@ -76,19 +103,27 @@ def project_meta() -> tuple[str, str | None]:
     return name, version
 
 
-def iter_run_dirs(root: Path) -> Iterable[Path]:
-    """Yield each ``<dataset>/eval_runs/<run>`` dir under ``root``."""
-    if not root.exists() or not root.is_dir():
-        return
-    for dataset_dir in root.iterdir():
-        if not dataset_dir.is_dir():
+def iter_run_dirs(root: Path | None = None) -> Iterable[Path]:
+    """Yield each ``<dataset>/eval_runs/<run>`` dir.
+
+    When ``root`` is ``None`` (default) walks every root from
+    :func:`dataset_roots`. When a specific root is passed we only walk
+    that one, preserving back-compat with callers that already scope
+    themselves to one location.
+    """
+    roots = [root] if root is not None else dataset_roots()
+    for r in roots:
+        if not r.is_dir():
             continue
-        eval_runs_dir = dataset_dir / "eval_runs"
-        if not eval_runs_dir.is_dir():
-            continue
-        for run_dir in eval_runs_dir.iterdir():
-            if run_dir.is_dir():
-                yield run_dir
+        for dataset_dir in r.iterdir():
+            if not dataset_dir.is_dir():
+                continue
+            eval_runs_dir = dataset_dir / "eval_runs"
+            if not eval_runs_dir.is_dir():
+                continue
+            for run_dir in eval_runs_dir.iterdir():
+                if run_dir.is_dir():
+                    yield run_dir
 
 
 def load_run(run_dir: Path) -> dict | None:
@@ -117,9 +152,11 @@ def load_all_runs(root: Path | None = None) -> list[dict]:
       * ``_dataset``: dataset folder name (immediate parent of eval_runs)
       * ``_run_dir_name``: directory basename (used as the v2 ``id``)
 
+    Walks every root from :func:`dataset_roots` when ``root`` is ``None``
+    so prod runs and demo fixture runs both surface in the dashboard.
+
     Sorted oldest first by ``created_at``; callers can re-sort.
     """
-    root = root if root is not None else datasets_root()
     out: list[dict] = []
     for run_dir in iter_run_dirs(root):
         data = load_run(run_dir)

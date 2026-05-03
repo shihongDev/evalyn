@@ -13,6 +13,7 @@ import Datasets from './routes/Datasets';
 import Metrics from './routes/Metrics';
 import Review from './routes/Review';
 import Reports from './routes/Reports';
+import Commands from './routes/Commands';
 
 export function V2App() {
   return (
@@ -31,6 +32,7 @@ export function V2App() {
         <Route path="/metrics" element={<Metrics />} />
         <Route path="/review" element={<Review />} />
         <Route path="/reports" element={<Reports />} />
+        <Route path="/commands" element={<Commands />} />
         <Route path="*" element={<Home />} />
       </Routes>
     </BrowserRouter>

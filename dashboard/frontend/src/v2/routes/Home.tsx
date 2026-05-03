@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Card, Eyebrow, Pill, Btn, StatusDot, Spark, Bar, LineChart } from '../ui';
+import { Welcome } from '../ui/Welcome';
 import { v2 } from '../api/client';
 import type { HomeSnapshot } from '../api/types';
 import { E } from '../tokens';
@@ -46,6 +47,7 @@ function shortTime(iso: string): string {
 export default function Home() {
   const [snap, setSnap] = useState<HomeSnapshot | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [briefRefreshing, setBriefRefreshing] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -53,6 +55,15 @@ export default function Home() {
       .then(setSnap)
       .catch((e) => setErr(String(e)));
   }, []);
+
+  function refreshBrief() {
+    if (briefRefreshing) return;
+    setBriefRefreshing(true);
+    v2.home()
+      .then(setSnap)
+      .catch((e) => setErr(String(e)))
+      .finally(() => setBriefRefreshing(false));
+  }
 
   const briefTime = useMemo(() => {
     if (!snap?.brief) return '';
@@ -84,6 +95,45 @@ export default function Home() {
   const hasQuality = q.current != null;
   const timelineData = q.timeline.map((p) => p.y);
   const timelineLabels = q.timeline.map((p) => p.x);
+
+  if (!hasQuality) {
+    return (
+      <AppShell contextChip={snap.project}>
+        <div style={{ padding: '32px 36px', maxWidth: 1100 }}>
+          <Eyebrow style={{ marginBottom: 8 }}>Project home</Eyebrow>
+          <h1
+            style={{
+              fontFamily: E.fSerif,
+              fontSize: 38,
+              fontWeight: 400,
+              margin: 0,
+              color: E.text0,
+              letterSpacing: '-0.015em',
+              lineHeight: 1.05,
+            }}
+          >
+            {snap.project.name}
+          </h1>
+          <p style={{ fontSize: 14, color: E.text2, marginTop: 8, lineHeight: 1.55, maxWidth: 640 }}>
+            No evaluation runs yet. Load the demo to explore a populated workspace, or run your first eval from the CLI.
+          </p>
+
+          <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <Welcome />
+
+            <Card style={{ padding: 0, overflow: 'hidden' }}>
+              <div style={{ padding: '14px 18px', borderBottom: `1px solid ${E.hair}` }}>
+                <span style={{ fontSize: 13, color: E.text0, fontWeight: 500 }}>Recent activity</span>
+              </div>
+              <div style={{ padding: 18, fontSize: 12.5, color: E.text3 }}>No runs yet.</div>
+            </Card>
+          </div>
+
+          <div style={{ height: 30 }} />
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell contextChip={snap.project}>
@@ -349,7 +399,13 @@ export default function Home() {
               <span style={{ fontSize: 13, color: E.text0, fontWeight: 500 }}>Co-pilot's morning brief</span>
               <span style={{ fontSize: 11, color: E.text3 }}>- generated {briefTime}</span>
               <span style={{ flex: 1 }} />
-              <Btn kind="bare" size="sm" disabled title="Coming soon">
+              <Btn
+                kind="bare"
+                size="sm"
+                onClick={refreshBrief}
+                disabled={briefRefreshing}
+                title={briefRefreshing ? 'Refreshing...' : 'Refetch the morning brief'}
+              >
                 ↻
               </Btn>
             </div>
@@ -358,7 +414,13 @@ export default function Home() {
               {snap.brief.actions.length > 0 && (
                 <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {snap.brief.actions.map((act) => (
-                    <Btn key={act.label} kind={act.kind} size="sm" disabled title="Coming soon">
+                    <Btn
+                      key={act.label}
+                      kind={act.kind}
+                      size="sm"
+                      disabled
+                      title="Coming soon - one-click brief actions aren't wired yet"
+                    >
                       {act.label}
                     </Btn>
                   ))}
