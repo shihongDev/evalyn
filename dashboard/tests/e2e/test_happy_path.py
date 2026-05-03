@@ -88,12 +88,22 @@ def test_list_runs_happy_path(page: Page, dashboard_server: str) -> None:
     run_button = page.get_by_role("button", name="Run", exact=True)
     run_button.click()
 
-    # 5. Streaming output assertion. The store appends an ``exit N`` line
-    #    when the subprocess terminates (see ``store.ts`` exit handler).
-    #    Asserting on the exit line covers both:
-    #      a) WebSocket streaming actually reached the browser, and
-    #      b) the process succeeded (exit 0 -> Job.status = 'complete',
-    #         which the prompt calls "tab title indicates pass").
-    terminal = page.locator('[data-testid="terminal-scroll"]')
+    # 5. Workspace's Run does NOT open a job tab; it appends a RunRecord
+    #    to runHistory which renders as a collapsed RunCard at the top of
+    #    the Workspace's run-history feed. Expand the newest card so its
+    #    inline Terminal is rendered, then assert on the streamed exit
+    #    line. The expand control is a button with aria-label "Expand run"
+    #    on collapsed cards (RunCard.tsx).
+    expand_button = page.get_by_role("button", name="Expand run").first
+    expect(expand_button).to_be_visible(timeout=ACTION_TIMEOUT_MS)
+    expand_button.click()
+
+    # Streaming output assertion. The store appends an ``exit N`` line
+    # when the subprocess terminates (see ``store.ts`` exit handler).
+    # Asserting on the exit line covers both:
+    #   a) WebSocket streaming actually reached the browser, and
+    #   b) the process succeeded (exit 0 -> Job.status = 'complete',
+    #      which the prompt calls "tab title indicates pass").
+    terminal = page.locator('[data-testid="terminal-scroll"]').first
     expect(terminal).to_be_visible(timeout=ACTION_TIMEOUT_MS)
     expect(terminal).to_contain_text("exit 0", timeout=EXIT_LINE_TIMEOUT_MS)
