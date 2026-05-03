@@ -53,9 +53,12 @@ def test_list_runs_happy_path(page: Page, dashboard_server: str) -> None:
     meta = page.locator('meta[name="workbench-token"]')
     expect(meta).to_have_count(1)
 
-    # 2. The sidebar defaults to the Files tab. Switch to CLIs so the
-    #    ``CliCatalog`` component mounts and ``GET /api/cli`` resolves.
-    page.get_by_role("button", name="CLIs", exact=True).click()
+    # 2. The sidebar defaults to the Commands tab now (P0 fix; the Files
+    #    tab was hidden because clicking files opened "coming soon"
+    #    placeholders). The CliCatalog renders by default and ``GET /api/cli``
+    #    resolves on mount. Click is a no-op-but-harmless guard — if a
+    #    future change ever flips the default again, this still recovers.
+    page.get_by_role("button", name="Commands", exact=True).click()
 
     # Wait for the catalog to populate. ``CliCatalog.tsx`` shows
     # ``// catalog loading…`` until the fetch flips the store; once
