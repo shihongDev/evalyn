@@ -255,8 +255,61 @@ class CredentialStore:
     def _test_ollama(rec: dict[str, Any]) -> dict[str, Any]:
         import httpx
 
-        base_url = rec.get("base_url") or DEFAULT_OLLAMA_BASE_URL
-        url = base_url.rstrip("/") + "/api/tags"
-        response = httpx.get(url, timeout=5.0)
+        base_url = (rec.get("base_url") or DEFAULT_OLLAMA_BASE_URL).rstrip("/")
+        # Step 1: server reachability via /api/tags.
+        response = httpx.get(base_url + "/api/tags", timeout=5.0)
         response.raise_for_status()
+
+        # O3 fix (part 1): if a model is configured, probe whether it
+        # actually supports tool calling. Many Ollama models silently
+        # ignore the `tools` payload and reply with free text; the user
+        # would otherwise believe the agent is wired up while no tool
+        # ever runs. We send a 1-token /api/chat call with one trivial
+        # tool definition and check whether the response surfaces a
+        # `tool_calls` field. If no model is configured yet, skip this
+        # step: the user is mid-setup and "no model" is not a failure.
+        model = rec.get("model")
+        if not model:
+            return {"ok": True}
+
+        probe_payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": "probe"}],
+            "stream": False,
+            "options": {"num_predict": 1},
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "_probe",
+                        "description": "probe",
+                        "parameters": {"type": "object", "properties": {}},
+                    },
+                }
+            ],
+        }
+        try:
+            probe = httpx.post(
+                base_url + "/api/chat", json=probe_payload, timeout=15.0
+            )
+            probe.raise_for_status()
+            body = probe.json()
+        except Exception as exc:  # noqa: BLE001
+            # Probe network/parse failures should not mask the (already
+            # successful) reachability check; degrade to ok=True so users
+            # can still save credentials. Tool-support detection is
+            # best-effort, not a hard prerequisite.
+            logger.debug("ollama tool-probe failed: %s", exc)
+            return {"ok": True}
+
+        message = (body.get("message") or {}) if isinstance(body, dict) else {}
+        tool_calls = message.get("tool_calls") if isinstance(message, dict) else None
+        if not tool_calls:
+            return {
+                "ok": False,
+                "error": (
+                    f"Model {model} does not appear to support tool calling. "
+                    "Try qwen2.5, llama3.1:8b, or mistral."
+                ),
+            }
         return {"ok": True}
