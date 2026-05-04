@@ -16,6 +16,8 @@ import Review from './routes/Review';
 import Reports from './routes/Reports';
 import Commands from './routes/Commands';
 import Settings from './routes/Settings';
+import Annotate from './routes/Annotate';
+import AnnotateSession from './routes/AnnotateSession';
 
 export function V2App() {
   return (
@@ -37,6 +39,8 @@ export function V2App() {
         <Route path="/reports" element={<Reports />} />
         <Route path="/commands" element={<Commands />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/annotate" element={<Annotate />} />
+        <Route path="/annotate/:sessionId" element={<AnnotateSession />} />
         <Route path="*" element={<Home />} />
       </Routes>
     </BrowserRouter>

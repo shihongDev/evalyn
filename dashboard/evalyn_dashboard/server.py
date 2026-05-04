@@ -219,6 +219,7 @@ def _register_v2_routers(app: FastAPI) -> None:
         ("rubrics", "/api/v2/rubrics"),
         ("review", "/api/v2/review"),
         ("reports", "/api/v2/reports"),
+        ("annotation", "/api/v2/annotation"),
     ):
         try:
             mod = __import__(

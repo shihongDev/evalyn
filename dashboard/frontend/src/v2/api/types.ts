@@ -364,3 +364,80 @@ export interface WeeklyReport {
   } | null;
   up_next: { text: string }[];
 }
+
+/* === Annotation sessions ============================================ */
+
+export type AnnotationSourceKind = 'run' | 'dataset' | 'cluster' | 'custom';
+export type AnnotationStatus = 'in_progress' | 'completed' | 'abandoned';
+export type AnnotationLabel = 'pass' | 'fail' | 'skip';
+
+export interface AnnotationSessionMeta {
+  id: string;
+  annotator_id: string;
+  source_kind: AnnotationSourceKind;
+  source_id: string;
+  metric_ids: string[];
+  item_ids: string[];
+  items_total: number;
+  items_done: number;
+  items_skipped: number;
+  started_at_iso: string;
+  last_active_iso: string;
+  status: AnnotationStatus;
+  /** Dataset folder name (added by the API for routing). */
+  _dataset?: string;
+}
+
+export interface AnnotationLabelEntry {
+  metric_id: string;
+  label: AnnotationLabel;
+  used_ai_verdict: boolean;
+  confidence?: number;
+  note?: string;
+}
+
+export interface AnnotationItemRow {
+  item_id: string;
+  input_preview: string;
+  expected_preview: string | null;
+  output_preview: string | null;
+  ai_labels: { metric_id: string; label: AnnotationLabel | null; score: number | null }[];
+  user_labels: AnnotationLabelEntry[];
+  annotated: boolean;
+  skipped_metrics: string[];
+  note: string | null;
+}
+
+export interface AnnotationItemsResponse {
+  session_id: string;
+  total: number;
+  offset: number;
+  limit: number;
+  metric_ids: string[];
+  items: AnnotationItemRow[];
+}
+
+export interface AnnotationCreatePayload {
+  source_kind: AnnotationSourceKind;
+  source_id: string;
+  metric_ids?: string[];
+  annotator_id?: string;
+}
+
+export interface AnnotationVerdictPayload {
+  item_id: string;
+  labels: AnnotationLabelEntry[];
+  skipped_metrics?: string[];
+  note?: string | null;
+}
+
+export interface AnnotationVerdictResponse {
+  ok: true;
+  items_done: number;
+  items_skipped: number;
+  items_total: number;
+}
+
+export interface AnnotationSessionList {
+  sessions: AnnotationSessionMeta[];
+}
