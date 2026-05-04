@@ -15,6 +15,8 @@ import { loadDemo } from '../api/demo';
 import { runCli } from '../api/cli';
 import { upsertJob, type JobHistoryEntry } from '../jobsHistory';
 import { useV2Resource, prefetchV2 } from '../hooks/useV2Resource';
+import { useRouteTour } from '../tour/useRouteTour';
+import { DATASET_UPLOAD_TOUR_ID } from '../tour/scripts/datasetUpload';
 import { useProject } from '../hooks/useProject';
 import { E } from '../tokens';
 
@@ -58,6 +60,7 @@ export default function Datasets() {
     'datasets',
     v2.datasets,
   );
+  useRouteTour(DATASET_UPLOAD_TOUR_ID, !!(data && !err));
 
   const openDataset = (name: string) => {
     navigate(`/datasets/${encodeURIComponent(name)}`);
@@ -293,7 +296,7 @@ export default function Datasets() {
           <Btn kind="secondary" size="md" disabled title={IMPORT_CSV_HINT}>
             Import CSV
           </Btn>
-          <Btn kind="primary" size="md" disabled title={NEW_DATASET_HINT}>
+          <Btn kind="primary" size="md" disabled title={NEW_DATASET_HINT} data-coachmark="datasets-new-button">
             + New dataset
           </Btn>
         </div>
@@ -310,6 +313,7 @@ export default function Datasets() {
         {/* FILTER BAR - only show once we have data with at least one card */}
         {data && data.length > 0 && (
           <div
+            data-coachmark="datasets-search"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -593,6 +597,7 @@ export default function Datasets() {
 
         {filtered && filtered.length > 0 && (
           <div
+            data-coachmark="datasets-list"
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(2, 1fr)',

@@ -37,6 +37,7 @@ import { listCli } from './api/cli';
 import { prefetchV2 } from './hooks/useV2Resource';
 import { startV2EventStream } from './api/v2ws';
 import { useTour } from './tour/useTour';
+import { TourMenu } from './tour/TourMenu';
 
 interface AppShellProps {
   children: ReactNode;
@@ -92,6 +93,17 @@ const NAV_ITEMS: NavItem[] = [
     icon: '◉',
     label: 'Human review',
     prefetch: () => prefetchV2('reviewQueue', v2.reviewQueue),
+  },
+  {
+    id: 'annotate',
+    path: '/annotate',
+    icon: '✎',
+    label: 'Annotate',
+    // The landing reads the session list; warm it on hover.
+    prefetch: () =>
+      prefetchV2('annotation/sessions', () =>
+        import('./api/annotation').then((m) => m.annotationApi.listSessions()),
+      ),
   },
   {
     id: 'reports',
@@ -375,6 +387,7 @@ export function AppShell({
         )}
         <span style={{ flex: 1 }} />
         {headerExtra}
+        <TourMenu />
         {vp === 'desktop' && (
           <Btn
             kind="ghost"

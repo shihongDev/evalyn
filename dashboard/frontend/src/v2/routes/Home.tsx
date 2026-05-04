@@ -3,12 +3,11 @@
  * recent activity, attention queue, co-pilot brief. Sources from v2.home().
  */
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../AppShell';
-import { useV2Store } from '../store/store';
+import { useRouteTour } from '../tour/useRouteTour';
 import { FIRST_RUN_TOUR_ID } from '../tour/scripts/firstRun';
-import { shouldFireFirstRunTour } from '../tour/firstRunGate';
 import {
   Card,
   Eyebrow,
@@ -70,34 +69,10 @@ export default function Home() {
     v2.home,
   );
   const navigate = useNavigate();
-  const setTour = useV2Store((s) => s.setTour);
-  const setDockOpen = useV2Store((s) => s.setDockOpen);
-  const tourTriggered = useRef(false);
 
-  // useTour() is mounted globally in AppShell; Home only triggers the
-  // firstRun tour via setTour below. Earlier versions mounted useTour here.
-  //
-  // First-visit detection. Fires the firstRun tour when:
-  //   1. user has the global setting enabled (default on - missing key counts as on)
-  //   2. user has not previously completed the tour
-  //   3. Home has loaded its data (no skeleton, no error)
-  // Guarded by a ref so it cannot re-fire on re-render.
-  useEffect(() => {
-    if (tourTriggered.current) return;
-    if (!snap || err) return;
-    if (!shouldFireFirstRunTour()) return;
-    tourTriggered.current = true;
-    // Collapse the copilot sheet (mobile) / dock (desktop) so the tour has
-    // a single focal surface.
-    setDockOpen(false);
-    // 500ms post-mount delay matches the useTour anchor-not-found timeout, so
-    // any anchor that is still resolving when we trigger will degrade to the
-    // skip+narrate fallback rather than a hard miss.
-    const t = setTimeout(() => {
-      setTour(FIRST_RUN_TOUR_ID);
-    }, 500);
-    return () => clearTimeout(t);
-  }, [snap, err, setTour, setDockOpen]);
+  // useTour() is mounted globally in AppShell. Each tabbed route declares
+  // which tour should fire on first visit via useRouteTour.
+  useRouteTour(FIRST_RUN_TOUR_ID, !!(snap && !err));
 
   const briefTime = useMemo(() => {
     if (!snap?.brief) return '';

@@ -11,6 +11,8 @@ import { v2 } from '../api/client';
 import { runCli } from '../api/cli';
 import type { RubricDetail, RubricRow } from '../api/types';
 import { useV2Resource } from '../hooks/useV2Resource';
+import { useRouteTour } from '../tour/useRouteTour';
+import { READ_METRICS_TOUR_ID } from '../tour/scripts/readMetrics';
 import { useProject } from '../hooks/useProject';
 import { E } from '../tokens';
 
@@ -42,6 +44,7 @@ export default function Metrics() {
     reloading: listReloading,
     isInitialLoad: listInitial,
   } = useV2Resource<RubricRow[]>('rubrics', v2.rubrics);
+  useRouteTour(READ_METRICS_TOUR_ID, !!(list && !listErr));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [calibrateBusy, setCalibrateBusy] = useState(false);
 
@@ -139,7 +142,7 @@ export default function Metrics() {
           }}
         >
           {/* List */}
-          <Card style={{ padding: 0, overflow: 'hidden' }}>
+          <Card style={{ padding: 0, overflow: 'hidden' }} data-coachmark="metrics-list">
             <div
               style={{
                 padding: '12px 16px',
@@ -228,7 +231,7 @@ export default function Metrics() {
           </Card>
 
           {/* Detail */}
-          <Card style={{ padding: 0, overflow: 'hidden' }}>
+          <Card style={{ padding: 0, overflow: 'hidden' }} data-coachmark="metrics-rubric">
             {!selectedId && (
               <div style={{ padding: 24, color: E.text3, fontSize: 13, textAlign: 'center' }}>
                 No rubrics defined yet.
@@ -385,6 +388,7 @@ export default function Metrics() {
                     - last {detail.calibration.sample_size} human-reviewed items
                   </Eyebrow>
                   <div
+                    data-coachmark="metrics-chart"
                     style={{
                       display: 'grid',
                       gridTemplateColumns: 'repeat(3, 1fr)',

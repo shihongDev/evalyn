@@ -15,11 +15,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TOUR_ENABLED_KEY, tourCompletedKey } from '../store/store';
 import { FIRST_RUN_TOUR_ID } from '../tour/scripts/firstRun';
-import { shouldFireFirstRunTour } from '../tour/firstRunGate';
+import {
+  shouldFireFirstRunTour,
+  shouldFireRouteTour,
+} from '../tour/firstRunGate';
+
+const OTHER_TOUR_ID = 'datasetUpload.v1';
 
 beforeEach(() => {
   window.localStorage.removeItem(TOUR_ENABLED_KEY);
   window.localStorage.removeItem(tourCompletedKey(FIRST_RUN_TOUR_ID));
+  window.localStorage.removeItem(tourCompletedKey(OTHER_TOUR_ID));
 });
 
 afterEach(() => {
@@ -46,5 +52,23 @@ describe('shouldFireFirstRunTour', () => {
       throw new Error('SecurityError');
     });
     expect(shouldFireFirstRunTour()).toBe(true);
+  });
+});
+
+describe('shouldFireRouteTour (any tour id)', () => {
+  it('fires for an arbitrary tour id when localStorage is clean', () => {
+    expect(shouldFireRouteTour(OTHER_TOUR_ID)).toBe(true);
+  });
+
+  it('only suppresses the tour whose flag is set, not the others', () => {
+    window.localStorage.setItem(tourCompletedKey(OTHER_TOUR_ID), '1');
+    expect(shouldFireRouteTour(OTHER_TOUR_ID)).toBe(false);
+    expect(shouldFireRouteTour(FIRST_RUN_TOUR_ID)).toBe(true);
+  });
+
+  it('global enabled=false suppresses every tour', () => {
+    window.localStorage.setItem(TOUR_ENABLED_KEY, 'false');
+    expect(shouldFireRouteTour(OTHER_TOUR_ID)).toBe(false);
+    expect(shouldFireRouteTour(FIRST_RUN_TOUR_ID)).toBe(false);
   });
 });

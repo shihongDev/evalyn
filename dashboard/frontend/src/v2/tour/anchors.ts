@@ -15,11 +15,28 @@
  */
 
 export const COACHMARKS = [
+  // Home (firstRun.home.v1)
   'home-quality',
   'home-submetrics',
   'home-experiments',
   'home-activity',
   'home-copilot-brief',
+  // Datasets (datasetUpload.v1)
+  'datasets-list',
+  'datasets-search',
+  'datasets-new-button',
+  // ExperimentsList (runEval.v1)
+  'experiments-list',
+  'experiments-filters',
+  'experiments-new-button',
+  // Review (reviewFailures.v1)
+  'review-queue',
+  'review-item',
+  'review-verdict-buttons',
+  // Metrics (readMetrics.v1)
+  'metrics-list',
+  'metrics-rubric',
+  'metrics-chart',
 ] as const;
 
 export type CoachmarkId = (typeof COACHMARKS)[number];

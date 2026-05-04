@@ -31,6 +31,10 @@ import 'driver.js/dist/driver.css';
 import { useV2Store } from '../store/store';
 import { coachmarkSelector, type CoachmarkId } from './anchors';
 import { firstRunTour } from './scripts/firstRun';
+import { datasetUploadTour } from './scripts/datasetUpload';
+import { runEvalTour } from './scripts/runEval';
+import { reviewFailuresTour } from './scripts/reviewFailures';
+import { readMetricsTour } from './scripts/readMetrics';
 
 export interface TourStepDef {
   anchor: CoachmarkId;
@@ -45,7 +49,18 @@ export interface TourDef {
 
 const TOUR_REGISTRY: Record<string, TourDef> = {
   [firstRunTour.id]: firstRunTour,
+  [datasetUploadTour.id]: datasetUploadTour,
+  [runEvalTour.id]: runEvalTour,
+  [reviewFailuresTour.id]: reviewFailuresTour,
+  [readMetricsTour.id]: readMetricsTour,
 };
+
+/**
+ * Stable list of every tour id we know about. Used by Settings (reset
+ * all flags) and TourMenu (manual trigger). Source of truth: TOUR_REGISTRY
+ * keys, so adding a tour to the registry automatically picks it up.
+ */
+export const KNOWN_TOUR_IDS: readonly string[] = Object.keys(TOUR_REGISTRY);
 
 const ANCHOR_WAIT_MS = 500;
 const FALLBACK_ADVANCE_MS = 1500;

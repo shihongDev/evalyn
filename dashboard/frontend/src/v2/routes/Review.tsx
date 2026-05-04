@@ -10,6 +10,8 @@ import { v2 } from '../api/client';
 import type { CalibrationSuggestion, ReviewItem, ReviewQueue } from '../api/types';
 import { listCli, type CliSchema } from '../api/cli';
 import { useV2Resource } from '../hooks/useV2Resource';
+import { useRouteTour } from '../tour/useRouteTour';
+import { REVIEW_FAILURES_TOUR_ID } from '../tour/scripts/reviewFailures';
 import { useProject } from '../hooks/useProject';
 import { openCliRunner } from '../cliRunnerBridge';
 import { E } from '../tokens';
@@ -91,6 +93,7 @@ export default function Review() {
     isInitialLoad,
     refetch: refetchQueue,
   } = useV2Resource<ReviewQueue>('reviewQueue', v2.reviewQueue);
+  useRouteTour(REVIEW_FAILURES_TOUR_ID, !!(queue && !queueErr));
   // Pull the CLI catalog so the calibration suggestion banner can open
   // the runner pre-filled. Cached at the module level by useV2Resource;
   // every other consumer that hits the catalog reuses this data.
@@ -508,6 +511,7 @@ export default function Review() {
             </div>
 
             <div
+              data-coachmark="review-queue"
               style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 320px',
@@ -515,7 +519,7 @@ export default function Review() {
                 marginTop: 18,
               }}
             >
-              <Card style={{ padding: 24 }}>
+              <Card style={{ padding: 24 }} data-coachmark="review-item">
                 <div
                   style={{
                     display: 'flex',
@@ -595,7 +599,7 @@ export default function Review() {
                   <span style={{ flex: 1 }} />
                   <span style={{ fontSize: 11, color: E.text3 }}>shortcut keys</span>
                 </div>
-                <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                <div data-coachmark="review-verdict-buttons" style={{ marginTop: 8, display: 'flex', gap: 8 }}>
                   <button
                     type="button"
                     disabled={submitting}
