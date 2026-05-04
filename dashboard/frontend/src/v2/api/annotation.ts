@@ -17,10 +17,33 @@ import type {
 
 const BASE = '/api/v2/annotation';
 
-function csrfToken(): string | null {
+function readCsrfToken(): string | null {
   if (typeof document === 'undefined') return null;
   const meta = document.querySelector<HTMLMetaElement>('meta[name="workbench-token"]');
   return meta?.content ?? null;
+}
+
+/** Refresh the workbench-token meta tag from the server.
+ *
+ * The dashboard server generates a fresh CSRF token at startup. Pages
+ * loaded before a server restart hold the old token and get 403s on
+ * mutations. We detect that, refetch ``/`` to scrape the new token,
+ * and patch the in-DOM meta so subsequent retries pick it up.
+ */
+async function refreshCsrfToken(): Promise<string | null> {
+  try {
+    const html = await (await fetch('/', { headers: { Accept: 'text/html' } })).text();
+    const match = html.match(/name="workbench-token"\s+content="([^"]+)"/);
+    if (!match) return null;
+    const fresh = match[1];
+    if (typeof document !== 'undefined') {
+      const meta = document.querySelector<HTMLMetaElement>('meta[name="workbench-token"]');
+      if (meta) meta.content = fresh;
+    }
+    return fresh;
+  } catch {
+    return null;
+  }
 }
 
 async function jget<T>(path: string): Promise<T> {
@@ -32,33 +55,36 @@ async function jget<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-async function jpost<T>(path: string, body: unknown): Promise<T> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const tok = csrfToken();
-  if (tok) headers['X-Workbench-Token'] = tok;
-  const res = await fetch(`${BASE}${path}`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  });
+async function mutating<T>(method: 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
+  const url = `${BASE}${path}`;
+  const send = async (token: string | null): Promise<Response> => {
+    const headers: Record<string, string> = {};
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    if (token) headers['X-Workbench-Token'] = token;
+    return fetch(url, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  };
+  let res = await send(readCsrfToken());
+  // CSRF rejection: server token rotated since the page loaded. Refetch
+  // the index, patch the meta, retry once. Don't loop.
+  if (res.status === 403) {
+    const fresh = await refreshCsrfToken();
+    if (fresh) {
+      res = await send(fresh);
+    }
+  }
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`POST ${path} ${res.status}: ${text}`);
+    throw new Error(`${method} ${path} ${res.status}: ${text}`);
   }
   return (await res.json()) as T;
 }
 
-async function jdelete<T>(path: string): Promise<T> {
-  const headers: Record<string, string> = {};
-  const tok = csrfToken();
-  if (tok) headers['X-Workbench-Token'] = tok;
-  const res = await fetch(`${BASE}${path}`, { method: 'DELETE', headers });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`DELETE ${path} ${res.status}: ${text}`);
-  }
-  return (await res.json()) as T;
-}
+const jpost = <T>(path: string, body: unknown): Promise<T> => mutating<T>('POST', path, body);
+const jdelete = <T>(path: string): Promise<T> => mutating<T>('DELETE', path);
 
 export const annotationApi = {
   listSessions(): Promise<AnnotationSessionList> {
