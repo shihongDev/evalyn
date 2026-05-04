@@ -11,6 +11,8 @@ import { v2 } from '../api/client';
 import { runCli } from '../api/cli';
 import type { RubricDetail, RubricRow } from '../api/types';
 import { useV2Resource } from '../hooks/useV2Resource';
+import { useRouteTour } from '../tour/useRouteTour';
+import { READ_METRICS_TOUR_ID } from '../tour/scripts/readMetrics';
 import { useProject } from '../hooks/useProject';
 import { E } from '../tokens';
 
@@ -42,6 +44,7 @@ export default function Metrics() {
     reloading: listReloading,
     isInitialLoad: listInitial,
   } = useV2Resource<RubricRow[]>('rubrics', v2.rubrics);
+  useRouteTour(READ_METRICS_TOUR_ID, !!(list && !listErr));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [calibrateBusy, setCalibrateBusy] = useState(false);
 

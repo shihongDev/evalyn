@@ -15,6 +15,8 @@ import { loadDemo } from '../api/demo';
 import { runCli } from '../api/cli';
 import { upsertJob, type JobHistoryEntry } from '../jobsHistory';
 import { useV2Resource, prefetchV2 } from '../hooks/useV2Resource';
+import { useRouteTour } from '../tour/useRouteTour';
+import { DATASET_UPLOAD_TOUR_ID } from '../tour/scripts/datasetUpload';
 import { useProject } from '../hooks/useProject';
 import { E } from '../tokens';
 
@@ -58,6 +60,7 @@ export default function Datasets() {
     'datasets',
     v2.datasets,
   );
+  useRouteTour(DATASET_UPLOAD_TOUR_ID, !!(data && !err));
 
   const openDataset = (name: string) => {
     navigate(`/datasets/${encodeURIComponent(name)}`);

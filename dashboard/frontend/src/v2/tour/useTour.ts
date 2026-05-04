@@ -55,6 +55,14 @@ const TOUR_REGISTRY: Record<string, TourDef> = {
   [readMetricsTour.id]: readMetricsTour,
 };
 
+/**
+ * Stable list of every tour id we know about. Used by Settings to clear
+ * all per-tour completion flags via the "Reset first-visit flags" button,
+ * and as the source of truth when a future surface needs to enumerate
+ * tours (e.g. a co-pilot menu or telemetry export).
+ */
+export const KNOWN_TOUR_IDS: readonly string[] = Object.keys(TOUR_REGISTRY);
+
 const ANCHOR_WAIT_MS = 500;
 const FALLBACK_ADVANCE_MS = 1500;
 const ANCHOR_POLL_MS = 50;

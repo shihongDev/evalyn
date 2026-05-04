@@ -19,6 +19,8 @@ import { Card, Eyebrow, Pill, Btn, StatusDot, Spark, Skeleton, UpdatingChip } fr
 const NEW_EVAL_TARGET = '/commands?prefill=run-eval';
 import { v2 } from '../api/client';
 import { useV2Resource } from '../hooks/useV2Resource';
+import { useRouteTour } from '../tour/useRouteTour';
+import { RUN_EVAL_TOUR_ID } from '../tour/scripts/runEval';
 import { E } from '../tokens';
 import type { ExperimentRow } from '../api/types';
 
@@ -257,6 +259,7 @@ export default function ExperimentsList() {
     'experiments',
     v2.experiments,
   );
+  useRouteTour(RUN_EVAL_TOUR_ID, !!(rows && !err));
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Filter / view state lives in the URL so refresh + back-button preserve it.
   // Default values are stripped from the URL to keep it tidy. Unknown values

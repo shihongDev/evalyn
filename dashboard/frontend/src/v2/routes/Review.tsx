@@ -10,6 +10,8 @@ import { v2 } from '../api/client';
 import type { CalibrationSuggestion, ReviewItem, ReviewQueue } from '../api/types';
 import { listCli, type CliSchema } from '../api/cli';
 import { useV2Resource } from '../hooks/useV2Resource';
+import { useRouteTour } from '../tour/useRouteTour';
+import { REVIEW_FAILURES_TOUR_ID } from '../tour/scripts/reviewFailures';
 import { useProject } from '../hooks/useProject';
 import { openCliRunner } from '../cliRunnerBridge';
 import { E } from '../tokens';
@@ -91,6 +93,7 @@ export default function Review() {
     isInitialLoad,
     refetch: refetchQueue,
   } = useV2Resource<ReviewQueue>('reviewQueue', v2.reviewQueue);
+  useRouteTour(REVIEW_FAILURES_TOUR_ID, !!(queue && !queueErr));
   // Pull the CLI catalog so the calibration suggestion banner can open
   // the runner pre-filled. Cached at the module level by useV2Resource;
   // every other consumer that hits the catalog reuses this data.

@@ -23,7 +23,7 @@ import { useV2Resource } from '../hooks/useV2Resource';
 import { E } from '../tokens';
 import { settingsApi, type ProviderState, type SettingsState } from '../api/settings';
 import { TOUR_ENABLED_KEY, tourCompletedKey } from '../store/store';
-import { FIRST_RUN_TOUR_ID } from '../tour/scripts/firstRun';
+import { KNOWN_TOUR_IDS } from '../tour/useTour';
 
 // Providers we always render a card for, even if the backend has not seen
 // them yet. Order is intentional: anthropic first (the default for new
@@ -209,10 +209,14 @@ export function GuidanceToggleCard() {
   };
 
   const handleReset = () => {
+    // Clear EVERY tour's completion flag so each tab will re-fire its
+    // first-visit guidance the next time the user opens that route.
     try {
-      window.localStorage.removeItem(tourCompletedKey(FIRST_RUN_TOUR_ID));
+      for (const id of KNOWN_TOUR_IDS) {
+        window.localStorage.removeItem(tourCompletedKey(id));
+      }
     } catch {
-      // no-op
+      // localStorage unavailable - silent best-effort.
     }
     setResetFlash(true);
     window.setTimeout(() => setResetFlash(false), 2000);
