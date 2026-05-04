@@ -22,6 +22,8 @@ import { Btn, Card, Eyebrow, Pill, Skeleton, Spinner, UpdatingChip } from '../ui
 import { useV2Resource } from '../hooks/useV2Resource';
 import { E } from '../tokens';
 import { settingsApi, type ProviderState, type SettingsState } from '../api/settings';
+import { TOUR_ENABLED_KEY, tourCompletedKey } from '../store/store';
+import { FIRST_RUN_TOUR_ID } from '../tour/scripts/firstRun';
 
 // Providers we always render a card for, even if the backend has not seen
 // them yet. Order is intentional: anthropic first (the default for new
@@ -165,12 +167,111 @@ export default function Settings() {
                 />
               ))}
             </div>
+
+            <GuidanceToggleCard />
           </>
         )}
 
         <div style={{ height: 30 }} />
       </div>
     </AppShell>
+  );
+}
+
+/**
+ * Co-pilot UI guidance toggle. Pure client-side preference - persisted to
+ * localStorage, not the provider-keyed /api/settings endpoint. The toggle
+ * gates the first-visit autotour fire path in routes/Home.tsx.
+ *
+ *   storage:
+ *     evalyn.tour.enabled         'false' = off, anything else (or missing) = on
+ *     evalyn.tour.completed.<id>  '1' once user has seen the tour for <id>
+ */
+export function GuidanceToggleCard() {
+  const [enabled, setEnabled] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(TOUR_ENABLED_KEY) !== 'false';
+    } catch {
+      return true;
+    }
+  });
+  const [resetFlash, setResetFlash] = useState(false);
+
+  const handleToggle = () => {
+    const next = !enabled;
+    setEnabled(next);
+    try {
+      window.localStorage.setItem(TOUR_ENABLED_KEY, String(next));
+    } catch {
+      // localStorage unavailable (private mode, quota); the in-memory state
+      // still flips so the user gets feedback for this session.
+    }
+  };
+
+  const handleReset = () => {
+    try {
+      window.localStorage.removeItem(tourCompletedKey(FIRST_RUN_TOUR_ID));
+    } catch {
+      // no-op
+    }
+    setResetFlash(true);
+    window.setTimeout(() => setResetFlash(false), 2000);
+  };
+
+  return (
+    <Card style={{ padding: 20, marginTop: 14 }}>
+      <Eyebrow>Co-pilot UI guidance</Eyebrow>
+      <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 14 }}>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          aria-label="Co-pilot UI guidance"
+          onClick={handleToggle}
+          style={{
+            width: 36,
+            height: 20,
+            borderRadius: 10,
+            border: 'none',
+            background: enabled ? E.ember : E.panel3,
+            position: 'relative',
+            cursor: 'pointer',
+            transition: 'background 120ms',
+            padding: 0,
+            flexShrink: 0,
+          }}
+        >
+          <span
+            style={{
+              position: 'absolute',
+              top: 2,
+              left: enabled ? 18 : 2,
+              width: 16,
+              height: 16,
+              borderRadius: '50%',
+              background: '#fff',
+              transition: 'left 120ms',
+            }}
+          />
+        </button>
+        <div style={{ fontSize: 13, color: E.text1 }}>
+          {enabled ? 'On' : 'Off'} - first-visit walk-throughs on dashboard sections
+        </div>
+      </div>
+      <div style={{ marginTop: 10, fontSize: 11.5, color: E.text3, lineHeight: 1.5 }}>
+        When on, the co-pilot offers a short tour the first time you open a section. Already-seen tours stay dismissed unless you reset them below.
+      </div>
+      <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Btn kind="bare" size="sm" onClick={handleReset}>
+          Reset first-visit flags
+        </Btn>
+        {resetFlash && (
+          <Pill mono color={E.pass} bg={E.passDim}>
+            Reset
+          </Pill>
+        )}
+      </div>
+    </Card>
   );
 }
 

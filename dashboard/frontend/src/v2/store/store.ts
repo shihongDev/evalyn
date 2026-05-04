@@ -29,6 +29,20 @@ export interface CoPilotThread {
   created_at_iso: string;
 }
 
+/**
+ * Co-pilot UI guidance tour state.
+ *
+ * Tour state is in-memory only (Zustand). A page refresh mid-tour abandons
+ * the run; that is acceptable for v1 (single-route Home tour). Completion
+ * flags persist to localStorage so a finished tour does not re-fire.
+ *
+ *   tour storage keys:
+ *     evalyn.tour.enabled         boolean - global feature toggle (Settings)
+ *     evalyn.tour.completed.<id>  '1' if user completed tour <id>
+ */
+export const TOUR_ENABLED_KEY = 'evalyn.tour.enabled';
+export const tourCompletedKey = (tourId: string) => `evalyn.tour.completed.${tourId}`;
+
 interface V2Store {
   /** Co-pilot side dock visibility. */
   dockOpen: boolean;
@@ -46,6 +60,21 @@ interface V2Store {
     patch: Partial<CoPilotMessage>,
   ) => void;
   removeThread: (id: string) => void;
+
+  /**
+   * Active tour state.
+   *
+   *   idle           tourActiveId === null
+   *   running        tourActiveId === <id>, tourStep >= 0
+   *   completed      tourActiveId === null + localStorage flag set
+   *   abandoned      tourActiveId === null + no localStorage flag (re-fires next visit)
+   */
+  tourActiveId: string | null;
+  tourStep: number;
+  setTour: (id: string, step?: number) => void;
+  advanceTour: () => void;
+  markTourComplete: (id: string) => void;
+  abandonTour: () => void;
 }
 
 export const useV2Store = create<V2Store>((set) => ({
@@ -93,4 +122,20 @@ export const useV2Store = create<V2Store>((set) => ({
         activeThreadId: s.activeThreadId === id ? null : s.activeThreadId,
       };
     }),
+
+  tourActiveId: null,
+  tourStep: 0,
+  setTour: (id, step = 0) => set({ tourActiveId: id, tourStep: step }),
+  advanceTour: () => set((s) => ({ tourStep: s.tourStep + 1 })),
+  markTourComplete: (id) => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(tourCompletedKey(id), '1');
+      } catch {
+        // Quota exceeded, private mode, etc. - completion is best-effort.
+      }
+    }
+    set({ tourActiveId: null, tourStep: 0 });
+  },
+  abandonTour: () => set({ tourActiveId: null, tourStep: 0 }),
 }));

@@ -36,6 +36,7 @@ import { v2 } from './api/client';
 import { listCli } from './api/cli';
 import { prefetchV2 } from './hooks/useV2Resource';
 import { startV2EventStream } from './api/v2ws';
+import { useTour } from './tour/useTour';
 
 interface AppShellProps {
   children: ReactNode;
@@ -173,6 +174,13 @@ export function AppShell({
   useEffect(() => {
     startV2EventStream();
   }, []);
+
+  // Drive the active tour (if any) globally. Mounting at the shell level
+  // lets any route trigger a tour via setTour() in the store; the hook
+  // resolves the registered TourDef and runs Driver.js. Per the tour state
+  // machine in useTour.ts, navigating away mid-tour abandons it (cleanup
+  // calls driver.destroy() which fires onDestroyStarted -> abandonTour).
+  useTour();
 
   // On viewport change, default the dock state to "closed" for narrow widths
   // so users do not land in an overlay-on-load state. Desktop keeps prior

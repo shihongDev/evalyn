@@ -3,9 +3,12 @@
  * recent activity, attention queue, co-pilot brief. Sources from v2.home().
  */
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../AppShell';
+import { useV2Store } from '../store/store';
+import { FIRST_RUN_TOUR_ID } from '../tour/scripts/firstRun';
+import { shouldFireFirstRunTour } from '../tour/firstRunGate';
 import {
   Card,
   Eyebrow,
@@ -67,6 +70,34 @@ export default function Home() {
     v2.home,
   );
   const navigate = useNavigate();
+  const setTour = useV2Store((s) => s.setTour);
+  const setDockOpen = useV2Store((s) => s.setDockOpen);
+  const tourTriggered = useRef(false);
+
+  // useTour() is mounted globally in AppShell; Home only triggers the
+  // firstRun tour via setTour below. Earlier versions mounted useTour here.
+  //
+  // First-visit detection. Fires the firstRun tour when:
+  //   1. user has the global setting enabled (default on - missing key counts as on)
+  //   2. user has not previously completed the tour
+  //   3. Home has loaded its data (no skeleton, no error)
+  // Guarded by a ref so it cannot re-fire on re-render.
+  useEffect(() => {
+    if (tourTriggered.current) return;
+    if (!snap || err) return;
+    if (!shouldFireFirstRunTour()) return;
+    tourTriggered.current = true;
+    // Collapse the copilot sheet (mobile) / dock (desktop) so the tour has
+    // a single focal surface.
+    setDockOpen(false);
+    // 500ms post-mount delay matches the useTour anchor-not-found timeout, so
+    // any anchor that is still resolving when we trigger will degrade to the
+    // skip+narrate fallback rather than a hard miss.
+    const t = setTimeout(() => {
+      setTour(FIRST_RUN_TOUR_ID);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [snap, err, setTour, setDockOpen]);
 
   const briefTime = useMemo(() => {
     if (!snap?.brief) return '';
@@ -209,7 +240,7 @@ export default function Home() {
 
         {/* HERO QUALITY + SUB-METRICS + COST */}
         <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: snap.cost ? '1.6fr 1fr 1fr' : '1.6fr 1fr', gap: 18 }}>
-          <Card style={{ padding: 22 }}>
+          <Card style={{ padding: 22 }} data-coachmark="home-quality">
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
               <div>
                 <Eyebrow>Overall quality - 30d</Eyebrow>
@@ -271,7 +302,7 @@ export default function Home() {
             )}
           </Card>
 
-          <Card style={{ padding: 22 }}>
+          <Card style={{ padding: 22 }} data-coachmark="home-submetrics">
             <Eyebrow>Sub-metrics today</Eyebrow>
             {snap.sub_metrics.length === 0 ? (
               <div style={{ marginTop: 14, fontSize: 13, color: E.text3 }}>No sub-metrics yet.</div>
@@ -335,7 +366,7 @@ export default function Home() {
 
         {/* THREE-COL: Active experiments | Recent activity | Attention */}
         <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 18 }}>
-          <Card style={{ padding: 0, overflow: 'hidden' }}>
+          <Card style={{ padding: 0, overflow: 'hidden' }} data-coachmark="home-experiments">
             <div style={{ padding: '14px 18px', borderBottom: `1px solid ${E.hair}`, display: 'flex', alignItems: 'center' }}>
               <span style={{ fontSize: 13, color: E.text0, fontWeight: 500 }}>Active experiments</span>
               <span style={{ flex: 1 }} />
@@ -384,7 +415,7 @@ export default function Home() {
             )}
           </Card>
 
-          <Card style={{ padding: 0, overflow: 'hidden' }}>
+          <Card style={{ padding: 0, overflow: 'hidden' }} data-coachmark="home-activity">
             <div style={{ padding: '14px 18px', borderBottom: `1px solid ${E.hair}` }}>
               <span style={{ fontSize: 13, color: E.text0, fontWeight: 500 }}>Recent activity</span>
             </div>
@@ -459,7 +490,7 @@ export default function Home() {
 
         {/* CO-PILOT BRIEF */}
         {snap.brief && (
-          <Card style={{ marginTop: 18, padding: 0, overflow: 'hidden' }}>
+          <Card style={{ marginTop: 18, padding: 0, overflow: 'hidden' }} data-coachmark="home-copilot-brief">
             <div style={{ padding: '14px 22px', borderBottom: `1px solid ${E.hair}`, display: 'flex', alignItems: 'center', gap: 8 }}>
               <span
                 style={{

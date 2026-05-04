@@ -18,12 +18,23 @@ interface CardProps {
   hover?: boolean;
   accent?: boolean;
   onClick?: MouseEventHandler<HTMLDivElement>;
+  /** Optional coachmark id for the co-pilot UI guidance tour to anchor on. */
+  'data-coachmark'?: string;
 }
 
-export function Card({ children, style, pad = 0, hover, accent, onClick }: CardProps) {
+export function Card({
+  children,
+  style,
+  pad = 0,
+  hover,
+  accent,
+  onClick,
+  'data-coachmark': dataCoachmark,
+}: CardProps) {
   return (
     <div
       onClick={onClick}
+      data-coachmark={dataCoachmark}
       style={{
         background: E.panel,
         border: `1px solid ${accent ? E.emberRim : E.hair}`,
