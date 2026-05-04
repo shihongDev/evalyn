@@ -89,6 +89,86 @@ DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 
 
 # ---------------------------------------------------------------------------
+# System prompt + frontend-only tools.
+# ---------------------------------------------------------------------------
+#
+# The agent is the dashboard co-pilot. It reads/writes the project via the CLI
+# catalog AND can drive the dashboard UI itself via a small set of "frontend"
+# tools that the backend never executes - only emits a tool_call_proposal for.
+# The frontend (useCoPilotThread) intercepts these and acts on them in JS land
+# (e.g. start_tour -> Zustand setTour). The agent loop sees a synthetic success
+# response so it can continue its turn coherently.
+
+SYSTEM_PROMPT = (
+    "You are the co-pilot for evalyn, an LLM evaluation toolkit.\n"
+    "\n"
+    "You help the user understand their evaluation runs, debug failures, and "
+    "operate the evalyn CLI. You have access to evalyn CLI commands as tools. "
+    "Use them to list runs, inspect rubrics, fetch dataset items, and answer "
+    "the user's questions with concrete data instead of guessing.\n"
+    "\n"
+    "You also have a special `start_tour` tool that triggers a guided UI "
+    "walk-through in the dashboard. Use start_tour ONLY when the user "
+    "explicitly asks to be SHOWN how to do something (phrases like \"show me "
+    "how to...\", \"walk me through...\", \"how do I... [UI action]\"). Do not "
+    "call start_tour proactively, do not call it as a substitute for "
+    "answering a content question, and call at most one tour per turn.\n"
+    "\n"
+    "Available tour ids:\n"
+    "  - firstRun.home.v1: orientation walk-through of the Home dashboard.\n"
+    "  - datasetUpload.v1: how to add a dataset on the Datasets page.\n"
+    "  - runEval.v1: how to start a new evaluation on the Experiments page.\n"
+    "  - reviewFailures.v1: how to triage failures in the Review queue.\n"
+    "  - readMetrics.v1: how to read the per-rubric metrics page.\n"
+    "\n"
+    "Be concise. When you do not know the answer, say so and offer to help "
+    "the user find it via the available tools."
+)
+
+
+_FRONTEND_TOOLS: list[dict[str, Any]] = [
+    {
+        "name": "start_tour",
+        "description": (
+            "Start a guided UI walk-through of the dashboard. Use ONLY when "
+            "the user explicitly asks to be shown how to do something. The "
+            "frontend handles the tour visually; this tool returns "
+            "immediately on the backend with no side effects."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "tour_id": {
+                    "type": "string",
+                    "description": "Identifier of the tour to start.",
+                    "enum": [
+                        "firstRun.home.v1",
+                        "datasetUpload.v1",
+                        "runEval.v1",
+                        "reviewFailures.v1",
+                        "readMetrics.v1",
+                    ],
+                },
+            },
+            "required": ["tour_id"],
+        },
+    },
+]
+
+FRONTEND_ONLY_TOOL_NAMES: frozenset[str] = frozenset({"start_tour"})
+
+
+def _frontend_tool_result(name: str, args: dict[str, Any]) -> str:
+    """Synthetic stdout returned to the agent loop after a frontend-only
+    tool has been dispatched to the UI. The text is what the model sees as
+    the tool result, so it should describe what happened in human terms."""
+    if name == "start_tour":
+        tour_id = args.get("tour_id", "?")
+        return f"Tour '{tour_id}' has been displayed to the user."
+    return f"{name} dispatched to the frontend."
+
+
+# ---------------------------------------------------------------------------
 # Side-effects copy for the confirmation card.
 # ---------------------------------------------------------------------------
 #
@@ -781,7 +861,13 @@ class AgentRuntime:
 
     def create_thread(self) -> str:
         thread_id = uuid.uuid4().hex
-        self._threads[thread_id] = _Thread(id=thread_id)
+        thread = _Thread(id=thread_id)
+        # Inject the co-pilot system prompt as the first message so providers
+        # see the tour-policy instructions on every turn. Anthropic separates
+        # `system` from `messages` (handled in AnthropicProvider.stream_chat);
+        # OpenAI and Ollama accept role:"system" entries directly.
+        thread.messages.append({"role": "system", "content": SYSTEM_PROMPT})
+        self._threads[thread_id] = thread
         return thread_id
 
     def has_thread(self, thread_id: str) -> bool:
@@ -944,7 +1030,12 @@ class AgentRuntime:
         provider_name = getattr(provider, "name", "") or ""
         is_ollama = provider_name == "ollama"
 
+        # Catalog tools (CLI introspection) plus the frontend-only tools.
+        # Frontend tools are dispatched to the UI by the backend (proposal +
+        # synthetic success) without ever shelling out, so the LLM can drive
+        # the dashboard surface in addition to invoking real commands.
         canonical_tools = catalog_to_tools(self._catalog) if self._catalog else []
+        canonical_tools = canonical_tools + _FRONTEND_TOOLS
         tool_calls_used = 0
 
         for _ in range(self.tool_budget + 1):
@@ -1085,6 +1176,21 @@ class AgentRuntime:
                 "preview_cmd": preview,
             },
         )
+
+        # Frontend-only tools (start_tour, etc.): the proposal event above
+        # is the dispatch signal to the UI. The backend has no work to do
+        # beyond emitting `running` and a synthetic successful completion
+        # so the agent loop sees a coherent tool result and can continue.
+        if tc.name in FRONTEND_ONLY_TOOL_NAMES:
+            self._emit(
+                thread,
+                {
+                    "type": "tool_call_running",
+                    "tool_call_id": tc.id,
+                    "tool": tc.name,
+                },
+            )
+            return True, _frontend_tool_result(tc.name, tc.arguments), 0
 
         if (
             tc.name not in self.allowlist

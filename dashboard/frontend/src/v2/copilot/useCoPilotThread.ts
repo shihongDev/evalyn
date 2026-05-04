@@ -14,7 +14,29 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, subscribeAgent } from '../../api';
+import { useV2Store } from '../store/store';
 import type { AgentWsEvent, ConvMessage, PendingConfirmation, ToolBlockEntry } from './types';
+
+/**
+ * Tools the backend declares but never executes server-side; the frontend
+ * acts on the proposal event and the backend emits a synthetic completion
+ * so the agent loop can continue. Currently just `start_tour` (drives the
+ * Driver.js tour engine via Zustand). Extend this set when adding more
+ * UI-driving agent tools (e.g. navigate, focus, openPanel).
+ */
+const FRONTEND_ONLY_TOOL_NAMES = new Set<string>(['start_tour']);
+
+function dispatchFrontendTool(
+  toolName: string,
+  args: Record<string, unknown>,
+): void {
+  if (toolName === 'start_tour') {
+    const tourId = typeof args.tour_id === 'string' ? args.tour_id : null;
+    if (tourId) {
+      useV2Store.getState().setTour(tourId);
+    }
+  }
+}
 
 type Status = 'idle' | 'streaming' | 'awaiting_confirmation' | 'reconnecting' | 'error';
 
@@ -137,6 +159,13 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
     }
 
     if (evt.type === 'tool_call_proposal') {
+      // Frontend-only tools (start_tour etc.) are dispatched here. The
+      // tool block still renders in the conversation timeline so the user
+      // sees what the agent decided to do, but the *effect* (e.g. starting
+      // a Driver.js tour) happens in the store, not via a backend run.
+      if (FRONTEND_ONLY_TOOL_NAMES.has(evt.tool)) {
+        dispatchFrontendTool(evt.tool, evt.args);
+      }
       setMessages((prev) => {
         const { next, bubble } = ensureAgentBubble(prev);
         const existing = bubble.tools.find((t) => t.tool_call_id === evt.tool_call_id);

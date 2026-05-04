@@ -508,6 +508,7 @@ export default function Review() {
             </div>
 
             <div
+              data-coachmark="review-queue"
               style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 320px',
@@ -515,7 +516,7 @@ export default function Review() {
                 marginTop: 18,
               }}
             >
-              <Card style={{ padding: 24 }}>
+              <Card style={{ padding: 24 }} data-coachmark="review-item">
                 <div
                   style={{
                     display: 'flex',
@@ -595,7 +596,7 @@ export default function Review() {
                   <span style={{ flex: 1 }} />
                   <span style={{ fontSize: 11, color: E.text3 }}>shortcut keys</span>
                 </div>
-                <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                <div data-coachmark="review-verdict-buttons" style={{ marginTop: 8, display: 'flex', gap: 8 }}>
                   <button
                     type="button"
                     disabled={submitting}

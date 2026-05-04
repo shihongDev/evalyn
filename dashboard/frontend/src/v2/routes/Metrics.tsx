@@ -139,7 +139,7 @@ export default function Metrics() {
           }}
         >
           {/* List */}
-          <Card style={{ padding: 0, overflow: 'hidden' }}>
+          <Card style={{ padding: 0, overflow: 'hidden' }} data-coachmark="metrics-list">
             <div
               style={{
                 padding: '12px 16px',
@@ -228,7 +228,7 @@ export default function Metrics() {
           </Card>
 
           {/* Detail */}
-          <Card style={{ padding: 0, overflow: 'hidden' }}>
+          <Card style={{ padding: 0, overflow: 'hidden' }} data-coachmark="metrics-rubric">
             {!selectedId && (
               <div style={{ padding: 24, color: E.text3, fontSize: 13, textAlign: 'center' }}>
                 No rubrics defined yet.
@@ -385,6 +385,7 @@ export default function Metrics() {
                     - last {detail.calibration.sample_size} human-reviewed items
                   </Eyebrow>
                   <div
+                    data-coachmark="metrics-chart"
                     style={{
                       display: 'grid',
                       gridTemplateColumns: 'repeat(3, 1fr)',

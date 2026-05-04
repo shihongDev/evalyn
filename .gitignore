@@ -63,8 +63,11 @@ pytest.ini
 evalyn.sqlite
 evalyn.yaml
 
-# Scripts   
+# Scripts
 scripts/
+# Co-pilot tour scripts are first-class source; the broad scripts/ rule
+# above was intended for top-level helper directories.
+!dashboard/frontend/src/v2/tour/scripts/
 local_scripts/
 
 # files (anthropic agent sdk example will create files in this directory)

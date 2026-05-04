@@ -1290,6 +1290,100 @@ async def test_o2_openai_path_still_uses_canonical_tool_call_shape() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Frontend-only tools (start_tour)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_start_tour_short_circuits_without_running_argv() -> None:
+    """The agent's start_tour tool is dispatched to the frontend via the
+    proposal event; the backend MUST emit running + complete with a
+    synthetic success and never invoke the tool runner. Verified by using
+    `_unused_runner` (asserts on call) as the seam."""
+    tc = ProviderToolCall(
+        id="tc-tour-1",
+        name="start_tour",
+        arguments={"tour_id": "runEval.v1"},
+    )
+    provider = MockProvider(
+        [
+            [
+                ProviderEvent(kind="text_delta", text="Walking you through it."),
+                ProviderEvent(kind="tool_call", tool_call=tc),
+                ProviderEvent(kind="finish"),
+            ],
+            [
+                ProviderEvent(kind="text_delta", text="Tour started."),
+                ProviderEvent(kind="finish"),
+            ],
+        ]
+    )
+
+    runtime = AgentRuntime(
+        provider_factory=lambda: provider,
+        catalog=[],  # frontend-only tools are appended automatically
+        tool_runner=_unused_runner,
+    )
+    thread_id = runtime.create_thread()
+    await runtime.start_turn(thread_id, "show me how to run an eval")
+
+    events = runtime._threads[thread_id].events
+    types = [e["type"] for e in events]
+
+    # The full lifecycle still emits, so the frontend sees the proposal
+    # (which is its dispatch signal) followed by running + complete that
+    # close the bubble cleanly.
+    assert "tool_call_proposal" in types
+    assert "tool_call_running" in types
+    assert "tool_call_complete" in types
+    assert types[-1] == "final"
+
+    complete = next(e for e in events if e["type"] == "tool_call_complete")
+    assert complete["ok"] is True
+    assert complete["exit_code"] == 0
+    # The synthetic stdout is what the model sees as the tool result on
+    # the next turn - it should describe what the user is now seeing.
+    assert "runEval.v1" in complete["stdout"]
+    # B1: both output and stdout fields populated for protocol parity.
+    assert complete["output"] == complete["stdout"]
+
+
+@pytest.mark.asyncio
+async def test_start_tour_appears_in_canonical_tools() -> None:
+    """The start_tour frontend-only tool must be visible to the LLM in
+    the canonical_tools list passed to provider.stream_chat, even when
+    the user-facing catalog is empty."""
+    provider = MockProvider([[ProviderEvent(kind="finish")]])
+    runtime = AgentRuntime(
+        provider_factory=lambda: provider,
+        catalog=[],
+        tool_runner=_unused_runner,
+    )
+    thread_id = runtime.create_thread()
+    await runtime.start_turn(thread_id, "hello")
+    tools = provider.calls[0]["tools"]
+    names = [t["name"] for t in tools]
+    assert "start_tour" in names
+
+
+@pytest.mark.asyncio
+async def test_create_thread_seeds_system_prompt() -> None:
+    """create_thread must inject the co-pilot system message at index 0
+    so providers see tour-policy instructions on every turn."""
+    provider = MockProvider([[ProviderEvent(kind="finish")]])
+    runtime = AgentRuntime(
+        provider_factory=lambda: provider,
+        catalog=[],
+        tool_runner=_unused_runner,
+    )
+    thread_id = runtime.create_thread()
+    messages = runtime._threads[thread_id].messages
+    assert len(messages) >= 1
+    assert messages[0]["role"] == "system"
+    assert "start_tour" in messages[0]["content"]
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 

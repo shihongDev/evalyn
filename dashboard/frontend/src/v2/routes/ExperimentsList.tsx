@@ -451,7 +451,7 @@ export default function ExperimentsList() {
           <Btn kind="secondary" size="md" disabled title="Coming soon">
             ↗ Export CSV
           </Btn>
-          <Btn kind="primary" size="md" onClick={() => navigate(NEW_EVAL_TARGET)}>
+          <Btn kind="primary" size="md" onClick={() => navigate(NEW_EVAL_TARGET)} data-coachmark="experiments-new-button">
             ＋ New evaluation
           </Btn>
         </div>
@@ -465,6 +465,7 @@ export default function ExperimentsList() {
 
         {/* FILTER + COMPARE BAR */}
         <div
+          data-coachmark="experiments-filters"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -649,7 +650,7 @@ export default function ExperimentsList() {
 
         {/* FLAT VIEW */}
         {view === 'flat' && filtered && filtered.length > 0 && (
-          <Card style={{ marginTop: 14, padding: 0, overflow: 'hidden' }}>
+          <Card style={{ marginTop: 14, padding: 0, overflow: 'hidden' }} data-coachmark="experiments-list">
             <TableHeader />
             {filtered.map((r, i) => (
               <Row

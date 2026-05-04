@@ -54,6 +54,7 @@ vi.mock('../../api', () => ({
 }));
 
 import { useCoPilotThread } from './useCoPilotThread';
+import { useV2Store } from '../store/store';
 import type { AgentWsEvent } from './types';
 
 interface CapturedHandlers {
@@ -253,5 +254,58 @@ describe('useCoPilotThread', () => {
 
     // The reset wins - threadId stays on the user's choice.
     expect(result.current.threadId).toBe('tid-NEW');
+  });
+
+  it('start_tour: tool_call_proposal with tool=start_tour calls setTour on the store', async () => {
+    // Reset the tour state so we can detect the interception cleanly.
+    useV2Store.setState({ tourActiveId: null, tourStep: 0 });
+
+    renderHook(() => useCoPilotThread({ initialThreadId: 'tid-tour' }));
+    await waitFor(() => {
+      expect(subscribeAgentMock).toHaveBeenCalled();
+    });
+    const handlers = getHandlers();
+
+    act(() => {
+      handlers.onMessage({
+        type: 'tool_call_proposal',
+        thread_id: 'tid-tour',
+        tool_call_id: 'tc-tour-1',
+        tool: 'start_tour',
+        args: { tour_id: 'runEval.v1' },
+        preview_cmd: 'evalyn start_tour --tour-id runEval.v1',
+        ts: 1,
+      });
+    });
+
+    expect(useV2Store.getState().tourActiveId).toBe('runEval.v1');
+    expect(useV2Store.getState().tourStep).toBe(0);
+
+    // Cleanup: clear tour state for subsequent tests.
+    useV2Store.setState({ tourActiveId: null, tourStep: 0 });
+  });
+
+  it('start_tour: malformed args (no tour_id) does not crash and leaves the store unchanged', async () => {
+    useV2Store.setState({ tourActiveId: null, tourStep: 0 });
+
+    renderHook(() => useCoPilotThread({ initialThreadId: 'tid-tour-bad' }));
+    await waitFor(() => {
+      expect(subscribeAgentMock).toHaveBeenCalled();
+    });
+    const handlers = getHandlers();
+
+    act(() => {
+      handlers.onMessage({
+        type: 'tool_call_proposal',
+        thread_id: 'tid-tour-bad',
+        tool_call_id: 'tc-tour-2',
+        tool: 'start_tour',
+        args: {},
+        preview_cmd: 'evalyn start_tour',
+        ts: 1,
+      });
+    });
+
+    expect(useV2Store.getState().tourActiveId).toBeNull();
   });
 });

@@ -31,6 +31,10 @@ import 'driver.js/dist/driver.css';
 import { useV2Store } from '../store/store';
 import { coachmarkSelector, type CoachmarkId } from './anchors';
 import { firstRunTour } from './scripts/firstRun';
+import { datasetUploadTour } from './scripts/datasetUpload';
+import { runEvalTour } from './scripts/runEval';
+import { reviewFailuresTour } from './scripts/reviewFailures';
+import { readMetricsTour } from './scripts/readMetrics';
 
 export interface TourStepDef {
   anchor: CoachmarkId;
@@ -45,6 +49,10 @@ export interface TourDef {
 
 const TOUR_REGISTRY: Record<string, TourDef> = {
   [firstRunTour.id]: firstRunTour,
+  [datasetUploadTour.id]: datasetUploadTour,
+  [runEvalTour.id]: runEvalTour,
+  [reviewFailuresTour.id]: reviewFailuresTour,
+  [readMetricsTour.id]: readMetricsTour,
 };
 
 const ANCHOR_WAIT_MS = 500;

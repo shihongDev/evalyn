@@ -293,7 +293,7 @@ export default function Datasets() {
           <Btn kind="secondary" size="md" disabled title={IMPORT_CSV_HINT}>
             Import CSV
           </Btn>
-          <Btn kind="primary" size="md" disabled title={NEW_DATASET_HINT}>
+          <Btn kind="primary" size="md" disabled title={NEW_DATASET_HINT} data-coachmark="datasets-new-button">
             + New dataset
           </Btn>
         </div>
@@ -310,6 +310,7 @@ export default function Datasets() {
         {/* FILTER BAR - only show once we have data with at least one card */}
         {data && data.length > 0 && (
           <div
+            data-coachmark="datasets-search"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -593,6 +594,7 @@ export default function Datasets() {
 
         {filtered && filtered.length > 0 && (
           <div
+            data-coachmark="datasets-list"
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(2, 1fr)',
