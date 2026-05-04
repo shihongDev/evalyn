@@ -255,11 +255,13 @@ def test_run_happy_path_returns_job_id(monkeypatch):
     captured: list[list[str]] = []
     real_spawn = app.state.job_manager.spawn
 
-    async def fake_spawn(cmd):
+    async def fake_spawn(cmd, *, cli_id="", args=None):
         captured.append(list(cmd))
         # Replace ``evalyn list-runs ...`` with a no-op python invocation
         # so we don't need a real project.
-        return await real_spawn([sys.executable, "-c", "print('ok')"])
+        return await real_spawn(
+            [sys.executable, "-c", "print('ok')"], cli_id=cli_id, args=args
+        )
 
     monkeypatch.setattr(app.state.job_manager, "spawn", fake_spawn)
 

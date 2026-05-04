@@ -198,7 +198,7 @@ async def run_cli(request: Request) -> JSONResponse:
     cmd = ["evalyn", cli_id, *argv_tail]
 
     job_manager = request.app.state.job_manager
-    job_id = await job_manager.spawn(cmd)
+    job_id = await job_manager.spawn(cmd, cli_id=cli_id, args=args)
     return JSONResponse({"job_id": job_id})
 
 

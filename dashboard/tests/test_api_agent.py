@@ -250,6 +250,22 @@ def test_ws_agent_streams_events(tmp_path: Path) -> None:
     assert "text_delta" in types
     assert types[-1] == "final"
 
+    # Contract regression guard for the v2 co-pilot frontend
+    # (dashboard/frontend/src/v2/copilot/types.ts AgentWsEvent).
+    # If these field names change here, update the TS contract together.
+    text_deltas = [e for e in events if e["type"] == "text_delta"]
+    assert text_deltas, "expected at least one text_delta event"
+    for d in text_deltas:
+        assert "text" in d, "text_delta uses 'text' (not 'delta')"
+        assert "message_id" in d, "text_delta needs message_id for bubble correlation"
+    final = events[-1]
+    # The 'final' emit sites in agent.py do not include message_id; the
+    # frontend handler must fall back to the last streaming bubble.
+    assert "message_id" not in final, (
+        "agent.py 'final' emits without message_id; frontend "
+        "useCoPilotThread.ts handles this by patching the last streaming bubble"
+    )
+
 
 def test_ws_agent_unknown_thread_closes_1008(tmp_path: Path) -> None:
     runtime = AgentRuntime(

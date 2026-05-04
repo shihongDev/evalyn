@@ -1,0 +1,29 @@
+/**
+ * Tour anchor registry.
+ *
+ * Compile-time selector contract for `data-coachmark="..."` attributes
+ * on UI elements. Tour scripts reference CoachmarkId values; the useTour
+ * hook resolves them to DOM selectors via `coachmarkSelector(id)`.
+ *
+ * Why a typed registry: prevents typos in tour scripts and lets a future
+ * lint or audit step verify that every CoachmarkId has at least one
+ * matching anchor in the codebase.
+ *
+ *   v1 scope: Home route only (5 anchors).
+ *   v2: extend to Datasets, ExperimentsList, RunDetail, Review, Metrics
+ *       and split this list into per-route arrays.
+ */
+
+export const COACHMARKS = [
+  'home-quality',
+  'home-submetrics',
+  'home-experiments',
+  'home-activity',
+  'home-copilot-brief',
+] as const;
+
+export type CoachmarkId = (typeof COACHMARKS)[number];
+
+export function coachmarkSelector(id: CoachmarkId): string {
+  return `[data-coachmark="${id}"]`;
+}

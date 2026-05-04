@@ -16,6 +16,26 @@ Updated 2026-03-29: ROADMAP 100% complete (559/559 items, 2151 sub-items). Focus
 
 ## Medium Priority
 
+### Co-pilot tour effectiveness telemetry
+- **What:** Log which co-pilot tours fired, were dismissed, or completed; attribute downstream feature adoption to tour exposure. Wire into existing analytics path (or add minimal local events store).
+- **Why:** Without measurement we cannot validate that UI-guidance tours actually help users learn the dashboard. Per CLAUDE.md epistemology rule ("Assumptions are the enemy. Never guess - benchmark instead of estimating"), shipping more tours without this is shipping by hunch. Should land before a second wave of tours is authored.
+- **Depends on:** Co-pilot UI guidance core (CEO plan 2026-05-03).
+
+### Co-pilot stuck-detection trigger
+- **What:** Idle timer (>90s with no clicks) on content-rich routes triggers a copilot proactive offer ("anything I can help with?"). Respects the global UI-guidance toggle.
+- **Why:** This is the AI-only differentiator no static tour library can replicate. Defer until the core tour engine is stable so we can iterate on heuristics without destabilizing the foundation.
+- **Depends on:** Co-pilot UI guidance core, Settings 3-state migration (so users have "first-time-only" semantics to opt out of stuck-detection without disabling all guidance).
+
+### Co-pilot guidance Settings: migrate boolean to 3-state
+- **What:** Replace boolean "Co-pilot UI guidance on/off" toggle with 3-state "Always / First-time-only / Off". First-time-only becomes the default for new installs.
+- **Why:** "Default on" as a binary annoys returning users. "First-time-only" is the actually-correct default and addresses the original feature ask cleanly. Migration cost grows with usage, so address before tour count grows.
+- **Depends on:** Co-pilot UI guidance core landed.
+
+### Glossary-on-hover via co-pilot
+- **What:** Hover unfamiliar terms (rubric, BLEU, judge, calibration, cluster) -> small popover with copilot-curated explanation. Distinct from the existing static `Glossary.tsx`; uses the copilot for personalized phrasing.
+- **Why:** Sticky differentiation; complements the sequenced-tour mechanism with always-available term-level help. Lower priority than tours themselves.
+- **Depends on:** Nothing strict; can ship independently of the tour engine.
+
 ### Extract shared CLI storage helpers
 - **What:** Create `cli/utils/storage_helpers.py` with `get_storage(args)` and `load_run(args)`. Wire all 12+ `SQLiteStorage()` instantiations through shared helpers.
 - **Why:** SQLiteStorage is instantiated independently in analysis.py, dashboard.py, export.py, infrastructure.py, insights.py, quickstart.py, traces.py, and pipeline_steps.py. The run-loading pattern (resolve from --run ID or --dataset path) is reimplemented in 3 places.

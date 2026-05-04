@@ -25,12 +25,15 @@ routers (A1.5) layer on top.
 
 from __future__ import annotations
 
+import logging
 import secrets
 import threading
 import time
 import webbrowser
 from pathlib import Path
 from typing import Callable, Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
@@ -67,6 +70,52 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                     status_code=403,
                 )
         return await call_next(request)
+
+
+def _build_timing_logger() -> logging.Logger:
+    """Configure a stdout-attached logger for the timing middleware.
+
+    Uvicorn's default access logger uses a positional-arg formatter we
+    can't reuse, and the root logger has no handler in the bare uvicorn
+    config. So we attach our own ``StreamHandler`` once and disable
+    propagation - cheap, no third-party deps, works in tests.
+    """
+    log = logging.getLogger("evalyn.timing")
+    if not log.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("TIMING: %(message)s"))
+        log.addHandler(handler)
+        log.setLevel(logging.INFO)
+        log.propagate = False
+    return log
+
+
+_timing_logger = _build_timing_logger()
+
+
+class TimingMiddleware(BaseHTTPMiddleware):
+    """Log ``method path -> status (Xms)`` for every ``/api/*`` request.
+
+    Cheap perf telemetry - one ``time.perf_counter`` pair per request.
+    Scoped to API routes so static asset noise stays out of the log.
+    Emits one line per request under the ``evalyn.timing`` logger.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if not path.startswith("/api/"):
+            return await call_next(request)
+        start = time.perf_counter()
+        response = await call_next(request)
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        _timing_logger.info(
+            "%s %s -> %s (%.1fms)",
+            request.method,
+            path,
+            response.status_code,
+            elapsed_ms,
+        )
+        return response
 
 
 def _read_index_html(token: str) -> str:
@@ -141,6 +190,70 @@ def _register_api_routers(app: FastAPI) -> None:
     app.include_router(threads_api.router, prefix="/api/threads", tags=["threads"])
     register_ws_routes(app)
     register_agent_ws_routes(app)
+    _register_v2_routers(app)
+
+
+def _register_v2_routers(app: FastAPI) -> None:
+    """Register ``/api/v2/*`` routers (the new dashboard surface).
+
+    Wrapped so a missing module fails for that prefix only - the rest of
+    the API stays online. Each module is independently importable.
+    Also mounts ``/ws/v2/events`` (the cache-bust event stream) and
+    schedules its dataset-roots watcher on app startup so the FE gets
+    push notifications when ``run-eval`` writes new runs to disk.
+    """
+    try:
+        from .api.v2 import home as v2_home
+    except ImportError as exc:
+        logger.warning("v2 home router import failed; /api/v2/home will 404: %s", exc)
+        return
+
+    app.include_router(v2_home.router, prefix="/api/v2/home", tags=["v2"])
+
+    # Optional v2 modules. We log import failures (including transitive
+    # ones) so a dropped router shows up in startup logs instead of
+    # manifesting as mysterious 404s in the browser.
+    for module_name, prefix in (
+        ("experiments", "/api/v2/experiments"),
+        ("datasets", "/api/v2/datasets"),
+        ("rubrics", "/api/v2/rubrics"),
+        ("review", "/api/v2/review"),
+        ("reports", "/api/v2/reports"),
+    ):
+        try:
+            mod = __import__(
+                f"evalyn_dashboard.api.v2.{module_name}",
+                fromlist=["router"],
+            )
+            app.include_router(mod.router, prefix=prefix, tags=["v2"])
+        except ImportError as exc:
+            logger.warning(
+                "v2 %s router import failed; %s will 404: %s",
+                module_name,
+                prefix,
+                exc,
+            )
+            continue
+
+    # Mount the v2 event WS + start the cache-watcher loop. Both are
+    # independent of any individual /api/v2/* router (the event stream
+    # is useful even if some routers failed to import).
+    try:
+        from .api.v2.v2_ws import register_v2_ws_routes
+        from .api.v2._shared import start_watcher, stop_watcher
+    except ImportError as exc:
+        logger.warning("v2 ws wiring failed; /ws/v2/events will 404: %s", exc)
+        return
+
+    register_v2_ws_routes(app)
+
+    @app.on_event("startup")
+    async def _v2_start_watcher() -> None:
+        start_watcher()
+
+    @app.on_event("shutdown")
+    async def _v2_stop_watcher() -> None:
+        await stop_watcher()
 
 
 def build_app(
@@ -182,7 +295,13 @@ def build_app(
     from .jobs import JobManager
 
     app.state.cli_catalog = build_catalog()
-    app.state.job_manager = JobManager()
+    # Attach the sqlite mirror so jobs survive restarts. Construction is
+    # cheap (no filesystem IO) -- the .evalyn/data/jobs.sqlite file is only
+    # created on the first persisted write, so tests that build_app() in a
+    # fresh tmp_path don't get a stray .evalyn/ directory.
+    from .jobs_persistence import JobPersistence
+
+    app.state.job_manager = JobManager(persistence=JobPersistence())
     app.state.credential_store = credential_store or CredentialStore()
     if agent_runtime is None:
         agent_runtime = AgentRuntime(
@@ -193,6 +312,7 @@ def build_app(
     app.state.agent_runtime = agent_runtime
 
     app.add_middleware(CSRFMiddleware, token=csrf_token)
+    app.add_middleware(TimingMiddleware)
 
     @app.get("/api/health")
     async def healthcheck() -> dict:

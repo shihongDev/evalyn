@@ -27,12 +27,18 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import signal
 import time
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import AsyncIterator, Literal
+
+from .jobs_persistence import JobPersistence, MAX_PERSISTED_OUTPUT
+
+logger = logging.getLogger(__name__)
 
 JobState = Literal["pending", "running", "complete", "failed", "cancelled"]
 EventType = Literal["stdout", "stderr", "exit", "truncated"]
@@ -41,6 +47,11 @@ EventType = Literal["stdout", "stderr", "exit", "truncated"]
 DEFAULT_MAX_LOG = 10_000
 DEFAULT_GRACE_SECONDS = 3.0
 DEFAULT_HISTORY_SIZE = 100
+
+
+def _iso_utc(ts: float) -> str:
+    """Format a unix timestamp as an ISO-8601 UTC string."""
+    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
 
 
 class _EventStream:
@@ -85,6 +96,10 @@ class Job:
     ended_at: float | None = None
     exit_code: int | None = None
     pid: int | None = None
+    # Optional metadata for persistence + UI reconstruction. cli_id matches
+    # the catalog id passed by /api/cli/run; args is the original kwargs.
+    cli_id: str = ""
+    args: dict = field(default_factory=dict)
     # Append-only ring buffer of events. Each entry is a full event dict.
     # Capped at max_log via _enforce_log_cap() which prepends a truncated
     # marker when oldest entries are dropped.
@@ -128,30 +143,51 @@ class JobManager:
         grace_seconds: float = DEFAULT_GRACE_SECONDS,
         max_log: int = DEFAULT_MAX_LOG,
         history_size: int = DEFAULT_HISTORY_SIZE,
+        persistence: JobPersistence | None = None,
     ) -> None:
         self.grace_seconds = grace_seconds
         self.max_log = max_log
         self.history_size = history_size
         self._jobs: dict[str, Job] = {}
         # Insertion order tracked by dict; Python 3.7+ preserves it.
+        # Optional sqlite mirror. None disables persistence (test default).
+        self._persistence = persistence
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    async def spawn(self, cmd: list[str]) -> str:
+    async def spawn(
+        self,
+        cmd: list[str],
+        *,
+        cli_id: str = "",
+        args: dict | None = None,
+    ) -> str:
         """Launch a subprocess and return a fresh job id.
 
         The subprocess is started immediately. stdout/stderr capture tasks
         are scheduled and will append events to the job's event log as
         lines arrive.
+
+        ``cli_id`` and ``args`` are optional metadata used by the sqlite
+        mirror (when configured) so the dashboard's Recent Jobs drawer can
+        reconstruct state after a restart. They have no effect on subprocess
+        execution.
         """
         _validate_cmd(cmd)
 
         job_id = uuid.uuid4().hex
-        job = Job(id=job_id, cmd=list(cmd), started_at=time.time())
+        job = Job(
+            id=job_id,
+            cmd=list(cmd),
+            started_at=time.time(),
+            cli_id=cli_id,
+            args=dict(args) if args else {},
+        )
         self._jobs[job_id] = job
         self._prune_history()
+        self._persist_job_create(job)
 
         process = await asyncio.create_subprocess_exec(
             *cmd,
@@ -350,6 +386,9 @@ class JobManager:
                 "ts": job.ended_at,
             },
         )
+        # Persist final status + last-N output (terminal-only strategy:
+        # one batch write at the end avoids per-line write storms).
+        self._persist_job_terminal(job)
         job._exit_event.set()
 
     def _emit(self, job: Job, event: dict) -> None:
@@ -406,6 +445,53 @@ class JobManager:
             job._truncated_horizon = job.events[1]["event_id"]
         else:
             job._truncated_horizon = job._next_event_id
+
+    # ------------------------------------------------------------------
+    # Persistence hooks (best-effort; never raise out of the hot path)
+    # ------------------------------------------------------------------
+
+    def _persist_job_create(self, job: Job) -> None:
+        if self._persistence is None:
+            return
+        try:
+            self._persistence.upsert_job(
+                job_id=job.id,
+                cli_id=job.cli_id,
+                args=job.args,
+                cmd=" ".join(job.cmd),
+                status="running",
+                started_at_iso=_iso_utc(job.started_at),
+            )
+        except Exception as exc:  # noqa: BLE001 - never crash the spawn
+            logger.warning("persist_job_create(%s) failed: %s", job.id, exc)
+
+    def _persist_job_terminal(self, job: Job) -> None:
+        if self._persistence is None:
+            return
+        try:
+            stdout_buf: list[str] = []
+            stderr_buf: list[str] = []
+            for event in job.events:
+                if event["type"] == "stdout":
+                    stdout_buf.append(event["line"])
+                elif event["type"] == "stderr":
+                    stderr_buf.append(event["line"])
+            stdout_tail = "\n".join(stdout_buf)
+            stderr_tail = "\n".join(stderr_buf)
+            if len(stdout_tail) > MAX_PERSISTED_OUTPUT:
+                stdout_tail = stdout_tail[-MAX_PERSISTED_OUTPUT:]
+            if len(stderr_tail) > MAX_PERSISTED_OUTPUT:
+                stderr_tail = stderr_tail[-MAX_PERSISTED_OUTPUT:]
+            self._persistence.set_output_tails(job.id, stdout_tail, stderr_tail)
+            self._persistence.patch_status(
+                job_id=job.id,
+                status=job.state,
+                exit_code=job.exit_code,
+                ended_at_iso=_iso_utc(job.ended_at) if job.ended_at else None,
+                duration_s=job.duration,
+            )
+        except Exception as exc:  # noqa: BLE001 - never crash the reaper
+            logger.warning("persist_job_terminal(%s) failed: %s", job.id, exc)
 
     def _prune_history(self) -> None:
         """Trim completed jobs beyond ``history_size``. Running jobs stay."""
