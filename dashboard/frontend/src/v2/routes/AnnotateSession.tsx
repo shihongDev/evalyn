@@ -409,21 +409,48 @@ const Pane = function Pane({
 function KeyHints({ forceOpen = false }: { forceOpen?: boolean }) {
   const [hovered, setHovered] = useState(false);
   const open = hovered || forceOpen;
-  const KEYS: Array<[string, string]> = [
-    ['1-9', 'cycle metric'],
-    ['A', 'accept all AI'],
-    ['N / ⏎', 'save + next'],
-    [`${MOD_KEY_LABEL} S`, 'save in place'],
-    ['U / ⌫', 'undo'],
-    ['S', 'skip all + next'],
-    ['B', 'bookmark item'],
-    ['D', 'next override'],
-    ['T', 'next todo'],
-    ['G', 'focus search'],
-    ['/', 'focus note'],
-    ['?', 'toggle this sheet'],
-    ['← / →', 'navigate'],
-    ['Esc', 'exit'],
+  // Grouped by activity so users can scan to the right section
+  // instead of reading 14 keys top-to-bottom.
+  const SECTIONS: Array<{ title: string; items: Array<[string, string]> }> = [
+    {
+      title: 'Verdict',
+      items: [
+        ['1-9', 'cycle metric'],
+        ['A', 'accept all AI'],
+        ['U / ⌫', 'undo'],
+      ],
+    },
+    {
+      title: 'Save',
+      items: [
+        ['N / ⏎', 'save + next'],
+        [`${MOD_KEY_LABEL} S`, 'save in place'],
+        ['S', 'skip all + next'],
+      ],
+    },
+    {
+      title: 'Navigate',
+      items: [
+        ['← / →', 'prev / next'],
+        ['T', 'next todo'],
+        ['D', 'next override'],
+        ['G', 'focus search'],
+      ],
+    },
+    {
+      title: 'Item',
+      items: [
+        ['B', 'bookmark item'],
+        ['/', 'focus note'],
+      ],
+    },
+    {
+      title: 'Display',
+      items: [
+        ['?', 'toggle this sheet'],
+        ['Esc', 'exit / close'],
+      ],
+    },
   ];
   return (
     <div
@@ -456,34 +483,59 @@ function KeyHints({ forceOpen = false }: { forceOpen?: boolean }) {
             background: E.panel,
             border: `1px solid ${E.hair2}`,
             borderRadius: 6,
-            padding: '8px 10px',
+            padding: '10px 12px',
             boxShadow: '0 6px 18px rgba(20,18,14,0.10)',
-            display: 'grid',
-            gridTemplateColumns: 'auto auto',
-            columnGap: 14,
-            rowGap: 4,
             zIndex: 50,
-            minWidth: 200,
+            minWidth: 240,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
           }}
         >
-          {KEYS.map(([k, d]) => (
-            <Fragment key={k}>
-              <kbd
+          {SECTIONS.map((section) => (
+            <div key={section.title}>
+              <div
                 style={{
                   fontFamily: E.fMono,
-                  fontSize: 11,
-                  color: E.text1,
-                  background: E.panel2,
-                  border: `1px solid ${E.hair2}`,
-                  borderRadius: 3,
-                  padding: '1px 6px',
-                  textAlign: 'center',
+                  fontSize: 9,
+                  letterSpacing: 0.6,
+                  textTransform: 'uppercase',
+                  color: E.text3,
+                  marginBottom: 4,
                 }}
               >
-                {k}
-              </kbd>
-              <span style={{ fontSize: 11, color: E.text2 }}>{d}</span>
-            </Fragment>
+                {section.title}
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'auto 1fr',
+                  columnGap: 12,
+                  rowGap: 3,
+                }}
+              >
+                {section.items.map(([k, d]) => (
+                  <Fragment key={k}>
+                    <kbd
+                      style={{
+                        fontFamily: E.fMono,
+                        fontSize: 11,
+                        color: E.text1,
+                        background: E.panel2,
+                        border: `1px solid ${E.hair2}`,
+                        borderRadius: 3,
+                        padding: '1px 6px',
+                        textAlign: 'center',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {k}
+                    </kbd>
+                    <span style={{ fontSize: 11, color: E.text2 }}>{d}</span>
+                  </Fragment>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
