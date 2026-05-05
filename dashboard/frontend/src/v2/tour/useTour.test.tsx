@@ -94,8 +94,9 @@ describe('useTour', () => {
     expect(driveMock).toHaveBeenCalledTimes(1);
   });
 
-  it('falls back to skip-and-narrate copy when an anchor is missing', async () => {
-    // Plant only some anchors - the rest should resolve to the fallback shape.
+  it('elides steps whose anchor is missing instead of narrating "view changed"', async () => {
+    // Plant only some anchors - the rest should be silently dropped from
+    // the tour rather than rendered with a fallback popover.
     const presentIds = firstRunTour.steps.slice(0, 2).map((s) => s.anchor);
     plantAnchors(presentIds);
     renderHook(() => useTour());
@@ -103,12 +104,31 @@ describe('useTour', () => {
       useV2Store.getState().setTour(FIRST_RUN_TOUR_ID);
     });
     await new Promise((resolve) => setTimeout(resolve, 700));
+    expect(driverMock).toHaveBeenCalledTimes(1);
     const config = driverMock.mock.calls[0][0] as {
       steps: Array<{ element?: string; popover?: { description?: string } }>;
     };
-    const fallbackSteps = config.steps.filter(
-      (s) => !s.element && s.popover?.description?.includes('Looks like that view changed'),
-    );
-    expect(fallbackSteps.length).toBe(firstRunTour.steps.length - presentIds.length);
+    // Tour ran with exactly the present anchors and nothing else.
+    expect(config.steps.length).toBe(presentIds.length);
+    expect(config.steps.every((s) => typeof s.element === 'string')).toBe(true);
+    expect(
+      config.steps.some((s) =>
+        s.popover?.description?.includes('Looks like that view changed'),
+      ),
+    ).toBe(false);
+  });
+
+  it('abandons silently when no anchors are present (every step would elide)', async () => {
+    // No anchors planted. Every step elides; tour should not invoke
+    // Driver.js with an empty steps array.
+    renderHook(() => useTour());
+    act(() => {
+      useV2Store.getState().setTour(FIRST_RUN_TOUR_ID);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    expect(driverMock).not.toHaveBeenCalled();
+    // Store must be cleared so the tour can be re-triggered later
+    // (manually via TourMenu, or auto-fire on a populated revisit).
+    expect(useV2Store.getState().tourActiveId).toBeNull();
   });
 });

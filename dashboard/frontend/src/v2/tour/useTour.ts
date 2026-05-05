@@ -17,9 +17,13 @@
  *    │                                                                    │
  *    └──── abandonTour() ◀─── abandoned ◀─── user Esc / Skip / Close ─────┘
  *
- * Anchor-not-found policy (Codex #3 fix): each step waits 500ms for its
- * `data-coachmark` element to be in the DOM. If still missing, the step
- * renders centered with a fallback message and auto-advances after 1.5s.
+ * Anchor-not-found policy: each step waits 500ms for its `data-coachmark`
+ * element to be in the DOM. If still missing (empty workspace, conditional
+ * render, route-level layout swap), the step is silently elided from the
+ * tour. If every step elides, the tour abandons without firing rather
+ * than showing an empty driver popover. This is preferable to the prior
+ * "view changed - moving on" narration which fired too often on empty
+ * tabs and made the tour feel broken.
  *
  * The tour is keyed off `tourActiveId` in the Zustand store. Mounting
  * this hook anywhere in the tree (typically AppShell) is enough.
@@ -63,7 +67,6 @@ const TOUR_REGISTRY: Record<string, TourDef> = {
 export const KNOWN_TOUR_IDS: readonly string[] = Object.keys(TOUR_REGISTRY);
 
 const ANCHOR_WAIT_MS = 500;
-const FALLBACK_ADVANCE_MS = 1500;
 const ANCHOR_POLL_MS = 50;
 
 function waitForElement(selector: string, timeoutMs: number): Promise<Element | null> {
@@ -97,37 +100,36 @@ export function useTour(): void {
 
     let cancelled = false;
     let driverObj: ReturnType<typeof driver> | null = null;
-    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
     const start = async () => {
-      const resolvedSteps: DriveStep[] = await Promise.all(
-        tourDef.steps.map(async (step): Promise<DriveStep> => {
+      // Resolve each step's anchor in parallel. Steps whose anchor is not
+      // in the DOM after ANCHOR_WAIT_MS are dropped from the tour - the
+      // user sees a tighter sequence rather than a string of "view changed"
+      // popovers when the route is in an empty / loading layout state.
+      const resolved: (DriveStep | null)[] = await Promise.all(
+        tourDef.steps.map(async (step): Promise<DriveStep | null> => {
           const selector = coachmarkSelector(step.anchor);
           const found = await waitForElement(selector, ANCHOR_WAIT_MS);
-          if (!found) {
-            return {
-              popover: {
-                title: step.title,
-                description: 'Looks like that view changed - moving on.',
-                onPopoverRender: () => {
-                  if (fallbackTimer) clearTimeout(fallbackTimer);
-                  fallbackTimer = setTimeout(() => {
-                    driverObj?.moveNext();
-                  }, FALLBACK_ADVANCE_MS);
-                },
-              },
-            };
-          }
+          if (!found) return null;
           return {
             element: selector,
-            popover: {
-              title: step.title,
-              description: step.description,
-            },
+            popover: { title: step.title, description: step.description },
           };
         }),
       );
       if (cancelled) return;
+
+      const resolvedSteps: DriveStep[] = resolved.filter(
+        (s): s is DriveStep => s !== null,
+      );
+      if (resolvedSteps.length === 0) {
+        // Every step elided - the route is probably in an empty/skeleton
+        // state. Abandon silently so the user is not left staring at an
+        // empty driver popover. Manual re-trigger via TourMenu still works
+        // once the page populates.
+        useV2Store.getState().abandonTour();
+        return;
+      }
 
       driverObj = driver({
         showProgress: true,
@@ -137,7 +139,6 @@ export function useTour(): void {
         doneBtnText: 'Done',
         steps: resolvedSteps,
         onDestroyStarted: () => {
-          if (fallbackTimer) clearTimeout(fallbackTimer);
           if (driverObj?.isLastStep()) {
             useV2Store.getState().markTourComplete(tourActiveId);
           } else {
@@ -154,7 +155,6 @@ export function useTour(): void {
 
     return () => {
       cancelled = true;
-      if (fallbackTimer) clearTimeout(fallbackTimer);
       driverObj?.destroy();
     };
   }, [tourActiveId]);

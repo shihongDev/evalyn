@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Co-pilot guidance tours.** Each tabbed route (Home, Datasets, Experiments, Review, Metrics) ships a short Driver.js-powered walk-through that auto-fires on first visit, anchored to stable `data-coachmark` attributes on real UI elements. Each tour has an independent `localStorage` completion flag, so finishing one does not suppress the others.
 - **Tours menu in the AppShell header.** Always-visible button with a status dot (ember = on, muted = off). Click to: toggle all guidance off/on, manually start the current page's tour, or reset every per-tour completion flag in one action. Closes on outside click and Escape.
 - **Per-route Settings reset.** The "Reset first-visit flags" action in Settings now clears every tour's completion flag (previously only the Home first-run tour). Sourced from `KNOWN_TOUR_IDS`, derived automatically from the tour registry.
-- **Anchor-not-found policy.** If a tour step targets an element that is not in the DOM (empty workspace, conditional render), the engine waits 500ms and then narrates "looks like that view changed - moving on" instead of deadlocking. Auto-advances after 1.5s.
+- **Anchor-not-found policy.** If a tour step targets an element that is not in the DOM (empty workspace, conditional render), the engine waits 500ms then silently elides that step rather than deadlocking. If every step elides, the tour abandons without firing instead of showing an empty popover. The user sees a tighter sequence of real steps; manual re-trigger via the Tours menu still works once the page populates.
 - **`prefers-reduced-motion` respected** for the focus ring; static outline replaces the pulse when the OS-level setting is on.
 
 ### Fixed
