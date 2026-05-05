@@ -902,6 +902,35 @@ export default function AnnotateSession() {
     [filter, bookmarks],
   );
 
+  // Live text search across item id + input preview. Composes with
+  // matchesFilter via matchesVisible() below. Empty query = match all.
+  const [searchQuery, setSearchQuery] = useState('');
+  const matchesSearch = useCallback(
+    (item: AnnotationItemRow): boolean => {
+      const q = searchQuery.trim().toLowerCase();
+      if (!q) return true;
+      if (item.item_id.toLowerCase().includes(q)) return true;
+      if ((item.input_preview ?? '').toLowerCase().includes(q)) return true;
+      return false;
+    },
+    [searchQuery],
+  );
+
+  // Single combined predicate used everywhere navigation needs to
+  // honor BOTH the active filter and the search query.
+  const matchesVisible = useCallback(
+    (item: AnnotationItemRow): boolean =>
+      matchesFilter(item) && matchesSearch(item),
+    [matchesFilter, matchesSearch],
+  );
+
+  // Number of items currently visible (filter ∩ search). Drives the
+  // "X matches" label in the search input and the no-match notice.
+  const visibleCount = useMemo(
+    () => items.reduce((n, it) => (matchesVisible(it) ? n + 1 : n), 0),
+    [items, matchesVisible],
+  );
+
   // Counts per filter for the chip badges. Recomputed when items or
   // bookmarks change. Cheap (single pass).
   const filterCounts = useMemo(() => {
@@ -931,23 +960,23 @@ export default function AnnotateSession() {
     return { all: items.length, todo, done, bookmarked, overrides, uncertain };
   }, [items, bookmarks]);
 
-  // When the filter changes and the cursor is on a non-matching item,
-  // jump to the first matching item from current cursor (search forward
-  // first, then wrap to start). If nothing matches we leave cursor in
-  // place and the no-match notice in the render handles the rest.
+  // When the filter OR search changes and the cursor is on a non-matching
+  // item, jump to the first matching item from current cursor (search
+  // forward first, then wrap to start). If nothing matches we leave
+  // cursor in place and the no-match notice in the render handles the rest.
   useEffect(() => {
     if (items.length === 0) return;
-    if (matchesFilter(items[cursor])) return;
+    if (matchesVisible(items[cursor])) return;
     let idx = -1;
     for (let i = cursor + 1; i < items.length; i++) {
-      if (matchesFilter(items[i])) {
+      if (matchesVisible(items[i])) {
         idx = i;
         break;
       }
     }
     if (idx === -1) {
       for (let i = 0; i < items.length; i++) {
-        if (matchesFilter(items[i])) {
+        if (matchesVisible(items[i])) {
           idx = i;
           break;
         }
@@ -955,7 +984,7 @@ export default function AnnotateSession() {
     }
     if (idx >= 0) setCursor(idx);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+  }, [filter, searchQuery]);
   // Per-item flip animation key: bump when a metric cycles so the pill
   // gets a fresh CSS animation. Stored as a counter rather than a flag
   // so consecutive cycles each trigger.
@@ -1242,16 +1271,17 @@ export default function AnnotateSession() {
     [currentItem, sessionId, verdicts, metricIds, notes, evidence, refetchItems, refetchSession],
   );
 
-  // Find the next index from `start` (exclusive) that matches the
-  // current filter. Returns -1 if none. dir = +1 forward, -1 back.
+  // Find the next index from `start` (exclusive) that matches BOTH
+  // the active filter and the search query. Returns -1 if none.
+  // dir = +1 forward, -1 back.
   const findInFilter = useCallback(
     (start: number, dir: 1 | -1): number => {
       for (let i = start + dir; i >= 0 && i < items.length; i += dir) {
-        if (matchesFilter(items[i])) return i;
+        if (matchesVisible(items[i])) return i;
       }
       return -1;
     },
-    [items, matchesFilter],
+    [items, matchesVisible],
   );
 
   const goNext = useCallback(async () => {
@@ -1322,9 +1352,15 @@ export default function AnnotateSession() {
         e.preventDefault();
         goNextNoSave();
       } else if (e.key === 'Escape') {
-        // Esc cascades: close the pinned cheat sheet first, then the
-        // settings menu, then exit. Layered close avoids stranding the
-        // user with a pinned panel they can't get rid of.
+        // Esc cascades: clear an active search first, then close the
+        // pinned cheat sheet, then the settings menu, then exit.
+        // Layered close avoids stranding the user with a pinned panel
+        // (or a search filter they didn't know was active).
+        if (searchQuery) {
+          e.preventDefault();
+          setSearchQuery('');
+          return;
+        }
         if (pinKeys) {
           e.preventDefault();
           setPinKeys(false);
@@ -1872,10 +1908,9 @@ export default function AnnotateSession() {
           </Btn>
         </div>
 
-        {/* FILTER CHIPS - subset the visible items so annotators can
-            focus. Selecting a filter dims out non-matching scrubber
-            dots and makes ←/→/N skip them. Counts are live. Disabled
-            when their match count is 0 (and we're not currently on it). */}
+        {/* FILTER CHIPS + SEARCH - subset the visible items so annotators
+            can focus. Search is a free-text filter on item id + input
+            preview that composes with the chip filter. */}
         <div
           style={{
             display: 'flex',
@@ -1938,6 +1973,83 @@ export default function AnnotateSession() {
               </button>
             );
           })}
+          {/* Search input - composes with the chip filter. Live-matches
+              against item id and input preview (case-insensitive). When
+              non-empty, shows the match count and a × clear button. */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              marginLeft: 4,
+              padding: '2px 6px 2px 10px',
+              borderRadius: 14,
+              border: `1px solid ${searchQuery ? E.ember : E.hair2}`,
+              background: searchQuery ? '#fcefe2' : E.panel,
+              transition: 'all 160ms',
+            }}
+          >
+            <span style={{ fontSize: 11, color: E.text3, marginRight: 2 }} aria-hidden>
+              ⌕
+            </span>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                // Esc inside the search input clears it and blurs.
+                // The global keyboard handler bails on input focus,
+                // so we have to handle this locally.
+                if (e.key === 'Escape') {
+                  if (searchQuery) {
+                    e.preventDefault();
+                    setSearchQuery('');
+                  } else {
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }
+              }}
+              placeholder="Search items..."
+              aria-label="Search items by id or input content"
+              style={{
+                fontFamily: E.fMono,
+                fontSize: 11,
+                color: E.text1,
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                width: 140,
+                padding: 0,
+              }}
+            />
+            {searchQuery && (
+              <>
+                <span
+                  style={{ fontSize: 10, color: E.text3, fontFamily: E.fMono }}
+                  title={`${visibleCount} of ${items.length} items match`}
+                >
+                  {visibleCount}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  title="Clear search (Esc)"
+                  style={{
+                    fontFamily: E.fMono,
+                    fontSize: 12,
+                    color: E.text3,
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '0 2px',
+                    lineHeight: 1,
+                  }}
+                >
+                  ×
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* STATS PANEL - toggleable per-metric verdict distribution.
@@ -2097,7 +2209,7 @@ export default function AnnotateSession() {
                 const i = start + j;
                 const isCurrent = i === cursor;
                 const isBookmarked = bookmarks[it.item_id] === true;
-                const inFilter = matchesFilter(it);
+                const inFilter = matchesVisible(it);
                 const bg = isCurrent
                   ? E.ember
                   : it.annotated
@@ -2262,11 +2374,11 @@ export default function AnnotateSession() {
           </Card>
         )}
 
-        {/* No-match notice for the active filter. Shown when the filter
-            isn't 'all' and zero items match. The item card below still
-            renders so the user has context, but a one-click escape
-            hatch back to 'all' is right here. */}
-        {filter !== 'all' && filterCounts[filter] === 0 && items.length > 0 && (
+        {/* No-match notice. Fires when filter ∩ search is empty. The
+            item card below still renders so the user has context, but
+            a one-click escape hatch (Switch to All / Clear search) is
+            right here. */}
+        {visibleCount === 0 && items.length > 0 && (filter !== 'all' || searchQuery) && (
           <Card
             style={{
               padding: 12,
@@ -2278,11 +2390,26 @@ export default function AnnotateSession() {
             }}
           >
             <div style={{ fontSize: 12, color: E.text2, flex: 1 }}>
-              No items match the <b style={{ color: E.ember }}>{filter}</b> filter.
+              No items match
+              {filter !== 'all' && (
+                <> the <b style={{ color: E.ember }}>{filter}</b> filter</>
+              )}
+              {filter !== 'all' && searchQuery && ' + '}
+              {searchQuery && (
+                <> the search "<b style={{ color: E.ember }}>{searchQuery}</b>"</>
+              )}
+              .
             </div>
-            <Btn kind="secondary" size="sm" onClick={() => setFilter('all')}>
-              Switch to All
-            </Btn>
+            {searchQuery && (
+              <Btn kind="secondary" size="sm" onClick={() => setSearchQuery('')}>
+                Clear search
+              </Btn>
+            )}
+            {filter !== 'all' && (
+              <Btn kind="secondary" size="sm" onClick={() => setFilter('all')}>
+                Switch to All
+              </Btn>
+            )}
           </Card>
         )}
 
@@ -2533,6 +2660,18 @@ export default function AnnotateSession() {
                 return (
                   <div
                     key={mid}
+                    onMouseEnter={(e) => {
+                      // Subtle hover tint to signal interactivity.
+                      // Don't override the override-stripe background.
+                      if (!overridingAi) {
+                        e.currentTarget.style.background = E.panel2;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!overridingAi) {
+                        e.currentTarget.style.background = '';
+                      }
+                    }}
                     style={{
                       display: 'grid',
                       gridTemplateColumns: '34px 1fr 110px 130px',
