@@ -1468,6 +1468,87 @@ export default function AnnotateSession() {
     [currentItem, sessionId, verdicts, metricIds, notes, evidence, refetchItems, refetchSession],
   );
 
+  // Cursor-independent variant of submitVerdict: builds the payload
+  // for the supplied item from local state and POSTs it. Used by the
+  // bulk save-all flow which needs to save items the cursor isn't on.
+  // Returns true on success, false on failure (so the caller can stop
+  // a sequential loop early without throwing).
+  const saveItem = useCallback(
+    async (item: AnnotationItemRow): Promise<boolean> => {
+      if (!sessionId) return false;
+      const local = verdicts[item.item_id];
+      if (!local) return true;
+      const labels: AnnotationLabelEntry[] = [];
+      const skipped: string[] = [];
+      const ai = aiVerdictMap(item);
+      for (const mid of metricIds) {
+        const label = local[mid] ?? 'skip';
+        if (label === 'skip') {
+          skipped.push(mid);
+          continue;
+        }
+        const aiLabel = ai.get(mid);
+        labels.push({
+          metric_id: mid,
+          label,
+          used_ai_verdict: aiLabel === label,
+        });
+      }
+      const noteForItem = (notes[item.item_id] ?? '').trim();
+      const evidenceForItem = evidence[item.item_id] ?? [];
+      try {
+        await annotationApi.postVerdict(sessionId, {
+          item_id: item.item_id,
+          labels,
+          skipped_metrics: skipped,
+          note: noteForItem || null,
+          evidence: evidenceForItem,
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [sessionId, verdicts, notes, evidence, metricIds],
+  );
+
+  // Bulk save: iterates all items where local state differs from
+  // server state and POSTs each sequentially. Live progress shown in
+  // the unsaved pill via saveAllProgress. Stops on first failure -
+  // the existing per-item error UI surfaces it on next interaction.
+  const [saveAllProgress, setSaveAllProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
+  const saveAllUnsaved = useCallback(async () => {
+    if (saveAllProgress) return; // already running
+    const toSave = items.filter(itemHasUnsavedDiff);
+    if (toSave.length === 0) return;
+    setSaveAllProgress({ done: 0, total: toSave.length });
+    setSubmitErr(null);
+    for (let i = 0; i < toSave.length; i++) {
+      const ok = await saveItem(toSave[i]);
+      if (!ok) {
+        setSubmitErr(`Save All stopped at ${i + 1}/${toSave.length}.`);
+        break;
+      }
+      setSaveAllProgress({ done: i + 1, total: toSave.length });
+    }
+    void refetchSession();
+    void refetchItems();
+    setSavedTick((t) => t + 1);
+    // Hold the final progress text briefly so the user sees the
+    // completion state, then clear.
+    window.setTimeout(() => setSaveAllProgress(null), 800);
+  }, [
+    items,
+    itemHasUnsavedDiff,
+    saveItem,
+    refetchItems,
+    refetchSession,
+    saveAllProgress,
+  ]);
+
   // Find the next index from `start` (exclusive) that matches BOTH
   // the active filter and the search query. Returns -1 if none.
   // dir = +1 forward, -1 back.
@@ -2240,9 +2321,16 @@ export default function AnnotateSession() {
               ✓ Saved
             </span>
           )}
-          {unsavedItemsCount > 0 && (
-            <span
-              title={`${unsavedItemsCount} item${unsavedItemsCount === 1 ? ' has' : 's have'} verdict changes that haven't been saved yet. Save them (N or ⌘/Ctrl+S) before finalizing or they'll be lost.`}
+          {(unsavedItemsCount > 0 || saveAllProgress) && (
+            <button
+              type="button"
+              onClick={saveAllUnsaved}
+              disabled={!!saveAllProgress}
+              title={
+                saveAllProgress
+                  ? `Saving ${saveAllProgress.done} of ${saveAllProgress.total} items...`
+                  : `${unsavedItemsCount} item${unsavedItemsCount === 1 ? ' has' : 's have'} unsaved verdict changes. Click to save them all in one shot.`
+              }
               style={{
                 fontFamily: E.fMono,
                 fontSize: 10,
@@ -2251,10 +2339,14 @@ export default function AnnotateSession() {
                 border: `1px solid ${E.ember}33`,
                 borderRadius: 999,
                 padding: '2px 8px',
+                cursor: saveAllProgress ? 'progress' : 'pointer',
+                transition: 'all 160ms',
               }}
             >
-              {unsavedItemsCount} unsaved
-            </span>
+              {saveAllProgress
+                ? `Saving ${saveAllProgress.done}/${saveAllProgress.total}...`
+                : `${unsavedItemsCount} unsaved · save all`}
+            </button>
           )}
           <Btn
             kind="primary"
