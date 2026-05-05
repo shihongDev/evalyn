@@ -2676,64 +2676,204 @@ export default function AnnotateSession() {
           </Card>
         )}
 
-        {/* All-done celebratory banner. Stays above the item card so the
-            user can still ←/→ through items to revise before finalizing. */}
-        {allDone && (
-          <Card
-            style={{
-              padding: 16,
-              marginBottom: 14,
-              borderColor: E.ember,
-              background: '#fcefe2',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 14,
-            }}
-          >
-            <div
+        {/* All-done celebratory banner with rich pre-finalize summary.
+            Stays above the item card so the user can still ←/→ through
+            items to revise before finalizing. */}
+        {allDone && (() => {
+          // Aggregate pass/fail/skip across all metrics from the
+          // distribution we already compute for the stats panel.
+          let totalPass = 0;
+          let totalFail = 0;
+          let totalSkip = 0;
+          for (const mid of metricIds) {
+            const d = distribution[mid];
+            if (!d) continue;
+            totalPass += d.pass;
+            totalFail += d.fail;
+            totalSkip += d.skip;
+          }
+          // Time elapsed since session started. Display as a compact
+          // "Xm" / "Xh Ym" string. Falls back to null if started_at_iso
+          // is missing or unparseable.
+          let elapsedLabel: string | null = null;
+          if (session.started_at_iso) {
+            const startMs = Date.parse(session.started_at_iso);
+            if (!Number.isNaN(startMs)) {
+              const elapsedSec = Math.max(0, (Date.now() - startMs) / 1000);
+              elapsedLabel = formatDuration(elapsedSec);
+            }
+          }
+          return (
+            <Card
               style={{
-                width: 36,
-                height: 36,
-                borderRadius: 50,
-                background: E.ember,
-                color: '#fff8f1',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 18,
-                flexShrink: 0,
+                padding: 18,
+                marginBottom: 14,
+                borderColor: E.ember,
+                background: '#fcefe2',
+                animation: 'eItemSlideIn 240ms ease-out',
               }}
             >
-              ✓
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: E.fSerif, fontSize: 16, color: E.text1 }}>
-                All {items.length} item{items.length === 1 ? '' : 's'} annotated.
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 50,
+                    background: E.ember,
+                    color: '#fff8f1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 20,
+                    flexShrink: 0,
+                  }}
+                >
+                  ✓
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontFamily: E.fSerif,
+                      fontSize: 18,
+                      color: E.text1,
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    All {items.length} item{items.length === 1 ? '' : 's'} annotated.
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: E.fMono,
+                      fontSize: 11,
+                      color: E.text3,
+                      marginTop: 2,
+                    }}
+                  >
+                    Finish & save to merge into the dataset annotations file.
+                  </div>
+                  {/* Stat strip - two rows of compact key-value pairs */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                      gap: 8,
+                      marginTop: 12,
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          fontFamily: E.fMono,
+                          fontSize: 10,
+                          color: E.text3,
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5,
+                        }}
+                      >
+                        Verdicts
+                      </div>
+                      <div
+                        style={{
+                          fontFamily: E.fMono,
+                          fontSize: 12,
+                          color: E.text1,
+                          marginTop: 2,
+                        }}
+                      >
+                        <span style={{ color: E.pass }}>{totalPass}✓</span>{' '}
+                        <span style={{ color: E.fail }}>{totalFail}✗</span>{' '}
+                        <span style={{ color: E.text3 }}>{totalSkip}·</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div
+                        style={{
+                          fontFamily: E.fMono,
+                          fontSize: 10,
+                          color: E.text3,
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5,
+                        }}
+                      >
+                        Overrides
+                      </div>
+                      <div
+                        style={{
+                          fontFamily: E.fMono,
+                          fontSize: 12,
+                          color: overridesCount > 0 ? E.ember : E.text2,
+                          marginTop: 2,
+                        }}
+                      >
+                        {overridesCount} of {totalPass + totalFail}
+                      </div>
+                    </div>
+                    {bookmarkCount > 0 && (
+                      <div>
+                        <div
+                          style={{
+                            fontFamily: E.fMono,
+                            fontSize: 10,
+                            color: E.text3,
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.5,
+                          }}
+                        >
+                          Bookmarked
+                        </div>
+                        <div
+                          style={{
+                            fontFamily: E.fMono,
+                            fontSize: 12,
+                            color: E.ember,
+                            marginTop: 2,
+                          }}
+                        >
+                          ★ {bookmarkCount}
+                        </div>
+                      </div>
+                    )}
+                    {elapsedLabel && (
+                      <div>
+                        <div
+                          style={{
+                            fontFamily: E.fMono,
+                            fontSize: 10,
+                            color: E.text3,
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.5,
+                          }}
+                        >
+                          Time
+                        </div>
+                        <div
+                          style={{
+                            fontFamily: E.fMono,
+                            fontSize: 12,
+                            color: E.text2,
+                            marginTop: 2,
+                          }}
+                        >
+                          {elapsedLabel}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <Btn
+                  kind="primary"
+                  size="md"
+                  onClick={() => {
+                    void finalizeSession();
+                  }}
+                  disabled={finalizing}
+                >
+                  {finalizing ? 'Finalizing...' : 'Finish & save →'}
+                </Btn>
               </div>
-              <div
-                style={{
-                  fontFamily: E.fMono,
-                  fontSize: 11,
-                  color: E.text2,
-                  marginTop: 2,
-                }}
-              >
-                {overridesCount > 0
-                  ? `You overrode AI on ${overridesCount} verdict${overridesCount === 1 ? '' : 's'}. `
-                  : ''}
-                Finish & save to merge into the dataset annotations.
-              </div>
-            </div>
-            <Btn
-              kind="primary"
-              size="md"
-              onClick={finalizeSession}
-              disabled={finalizing}
-            >
-              {finalizing ? 'Finalizing...' : 'Finish & save →'}
-            </Btn>
-          </Card>
-        )}
+            </Card>
+          );
+        })()}
 
         {/* ITEM CARD - keyed on cursor so each navigation triggers
             the slide-in animation. Cheap retrigger via key swap. */}
