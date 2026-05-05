@@ -456,6 +456,32 @@ function writeBookmarks(sessionId: string, marks: Record<string, true>): void {
   }
 }
 
+/** Cursor resume: store the last viewed item_id per session so revisits
+ * land where the user left off, not back at "first un-annotated". We
+ * persist the item_id (not the index) so reordering of items doesn't
+ * mis-aim the cursor on the next load. */
+function cursorKey(sessionId: string): string {
+  return `evalyn:annotation:cursor:${sessionId}`;
+}
+
+function readCursorItemId(sessionId: string): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(cursorKey(sessionId));
+  } catch {
+    return null;
+  }
+}
+
+function writeCursorItemId(sessionId: string, itemId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(cursorKey(sessionId), itemId);
+  } catch {
+    // best-effort
+  }
+}
+
 /** True when the user picked the opposite of an AI pass/fail verdict.
  * AI = null/skip and user = anything is NOT a disagreement (no signal
  * to disagree with). User = skip with AI = pass/fail is also not a
@@ -503,15 +529,31 @@ export default function AnnotateSession() {
   const items = itemsResp?.items ?? [];
   const metricIds = itemsResp?.metric_ids ?? session?.metric_ids ?? [];
 
-  // Cursor: start at the first un-annotated item (resume), else 0.
+  // Cursor: prefer the saved item_id from a prior visit, else first
+  // un-annotated, else 0. Persisting by item_id (not index) means
+  // reordered/re-paginated items don't mis-aim on the next load.
   const [cursor, setCursor] = useState(0);
   const initialCursorRef = useRef(false);
   useEffect(() => {
     if (initialCursorRef.current || items.length === 0) return;
-    const idx = items.findIndex((i) => !i.annotated);
-    setCursor(idx >= 0 ? idx : 0);
+    const savedId = sessionId ? readCursorItemId(sessionId) : null;
+    const savedIdx = savedId ? items.findIndex((i) => i.item_id === savedId) : -1;
+    if (savedIdx >= 0) {
+      setCursor(savedIdx);
+    } else {
+      const idx = items.findIndex((i) => !i.annotated);
+      setCursor(idx >= 0 ? idx : 0);
+    }
     initialCursorRef.current = true;
-  }, [items]);
+  }, [items, sessionId]);
+
+  // Persist the current item_id whenever the cursor moves, so a
+  // refresh / new tab lands on the same item.
+  useEffect(() => {
+    if (!sessionId || items.length === 0) return;
+    const item = items[cursor];
+    if (item) writeCursorItemId(sessionId, item.item_id);
+  }, [sessionId, cursor, items]);
 
   // Seed local notes from any persisted note on each item the first time
   // we see it. User edits override; we only re-seed for unseen item ids.
@@ -603,6 +645,86 @@ export default function AnnotateSession() {
     [],
   );
   const bookmarkCount = useMemo(() => Object.keys(bookmarks).length, [bookmarks]);
+
+  // Filter mode for navigation + scrubber. Lets the annotator focus
+  // on subsets without losing the rest. Default 'all' keeps the
+  // existing behavior so adding this is non-disruptive.
+  type FilterKind = 'all' | 'todo' | 'done' | 'bookmarked' | 'overrides';
+  const [filter, setFilter] = useState<FilterKind>('all');
+
+  const matchesFilter = useCallback(
+    (item: AnnotationItemRow): boolean => {
+      switch (filter) {
+        case 'all':
+          return true;
+        case 'todo':
+          return !item.annotated;
+        case 'done':
+          return item.annotated;
+        case 'bookmarked':
+          return bookmarks[item.item_id] === true;
+        case 'overrides': {
+          if (!item.annotated) return false;
+          const ai = aiVerdictMap(item);
+          return item.user_labels.some((ul) =>
+            isDisagreement(ul.label, ai.get(ul.metric_id) ?? null),
+          );
+        }
+      }
+    },
+    [filter, bookmarks],
+  );
+
+  // Counts per filter for the chip badges. Recomputed when items or
+  // bookmarks change. Cheap (single pass).
+  const filterCounts = useMemo(() => {
+    let todo = 0;
+    let done = 0;
+    let bookmarked = 0;
+    let overrides = 0;
+    for (const it of items) {
+      if (!it.annotated) todo += 1;
+      else done += 1;
+      if (bookmarks[it.item_id]) bookmarked += 1;
+      if (it.annotated) {
+        const ai = aiVerdictMap(it);
+        if (
+          it.user_labels.some((ul) =>
+            isDisagreement(ul.label, ai.get(ul.metric_id) ?? null),
+          )
+        ) {
+          overrides += 1;
+        }
+      }
+    }
+    return { all: items.length, todo, done, bookmarked, overrides };
+  }, [items, bookmarks]);
+
+  // When the filter changes and the cursor is on a non-matching item,
+  // jump to the first matching item from current cursor (search forward
+  // first, then wrap to start). If nothing matches we leave cursor in
+  // place and the no-match notice in the render handles the rest.
+  useEffect(() => {
+    if (items.length === 0) return;
+    if (matchesFilter(items[cursor])) return;
+    let idx = -1;
+    for (let i = cursor + 1; i < items.length; i++) {
+      if (matchesFilter(items[i])) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx === -1) {
+      for (let i = 0; i < items.length; i++) {
+        if (matchesFilter(items[i])) {
+          idx = i;
+          break;
+        }
+      }
+    }
+    if (idx >= 0) setCursor(idx);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter]);
   // Per-item flip animation key: bump when a metric cycles so the pill
   // gets a fresh CSS animation. Stored as a counter rather than a flag
   // so consecutive cycles each trigger.
@@ -850,20 +972,34 @@ export default function AnnotateSession() {
     [currentItem, sessionId, verdicts, metricIds, notes, evidence, refetchItems, refetchSession],
   );
 
+  // Find the next index from `start` (exclusive) that matches the
+  // current filter. Returns -1 if none. dir = +1 forward, -1 back.
+  const findInFilter = useCallback(
+    (start: number, dir: 1 | -1): number => {
+      for (let i = start + dir; i >= 0 && i < items.length; i += dir) {
+        if (matchesFilter(items[i])) return i;
+      }
+      return -1;
+    },
+    [items, matchesFilter],
+  );
+
   const goNext = useCallback(async () => {
     const ok = await submitVerdict();
-    if (ok && cursor < items.length - 1) {
-      setCursor((c) => Math.min(items.length - 1, c + 1));
-    }
-  }, [submitVerdict, cursor, items.length]);
+    if (!ok) return;
+    const next = findInFilter(cursor, 1);
+    if (next >= 0) setCursor(next);
+  }, [submitVerdict, cursor, findInFilter]);
 
   const goPrev = useCallback(() => {
-    setCursor((c) => Math.max(0, c - 1));
-  }, []);
+    const prev = findInFilter(cursor, -1);
+    if (prev >= 0) setCursor(prev);
+  }, [cursor, findInFilter]);
 
   const goNextNoSave = useCallback(() => {
-    setCursor((c) => Math.min(items.length - 1, c + 1));
-  }, [items.length]);
+    const next = findInFilter(cursor, 1);
+    if (next >= 0) setCursor(next);
+  }, [cursor, findInFilter]);
 
   // Keyboard handler. Bypassed when focus is in a textarea / input.
   // Also bypassed when any modifier key is held - those combinations
@@ -1119,6 +1255,73 @@ export default function AnnotateSession() {
           </Btn>
         </div>
 
+        {/* FILTER CHIPS - subset the visible items so annotators can
+            focus. Selecting a filter dims out non-matching scrubber
+            dots and makes ←/→/N skip them. Counts are live. Disabled
+            when their match count is 0 (and we're not currently on it). */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            marginBottom: 8,
+            flexWrap: 'wrap',
+          }}
+        >
+          {(
+            [
+              ['all', 'All', filterCounts.all],
+              ['todo', 'Todo', filterCounts.todo],
+              ['done', 'Done', filterCounts.done],
+              ['bookmarked', '★ Bookmarks', filterCounts.bookmarked],
+              ['overrides', 'Overrides', filterCounts.overrides],
+            ] as Array<[FilterKind, string, number]>
+          ).map(([k, label, count]) => {
+            const active = filter === k;
+            const disabled = count === 0 && !active && k !== 'all';
+            return (
+              <button
+                key={k}
+                type="button"
+                disabled={disabled}
+                onClick={() => setFilter(k)}
+                title={disabled ? 'No items in this filter' : `Show ${label.toLowerCase()}`}
+                style={{
+                  fontFamily: E.fMono,
+                  fontSize: 11,
+                  padding: '4px 10px',
+                  borderRadius: 14,
+                  border: `1px solid ${active ? E.ember : E.hair2}`,
+                  background: active ? '#fcefe2' : E.panel,
+                  color: active ? E.ember : disabled ? E.text3 : E.text2,
+                  cursor: disabled ? 'not-allowed' : 'pointer',
+                  opacity: disabled ? 0.5 : 1,
+                  transition: 'all 160ms',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                {label}
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: active ? E.ember : E.text3,
+                    background: active ? '#fff8f1' : E.panel2,
+                    border: `1px solid ${active ? E.ember + '33' : E.hair}`,
+                    borderRadius: 8,
+                    padding: '0 5px',
+                    minWidth: 14,
+                    textAlign: 'center',
+                  }}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* SCRUBBER STRIP - one dot per item, click to jump.
             Color encodes state: ember = current, pass green = annotated,
             hairline = todo. Caps at 60 dots; if more, we render a sliding
@@ -1147,6 +1350,7 @@ export default function AnnotateSession() {
                 const i = start + j;
                 const isCurrent = i === cursor;
                 const isBookmarked = bookmarks[it.item_id] === true;
+                const inFilter = matchesFilter(it);
                 const bg = isCurrent
                   ? E.ember
                   : it.annotated
@@ -1164,6 +1368,10 @@ export default function AnnotateSession() {
                       flexDirection: 'column',
                       alignItems: 'center',
                       gap: 1,
+                      // Dim out items outside the active filter so the
+                      // annotator can scan the in-filter set quickly.
+                      // Current item stays full opacity even if filtered.
+                      opacity: inFilter || isCurrent ? 1 : 0.25,
                     }}
                   >
                     <span
@@ -1229,6 +1437,30 @@ export default function AnnotateSession() {
         {finalizeErr && (
           <Card style={{ padding: 12, marginBottom: 14, borderColor: E.fail }}>
             <div style={{ fontSize: 12, color: E.fail, fontFamily: E.fMono }}>{finalizeErr}</div>
+          </Card>
+        )}
+
+        {/* No-match notice for the active filter. Shown when the filter
+            isn't 'all' and zero items match. The item card below still
+            renders so the user has context, but a one-click escape
+            hatch back to 'all' is right here. */}
+        {filter !== 'all' && filterCounts[filter] === 0 && items.length > 0 && (
+          <Card
+            style={{
+              padding: 12,
+              marginBottom: 14,
+              borderColor: E.hair2,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <div style={{ fontSize: 12, color: E.text2, flex: 1 }}>
+              No items match the <b style={{ color: E.ember }}>{filter}</b> filter.
+            </div>
+            <Btn kind="secondary" size="sm" onClick={() => setFilter('all')}>
+              Switch to All
+            </Btn>
           </Card>
         )}
 
@@ -1391,6 +1623,12 @@ export default function AnnotateSession() {
                 const matchesAi = aiLabel === userLabel && (aiLabel === 'pass' || aiLabel === 'fail');
                 const overridingAi = isDisagreement(userLabel, aiLabel);
                 const fk = flipKey[`${currentItem.item_id}:${mid}`] ?? 0;
+                // Count evidence snippets attached to THIS specific metric.
+                // Item-level evidence (metric_id == null) doesn't count
+                // toward any single row's badge.
+                const evCount = (evidence[currentItem.item_id] ?? []).filter(
+                  (e) => e.metric_id === mid,
+                ).length;
                 return (
                   <div
                     key={mid}
@@ -1423,7 +1661,37 @@ export default function AnnotateSession() {
                     >
                       {idx + 1}
                     </kbd>
-                    <span style={{ fontFamily: E.fMono, fontSize: 13, color: E.text1 }}>{mid}</span>
+                    <span
+                      style={{
+                        fontFamily: E.fMono,
+                        fontSize: 13,
+                        color: E.text1,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      {mid}
+                      {evCount > 0 && (
+                        <span
+                          title={`${evCount} evidence snippet${evCount === 1 ? '' : 's'} attached`}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 2,
+                            fontFamily: E.fMono,
+                            fontSize: 10,
+                            color: E.ember,
+                            background: '#fcefe2',
+                            border: `1px solid ${E.ember}33`,
+                            borderRadius: 4,
+                            padding: '1px 5px',
+                          }}
+                        >
+                          📎 {evCount}
+                        </span>
+                      )}
+                    </span>
                     <Pill
                       mono
                       color={aiLabel ? LABEL_FG[aiLabel] : E.text3}
