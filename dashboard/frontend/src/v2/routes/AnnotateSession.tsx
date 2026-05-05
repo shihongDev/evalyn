@@ -876,39 +876,52 @@ export default function AnnotateSession() {
   const currentItem = items[cursor];
   const currentVerdict = currentItem ? ensureItemDefaults(currentItem) : {};
 
-  // True when the current item's local verdict map has any label
-  // that differs from what's saved on the server. Used to show a
-  // tiny "unsaved" dot next to "Item N of M" so the user doesn't
-  // navigate away thinking their changes are committed.
-  // Compares against item.user_labels (server state). If the user
-  // hasn't touched this item locally, we have no override - returns
-  // false.
-  const hasUnsavedChanges = useMemo(() => {
-    if (!currentItem) return false;
-    const local = verdicts[currentItem.item_id];
-    if (!local) return false;
-    const saved = new Map<string, AnnotationLabel>();
-    for (const ul of currentItem.user_labels) {
-      saved.set(ul.metric_id, ul.label);
-    }
-    // skipped_metrics on the saved record means "explicitly skipped".
-    // Treat as 'skip' for comparison.
-    for (const mid of currentItem.skipped_metrics) {
-      if (!saved.has(mid)) saved.set(mid, 'skip');
-    }
-    for (const mid of metricIds) {
-      const localLabel = local[mid] ?? 'skip';
-      const savedLabel = saved.get(mid);
-      // savedLabel undefined means the metric was never touched on
-      // the server - any local non-skip label is unsaved.
-      if (savedLabel === undefined) {
-        if (localLabel !== 'skip') return true;
-      } else if (localLabel !== savedLabel) {
-        return true;
+  // Pure helper used by both the per-item dot AND the session-wide
+  // count. Returns true when the item's local verdict map differs
+  // from what's saved on the server. Skipped_metrics on the record
+  // count as "skip" for comparison since they reach the same outcome
+  // via different storage paths.
+  const itemHasUnsavedDiff = useCallback(
+    (it: AnnotationItemRow): boolean => {
+      const local = verdicts[it.item_id];
+      if (!local) return false;
+      const saved = new Map<string, AnnotationLabel>();
+      for (const ul of it.user_labels) saved.set(ul.metric_id, ul.label);
+      for (const mid of it.skipped_metrics) {
+        if (!saved.has(mid)) saved.set(mid, 'skip');
       }
+      for (const mid of metricIds) {
+        const localLabel = local[mid] ?? 'skip';
+        const savedLabel = saved.get(mid);
+        if (savedLabel === undefined) {
+          if (localLabel !== 'skip') return true;
+        } else if (localLabel !== savedLabel) {
+          return true;
+        }
+      }
+      return false;
+    },
+    [verdicts, metricIds],
+  );
+
+  // True when the current item has unsaved local changes. Drives the
+  // tiny "unsaved" dot next to "Item N of M".
+  const hasUnsavedChanges = useMemo(
+    () => (currentItem ? itemHasUnsavedDiff(currentItem) : false),
+    [currentItem, itemHasUnsavedDiff],
+  );
+
+  // Session-wide count: how many items have unsaved local changes.
+  // Surfaced as a pill in the header and called out in the finalize
+  // confirm dialog so the user can't silently lose work by finalizing
+  // before saving in-progress edits.
+  const unsavedItemsCount = useMemo(() => {
+    let n = 0;
+    for (const it of items) {
+      if (itemHasUnsavedDiff(it)) n += 1;
     }
-    return false;
-  }, [currentItem, verdicts, metricIds]);
+    return n;
+  }, [items, itemHasUnsavedDiff]);
 
   // Per-item free-text notes. Reset only when the user clears the field.
   // Hydrated from localStorage draft alongside verdicts.
@@ -1503,14 +1516,14 @@ export default function AnnotateSession() {
         return;
       }
       // Cmd/Ctrl+Enter = finalize. Same code path as clicking Finish
-      // & save: when allDone, finalize directly; otherwise open the
-      // confirm-then-finalize panel. Caught here (before the textarea
-      // bail) so it works mid-note. preventDefault keeps the browser
-      // from inserting a newline in the note input.
+      // & save: one-click only when fully safe (allDone AND no unsaved
+      // local edits); otherwise open the confirm dialog. Caught here
+      // (before the textarea bail) so it works mid-note. preventDefault
+      // keeps the browser from inserting a newline in the note input.
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         if (!progress || progress.done === 0 || finalizing) return;
         e.preventDefault();
-        if (allDone) {
+        if (allDone && unsavedItemsCount === 0) {
           void finalizeSession();
         } else {
           setConfirmFinalize(true);
@@ -1675,6 +1688,7 @@ export default function AnnotateSession() {
     progress,
     allDone,
     finalizing,
+    unsavedItemsCount,
     searchQuery,
   ]);
 
@@ -2226,11 +2240,31 @@ export default function AnnotateSession() {
               ✓ Saved
             </span>
           )}
+          {unsavedItemsCount > 0 && (
+            <span
+              title={`${unsavedItemsCount} item${unsavedItemsCount === 1 ? ' has' : 's have'} verdict changes that haven't been saved yet. Save them (N or ⌘/Ctrl+S) before finalizing or they'll be lost.`}
+              style={{
+                fontFamily: E.fMono,
+                fontSize: 10,
+                color: E.ember,
+                background: '#fcefe2',
+                border: `1px solid ${E.ember}33`,
+                borderRadius: 999,
+                padding: '2px 8px',
+              }}
+            >
+              {unsavedItemsCount} unsaved
+            </span>
+          )}
           <Btn
             kind="primary"
             size="sm"
             onClick={() => {
-              if (allDone) {
+              // One-click finalize only when truly safe: every item
+              // annotated AND no in-flight local edits. Any remaining
+              // todos OR unsaved changes route through the confirm
+              // dialog so the user sees what they're about to lose.
+              if (allDone && unsavedItemsCount === 0) {
                 void finalizeSession();
               } else {
                 setConfirmFinalize(true);
@@ -2694,6 +2728,24 @@ export default function AnnotateSession() {
                 annotations file. Items not yet annotated will not be
                 included.
               </div>
+              {unsavedItemsCount > 0 && (
+                <div
+                  style={{
+                    marginTop: 6,
+                    padding: '6px 8px',
+                    background: '#fff0d5',
+                    border: `1px solid ${E.ember}`,
+                    borderRadius: 4,
+                    fontSize: 11,
+                    color: E.text1,
+                    fontFamily: E.fMono,
+                  }}
+                >
+                  ⚠ {unsavedItemsCount} item{unsavedItemsCount === 1 ? '' : 's'} {unsavedItemsCount === 1 ? 'has' : 'have'} verdict
+                  changes that aren't saved yet. Those won't be included.
+                  Cancel and save them first (N or {MOD_KEY_LABEL} S) to preserve.
+                </div>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <Btn
