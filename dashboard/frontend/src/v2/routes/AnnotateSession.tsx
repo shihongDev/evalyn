@@ -161,6 +161,86 @@ function aiVerdictMap(item: AnnotationItemRow): Map<string, AnnotationLabel | nu
   return m;
 }
 
+/** localStorage key for in-progress draft state. Per-session so multiple
+ * tabs don't clobber each other. Stored as JSON: {verdicts, notes, savedAt}. */
+function draftKey(sessionId: string): string {
+  return `evalyn:annotation:draft:${sessionId}`;
+}
+
+interface DraftBlob {
+  verdicts: Record<string, Record<string, AnnotationLabel>>;
+  notes: Record<string, string>;
+  savedAt: number;
+}
+
+function readDraft(sessionId: string): DraftBlob | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(draftKey(sessionId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as DraftBlob;
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeDraft(sessionId: string, blob: Omit<DraftBlob, 'savedAt'>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(
+      draftKey(sessionId),
+      JSON.stringify({ ...blob, savedAt: Date.now() }),
+    );
+  } catch {
+    // Quota / private mode - drafts are best-effort.
+  }
+}
+
+/** Format a duration in seconds as a compact human string. */
+function formatDuration(sec: number): string {
+  if (sec < 60) return `${Math.max(1, Math.round(sec))}s`;
+  if (sec < 3600) return `${Math.round(sec / 60)}m`;
+  const h = Math.floor(sec / 3600);
+  const m = Math.round((sec % 3600) / 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function clearDraft(sessionId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(draftKey(sessionId));
+  } catch {
+    // ignore
+  }
+}
+
+/** True when the user picked the opposite of an AI pass/fail verdict.
+ * AI = null/skip and user = anything is NOT a disagreement (no signal
+ * to disagree with). User = skip with AI = pass/fail is also not a
+ * disagreement (the user opted out, didn't override). */
+function isDisagreement(userLabel: AnnotationLabel, aiLabel: AnnotationLabel | null): boolean {
+  if (aiLabel !== 'pass' && aiLabel !== 'fail') return false;
+  if (userLabel !== 'pass' && userLabel !== 'fail') return false;
+  return userLabel !== aiLabel;
+}
+
+/** Count disagreements across all annotated items. Reads the persisted
+ * user_labels from the server (not local UI state) so the badge reflects
+ * what's saved, not what's currently being typed. */
+function countOverrides(items: AnnotationItemRow[]): number {
+  let n = 0;
+  for (const it of items) {
+    if (!it.annotated) continue;
+    const ai = aiVerdictMap(it);
+    for (const ul of it.user_labels) {
+      if (isDisagreement(ul.label, ai.get(ul.metric_id) ?? null)) n += 1;
+    }
+  }
+  return n;
+}
+
 export default function AnnotateSession() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
@@ -210,8 +290,13 @@ export default function AnnotateSession() {
     });
   }, [items]);
 
-  // Per-item local verdict state (keyed by item_id).
-  const [verdicts, setVerdicts] = useState<Record<string, Record<string, AnnotationLabel>>>({});
+  // Per-item local verdict state (keyed by item_id). Hydrated lazily from
+  // the localStorage draft so an accidental tab close doesn't lose
+  // in-progress UI state.
+  const [verdicts, setVerdicts] = useState<Record<string, Record<string, AnnotationLabel>>>(() => {
+    if (!sessionId) return {};
+    return readDraft(sessionId)?.verdicts ?? {};
+  });
   // Initialize a new item's verdicts the first time we land on it.
   const ensureItemDefaults = useCallback(
     (item: AnnotationItemRow): Record<string, AnnotationLabel> => {
@@ -227,7 +312,11 @@ export default function AnnotateSession() {
   const currentVerdict = currentItem ? ensureItemDefaults(currentItem) : {};
 
   // Per-item free-text notes. Reset only when the user clears the field.
-  const [notes, setNotes] = useState<Record<string, string>>({});
+  // Hydrated from localStorage draft alongside verdicts.
+  const [notes, setNotes] = useState<Record<string, string>>(() => {
+    if (!sessionId) return {};
+    return readDraft(sessionId)?.notes ?? {};
+  });
   // Per-item flip animation key: bump when a metric cycles so the pill
   // gets a fresh CSS animation. Stored as a counter rather than a flag
   // so consecutive cycles each trigger.
@@ -246,6 +335,14 @@ export default function AnnotateSession() {
     return () => clearTimeout(t);
   }, [savedTick]);
 
+  // Persist verdicts + notes to localStorage on every change. We keep
+  // it simple - every change writes synchronously. For typical session
+  // sizes (<300 items) the JSON cost is negligible.
+  useEffect(() => {
+    if (!sessionId) return;
+    writeDraft(sessionId, { verdicts, notes });
+  }, [sessionId, verdicts, notes]);
+
   const [submitting, setSubmitting] = useState(false);
   const [submitErr, setSubmitErr] = useState<string | null>(null);
   const [finalizing, setFinalizing] = useState(false);
@@ -254,6 +351,15 @@ export default function AnnotateSession() {
   // Refs for the optional note textarea so "/" can focus it without
   // tripping the global keyboard handler.
   const noteRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Per-item timing for the "Xs/item · ~Ymin left" header chip.
+  // We capture wall-clock between successful saves into a 10-deep ring,
+  // capping each delta at 5 minutes so an idle break doesn't poison
+  // the average. timingTick exists only to force a re-render when the
+  // ring updates - the actual data lives in refs to avoid render churn.
+  const lastSaveAtRef = useRef<number>(Date.now());
+  const itemDurationsRef = useRef<number[]>([]);
+  const [timingTick, setTimingTick] = useState(0);
 
   const cycleMetric = useCallback(
     (metricId: string) => {
@@ -331,6 +437,16 @@ export default function AnnotateSession() {
           note: noteForItem || null,
         });
         setSavedTick((t) => t + 1);
+        // Capture per-item wall-clock for the avg/ETA header chip.
+        const now = Date.now();
+        const deltaSec = (now - lastSaveAtRef.current) / 1000;
+        if (deltaSec > 0 && deltaSec < 300) {
+          // Cap at 5 min to filter out idle gaps that would skew the avg.
+          itemDurationsRef.current.push(deltaSec);
+          if (itemDurationsRef.current.length > 10) itemDurationsRef.current.shift();
+          setTimingTick((t) => t + 1);
+        }
+        lastSaveAtRef.current = now;
         void refetchSession();
         void refetchItems();
         return true;
@@ -451,12 +567,34 @@ export default function AnnotateSession() {
     return { done: session.items_done, total: session.items_total, pct };
   }, [session]);
 
+  // Disagreement count across all annotated items - shows the user how
+  // often they're overriding AI pre-labels. Helps catch calibration drift.
+  const overridesCount = useMemo(() => countOverrides(items), [items]);
+
+  // True when every loaded item has been annotated. Drives the
+  // celebratory all-done state below.
+  const allDone = items.length > 0 && items.every((it) => it.annotated);
+
+  // Rolling average per-item duration (seconds) and ETA. Recomputed
+  // on every successful save (timingTick is the trigger). Null until
+  // the first sample lands so we don't render misleading numbers.
+  const timing = useMemo(() => {
+    const arr = itemDurationsRef.current;
+    if (arr.length === 0) return null;
+    const avg = arr.reduce((a, b) => a + b, 0) / arr.length;
+    const remaining = progress ? Math.max(0, progress.total - progress.done) * avg : 0;
+    return { avgSec: avg, remainingSec: remaining };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timingTick, progress?.total, progress?.done]);
+
   async function finalizeSession() {
     if (!sessionId) return;
     setFinalizing(true);
     setFinalizeErr(null);
     try {
       await annotationApi.finalize(sessionId);
+      // Draft is no longer useful once verdicts are merged on disk.
+      clearDraft(sessionId);
       navigate('/annotate');
     } catch (e) {
       setFinalizeErr(e instanceof Error ? e.message : String(e));
@@ -512,6 +650,25 @@ export default function AnnotateSession() {
             <span style={{ fontSize: 12, color: E.text2, fontFamily: E.fMono }}>
               {progress.done}/{progress.total} ({progress.pct.toFixed(0)}%)
             </span>
+          )}
+          {timing && progress && progress.done < progress.total && (
+            <span
+              style={{ fontSize: 11, color: E.text3, fontFamily: E.fMono }}
+              title={`Rolling average across your last ${itemDurationsRef.current.length} item${itemDurationsRef.current.length === 1 ? '' : 's'}.`}
+            >
+              ~{formatDuration(timing.avgSec)}/item · ~{formatDuration(timing.remainingSec)} left
+            </span>
+          )}
+          {overridesCount > 0 && (
+            <Pill
+              mono
+              color={E.ember}
+              bg="#fcefe2"
+              style={{ fontSize: 10 }}
+              title={`You overrode the AI's pass/fail on ${overridesCount} verdict${overridesCount === 1 ? '' : 's'}.`}
+            >
+              {overridesCount} override{overridesCount === 1 ? '' : 's'}
+            </Pill>
           )}
           {/* "Saved" pulse: rendered for 1.4s after each successful POST.
               `savedFlash` toggles mount/unmount; `savedTick` keys the node
@@ -635,6 +792,65 @@ export default function AnnotateSession() {
           </Card>
         )}
 
+        {/* All-done celebratory banner. Stays above the item card so the
+            user can still ←/→ through items to revise before finalizing. */}
+        {allDone && (
+          <Card
+            style={{
+              padding: 16,
+              marginBottom: 14,
+              borderColor: E.ember,
+              background: '#fcefe2',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+            }}
+          >
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 50,
+                background: E.ember,
+                color: '#fff8f1',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 18,
+                flexShrink: 0,
+              }}
+            >
+              ✓
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: E.fSerif, fontSize: 16, color: E.text1 }}>
+                All {items.length} item{items.length === 1 ? '' : 's'} annotated.
+              </div>
+              <div
+                style={{
+                  fontFamily: E.fMono,
+                  fontSize: 11,
+                  color: E.text2,
+                  marginTop: 2,
+                }}
+              >
+                {overridesCount > 0
+                  ? `You overrode AI on ${overridesCount} verdict${overridesCount === 1 ? '' : 's'}. `
+                  : ''}
+                Finish & save to merge into the dataset annotations.
+              </div>
+            </div>
+            <Btn
+              kind="primary"
+              size="md"
+              onClick={finalizeSession}
+              disabled={finalizing}
+            >
+              {finalizing ? 'Finalizing...' : 'Finish & save →'}
+            </Btn>
+          </Card>
+        )}
+
         {/* ITEM CARD - keyed on cursor so each navigation triggers
             the slide-in animation. Cheap retrigger via key swap. */}
         {currentItem ? (
@@ -745,7 +961,9 @@ export default function AnnotateSession() {
                 const userLabel: AnnotationLabel = currentVerdict[mid] ?? 'skip';
                 const aiEntry = currentItem.ai_labels.find((a) => a.metric_id === mid);
                 const aiLabel = aiEntry?.label ?? null;
+                const aiScore = aiEntry?.score ?? null;
                 const matchesAi = aiLabel === userLabel && (aiLabel === 'pass' || aiLabel === 'fail');
+                const overridingAi = isDisagreement(userLabel, aiLabel);
                 const fk = flipKey[`${currentItem.item_id}:${mid}`] ?? 0;
                 return (
                   <div
@@ -755,8 +973,14 @@ export default function AnnotateSession() {
                       gridTemplateColumns: '34px 1fr 110px 130px',
                       alignItems: 'center',
                       gap: 12,
-                      padding: '11px 18px',
+                      padding: '11px 14px 11px 14px',
                       borderTop: idx ? `1px solid ${E.hair}` : 'none',
+                      // 4px ember stripe on the left when this row's
+                      // verdict overrides the AI - draws the eye to
+                      // disagreement without changing layout.
+                      borderLeft: overridingAi ? `4px solid ${E.ember}` : '4px solid transparent',
+                      background: overridingAi ? '#fcefe2' : undefined,
+                      transition: 'background 160ms, border-left-color 160ms',
                     }}
                   >
                     <kbd
@@ -779,8 +1003,18 @@ export default function AnnotateSession() {
                       color={aiLabel ? LABEL_FG[aiLabel] : E.text3}
                       bg={aiLabel ? LABEL_BG[aiLabel] : E.panel3}
                       style={{ fontSize: 10 }}
+                      title={
+                        aiScore != null
+                          ? `Model confidence: ${aiScore.toFixed(2)}`
+                          : 'No AI verdict for this metric.'
+                      }
                     >
                       AI: {aiLabel ?? 'n/a'}
+                      {aiScore != null && (
+                        <span style={{ marginLeft: 4, opacity: 0.65 }}>
+                          {aiScore.toFixed(2)}
+                        </span>
+                      )}
                     </Pill>
                     <button
                       key={`${currentItem.item_id}:${mid}:${fk}`}
