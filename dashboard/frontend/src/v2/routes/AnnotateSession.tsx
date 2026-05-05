@@ -3402,7 +3402,16 @@ export default function AnnotateSession() {
                   color: E.text1,
                   lineHeight: 1.5,
                   outline: 'none',
+                  // field-sizing: content auto-grows the textarea to fit
+                  // its content. Min/max keep it bounded so a 5-line
+                  // note doesn't push the footer offscreen, and an empty
+                  // textarea doesn't shrink to single-line. Older
+                  // browsers without field-sizing support fall back to
+                  // the rows=2 fixed size; resize:vertical still lets
+                  // users adjust manually in either case.
+                  fieldSizing: 'content',
                   minHeight: 36,
+                  maxHeight: 220,
                 }}
                 onFocus={(e) => {
                   e.currentTarget.style.borderColor = E.ember;
