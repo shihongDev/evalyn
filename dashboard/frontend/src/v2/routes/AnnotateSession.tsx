@@ -413,6 +413,7 @@ function KeyHints({ forceOpen = false }: { forceOpen?: boolean }) {
     ['B', 'bookmark item'],
     ['D', 'next override'],
     ['T', 'next todo'],
+    ['G', 'focus search'],
     ['/', 'focus note'],
     ['?', 'toggle this sheet'],
     ['← / →', 'navigate'],
@@ -905,6 +906,11 @@ export default function AnnotateSession() {
   // Live text search across item id + input preview. Composes with
   // matchesFilter via matchesVisible() below. Empty query = match all.
   const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  // searchFocused drives the input width-grow animation. Could be
+  // computed via document.activeElement === ref, but state is more
+  // declarative and avoids needing a re-render trigger.
+  const [searchFocused, setSearchFocused] = useState(false);
   const matchesSearch = useCallback(
     (item: AnnotationItemRow): boolean => {
       const q = searchQuery.trim().toLowerCase();
@@ -1413,6 +1419,14 @@ export default function AnnotateSession() {
         let next = findOverride(cursor, 1);
         if (next === -1) next = findOverride(-1, 1);
         if (next >= 0 && next !== cursor) setCursor(next);
+      } else if (k === 'g') {
+        // "g" focuses the search input (Vim/Gmail "go to" pattern).
+        // Saves a mouse trip when the user wants to find a specific
+        // item by id or content. The input's onKeyDown handles Esc
+        // to clear/blur.
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
       } else if (k === 't') {
         // "t" jumps to the next un-annotated (todo) item. Mirrors D
         // for the parallel "show me what's left" navigation pattern.
@@ -1937,6 +1951,7 @@ export default function AnnotateSession() {
                 key={k}
                 type="button"
                 disabled={disabled}
+                aria-pressed={active}
                 onClick={() => setFilter(k)}
                 title={disabled ? 'No items in this filter' : `Show ${label.toLowerCase()}`}
                 style={{
@@ -1993,9 +2008,12 @@ export default function AnnotateSession() {
               ⌕
             </span>
             <input
+              ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
               onKeyDown={(e) => {
                 // Esc inside the search input clears it and blurs.
                 // The global keyboard handler bails on input focus,
@@ -2009,7 +2027,7 @@ export default function AnnotateSession() {
                   }
                 }
               }}
-              placeholder="Search items..."
+              placeholder="Search items... (G)"
               aria-label="Search items by id or input content"
               style={{
                 fontFamily: E.fMono,
@@ -2018,8 +2036,12 @@ export default function AnnotateSession() {
                 background: 'transparent',
                 border: 'none',
                 outline: 'none',
-                width: 140,
+                // Animates wider when focused so the user has more
+                // room to type (and gets a quick "I'm in search now"
+                // signal). Returns to compact width on blur.
+                width: searchFocused || searchQuery ? 240 : 140,
                 padding: 0,
+                transition: 'width 200ms ease-out',
               }}
             />
             {searchQuery && (
