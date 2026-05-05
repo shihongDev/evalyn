@@ -125,6 +125,127 @@ function renderWithHighlights(
   return nodes;
 }
 
+/** Compact word-level diff between two strings using LCS DP.
+ *
+ * Returns a flat list of {type, text} ops:
+ *   - 'eq'  : in both strings (rendered normally)
+ *   - 'del' : in `a` (expected), missing from `b` (output)
+ *   - 'ins' : in `b` (output), not in `a` (expected)
+ *
+ * Caps each side at `maxWords`. Returns null when either side exceeds
+ * the cap so the UI can render a "diff disabled - too large" notice
+ * instead of locking the page on a giant DP table.
+ *
+ * Memory: Uint16Array of (m+1)*(n+1). At maxWords=1500 this is ~4.5 MB,
+ * well within main-thread budgets for an interactive toggle.
+ */
+type DiffOp = { type: 'eq' | 'del' | 'ins'; text: string };
+
+function wordDiff(a: string, b: string, maxWords = 1500): DiffOp[] | null {
+  // Split keeping the whitespace runs so we reconstruct spacing on render.
+  const aw = a.split(/(\s+)/).filter((s) => s.length > 0);
+  const bw = b.split(/(\s+)/).filter((s) => s.length > 0);
+  if (aw.length > maxWords || bw.length > maxWords) return null;
+  const m = aw.length;
+  const n = bw.length;
+  if (m === 0 && n === 0) return [];
+  // dp[i*(n+1)+j] = LCS length from aw[i:] vs bw[j:]
+  const dp = new Uint16Array((m + 1) * (n + 1));
+  for (let i = m - 1; i >= 0; i--) {
+    for (let j = n - 1; j >= 0; j--) {
+      const cell = i * (n + 1) + j;
+      if (aw[i] === bw[j]) {
+        dp[cell] = dp[(i + 1) * (n + 1) + (j + 1)] + 1;
+      } else {
+        const down = dp[(i + 1) * (n + 1) + j];
+        const right = dp[i * (n + 1) + (j + 1)];
+        dp[cell] = down > right ? down : right;
+      }
+    }
+  }
+  const out: DiffOp[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < m && j < n) {
+    if (aw[i] === bw[j]) {
+      out.push({ type: 'eq', text: aw[i] });
+      i++;
+      j++;
+    } else if (dp[(i + 1) * (n + 1) + j] >= dp[i * (n + 1) + (j + 1)]) {
+      out.push({ type: 'del', text: aw[i] });
+      i++;
+    } else {
+      out.push({ type: 'ins', text: bw[j] });
+      j++;
+    }
+  }
+  while (i < m) out.push({ type: 'del', text: aw[i++] });
+  while (j < n) out.push({ type: 'ins', text: bw[j++] });
+  return out;
+}
+
+/** Render a word-level diff of (expected, output) as inline spans.
+ *
+ * Color semantics (chosen to match the cream palette + pass/fail colors):
+ *   - 'eq'  : neutral text, no background.
+ *   - 'ins' : in output, missing from expected → leaf-green tint.
+ *   - 'del' : in expected, missing from output → cinnabar tint, struck.
+ *
+ * On too-large content, returns a notice instead of a giant DP table.
+ */
+function renderDiffBody(expected: string, output: string): React.ReactNode {
+  const ops = wordDiff(expected, output);
+  if (ops === null) {
+    return (
+      <em style={{ fontSize: 12, color: '#94907f' }}>
+        Diff disabled — content too long. Toggle off to see raw output.
+      </em>
+    );
+  }
+  if (ops.length === 0) {
+    return (
+      <em style={{ fontSize: 12, color: '#94907f' }}>
+        Both expected and output are empty.
+      </em>
+    );
+  }
+  return ops.map((op, i) => {
+    if (op.type === 'eq') return <span key={i}>{op.text}</span>;
+    if (op.type === 'ins') {
+      return (
+        <span
+          key={i}
+          title="In output, not in expected"
+          style={{
+            background: '#e8f5e9',
+            color: '#2e7d32',
+            borderBottom: '1.5px solid #2e7d32',
+            padding: '0 1px',
+            borderRadius: 2,
+          }}
+        >
+          {op.text}
+        </span>
+      );
+    }
+    return (
+      <span
+        key={i}
+        title="In expected, missing from output"
+        style={{
+          background: '#fde2e2',
+          color: '#a83232',
+          textDecoration: 'line-through',
+          padding: '0 1px',
+          borderRadius: 2,
+        }}
+      >
+        {op.text}
+      </span>
+    );
+  });
+}
+
 /** Backend hard-caps preview content at this many chars. Anything at
  * exactly this length is almost certainly truncated, so the Pane shows
  * a "(truncated)" hint to set expectations. Keep in lockstep with
@@ -145,6 +266,7 @@ const Pane = function Pane({
   muted,
   bodyRef,
   renderBody,
+  headerExtras,
 }: {
   label: string;
   text: string;
@@ -159,6 +281,10 @@ const Pane = function Pane({
    * the text (e.g., inline evidence highlights). The char count and
    * truncation hint are still computed from the underlying `text`. */
   renderBody?: (text: string) => React.ReactNode;
+  /** Extra controls rendered in the pane header, before the Expand
+   * toggle. Use for pane-specific actions (e.g., a "Diff vs expected"
+   * toggle on the Output pane) that share the visual slot with Expand. */
+  headerExtras?: React.ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
   // True when the rendered content actually overflows the collapsed
@@ -211,6 +337,7 @@ const Pane = function Pane({
           )}
         </span>
         <span style={{ flex: 1 }} />
+        {headerExtras}
         {showToggle && (
           <button
             type="button"
@@ -482,6 +609,32 @@ function writeCursorItemId(sessionId: string, itemId: string): void {
   }
 }
 
+/** Filter persistence so a refresh keeps the user's chosen view. */
+function filterStorageKey(sessionId: string): string {
+  return `evalyn:annotation:filter:${sessionId}`;
+}
+
+const VALID_FILTERS = new Set(['all', 'todo', 'done', 'bookmarked', 'overrides']);
+
+function readFilter(sessionId: string): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const v = window.localStorage.getItem(filterStorageKey(sessionId));
+    return v && VALID_FILTERS.has(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeFilter(sessionId: string, value: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(filterStorageKey(sessionId), value);
+  } catch {
+    // best-effort
+  }
+}
+
 /** True when the user picked the opposite of an AI pass/fail verdict.
  * AI = null/skip and user = anything is NOT a disagreement (no signal
  * to disagree with). User = skip with AI = pass/fail is also not a
@@ -648,9 +801,17 @@ export default function AnnotateSession() {
 
   // Filter mode for navigation + scrubber. Lets the annotator focus
   // on subsets without losing the rest. Default 'all' keeps the
-  // existing behavior so adding this is non-disruptive.
+  // existing behavior so adding this is non-disruptive. Persisted
+  // per session so a refresh keeps the user's chosen view.
   type FilterKind = 'all' | 'todo' | 'done' | 'bookmarked' | 'overrides';
-  const [filter, setFilter] = useState<FilterKind>('all');
+  const [filter, setFilter] = useState<FilterKind>(() => {
+    if (!sessionId) return 'all';
+    return (readFilter(sessionId) as FilterKind | null) ?? 'all';
+  });
+  useEffect(() => {
+    if (!sessionId) return;
+    writeFilter(sessionId, filter);
+  }, [sessionId, filter]);
 
   const matchesFilter = useCallback(
     (item: AnnotationItemRow): boolean => {
@@ -764,6 +925,15 @@ export default function AnnotateSession() {
   // whether the user's selection is inside the output (eligible for
   // "mark as evidence") vs in some other text on the page.
   const outputBodyRef = useRef<HTMLDivElement | null>(null);
+  // Toggle between raw output and a word-level diff against expected.
+  // Per-item: the toggle remounts the Pane (key includes diff state)
+  // so the user gets a clean entrance. Reset when item changes via
+  // the cursor effect below.
+  const [showDiff, setShowDiff] = useState(false);
+  useEffect(() => {
+    setShowDiff(false);
+  }, [cursor]);
+
   // Index of the evidence row to briefly flash. Set when the user
   // clicks an inline highlight in the output pane; auto-clears after
   // the eItemSlideIn-style attention pulse runs.
@@ -1594,22 +1764,54 @@ export default function AnnotateSession() {
                 />
               )}
               {currentItem.output_preview && (
-                <Pane
-                  label="Output"
-                  text={currentItem.output_preview}
-                  collapsedMaxH={420}
-                  emphasized
-                  bodyRef={(el) => {
-                    outputBodyRef.current = el;
-                  }}
-                  renderBody={(t) =>
-                    renderWithHighlights(
-                      t,
-                      (evidence[currentItem.item_id] ?? []).map((e) => e.snippet),
-                      flashEvidenceRow,
-                    )
-                  }
-                />
+                <div
+                  key={showDiff ? 'diff' : 'raw'}
+                  style={{ animation: 'eItemSlideIn 200ms ease-out' }}
+                >
+                  <Pane
+                    label="Output"
+                    text={currentItem.output_preview}
+                    collapsedMaxH={420}
+                    emphasized
+                    bodyRef={(el) => {
+                      outputBodyRef.current = el;
+                    }}
+                    headerExtras={
+                      currentItem.expected_preview ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowDiff((v) => !v)}
+                          title={
+                            showDiff
+                              ? 'Show the raw output text'
+                              : 'Show a word-level diff against the expected output'
+                          }
+                          style={{
+                            fontFamily: E.fMono,
+                            fontSize: 10,
+                            color: showDiff ? E.ember : E.text2,
+                            background: showDiff ? '#fcefe2' : 'transparent',
+                            border: `1px solid ${showDiff ? E.ember : E.hair}`,
+                            borderRadius: 4,
+                            padding: '2px 8px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {showDiff ? '✓ Diff vs expected' : 'Diff vs expected'}
+                        </button>
+                      ) : null
+                    }
+                    renderBody={(t) =>
+                      showDiff && currentItem.expected_preview
+                        ? renderDiffBody(currentItem.expected_preview, t)
+                        : renderWithHighlights(
+                            t,
+                            (evidence[currentItem.item_id] ?? []).map((e) => e.snippet),
+                            flashEvidenceRow,
+                          )
+                    }
+                  />
+                </div>
               )}
             </div>
 
