@@ -5,6 +5,20 @@ All notable changes to `evalyn-dashboard` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Co-pilot guidance tours.** Each tabbed route (Home, Datasets, Experiments, Review, Metrics) ships a short Driver.js-powered walk-through that auto-fires on first visit, anchored to stable `data-coachmark` attributes on real UI elements. Each tour has an independent `localStorage` completion flag, so finishing one does not suppress the others.
+- **Tours menu in the AppShell header.** Always-visible button with a status dot (ember = on, muted = off). Click to: toggle all guidance off/on, manually start the current page's tour, or reset every per-tour completion flag in one action. Closes on outside click and Escape.
+- **Per-route Settings reset.** The "Reset first-visit flags" action in Settings now clears every tour's completion flag (previously only the Home first-run tour). Sourced from `KNOWN_TOUR_IDS`, derived automatically from the tour registry.
+- **Anchor-not-found policy.** If a tour step targets an element that is not in the DOM (empty workspace, conditional render), the engine waits 500ms and then narrates "looks like that view changed - moving on" instead of deadlocking. Auto-advances after 1.5s.
+- **`prefers-reduced-motion` respected** for the focus ring; static outline replaces the pulse when the OS-level setting is on.
+
+### Fixed
+
+- **`dashboard/frontend/src/v2/tour/scripts/` was being silently gitignored** by the unanchored top-level `scripts/` rule. Added a `!` exception so all tour scripts are first-class source going forward; the Home `firstRun.ts` tour script that previously lived only on disk is now tracked in git.
+
 ## [0.1.0] - 2026-05-01
 
 Initial release. Localhost IDE for evalyn evaluations, distributed as a separate optional package.

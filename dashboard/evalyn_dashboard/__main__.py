@@ -17,6 +17,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=7401)
     parser.add_argument("--no-browser", action="store_true")
+    # WSL2's localhost forwarding can break across sleep/wake; binding to
+    # 0.0.0.0 lets the Windows-side browser hit the WSL IP directly. The
+    # safety guard in cli_command refuses non-loopback by default - this
+    # flag is the documented escape hatch on a trusted network.
+    parser.add_argument("--unsafe-bind", action="store_true")
     args = parser.parse_args(argv)
     return cmd_dashboard(args)
 

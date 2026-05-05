@@ -98,6 +98,31 @@ insights, select-metrics
 
 Everything else requires confirmation.
 
+### Take a guided tour
+
+Each tab ships a short visual walk-through that highlights the elements you need to know about, narrates what they do, and waits for you to click through. Tours are powered by Driver.js and anchored to stable `data-coachmark` attributes on real UI elements - they survive layout changes and skip gracefully when a target is missing.
+
+- **First-visit auto-fire.** Open Home, Datasets, Experiments, Review, or Metrics for the first time and the corresponding tour fires ~500ms after the page's data loads. Each tab's "first visit" is independent: finishing one tour does not suppress the others.
+- **Tours button in the header.** Top right of every page. The status dot is ember when guidance is on, muted when off, so you can tell at a glance.
+- **Three actions in the menu.**
+  - **Toggle** - turn all guidance off (or back on). Persists to `localStorage`.
+  - **Take a tour of this page** - manually fire the current page's tour even if you've already dismissed it. Disabled with a tooltip on routes that have no tour (Settings, Commands, Reports).
+  - **Reset all tour flags** - clears every per-tour completion flag, so auto-tours fire again on the next visit.
+
+Available tours:
+
+| Route | Tour id | What it covers |
+|---|---|---|
+| `/` | `firstRun.home.v1` | quality, sub-metrics, experiments, recent activity, co-pilot brief |
+| `/datasets` | `datasetUpload.v1` | dataset list, search, "+ New dataset" |
+| `/experiments` | `runEval.v1` | experiments list, filter bar, "+ New evaluation" |
+| `/review` | `reviewFailures.v1` | review queue, item inspection, verdict buttons |
+| `/metrics` | `readMetrics.v1` | rubric list, drill-in, calibration grid |
+
+The agent can also drive tours during a chat: ask the co-pilot "show me how to start an evaluation" and it calls a `start_tour(tour_id)` tool that the frontend intercepts and dispatches to Driver.js. (Available when the agent backend has start_tour in its tool catalog; the wiring lives in the broader copilot tour PR series.)
+
+Pure client-side, pure `localStorage` - no server roundtrip, no telemetry. Reset the dashboard's localStorage to fully reset tour state.
+
 ## Architecture
 
 ```

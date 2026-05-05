@@ -93,7 +93,7 @@ uv pip install -e "./sdk[agent]"
 
 ### Optional: Dashboard (localhost IDE)
 
-`evalyn-dashboard` is a separate optional package that ships a localhost web IDE for running any of the 35 evalyn CLIs from auto-generated forms, watching streamed subprocess output, and chatting with an AI agent that calls evalyn commands as tools. Distributed separately to keep core evalyn lightweight.
+`evalyn-dashboard` is a separate optional package that ships a localhost web IDE for running any of the 35 evalyn CLIs from auto-generated forms, watching streamed subprocess output, and chatting with an AI agent that calls evalyn commands as tools. New users get short visual walk-throughs of each tab on first visit (toggle from the **Tours** button in the header). Distributed separately to keep core evalyn lightweight.
 
 ```bash
 pip install evalyn-dashboard
