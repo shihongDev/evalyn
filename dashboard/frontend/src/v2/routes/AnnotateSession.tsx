@@ -426,6 +426,7 @@ function KeyHints({ forceOpen = false }: { forceOpen?: boolean }) {
         ['N / ⏎', 'save + next'],
         [`${MOD_KEY_LABEL} S`, 'save in place'],
         ['S', 'skip all + next'],
+        [`${MOD_KEY_LABEL} ⏎`, 'finalize session'],
       ],
     },
     {
@@ -763,6 +764,17 @@ export default function AnnotateSession() {
 
   const items = itemsResp?.items ?? [];
   const metricIds = itemsResp?.metric_ids ?? session?.metric_ids ?? [];
+
+  // Pulled up from later in the function so the keyboard handler
+  // (which reads progress + allDone for the Cmd+Enter finalize) can
+  // close over them without a use-before-def. Originally inline near
+  // the render block; moving to here is purely a temporal-scope fix.
+  const progress = useMemo(() => {
+    if (!session) return null;
+    const pct = session.items_total > 0 ? (session.items_done / session.items_total) * 100 : 0;
+    return { done: session.items_done, total: session.items_total, pct };
+  }, [session]);
+  const allDone = items.length > 0 && items.every((it) => it.annotated);
 
   // Cursor: precedence on initial mount is URL ?item= > localStorage
   // cursor > first un-annotated > 0. Persisting by item_id (not index)
@@ -1490,6 +1502,21 @@ export default function AnnotateSession() {
         void submitVerdict();
         return;
       }
+      // Cmd/Ctrl+Enter = finalize. Same code path as clicking Finish
+      // & save: when allDone, finalize directly; otherwise open the
+      // confirm-then-finalize panel. Caught here (before the textarea
+      // bail) so it works mid-note. preventDefault keeps the browser
+      // from inserting a newline in the note input.
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        if (!progress || progress.done === 0 || finalizing) return;
+        e.preventDefault();
+        if (allDone) {
+          void finalizeSession();
+        } else {
+          setConfirmFinalize(true);
+        }
+        return;
+      }
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT')) return;
       if (!currentItem) return;
@@ -1643,6 +1670,12 @@ export default function AnnotateSession() {
     toggleBookmark,
     pinKeys,
     showSettings,
+    // Cmd+Enter finalize reads these via closure - include so the
+    // handler closure stays fresh as session state evolves.
+    progress,
+    allDone,
+    finalizing,
+    searchQuery,
   ]);
 
   // beforeunload: warn if there are unsaved verdicts (cursor points to an
@@ -1657,11 +1690,9 @@ export default function AnnotateSession() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [currentItem]);
 
-  const progress = useMemo(() => {
-    if (!session) return null;
-    const pct = session.items_total > 0 ? (session.items_done / session.items_total) * 100 : 0;
-    return { done: session.items_done, total: session.items_total, pct };
-  }, [session]);
+  // (progress was hoisted up to right after items/metricIds for the
+  // keyboard handler closure - kept here as a marker for the original
+  // location.)
 
   // Disagreement count across all annotated items - shows the user how
   // often they're overriding AI pre-labels. Helps catch calibration drift.
@@ -1786,9 +1817,7 @@ export default function AnnotateSession() {
     };
   }, []);
 
-  // True when every loaded item has been annotated. Drives the
-  // celebratory all-done state below.
-  const allDone = items.length > 0 && items.every((it) => it.annotated);
+  // (allDone was also hoisted up - see early in the function body.)
 
   // Copy-link feedback: when the user copies a deep-link to clipboard,
   // we replace the button glyph with "✓ Copied" briefly so the action
