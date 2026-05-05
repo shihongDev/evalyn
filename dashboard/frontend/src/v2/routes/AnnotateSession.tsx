@@ -387,9 +387,14 @@ const Pane = function Pane({
  *
  * Single hover-revealed tooltip with the full hotkey table. Default
  * surface stays a single line so the footer doesn't overwhelm.
+ *
+ * Accepts an optional `forceOpen` prop so the parent can pin the
+ * sheet open via the `?` hotkey - useful for new users discovering
+ * keys without holding the mouse over the chip.
  */
-function KeyHints() {
-  const [open, setOpen] = useState(false);
+function KeyHints({ forceOpen = false }: { forceOpen?: boolean }) {
+  const [hovered, setHovered] = useState(false);
+  const open = hovered || forceOpen;
   const KEYS: Array<[string, string]> = [
     ['1-9', 'cycle metric'],
     ['A', 'accept all AI'],
@@ -400,14 +405,15 @@ function KeyHints() {
     ['B', 'bookmark item'],
     ['D', 'next override'],
     ['/', 'focus note'],
+    ['?', 'toggle this sheet'],
     ['← / →', 'navigate'],
     ['Esc', 'exit'],
   ];
   return (
     <div
       style={{ position: 'relative', display: 'inline-flex' }}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       <span
         style={{
@@ -830,11 +836,24 @@ export default function AnnotateSession() {
   );
   const bookmarkCount = useMemo(() => Object.keys(bookmarks).length, [bookmarks]);
 
+  // Keyboard cheat-sheet pin. Toggled by ? (Shift+/). Lets users
+  // discover hotkeys without holding hover, and is closed by Esc.
+  // Declared here (above the keyboard handler) so the handler can
+  // read it without forward-reference errors.
+  const [pinKeys, setPinKeys] = useState(false);
+
+  // Settings menu - "⋯" button next to Stats. Holds destructive
+  // housekeeping actions (reset bookmarks, clear draft) so they're
+  // discoverable but not in the user's face. Each action confirms
+  // via the browser's native confirm dialog. State lives up here
+  // so the keyboard handler can close it via Esc.
+  const [showSettings, setShowSettings] = useState(false);
+
   // Filter mode for navigation + scrubber. Lets the annotator focus
   // on subsets without losing the rest. Default 'all' keeps the
   // existing behavior so adding this is non-disruptive. Persisted
   // per session so a refresh keeps the user's chosen view.
-  type FilterKind = 'all' | 'todo' | 'done' | 'bookmarked' | 'overrides';
+  type FilterKind = 'all' | 'todo' | 'done' | 'bookmarked' | 'overrides' | 'uncertain';
   const [filter, setFilter] = useState<FilterKind>(() => {
     if (!sessionId) return 'all';
     return (readFilter(sessionId) as FilterKind | null) ?? 'all';
@@ -862,6 +881,13 @@ export default function AnnotateSession() {
             isDisagreement(ul.label, ai.get(ul.metric_id) ?? null),
           );
         }
+        case 'uncertain':
+          // Any AI label has a non-null score below the borderline
+          // threshold. These are the items where the model was hedging
+          // and where annotator value-add is highest.
+          return item.ai_labels.some(
+            (a) => a.score != null && a.score < 0.7,
+          );
       }
     },
     [filter, bookmarks],
@@ -874,6 +900,7 @@ export default function AnnotateSession() {
     let done = 0;
     let bookmarked = 0;
     let overrides = 0;
+    let uncertain = 0;
     for (const it of items) {
       if (!it.annotated) todo += 1;
       else done += 1;
@@ -888,8 +915,11 @@ export default function AnnotateSession() {
           overrides += 1;
         }
       }
+      if (it.ai_labels.some((a) => a.score != null && a.score < 0.7)) {
+        uncertain += 1;
+      }
     }
-    return { all: items.length, todo, done, bookmarked, overrides };
+    return { all: items.length, todo, done, bookmarked, overrides, uncertain };
   }, [items, bookmarks]);
 
   // When the filter changes and the cursor is on a non-matching item,
@@ -1261,8 +1291,26 @@ export default function AnnotateSession() {
         e.preventDefault();
         goNextNoSave();
       } else if (e.key === 'Escape') {
+        // Esc cascades: close the pinned cheat sheet first, then the
+        // settings menu, then exit. Layered close avoids stranding the
+        // user with a pinned panel they can't get rid of.
+        if (pinKeys) {
+          e.preventDefault();
+          setPinKeys(false);
+          return;
+        }
+        if (showSettings) {
+          e.preventDefault();
+          setShowSettings(false);
+          return;
+        }
         e.preventDefault();
         navigate('/annotate');
+      } else if (e.key === '?') {
+        // ? toggles the keyboard cheat-sheet pin so users can discover
+        // hotkeys without hovering. Press again or Esc to dismiss.
+        e.preventDefault();
+        setPinKeys((v) => !v);
       } else if (k === '/') {
         // "/" focuses the per-item note textarea so the user can type
         // a quick rationale without reaching for the mouse.
@@ -1332,6 +1380,8 @@ export default function AnnotateSession() {
     items.length,
     items,
     toggleBookmark,
+    pinKeys,
+    showSettings,
   ]);
 
   // beforeunload: warn if there are unsaved verdicts (cursor points to an
@@ -1388,6 +1438,54 @@ export default function AnnotateSession() {
   // Stats panel toggle. Default hidden so the surface stays calm; users
   // open it on demand when they want to inspect their own pattern.
   const [showStats, setShowStats] = useState(false);
+  const settingsMenuRef = useRef<HTMLDivElement | null>(null);
+  // Close on outside click or Esc.
+  useEffect(() => {
+    if (!showSettings) return;
+    function onDocClick(e: MouseEvent) {
+      const root = settingsMenuRef.current;
+      if (root && !root.contains(e.target as Node)) {
+        setShowSettings(false);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setShowSettings(false);
+    }
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [showSettings]);
+
+  const resetBookmarks = useCallback(() => {
+    if (!sessionId) return;
+    const n = Object.keys(bookmarks).length;
+    if (n === 0) {
+      setShowSettings(false);
+      return;
+    }
+    const ok = window.confirm(
+      `Remove all ${n} bookmark${n === 1 ? '' : 's'} for this session?`,
+    );
+    if (!ok) return;
+    setBookmarks({});
+    setShowSettings(false);
+  }, [sessionId, bookmarks]);
+
+  const clearLocalDraft = useCallback(() => {
+    if (!sessionId) return;
+    const ok = window.confirm(
+      'Clear the local draft (in-progress verdicts, notes, and evidence on items not yet saved)? This does NOT undo verdicts already saved to the server.',
+    );
+    if (!ok) return;
+    clearDraft(sessionId);
+    setVerdicts({});
+    setNotes({});
+    setEvidence({});
+    setShowSettings(false);
+  }, [sessionId]);
 
   // Scrubber hover preview - shows a small floating tooltip with the
   // item's input preview after a 400ms hover. Helps users navigate
@@ -1588,6 +1686,107 @@ export default function AnnotateSession() {
           >
             Stats {showStats ? '▴' : '▾'}
           </Btn>
+          {/* Settings menu - houses destructive housekeeping actions
+              that don't belong in the always-visible header. */}
+          <div ref={settingsMenuRef} style={{ position: 'relative' }}>
+            <Btn
+              kind="ghost"
+              size="sm"
+              onClick={() => setShowSettings((v) => !v)}
+              title="Session settings - reset bookmarks, clear draft"
+            >
+              ⋯
+            </Btn>
+            {showSettings && (
+              <div
+                role="menu"
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 4px)',
+                  right: 0,
+                  zIndex: 50,
+                  background: '#fbf7ee',
+                  border: `1px solid ${E.hair2}`,
+                  borderRadius: 6,
+                  boxShadow: '0 8px 24px rgba(20,18,14,0.12)',
+                  minWidth: 220,
+                  padding: 4,
+                  animation: 'eItemSlideIn 160ms ease-out',
+                }}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={resetBookmarks}
+                  disabled={Object.keys(bookmarks).length === 0}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    textAlign: 'left',
+                    fontFamily: E.fMono,
+                    fontSize: 12,
+                    color: Object.keys(bookmarks).length === 0 ? E.text3 : E.text1,
+                    background: 'transparent',
+                    border: 'none',
+                    padding: '8px 10px',
+                    borderRadius: 4,
+                    cursor: Object.keys(bookmarks).length === 0 ? 'not-allowed' : 'pointer',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (Object.keys(bookmarks).length > 0) {
+                      e.currentTarget.style.background = '#f0e9da';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  Reset bookmarks
+                  {Object.keys(bookmarks).length > 0 && (
+                    <span style={{ color: E.text3, marginLeft: 6 }}>
+                      ({Object.keys(bookmarks).length})
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={clearLocalDraft}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    textAlign: 'left',
+                    fontFamily: E.fMono,
+                    fontSize: 12,
+                    color: E.text1,
+                    background: 'transparent',
+                    border: 'none',
+                    padding: '8px 10px',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#f0e9da';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  Clear local draft
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: E.text3,
+                      marginTop: 2,
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    Drops in-progress UI state, not server records.
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
           {/* "Saved" pulse: rendered for 1.4s after each successful POST.
               `savedFlash` toggles mount/unmount; `savedTick` keys the node
               so consecutive saves retrigger the fade-in keyframe. */}
@@ -1648,6 +1847,7 @@ export default function AnnotateSession() {
               ['done', 'Done', filterCounts.done],
               ['bookmarked', '★ Bookmarks', filterCounts.bookmarked],
               ['overrides', 'Overrides', filterCounts.overrides],
+              ['uncertain', 'AI uncertain', filterCounts.uncertain],
             ] as Array<[FilterKind, string, number]>
           ).map(([k, label, count]) => {
             const active = filter === k;
@@ -2580,7 +2780,7 @@ export default function AnnotateSession() {
               {submitErr && (
                 <span style={{ fontSize: 11, color: E.fail, fontFamily: E.fMono }}>{submitErr}</span>
               )}
-              <KeyHints />
+              <KeyHints forceOpen={pinKeys} />
               <Btn kind="primary" size="sm" onClick={goNext} disabled={submitting}>
                 {submitting ? 'Saving...' : 'N · Save & next →'}
               </Btn>
