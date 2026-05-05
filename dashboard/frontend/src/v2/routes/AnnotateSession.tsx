@@ -234,8 +234,17 @@ export default function AnnotateSession() {
   const [flipKey, setFlipKey] = useState<Record<string, number>>({});
   // "Saved" pulse counter: bumps on successful verdict POST. The current
   // value is rendered as a key on the badge so each save retriggers
-  // the keyframe animation.
+  // the keyframe animation. `savedFlash` is the rendering toggle - it
+  // unmounts the badge after 1.4s so the flash auto-clears even when
+  // prefers-reduced-motion suppresses the fade-out keyframe.
   const [savedTick, setSavedTick] = useState(0);
+  const [savedFlash, setSavedFlash] = useState(false);
+  useEffect(() => {
+    if (savedTick === 0) return;
+    setSavedFlash(true);
+    const t = setTimeout(() => setSavedFlash(false), 1400);
+    return () => clearTimeout(t);
+  }, [savedTick]);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitErr, setSubmitErr] = useState<string | null>(null);
@@ -504,10 +513,10 @@ export default function AnnotateSession() {
               {progress.done}/{progress.total} ({progress.pct.toFixed(0)}%)
             </span>
           )}
-          {/* "Saved" pulse: keyed on savedTick so each successful POST
-              remounts the node and restarts the keyframe. Hidden until
-              the first save (savedTick > 0). */}
-          {savedTick > 0 && (
+          {/* "Saved" pulse: rendered for 1.4s after each successful POST.
+              `savedFlash` toggles mount/unmount; `savedTick` keys the node
+              so consecutive saves retrigger the fade-in keyframe. */}
+          {savedFlash && (
             <span
               key={savedTick}
               style={{

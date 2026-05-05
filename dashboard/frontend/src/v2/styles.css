@@ -219,3 +219,18 @@ a {
   0%   { opacity: 0; transform: translateX(8px); }
   100% { opacity: 1; transform: translateX(0); }
 }
+
+/* Reduced-motion: keep the saved badge visible but freeze all motion.
+   Redefining the keyframes inside the media query makes browsers use
+   the still-frame variant whenever the user has the OS-level setting. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes eSavedPop {
+    from, to { opacity: 1; transform: none; }
+  }
+  @keyframes eVerdictFlip {
+    from, to { transform: none; }
+  }
+  @keyframes eItemSlideIn {
+    from, to { opacity: 1; transform: none; }
+  }
+}
