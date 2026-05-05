@@ -812,6 +812,40 @@ export default function AnnotateSession() {
   const currentItem = items[cursor];
   const currentVerdict = currentItem ? ensureItemDefaults(currentItem) : {};
 
+  // True when the current item's local verdict map has any label
+  // that differs from what's saved on the server. Used to show a
+  // tiny "unsaved" dot next to "Item N of M" so the user doesn't
+  // navigate away thinking their changes are committed.
+  // Compares against item.user_labels (server state). If the user
+  // hasn't touched this item locally, we have no override - returns
+  // false.
+  const hasUnsavedChanges = useMemo(() => {
+    if (!currentItem) return false;
+    const local = verdicts[currentItem.item_id];
+    if (!local) return false;
+    const saved = new Map<string, AnnotationLabel>();
+    for (const ul of currentItem.user_labels) {
+      saved.set(ul.metric_id, ul.label);
+    }
+    // skipped_metrics on the saved record means "explicitly skipped".
+    // Treat as 'skip' for comparison.
+    for (const mid of currentItem.skipped_metrics) {
+      if (!saved.has(mid)) saved.set(mid, 'skip');
+    }
+    for (const mid of metricIds) {
+      const localLabel = local[mid] ?? 'skip';
+      const savedLabel = saved.get(mid);
+      // savedLabel undefined means the metric was never touched on
+      // the server - any local non-skip label is unsaved.
+      if (savedLabel === undefined) {
+        if (localLabel !== 'skip') return true;
+      } else if (localLabel !== savedLabel) {
+        return true;
+      }
+    }
+    return false;
+  }, [currentItem, verdicts, metricIds]);
+
   // Per-item free-text notes. Reset only when the user clears the field.
   // Hydrated from localStorage draft alongside verdicts.
   const [notes, setNotes] = useState<Record<string, string>>(() => {
@@ -1769,12 +1803,107 @@ export default function AnnotateSession() {
   }
 
   if (!session || !itemsResp) {
+    // Skeleton mirrors the real layout (header strip + filter chip
+    // row + scrubber + 3-pane item card + metric rows + footer) so
+    // the loading state reads as "intentional layout loading" rather
+    // than a barebones placeholder.
     return (
       <AppShell breadcrumb={['Annotate', sessionId ?? '']}>
-        <div style={{ padding: '32px 36px', maxWidth: 1100 }}>
-          <Skeleton w={300} h={28} />
-          <div style={{ marginTop: 16 }}>
-            <Skeleton w="100%" h={120} style={{ borderRadius: 8 }} />
+        <div style={{ padding: '24px 36px 30px', maxWidth: 1100 }}>
+          {/* Header strip */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+            <Skeleton w={140} h={14} />
+            <Skeleton w={120} h={20} style={{ borderRadius: 4 }} />
+            <span style={{ flex: 1 }} />
+            <Skeleton w={120} h={14} />
+            <Skeleton w={100} h={28} style={{ borderRadius: 6 }} />
+            <Skeleton w={64} h={28} style={{ borderRadius: 6 }} />
+          </div>
+          {/* Filter chip row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+            {[40, 50, 50, 78, 70, 86].map((w, i) => (
+              <Skeleton key={i} w={w} h={22} style={{ borderRadius: 14 }} />
+            ))}
+          </div>
+          {/* Scrubber dots */}
+          <div style={{ display: 'flex', gap: 3, marginBottom: 6 }}>
+            {Array.from({ length: 24 }, (_, i) => (
+              <Skeleton key={i} w={8} h={8} style={{ borderRadius: 50 }} />
+            ))}
+          </div>
+          {/* Progress bar */}
+          <Skeleton w="100%" h={4} style={{ borderRadius: 2, marginBottom: 18 }} />
+          {/* Item card */}
+          <div
+            style={{
+              border: `1px solid ${E.hair}`,
+              borderRadius: 8,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                padding: '14px 18px',
+                borderBottom: `1px solid ${E.hair}`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <Skeleton w={6} h={6} style={{ borderRadius: 50 }} />
+              <Skeleton w={120} h={14} />
+              <Skeleton w={80} h={18} style={{ borderRadius: 4 }} />
+              <span style={{ flex: 1 }} />
+              <Skeleton w={100} h={20} style={{ borderRadius: 4 }} />
+            </div>
+            <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <Skeleton w={50} h={10} />
+                <Skeleton w="100%" h={120} style={{ marginTop: 4, borderRadius: 6 }} />
+              </div>
+              <div>
+                <Skeleton w={70} h={10} />
+                <Skeleton w="100%" h={90} style={{ marginTop: 4, borderRadius: 6 }} />
+              </div>
+              <div>
+                <Skeleton w={56} h={10} />
+                <Skeleton w="100%" h={180} style={{ marginTop: 4, borderRadius: 6 }} />
+              </div>
+            </div>
+            <div style={{ borderTop: `1px solid ${E.hair}` }}>
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '34px 1fr 110px 130px',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '11px 14px',
+                    borderTop: i ? `1px solid ${E.hair}` : 'none',
+                  }}
+                >
+                  <Skeleton w={20} h={18} style={{ borderRadius: 4 }} />
+                  <Skeleton w={120} h={14} />
+                  <Skeleton w={70} h={18} style={{ borderRadius: 4 }} />
+                  <Skeleton w={110} h={26} style={{ borderRadius: 6 }} />
+                </div>
+              ))}
+            </div>
+            <div
+              style={{
+                padding: '14px 18px',
+                borderTop: `1px solid ${E.hair}`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <Skeleton w={120} h={28} style={{ borderRadius: 6 }} />
+              <Skeleton w={70} h={28} style={{ borderRadius: 6 }} />
+              <span style={{ flex: 1 }} />
+              <Skeleton w={140} h={28} style={{ borderRadius: 6 }} />
+            </div>
           </div>
         </div>
       </AppShell>
@@ -2577,6 +2706,15 @@ export default function AnnotateSession() {
               <StatusDot status={currentItem.annotated ? 'pass' : 'idle'} size={6} />
               <span style={{ fontSize: 12, color: E.text2, fontFamily: E.fMono }}>
                 Item {cursor + 1} of {items.length}
+                {hasUnsavedChanges && (
+                  <span
+                    title="You have unsaved verdict changes for this item. Press N or ⌘/Ctrl+S to save."
+                    style={{ color: E.ember, marginLeft: 4, fontSize: 14, lineHeight: 0 }}
+                    aria-label="Unsaved changes"
+                  >
+                    •
+                  </span>
+                )}
                 {positionInFilter !== null && visibleCount > 0 && (
                   <span style={{ color: E.ember, marginLeft: 6 }}>
                     · {positionInFilter} of {visibleCount} matching
