@@ -61,6 +61,11 @@ _SOURCE_KINDS = ("run", "dataset", "cluster", "custom")
 _VALID_LABELS = ("pass", "fail", "skip")
 _TERMINAL_STATUSES = {"completed", "abandoned"}
 
+# Per-pane character cap on the preview fields. Bumped from 240 (a teaser)
+# to 8000 because annotators can't make a verdict on truncated content.
+# At limit=200 this is ~2MB / page worst case, which is fine on localhost.
+_PREVIEW_CHAR_CAP = 8000
+
 
 # ---------------------------------------------------------------------------
 # Path helpers
@@ -504,11 +509,17 @@ async def get_session_items(
         rows.append(
             {
                 "item_id": iid,
-                "input_preview": input_text(item)[:240],
-                "expected_preview": (item.get("expected") or "")[:240]
+                # Annotators need to read the actual content to make a
+                # verdict - 240 chars was a teaser, not a usable preview.
+                # 8000 chars covers ~99% of LLM outputs (around 2k tokens)
+                # while keeping the page payload bounded (~2MB at limit=200).
+                # For the rare ultra-long output, a future /full endpoint
+                # can stream the rest on demand.
+                "input_preview": input_text(item)[:_PREVIEW_CHAR_CAP],
+                "expected_preview": (item.get("expected") or "")[:_PREVIEW_CHAR_CAP]
                 if isinstance(item.get("expected"), str)
                 else None,
-                "output_preview": (item.get("output") or "")[:240]
+                "output_preview": (item.get("output") or "")[:_PREVIEW_CHAR_CAP]
                 if isinstance(item.get("output"), str)
                 else None,
                 # Per-metric pre-labels for the human to confirm/override.

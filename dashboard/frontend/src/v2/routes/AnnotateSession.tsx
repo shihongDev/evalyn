@@ -53,6 +53,95 @@ const LABEL_GLYPH: Record<AnnotationLabel, string> = {
   skip: '·',
 };
 
+/** Backend hard-caps preview content at this many chars. Anything at
+ * exactly this length is almost certainly truncated, so the Pane shows
+ * a "(truncated)" hint to set expectations. Keep in lockstep with
+ * _PREVIEW_CHAR_CAP in dashboard/evalyn_dashboard/api/v2/annotation.py. */
+const PREVIEW_CHAR_CAP = 8000;
+
+/**
+ * Item content pane: Eyebrow label, char count, expand/collapse toggle,
+ * scrollable text body. Default collapsed at the supplied maxHeight so
+ * the layout stays compact; expanded the cap is removed and the pane
+ * grows to fit. State resets on item nav (parent Card keys on item_id).
+ */
+function Pane({
+  label,
+  text,
+  collapsedMaxH,
+  emphasized,
+  muted,
+}: {
+  label: string;
+  text: string;
+  collapsedMaxH: number;
+  emphasized?: boolean; // output pane gets the contrast bg
+  muted?: boolean; // expected pane uses softer text color
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const length = text.length;
+  // We can't see the original full length, but content that lands at
+  // exactly the backend cap is overwhelmingly likely to be truncated.
+  const probablyTruncated = length >= PREVIEW_CHAR_CAP;
+  // Stretch the collapsed pane on bigger content so empty-ish items
+  // don't get awkwardly tall. Cap at the supplied collapsedMaxH.
+  const naturalCap = expanded ? undefined : collapsedMaxH;
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          marginBottom: 4,
+        }}
+      >
+        <Eyebrow>{label}</Eyebrow>
+        <span style={{ fontSize: 10, color: E.text3, fontFamily: E.fMono }}>
+          {length.toLocaleString()} chars
+          {probablyTruncated && (
+            <span style={{ color: E.ember, marginLeft: 4 }}>(truncated)</span>
+          )}
+        </span>
+        <span style={{ flex: 1 }} />
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          style={{
+            fontFamily: E.fMono,
+            fontSize: 10,
+            color: E.text2,
+            background: 'transparent',
+            border: `1px solid ${E.hair}`,
+            borderRadius: 4,
+            padding: '2px 8px',
+            cursor: 'pointer',
+          }}
+        >
+          {expanded ? 'Collapse' : 'Expand'}
+        </button>
+      </div>
+      <div
+        style={{
+          padding: 10,
+          background: emphasized ? E.panel : E.panel2,
+          border: emphasized ? `1px solid ${E.hair}` : 'none',
+          borderRadius: 6,
+          fontSize: 13,
+          color: muted ? E.text2 : E.text1,
+          lineHeight: 1.5,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          maxHeight: naturalCap,
+          overflow: expanded ? 'visible' : 'auto',
+        }}
+      >
+        {text || '(empty)'}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Compact, scannable keyboard cheat chip rendered in the footer.
  *
@@ -887,71 +976,23 @@ export default function AnnotateSession() {
               </Btn>
             </div>
 
-            <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div>
-                <Eyebrow>Input</Eyebrow>
-                <div
-                  style={{
-                    marginTop: 4,
-                    padding: 10,
-                    background: E.panel2,
-                    borderRadius: 6,
-                    fontSize: 13,
-                    color: E.text1,
-                    lineHeight: 1.5,
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    maxHeight: 160,
-                    overflow: 'auto',
-                  }}
-                >
-                  {currentItem.input_preview || '(empty)'}
-                </div>
-              </div>
+            <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <Pane label="Input" text={currentItem.input_preview ?? ''} collapsedMaxH={260} />
               {currentItem.expected_preview && (
-                <div>
-                  <Eyebrow>Expected</Eyebrow>
-                  <div
-                    style={{
-                      marginTop: 4,
-                      padding: 10,
-                      background: E.panel2,
-                      borderRadius: 6,
-                      fontSize: 13,
-                      color: E.text2,
-                      lineHeight: 1.5,
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                      maxHeight: 120,
-                      overflow: 'auto',
-                    }}
-                  >
-                    {currentItem.expected_preview}
-                  </div>
-                </div>
+                <Pane
+                  label="Expected"
+                  text={currentItem.expected_preview}
+                  collapsedMaxH={220}
+                  muted
+                />
               )}
               {currentItem.output_preview && (
-                <div>
-                  <Eyebrow>Output</Eyebrow>
-                  <div
-                    style={{
-                      marginTop: 4,
-                      padding: 10,
-                      background: E.panel,
-                      border: `1px solid ${E.hair}`,
-                      borderRadius: 6,
-                      fontSize: 13,
-                      color: E.text1,
-                      lineHeight: 1.5,
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                      maxHeight: 220,
-                      overflow: 'auto',
-                    }}
-                  >
-                    {currentItem.output_preview}
-                  </div>
-                </div>
+                <Pane
+                  label="Output"
+                  text={currentItem.output_preview}
+                  collapsedMaxH={420}
+                  emphasized
+                />
               )}
             </div>
 
