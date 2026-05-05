@@ -54,6 +54,77 @@ const LABEL_GLYPH: Record<AnnotationLabel, string> = {
   skip: '·',
 };
 
+/** Render text with each evidence snippet wrapped in a highlight span.
+ *
+ * Builds a span tree by:
+ *   1. Finding every (start,end) range where any snippet matches in text.
+ *   2. Merging overlapping ranges so we never nest <mark>s.
+ *   3. Walking the merged ranges to emit alternating plain/marked nodes.
+ *
+ * Each highlight gets the snippet index as a data-attr so click handlers
+ * (or future hover effects) can flash the matching evidence row. Empty or
+ * not-found snippets are silently skipped - we never crash on bad input.
+ */
+function renderWithHighlights(
+  text: string,
+  snippets: string[],
+  onClick: (snippetIdx: number) => void,
+): React.ReactNode {
+  if (!text || snippets.length === 0) return text;
+  type Range = { start: number; end: number; snippetIdx: number };
+  const ranges: Range[] = [];
+  snippets.forEach((s, i) => {
+    if (!s || s.trim().length === 0) return;
+    let cursor = 0;
+    while (cursor < text.length) {
+      const idx = text.indexOf(s, cursor);
+      if (idx === -1) break;
+      ranges.push({ start: idx, end: idx + s.length, snippetIdx: i });
+      cursor = idx + s.length;
+    }
+  });
+  if (ranges.length === 0) return text;
+  ranges.sort((a, b) => a.start - b.start || a.end - b.end);
+  // Merge overlaps; keep the first snippet idx that opened the range
+  // so the click handler points at SOMETHING, even if multiple snippets
+  // happen to overlap on the same text.
+  const merged: Range[] = [];
+  for (const r of ranges) {
+    const top = merged[merged.length - 1];
+    if (!top || top.end < r.start) {
+      merged.push({ ...r });
+    } else if (r.end > top.end) {
+      top.end = r.end;
+    }
+  }
+  const nodes: React.ReactNode[] = [];
+  let cur = 0;
+  merged.forEach((r, i) => {
+    if (cur < r.start) nodes.push(text.slice(cur, r.start));
+    nodes.push(
+      <mark
+        key={`m${i}`}
+        data-evidence-idx={r.snippetIdx}
+        onClick={() => onClick(r.snippetIdx)}
+        title="Saved evidence — click to locate in the list below"
+        style={{
+          background: '#fff8c8',
+          color: 'inherit',
+          borderBottom: '2px solid #d96a2c',
+          padding: '0 1px',
+          borderRadius: 2,
+          cursor: 'pointer',
+        }}
+      >
+        {text.slice(r.start, r.end)}
+      </mark>,
+    );
+    cur = r.end;
+  });
+  if (cur < text.length) nodes.push(text.slice(cur));
+  return nodes;
+}
+
 /** Backend hard-caps preview content at this many chars. Anything at
  * exactly this length is almost certainly truncated, so the Pane shows
  * a "(truncated)" hint to set expectations. Keep in lockstep with
@@ -73,6 +144,7 @@ const Pane = function Pane({
   emphasized,
   muted,
   bodyRef,
+  renderBody,
 }: {
   label: string;
   text: string;
@@ -82,6 +154,11 @@ const Pane = function Pane({
   /** Optional ref forwarded to the content div - lets the parent
    * attach selection listeners without duplicating Pane's layout. */
   bodyRef?: (el: HTMLDivElement | null) => void;
+  /** Optional override for how the text body is rendered. When provided
+   * we render this instead of the raw text - lets the parent decorate
+   * the text (e.g., inline evidence highlights). The char count and
+   * truncation hint are still computed from the underlying `text`. */
+  renderBody?: (text: string) => React.ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
   // True when the rendered content actually overflows the collapsed
@@ -172,7 +249,7 @@ const Pane = function Pane({
           overflow: expanded ? 'visible' : 'auto',
         }}
       >
-        {text || '(empty)'}
+        {text ? (renderBody ? renderBody(text) : text) : '(empty)'}
       </div>
     </div>
   );
@@ -192,6 +269,7 @@ function KeyHints() {
     ['N / ⏎', 'save + next'],
     ['U / ⌫', 'undo'],
     ['S', 'skip all + next'],
+    ['B', 'bookmark item'],
     ['/', 'focus note'],
     ['← / →', 'navigate'],
     ['Esc', 'exit'],
@@ -342,6 +420,42 @@ function clearDraft(sessionId: string): void {
   }
 }
 
+/** Bookmarks live in their own localStorage entry per session. We keep
+ * them separate from the draft so finalize-clearing-the-draft doesn't
+ * also wipe the user's "items I want to revisit" set, and so future
+ * cross-session bookmark views can read these directly. */
+function bookmarksKey(sessionId: string): string {
+  return `evalyn:annotation:bookmarks:${sessionId}`;
+}
+
+function readBookmarks(sessionId: string): Record<string, true> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(bookmarksKey(sessionId));
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return {};
+    // Only keep entries whose value is literally true to defend against
+    // a malformed payload (e.g. someone hand-edited localStorage).
+    const out: Record<string, true> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (v === true && typeof k === 'string') out[k] = true;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function writeBookmarks(sessionId: string, marks: Record<string, true>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(bookmarksKey(sessionId), JSON.stringify(marks));
+  } catch {
+    // best-effort
+  }
+}
+
 /** True when the user picked the opposite of an AI pass/fail verdict.
  * AI = null/skip and user = anything is NOT a disagreement (no signal
  * to disagree with). User = skip with AI = pass/fail is also not a
@@ -463,6 +577,32 @@ export default function AnnotateSession() {
     if (!sessionId) return {};
     return readDraft(sessionId)?.evidence ?? {};
   });
+  // Per-item bookmarks: items the user has flagged for revisit. Lives
+  // in its own localStorage entry (see bookmarksKey) so finalize doesn't
+  // clear it. Map shape lets us check membership in O(1).
+  const [bookmarks, setBookmarks] = useState<Record<string, true>>(() => {
+    if (!sessionId) return {};
+    return readBookmarks(sessionId);
+  });
+  useEffect(() => {
+    if (!sessionId) return;
+    writeBookmarks(sessionId, bookmarks);
+  }, [sessionId, bookmarks]);
+  const toggleBookmark = useCallback(
+    (itemId: string) => {
+      setBookmarks((prev) => {
+        const next = { ...prev };
+        if (next[itemId]) {
+          delete next[itemId];
+        } else {
+          next[itemId] = true;
+        }
+        return next;
+      });
+    },
+    [],
+  );
+  const bookmarkCount = useMemo(() => Object.keys(bookmarks).length, [bookmarks]);
   // Per-item flip animation key: bump when a metric cycles so the pill
   // gets a fresh CSS animation. Stored as a counter rather than a flag
   // so consecutive cycles each trigger.
@@ -502,6 +642,22 @@ export default function AnnotateSession() {
   // whether the user's selection is inside the output (eligible for
   // "mark as evidence") vs in some other text on the page.
   const outputBodyRef = useRef<HTMLDivElement | null>(null);
+  // Index of the evidence row to briefly flash. Set when the user
+  // clicks an inline highlight in the output pane; auto-clears after
+  // the eItemSlideIn-style attention pulse runs.
+  const [flashEvidenceIdx, setFlashEvidenceIdx] = useState<number | null>(null);
+  // Ref array for evidence row elements so we can scrollIntoView
+  // when an inline highlight is clicked.
+  const evidenceRowRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const flashEvidenceRow = useCallback((idx: number) => {
+    setFlashEvidenceIdx(idx);
+    const el = evidenceRowRefs.current[idx];
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Auto-clear so the same row can flash again on a second click.
+    window.setTimeout(() => {
+      setFlashEvidenceIdx((cur) => (cur === idx ? null : cur));
+    }, 1200);
+  }, []);
   // Floating popover state when the user has selected text in the
   // output pane. null = no popover. The snippet is captured at
   // selection time so it survives the user clicking the popover
@@ -710,11 +866,18 @@ export default function AnnotateSession() {
   }, [items.length]);
 
   // Keyboard handler. Bypassed when focus is in a textarea / input.
+  // Also bypassed when any modifier key is held - those combinations
+  // belong to the browser (Cmd+B, Ctrl+A, etc.) and we shouldn't steal
+  // them. ArrowLeft/Right + Esc are still handled because they have no
+  // standard modifier semantics worth preserving on this surface.
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT')) return;
       if (!currentItem) return;
+      // Skip when any modifier key is held - leaves browser shortcuts
+      // (Cmd+B for bookmarks bar, Ctrl+R for reload, etc.) intact.
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       // Number keys cycle the corresponding metric (1 = first metric, etc).
       if (/^[1-9]$/.test(e.key)) {
@@ -749,6 +912,12 @@ export default function AnnotateSession() {
         // a quick rationale without reaching for the mouse.
         e.preventDefault();
         noteRef.current?.focus();
+      } else if (k === 'b') {
+        // "b" toggles a bookmark on the current item. Bookmarks are a
+        // separate signal from verdicts - "I want to revisit this", not
+        // "this is my decision". Visible in the scrubber + header count.
+        e.preventDefault();
+        toggleBookmark(currentItem.item_id);
       } else if (k === 's') {
         // "s" marks every metric on this item as skip and advances.
         // Useful for items the annotator wants to defer / can't judge.
@@ -781,6 +950,7 @@ export default function AnnotateSession() {
     submitVerdict,
     cursor,
     items.length,
+    toggleBookmark,
   ]);
 
   // beforeunload: warn if there are unsaved verdicts (cursor points to an
@@ -904,6 +1074,17 @@ export default function AnnotateSession() {
               {overridesCount} override{overridesCount === 1 ? '' : 's'}
             </Pill>
           )}
+          {bookmarkCount > 0 && (
+            <Pill
+              mono
+              color={E.ember}
+              bg="#fcefe2"
+              style={{ fontSize: 10 }}
+              title={`${bookmarkCount} item${bookmarkCount === 1 ? '' : 's'} bookmarked for revisit.`}
+            >
+              ★ {bookmarkCount}
+            </Pill>
+          )}
           {/* "Saved" pulse: rendered for 1.4s after each successful POST.
               `savedFlash` toggles mount/unmount; `savedTick` keys the node
               so consecutive saves retrigger the fade-in keyframe. */}
@@ -965,30 +1146,55 @@ export default function AnnotateSession() {
               return items.slice(start, end).map((it, j) => {
                 const i = start + j;
                 const isCurrent = i === cursor;
+                const isBookmarked = bookmarks[it.item_id] === true;
                 const bg = isCurrent
                   ? E.ember
                   : it.annotated
                     ? E.pass
                     : E.hair2;
                 const border = isCurrent ? `2px solid ${E.ember}` : 'none';
+                // Wrap each dot in a column so we can stack a small
+                // bookmark glyph above bookmarked items without affecting
+                // the dot's own size/alignment.
                 return (
-                  <button
+                  <div
                     key={it.item_id}
-                    type="button"
-                    onClick={() => setCursor(i)}
-                    title={`Item ${i + 1}${it.annotated ? ' · annotated' : ''}`}
                     style={{
-                      width: isCurrent ? 12 : 8,
-                      height: isCurrent ? 12 : 8,
-                      borderRadius: 50,
-                      background: bg,
-                      border,
-                      padding: 0,
-                      cursor: 'pointer',
-                      transition: 'all 160ms',
-                      outline: 'none',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 1,
                     }}
-                  />
+                  >
+                    <span
+                      style={{
+                        fontSize: 9,
+                        lineHeight: 1,
+                        color: isBookmarked ? E.ember : 'transparent',
+                        height: 10,
+                        userSelect: 'none',
+                      }}
+                      aria-hidden
+                    >
+                      ★
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCursor(i)}
+                      title={`Item ${i + 1}${it.annotated ? ' · annotated' : ''}${isBookmarked ? ' · bookmarked' : ''}`}
+                      style={{
+                        width: isCurrent ? 12 : 8,
+                        height: isCurrent ? 12 : 8,
+                        borderRadius: 50,
+                        background: bg,
+                        border,
+                        padding: 0,
+                        cursor: 'pointer',
+                        transition: 'all 160ms',
+                        outline: 'none',
+                      }}
+                    />
+                  </div>
                 );
               });
             })()}
@@ -1112,6 +1318,30 @@ export default function AnnotateSession() {
               <Pill mono color={E.text3} bg={E.panel3} style={{ fontSize: 10 }}>
                 {currentItem.item_id.slice(0, 12)}
               </Pill>
+              {/* Bookmark toggle - filled star when set, hollow otherwise.
+                  Pressed B is the keyboard shortcut. */}
+              <button
+                type="button"
+                onClick={() => toggleBookmark(currentItem.item_id)}
+                title={
+                  bookmarks[currentItem.item_id]
+                    ? 'Remove bookmark (B)'
+                    : 'Bookmark this item for revisit (B)'
+                }
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: 16,
+                  color: bookmarks[currentItem.item_id] ? E.ember : E.text3,
+                  padding: '0 4px',
+                  lineHeight: 1,
+                  transition: 'color 160ms, transform 160ms',
+                  transform: bookmarks[currentItem.item_id] ? 'scale(1.06)' : 'none',
+                }}
+              >
+                {bookmarks[currentItem.item_id] ? '★' : '☆'}
+              </button>
               <span style={{ flex: 1 }} />
               <Btn kind="ghost" size="sm" onClick={goPrev} disabled={cursor === 0}>
                 ←
@@ -1140,6 +1370,13 @@ export default function AnnotateSession() {
                   bodyRef={(el) => {
                     outputBodyRef.current = el;
                   }}
+                  renderBody={(t) =>
+                    renderWithHighlights(
+                      t,
+                      (evidence[currentItem.item_id] ?? []).map((e) => e.snippet),
+                      flashEvidenceRow,
+                    )
+                  }
                 />
               )}
             </div>
@@ -1272,14 +1509,19 @@ export default function AnnotateSession() {
                     {list.map((ev, i) => (
                       <div
                         key={`${i}-${ev.snippet.slice(0, 12)}`}
+                        ref={(el) => {
+                          evidenceRowRefs.current[i] = el;
+                        }}
                         style={{
                           display: 'flex',
                           alignItems: 'flex-start',
                           gap: 8,
                           padding: '6px 8px',
-                          background: '#fff8eb',
-                          border: `1px solid ${E.hair}`,
+                          background: flashEvidenceIdx === i ? '#fff0d5' : '#fff8eb',
+                          border: `1px solid ${flashEvidenceIdx === i ? E.ember : E.hair}`,
                           borderRadius: 6,
+                          transition: 'background 240ms, border-color 240ms',
+                          animation: flashEvidenceIdx === i ? 'eEvidenceFlash 1.2s ease-out' : undefined,
                         }}
                       >
                         <Pill
