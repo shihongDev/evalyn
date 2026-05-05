@@ -15,7 +15,7 @@
  */
 
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, StatusDot } from '../ui';
 import { useV2Resource } from '../hooks/useV2Resource';
@@ -665,6 +665,12 @@ function countOverrides(items: AnnotationItemRow[]): number {
 export default function AnnotateSession() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  // Deep-link param: /annotate/:sessionId?item=:id. Mount precedence
+  // is URL > localStorage cursor > first un-annotated > 0. We use
+  // replace (not push) when syncing the URL on cursor change so the
+  // back button isn't polluted with an entry per item visited.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlItemId = searchParams.get('item');
 
   const sessionKey = `annotation/session:${sessionId ?? ''}`;
   const { data: session, err: sessionErr, refetch: refetchSession } = useV2Resource<AnnotationSessionMeta>(
@@ -684,31 +690,54 @@ export default function AnnotateSession() {
   const items = itemsResp?.items ?? [];
   const metricIds = itemsResp?.metric_ids ?? session?.metric_ids ?? [];
 
-  // Cursor: prefer the saved item_id from a prior visit, else first
-  // un-annotated, else 0. Persisting by item_id (not index) means
-  // reordered/re-paginated items don't mis-aim on the next load.
+  // Cursor: precedence on initial mount is URL ?item= > localStorage
+  // cursor > first un-annotated > 0. Persisting by item_id (not index)
+  // means reordered/re-paginated items don't mis-aim on the next load.
   const [cursor, setCursor] = useState(0);
   const initialCursorRef = useRef(false);
   useEffect(() => {
     if (initialCursorRef.current || items.length === 0) return;
+    // 1. URL param wins - it's the most explicit user signal (someone
+    //    shared a deep link or the user bookmarked a specific item).
+    const fromUrl = urlItemId ? items.findIndex((i) => i.item_id === urlItemId) : -1;
+    if (fromUrl >= 0) {
+      setCursor(fromUrl);
+      initialCursorRef.current = true;
+      return;
+    }
+    // 2. Saved cursor from a prior visit.
     const savedId = sessionId ? readCursorItemId(sessionId) : null;
     const savedIdx = savedId ? items.findIndex((i) => i.item_id === savedId) : -1;
     if (savedIdx >= 0) {
       setCursor(savedIdx);
-    } else {
-      const idx = items.findIndex((i) => !i.annotated);
-      setCursor(idx >= 0 ? idx : 0);
+      initialCursorRef.current = true;
+      return;
     }
+    // 3. First un-annotated, then 0.
+    const idx = items.findIndex((i) => !i.annotated);
+    setCursor(idx >= 0 ? idx : 0);
     initialCursorRef.current = true;
-  }, [items, sessionId]);
+  }, [items, sessionId, urlItemId]);
 
-  // Persist the current item_id whenever the cursor moves, so a
-  // refresh / new tab lands on the same item.
+  // Persist the current item_id on every cursor change: localStorage
+  // (across reloads) + URL ?item= (shareable). Use replace() on the
+  // URL to avoid a history entry per item navigated.
   useEffect(() => {
     if (!sessionId || items.length === 0) return;
     const item = items[cursor];
-    if (item) writeCursorItemId(sessionId, item.item_id);
-  }, [sessionId, cursor, items]);
+    if (!item) return;
+    writeCursorItemId(sessionId, item.item_id);
+    if (searchParams.get('item') !== item.item_id) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('item', item.item_id);
+          return next;
+        },
+        { replace: true },
+      );
+    }
+  }, [sessionId, cursor, items, searchParams, setSearchParams]);
 
   // Seed local notes from any persisted note on each item the first time
   // we see it. User edits override; we only re-seed for unseen item ids.
@@ -1360,9 +1389,79 @@ export default function AnnotateSession() {
   // open it on demand when they want to inspect their own pattern.
   const [showStats, setShowStats] = useState(false);
 
+  // Scrubber hover preview - shows a small floating tooltip with the
+  // item's input preview after a 400ms hover. Helps users navigate
+  // long sessions without clicking through every dot. Touch devices
+  // skip the preview because they have no hover state.
+  const [scrubberHover, setScrubberHover] = useState<{
+    idx: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  const scrubberHoverTimerRef = useRef<number | null>(null);
+  const onScrubberDotEnter = useCallback((idx: number, target: HTMLElement) => {
+    if (scrubberHoverTimerRef.current) {
+      window.clearTimeout(scrubberHoverTimerRef.current);
+    }
+    const rect = target.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top - 8;
+    scrubberHoverTimerRef.current = window.setTimeout(() => {
+      setScrubberHover({ idx, x, y });
+    }, 400);
+  }, []);
+  const onScrubberDotLeave = useCallback(() => {
+    if (scrubberHoverTimerRef.current) {
+      window.clearTimeout(scrubberHoverTimerRef.current);
+      scrubberHoverTimerRef.current = null;
+    }
+    setScrubberHover(null);
+  }, []);
+  // Cleanup the timer on unmount so a pending tooltip doesn't fire
+  // after the component is gone.
+  useEffect(() => {
+    return () => {
+      if (scrubberHoverTimerRef.current) {
+        window.clearTimeout(scrubberHoverTimerRef.current);
+      }
+    };
+  }, []);
+
   // True when every loaded item has been annotated. Drives the
   // celebratory all-done state below.
   const allDone = items.length > 0 && items.every((it) => it.annotated);
+
+  // Copy-link feedback: when the user copies a deep-link to clipboard,
+  // we replace the button glyph with "✓ Copied" briefly so the action
+  // is acknowledged without a separate toast layer.
+  const [copiedTick, setCopiedTick] = useState(0);
+  const copyItemLink = useCallback(() => {
+    if (typeof window === 'undefined' || !currentItem) return;
+    if (!navigator.clipboard?.writeText) return;
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('item', currentItem.item_id);
+      // Only flash "Copied" if the write actually succeeded, so an
+      // insecure context (no clipboard permission) doesn't lie to
+      // the user. Promise rejection is silent - the user just won't
+      // see feedback and can try again or copy the URL bar manually.
+      navigator.clipboard.writeText(url.toString()).then(
+        () => setCopiedTick((t) => t + 1),
+        () => {
+          // ignore - browser denied
+        },
+      );
+    } catch {
+      // ignore - URL ctor or property access failed
+    }
+  }, [currentItem]);
+  // Auto-clear the copied feedback after 1.5s. Counter-keyed so
+  // consecutive copies retrigger cleanly.
+  useEffect(() => {
+    if (copiedTick === 0) return;
+    const t = window.setTimeout(() => setCopiedTick(0), 1500);
+    return () => window.clearTimeout(t);
+  }, [copiedTick]);
 
   // Finalize confirmation gate. We only require the user to confirm
   // when there are still un-annotated items - clicking Finish then is
@@ -1791,7 +1890,15 @@ export default function AnnotateSession() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => setCursor(i)}
+                      onClick={() => {
+                        // Clearing the hover preview avoids it lingering
+                        // on the just-selected item if the mouse lifts
+                        // before mouseleave fires.
+                        onScrubberDotLeave();
+                        setCursor(i);
+                      }}
+                      onMouseEnter={(e) => onScrubberDotEnter(i, e.currentTarget)}
+                      onMouseLeave={onScrubberDotLeave}
                       title={`Item ${i + 1}${it.annotated ? ' · annotated' : ''}${isBookmarked ? ' · bookmarked' : ''}`}
                       style={{
                         width: isCurrent ? 12 : 8,
@@ -2043,6 +2150,29 @@ export default function AnnotateSession() {
                 }}
               >
                 {bookmarks[currentItem.item_id] ? '★' : '☆'}
+              </button>
+              {/* Copy-link button. Builds a URL with ?item= set to the
+                  current item id and writes it to the clipboard.
+                  Shows a brief "Copied" pill so the user knows it worked
+                  without a separate toast layer. */}
+              <button
+                type="button"
+                onClick={copyItemLink}
+                title="Copy a sharable link to this item"
+                style={{
+                  background: copiedTick > 0 ? '#fcefe2' : 'transparent',
+                  border: `1px solid ${copiedTick > 0 ? E.ember : 'transparent'}`,
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  fontFamily: E.fMono,
+                  fontSize: 11,
+                  color: copiedTick > 0 ? E.ember : E.text3,
+                  padding: '2px 6px',
+                  lineHeight: 1,
+                  transition: 'all 160ms',
+                }}
+              >
+                {copiedTick > 0 ? '✓ Copied' : '🔗 Copy link'}
               </button>
               <span style={{ flex: 1 }} />
               <Btn kind="ghost" size="sm" onClick={goPrev} disabled={cursor === 0}>
@@ -2464,6 +2594,74 @@ export default function AnnotateSession() {
           </Card>
         )}
       </div>
+
+      {/* SCRUBBER HOVER PREVIEW - lightweight tooltip with the item's
+          input preview + status. Only shown after a 400ms hover dwell
+          so a quick pass over the strip doesn't flash a tooltip per
+          dot. Position is fixed to viewport (above the dot). */}
+      {scrubberHover && items[scrubberHover.idx] && (
+        <div
+          role="tooltip"
+          style={{
+            position: 'fixed',
+            left: scrubberHover.x,
+            top: scrubberHover.y,
+            transform: 'translateX(-50%) translateY(-100%)',
+            zIndex: 60,
+            background: '#fbf7ee',
+            border: `1px solid ${E.hair2}`,
+            borderRadius: 6,
+            boxShadow: '0 6px 18px rgba(20,18,14,0.12)',
+            padding: '8px 10px',
+            maxWidth: 320,
+            pointerEvents: 'none',
+            animation: 'eItemSlideIn 140ms ease-out',
+          }}
+        >
+          <div
+            style={{
+              fontFamily: E.fMono,
+              fontSize: 11,
+              color: E.text2,
+              marginBottom: 4,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <span>Item {scrubberHover.idx + 1}</span>
+            <span style={{ color: E.text3 }}>·</span>
+            <span
+              style={{
+                color: items[scrubberHover.idx].annotated ? E.pass : E.text3,
+              }}
+            >
+              {items[scrubberHover.idx].annotated ? 'annotated' : 'todo'}
+            </span>
+            {bookmarks[items[scrubberHover.idx].item_id] && (
+              <>
+                <span style={{ color: E.text3 }}>·</span>
+                <span style={{ color: E.ember }}>★ bookmarked</span>
+              </>
+            )}
+          </div>
+          <div
+            style={{
+              fontFamily: E.fMono,
+              fontSize: 11,
+              color: E.text1,
+              lineHeight: 1.4,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              maxHeight: 80,
+              overflow: 'hidden',
+            }}
+          >
+            {(items[scrubberHover.idx].input_preview ?? '').slice(0, 180) || '(empty)'}
+            {(items[scrubberHover.idx].input_preview ?? '').length > 180 && '…'}
+          </div>
+        </div>
+      )}
 
       {/* FLOATING EVIDENCE POPOVER - appears anchored to a text selection
           inside the Output pane. Lets the user attach the snippet to a
