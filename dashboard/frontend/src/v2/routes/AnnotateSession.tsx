@@ -394,6 +394,7 @@ function KeyHints() {
     ['1-9', 'cycle metric'],
     ['A', 'accept all AI'],
     ['N / ⏎', 'save + next'],
+    ['⌘/Ctrl S', 'save in place'],
     ['U / ⌫', 'undo'],
     ['S', 'skip all + next'],
     ['B', 'bookmark item'],
@@ -922,10 +923,13 @@ export default function AnnotateSession() {
   // tripping the global keyboard handler.
   const noteRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Output pane element ref - so the selection listener can decide
-  // whether the user's selection is inside the output (eligible for
-  // "mark as evidence") vs in some other text on the page.
+  // Pane element refs - the selection listener accepts a selection
+  // inside any of these panes (Input, Expected, Output) as evidence.
+  // Originally only Output was eligible, but the user's reasoning
+  // for marking fail can come from any pane (e.g., ambiguous input).
   const outputBodyRef = useRef<HTMLDivElement | null>(null);
+  const inputBodyRef = useRef<HTMLDivElement | null>(null);
+  const expectedBodyRef = useRef<HTMLDivElement | null>(null);
   // Toggle between raw output and a word-level diff against expected.
   // Per-item: the toggle remounts the Pane (key includes diff state)
   // so the user gets a clean entrance. Reset when item changes via
@@ -962,8 +966,10 @@ export default function AnnotateSession() {
   } | null>(null);
 
   // Listen for mouseup anywhere; if a non-empty selection lives inside
-  // the output pane, show the popover near the selection's bottom edge.
-  // Listener is per-component-mount so it's torn down on unmount.
+  // any of the eligible panes (Input, Expected, Output), show the
+  // popover near the selection's bottom edge. Both endpoints of the
+  // selection must be inside the same pane - cross-pane selections
+  // are ambiguous and we'd rather decline than guess.
   useEffect(() => {
     function onMouseUp() {
       const sel = window.getSelection();
@@ -976,22 +982,25 @@ export default function AnnotateSession() {
         setEvidencePopover(null);
         return;
       }
-      // Selection must be inside the output pane to count as evidence.
       const anchor = sel.anchorNode;
       const focus = sel.focusNode;
-      const out = outputBodyRef.current;
-      if (!out || !anchor || !focus) return;
-      if (!out.contains(anchor) || !out.contains(focus)) {
+      if (!anchor || !focus) return;
+      const eligibles: Array<HTMLDivElement | null> = [
+        outputBodyRef.current,
+        inputBodyRef.current,
+        expectedBodyRef.current,
+      ];
+      const inSamePane = eligibles.some(
+        (pane) => pane && pane.contains(anchor) && pane.contains(focus),
+      );
+      if (!inSamePane) {
         setEvidencePopover(null);
         return;
       }
       const range = sel.getRangeAt(0);
       const rect = range.getBoundingClientRect();
-      // Position the popover horizontally centered under the selection,
-      // capped within the viewport so it doesn't clip off-screen.
       const x = Math.max(160, Math.min(window.innerWidth - 160, rect.left + rect.width / 2));
       const y = rect.bottom + 8;
-      // Cap snippet length client-side so we don't ship megabytes.
       const snippet = text.length > 2000 ? text.slice(0, 2000) : text;
       setEvidencePopover({ snippet, x, y });
     }
@@ -1179,11 +1188,22 @@ export default function AnnotateSession() {
   // standard modifier semantics worth preserving on this surface.
   useEffect(() => {
     function handler(e: KeyboardEvent) {
+      // Cmd/Ctrl+S = save without advancing. Caught BEFORE every
+      // other guard so it works while the user is typing in the
+      // note textarea (the most common time they'd want it) and so
+      // we can preventDefault the browser's "save page" dialog.
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+        if (!currentItem) return;
+        e.preventDefault();
+        void submitVerdict();
+        return;
+      }
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT')) return;
       if (!currentItem) return;
-      // Skip when any modifier key is held - leaves browser shortcuts
-      // (Cmd+B for bookmarks bar, Ctrl+R for reload, etc.) intact.
+      // Skip when any other modifier combo is held - leaves browser
+      // shortcuts (Cmd+B for bookmarks bar, Ctrl+R for reload, etc.)
+      // intact.
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       // Number keys cycle the corresponding metric (1 = first metric, etc).
@@ -1344,6 +1364,17 @@ export default function AnnotateSession() {
   // celebratory all-done state below.
   const allDone = items.length > 0 && items.every((it) => it.annotated);
 
+  // Finalize confirmation gate. We only require the user to confirm
+  // when there are still un-annotated items - clicking Finish then is
+  // an irreversible "I'm done with what I have" action and we don't
+  // want it to fire on a stray click. allDone path stays one-click.
+  const [confirmFinalize, setConfirmFinalize] = useState(false);
+  // When items refetch and the session becomes all-done, drop any
+  // pending confirmation - the gate is no longer needed.
+  useEffect(() => {
+    if (allDone) setConfirmFinalize(false);
+  }, [allDone]);
+
   // Rolling average per-item duration (seconds) and ETA. Recomputed
   // on every successful save (timingTick is the trigger). Null until
   // the first sample lands so we don't render misleading numbers.
@@ -1482,7 +1513,13 @@ export default function AnnotateSession() {
           <Btn
             kind="primary"
             size="sm"
-            onClick={finalizeSession}
+            onClick={() => {
+              if (allDone) {
+                void finalizeSession();
+              } else {
+                setConfirmFinalize(true);
+              }
+            }}
             disabled={finalizing || progress?.done === 0}
           >
             {finalizing ? 'Finalizing...' : 'Finish & save'}
@@ -1806,6 +1843,73 @@ export default function AnnotateSession() {
           </Card>
         )}
 
+        {/* Finalize confirmation panel - only shown when the user
+            clicked Finish & save while items remain todo. Spelling
+            out the breakdown makes the action's blast radius obvious
+            before they commit. */}
+        {confirmFinalize && progress && (
+          <Card
+            style={{
+              padding: 14,
+              marginBottom: 14,
+              borderColor: E.ember,
+              background: '#fcefe2',
+              animation: 'eItemSlideIn 200ms ease-out',
+            }}
+          >
+            <div style={{ fontFamily: E.fSerif, fontSize: 15, color: E.text1, marginBottom: 6 }}>
+              Finalize this session?
+            </div>
+            <div
+              style={{
+                fontFamily: E.fMono,
+                fontSize: 12,
+                color: E.text2,
+                marginBottom: 10,
+                lineHeight: 1.5,
+              }}
+            >
+              <span style={{ color: E.pass }}>{progress.done} done</span>
+              {' · '}
+              <span style={{ color: E.text3 }}>
+                {Math.max(0, progress.total - progress.done)} still todo
+              </span>
+              {bookmarkCount > 0 && (
+                <>
+                  {' · '}
+                  <span style={{ color: E.ember }}>★ {bookmarkCount} bookmarked</span>
+                </>
+              )}
+              <div style={{ marginTop: 4, color: E.text3, fontSize: 11 }}>
+                Finalizing merges your saved verdicts into the dataset
+                annotations file. Items not yet annotated will not be
+                included.
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Btn
+                kind="primary"
+                size="sm"
+                onClick={() => {
+                  void finalizeSession();
+                  setConfirmFinalize(false);
+                }}
+                disabled={finalizing}
+              >
+                {finalizing ? 'Finalizing...' : 'Yes, finalize now'}
+              </Btn>
+              <Btn
+                kind="secondary"
+                size="sm"
+                onClick={() => setConfirmFinalize(false)}
+                disabled={finalizing}
+              >
+                Cancel
+              </Btn>
+            </div>
+          </Card>
+        )}
+
         {/* No-match notice for the active filter. Shown when the filter
             isn't 'all' and zero items match. The item card below still
             renders so the user has context, but a one-click escape
@@ -1950,13 +2054,37 @@ export default function AnnotateSession() {
             </div>
 
             <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <Pane label="Input" text={currentItem.input_preview ?? ''} collapsedMaxH={260} />
+              <Pane
+                label="Input"
+                text={currentItem.input_preview ?? ''}
+                collapsedMaxH={260}
+                bodyRef={(el) => {
+                  inputBodyRef.current = el;
+                }}
+                renderBody={(t) =>
+                  renderWithHighlights(
+                    t,
+                    (evidence[currentItem.item_id] ?? []).map((e) => e.snippet),
+                    flashEvidenceRow,
+                  )
+                }
+              />
               {currentItem.expected_preview && (
                 <Pane
                   label="Expected"
                   text={currentItem.expected_preview}
                   collapsedMaxH={220}
                   muted
+                  bodyRef={(el) => {
+                    expectedBodyRef.current = el;
+                  }}
+                  renderBody={(t) =>
+                    renderWithHighlights(
+                      t,
+                      (evidence[currentItem.item_id] ?? []).map((e) => e.snippet),
+                      flashEvidenceRow,
+                    )
+                  }
                 />
               )}
               {currentItem.output_preview && (
