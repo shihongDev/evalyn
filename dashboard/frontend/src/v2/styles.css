@@ -201,3 +201,21 @@ a {
 .driver-popover-close-btn:hover {
   color: #3a352b !important;
 }
+
+/* Annotation polish: feedback animations */
+@keyframes eSavedPop {
+  0%   { opacity: 0; transform: translateY(-4px) scale(0.92); }
+  20%  { opacity: 1; transform: translateY(0) scale(1.04); }
+  35%  { transform: translateY(0) scale(1); }
+  85%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-2px) scale(1); }
+}
+@keyframes eVerdictFlip {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+@keyframes eItemSlideIn {
+  0%   { opacity: 0; transform: translateX(8px); }
+  100% { opacity: 1; transform: translateX(0); }
+}

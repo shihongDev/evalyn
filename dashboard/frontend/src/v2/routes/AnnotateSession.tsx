@@ -14,7 +14,7 @@
  * The first un-annotated item becomes the cursor.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, StatusDot } from '../ui';
@@ -52,6 +52,90 @@ const LABEL_GLYPH: Record<AnnotationLabel, string> = {
   fail: '✗',
   skip: '·',
 };
+
+/**
+ * Compact, scannable keyboard cheat chip rendered in the footer.
+ *
+ * Single hover-revealed tooltip with the full hotkey table. Default
+ * surface stays a single line so the footer doesn't overwhelm.
+ */
+function KeyHints() {
+  const [open, setOpen] = useState(false);
+  const KEYS: Array<[string, string]> = [
+    ['1-9', 'cycle metric'],
+    ['A', 'accept all AI'],
+    ['N / ⏎', 'save + next'],
+    ['U / ⌫', 'undo'],
+    ['S', 'skip all + next'],
+    ['/', 'focus note'],
+    ['← / →', 'navigate'],
+    ['Esc', 'exit'],
+  ];
+  return (
+    <div
+      style={{ position: 'relative', display: 'inline-flex' }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <span
+        style={{
+          fontFamily: E.fMono,
+          fontSize: 11,
+          color: E.text3,
+          padding: '4px 8px',
+          borderRadius: 4,
+          border: `1px solid ${E.hair}`,
+          background: E.panel2,
+          cursor: 'help',
+          userSelect: 'none',
+        }}
+      >
+        ⌨ keys
+      </span>
+      {open && (
+        <div
+          role="tooltip"
+          style={{
+            position: 'absolute',
+            bottom: 'calc(100% + 6px)',
+            right: 0,
+            background: E.panel,
+            border: `1px solid ${E.hair2}`,
+            borderRadius: 6,
+            padding: '8px 10px',
+            boxShadow: '0 6px 18px rgba(20,18,14,0.10)',
+            display: 'grid',
+            gridTemplateColumns: 'auto auto',
+            columnGap: 14,
+            rowGap: 4,
+            zIndex: 50,
+            minWidth: 200,
+          }}
+        >
+          {KEYS.map(([k, d]) => (
+            <Fragment key={k}>
+              <kbd
+                style={{
+                  fontFamily: E.fMono,
+                  fontSize: 11,
+                  color: E.text1,
+                  background: E.panel2,
+                  border: `1px solid ${E.hair2}`,
+                  borderRadius: 3,
+                  padding: '1px 6px',
+                  textAlign: 'center',
+                }}
+              >
+                {k}
+              </kbd>
+              <span style={{ fontSize: 11, color: E.text2 }}>{d}</span>
+            </Fragment>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function deriveDefaults(item: AnnotationItemRow, metricIds: string[]): Record<string, AnnotationLabel> {
   const out: Record<string, AnnotationLabel> = {};
@@ -109,6 +193,23 @@ export default function AnnotateSession() {
     initialCursorRef.current = true;
   }, [items]);
 
+  // Seed local notes from any persisted note on each item the first time
+  // we see it. User edits override; we only re-seed for unseen item ids.
+  useEffect(() => {
+    if (items.length === 0) return;
+    setNotes((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const it of items) {
+        if (next[it.item_id] === undefined && it.note) {
+          next[it.item_id] = it.note;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [items]);
+
   // Per-item local verdict state (keyed by item_id).
   const [verdicts, setVerdicts] = useState<Record<string, Record<string, AnnotationLabel>>>({});
   // Initialize a new item's verdicts the first time we land on it.
@@ -125,10 +226,25 @@ export default function AnnotateSession() {
   const currentItem = items[cursor];
   const currentVerdict = currentItem ? ensureItemDefaults(currentItem) : {};
 
+  // Per-item free-text notes. Reset only when the user clears the field.
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  // Per-item flip animation key: bump when a metric cycles so the pill
+  // gets a fresh CSS animation. Stored as a counter rather than a flag
+  // so consecutive cycles each trigger.
+  const [flipKey, setFlipKey] = useState<Record<string, number>>({});
+  // "Saved" pulse counter: bumps on successful verdict POST. The current
+  // value is rendered as a key on the badge so each save retriggers
+  // the keyframe animation.
+  const [savedTick, setSavedTick] = useState(0);
+
   const [submitting, setSubmitting] = useState(false);
   const [submitErr, setSubmitErr] = useState<string | null>(null);
   const [finalizing, setFinalizing] = useState(false);
   const [finalizeErr, setFinalizeErr] = useState<string | null>(null);
+
+  // Refs for the optional note textarea so "/" can focus it without
+  // tripping the global keyboard handler.
+  const noteRef = useRef<HTMLTextAreaElement | null>(null);
 
   const cycleMetric = useCallback(
     (metricId: string) => {
@@ -141,6 +257,12 @@ export default function AnnotateSession() {
           [currentItem.item_id]: { ...item, [metricId]: LABEL_CYCLE[cur] },
         };
       });
+      // Bump flip key to retrigger the pill flip animation.
+      setFlipKey((prev) => ({
+        ...prev,
+        [`${currentItem.item_id}:${metricId}`]:
+          (prev[`${currentItem.item_id}:${metricId}`] ?? 0) + 1,
+      }));
     },
     [currentItem, metricIds],
   );
@@ -166,46 +288,52 @@ export default function AnnotateSession() {
     }));
   }, [currentItem, metricIds]);
 
-  const submitVerdict = useCallback(async (): Promise<boolean> => {
-    if (!currentItem || !sessionId) return false;
-    const labels: AnnotationLabelEntry[] = [];
-    const skipped: string[] = [];
-    const ai = aiVerdictMap(currentItem);
-    const item = verdicts[currentItem.item_id] ?? deriveDefaults(currentItem, metricIds);
-    for (const mid of metricIds) {
-      const label = item[mid] ?? 'skip';
-      if (label === 'skip') {
-        skipped.push(mid);
-        continue;
+  // Submit the current item's verdicts. Optionally accepts an explicit
+  // verdict map (override) so callers like the "S" hotkey can submit
+  // synthetic state without waiting for React to commit setVerdicts.
+  const submitVerdict = useCallback(
+    async (override?: Record<string, AnnotationLabel>): Promise<boolean> => {
+      if (!currentItem || !sessionId) return false;
+      const labels: AnnotationLabelEntry[] = [];
+      const skipped: string[] = [];
+      const ai = aiVerdictMap(currentItem);
+      const item = override ?? verdicts[currentItem.item_id] ?? deriveDefaults(currentItem, metricIds);
+      for (const mid of metricIds) {
+        const label = item[mid] ?? 'skip';
+        if (label === 'skip') {
+          skipped.push(mid);
+          continue;
+        }
+        const aiLabel = ai.get(mid);
+        labels.push({
+          metric_id: mid,
+          label,
+          used_ai_verdict: aiLabel === label,
+        });
       }
-      const aiLabel = ai.get(mid);
-      labels.push({
-        metric_id: mid,
-        label,
-        used_ai_verdict: aiLabel === label,
-      });
-    }
-    setSubmitting(true);
-    setSubmitErr(null);
-    try {
-      await annotationApi.postVerdict(sessionId, {
-        item_id: currentItem.item_id,
-        labels,
-        skipped_metrics: skipped,
-      });
-      // Refresh both session (progress counter) and items (annotated flag)
-      // in the background. We don't await refetch since the verdict just
-      // posted - UI advances immediately.
-      void refetchSession();
-      void refetchItems();
-      return true;
-    } catch (e) {
-      setSubmitErr(e instanceof Error ? e.message : String(e));
-      return false;
-    } finally {
-      setSubmitting(false);
-    }
-  }, [currentItem, sessionId, verdicts, metricIds, refetchItems, refetchSession]);
+      setSubmitting(true);
+      setSubmitErr(null);
+      const noteForItem = (notes[currentItem.item_id] ?? '').trim();
+      try {
+        await annotationApi.postVerdict(sessionId, {
+          item_id: currentItem.item_id,
+          labels,
+          skipped_metrics: skipped,
+          note: noteForItem || null,
+        });
+        setSavedTick((t) => t + 1);
+        void refetchSession();
+        void refetchItems();
+        return true;
+      } catch (e) {
+        setSubmitErr(e instanceof Error ? e.message : String(e));
+        return false;
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [currentItem, sessionId, verdicts, metricIds, notes, refetchItems, refetchSession],
+  );
 
   const goNext = useCallback(async () => {
     const ok = await submitVerdict();
@@ -257,11 +385,44 @@ export default function AnnotateSession() {
       } else if (e.key === 'Escape') {
         e.preventDefault();
         navigate('/annotate');
+      } else if (k === '/') {
+        // "/" focuses the per-item note textarea so the user can type
+        // a quick rationale without reaching for the mouse.
+        e.preventDefault();
+        noteRef.current?.focus();
+      } else if (k === 's') {
+        // "s" marks every metric on this item as skip and advances.
+        // Useful for items the annotator wants to defer / can't judge.
+        // We build the skip-all map locally and pass it as an override
+        // so submitVerdict doesn't race React's commit cycle.
+        e.preventDefault();
+        const skipAll: Record<string, AnnotationLabel> = {};
+        for (const mid of metricIds) skipAll[mid] = 'skip';
+        setVerdicts((prev) => ({ ...prev, [currentItem.item_id]: skipAll }));
+        void (async () => {
+          const ok = await submitVerdict(skipAll);
+          if (ok && cursor < items.length - 1) {
+            setCursor((c) => Math.min(items.length - 1, c + 1));
+          }
+        })();
       }
     }
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [currentItem, metricIds, cycleMetric, acceptAllAi, goNext, undoToAi, goPrev, goNextNoSave, navigate]);
+  }, [
+    currentItem,
+    metricIds,
+    cycleMetric,
+    acceptAllAi,
+    goNext,
+    undoToAi,
+    goPrev,
+    goNextNoSave,
+    navigate,
+    submitVerdict,
+    cursor,
+    items.length,
+  ]);
 
   // beforeunload: warn if there are unsaved verdicts (cursor points to an
   // item whose UI state hasn't been submitted yet).
@@ -343,6 +504,27 @@ export default function AnnotateSession() {
               {progress.done}/{progress.total} ({progress.pct.toFixed(0)}%)
             </span>
           )}
+          {/* "Saved" pulse: keyed on savedTick so each successful POST
+              remounts the node and restarts the keyframe. Hidden until
+              the first save (savedTick > 0). */}
+          {savedTick > 0 && (
+            <span
+              key={savedTick}
+              style={{
+                fontFamily: E.fMono,
+                fontSize: 11,
+                color: E.pass,
+                background: E.passDim,
+                border: `1px solid ${E.pass}33`,
+                borderRadius: 4,
+                padding: '2px 7px',
+                animation: 'eSavedPop 1.4s ease-out forwards',
+                pointerEvents: 'none',
+              }}
+            >
+              ✓ Saved
+            </span>
+          )}
           <Btn
             kind="primary"
             size="sm"
@@ -355,6 +537,68 @@ export default function AnnotateSession() {
             Exit
           </Btn>
         </div>
+
+        {/* SCRUBBER STRIP - one dot per item, click to jump.
+            Color encodes state: ember = current, pass green = annotated,
+            hairline = todo. Caps at 60 dots; if more, we render a sliding
+            window around the cursor so the strip stays scannable. */}
+        {items.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 3,
+              marginBottom: 6,
+              flexWrap: 'wrap',
+            }}
+            aria-label="Item progress strip"
+          >
+            {(() => {
+              const MAX_DOTS = 60;
+              let start = 0;
+              let end = items.length;
+              if (items.length > MAX_DOTS) {
+                start = Math.max(0, cursor - Math.floor(MAX_DOTS / 2));
+                end = Math.min(items.length, start + MAX_DOTS);
+                start = Math.max(0, end - MAX_DOTS);
+              }
+              return items.slice(start, end).map((it, j) => {
+                const i = start + j;
+                const isCurrent = i === cursor;
+                const bg = isCurrent
+                  ? E.ember
+                  : it.annotated
+                    ? E.pass
+                    : E.hair2;
+                const border = isCurrent ? `2px solid ${E.ember}` : 'none';
+                return (
+                  <button
+                    key={it.item_id}
+                    type="button"
+                    onClick={() => setCursor(i)}
+                    title={`Item ${i + 1}${it.annotated ? ' · annotated' : ''}`}
+                    style={{
+                      width: isCurrent ? 12 : 8,
+                      height: isCurrent ? 12 : 8,
+                      borderRadius: 50,
+                      background: bg,
+                      border,
+                      padding: 0,
+                      cursor: 'pointer',
+                      transition: 'all 160ms',
+                      outline: 'none',
+                    }}
+                  />
+                );
+              });
+            })()}
+            {items.length > 60 && (
+              <span style={{ fontFamily: E.fMono, fontSize: 10, color: E.text3, marginLeft: 6 }}>
+                window {Math.max(1, cursor - 29)}-{Math.min(items.length, cursor + 30)} of {items.length}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* PROGRESS BAR */}
         <div
@@ -382,9 +626,17 @@ export default function AnnotateSession() {
           </Card>
         )}
 
-        {/* ITEM CARD */}
+        {/* ITEM CARD - keyed on cursor so each navigation triggers
+            the slide-in animation. Cheap retrigger via key swap. */}
         {currentItem ? (
-          <Card style={{ padding: 0, overflow: 'hidden' }}>
+          <Card
+            key={currentItem.item_id}
+            style={{
+              padding: 0,
+              overflow: 'hidden',
+              animation: 'eItemSlideIn 240ms ease-out',
+            }}
+          >
             <div
               style={{
                 padding: '14px 18px',
@@ -485,6 +737,7 @@ export default function AnnotateSession() {
                 const aiEntry = currentItem.ai_labels.find((a) => a.metric_id === mid);
                 const aiLabel = aiEntry?.label ?? null;
                 const matchesAi = aiLabel === userLabel && (aiLabel === 'pass' || aiLabel === 'fail');
+                const fk = flipKey[`${currentItem.item_id}:${mid}`] ?? 0;
                 return (
                   <div
                     key={mid}
@@ -521,8 +774,10 @@ export default function AnnotateSession() {
                       AI: {aiLabel ?? 'n/a'}
                     </Pill>
                     <button
+                      key={`${currentItem.item_id}:${mid}:${fk}`}
                       type="button"
                       onClick={() => cycleMetric(mid)}
+                      title={`Click or press ${idx + 1} to cycle (pass → fail → skip)`}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -537,6 +792,9 @@ export default function AnnotateSession() {
                         fontSize: 12,
                         fontWeight: 500,
                         cursor: 'pointer',
+                        // Animation only after the user has cycled at least
+                        // once - prevents a noisy flip cascade on item arrival.
+                        animation: fk > 0 ? 'eVerdictFlip 220ms ease-out' : undefined,
                       }}
                     >
                       {LABEL_GLYPH[userLabel]} {userLabel}
@@ -549,6 +807,60 @@ export default function AnnotateSession() {
               })}
             </div>
 
+            {/* NOTE - free-text rationale, optional. Persisted with the
+                next verdict POST. "/" focuses without breaking the
+                global hotkeys. */}
+            <div style={{ borderTop: `1px solid ${E.hair}`, padding: '12px 18px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginBottom: 6,
+                }}
+              >
+                <Eyebrow>Note (optional)</Eyebrow>
+                <span style={{ fontSize: 10, color: E.text3, fontFamily: E.fMono }}>
+                  press / to focus
+                </span>
+                <span style={{ flex: 1 }} />
+                {(notes[currentItem.item_id] ?? '').length > 0 && (
+                  <span style={{ fontSize: 10, color: E.text3, fontFamily: E.fMono }}>
+                    {(notes[currentItem.item_id] ?? '').length} chars
+                  </span>
+                )}
+              </div>
+              <textarea
+                ref={noteRef}
+                value={notes[currentItem.item_id] ?? ''}
+                onChange={(e) =>
+                  setNotes((prev) => ({ ...prev, [currentItem.item_id]: e.target.value }))
+                }
+                placeholder="Why this verdict? (saved with N)"
+                rows={2}
+                style={{
+                  width: '100%',
+                  resize: 'vertical',
+                  padding: '8px 10px',
+                  background: E.panel2,
+                  border: `1px solid ${E.hair}`,
+                  borderRadius: 6,
+                  fontFamily: E.fMono,
+                  fontSize: 12,
+                  color: E.text1,
+                  lineHeight: 1.5,
+                  outline: 'none',
+                  minHeight: 36,
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = E.ember;
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = E.hair;
+                }}
+              />
+            </div>
+
             {/* FOOTER */}
             <div
               style={{
@@ -556,22 +868,21 @@ export default function AnnotateSession() {
                 borderTop: `1px solid ${E.hair}`,
                 display: 'flex',
                 alignItems: 'center',
+                flexWrap: 'wrap',
                 gap: 8,
               }}
             >
               <Btn kind="secondary" size="sm" onClick={acceptAllAi}>
-                A · Accept all AI verdicts
+                A · Accept all AI
               </Btn>
               <Btn kind="secondary" size="sm" onClick={undoToAi}>
                 U · Undo
               </Btn>
-              <span style={{ flex: 1 }} />
+              <span style={{ flex: 1, minWidth: 8 }} />
               {submitErr && (
                 <span style={{ fontSize: 11, color: E.fail, fontFamily: E.fMono }}>{submitErr}</span>
               )}
-              <span style={{ fontSize: 11, color: E.text3, fontFamily: E.fMono }}>
-                ←/→ nav · 1-9 cycle metric · Esc exit
-              </span>
+              <KeyHints />
               <Btn kind="primary" size="sm" onClick={goNext} disabled={submitting}>
                 {submitting ? 'Saving...' : 'N · Save & next →'}
               </Btn>
