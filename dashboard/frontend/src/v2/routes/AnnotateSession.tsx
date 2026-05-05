@@ -1306,6 +1306,33 @@ export default function AnnotateSession() {
     [currentItem],
   );
 
+  // Inline edit state for an evidence note. Only one row can be in
+  // edit mode at a time; clicking a different note replaces this state.
+  const [editingEvidence, setEditingEvidence] = useState<{
+    idx: number;
+    value: string;
+  } | null>(null);
+  // When item changes, drop any pending edit (it would point at a
+  // different item's evidence index after the swap).
+  useEffect(() => {
+    setEditingEvidence(null);
+  }, [cursor]);
+
+  // Commit the in-flight edit to the evidence array.
+  const commitEvidenceNoteEdit = useCallback(() => {
+    if (!editingEvidence || !currentItem) return;
+    const { idx, value } = editingEvidence;
+    setEvidence((prev) => {
+      const cur = prev[currentItem.item_id] ?? [];
+      if (idx < 0 || idx >= cur.length) return prev;
+      const next = [...cur];
+      const trimmed = value.trim();
+      next[idx] = { ...next[idx], note: trimmed.length > 0 ? trimmed : null };
+      return { ...prev, [currentItem.item_id]: next };
+    });
+    setEditingEvidence(null);
+  }, [editingEvidence, currentItem]);
+
   // Per-item timing for the "Xs/item · ~Ymin left" header chip.
   // We capture wall-clock between successful saves into a 10-deep ring,
   // capping each delta at 5 minutes so an idle break doesn't poison
@@ -3300,14 +3327,6 @@ export default function AnnotateSession() {
                           {ev.metric_id ?? 'item'}
                         </Pill>
                         <div
-                          onClick={() => flashMarkInOutput(i)}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.color = E.ember;
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.color = E.text1;
-                          }}
-                          title="Click to locate this snippet in the output"
                           style={{
                             fontFamily: E.fMono,
                             fontSize: 12,
@@ -3316,22 +3335,105 @@ export default function AnnotateSession() {
                             wordBreak: 'break-word',
                             whiteSpace: 'pre-wrap',
                             lineHeight: 1.4,
-                            cursor: 'pointer',
-                            transition: 'color 160ms',
                           }}
                         >
-                          "{ev.snippet}"
-                          {ev.note && (
+                          {/* Snippet text - clicking this flashes the
+                              matching inline mark. The note edit area
+                              below has its own click handler that
+                              stops propagation. */}
+                          <span
+                            onClick={() => flashMarkInOutput(i)}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.color = E.ember;
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.color = E.text1;
+                            }}
+                            title="Click to locate this snippet in the output"
+                            style={{
+                              cursor: 'pointer',
+                              transition: 'color 160ms',
+                              color: E.text1,
+                            }}
+                          >
+                            "{ev.snippet}"
+                          </span>
+                          {/* Note editor: shown as italic text by default,
+                              becomes an input on click. Empty notes
+                              expose a "+ add note" affordance. */}
+                          {editingEvidence?.idx === i ? (
+                            <input
+                              autoFocus
+                              type="text"
+                              value={editingEvidence.value}
+                              onChange={(e) =>
+                                setEditingEvidence({ idx: i, value: e.target.value })
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  commitEvidenceNoteEdit();
+                                } else if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  setEditingEvidence(null);
+                                }
+                              }}
+                              onBlur={commitEvidenceNoteEdit}
+                              placeholder="Add a note (Enter to save, Esc to cancel)"
+                              style={{
+                                display: 'block',
+                                marginTop: 4,
+                                width: '100%',
+                                fontFamily: E.fMono,
+                                fontSize: 11,
+                                fontStyle: 'italic',
+                                color: E.text1,
+                                background: E.panel,
+                                border: `1px solid ${E.ember}`,
+                                borderRadius: 4,
+                                padding: '4px 6px',
+                                outline: 'none',
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : ev.note ? (
                             <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingEvidence({ idx: i, value: ev.note ?? '' });
+                              }}
+                              title="Click to edit this note"
                               style={{
                                 fontSize: 11,
                                 color: E.text2,
                                 marginTop: 2,
                                 fontStyle: 'italic',
+                                cursor: 'text',
                               }}
                             >
                               — {ev.note}
                             </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingEvidence({ idx: i, value: '' });
+                              }}
+                              style={{
+                                marginTop: 4,
+                                fontFamily: E.fMono,
+                                fontSize: 10,
+                                color: E.text3,
+                                background: 'transparent',
+                                border: 'none',
+                                padding: 0,
+                                cursor: 'pointer',
+                                fontStyle: 'italic',
+                              }}
+                            >
+                              + add note
+                            </button>
                           )}
                         </div>
                         <button
