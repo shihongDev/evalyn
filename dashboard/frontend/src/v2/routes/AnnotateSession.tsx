@@ -77,6 +77,7 @@ function renderWithHighlights(
   text: string,
   snippets: string[],
   onClick: (snippetIdx: number) => void,
+  flashSnippetIdx: number | null = null,
 ): React.ReactNode {
   if (!text || snippets.length === 0) return text;
   type Range = { start: number; end: number; snippetIdx: number };
@@ -109,6 +110,7 @@ function renderWithHighlights(
   let cur = 0;
   merged.forEach((r, i) => {
     if (cur < r.start) nodes.push(text.slice(cur, r.start));
+    const isFlashing = flashSnippetIdx === r.snippetIdx;
     nodes.push(
       <mark
         key={`m${i}`}
@@ -116,12 +118,16 @@ function renderWithHighlights(
         onClick={() => onClick(r.snippetIdx)}
         title="Saved evidence — click to locate in the list below"
         style={{
-          background: '#fff8c8',
+          background: isFlashing ? '#ffe89c' : '#fff8c8',
           color: 'inherit',
-          borderBottom: '2px solid #d96a2c',
+          borderBottom: `2px solid ${isFlashing ? '#b8501f' : '#d96a2c'}`,
           padding: '0 1px',
           borderRadius: 2,
           cursor: 'pointer',
+          // Brief attention pulse when the user clicked the matching
+          // evidence row in the list below; otherwise no animation.
+          animation: isFlashing ? 'eEvidenceFlash 1.2s ease-out' : undefined,
+          transition: 'background 200ms, border-color 200ms',
         }}
       >
         {text.slice(r.start, r.end)}
@@ -1046,6 +1052,10 @@ export default function AnnotateSession() {
   // clicks an inline highlight in the output pane; auto-clears after
   // the eItemSlideIn-style attention pulse runs.
   const [flashEvidenceIdx, setFlashEvidenceIdx] = useState<number | null>(null);
+  // Same idea but in reverse: snippet idx of the inline mark in the
+  // output pane to flash. Set when the user clicks an evidence row,
+  // so they can see WHERE in the output the snippet came from.
+  const [flashMarkIdx, setFlashMarkIdx] = useState<number | null>(null);
   // Ref array for evidence row elements so we can scrollIntoView
   // when an inline highlight is clicked.
   const evidenceRowRefs = useRef<Array<HTMLDivElement | null>>([]);
@@ -1056,6 +1066,32 @@ export default function AnnotateSession() {
     // Auto-clear so the same row can flash again on a second click.
     window.setTimeout(() => {
       setFlashEvidenceIdx((cur) => (cur === idx ? null : cur));
+    }, 1200);
+  }, []);
+
+  // Reverse direction: clicking an evidence row scrolls the matching
+  // inline mark into view + flashes it. Evidence selection works in
+  // any pane, so we search Output → Input → Expected for the mark
+  // (output is the most common source so check it first).
+  const flashMarkInOutput = useCallback((snippetIdx: number) => {
+    const candidates = [outputBodyRef, inputBodyRef, expectedBodyRef];
+    for (const ref of candidates) {
+      const root = ref.current;
+      if (!root) continue;
+      const mark = root.querySelector<HTMLElement>(
+        `mark[data-evidence-idx="${snippetIdx}"]`,
+      );
+      if (mark) {
+        mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        break;
+      }
+    }
+    // Always set the flash flag - matching marks across all panes
+    // will pick it up via the renderWithHighlights flashSnippetIdx
+    // arg, even if scroll didn't find a match.
+    setFlashMarkIdx(snippetIdx);
+    window.setTimeout(() => {
+      setFlashMarkIdx((cur) => (cur === snippetIdx ? null : cur));
     }, 1200);
   }, []);
   // Floating popover state when the user has selected text in the
@@ -2590,6 +2626,7 @@ export default function AnnotateSession() {
                     t,
                     (evidence[currentItem.item_id] ?? []).map((e) => e.snippet),
                     flashEvidenceRow,
+                    flashMarkIdx,
                   )
                 }
               />
@@ -2607,6 +2644,7 @@ export default function AnnotateSession() {
                       t,
                       (evidence[currentItem.item_id] ?? []).map((e) => e.snippet),
                       flashEvidenceRow,
+                      flashMarkIdx,
                     )
                   }
                 />
@@ -2656,6 +2694,7 @@ export default function AnnotateSession() {
                             t,
                             (evidence[currentItem.item_id] ?? []).map((e) => e.snippet),
                             flashEvidenceRow,
+                            flashMarkIdx,
                           )
                     }
                   />
@@ -2876,6 +2915,14 @@ export default function AnnotateSession() {
                           {ev.metric_id ?? 'item'}
                         </Pill>
                         <div
+                          onClick={() => flashMarkInOutput(i)}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = E.ember;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = E.text1;
+                          }}
+                          title="Click to locate this snippet in the output"
                           style={{
                             fontFamily: E.fMono,
                             fontSize: 12,
@@ -2884,6 +2931,8 @@ export default function AnnotateSession() {
                             wordBreak: 'break-word',
                             whiteSpace: 'pre-wrap',
                             lineHeight: 1.4,
+                            cursor: 'pointer',
+                            transition: 'color 160ms',
                           }}
                         >
                           "{ev.snippet}"
