@@ -397,6 +397,7 @@ function KeyHints() {
     ['U / ⌫', 'undo'],
     ['S', 'skip all + next'],
     ['B', 'bookmark item'],
+    ['D', 'next override'],
     ['/', 'focus note'],
     ['← / →', 'navigate'],
     ['Esc', 'exit'],
@@ -1224,6 +1225,30 @@ export default function AnnotateSession() {
         // "this is my decision". Visible in the scrubber + header count.
         e.preventDefault();
         toggleBookmark(currentItem.item_id);
+      } else if (k === 'd') {
+        // "d" jumps to the next item where the user disagreed with the
+        // AI's pass/fail. Wraps around from start if no match forward.
+        // No-op when there are zero disagreements anywhere - the
+        // header pill already tells the user that count is 0.
+        e.preventDefault();
+        const findOverride = (start: number, dir: 1 | -1): number => {
+          for (let i = start + dir; i >= 0 && i < items.length; i += dir) {
+            const it = items[i];
+            if (!it.annotated) continue;
+            const ai = aiVerdictMap(it);
+            if (
+              it.user_labels.some((ul) =>
+                isDisagreement(ul.label, ai.get(ul.metric_id) ?? null),
+              )
+            ) {
+              return i;
+            }
+          }
+          return -1;
+        };
+        let next = findOverride(cursor, 1);
+        if (next === -1) next = findOverride(-1, 1);
+        if (next >= 0 && next !== cursor) setCursor(next);
       } else if (k === 's') {
         // "s" marks every metric on this item as skip and advances.
         // Useful for items the annotator wants to defer / can't judge.
@@ -1256,6 +1281,7 @@ export default function AnnotateSession() {
     submitVerdict,
     cursor,
     items.length,
+    items,
     toggleBookmark,
   ]);
 
@@ -1280,6 +1306,39 @@ export default function AnnotateSession() {
   // Disagreement count across all annotated items - shows the user how
   // often they're overriding AI pre-labels. Helps catch calibration drift.
   const overridesCount = useMemo(() => countOverrides(items), [items]);
+
+  // Per-metric verdict distribution across annotated items. Lets the
+  // user notice their own pattern (e.g., "I'm marking 90% pass on
+  // factuality, am I being too lenient?"). Computed from server state.
+  const distribution = useMemo(() => {
+    const out: Record<string, { pass: number; fail: number; skip: number }> = {};
+    for (const mid of metricIds) out[mid] = { pass: 0, fail: 0, skip: 0 };
+    for (const it of items) {
+      if (!it.annotated) continue;
+      const skippedSet = new Set(it.skipped_metrics);
+      const labelMap = new Map<string, AnnotationLabel>();
+      for (const ul of it.user_labels) {
+        if (ul.metric_id) labelMap.set(ul.metric_id, ul.label);
+      }
+      for (const mid of metricIds) {
+        const bucket = out[mid];
+        if (!bucket) continue;
+        if (skippedSet.has(mid)) {
+          bucket.skip += 1;
+        } else if (labelMap.has(mid)) {
+          const lab = labelMap.get(mid)!;
+          if (lab === 'pass') bucket.pass += 1;
+          else if (lab === 'fail') bucket.fail += 1;
+          else bucket.skip += 1;
+        }
+      }
+    }
+    return out;
+  }, [items, metricIds]);
+
+  // Stats panel toggle. Default hidden so the surface stays calm; users
+  // open it on demand when they want to inspect their own pattern.
+  const [showStats, setShowStats] = useState(false);
 
   // True when every loaded item has been annotated. Drives the
   // celebratory all-done state below.
@@ -1391,6 +1450,14 @@ export default function AnnotateSession() {
               ★ {bookmarkCount}
             </Pill>
           )}
+          <Btn
+            kind="ghost"
+            size="sm"
+            onClick={() => setShowStats((v) => !v)}
+            title="Toggle the per-metric verdict distribution panel"
+          >
+            Stats {showStats ? '▴' : '▾'}
+          </Btn>
           {/* "Saved" pulse: rendered for 1.4s after each successful POST.
               `savedFlash` toggles mount/unmount; `savedTick` keys the node
               so consecutive saves retrigger the fade-in keyframe. */}
@@ -1491,6 +1558,135 @@ export default function AnnotateSession() {
             );
           })}
         </div>
+
+        {/* STATS PANEL - toggleable per-metric verdict distribution.
+            Hidden by default to keep the surface calm; toggled via the
+            Stats button in the header. Bars are stacked horizontal:
+            green = pass, red = fail, neutral = skip. Numbers on the
+            right show the raw counts. */}
+        {showStats && (
+          <Card
+            style={{
+              padding: 12,
+              marginBottom: 10,
+              animation: 'eItemSlideIn 200ms ease-out',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                marginBottom: 8,
+              }}
+            >
+              <Eyebrow>Verdict distribution</Eyebrow>
+              <span
+                style={{ fontSize: 10, color: E.text3, fontFamily: E.fMono }}
+              >
+                across your saved verdicts so far
+              </span>
+            </div>
+            {(() => {
+              const anyData = metricIds.some((mid) => {
+                const d = distribution[mid];
+                return d && d.pass + d.fail + d.skip > 0;
+              });
+              if (!anyData) {
+                return (
+                  <div style={{ fontSize: 12, color: E.text3 }}>
+                    No verdicts saved yet — start annotating to see distribution.
+                  </div>
+                );
+              }
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {metricIds.map((mid) => {
+                    const d = distribution[mid] ?? { pass: 0, fail: 0, skip: 0 };
+                    const total = d.pass + d.fail + d.skip;
+                    if (total === 0) return null;
+                    const pct = (n: number) => `${Math.round((n / total) * 100)}%`;
+                    return (
+                      <div
+                        key={mid}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '140px 1fr 130px',
+                          alignItems: 'center',
+                          gap: 10,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: E.fMono,
+                            fontSize: 12,
+                            color: E.text2,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                          title={mid}
+                        >
+                          {mid}
+                        </span>
+                        <div
+                          style={{
+                            display: 'flex',
+                            height: 12,
+                            borderRadius: 6,
+                            overflow: 'hidden',
+                            background: E.panel2,
+                          }}
+                          title={`${d.pass} pass · ${d.fail} fail · ${d.skip} skip`}
+                        >
+                          {d.pass > 0 && (
+                            <div
+                              style={{
+                                width: pct(d.pass),
+                                background: E.pass,
+                                transition: 'width 200ms',
+                              }}
+                            />
+                          )}
+                          {d.fail > 0 && (
+                            <div
+                              style={{
+                                width: pct(d.fail),
+                                background: E.fail,
+                                transition: 'width 200ms',
+                              }}
+                            />
+                          )}
+                          {d.skip > 0 && (
+                            <div
+                              style={{
+                                width: pct(d.skip),
+                                background: E.text3,
+                                transition: 'width 200ms',
+                              }}
+                            />
+                          )}
+                        </div>
+                        <span
+                          style={{
+                            fontFamily: E.fMono,
+                            fontSize: 11,
+                            color: E.text2,
+                            textAlign: 'right',
+                          }}
+                        >
+                          <span style={{ color: E.pass }}>{d.pass}✓</span>{' '}
+                          <span style={{ color: E.fail }}>{d.fail}✗</span>{' '}
+                          <span style={{ color: E.text3 }}>{d.skip}·</span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </Card>
+        )}
 
         {/* SCRUBBER STRIP - one dot per item, click to jump.
             Color encodes state: ember = current, pass green = annotated,
