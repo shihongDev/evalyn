@@ -1072,6 +1072,11 @@ export default function AnnotateSession() {
     setEvidencePopover(null);
   }, [cursor]);
 
+  // Track the index of the most-recently-added evidence row per item
+  // so we can play a brief slide-in animation on it. Auto-clears after
+  // the keyframe runs so a re-render doesn't replay the animation.
+  const [freshEvidenceIdx, setFreshEvidenceIdx] = useState<number | null>(null);
+
   // Add a piece of evidence to the current item. metricId === null
   // means "item-level evidence not tied to any specific metric".
   const addEvidence = useCallback(
@@ -1080,6 +1085,8 @@ export default function AnnotateSession() {
       setEvidence((prev) => {
         const cur = prev[currentItem.item_id] ?? [];
         const next: AnnotationEvidence = { snippet, metric_id: metricId, note };
+        // The new index is the current length (since we append).
+        setFreshEvidenceIdx(cur.length);
         return { ...prev, [currentItem.item_id]: [...cur, next] };
       });
       setEvidencePopover(null);
@@ -1087,6 +1094,21 @@ export default function AnnotateSession() {
     },
     [currentItem],
   );
+
+  // Clear the fresh-evidence marker after the slide-in animation has
+  // had time to run, so subsequent renders don't re-trigger it.
+  useEffect(() => {
+    if (freshEvidenceIdx === null) return;
+    const t = window.setTimeout(() => setFreshEvidenceIdx(null), 450);
+    return () => window.clearTimeout(t);
+  }, [freshEvidenceIdx]);
+
+  // When item changes, drop any stale freshEvidenceIdx from the
+  // previous item (would otherwise apply an animation to a different
+  // row at the same index in the new item's evidence list).
+  useEffect(() => {
+    setFreshEvidenceIdx(null);
+  }, [cursor]);
 
   // Remove an evidence entry by index for the current item.
   const removeEvidence = useCallback(
@@ -2630,7 +2652,20 @@ export default function AnnotateSession() {
                     </span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {list.map((ev, i) => (
+                    {list.map((ev, i) => {
+                      // Two animation triggers per row, one wins per render:
+                      //   - flashEvidenceIdx: user clicked an inline highlight
+                      //     in the output, ember pulse + ring (eEvidenceFlash)
+                      //   - freshEvidenceIdx: this row was JUST added, brief
+                      //     slide-in so user sees where it landed
+                      const isFlash = flashEvidenceIdx === i;
+                      const isFresh = freshEvidenceIdx === i;
+                      const animation = isFlash
+                        ? 'eEvidenceFlash 1.2s ease-out'
+                        : isFresh
+                          ? 'eItemSlideIn 280ms ease-out'
+                          : undefined;
+                      return (
                       <div
                         key={`${i}-${ev.snippet.slice(0, 12)}`}
                         ref={(el) => {
@@ -2641,11 +2676,11 @@ export default function AnnotateSession() {
                           alignItems: 'flex-start',
                           gap: 8,
                           padding: '6px 8px',
-                          background: flashEvidenceIdx === i ? '#fff0d5' : '#fff8eb',
-                          border: `1px solid ${flashEvidenceIdx === i ? E.ember : E.hair}`,
+                          background: isFlash ? '#fff0d5' : '#fff8eb',
+                          border: `1px solid ${isFlash ? E.ember : E.hair}`,
                           borderRadius: 6,
                           transition: 'background 240ms, border-color 240ms',
-                          animation: flashEvidenceIdx === i ? 'eEvidenceFlash 1.2s ease-out' : undefined,
+                          animation,
                         }}
                       >
                         <Pill
@@ -2699,7 +2734,8 @@ export default function AnnotateSession() {
                           ×
                         </button>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -2759,7 +2795,10 @@ export default function AnnotateSession() {
               />
             </div>
 
-            {/* FOOTER */}
+            {/* FOOTER - sticky-bottom so Save & Next stays visible
+                while the user scrolls through long output. Backdrop
+                blur + semi-opaque cream keeps the layering legible
+                over content scrolling underneath. */}
             <div
               style={{
                 padding: '14px 18px',
@@ -2768,6 +2807,12 @@ export default function AnnotateSession() {
                 alignItems: 'center',
                 flexWrap: 'wrap',
                 gap: 8,
+                position: 'sticky',
+                bottom: 0,
+                background: 'rgba(243, 238, 228, 0.92)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                zIndex: 5,
               }}
             >
               <Btn kind="secondary" size="sm" onClick={acceptAllAi}>

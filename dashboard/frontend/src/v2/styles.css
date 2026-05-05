@@ -35,6 +35,33 @@ a {
   color: inherit;
 }
 
+/* Keyboard accessibility: visible focus ring on interactive elements.
+ * :focus-visible only triggers on keyboard nav (not mouse click), so
+ * mouse users don't see jarring outlines on every click while keyboard
+ * users get a clear indicator of where focus is. Ember accent matches
+ * the rest of the design system.
+ *
+ * !important is needed because many components in the codebase set
+ * `outline: none` inline (to suppress the default focus ring on click);
+ * inline styles otherwise outweigh pseudo-class CSS. The override is
+ * scoped to :focus-visible so it only fires for keyboard users - mouse
+ * clicks still see the inline outline:none and behave as before. */
+button:focus-visible,
+[role='button']:focus-visible,
+[role='menuitem']:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 2px solid #d96a2c !important;
+  outline-offset: 2px !important;
+  border-radius: 4px;
+}
+
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #d96a2c !important;
+  outline-offset: 0 !important;
+}
+
 @keyframes eDotPulse {
   0%,
   100% {
