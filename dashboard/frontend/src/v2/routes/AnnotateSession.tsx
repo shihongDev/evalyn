@@ -943,6 +943,23 @@ export default function AnnotateSession() {
     [items, matchesVisible],
   );
 
+  // Position of the current cursor within the visible set. Helps the
+  // user track where they are inside a filter/search subset (e.g.,
+  // "3 of 12 matching todo" instead of just "Item 47 of 200").
+  // Returns null when no filter/search is active, or when cursor is
+  // on a non-matching item.
+  const positionInFilter = useMemo(() => {
+    const filterActive = filter !== 'all' || searchQuery !== '';
+    if (!filterActive || items.length === 0) return null;
+    if (cursor >= items.length) return null;
+    if (!matchesVisible(items[cursor])) return null;
+    let pos = 0;
+    for (let i = 0; i <= cursor; i++) {
+      if (matchesVisible(items[i])) pos += 1;
+    }
+    return pos;
+  }, [filter, searchQuery, cursor, items, matchesVisible]);
+
   // Counts per filter for the chip badges. Recomputed when items or
   // bookmarks change. Cheap (single pass).
   const filterCounts = useMemo(() => {
@@ -1775,16 +1792,23 @@ export default function AnnotateSession() {
           </Pill>
           <span style={{ flex: 1 }} />
           {progress && (
-            <span style={{ fontSize: 12, color: E.text2, fontFamily: E.fMono }}>
-              {progress.done}/{progress.total} ({progress.pct.toFixed(0)}%)
-            </span>
-          )}
-          {timing && progress && progress.done < progress.total && (
             <span
-              style={{ fontSize: 11, color: E.text3, fontFamily: E.fMono }}
-              title={`Rolling average across your last ${itemDurationsRef.current.length} item${itemDurationsRef.current.length === 1 ? '' : 's'}.`}
+              style={{ fontSize: 12, color: E.text2, fontFamily: E.fMono }}
+              title={
+                timing
+                  ? `Rolling average across your last ${itemDurationsRef.current.length} item${itemDurationsRef.current.length === 1 ? '' : 's'}.`
+                  : undefined
+              }
             >
-              ~{formatDuration(timing.avgSec)}/item · ~{formatDuration(timing.remainingSec)} left
+              {progress.done}/{progress.total} ({progress.pct.toFixed(0)}%)
+              {timing && progress.done < progress.total && (
+                <>
+                  <span style={{ color: E.text3, margin: '0 6px' }}>·</span>
+                  <span style={{ color: E.text3 }}>
+                    ~{formatDuration(timing.avgSec)}/item, {formatDuration(timing.remainingSec)} left
+                  </span>
+                </>
+              )}
             </span>
           )}
           {overridesCount > 0 && (
@@ -2553,6 +2577,11 @@ export default function AnnotateSession() {
               <StatusDot status={currentItem.annotated ? 'pass' : 'idle'} size={6} />
               <span style={{ fontSize: 12, color: E.text2, fontFamily: E.fMono }}>
                 Item {cursor + 1} of {items.length}
+                {positionInFilter !== null && visibleCount > 0 && (
+                  <span style={{ color: E.ember, marginLeft: 6 }}>
+                    · {positionInFilter} of {visibleCount} matching
+                  </span>
+                )}
               </span>
               <Pill mono color={E.text3} bg={E.panel3} style={{ fontSize: 10 }}>
                 {currentItem.item_id.slice(0, 12)}
