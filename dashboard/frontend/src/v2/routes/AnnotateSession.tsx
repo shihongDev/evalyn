@@ -36,6 +36,14 @@ const LABEL_CYCLE: Record<AnnotationLabel, AnnotationLabel> = {
   skip: 'pass',
 };
 
+/** Platform-aware modifier glyph for the cheat sheet. ⌘ on Mac, Ctrl
+ * elsewhere. Detected once at module load - we don't expect users to
+ * hot-swap operating systems mid-session. */
+const MOD_KEY_LABEL: string =
+  typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform)
+    ? '⌘'
+    : 'Ctrl';
+
 const LABEL_BG: Record<AnnotationLabel, string> = {
   pass: E.passDim,
   fail: E.failDim,
@@ -399,11 +407,12 @@ function KeyHints({ forceOpen = false }: { forceOpen?: boolean }) {
     ['1-9', 'cycle metric'],
     ['A', 'accept all AI'],
     ['N / ⏎', 'save + next'],
-    ['⌘/Ctrl S', 'save in place'],
+    [`${MOD_KEY_LABEL} S`, 'save in place'],
     ['U / ⌫', 'undo'],
     ['S', 'skip all + next'],
     ['B', 'bookmark item'],
     ['D', 'next override'],
+    ['T', 'next todo'],
     ['/', 'focus note'],
     ['?', 'toggle this sheet'],
     ['← / →', 'navigate'],
@@ -1367,6 +1376,20 @@ export default function AnnotateSession() {
         };
         let next = findOverride(cursor, 1);
         if (next === -1) next = findOverride(-1, 1);
+        if (next >= 0 && next !== cursor) setCursor(next);
+      } else if (k === 't') {
+        // "t" jumps to the next un-annotated (todo) item. Mirrors D
+        // for the parallel "show me what's left" navigation pattern.
+        // Wraps around. No-op when nothing is left to do.
+        e.preventDefault();
+        const findTodo = (start: number, dir: 1 | -1): number => {
+          for (let i = start + dir; i >= 0 && i < items.length; i += dir) {
+            if (!items[i].annotated) return i;
+          }
+          return -1;
+        };
+        let next = findTodo(cursor, 1);
+        if (next === -1) next = findTodo(-1, 1);
         if (next >= 0 && next !== cursor) setCursor(next);
       } else if (k === 's') {
         // "s" marks every metric on this item as skip and advances.
