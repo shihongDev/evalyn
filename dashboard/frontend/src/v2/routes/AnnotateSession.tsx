@@ -14,13 +14,14 @@
  * The first un-annotated item becomes the cursor.
  */
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, StatusDot } from '../ui';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { annotationApi } from '../api/annotation';
 import type {
+  AnnotationEvidence,
   AnnotationItemRow,
   AnnotationItemsResponse,
   AnnotationLabel,
@@ -65,27 +66,56 @@ const PREVIEW_CHAR_CAP = 8000;
  * the layout stays compact; expanded the cap is removed and the pane
  * grows to fit. State resets on item nav (parent Card keys on item_id).
  */
-function Pane({
+const Pane = function Pane({
   label,
   text,
   collapsedMaxH,
   emphasized,
   muted,
+  bodyRef,
 }: {
   label: string;
   text: string;
   collapsedMaxH: number;
   emphasized?: boolean; // output pane gets the contrast bg
   muted?: boolean; // expected pane uses softer text color
+  /** Optional ref forwarded to the content div - lets the parent
+   * attach selection listeners without duplicating Pane's layout. */
+  bodyRef?: (el: HTMLDivElement | null) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  // True when the rendered content actually overflows the collapsed
+  // maxHeight, measured from the DOM. Without this the Expand button
+  // would appear even on short content (clicks would do nothing visible).
+  const [overflowing, setOverflowing] = useState(false);
+  const innerRef = useRef<HTMLDivElement | null>(null);
+
   const length = text.length;
-  // We can't see the original full length, but content that lands at
-  // exactly the backend cap is overwhelmingly likely to be truncated.
+  // Content at exactly the backend cap is almost certainly truncated.
   const probablyTruncated = length >= PREVIEW_CHAR_CAP;
-  // Stretch the collapsed pane on bigger content so empty-ish items
-  // don't get awkwardly tall. Cap at the supplied collapsedMaxH.
   const naturalCap = expanded ? undefined : collapsedMaxH;
+
+  // Measure overflow each time the text changes. ResizeObserver also
+  // catches the case where layout reflows after fonts load.
+  useLayoutEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+    const measure = () => {
+      // scrollHeight excludes maxHeight clipping; clientHeight reflects
+      // the visible box. > means there's content the user can't see.
+      setOverflowing(el.scrollHeight > el.clientHeight + 1);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [text, collapsedMaxH]);
+
+  // The Expand toggle is only meaningful when (a) we're collapsed and
+  // there's hidden content, OR (b) we're already expanded (so the user
+  // can re-collapse). Otherwise we hide it entirely.
+  const showToggle = overflowing || expanded;
+
   return (
     <div>
       <div
@@ -100,28 +130,34 @@ function Pane({
         <span style={{ fontSize: 10, color: E.text3, fontFamily: E.fMono }}>
           {length.toLocaleString()} chars
           {probablyTruncated && (
-            <span style={{ color: E.ember, marginLeft: 4 }}>(truncated)</span>
+            <span style={{ color: E.ember, marginLeft: 4 }}>(truncated by server)</span>
           )}
         </span>
         <span style={{ flex: 1 }} />
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          style={{
-            fontFamily: E.fMono,
-            fontSize: 10,
-            color: E.text2,
-            background: 'transparent',
-            border: `1px solid ${E.hair}`,
-            borderRadius: 4,
-            padding: '2px 8px',
-            cursor: 'pointer',
-          }}
-        >
-          {expanded ? 'Collapse' : 'Expand'}
-        </button>
+        {showToggle && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            style={{
+              fontFamily: E.fMono,
+              fontSize: 10,
+              color: E.text2,
+              background: 'transparent',
+              border: `1px solid ${E.hair}`,
+              borderRadius: 4,
+              padding: '2px 8px',
+              cursor: 'pointer',
+            }}
+          >
+            {expanded ? 'Collapse' : 'Show all'}
+          </button>
+        )}
       </div>
       <div
+        ref={(el) => {
+          innerRef.current = el;
+          if (bodyRef) bodyRef(el);
+        }}
         style={{
           padding: 10,
           background: emphasized ? E.panel : E.panel2,
@@ -140,7 +176,7 @@ function Pane({
       </div>
     </div>
   );
-}
+};
 
 /**
  * Compact, scannable keyboard cheat chip rendered in the footer.
@@ -259,6 +295,7 @@ function draftKey(sessionId: string): string {
 interface DraftBlob {
   verdicts: Record<string, Record<string, AnnotationLabel>>;
   notes: Record<string, string>;
+  evidence: Record<string, AnnotationEvidence[]>;
   savedAt: number;
 }
 
@@ -377,6 +414,19 @@ export default function AnnotateSession() {
       }
       return changed ? next : prev;
     });
+    // Same pattern for evidence: only seed unseen item ids so local
+    // edits in this tab take precedence over the server snapshot.
+    setEvidence((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const it of items) {
+        if (next[it.item_id] === undefined && it.evidence && it.evidence.length > 0) {
+          next[it.item_id] = it.evidence;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
   }, [items]);
 
   // Per-item local verdict state (keyed by item_id). Hydrated lazily from
@@ -406,6 +456,13 @@ export default function AnnotateSession() {
     if (!sessionId) return {};
     return readDraft(sessionId)?.notes ?? {};
   });
+  // Per-item evidence snippets - text the user highlighted in the
+  // output pane, optionally tagged with a metric. Hydrated from draft
+  // and seeded from server records when present (similar to notes).
+  const [evidence, setEvidence] = useState<Record<string, AnnotationEvidence[]>>(() => {
+    if (!sessionId) return {};
+    return readDraft(sessionId)?.evidence ?? {};
+  });
   // Per-item flip animation key: bump when a metric cycles so the pill
   // gets a fresh CSS animation. Stored as a counter rather than a flag
   // so consecutive cycles each trigger.
@@ -424,13 +481,13 @@ export default function AnnotateSession() {
     return () => clearTimeout(t);
   }, [savedTick]);
 
-  // Persist verdicts + notes to localStorage on every change. We keep
-  // it simple - every change writes synchronously. For typical session
-  // sizes (<300 items) the JSON cost is negligible.
+  // Persist verdicts + notes + evidence to localStorage on every change.
+  // We keep it simple - every change writes synchronously. For typical
+  // session sizes (<300 items) the JSON cost is negligible.
   useEffect(() => {
     if (!sessionId) return;
-    writeDraft(sessionId, { verdicts, notes });
-  }, [sessionId, verdicts, notes]);
+    writeDraft(sessionId, { verdicts, notes, evidence });
+  }, [sessionId, verdicts, notes, evidence]);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitErr, setSubmitErr] = useState<string | null>(null);
@@ -440,6 +497,92 @@ export default function AnnotateSession() {
   // Refs for the optional note textarea so "/" can focus it without
   // tripping the global keyboard handler.
   const noteRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Output pane element ref - so the selection listener can decide
+  // whether the user's selection is inside the output (eligible for
+  // "mark as evidence") vs in some other text on the page.
+  const outputBodyRef = useRef<HTMLDivElement | null>(null);
+  // Floating popover state when the user has selected text in the
+  // output pane. null = no popover. The snippet is captured at
+  // selection time so it survives the user clicking the popover
+  // (which would normally collapse the selection).
+  const [evidencePopover, setEvidencePopover] = useState<{
+    snippet: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  // Listen for mouseup anywhere; if a non-empty selection lives inside
+  // the output pane, show the popover near the selection's bottom edge.
+  // Listener is per-component-mount so it's torn down on unmount.
+  useEffect(() => {
+    function onMouseUp() {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) {
+        setEvidencePopover(null);
+        return;
+      }
+      const text = sel.toString();
+      if (!text || text.trim().length === 0) {
+        setEvidencePopover(null);
+        return;
+      }
+      // Selection must be inside the output pane to count as evidence.
+      const anchor = sel.anchorNode;
+      const focus = sel.focusNode;
+      const out = outputBodyRef.current;
+      if (!out || !anchor || !focus) return;
+      if (!out.contains(anchor) || !out.contains(focus)) {
+        setEvidencePopover(null);
+        return;
+      }
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      // Position the popover horizontally centered under the selection,
+      // capped within the viewport so it doesn't clip off-screen.
+      const x = Math.max(160, Math.min(window.innerWidth - 160, rect.left + rect.width / 2));
+      const y = rect.bottom + 8;
+      // Cap snippet length client-side so we don't ship megabytes.
+      const snippet = text.length > 2000 ? text.slice(0, 2000) : text;
+      setEvidencePopover({ snippet, x, y });
+    }
+    document.addEventListener('mouseup', onMouseUp);
+    return () => document.removeEventListener('mouseup', onMouseUp);
+  }, []);
+
+  // Reset the popover when navigating items - selection is per-item.
+  useEffect(() => {
+    setEvidencePopover(null);
+  }, [cursor]);
+
+  // Add a piece of evidence to the current item. metricId === null
+  // means "item-level evidence not tied to any specific metric".
+  const addEvidence = useCallback(
+    (snippet: string, metricId: string | null, note: string | null) => {
+      if (!currentItem) return;
+      setEvidence((prev) => {
+        const cur = prev[currentItem.item_id] ?? [];
+        const next: AnnotationEvidence = { snippet, metric_id: metricId, note };
+        return { ...prev, [currentItem.item_id]: [...cur, next] };
+      });
+      setEvidencePopover(null);
+      window.getSelection()?.removeAllRanges();
+    },
+    [currentItem],
+  );
+
+  // Remove an evidence entry by index for the current item.
+  const removeEvidence = useCallback(
+    (idx: number) => {
+      if (!currentItem) return;
+      setEvidence((prev) => {
+        const cur = prev[currentItem.item_id] ?? [];
+        const next = cur.slice(0, idx).concat(cur.slice(idx + 1));
+        return { ...prev, [currentItem.item_id]: next };
+      });
+    },
+    [currentItem],
+  );
 
   // Per-item timing for the "Xs/item · ~Ymin left" header chip.
   // We capture wall-clock between successful saves into a 10-deep ring,
@@ -518,12 +661,14 @@ export default function AnnotateSession() {
       setSubmitting(true);
       setSubmitErr(null);
       const noteForItem = (notes[currentItem.item_id] ?? '').trim();
+      const evidenceForItem = evidence[currentItem.item_id] ?? [];
       try {
         await annotationApi.postVerdict(sessionId, {
           item_id: currentItem.item_id,
           labels,
           skipped_metrics: skipped,
           note: noteForItem || null,
+          evidence: evidenceForItem,
         });
         setSavedTick((t) => t + 1);
         // Capture per-item wall-clock for the avg/ETA header chip.
@@ -546,7 +691,7 @@ export default function AnnotateSession() {
         setSubmitting(false);
       }
     },
-    [currentItem, sessionId, verdicts, metricIds, notes, refetchItems, refetchSession],
+    [currentItem, sessionId, verdicts, metricIds, notes, evidence, refetchItems, refetchSession],
   );
 
   const goNext = useCallback(async () => {
@@ -992,6 +1137,9 @@ export default function AnnotateSession() {
                   text={currentItem.output_preview}
                   collapsedMaxH={420}
                   emphasized
+                  bodyRef={(el) => {
+                    outputBodyRef.current = el;
+                  }}
                 />
               )}
             </div>
@@ -1091,6 +1239,106 @@ export default function AnnotateSession() {
               })}
             </div>
 
+            {/* EVIDENCE - text the user highlighted from the output as
+                justification. Each entry can be metric-tagged (or item-
+                level when metric_id is null). Click X to remove.
+                Hidden entirely when there's no evidence yet to keep the
+                surface uncluttered for users who don't use this feature. */}
+            {(() => {
+              const list = evidence[currentItem.item_id] ?? [];
+              if (list.length === 0) return null;
+              return (
+                <div
+                  style={{
+                    borderTop: `1px solid ${E.hair}`,
+                    padding: '12px 18px',
+                    background: '#faf6ec',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      marginBottom: 8,
+                    }}
+                  >
+                    <Eyebrow>Evidence</Eyebrow>
+                    <span style={{ fontSize: 10, color: E.text3, fontFamily: E.fMono }}>
+                      {list.length} snippet{list.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {list.map((ev, i) => (
+                      <div
+                        key={`${i}-${ev.snippet.slice(0, 12)}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: 8,
+                          padding: '6px 8px',
+                          background: '#fff8eb',
+                          border: `1px solid ${E.hair}`,
+                          borderRadius: 6,
+                        }}
+                      >
+                        <Pill
+                          mono
+                          color={ev.metric_id ? E.ember : E.text3}
+                          bg={ev.metric_id ? '#fcefe2' : E.panel3}
+                          style={{ fontSize: 10, flexShrink: 0 }}
+                        >
+                          {ev.metric_id ?? 'item'}
+                        </Pill>
+                        <div
+                          style={{
+                            fontFamily: E.fMono,
+                            fontSize: 12,
+                            color: E.text1,
+                            flex: 1,
+                            wordBreak: 'break-word',
+                            whiteSpace: 'pre-wrap',
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          "{ev.snippet}"
+                          {ev.note && (
+                            <div
+                              style={{
+                                fontSize: 11,
+                                color: E.text2,
+                                marginTop: 2,
+                                fontStyle: 'italic',
+                              }}
+                            >
+                              — {ev.note}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeEvidence(i)}
+                          title="Remove this evidence"
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: E.text3,
+                            cursor: 'pointer',
+                            fontFamily: E.fMono,
+                            fontSize: 14,
+                            padding: '0 4px',
+                            lineHeight: 1,
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* NOTE - free-text rationale, optional. Persisted with the
                 next verdict POST. "/" focuses without breaking the
                 global hotkeys. */}
@@ -1180,6 +1428,178 @@ export default function AnnotateSession() {
           </Card>
         )}
       </div>
+
+      {/* FLOATING EVIDENCE POPOVER - appears anchored to a text selection
+          inside the Output pane. Lets the user attach the snippet to a
+          specific metric (or item-level) before saving. Position is
+          fixed to viewport so it survives page scroll between selection
+          and click. */}
+      {evidencePopover && currentItem && (
+        <EvidencePopover
+          snippet={evidencePopover.snippet}
+          x={evidencePopover.x}
+          y={evidencePopover.y}
+          metricIds={metricIds}
+          onSave={(metricId, note) =>
+            addEvidence(evidencePopover.snippet, metricId, note)
+          }
+          onCancel={() => setEvidencePopover(null)}
+        />
+      )}
     </AppShell>
+  );
+}
+
+/**
+ * Floating popover for "mark this selection as evidence". Renders fixed
+ * to viewport coordinates so it tracks the selection without needing
+ * to know about page scroll. Closed by Save, Cancel, or Esc.
+ */
+function EvidencePopover({
+  snippet,
+  x,
+  y,
+  metricIds,
+  onSave,
+  onCancel,
+}: {
+  snippet: string;
+  x: number;
+  y: number;
+  metricIds: string[];
+  onSave: (metricId: string | null, note: string | null) => void;
+  onCancel: () => void;
+}) {
+  // Default to "item-level" (no metric) - prompts the user to pick.
+  const [metricId, setMetricId] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+
+  // Close on Esc. Capture-phase so it beats the global keyboard handler.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        onCancel();
+      }
+    }
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [onCancel]);
+
+  return (
+    <div
+      role="dialog"
+      aria-label="Mark as evidence"
+      // Stop propagation so the global mouseup-selection listener
+      // doesn't react to clicks inside the popover. Without these,
+      // clicking the metric dropdown or note input would shift the
+      // browser selection and immediately close the popover.
+      onMouseDown={(e) => e.stopPropagation()}
+      onMouseUp={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        position: 'fixed',
+        left: x,
+        top: y,
+        transform: 'translateX(-50%)',
+        zIndex: 100,
+        background: '#fbf7ee',
+        border: `1px solid ${E.hair2}`,
+        borderRadius: 8,
+        boxShadow: '0 8px 24px rgba(20,18,14,0.16)',
+        padding: 12,
+        minWidth: 280,
+        maxWidth: 360,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+      }}
+    >
+      <div
+        style={{
+          fontFamily: E.fMono,
+          fontSize: 11,
+          color: E.text2,
+          background: E.panel2,
+          border: `1px solid ${E.hair}`,
+          borderRadius: 4,
+          padding: '6px 8px',
+          maxHeight: 80,
+          overflow: 'auto',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+        }}
+      >
+        "{snippet.length > 240 ? `${snippet.slice(0, 240)}…` : snippet}"
+      </div>
+      <label
+        style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: E.text2 }}
+      >
+        <span style={{ fontFamily: E.fMono }}>For metric:</span>
+        <select
+          value={metricId ?? ''}
+          onChange={(e) => setMetricId(e.target.value || null)}
+          style={{
+            flex: 1,
+            fontFamily: E.fMono,
+            fontSize: 12,
+            padding: '4px 6px',
+            background: E.panel,
+            border: `1px solid ${E.hair}`,
+            borderRadius: 4,
+            color: E.text1,
+          }}
+        >
+          <option value="">(item-level)</option>
+          {metricIds.map((mid) => (
+            <option key={mid} value={mid}>
+              {mid}
+            </option>
+          ))}
+        </select>
+      </label>
+      <input
+        type="text"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Optional note (why?)"
+        style={{
+          fontFamily: E.fMono,
+          fontSize: 12,
+          padding: '6px 8px',
+          background: E.panel,
+          border: `1px solid ${E.hair}`,
+          borderRadius: 4,
+          color: E.text1,
+          outline: 'none',
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.borderColor = E.ember;
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.borderColor = E.hair;
+        }}
+        // Submit on Enter; Esc handled at document level.
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            onSave(metricId, note.trim() || null);
+          }
+        }}
+      />
+      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+        <Btn kind="ghost" size="sm" onClick={onCancel}>
+          Cancel
+        </Btn>
+        <Btn
+          kind="primary"
+          size="sm"
+          onClick={() => onSave(metricId, note.trim() || null)}
+        >
+          Add evidence
+        </Btn>
+      </div>
+    </div>
   );
 }

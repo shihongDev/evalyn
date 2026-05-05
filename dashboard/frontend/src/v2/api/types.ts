@@ -396,6 +396,14 @@ export interface AnnotationLabelEntry {
   note?: string;
 }
 
+/** Evidence snippet attached to a verdict. metric_id is optional - users
+ * can highlight item-level evidence not tied to any specific metric. */
+export interface AnnotationEvidence {
+  snippet: string;
+  metric_id?: string | null;
+  note?: string | null;
+}
+
 export interface AnnotationItemRow {
   item_id: string;
   input_preview: string;
@@ -406,6 +414,7 @@ export interface AnnotationItemRow {
   annotated: boolean;
   skipped_metrics: string[];
   note: string | null;
+  evidence: AnnotationEvidence[];
 }
 
 export interface AnnotationItemsResponse {
@@ -429,6 +438,7 @@ export interface AnnotationVerdictPayload {
   labels: AnnotationLabelEntry[];
   skipped_metrics?: string[];
   note?: string | null;
+  evidence?: AnnotationEvidence[];
 }
 
 export interface AnnotationVerdictResponse {

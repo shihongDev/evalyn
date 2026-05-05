@@ -66,6 +66,14 @@ _TERMINAL_STATUSES = {"completed", "abandoned"}
 # At limit=200 this is ~2MB / page worst case, which is fine on localhost.
 _PREVIEW_CHAR_CAP = 8000
 
+# Bounds on per-item evidence (text snippets the annotator highlighted
+# from the output as justification for their verdict). These caps exist
+# to keep the per-item record bounded; they are well above any realistic
+# annotation use - if a user hits them we'd want to know why.
+_MAX_EVIDENCE_PER_ITEM = 50
+_MAX_EVIDENCE_SNIPPET_CHARS = 2000
+_MAX_EVIDENCE_NOTE_CHARS = 1000
+
 
 # ---------------------------------------------------------------------------
 # Path helpers
@@ -536,6 +544,9 @@ async def get_session_items(
                 "annotated": record is not None,
                 "skipped_metrics": (record or {}).get("skipped_metrics") or [],
                 "note": (record or {}).get("note"),
+                # Saved evidence snippets - returned so the UI can rehydrate
+                # the highlight list when the user revisits an item.
+                "evidence": (record or {}).get("evidence") or [],
             }
         )
     return JSONResponse(
@@ -548,6 +559,33 @@ async def get_session_items(
             "items": rows,
         }
     )
+
+
+def _validate_evidence_record(rec: dict, allowed_metrics: set[str]) -> str | None:
+    """Return None if rec is a valid evidence entry, else a reason string.
+
+    Shape: ``{"snippet": str, "metric_id"?: str, "note"?: str}``. A snippet
+    is mandatory; metric_id is optional (item-level evidence is allowed
+    when the user highlights something not tied to any specific metric).
+    """
+    if not isinstance(rec, dict):
+        return "evidence entry must be an object"
+    snippet = rec.get("snippet")
+    if not isinstance(snippet, str) or not snippet.strip():
+        return "evidence.snippet must be a non-empty string"
+    if len(snippet) > _MAX_EVIDENCE_SNIPPET_CHARS:
+        return f"evidence.snippet must be <= {_MAX_EVIDENCE_SNIPPET_CHARS} chars"
+    mid = rec.get("metric_id")
+    if mid is not None:
+        if not isinstance(mid, str) or mid not in allowed_metrics:
+            return f"evidence.metric_id must be null or one of {sorted(allowed_metrics)}"
+    note = rec.get("note")
+    if note is not None:
+        if not isinstance(note, str):
+            return "evidence.note must be a string or null"
+        if len(note) > _MAX_EVIDENCE_NOTE_CHARS:
+            return f"evidence.note must be <= {_MAX_EVIDENCE_NOTE_CHARS} chars"
+    return None
 
 
 def _validate_label_record(rec: dict, allowed_metrics: set[str]) -> str | None:
@@ -624,11 +662,25 @@ async def post_verdict(session_id: str, request: Request) -> JSONResponse:
     if note is not None and not isinstance(note, str):
         raise HTTPException(status_code=422, detail="note must be a string")
 
+    evidence = body.get("evidence") or []
+    if not isinstance(evidence, list):
+        raise HTTPException(status_code=422, detail="evidence must be a list")
+    if len(evidence) > _MAX_EVIDENCE_PER_ITEM:
+        raise HTTPException(
+            status_code=422,
+            detail=f"evidence must be <= {_MAX_EVIDENCE_PER_ITEM} entries",
+        )
+    for entry in evidence:
+        err = _validate_evidence_record(entry, allowed_metrics)
+        if err is not None:
+            raise HTTPException(status_code=422, detail=err)
+
     record = {
         "item_id": item_id,
         "labels": labels,
         "skipped_metrics": skipped_metrics,
         "note": note,
+        "evidence": evidence,
         "annotator_id": meta.get("annotator_id"),
         "session_id": session_id,
         "ts_iso": _now_iso(),
