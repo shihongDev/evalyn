@@ -1993,26 +1993,52 @@ export default function AnnotateSession() {
             </span>
           )}
           {overridesCount > 0 && (
-            <Pill
-              mono
-              color={E.ember}
-              bg="#fcefe2"
-              style={{ fontSize: 10 }}
-              title={`You overrode the AI's pass/fail on ${overridesCount} verdict${overridesCount === 1 ? '' : 's'}.`}
+            <button
+              type="button"
+              onClick={() => setFilter((f) => (f === 'overrides' ? 'all' : 'overrides'))}
+              title={
+                filter === 'overrides'
+                  ? `Click to clear the overrides filter`
+                  : `Click to filter to your ${overridesCount} override${overridesCount === 1 ? '' : 's'}`
+              }
+              style={{
+                fontFamily: E.fMono,
+                fontSize: 10,
+                color: E.ember,
+                background: filter === 'overrides' ? E.ember + '22' : '#fcefe2',
+                border: `1px solid ${filter === 'overrides' ? E.ember : E.ember + '33'}`,
+                borderRadius: 999,
+                padding: '2px 8px',
+                cursor: 'pointer',
+                transition: 'all 160ms',
+              }}
             >
               {overridesCount} override{overridesCount === 1 ? '' : 's'}
-            </Pill>
+            </button>
           )}
           {bookmarkCount > 0 && (
-            <Pill
-              mono
-              color={E.ember}
-              bg="#fcefe2"
-              style={{ fontSize: 10 }}
-              title={`${bookmarkCount} item${bookmarkCount === 1 ? '' : 's'} bookmarked for revisit.`}
+            <button
+              type="button"
+              onClick={() => setFilter((f) => (f === 'bookmarked' ? 'all' : 'bookmarked'))}
+              title={
+                filter === 'bookmarked'
+                  ? `Click to clear the bookmarks filter`
+                  : `Click to filter to your ${bookmarkCount} bookmarked item${bookmarkCount === 1 ? '' : 's'}`
+              }
+              style={{
+                fontFamily: E.fMono,
+                fontSize: 10,
+                color: E.ember,
+                background: filter === 'bookmarked' ? E.ember + '22' : '#fcefe2',
+                border: `1px solid ${filter === 'bookmarked' ? E.ember : E.ember + '33'}`,
+                borderRadius: 999,
+                padding: '2px 8px',
+                cursor: 'pointer',
+                transition: 'all 160ms',
+              }}
             >
               ★ {bookmarkCount}
-            </Pill>
+            </button>
           )}
           <Btn
             kind="ghost"
