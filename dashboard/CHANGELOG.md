@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`subscribeJob` reconnect-with-cursor.** `dashboard/frontend/src/v2/api/jobs.ts::subscribeJob` now accepts an optional `{ since }` option and forwards it as `?since=N` on the `/ws/jobs/{id}` URL; the backend's existing `since` support means a reconnecting client can skip events with `event_id <= since`. `JobLine` gained an optional `event_id` field carrying the server-assigned monotonic id, so callers can track the high-water mark and pass it back on reconnect to avoid re-receiving already-displayed lines. Additive: no behavior change for current callers.
+- **KNOWN_ISSUES.md #2 marked OBSOLETE.** The "WS reconnect close handler shares mutable conn ref" issue described `store.ts:329, 389` and the `unsubscribeJob` helper, both deleted in the v2 dashboard rewrite. The current shared WS in `v2/api/v2ws.ts` already implements the recommended `_ws === ws` close-handler guard. Cleaned up the entry so future maintainers do not chase a non-existent bug.
+
 ### Fixed
 
 - **Subscriber race in `AgentRuntime.subscribe()`** (KNOWN_ISSUES.md #3). Same pattern as the JobManager fix below: `_AgentEventStream` gained a replay phase with `_live_buffer`, `_replay_put`, `_begin_replay`, `_end_replay`. `AgentRuntime.subscribe` now registers the stream BEFORE replay, snapshots `_next_event_id`, replays via `_replay_put` (bypasses the buffer), and flushes concurrent `_emit` events at the end. Confirmation_required events emitted during the previous registration gap are no longer dropped; the chat UI cannot get stuck waiting for them.
@@ -35,7 +40,7 @@ Initial release. Localhost IDE for evalyn evaluations, distributed as a separate
 - **Subprocess streaming** - `JobManager` spawns each CLI as `["evalyn", <cmd>, ...]` via `asyncio.create_subprocess_exec`. Per-line stdout/stderr capture, fanout subscribe for multiple WebSocket viewers, backpressure with truncation marker, SIGTERM + 3s grace + SIGKILL on cancel, 60min default timeout, last 100 jobs retained in memory.
 - **Terminal panel** - inline ~1KB ANSI parser, auto-scroll, one terminal view per job tab.
 - **Jobs panel** - live state of running and recent jobs, click-to-open, per-row cancel.
-- **AI chat agent** - dock-right `ChatPanel` with full agentic loop: text streaming, tool-call cards, confirmation cards (approve/reject), final-suggestion cards (clickable into pre-filled CLI form). Per-turn budget of 8 tool calls. Optional cost budget via `--agent-budget`.
+- **AI chat agent** - dock-right `ChatPanel` with full agentic loop: text streaming, tool-call cards, confirmation cards (approve/reject), final-suggestion cards (clickable into pre-filled CLI form). Per-turn budget of 8 tool calls.
 - **Multi-provider support** - `OpenAIProvider`, `AnthropicProvider`, `OllamaProvider` behind a shared `BaseProvider` interface. Provider-native tool-call streaming.
 - **Credentials store** - `~/.evalyn/credentials.json` with atomic write and `chmod 600`. API never returns plaintext keys to the frontend. Per-provider `test` endpoint makes a 1-token completion call.
 - **Settings UI** - `SettingsModal` with API-key input (password type), test button, model dropdown, active-provider radio.

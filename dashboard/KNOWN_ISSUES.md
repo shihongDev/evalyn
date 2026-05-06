@@ -10,9 +10,7 @@ RESOLVED 2026-05-06 (fix/jobs-subscribe-race). `_EventStream` gained a replay ph
 
 ### 2. WS reconnect close handler shares mutable conn ref (store.ts:329, 389)
 
-The close handler captures `conn` in its closure but `conn` is the same object mutated by subsequent `open()` calls. If `open()` is called recursively via the retry timer while the old connection's close event fires, both closures share the same `conn` reference. Edge case: retry never fires if `conn.closed` is set by `unsubscribeJob` between timer-set and timer-fire.
-
-**Fix sketch:** Capture `conn` snapshot per close-handler invocation (immutable record), and use a unique generation counter per reconnect attempt to ignore stale close events.
+OBSOLETE 2026-05-06 (reliability/jobs-since-cursor). The workbench-era `store.ts` and `unsubscribeJob` helper that this entry referenced were deleted during the v2 dashboard rewrite. The current shared WS subscriber lives in `dashboard/frontend/src/v2/api/v2ws.ts` and already implements the recommended pattern: each close handler captures the local `ws` reference (not a shared ref) and only clears `_ws` when `_ws === ws`, so a stale close event from a previous connection cannot null out a fresh one. The per-job WS in `v2/api/jobs.ts::subscribeJob` does not auto-reconnect; callers re-invoke it. As of this entry's resolution, `subscribeJob` accepts `options.since` and surfaces `event_id` on `JobLine`, enabling resume-on-reconnect without re-receiving already-delivered events.
 
 ## LOW
 
