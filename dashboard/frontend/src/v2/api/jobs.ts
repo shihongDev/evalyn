@@ -195,6 +195,12 @@ interface SubscribeOptions {
   since?: number;
 }
 
+/** Maximum reconnect attempts before giving up and surfacing onError.
+ * 1s + 2s + 4s + 8s + 8s ≈ 23s of "trying" before declaring the
+ * stream lost. Tuned to outlast a typical dev-server restart (~3s)
+ * but not exceed reasonable user patience. */
+const MAX_RECONNECT_ATTEMPTS = 5;
+
 /**
  * Open a ``/ws/jobs/{id}`` subscription. Returns a ``{close()}`` handle that
  * tears the socket down. The wrapper translates raw backend events into
@@ -202,67 +208,153 @@ interface SubscribeOptions {
  * wire shape. Handlers are best-effort: any throws are swallowed to keep
  * the socket alive.
  *
- * Pass ``options.since`` on reconnect to resume where the prior socket left
- * off; the backend honors a ``?since=N`` query param and replays only
- * events with ``event_id > N``.
+ * Auto-reconnect: if the WS closes WITHOUT having delivered an ``exit``
+ * event (network blip, dev-server restart, etc.) and the caller has not
+ * invoked ``close()``, we transparently reconnect with exponential
+ * backoff (1s, 2s, 4s, 8s, 8s; up to MAX_RECONNECT_ATTEMPTS) and pass
+ * ``?since=lastSeenEventId`` so the backend replays ONLY events the
+ * caller has not yet seen. The "running" onStatus pill fires on first
+ * connect only - reconnects do not flip status back to running after a
+ * cancel/exit was painted from a prior event.
+ *
+ * onClose is suppressed for intermediate disconnects we recover from,
+ * so consumers don't paint a "Lost connection" toast for every blip.
+ * It fires once if the user invokes ``close()``, once if the server
+ * delivers ``exit``, or once if reconnect attempts are exhausted.
+ *
+ * Pass ``options.since`` to start the FIRST connect at a cursor; the
+ * backend honors ``?since=N`` and replays only events with ``event_id > N``.
  */
 export function subscribeJob(
   id: string,
   handlers: SubscribeHandlers,
   options?: SubscribeOptions,
 ): { close: () => void } {
-  const sinceQs =
+  let lastSeen: number | undefined =
     options?.since != null && Number.isFinite(options.since)
-      ? `?since=${encodeURIComponent(String(options.since))}`
-      : '';
-  const ws = new WebSocket(
-    wsUrl(`/ws/jobs/${encodeURIComponent(id)}${sinceQs}`),
-  );
-  // Emit an initial "running" status so the UI flips out of "queued" the
-  // moment the socket connects (the backend already started the process
-  // before we even subscribed - the WS is just for live tail).
-  ws.addEventListener('open', () => {
-    safeCall(handlers.onStatus, { id, status: 'running' });
-  });
-  ws.addEventListener('message', (ev) => {
-    let evt: Record<string, unknown>;
-    try {
-      evt = JSON.parse(ev.data as string) as Record<string, unknown>;
-    } catch {
+      ? options.since
+      : undefined;
+  let userClosed = false; // caller invoked the returned close handle
+  let gotExit = false; // server delivered an exit event - job is over
+  let attempts = 0; // failed-reconnect counter; resets on a successful open
+  let firstOpen = true; // emit the "running" pill on first connect only
+  let reconnectTimer: number | null = null;
+  let ws: WebSocket | null = null;
+
+  function buildUrl(): string {
+    const qs =
+      lastSeen != null && Number.isFinite(lastSeen)
+        ? `?since=${encodeURIComponent(String(lastSeen))}`
+        : '';
+    return wsUrl(`/ws/jobs/${encodeURIComponent(id)}${qs}`);
+  }
+
+  function scheduleReconnect(): void {
+    if (userClosed || gotExit) return;
+    if (attempts >= MAX_RECONNECT_ATTEMPTS) {
+      safeCall(
+        handlers.onError,
+        new Error(
+          `Lost job stream after ${MAX_RECONNECT_ATTEMPTS} reconnect attempts`,
+        ),
+      );
       return;
     }
-    const t = evt.type as string | undefined;
-    const eid =
-      typeof evt.event_id === 'number' ? (evt.event_id as number) : undefined;
-    if (t === 'stdout' || t === 'stderr') {
-      const text = (evt.line as string | undefined) ?? '';
-      const ts = (evt.ts as number | undefined) ?? Date.now() / 1000;
-      safeCall(handlers.onLine, { kind: t, text, ts, event_id: eid });
-    } else if (t === 'truncated') {
-      const count = (evt.count as number | undefined) ?? 0;
-      safeCall(handlers.onLine, {
-        kind: 'system',
-        text: `[server dropped ${count} earlier lines]`,
-        ts: (evt.ts as number | undefined) ?? Date.now() / 1000,
-        event_id: eid,
-      });
-    } else if (t === 'exit') {
-      const code = (evt.code as number | undefined) ?? -1;
-      const duration = evt.duration as number | undefined;
-      safeCall(handlers.onStatus, {
-        id,
-        status: code === 0 ? 'complete' : 'failed',
-        exit_code: code,
-        duration,
-      });
+    const backoffMs = Math.min(8000, 1000 * 2 ** attempts);
+    attempts += 1;
+    reconnectTimer = window.setTimeout(() => {
+      reconnectTimer = null;
+      open();
+    }, backoffMs);
+  }
+
+  function open(): void {
+    if (userClosed || gotExit) return;
+    let socket: WebSocket;
+    try {
+      socket = new WebSocket(buildUrl());
+    } catch (err) {
+      safeCall(
+        handlers.onError,
+        err instanceof Error ? err : new Error(String(err)),
+      );
+      scheduleReconnect();
+      return;
     }
-  });
-  ws.addEventListener('error', (e) => safeCall(handlers.onError, e));
-  ws.addEventListener('close', (e) => safeCall(handlers.onClose, e));
+    ws = socket;
+
+    socket.addEventListener('open', () => {
+      attempts = 0;
+      if (firstOpen) {
+        firstOpen = false;
+        safeCall(handlers.onStatus, { id, status: 'running' });
+      }
+    });
+
+    socket.addEventListener('message', (ev) => {
+      let evt: Record<string, unknown>;
+      try {
+        evt = JSON.parse(ev.data as string) as Record<string, unknown>;
+      } catch {
+        return;
+      }
+      const t = evt.type as string | undefined;
+      const eid =
+        typeof evt.event_id === 'number' ? (evt.event_id as number) : undefined;
+      // Track high-water mark for resume-on-reconnect. event_id is
+      // server-monotonic per the backend wire spec.
+      if (eid != null && (lastSeen == null || eid > lastSeen)) {
+        lastSeen = eid;
+      }
+      if (t === 'stdout' || t === 'stderr') {
+        const text = (evt.line as string | undefined) ?? '';
+        const ts = (evt.ts as number | undefined) ?? Date.now() / 1000;
+        safeCall(handlers.onLine, { kind: t, text, ts, event_id: eid });
+      } else if (t === 'truncated') {
+        const count = (evt.count as number | undefined) ?? 0;
+        safeCall(handlers.onLine, {
+          kind: 'system',
+          text: `[server dropped ${count} earlier lines]`,
+          ts: (evt.ts as number | undefined) ?? Date.now() / 1000,
+          event_id: eid,
+        });
+      } else if (t === 'exit') {
+        gotExit = true;
+        const code = (evt.code as number | undefined) ?? -1;
+        const duration = evt.duration as number | undefined;
+        safeCall(handlers.onStatus, {
+          id,
+          status: code === 0 ? 'complete' : 'failed',
+          exit_code: code,
+          duration,
+        });
+      }
+    });
+
+    socket.addEventListener('error', (e) => safeCall(handlers.onError, e));
+    socket.addEventListener('close', (e) => {
+      // Only surface onClose to the caller if this is a TERMINAL close
+      // (user-initiated, server delivered exit). Intermediate blips we
+      // are about to recover from stay invisible to the consumer.
+      if (userClosed || gotExit) {
+        safeCall(handlers.onClose, e);
+        return;
+      }
+      scheduleReconnect();
+    });
+  }
+
+  open();
+
   return {
     close: () => {
+      userClosed = true;
+      if (reconnectTimer != null) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
       try {
-        ws.close();
+        ws?.close();
       } catch {
         // ignore
       }
