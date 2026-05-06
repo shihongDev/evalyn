@@ -146,6 +146,7 @@ export default function CoPilotThread() {
     confirm,
     resetTo,
     clearError,
+    reconnecting,
   } = useCoPilotThread({ initialThreadId: routeThreadId });
 
   const [draft, setDraft] = useState('');
@@ -494,29 +495,64 @@ export default function CoPilotThread() {
 
         {/* Conversation pane */}
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <div style={{ padding: '20px 36px', borderBottom: `1px solid ${E.hair}` }}>
-            <h1
-              style={{
-                fontFamily: E.fSerif,
-                fontSize: 24,
-                fontWeight: 400,
-                margin: 0,
-                color: E.text0,
-                letterSpacing: '-0.01em',
-              }}
-            >
-              {activeTitle}
-            </h1>
-            <div
-              style={{
-                fontSize: 11.5,
-                color: E.text3,
-                fontFamily: E.fMono,
-                marginTop: 4,
-              }}
-            >
-              {threadId ? `thread: ${threadId}` : 'new thread - send a message to start'}
+          <div
+            style={{
+              padding: '20px 36px',
+              borderBottom: `1px solid ${E.hair}`,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 12,
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h1
+                style={{
+                  fontFamily: E.fSerif,
+                  fontSize: 24,
+                  fontWeight: 400,
+                  margin: 0,
+                  color: E.text0,
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                {activeTitle}
+              </h1>
+              <div
+                style={{
+                  fontSize: 11.5,
+                  color: E.text3,
+                  fontFamily: E.fMono,
+                  marginTop: 4,
+                }}
+              >
+                {threadId ? `thread: ${threadId}` : 'new thread - send a message to start'}
+              </div>
             </div>
+            {reconnecting && (
+              <span
+                role="status"
+                aria-label="Agent socket reconnecting"
+                title="The agent WebSocket dropped. The dashboard is reconnecting; in-flight responses may be delayed."
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '3px 8px',
+                  borderRadius: 999,
+                  background: 'rgba(229, 161, 79, 0.12)',
+                  border: `1px solid rgba(229, 161, 79, 0.3)`,
+                  color: E.warn,
+                  fontFamily: E.fMono,
+                  fontSize: 10,
+                  letterSpacing: '0.04em',
+                  flexShrink: 0,
+                  marginTop: 6,
+                }}
+              >
+                <span aria-hidden style={{ lineHeight: 1, fontSize: 11 }}>◌</span>
+                Reconnecting
+              </span>
+            )}
           </div>
 
           <div
