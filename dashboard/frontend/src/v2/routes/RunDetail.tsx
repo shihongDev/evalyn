@@ -123,7 +123,22 @@ export default function RunDetail() {
   );
   const compareActive = Boolean(compareWith && compareDetail && !compareErr);
   const [activeTab, setActiveTab] = useState(0);
+  // When the user clicks "View all N failures" from the Summary tab we
+  // both switch to the Items tab and seed its filter to "failed". The
+  // Items tab manages its own filter state internally so we re-mount it
+  // (via a per-jump nonce) to apply the seed each time the user clicks
+  // through. Without the nonce, a user who toggled to "passed" inside
+  // Items and then re-clicked "View failures" would stay on "passed".
+  const [itemsSeed, setItemsSeed] = useState<{
+    filter: ExperimentItemsFilter;
+    nonce: number;
+  } | null>(null);
   const [rerunBusy, setRerunBusy] = useState(false);
+
+  function jumpToFailedItems() {
+    setItemsSeed({ filter: 'failed', nonce: Date.now() });
+    setActiveTab(1);
+  }
   // Inline status for header actions - replaces window.alert dialogs that
   // jarred against the v2 design. shareState toggles the "Share" button
   // label, rerunErr surfaces failures from the run-eval form-open path.
@@ -551,7 +566,16 @@ export default function RunDetail() {
             onSwapCompare={swapCompare}
           />
         ) : (
-          <ItemsTab runId={detail.id} />
+          <ItemsTab
+            // Remount on each cross-tab "View failures" click so the
+            // seeded filter applies even if the user already switched
+            // it inside ItemsTab on a prior visit. The nonce is what
+            // makes successive jumps work; otherwise React would keep
+            // the same instance and ignore the new initialFilter.
+            key={`items-${itemsSeed?.nonce ?? 0}`}
+            runId={detail.id}
+            initialFilter={itemsSeed?.filter}
+          />
         )
       )}
 
@@ -1225,11 +1249,13 @@ export default function RunDetail() {
                 {detail.failure_clusters.total_failures}
               </Pill>
               <span style={{ flex: 1 }} />
-              <Btn kind="ghost" size="sm" disabled title="Coming soon - filter failed items by cluster, severity, or rubric">
-                Filter ▾
-              </Btn>
-              <Btn kind="ghost" size="sm" disabled title="Coming soon - regroup the failed-items list by cluster, rubric, or input pattern">
-                Group: cluster ▾
+              <Btn
+                kind="ghost"
+                size="sm"
+                onClick={jumpToFailedItems}
+                title="Open the Items tab pre-filtered to failed items - filter and sort options live there"
+              >
+                Filter & sort →
               </Btn>
             </div>
             {detail.failed_items_preview.map((s, i) => (
@@ -1279,8 +1305,8 @@ export default function RunDetail() {
               <Btn
                 kind="bare"
                 size="sm"
-                disabled
-                title="Coming soon - a flat all-failures view; for now drill into a specific cluster from the donut above"
+                onClick={jumpToFailedItems}
+                title="Open the Items tab filtered to failed items"
               >
                 View all {detail.failure_clusters.total_failures} failures →
               </Btn>
@@ -1917,11 +1943,15 @@ const FILTERS: { key: ExperimentItemsFilter; label: string }[] = [
 
 interface ItemsTabProps {
   runId: string;
+  /** Initial filter to apply on first mount. Used when the user
+   * arrives via "View all N failures" from the Summary tab so they
+   * land on the failed-only view without an extra click. */
+  initialFilter?: ExperimentItemsFilter;
 }
 
-function ItemsTab({ runId }: ItemsTabProps) {
+function ItemsTab({ runId, initialFilter }: ItemsTabProps) {
   const [offset, setOffset] = useState(0);
-  const [filter, setFilter] = useState<ExperimentItemsFilter>('all');
+  const [filter, setFilter] = useState<ExperimentItemsFilter>(initialFilter ?? 'all');
   const [sort, setSort] = useState<ExperimentItemsSort>('item_id');
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
