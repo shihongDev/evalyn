@@ -21,7 +21,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { E } from './tokens';
 import { Btn, Eyebrow, Pill, StatusDot } from './ui';
-import { fetchJobStatus } from './api/jobs';
+import { cancelJob, fetchJobStatus } from './api/jobs';
 import {
   clearJobsHistory,
   getJobsDrawerFailureFilter,
@@ -218,6 +218,37 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
     onClose();
   };
 
+  // Cancel path: send SIGTERM via the existing /api/jobs/{id}/cancel
+  // endpoint (with grace + SIGKILL escalation server-side) and
+  // optimistically patch the local entry to 'cancelled'. If the CliRunner
+  // is also open for this job, its WS will deliver an exit event - the
+  // existing CliRunner onStatus handler will overwrite to 'failed'
+  // (pre-existing behavior because SIGTERM produces a non-zero exit code
+  // and the WS does not distinguish cancel from generic failure). When
+  // the runner is NOT open, our optimistic patch is the only signal and
+  // the row stays correctly labelled 'cancelled'.
+  const onCancelRow = async (entry: JobHistoryEntry) => {
+    try {
+      await cancelJob(entry.job_id);
+      patchJob(entry.job_id, { status: 'cancelled' });
+    } catch (err) {
+      // The request failed (network down, server gone, 404 because the
+      // job already finished between click and HTTP). Trigger a snapshot
+      // refresh so the row reflects whatever the server actually thinks.
+      console.warn('cancelJob from drawer failed', err);
+      const snap = await fetchJobStatus(entry.job_id);
+      if (snap.kind === 'found') {
+        patchJob(entry.job_id, {
+          status: snap.status,
+          exit_code: snap.exit_code ?? undefined,
+          duration: snap.duration != null ? String(snap.duration) : undefined,
+        });
+      } else if (snap.kind === 'notFound') {
+        patchJob(entry.job_id, { status: 'unknown' });
+      }
+    }
+  };
+
   if (!open) return null;
 
   return (
@@ -275,6 +306,7 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
                 entry={e}
                 onClick={() => onRowClick(e)}
                 onRerun={() => onRerun(e)}
+                onCancel={() => onCancelRow(e)}
               />
             ))
           )}
@@ -531,9 +563,13 @@ interface JobRowProps {
    * launch. Hidden for running/queued rows (they already have a live
    * job) and for the unknown-eviction state. */
   onRerun?: () => void;
+  /** "Cancel" handler: send SIGTERM via the existing /api/jobs/{id}/cancel
+   * endpoint and optimistically patch the local entry. Hidden for
+   * terminal rows (no live job to kill). */
+  onCancel?: () => void | Promise<void>;
 }
 
-function JobRow({ entry, onClick, onRerun }: JobRowProps) {
+function JobRow({ entry, onClick, onRerun, onCancel }: JobRowProps) {
   const dim = entry.status === 'unknown';
   const pill = statusPillFor(entry.status);
   const rel = useMemo(() => relativeTime(entry.started_at_iso), [entry.started_at_iso]);
@@ -547,6 +583,22 @@ function JobRow({ entry, onClick, onRerun }: JobRowProps) {
     (entry.status === 'complete' ||
       entry.status === 'failed' ||
       entry.status === 'cancelled');
+  const canCancel =
+    onCancel != null && (entry.status === 'queued' || entry.status === 'running');
+  // Single-click cancel matches the CliRunner's own Cancel button for
+  // consistency. Disable while in-flight so a double-click does not
+  // fire two cancel HTTPs (the second would 404 once the first
+  // succeeded; harmless but noisy in console).
+  const [cancelling, setCancelling] = useState(false);
+  const handleCancel = async () => {
+    if (!onCancel || cancelling) return;
+    setCancelling(true);
+    try {
+      await onCancel();
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   return (
     <div
@@ -667,6 +719,40 @@ function JobRow({ entry, onClick, onRerun }: JobRowProps) {
           }}
         >
           ↻
+        </button>
+      )}
+      {canCancel && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            void handleCancel();
+          }}
+          disabled={cancelling}
+          aria-label={`Cancel ${entry.cli_id}`}
+          title={cancelling ? 'Cancelling...' : 'Cancel this job (SIGTERM)'}
+          style={{
+            flexShrink: 0,
+            width: 36,
+            border: 'none',
+            background: 'transparent',
+            color: cancelling ? E.text4 : E.fail,
+            cursor: cancelling ? 'wait' : 'pointer',
+            fontSize: 14,
+            lineHeight: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: cancelling ? 0.5 : 1,
+          }}
+          onMouseEnter={(e) => {
+            if (!cancelling) e.currentTarget.style.opacity = '0.85';
+          }}
+          onMouseLeave={(e) => {
+            if (!cancelling) e.currentTarget.style.opacity = '1';
+          }}
+        >
+          ✕
         </button>
       )}
     </div>
