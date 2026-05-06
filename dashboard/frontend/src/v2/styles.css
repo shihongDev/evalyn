@@ -91,6 +91,28 @@ textarea:focus-visible {
 }
 
 /*
+ * Card hover lift. Opt-in via the Card component's `hover` prop, which
+ * adds .eCardHover. Box-shadow + translate is chosen over a border-
+ * color change so the caller's inline border (e.g. selected-state
+ * ember rim) keeps winning - shadow stacks visually without touching
+ * the border layer.
+ */
+.eCardHover {
+  transition:
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+.eCardHover:hover {
+  box-shadow: 0 6px 20px rgba(20, 18, 14, 0.08);
+  transform: translateY(-1px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .eCardHover:hover {
+    transform: none;
+  }
+}
+
+/*
  * Suspense route-fallback fade-in. The fallback shows immediately on
  * any lazy nav (otherwise React would crash), but with a 100 ms
  * `animation-delay` + `backwards` fill, the spinner stays at opacity 0

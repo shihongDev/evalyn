@@ -35,12 +35,17 @@ export function Card({
     <div
       onClick={onClick}
       data-coachmark={dataCoachmark}
+      // .eCardHover lifts the card on hover via box-shadow and a 1 px
+      // upward translate. Box-shadow is intentionally chosen over a
+      // border-color change so the caller's inline `style.borderColor`
+      // (e.g. Datasets's selected-state ember rim) keeps winning -
+      // shadow adds depth without touching the border layer.
+      className={hover ? 'eCardHover' : undefined}
       style={{
         background: E.panel,
         border: `1px solid ${accent ? E.emberRim : E.hair}`,
         borderRadius: 12,
         padding: pad,
-        transition: hover ? 'border-color 120ms' : undefined,
         cursor: onClick ? 'pointer' : undefined,
         ...style,
       }}
