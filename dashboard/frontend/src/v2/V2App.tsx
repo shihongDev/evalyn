@@ -18,6 +18,7 @@ import Commands from './routes/Commands';
 import Settings from './routes/Settings';
 import Annotate from './routes/Annotate';
 import AnnotateSession from './routes/AnnotateSession';
+import NotFound from './routes/NotFound';
 
 export function V2App() {
   return (
@@ -41,7 +42,7 @@ export function V2App() {
         <Route path="/settings" element={<Settings />} />
         <Route path="/annotate" element={<Annotate />} />
         <Route path="/annotate/:sessionId" element={<AnnotateSession />} />
-        <Route path="*" element={<Home />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   );
