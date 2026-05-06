@@ -90,10 +90,32 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
   const [pending, setPending] = useState<PendingConfirmation | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
+  // Debounced "Reconnecting" indicator. The agent WS retries
+  // transparently with exp backoff; we surface it to the user only
+  // when a disconnect lasts >1.5s, hiding the cosmetic flash for
+  // blips we recover from quickly.
+  const [reconnecting, setReconnecting] = useState(false);
+  const reconnectArmTimerRef = useRef<number | null>(null);
 
   const wsRef = useRef<{ close: () => void } | null>(null);
   const threadIdRef = useRef<string | null>(threadId);
   threadIdRef.current = threadId;
+
+  const handleReconnecting = useCallback(() => {
+    if (reconnectArmTimerRef.current != null) return;
+    reconnectArmTimerRef.current = window.setTimeout(() => {
+      reconnectArmTimerRef.current = null;
+      setReconnecting(true);
+    }, 1500);
+  }, []);
+
+  const handleReconnected = useCallback(() => {
+    if (reconnectArmTimerRef.current != null) {
+      window.clearTimeout(reconnectArmTimerRef.current);
+      reconnectArmTimerRef.current = null;
+    }
+    setReconnecting(false);
+  }, []);
 
   // text_delta arrives once per token. On a fast-streaming model
   // (Sonnet ~80 tok/sec, Haiku faster) that becomes 80+ setMessages calls
@@ -333,6 +355,8 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
           setError(`WebSocket closed (code ${evt.code}${evt.reason ? `: ${evt.reason}` : ''})`);
         }
       },
+      onReconnecting: handleReconnecting,
+      onReconnected: handleReconnected,
     });
     wsRef.current = sub;
     return () => {
@@ -349,8 +373,15 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
         flushScheduledRef.current = null;
       }
       textBufferRef.current.clear();
+      // Cancel the reconnect-arm debounce so we do not setReconnecting
+      // after the hook has detached from this thread.
+      if (reconnectArmTimerRef.current != null) {
+        window.clearTimeout(reconnectArmTimerRef.current);
+        reconnectArmTimerRef.current = null;
+      }
+      setReconnecting(false);
     };
-  }, [threadId, handleEvent]);
+  }, [threadId, handleEvent, handleReconnecting, handleReconnected]);
 
   const send = useCallback(
     async (message: string) => {
@@ -417,6 +448,12 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
       flushScheduledRef.current = null;
     }
     textBufferRef.current.clear();
+    // Drop any reconnecting indicator from the previous thread.
+    if (reconnectArmTimerRef.current != null) {
+      window.clearTimeout(reconnectArmTimerRef.current);
+      reconnectArmTimerRef.current = null;
+    }
+    setReconnecting(false);
     setMessages([]);
     setPending(null);
     setStatus('idle');
@@ -424,7 +461,7 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
     setThreadId(newThreadId);
   }, []);
 
-  return { threadId, messages, pending, status, error, send, confirm, resetTo, clearError };
+  return { threadId, messages, pending, status, error, reconnecting, send, confirm, resetTo, clearError };
 }
 
 function formatArgsShort(args: Record<string, unknown>): string {

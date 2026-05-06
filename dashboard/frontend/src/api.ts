@@ -79,6 +79,14 @@ export interface WsHandlers<T> {
   onError?: (err: Event | Error) => void;
   onClose?: (ev: CloseEvent) => void;
   onOpen?: () => void;
+  /** Fired when a reconnect attempt is scheduled after an unexpected
+   * close. attempt is 1-indexed. Consumers typically debounce ~1.5s
+   * before showing a "Reconnecting" indicator so brief blips stay
+   * invisible. */
+  onReconnecting?: (attempt: number) => void;
+  /** Fired when a reconnect succeeds and the stream is live again.
+   * Not fired on first connect (use onOpen for that). */
+  onReconnected?: () => void;
 }
 
 interface SubscribeAgentOptions {
@@ -146,6 +154,13 @@ export function subscribeAgent<T>(
     }
     const backoffMs = Math.min(8000, 1000 * 2 ** attempts);
     attempts += 1;
+    // Notify consumers that we are about to retry. attempt is 1-indexed.
+    // Inline try/catch so a consumer throw cannot kill the reconnect path.
+    try {
+      handlers.onReconnecting?.(attempts);
+    } catch {
+      // ignore
+    }
     reconnectTimer = window.setTimeout(() => {
       reconnectTimer = null;
       open();
@@ -165,10 +180,20 @@ export function subscribeAgent<T>(
     ws = socket;
 
     socket.addEventListener('open', () => {
+      const wasReconnecting = attempts > 0;
       attempts = 0;
       if (firstOpen) {
         firstOpen = false;
         handlers.onOpen?.();
+      } else if (wasReconnecting) {
+        // We had at least one failed attempt before this success, so
+        // a consumer may have surfaced a "Reconnecting" indicator via
+        // onReconnecting. Tell them the stream is live again.
+        try {
+          handlers.onReconnected?.();
+        } catch {
+          // ignore
+        }
       }
     });
 
