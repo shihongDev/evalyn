@@ -1143,6 +1143,17 @@ export default function AnnotateSession() {
     return () => clearTimeout(t);
   }, [savedTick]);
 
+  // The id of the most-recently-saved item. Drives a brief ember ring
+  // pulse on the matching scrubber dot so the save action is visible
+  // in two places at once (header badge + scrubber position). Auto-
+  // clears after the keyframe runs so a re-render doesn't replay it.
+  const [lastSavedItemId, setLastSavedItemId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!lastSavedItemId) return;
+    const t = setTimeout(() => setLastSavedItemId(null), 1200);
+    return () => clearTimeout(t);
+  }, [lastSavedItemId]);
+
   // Persist verdicts + notes + evidence to localStorage on every change.
   // We keep it simple - every change writes synchronously. For typical
   // session sizes (<300 items) the JSON cost is negligible.
@@ -1445,6 +1456,9 @@ export default function AnnotateSession() {
           evidence: evidenceForItem,
         });
         setSavedTick((t) => t + 1);
+        // Pulse the matching scrubber dot for visual confirmation
+        // tied to position-in-session, not just the header badge.
+        setLastSavedItemId(currentItem.item_id);
         // Capture per-item wall-clock for the avg/ETA header chip.
         const now = Date.now();
         const deltaSec = (now - lastSaveAtRef.current) / 1000;
@@ -1504,6 +1518,10 @@ export default function AnnotateSession() {
           note: noteForItem || null,
           evidence: evidenceForItem,
         });
+        // Same pulse signal as submitVerdict - the bulk save flow
+        // benefits from per-item visual confirmation as the loop
+        // progresses (each saved dot pulses in turn).
+        setLastSavedItemId(item.item_id);
         return true;
       } catch {
         return false;
@@ -2745,6 +2763,14 @@ export default function AnnotateSession() {
                         cursor: 'pointer',
                         transition: 'all 160ms',
                         outline: 'none',
+                        // Brief ember ring pulse on the just-saved item
+                        // so the save action is visible in the scrubber
+                        // too (not just the header badge). Reuses the
+                        // existing eEvidenceFlash keyframe.
+                        animation:
+                          lastSavedItemId === it.item_id
+                            ? 'eEvidenceFlash 1.2s ease-out'
+                            : undefined,
                       }}
                     />
                   </div>
