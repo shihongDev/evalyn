@@ -90,6 +90,7 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
     threadId,
     error,
     clearError,
+    reconnecting,
   } = useCoPilotThread();
   const [draft, setDraft] = useState('');
   const navigate = useNavigate();
@@ -239,6 +240,40 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
         <Pill mono color={E.text3} bg={E.panel2} style={{ fontSize: 10 }}>
           {messages.length === 0 ? 'new' : `${messages.length} turns`}
         </Pill>
+        {reconnecting && (
+          <span
+            role="status"
+            aria-live="polite"
+            aria-label="Reconnecting to agent stream"
+            title="Agent WebSocket lost - retrying with backoff"
+            style={{
+              padding: '0 8px',
+              fontFamily: E.fMono,
+              fontSize: 10,
+              color: E.warn,
+              background: 'rgba(217, 161, 79, 0.15)',
+              border: `1px solid rgba(217, 161, 79, 0.4)`,
+              borderRadius: 4,
+              lineHeight: 1.6,
+              whiteSpace: 'nowrap',
+              fontWeight: 500,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: E.warn,
+                display: 'inline-block',
+              }}
+            />
+            Reconnecting…
+          </span>
+        )}
         <span style={{ flex: 1 }} />
         <button
           type="button"
