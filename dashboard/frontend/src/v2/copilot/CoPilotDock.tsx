@@ -9,7 +9,7 @@
  * Wired to /api/agent/chat + /ws/agent/{tid} via useCoPilotThread.
  */
 
-import { useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { E } from '../tokens';
 import { Btn, Pill } from '../ui';
@@ -86,6 +86,14 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Auto-focus the composer when the dock first opens. The dock is
+  // conditionally mounted (AppShell renders it only when dockOpen is
+  // true) so first-mount = first-open, which is exactly when the user
+  // wants the textarea ready for typing.
+  useEffect(() => {
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, []);
 
   const useSuggestion = (prompt: string) => {
     setDraft(prompt);

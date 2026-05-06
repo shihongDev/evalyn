@@ -177,6 +177,18 @@ export default function CoPilotThread() {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams, messages.length]);
 
+  // Auto-focus the composer on first mount so the user can start typing
+  // immediately. Skipped if a prefill is in the URL (the prefill effect
+  // above handles focus) or if the user is mid-thread (focusing then
+  // would steal focus from any read action they were taking). Empty
+  // deps - we run once per route mount, NOT on every thread switch
+  // via the sidebar (which keeps the route mounted; param-only nav).
+  useEffect(() => {
+    if (searchParams.get('prefill')) return;
+    requestAnimationFrame(() => textareaRef.current?.focus());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Reattach the hook when the URL thread id changes (sidebar click).
   useEffect(() => {
     if (routeThreadId !== threadId) {
