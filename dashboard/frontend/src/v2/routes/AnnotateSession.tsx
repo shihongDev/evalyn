@@ -963,6 +963,17 @@ export default function AnnotateSession() {
     return n;
   }, [items, itemHasUnsavedDiff]);
 
+  // Exit confirmation gate. Triggers when the user clicks Exit or
+  // hits Esc while having unsaved local edits. Hoisted up here so
+  // the keyboard handler's Esc cascade can read it without a
+  // forward-reference error.
+  const [confirmExit, setConfirmExit] = useState(false);
+  // When unsaved drops to 0 (e.g., after Save All from the confirm
+  // panel), drop any pending exit confirmation.
+  useEffect(() => {
+    if (unsavedItemsCount === 0) setConfirmExit(false);
+  }, [unsavedItemsCount]);
+
   // Per-item free-text notes. Reset only when the user clears the field.
   // Hydrated from localStorage draft alongside verdicts.
   const [notes, setNotes] = useState<Record<string, string>>(() => {
@@ -1760,6 +1771,20 @@ export default function AnnotateSession() {
           setShowSettings(false);
           return;
         }
+        // If the exit confirmation is already up, Esc closes it
+        // (acts as Cancel). Without this branch, repeated Esc would
+        // be a no-op since the unsaved check below would re-show it.
+        if (confirmExit) {
+          e.preventDefault();
+          setConfirmExit(false);
+          return;
+        }
+        // Exit guard: warn if there are unsaved local edits.
+        if (unsavedItemsCount > 0) {
+          e.preventDefault();
+          setConfirmExit(true);
+          return;
+        }
         e.preventDefault();
         navigate('/annotate');
       } else if (e.key === '?') {
@@ -1874,6 +1899,7 @@ export default function AnnotateSession() {
     finalizing,
     unsavedItemsCount,
     searchQuery,
+    confirmExit,
   ]);
 
   // beforeunload: warn if there are unsaved verdicts (cursor points to an
@@ -2059,6 +2085,10 @@ export default function AnnotateSession() {
   useEffect(() => {
     if (allDone) setConfirmFinalize(false);
   }, [allDone]);
+
+  // (confirmExit was hoisted up to right after unsavedItemsCount so
+  // the keyboard handler's Esc cascade can read it without a
+  // use-before-def. See the early section of the function body.)
 
   // Rolling average per-item duration (seconds) and ETA. Recomputed
   // on every successful save (timingTick is the trigger). Null until
@@ -2518,7 +2548,17 @@ export default function AnnotateSession() {
           >
             {finalizing ? 'Finalizing...' : 'Finish & save'}
           </Btn>
-          <Btn kind="ghost" size="sm" onClick={() => navigate('/annotate')}>
+          <Btn
+            kind="ghost"
+            size="sm"
+            onClick={() => {
+              if (unsavedItemsCount > 0) {
+                setConfirmExit(true);
+              } else {
+                navigate('/annotate');
+              }
+            }}
+          >
             Exit
           </Btn>
         </div>
@@ -2941,6 +2981,77 @@ export default function AnnotateSession() {
         {finalizeErr && (
           <Card style={{ padding: 12, marginBottom: 14, borderColor: E.fail }}>
             <div style={{ fontSize: 12, color: E.fail, fontFamily: E.fMono }}>{finalizeErr}</div>
+          </Card>
+        )}
+
+        {/* Exit confirmation panel - fires when the user tries to
+            navigate away with unsaved local edits. Three actions:
+            save first then exit, exit anyway (knowingly discard
+            visible UI state - the localStorage draft still survives,
+            so technically no data loss, but the user might not know),
+            or cancel. */}
+        {confirmExit && (
+          <Card
+            style={{
+              padding: 14,
+              marginBottom: 14,
+              borderColor: E.ember,
+              background: '#fcefe2',
+              animation: 'eItemSlideIn 200ms ease-out',
+            }}
+          >
+            <div
+              style={{
+                fontFamily: E.fSerif,
+                fontSize: 15,
+                color: E.text1,
+                marginBottom: 6,
+              }}
+            >
+              Exit with {unsavedItemsCount} unsaved item
+              {unsavedItemsCount === 1 ? '' : 's'}?
+            </div>
+            <div
+              style={{
+                fontFamily: E.fMono,
+                fontSize: 11,
+                color: E.text2,
+                marginBottom: 10,
+                lineHeight: 1.5,
+              }}
+            >
+              Your in-progress edits are kept locally and will reappear
+              when you re-open this session, but they won't be on the
+              server until you save. Choose what to do:
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <Btn
+                kind="primary"
+                size="sm"
+                disabled={!!saveAllProgress}
+                onClick={async () => {
+                  await saveAllUnsaved();
+                  navigate('/annotate');
+                }}
+              >
+                {saveAllProgress
+                  ? `Saving ${saveAllProgress.done}/${saveAllProgress.total}...`
+                  : 'Save & exit'}
+              </Btn>
+              <Btn
+                kind="secondary"
+                size="sm"
+                onClick={() => {
+                  setConfirmExit(false);
+                  navigate('/annotate');
+                }}
+              >
+                Exit anyway
+              </Btn>
+              <Btn kind="ghost" size="sm" onClick={() => setConfirmExit(false)}>
+                Cancel
+              </Btn>
+            </div>
           </Card>
         )}
 
