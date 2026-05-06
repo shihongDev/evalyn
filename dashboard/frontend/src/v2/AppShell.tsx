@@ -36,7 +36,7 @@ import {
 import { v2 } from './api/client';
 import { listCli } from './api/cli';
 import { prefetchV2 } from './hooks/useV2Resource';
-import { startV2EventStream } from './api/v2ws';
+import { startV2EventStream, subscribeV2Status, type ConnectionStatus } from './api/v2ws';
 import { useTour } from './tour/useTour';
 import { TourMenu } from './tour/TourMenu';
 import {
@@ -266,6 +266,24 @@ export function AppShell({
   useEffect(() => {
     startV2EventStream();
   }, []);
+
+  // Connection status surface. Track raw status from v2ws, but only
+  // SHOW the "Reconnecting" pill once disconnect has lasted >2 seconds
+  // - brief blips during normal operation (server restarting in dev,
+  // a flaky packet) shouldn't paint a warning chip every time. Backend
+  // restart in dev typically takes 1-3 seconds so this filters most
+  // legitimate noise.
+  const [wsStatus, setWsStatus] = useState<ConnectionStatus>('open');
+  const [wsStale, setWsStale] = useState(false);
+  useEffect(() => subscribeV2Status(setWsStatus), []);
+  useEffect(() => {
+    if (wsStatus === 'open') {
+      setWsStale(false);
+      return;
+    }
+    const t = window.setTimeout(() => setWsStale(true), 2000);
+    return () => window.clearTimeout(t);
+  }, [wsStatus]);
 
   // Drive the active tour (if any) globally. Mounting at the shell level
   // lets any route trigger a tour via setTour() in the store; the hook
@@ -556,6 +574,29 @@ export function AppShell({
         )}
         <span style={{ flex: 1 }} />
         {headerExtra}
+        {wsStale && (
+          <span
+            role="status"
+            aria-label="Live updates reconnecting"
+            title="The live-update socket dropped. The dashboard is trying to reconnect; cached data may be stale."
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '3px 8px',
+              borderRadius: 999,
+              background: 'rgba(229, 161, 79, 0.12)',
+              border: `1px solid rgba(229, 161, 79, 0.3)`,
+              color: E.warn,
+              fontFamily: E.fMono,
+              fontSize: 10,
+              letterSpacing: '0.04em',
+            }}
+          >
+            <span aria-hidden style={{ lineHeight: 1, fontSize: 11 }}>◌</span>
+            Reconnecting
+          </span>
+        )}
         <TourMenu />
         {vp === 'desktop' && (
           <Btn

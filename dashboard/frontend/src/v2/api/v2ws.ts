@@ -24,13 +24,40 @@ export type V2Event =
   | { type: 'cache_invalidate'; keys: string[] }
   | { type: 'pong' };
 
+/** Coarse connection status surfaced to UI subscribers.
+ *
+ *   - 'open': WS is live, events flowing.
+ *   - 'reconnecting': WS is closed and we are between attempts (or
+ *     trying to connect). Includes the brief moment before the first
+ *     hello frame on a fresh open.
+ *
+ * The hook surface intentionally collapses 'connecting' / 'closed' /
+ * 'failed' into one bucket because the user response is the same:
+ * "the live feed isn't healthy right now." Detail belongs in logs. */
+export type ConnectionStatus = 'open' | 'reconnecting';
+
 type Listener = (evt: V2Event) => void;
+type StatusListener = (status: ConnectionStatus) => void;
 
 const RECONNECT_DELAY_MS = 2000;
 
 let _ws: WebSocket | null = null;
 let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let _status: ConnectionStatus = 'reconnecting';
 const _listeners = new Set<Listener>();
+const _statusListeners = new Set<StatusListener>();
+
+function setStatus(next: ConnectionStatus): void {
+  if (_status === next) return;
+  _status = next;
+  for (const l of Array.from(_statusListeners)) {
+    try {
+      l(next);
+    } catch (err) {
+      console.error('v2 ws status listener error', err);
+    }
+  }
+}
 
 function wsUrl(): string {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -77,6 +104,10 @@ export function startV2EventStream(): void {
   }
   _ws = ws;
 
+  ws.addEventListener('open', () => {
+    setStatus('open');
+  });
+
   ws.addEventListener('message', (e) => {
     let parsed: unknown;
     try {
@@ -99,6 +130,7 @@ export function startV2EventStream(): void {
 
   ws.addEventListener('close', () => {
     if (_ws === ws) _ws = null;
+    setStatus('reconnecting');
     scheduleReconnect();
   });
 
@@ -117,6 +149,17 @@ export function subscribeV2Events(fn: Listener): () => void {
   };
 }
 
+/** Subscribe to connection-status transitions. The listener is called
+ * with the current status immediately on subscribe so callers don't
+ * have to track initial state separately. Returns an unsubscribe fn. */
+export function subscribeV2Status(fn: StatusListener): () => void {
+  _statusListeners.add(fn);
+  fn(_status);
+  return () => {
+    _statusListeners.delete(fn);
+  };
+}
+
 /** Test-only: tear the stream down between specs. */
 export function _resetV2EventStream(): void {
   clearReconnectTimer();
@@ -129,4 +172,6 @@ export function _resetV2EventStream(): void {
     _ws = null;
   }
   _listeners.clear();
+  _statusListeners.clear();
+  _status = 'reconnecting';
 }
