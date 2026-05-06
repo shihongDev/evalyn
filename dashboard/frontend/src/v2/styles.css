@@ -256,6 +256,11 @@ textarea:focus-visible {
   30%  { transform: scale(1.22); }
   100% { transform: scale(1); }
 }
+@keyframes eShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}
 
 /* Reduced-motion: keep the saved badge visible but freeze all motion.
    Redefining the keyframes inside the media query makes browsers use
@@ -274,6 +279,9 @@ textarea:focus-visible {
     from, to { box-shadow: none; }
   }
   @keyframes eCountBump {
+    from, to { transform: none; }
+  }
+  @keyframes eShake {
     from, to { transform: none; }
   }
 }

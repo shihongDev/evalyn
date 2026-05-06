@@ -1241,6 +1241,10 @@ export default function AnnotateSession() {
   // in two places at once (header badge + scrubber position). Auto-
   // clears after the keyframe runs so a re-render doesn't replay it.
   const [lastSavedItemId, setLastSavedItemId] = useState<string | null>(null);
+  // Bumped on save failure to retrigger a brief shake animation on
+  // the Save & Next button. The submitErr text in the footer is easy
+  // to miss if focus is elsewhere; the shake draws the eye.
+  const [shakeTick, setShakeTick] = useState(0);
 
   // Sparse aria-live announcements for screen readers. Sighted users
   // get the Saved badge + scrubber pulse + filter chip animation;
@@ -1575,7 +1579,12 @@ export default function AnnotateSession() {
         void refetchItems();
         return true;
       } catch (e) {
-        setSubmitErr(e instanceof Error ? e.message : String(e));
+        const msg = e instanceof Error ? e.message : String(e);
+        setSubmitErr(msg);
+        // Retrigger the shake keyframe on the Save button + announce
+        // to screen readers via the existing aria-live region.
+        setShakeTick((t) => t + 1);
+        setAriaStatus(`Save failed: ${msg}`);
         return false;
       } finally {
         setSubmitting(false);
@@ -4061,7 +4070,21 @@ export default function AnnotateSession() {
                 <span style={{ fontSize: 11, color: E.fail, fontFamily: E.fMono }}>{submitErr}</span>
               )}
               <KeyHints forceOpen={pinKeys} />
-              <Btn kind="primary" size="sm" onClick={goNext} disabled={submitting}>
+              <Btn
+                // key={shakeTick} forces a remount on each save failure
+                // so the eShake keyframe re-runs. No animation on
+                // success path (shakeTick stays the same).
+                key={shakeTick}
+                kind="primary"
+                size="sm"
+                onClick={goNext}
+                disabled={submitting}
+                style={
+                  shakeTick > 0
+                    ? { animation: 'eShake 320ms ease-in-out' }
+                    : undefined
+                }
+              >
                 {submitting ? 'Saving...' : 'N · Save & next →'}
               </Btn>
             </div>
