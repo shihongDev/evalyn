@@ -110,6 +110,9 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  // Scrollable results container; we steer it via scrollIntoView when
+  // the active row leaves the viewport during arrow-key navigation.
+  const resultsRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
 
   // Lazy-load all four catalogs in parallel the first time the palette opens.
@@ -336,6 +339,20 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     if (activeIndex >= filtered.length) setActiveIndex(0);
   }, [filtered.length, activeIndex]);
 
+  // Keep the active row visible during arrow-key navigation. Without
+  // this, arrowing past the bottom of the visible window leaves the
+  // highlight off-screen and the user can't see which row is selected.
+  // `block: 'nearest'` only scrolls when needed - rows already visible
+  // don't trigger an unnecessary jump.
+  useEffect(() => {
+    const container = resultsRef.current;
+    if (!container) return;
+    const active = container.querySelector<HTMLElement>(
+      `[data-palette-index="${activeIndex}"]`,
+    );
+    if (active) active.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex]);
+
   /** Group filtered results by kind for section headers, preserving the order
    * the search produced (command > run > dataset > rubric within rank). */
   const sections = useMemo(() => {
@@ -454,7 +471,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         </div>
 
         {/* RESULTS */}
-        <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        <div ref={resultsRef} style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
           {errs.length > 0 && (
             <div style={{ padding: 16, fontSize: 12, color: E.fail, fontFamily: E.fMono }}>
               {errs.join(' / ')}
@@ -497,6 +514,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                       <button
                         key={`${entry.kind}:${entry.id}`}
                         type="button"
+                        data-palette-index={flatIdx}
                         onClick={() => entry.nav()}
                         onMouseEnter={() => setActiveIndex(flatIdx)}
                         style={{
