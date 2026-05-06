@@ -38,6 +38,7 @@ import { useV2Resource, prefetchV2 } from '../hooks/useV2Resource';
 import { useProject } from '../hooks/useProject';
 import { openCliRunner } from '../cliRunnerBridge';
 import { E } from '../tokens';
+import { linkifyText, makeUrlCounter } from '../textRender';
 
 const CLUSTER_COLOR: Record<string, string> = {
   fail: E.fail,
@@ -2227,7 +2228,9 @@ function ExpandPanel({ label, body, accent }: ExpandPanelProps) {
           minHeight: 40,
         }}
       >
-        {body && body.length > 0 ? body : <span style={{ color: E.text4 }}>-</span>}
+        {body && body.length > 0
+          ? linkifyText(body, makeUrlCounter())
+          : <span style={{ color: E.text4 }}>-</span>}
       </div>
     </div>
   );

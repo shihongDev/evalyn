@@ -11,6 +11,7 @@ import { v2 } from '../api/client';
 import type { ClusterDetail } from '../api/types';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { useProject } from '../hooks/useProject';
+import { linkifyText, makeUrlCounter } from '../textRender';
 import { E } from '../tokens';
 
 export default function FailureCluster() {
@@ -115,7 +116,7 @@ export default function FailureCluster() {
                     maxWidth: 720,
                   }}
                 >
-                  {data.pattern}
+                  {linkifyText(data.pattern, makeUrlCounter())}
                 </p>
               </div>
               <Btn
@@ -139,7 +140,7 @@ export default function FailureCluster() {
               <Card style={{ padding: 18 }}>
                 <Eyebrow>Pattern</Eyebrow>
                 <div style={{ marginTop: 10, fontSize: 13, color: E.text1, lineHeight: 1.6 }}>
-                  {data.pattern}
+                  {linkifyText(data.pattern, makeUrlCounter())}
                 </div>
                 <div
                   style={{
@@ -346,7 +347,7 @@ export default function FailureCluster() {
                   <Eyebrow style={{ color: E.ember }}>Co-pilot's suggested fix</Eyebrow>
                 </div>
                 <div style={{ fontSize: 14, color: E.text1, lineHeight: 1.6 }}>
-                  {data.suggested_fix.body_md}
+                  {linkifyText(data.suggested_fix.body_md, makeUrlCounter())}
                 </div>
                 <div
                   style={{
