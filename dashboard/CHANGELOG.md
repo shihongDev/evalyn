@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Click-to-filter stderr in CliRunner output.** The stderr-count chip in the CliRunner output header is now interactive: click it to filter the visible output to stderr (and system) lines only, click again to show all output. The chip's style (filled background, bold weight, leading checkmark) reflects whether the filter is active. A dedicated empty-state shows "No stderr lines yet" when the filter is on and nothing matches, instead of the default "(no output)" which would be misleading. The Copy button continues to copy ALL lines regardless of the filter — the filter is for scanning, the clipboard is for sharing. The filter auto-clears whenever the stderr count drops to 0 (terminal status with no errors, or all stderr evicted from the ring buffer mid-run) so the user can never get stuck with a stale filter when the chip itself is no longer rendered. Lets users find a buried failure in a chatty eval in one click instead of manual scrolling.
+
 ### Performance
 
 - **Co-pilot chat text-delta batching via requestAnimationFrame.** The streaming agent reply previously called `setMessages` per token (~80/sec for Sonnet, faster for Haiku), each rebuilding the messages array, the agent bubble, and concatenating bubble text. `useCoPilotThread` now coalesces deltas into a `Map<messageId, accumulatedText>` ref and flushes once per animation frame, so the chat re-renders at most ~60Hz regardless of token rate. Other event kinds (tool_call_*, final, error) pass through directly. The `final` event force-flushes pending deltas before applying its patch so the bubble's text is current and never "rewinds" mid-stream. WS reconnect, thread reset, and unmount all cancel pending rAF and clear the buffer to prevent stale tokens leaking into a new conversation.
