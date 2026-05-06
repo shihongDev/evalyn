@@ -1149,6 +1149,31 @@ function OutputSection({
     }
   }, [stderrFilter, stderrCount]);
 
+  // Index of the first stderr line in the currently-visible output. Used
+  // by the "Jump to first error" button (rendered next to the stderr
+  // chip) to scroll the user directly to the first failure point without
+  // losing the surrounding stdout chronology - useful when an eval
+  // produces hundreds of stdout lines with one error buried in the
+  // middle. -1 when no stderr is present.
+  const firstStderrIndex = useMemo(() => {
+    for (let i = 0; i < visibleLines.length; i++) {
+      if (visibleLines[i].kind === 'stderr') return i;
+    }
+    return -1;
+  }, [visibleLines]);
+
+  const jumpToFirstError = useCallback(() => {
+    const container = outputRef.current;
+    if (!container) return;
+    const node = container.querySelector<HTMLElement>('[data-first-stderr]');
+    if (!node) return;
+    // scrollIntoView on the line element scrolls its NEAREST scrollable
+    // ancestor; the output panel IS that ancestor (overflow: auto), so
+    // the page itself does not jump. block: 'center' keeps a few lines
+    // of stdout context above the error.
+    node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [outputRef]);
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0 }}>
         <div
@@ -1203,6 +1228,30 @@ function OutputSection({
             >
               {stderrFilter ? '✓ ' : ''}
               {stderrCount} stderr
+            </button>
+          )}
+          {stderrCount > 0 && !stderrFilter && firstStderrIndex >= 0 && (
+            <button
+              type="button"
+              onClick={jumpToFirstError}
+              aria-label="Scroll to first stderr line"
+              title="Jump to first error"
+              style={{
+                flexShrink: 0,
+                padding: '0 6px',
+                fontFamily: E.fMono,
+                fontSize: 10.5,
+                color: '#ff9580',
+                background: 'transparent',
+                border: `1px solid rgba(255, 149, 128, 0.3)`,
+                borderRadius: 4,
+                cursor: 'pointer',
+                lineHeight: 1.6,
+                whiteSpace: 'nowrap',
+                fontWeight: 500,
+              }}
+            >
+              ↥ first
             </button>
           )}
           <button
@@ -1279,6 +1328,7 @@ function OutputSection({
           {visibleLines.map((l, i) => (
             <div
               key={i}
+              data-first-stderr={i === firstStderrIndex ? 'true' : undefined}
               style={{
                 color:
                   l.kind === 'stderr'
