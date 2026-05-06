@@ -258,9 +258,26 @@ export default function Commands() {
             </div>
 
             {grouped && grouped.length === 0 && (
-              <div style={{ marginTop: 18, padding: 18, fontSize: 13, color: E.text3 }}>
-                No commands match "{query}".
-              </div>
+              <Card
+                style={{
+                  marginTop: 18,
+                  padding: 18,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                }}
+              >
+                <div style={{ flex: 1, fontSize: 13, color: E.text2 }}>
+                  No commands match{' '}
+                  <b style={{ color: E.ember }}>"{query}"</b>.
+                  <div style={{ fontSize: 11, color: E.text3, marginTop: 2, fontFamily: E.fMono }}>
+                    {totalCount} command{totalCount === 1 ? '' : 's'} available · search by name, group, or blurb
+                  </div>
+                </div>
+                <Btn kind="secondary" size="sm" onClick={() => setQuery('')}>
+                  Clear search
+                </Btn>
+              </Card>
             )}
 
             {grouped && grouped.length > 0 && (
