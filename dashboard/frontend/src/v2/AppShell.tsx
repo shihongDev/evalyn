@@ -227,14 +227,29 @@ export function AppShell({
     setDrawerOpen(false);
   }, [location.pathname]);
 
-  // Cmd+K (mac) / Ctrl+K (everywhere) toggles the command palette.
-  // Esc closes it. We bind at the window level so it works from any focus.
+  // Global hotkeys:
+  //   Cmd/Ctrl+K toggles the command palette.
+  //   Cmd/Ctrl+, navigates to /settings (canonical "preferences"
+  //     shortcut). Skipped on /annotate/:sessionId routes which
+  //     have their own local Cmd+, for the per-session settings menu.
+  //   Esc closes palette/drawer/dock as appropriate.
+  // Bound at window level so they work from any focus.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const isToggle = (e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K');
       if (isToggle) {
         e.preventDefault();
         setPaletteOpen((v) => !v);
+        return;
+      }
+      // Settings shortcut. Skip when AnnotateSession handles it locally.
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.key === ',' &&
+        !location.pathname.startsWith('/annotate/')
+      ) {
+        e.preventDefault();
+        if (location.pathname !== '/settings') navigate('/settings');
         return;
       }
       if (e.key === 'Escape') {
@@ -246,7 +261,7 @@ export function AppShell({
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [vp, dockOpen, setDockOpen]);
+  }, [vp, dockOpen, setDockOpen, location.pathname, navigate]);
 
   const showDock = !hideCoPilot && dockOpen;
   // Dock layout mode: 'docked' takes a grid column on desktop; 'overlay' and
