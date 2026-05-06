@@ -12,6 +12,7 @@ import type { ClusterDetail } from '../api/types';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { useProject } from '../hooks/useProject';
 import { linkifyText, makeUrlCounter } from '../textRender';
+import { copyToClipboard } from '../clipboard';
 import { E } from '../tokens';
 
 /** Render the cluster as portable markdown - label, prose pattern,
@@ -58,20 +59,6 @@ function clusterToMarkdown(d: ClusterDetail, runId: string): string {
   return lines.join('\n');
 }
 
-async function copyToClipboard(text: string): Promise<void> {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.position = 'fixed';
-  ta.style.left = '-9999px';
-  document.body.appendChild(ta);
-  ta.select();
-  document.execCommand('copy');
-  document.body.removeChild(ta);
-}
 
 export default function FailureCluster() {
   const params = useParams<{ runId: string; clusterId: string }>();

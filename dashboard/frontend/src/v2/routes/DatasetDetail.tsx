@@ -12,7 +12,7 @@
  * back -> same card is instant (useV2Resource module-level cache).
  */
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, StackBar, StatusDot, UpdatingChip } from '../ui';
@@ -20,10 +20,54 @@ import { v2 } from '../api/client';
 import type { DatasetDetail as DatasetDetailT } from '../api/types';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { useProject } from '../hooks/useProject';
+import { copyToClipboard } from '../clipboard';
 import { E } from '../tokens';
 
 const COVERAGE_COLORS = [E.ember, E.steel, '#a78bfa', E.warn, E.text3];
-const COMING_SOON = 'Coming soon';
+
+/** Render the dataset's summary metadata as portable markdown. The
+ * actual item rows aren't included - this is the "tell a coworker about
+ * this dataset" view, not the full export. For full data dump, the CLI
+ * has `evalyn export` and `evalyn export-for-annotation`. */
+function datasetToMarkdown(d: DatasetDetailT): string {
+  const lines: string[] = [];
+  lines.push(`# ${d.name}`);
+  lines.push('');
+  const meta: string[] = [`${d.n} item${d.n === 1 ? '' : 's'}`];
+  if (d.source) meta.push(`source: ${d.source}`);
+  if (d.created_at_iso) meta.push(`created ${d.created_at_iso}`);
+  lines.push(meta.join(' - '));
+  lines.push('');
+  if (d.tags.length > 0) {
+    lines.push(`**Tags:** ${d.tags.join(', ')}`);
+    lines.push('');
+  }
+  if (d.coverage.length > 0) {
+    lines.push('## Coverage');
+    for (const c of d.coverage) lines.push(`- ${c.label}: ${c.value}`);
+    lines.push('');
+  }
+  if (d.observed_metrics.length > 0) {
+    lines.push('## Metrics observed across runs');
+    for (const m of d.observed_metrics) {
+      lines.push(`- \`${m.id}\` (${m.kind}) - ${m.uses}x`);
+    }
+    lines.push('');
+  }
+  if (d.recent_runs.length > 0) {
+    lines.push(`## Recent runs (${d.recent_runs.length})`);
+    lines.push('');
+    lines.push('| Run | Status | Pass | Cost | When |');
+    lines.push('|---|---|---|---|---|');
+    for (const r of d.recent_runs) {
+      const pass = r.pass != null ? `${(r.pass * 100).toFixed(1)}%` : '-';
+      lines.push(`| \`${r.id}\` | ${r.status} | ${pass} | ${r.cost} | ${r.created_at_iso} |`);
+    }
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
 
 function formatWhen(iso: string | null): string {
   if (!iso) return '-';
@@ -48,6 +92,19 @@ export default function DatasetDetail() {
     `dataset:${name}`,
     fetcher,
   );
+  const [exportState, setExportState] = useState<'idle' | 'copied' | 'error'>('idle');
+
+  async function handleExport() {
+    if (!data) return;
+    try {
+      await copyToClipboard(datasetToMarkdown(data));
+      setExportState('copied');
+      window.setTimeout(() => setExportState('idle'), 2000);
+    } catch {
+      setExportState('error');
+      window.setTimeout(() => setExportState('idle'), 3000);
+    }
+  }
 
   const goRunNewEval = () => {
     const target = `/commands?prefill=run-eval&dataset=${encodeURIComponent(name)}`;
@@ -160,12 +217,24 @@ export default function DatasetDetail() {
               {data.source ? ` · ${data.source}` : ''}
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-            <Btn kind="ghost" size="md" disabled title={COMING_SOON}>
-              Delete
-            </Btn>
-            <Btn kind="secondary" size="md" disabled title={COMING_SOON}>
-              Export
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <Btn
+              kind="secondary"
+              size="md"
+              onClick={() => void handleExport()}
+              title={
+                exportState === 'copied'
+                  ? 'Dataset summary on clipboard'
+                  : exportState === 'error'
+                    ? 'Browser blocked clipboard access'
+                    : 'Copy this dataset (tags, coverage, observed metrics, recent runs) as markdown'
+              }
+            >
+              {exportState === 'copied'
+                ? '✓ Copied'
+                : exportState === 'error'
+                  ? '✗ Failed'
+                  : 'Copy summary'}
             </Btn>
             <Btn kind="primary" size="md" onClick={goRunNewEval}>
               Run new evaluation →

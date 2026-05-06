@@ -37,6 +37,7 @@ import type {
 import { useV2Resource, prefetchV2 } from '../hooks/useV2Resource';
 import { useProject } from '../hooks/useProject';
 import { openCliRunner } from '../cliRunnerBridge';
+import { copyToClipboard } from '../clipboard';
 import { E } from '../tokens';
 import { linkifyText, makeUrlCounter } from '../textRender';
 
@@ -260,20 +261,8 @@ export default function RunDetail() {
     // The deep-link URL for a run is its current pathname - already shareable
     // since the dashboard routes are stable. Copy to clipboard so the user
     // can paste straight into Slack/email/etc.
-    const url = window.location.href;
     try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
-      } else {
-        const ta = document.createElement('textarea');
-        ta.value = url;
-        ta.style.position = 'fixed';
-        ta.style.left = '-9999px';
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-      }
+      await copyToClipboard(window.location.href);
       setShareState('copied');
       window.setTimeout(() => setShareState('idle'), 2000);
     } catch {

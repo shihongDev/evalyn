@@ -10,6 +10,7 @@ import { v2 } from '../api/client';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { E } from '../tokens';
 import { linkifyText, makeUrlCounter } from '../textRender';
+import { copyToClipboard } from '../clipboard';
 import type { WeeklyReport } from '../api/types';
 
 function deltaPillColor(kind: 'pass' | 'fail' | 'warn' | 'info'): string {
@@ -76,23 +77,8 @@ export default function Reports() {
 
   async function handleCopy() {
     if (!data) return;
-    const md = reportToMarkdown(data);
     try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(md);
-      } else {
-        // Fallback for very old browsers / non-secure contexts: use a
-        // hidden textarea + execCommand. Best effort - won't reach here on
-        // any modern setup, but keeps the action from feeling broken.
-        const ta = document.createElement('textarea');
-        ta.value = md;
-        ta.style.position = 'fixed';
-        ta.style.left = '-9999px';
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-      }
+      await copyToClipboard(reportToMarkdown(data));
       setCopyState('copied');
       window.setTimeout(() => setCopyState('idle'), 2000);
     } catch {
