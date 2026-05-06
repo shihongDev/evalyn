@@ -306,6 +306,23 @@ const Pane = function Pane({
   // would appear even on short content (clicks would do nothing visible).
   const [overflowing, setOverflowing] = useState(false);
   const innerRef = useRef<HTMLDivElement | null>(null);
+  // Copy-to-clipboard feedback. true for 1.5s after a successful copy.
+  // Auto-clears via the cleanup setTimeout.
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(t);
+  }, [copied]);
+  const copyToClipboard = useCallback(() => {
+    if (!navigator.clipboard?.writeText || !text) return;
+    navigator.clipboard.writeText(text).then(
+      () => setCopied(true),
+      () => {
+        // ignore - browser denied
+      },
+    );
+  }, [text]);
 
   const length = text.length;
   // Content at exactly the backend cap is almost certainly truncated.
@@ -352,6 +369,29 @@ const Pane = function Pane({
         </span>
         <span style={{ flex: 1 }} />
         {headerExtras}
+        {/* Copy whole pane to clipboard. Hidden when text is empty
+            (nothing to copy) or when navigator.clipboard isn't
+            available (insecure context, old browsers). */}
+        {text && typeof navigator !== 'undefined' && !!navigator.clipboard && (
+          <button
+            type="button"
+            onClick={copyToClipboard}
+            title={copied ? 'Copied to clipboard' : 'Copy pane content to clipboard'}
+            style={{
+              fontFamily: E.fMono,
+              fontSize: 10,
+              color: copied ? E.ember : E.text2,
+              background: copied ? '#fcefe2' : 'transparent',
+              border: `1px solid ${copied ? E.ember : E.hair}`,
+              borderRadius: 4,
+              padding: '2px 8px',
+              cursor: 'pointer',
+              transition: 'all 160ms',
+            }}
+          >
+            {copied ? '✓ Copied' : 'Copy'}
+          </button>
+        )}
         {showToggle && (
           <button
             type="button"
