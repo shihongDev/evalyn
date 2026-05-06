@@ -1084,12 +1084,21 @@ function OutputSection({
   // disabled).
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
 
+  // Errors-only filter. When on, the output panel renders only stderr
+  // (and system) lines so the user can find a buried failure in a
+  // chatty eval without manual scrolling. Toggled by clicking the
+  // stderr-count chip in the header. Resets implicitly when this
+  // component unmounts (e.g. switching to a different command tab).
+  const [stderrFilter, setStderrFilter] = useState(false);
+
   async function handleCopy() {
     if (lines.length === 0) return;
     // Concatenate output lines into a single string. Stderr lines stay
     // interleaved with stdout - same order they arrived in - because
     // splitting them would lose the chronology that's often what the
     // user actually cares about ("error happened RIGHT after this log").
+    // The Copy button copies ALL lines regardless of the stderr filter:
+    // the filter is for scanning, the clipboard is for sharing.
     const text = lines.map((l) => l.text).join('\n');
     try {
       await copyToClipboard(text);
@@ -1109,6 +1118,36 @@ function OutputSection({
     () => lines.reduce((n, l) => (l.kind === 'stderr' ? n + 1 : n), 0),
     [lines],
   );
+
+  // Apply the errors-only filter. System lines (e.g. truncation markers)
+  // are kept visible since they describe diagnostic state, not stdout
+  // content. Memoized so the filter pass does not run on every unrelated
+  // re-render (lines updates ~60Hz during streaming due to rAF batching).
+  const visibleLines = useMemo(
+    () =>
+      stderrFilter
+        ? lines.filter((l) => l.kind === 'stderr' || l.kind === 'system')
+        : lines,
+    [lines, stderrFilter],
+  );
+
+  // Auto-clear the filter when no stderr exists. Two scenarios:
+  //   (a) terminal status reached with zero stderr - filter would be
+  //       stuck "on" with no way to view stdout if the user navigates
+  //       away and back.
+  //   (b) all stderr lines got evicted from the ring buffer mid-run
+  //       (chatty stdout pushed them past MAX_OUTPUT_LINES). The chip
+  //       vanishes when stderrCount drops to 0, so the user has no way
+  //       to toggle the filter back off.
+  // The chip only renders when stderrCount > 0, so a clear of an
+  // accidentally-active filter never disagrees with user intent: the
+  // user could only have switched the filter ON when stderrCount was
+  // already > 0.
+  useEffect(() => {
+    if (stderrFilter && stderrCount === 0) {
+      setStderrFilter(false);
+    }
+  }, [stderrFilter, stderrCount]);
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0 }}>
@@ -1131,26 +1170,40 @@ function OutputSection({
         >
           <span style={{ flex: 1, minWidth: 0 }}>$ {preview}</span>
           {stderrCount > 0 && (
-            <span
-              role="status"
-              aria-label={`${stderrCount} stderr line${stderrCount === 1 ? '' : 's'}`}
-              title={`${stderrCount} stderr line${stderrCount === 1 ? '' : 's'} in output`}
+            <button
+              type="button"
+              onClick={() => setStderrFilter((v) => !v)}
+              aria-pressed={stderrFilter}
+              aria-label={
+                stderrFilter
+                  ? `Showing only stderr (${stderrCount} line${stderrCount === 1 ? '' : 's'}); click to show all output`
+                  : `${stderrCount} stderr line${stderrCount === 1 ? '' : 's'}; click to filter to stderr only`
+              }
+              title={
+                stderrFilter
+                  ? 'Showing stderr only - click to show all'
+                  : `Filter to ${stderrCount} stderr line${stderrCount === 1 ? '' : 's'}`
+              }
               style={{
                 flexShrink: 0,
                 padding: '0 8px',
                 fontFamily: E.fMono,
                 fontSize: 10.5,
                 color: '#ff9580',
-                background: 'rgba(255, 149, 128, 0.12)',
-                border: `1px solid rgba(255, 149, 128, 0.3)`,
+                background: stderrFilter
+                  ? 'rgba(255, 149, 128, 0.28)'
+                  : 'rgba(255, 149, 128, 0.12)',
+                border: `1px solid rgba(255, 149, 128, ${stderrFilter ? 0.7 : 0.3})`,
                 borderRadius: 4,
                 lineHeight: 1.6,
                 whiteSpace: 'nowrap',
-                fontWeight: 500,
+                fontWeight: stderrFilter ? 600 : 500,
+                cursor: 'pointer',
               }}
             >
+              {stderrFilter ? '✓ ' : ''}
               {stderrCount} stderr
-            </span>
+            </button>
           )}
           <button
             type="button"
@@ -1218,7 +1271,12 @@ function OutputSection({
               (no output)
             </span>
           )}
-          {lines.map((l, i) => (
+          {lines.length > 0 && visibleLines.length === 0 && stderrFilter && (
+            <span style={{ color: '#7a7466', fontStyle: 'italic' }}>
+              No stderr lines yet. Toggle the chip above to show all output.
+            </span>
+          )}
+          {visibleLines.map((l, i) => (
             <div
               key={i}
               style={{
