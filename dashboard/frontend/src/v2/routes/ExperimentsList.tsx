@@ -780,9 +780,36 @@ export default function ExperimentsList() {
 
         {/* EMPTY FILTER RESULT */}
         {filtered && filtered.length === 0 && rows && rows.length > 0 && (
-          <div style={{ marginTop: 14, padding: 18, fontSize: 13, color: E.text3 }}>
-            No experiments match "{query}".
-          </div>
+          <Card
+            style={{
+              marginTop: 14,
+              padding: 18,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <div style={{ flex: 1, fontSize: 13, color: E.text2 }}>
+              No experiments match
+              {query && (
+                <>
+                  {' '}<b style={{ color: E.ember }}>"{query}"</b>
+                </>
+              )}
+              {' '}with the current filters.
+              <div style={{ fontSize: 11, color: E.text3, marginTop: 2, fontFamily: E.fMono }}>
+                {rows.length} experiment{rows.length === 1 ? '' : 's'} hidden
+              </div>
+            </div>
+            {query && (
+              <Btn kind="secondary" size="sm" onClick={() => setQuery('')}>
+                Clear search
+              </Btn>
+            )}
+            <Btn kind="ghost" size="sm" onClick={() => setStatusFilter('any')}>
+              Reset filter
+            </Btn>
+          </Card>
         )}
 
         <div style={{ height: 30 }} />
