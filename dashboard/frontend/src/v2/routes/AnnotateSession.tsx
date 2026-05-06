@@ -2553,7 +2553,7 @@ export default function AnnotateSession() {
               title={
                 saveAllProgress
                   ? `Saving ${saveAllProgress.done} of ${saveAllProgress.total} items...`
-                  : `${unsavedItemsCount} item${unsavedItemsCount === 1 ? ' has' : 's have'} unsaved verdict changes. Click to save them all in one shot.`
+                  : `${unsavedItemsCount} item${unsavedItemsCount === 1 ? ' has' : 's have'} verdict changes that aren't on the server yet. (Your drafts are kept locally and survive tab close — saving commits them to the dataset.) Click to save all in one shot.`
               }
               style={{
                 fontFamily: E.fMono,
