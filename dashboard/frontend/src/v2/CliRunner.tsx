@@ -1050,6 +1050,15 @@ function OutputSection({
     }
   }
 
+  // At-a-glance error count. We surface this even mid-stream so the user
+  // knows the run is producing errors before it finishes - a 30s eval
+  // failing on item 3 shouldn't have to wait until exit code to be
+  // visible.
+  const stderrCount = useMemo(
+    () => lines.reduce((n, l) => (l.kind === 'stderr' ? n + 1 : n), 0),
+    [lines],
+  );
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0 }}>
         <div
@@ -1070,6 +1079,28 @@ function OutputSection({
           }}
         >
           <span style={{ flex: 1, minWidth: 0 }}>$ {preview}</span>
+          {stderrCount > 0 && (
+            <span
+              role="status"
+              aria-label={`${stderrCount} stderr line${stderrCount === 1 ? '' : 's'}`}
+              title={`${stderrCount} stderr line${stderrCount === 1 ? '' : 's'} in output`}
+              style={{
+                flexShrink: 0,
+                padding: '0 8px',
+                fontFamily: E.fMono,
+                fontSize: 10.5,
+                color: '#ff9580',
+                background: 'rgba(255, 149, 128, 0.12)',
+                border: `1px solid rgba(255, 149, 128, 0.3)`,
+                borderRadius: 4,
+                lineHeight: 1.6,
+                whiteSpace: 'nowrap',
+                fontWeight: 500,
+              }}
+            >
+              {stderrCount} stderr
+            </span>
+          )}
           <button
             type="button"
             onClick={() => void handleCopy()}
