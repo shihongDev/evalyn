@@ -12,18 +12,17 @@
  */
 
 import {
-  forwardRef,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
   type CSSProperties,
-  type ForwardedRef,
   type ReactElement,
 } from 'react';
 import { E } from './tokens';
 import { Btn, Eyebrow, Pill, StatusDot } from './ui';
+import { useStickToBottom } from './hooks/useStickToBottom';
 import type { CliParam, CliParamKind, CliSchema } from './api/cli';
 import { commandSummary } from './api/cli';
 import {
@@ -257,7 +256,16 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
   });
 
   const subRef = useRef<{ close: () => void } | null>(null);
-  const outputRef = useRef<HTMLDivElement | null>(null);
+  // Output streaming auto-scroll via the shared chat-style hook. Sticks
+  // to bottom on new lines unless the user has scrolled up to inspect
+  // history (e.g. mid-stream stack trace), in which case we render a
+  // "Jump to latest" pill so they can resume tailing in one click.
+  const {
+    scrollRef: outputRef,
+    onScroll: onOutputScroll,
+    scrolledUp: outputScrolledUp,
+    jumpToBottom: jumpToOutputBottom,
+  } = useStickToBottom(lines.length);
 
   // Resume mode: re-attach the WS to the existing job. We do a best-effort
   // GET /api/jobs/{id} first so we can dim the row + show an error if the
@@ -324,13 +332,6 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
     // when a new resume target arrives, so the effect re-runs naturally.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Auto-scroll the terminal to the bottom on every new line.
-  useEffect(() => {
-    const el = outputRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, [lines.length]);
 
   // Tear down the WS subscription on unmount or when starting a fresh job.
   useEffect(() => {
@@ -632,11 +633,14 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
             />
           ) : (
             <OutputSection
-              ref={outputRef}
               lines={lines}
               status={status}
               exitInfo={exitInfo}
               preview={preview}
+              outputRef={outputRef}
+              onOutputScroll={onOutputScroll}
+              scrolledUp={outputScrolledUp}
+              jumpToBottom={jumpToOutputBottom}
             />
           )}
         </div>
@@ -1006,13 +1010,22 @@ interface OutputSectionProps {
   status: JobStatusKind;
   exitInfo: { code?: number; duration?: number } | null;
   preview: string;
+  outputRef: React.RefObject<HTMLDivElement | null>;
+  onOutputScroll: () => void;
+  scrolledUp: boolean;
+  jumpToBottom: () => void;
 }
 
-const OutputSection = forwardRef<HTMLDivElement, OutputSectionProps>(
-  function OutputSection(
-    { lines, status, exitInfo, preview }: OutputSectionProps,
-    ref: ForwardedRef<HTMLDivElement>,
-  ) {
+function OutputSection({
+  lines,
+  status,
+  exitInfo,
+  preview,
+  outputRef,
+  onOutputScroll,
+  scrolledUp,
+  jumpToBottom,
+}: OutputSectionProps) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0 }}>
         <div
@@ -1031,8 +1044,10 @@ const OutputSection = forwardRef<HTMLDivElement, OutputSectionProps>(
         >
           $ {preview}
         </div>
+        <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex' }}>
         <div
-          ref={ref}
+          ref={outputRef}
+          onScroll={onOutputScroll}
           style={{
             flex: 1,
             minHeight: 220,
@@ -1075,6 +1090,35 @@ const OutputSection = forwardRef<HTMLDivElement, OutputSectionProps>(
             </div>
           ))}
         </div>
+        {scrolledUp && lines.length > 0 && (
+          <button
+            type="button"
+            onClick={jumpToBottom}
+            aria-label="Jump to latest output"
+            style={{
+              position: 'absolute',
+              bottom: 10,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              padding: '4px 10px',
+              borderRadius: 999,
+              background: E.ember,
+              color: E.emberInk,
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: 10.5,
+              fontFamily: E.fMono,
+              fontWeight: 500,
+              boxShadow: `0 6px 18px rgba(217,106,44,0.32)`,
+              zIndex: 5,
+              animation: 'eRouteFallbackFadeIn 200ms ease',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            ↓ Jump to latest
+          </button>
+        )}
+        </div>
         {exitInfo && (
           <div
             style={{
@@ -1091,5 +1135,4 @@ const OutputSection = forwardRef<HTMLDivElement, OutputSectionProps>(
         )}
       </div>
     );
-  },
-);
+}
