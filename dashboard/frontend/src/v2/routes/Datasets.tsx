@@ -18,6 +18,7 @@ import { useV2Resource, prefetchV2 } from '../hooks/useV2Resource';
 import { useRouteTour } from '../tour/useRouteTour';
 import { DATASET_UPLOAD_TOUR_ID } from '../tour/scripts/datasetUpload';
 import { useProject } from '../hooks/useProject';
+import { preloadDatasetDetail } from '../routePreloads';
 import { E } from '../tokens';
 
 const COVERAGE_COLORS = [E.ember, E.steel, '#a78bfa', E.warn, E.text3];
@@ -66,6 +67,9 @@ export default function Datasets() {
     navigate(`/datasets/${encodeURIComponent(name)}`);
   };
   const prefetchDetail = (name: string) => {
+    // Warm the route chunk in parallel with the data fetch so click
+    // -> paint stays under the perception threshold even on first hit.
+    void preloadDatasetDetail();
     prefetchV2(`dataset:${name}`, () => v2.dataset(name));
   };
   const [demoLoading, setDemoLoading] = useState(false);

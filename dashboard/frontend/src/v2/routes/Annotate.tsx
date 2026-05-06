@@ -22,6 +22,7 @@ import type {
   ExperimentList,
   DatasetList,
 } from '../api/types';
+import { preloadAnnotateSession } from '../routePreloads';
 import { E } from '../tokens';
 
 function shortRel(iso: string): string {
@@ -273,6 +274,9 @@ export default function Annotate() {
                   onClick={() => navigate(`/annotate/${encodeURIComponent(s.id)}`)}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = E.panel2;
+                    // Warm the AnnotateSession chunk (57 KB - largest of
+                    // any route) so the click->paint path is in cache.
+                    void preloadAnnotateSession();
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.background = 'transparent';

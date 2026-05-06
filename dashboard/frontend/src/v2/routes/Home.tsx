@@ -24,7 +24,8 @@ import {
 } from '../ui';
 import { Welcome } from '../ui/Welcome';
 import { v2 } from '../api/client';
-import { useV2Resource } from '../hooks/useV2Resource';
+import { useV2Resource, prefetchV2 } from '../hooks/useV2Resource';
+import { preloadRunDetail } from '../routePreloads';
 import { E } from '../tokens';
 import { linkifyText, makeUrlCounter } from '../textRender';
 
@@ -408,6 +409,16 @@ export default function Home() {
                     key={e.id}
                     type="button"
                     onClick={() => navigate(`/experiments/${e.id}`)}
+                    onMouseEnter={(ev) => {
+                      ev.currentTarget.style.background = E.panel2;
+                      // Warm RunDetail chunk + this run's payload so the
+                      // click is paint-fast.
+                      void preloadRunDetail();
+                      prefetchV2(`experiment:${e.id}`, () => v2.experiment(e.id));
+                    }}
+                    onMouseLeave={(ev) => {
+                      ev.currentTarget.style.background = 'transparent';
+                    }}
                     style={{
                       width: '100%',
                       padding: '14px 18px',
@@ -420,6 +431,7 @@ export default function Home() {
                       borderTopLeftRadius: 0,
                       cursor: 'pointer',
                       textAlign: 'left',
+                      transition: 'background 140ms',
                     }}
                   >
                     <StatusDot status={e.status} animated={e.status === 'running'} />
