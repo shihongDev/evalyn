@@ -373,10 +373,25 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   /** Flat index -> Entry, used for keyboard navigation across sections. */
   const flat = useMemo<Entry[]>(() => sections.flatMap((s) => s.entries), [sections]);
 
-  function askCoPilot(id: string) {
-    const prefill = `Run the \`${id}\` command and explain the output.`;
+  /** Build a kind-specific co-pilot prompt for an entry. The co-pilot has
+   * read access to all four datasources, so a question about any kind is
+   * answerable; what differs is the most-useful default phrasing. */
+  function askCoPilotPrompt(entry: Entry): string {
+    if (entry.kind === 'command') {
+      return `Run the \`${entry.id}\` command and explain the output.`;
+    }
+    if (entry.kind === 'run') {
+      return `Summarize run \`${entry.id}\` (${entry.label}). What changed vs prior runs and where are the failures concentrated?`;
+    }
+    if (entry.kind === 'dataset') {
+      return `Tell me about the \`${entry.id}\` dataset - size, coverage, recent runs, and observed failure patterns.`;
+    }
+    return `Explain rubric \`${entry.id}\` (${entry.label}) - what it measures, calibration status, and how often it's used.`;
+  }
+
+  function askCoPilot(entry: Entry) {
     onClose();
-    navigate(`/copilot?prefill=${encodeURIComponent(prefill)}`);
+    navigate(`/copilot?prefill=${encodeURIComponent(askCoPilotPrompt(entry))}`);
   }
 
   function openCommandsPage() {
@@ -395,9 +410,10 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       e.preventDefault();
       const entry = flat[activeIndex];
       if (!entry) return;
-      // Cmd/Ctrl+Enter on a command keeps the legacy "ask co-pilot" path.
-      if ((e.metaKey || e.ctrlKey) && entry.kind === 'command') {
-        askCoPilot(entry.id);
+      // Cmd/Ctrl+Enter routes any entry to the co-pilot pre-filled with a
+      // question about it. Plain Enter still navigates / opens the runner.
+      if (e.metaKey || e.ctrlKey) {
+        askCoPilot(entry);
         return;
       }
       entry.nav();
