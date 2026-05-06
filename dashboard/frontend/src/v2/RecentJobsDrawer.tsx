@@ -42,11 +42,38 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
   const [entries, setEntries] = useState<JobHistoryEntry[]>(() => loadJobsHistory());
   const [cliCatalog, setCliCatalog] = useState<CliSchema[] | null>(null);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  // "Show failed only" filter, toggled via a clickable badge in the
+  // header. Lets a user spot recent regressions in a long history
+  // (the local cap is 30 entries) without scanning each pill by eye.
+  const [failureFilter, setFailureFilter] = useState(false);
 
   // Re-render whenever history mutates (within this tab or another).
   useEffect(() => {
     return subscribeJobsHistory(() => setEntries(loadJobsHistory()));
   }, []);
+
+  const failedCount = useMemo(
+    () => entries.reduce((n, e) => (e.status === 'failed' ? n + 1 : n), 0),
+    [entries],
+  );
+
+  // Filtered view used by the row list. We deliberately exclude
+  // cancelled and unknown from the failure filter: cancelled is
+  // user-driven (not an unexpected failure), unknown means the backend
+  // evicted the record (server restart). Surface only true failures.
+  const visibleEntries = useMemo(
+    () => (failureFilter ? entries.filter((e) => e.status === 'failed') : entries),
+    [entries, failureFilter],
+  );
+
+  // Auto-clear the filter when no failures remain so an accidental
+  // toggle does not strand the user with an empty list once they
+  // clear history or the failed jobs scroll out of the local cache.
+  useEffect(() => {
+    if (failureFilter && failedCount === 0) {
+      setFailureFilter(false);
+    }
+  }, [failureFilter, failedCount]);
 
   // Fetch the CLI catalog once (cached) so we can resolve cli_id -> CliSchema
   // when the user clicks a row. We do it lazily on first open to avoid a
@@ -180,7 +207,13 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
           overflow: 'hidden',
         }}
       >
-        <DrawerHeader onClose={onClose} count={entries.length} />
+        <DrawerHeader
+          onClose={onClose}
+          count={entries.length}
+          failedCount={failedCount}
+          failureFilter={failureFilter}
+          onToggleFailureFilter={() => setFailureFilter((v) => !v)}
+        />
         <div
           style={{
             flex: 1,
@@ -191,8 +224,10 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
         >
           {entries.length === 0 ? (
             <EmptyState />
+          ) : visibleEntries.length === 0 && failureFilter ? (
+            <FilterEmptyState />
           ) : (
-            entries.map((e) => (
+            visibleEntries.map((e) => (
               <JobRow key={e.job_id} entry={e} onClick={() => onRowClick(e)} />
             ))
           )}
@@ -211,7 +246,19 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
   );
 }
 
-function DrawerHeader({ onClose, count }: { onClose: () => void; count: number }) {
+function DrawerHeader({
+  onClose,
+  count,
+  failedCount,
+  failureFilter,
+  onToggleFailureFilter,
+}: {
+  onClose: () => void;
+  count: number;
+  failedCount: number;
+  failureFilter: boolean;
+  onToggleFailureFilter: () => void;
+}) {
   return (
     <div
       style={{
@@ -234,6 +281,7 @@ function DrawerHeader({ onClose, count }: { onClose: () => void; count: number }
             display: 'flex',
             alignItems: 'baseline',
             gap: 8,
+            flexWrap: 'wrap',
           }}
         >
           Recent jobs
@@ -241,6 +289,41 @@ function DrawerHeader({ onClose, count }: { onClose: () => void; count: number }
             <span style={{ fontSize: 11, color: E.text3, fontFamily: E.fMono }}>
               {count}
             </span>
+          )}
+          {failedCount > 0 && (
+            <button
+              type="button"
+              onClick={onToggleFailureFilter}
+              aria-pressed={failureFilter}
+              aria-label={
+                failureFilter
+                  ? `Showing only ${failedCount} failed job${failedCount === 1 ? '' : 's'}; click to show all`
+                  : `${failedCount} failed job${failedCount === 1 ? '' : 's'}; click to filter`
+              }
+              title={
+                failureFilter
+                  ? 'Showing failed only - click to show all'
+                  : `Filter to ${failedCount} failed job${failedCount === 1 ? '' : 's'}`
+              }
+              style={{
+                padding: '0 8px',
+                fontFamily: E.fMono,
+                fontSize: 10.5,
+                color: E.fail,
+                background: failureFilter
+                  ? 'rgba(231, 102, 83, 0.28)'
+                  : 'rgba(231, 102, 83, 0.12)',
+                border: `1px solid rgba(231, 102, 83, ${failureFilter ? 0.7 : 0.3})`,
+                borderRadius: 4,
+                lineHeight: 1.6,
+                whiteSpace: 'nowrap',
+                fontWeight: failureFilter ? 600 : 500,
+                cursor: 'pointer',
+              }}
+            >
+              {failureFilter ? '✓ ' : ''}
+              {failedCount} failed
+            </button>
           )}
         </div>
       </div>
@@ -368,6 +451,27 @@ function EmptyState() {
       }}
     >
       No recent jobs yet. Jobs you launch from the CLI runner will appear here.
+    </div>
+  );
+}
+
+function FilterEmptyState() {
+  // Reachable only transiently: the auto-clear effect resets the filter
+  // when failedCount drops to 0. This state is shown briefly during the
+  // render between the toggle and the effect firing if the user races
+  // ahead of React. Kept defensive so we never render an empty list
+  // beneath an active filter chip.
+  return (
+    <div
+      style={{
+        padding: '32px 18px',
+        textAlign: 'center',
+        color: E.text3,
+        fontSize: 12.5,
+        lineHeight: 1.5,
+      }}
+    >
+      No failed jobs match. Toggle the chip above to show all jobs.
     </div>
   );
 }
