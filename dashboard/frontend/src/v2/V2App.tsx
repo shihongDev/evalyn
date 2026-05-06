@@ -20,21 +20,25 @@ import { E } from './tokens';
 
 // Lazy-load every non-home route. Home stays eager because most sessions
 // land there first and a Suspense flash on the entry page would feel
-// worse than the small JS save.
-const CoPilotThread = lazy(() => import('./routes/CoPilotThread'));
-const ExperimentsList = lazy(() => import('./routes/ExperimentsList'));
-const RunDetail = lazy(() => import('./routes/RunDetail'));
-const FailureCluster = lazy(() => import('./routes/FailureCluster'));
-const Datasets = lazy(() => import('./routes/Datasets'));
-const DatasetDetail = lazy(() => import('./routes/DatasetDetail'));
-const Metrics = lazy(() => import('./routes/Metrics'));
-const Review = lazy(() => import('./routes/Review'));
-const Reports = lazy(() => import('./routes/Reports'));
-const Commands = lazy(() => import('./routes/Commands'));
-const Settings = lazy(() => import('./routes/Settings'));
-const Annotate = lazy(() => import('./routes/Annotate'));
-const AnnotateSession = lazy(() => import('./routes/AnnotateSession'));
-const NotFound = lazy(() => import('./routes/NotFound'));
+// worse than the small JS save. Preload functions live in
+// `./routePreloads` so AppShell's nav-link onMouseEnter can warm a
+// chunk without creating an import cycle (AppShell is a dep of V2App).
+import * as preload from './routePreloads';
+
+const CoPilotThread = lazy(preload.preloadCoPilotThread);
+const ExperimentsList = lazy(preload.preloadExperimentsList);
+const RunDetail = lazy(preload.preloadRunDetail);
+const FailureCluster = lazy(preload.preloadFailureCluster);
+const Datasets = lazy(preload.preloadDatasets);
+const DatasetDetail = lazy(preload.preloadDatasetDetail);
+const Metrics = lazy(preload.preloadMetrics);
+const Review = lazy(preload.preloadReview);
+const Reports = lazy(preload.preloadReports);
+const Commands = lazy(preload.preloadCommands);
+const Settings = lazy(preload.preloadSettings);
+const Annotate = lazy(preload.preloadAnnotate);
+const AnnotateSession = lazy(preload.preloadAnnotateSession);
+const NotFound = lazy(preload.preloadNotFound);
 
 /** Suspense fallback shown while a route chunk is downloading. We render
  * the AppShell chrome around a centered spinner so the navbar stays in

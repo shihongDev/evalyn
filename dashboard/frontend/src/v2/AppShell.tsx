@@ -39,6 +39,15 @@ import { prefetchV2 } from './hooks/useV2Resource';
 import { startV2EventStream } from './api/v2ws';
 import { useTour } from './tour/useTour';
 import { TourMenu } from './tour/TourMenu';
+import {
+  preloadAnnotate,
+  preloadCommands,
+  preloadDatasets,
+  preloadExperimentsList,
+  preloadMetrics,
+  preloadReports,
+  preloadReview,
+} from './routePreloads';
 
 interface AppShellProps {
   children: ReactNode;
@@ -89,6 +98,10 @@ const TITLE_FOR_PATH: Array<[string, string]> = [
   ['/', 'Home'],
 ];
 
+// Each prefetch fires on hover and warms BOTH the data cache AND the JS
+// chunk in parallel. Home is eager so it has no chunk preload. The
+// route's data fetch and chunk download race; the slower of the two
+// gates the navigation but at least neither blocks the other.
 const NAV_ITEMS: NavItem[] = [
   { id: 'home', path: '/', icon: '◐', label: 'Home', prefetch: () => prefetchV2('home', v2.home) },
   {
@@ -96,35 +109,50 @@ const NAV_ITEMS: NavItem[] = [
     path: '/experiments',
     icon: '◆',
     label: 'Experiments',
-    prefetch: () => prefetchV2('experiments', v2.experiments),
+    prefetch: () => {
+      void preloadExperimentsList();
+      prefetchV2('experiments', v2.experiments);
+    },
   },
   {
     id: 'commands',
     path: '/commands',
     icon: '⌥',
     label: 'Commands',
-    prefetch: () => prefetchV2('commands', listCli),
+    prefetch: () => {
+      void preloadCommands();
+      prefetchV2('commands', listCli);
+    },
   },
   {
     id: 'datasets',
     path: '/datasets',
     icon: '◫',
     label: 'Datasets',
-    prefetch: () => prefetchV2('datasets', v2.datasets),
+    prefetch: () => {
+      void preloadDatasets();
+      prefetchV2('datasets', v2.datasets);
+    },
   },
   {
     id: 'metrics',
     path: '/metrics',
     icon: '◈',
     label: 'Metrics & rubrics',
-    prefetch: () => prefetchV2('rubrics', v2.rubrics),
+    prefetch: () => {
+      void preloadMetrics();
+      prefetchV2('rubrics', v2.rubrics);
+    },
   },
   {
     id: 'review',
     path: '/review',
     icon: '◉',
     label: 'Human review',
-    prefetch: () => prefetchV2('reviewQueue', v2.reviewQueue),
+    prefetch: () => {
+      void preloadReview();
+      prefetchV2('reviewQueue', v2.reviewQueue);
+    },
   },
   {
     id: 'annotate',
@@ -132,17 +160,22 @@ const NAV_ITEMS: NavItem[] = [
     icon: '✎',
     label: 'Annotate',
     // The landing reads the session list; warm it on hover.
-    prefetch: () =>
+    prefetch: () => {
+      void preloadAnnotate();
       prefetchV2('annotation/sessions', () =>
         import('./api/annotation').then((m) => m.annotationApi.listSessions()),
-      ),
+      );
+    },
   },
   {
     id: 'reports',
     path: '/reports',
     icon: '▤',
     label: 'Reports',
-    prefetch: () => prefetchV2('weeklyReport', v2.weeklyReport),
+    prefetch: () => {
+      void preloadReports();
+      prefetchV2('weeklyReport', v2.weeklyReport);
+    },
   },
 ];
 
