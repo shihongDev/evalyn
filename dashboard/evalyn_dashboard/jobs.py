@@ -47,6 +47,11 @@ EventType = Literal["stdout", "stderr", "exit", "truncated"]
 DEFAULT_MAX_LOG = 10_000
 DEFAULT_GRACE_SECONDS = 3.0
 DEFAULT_HISTORY_SIZE = 100
+# Persistence GC: keep at most this many rows in the sqlite mirror,
+# pruned every DEFAULT_PERSISTENCE_GC_INTERVAL terminal events. Without
+# the GC call the .evalyn/data/jobs.sqlite table grew unboundedly.
+DEFAULT_PERSISTENCE_KEEP = 200
+DEFAULT_PERSISTENCE_GC_INTERVAL = 50
 
 
 def _iso_utc(ts: float) -> str:
@@ -156,6 +161,13 @@ class JobManager:
             replaces them at the front of the log.
         history_size: Maximum number of jobs kept in ``recent()``. Older
             completed jobs are pruned. Running jobs are never pruned.
+        persistence: Optional sqlite mirror for jobs.
+        persistence_keep: When persistence is set, retain at most this
+            many rows in the sqlite mirror; older rows are pruned by the
+            periodic GC fired from ``_persist_job_terminal``.
+        persistence_gc_interval: Run the persistence GC every Nth
+            terminal event. Tuning lever: lower = tighter cap but more
+            DELETE traffic; higher = laxer cap with cheaper terminals.
     """
 
     def __init__(
@@ -165,6 +177,8 @@ class JobManager:
         max_log: int = DEFAULT_MAX_LOG,
         history_size: int = DEFAULT_HISTORY_SIZE,
         persistence: JobPersistence | None = None,
+        persistence_keep: int = DEFAULT_PERSISTENCE_KEEP,
+        persistence_gc_interval: int = DEFAULT_PERSISTENCE_GC_INTERVAL,
     ) -> None:
         self.grace_seconds = grace_seconds
         self.max_log = max_log
@@ -173,6 +187,12 @@ class JobManager:
         # Insertion order tracked by dict; Python 3.7+ preserves it.
         # Optional sqlite mirror. None disables persistence (test default).
         self._persistence = persistence
+        self._persistence_keep = max(1, persistence_keep)
+        self._persistence_gc_interval = max(1, persistence_gc_interval)
+        # Counts terminal events seen so far; used to trigger periodic GC.
+        # Resets implicitly via modulo so we never run GC twice for the
+        # same terminal.
+        self._persistence_terminal_count = 0
 
     # ------------------------------------------------------------------
     # Public API
@@ -520,6 +540,33 @@ class JobManager:
             )
         except Exception as exc:  # noqa: BLE001 - never crash the reaper
             logger.warning("persist_job_terminal(%s) failed: %s", job.id, exc)
+        # GC runs in its own try/except so a prune failure cannot poison
+        # the per-job persist path. Without this hook the sqlite mirror
+        # grew unboundedly.
+        self._persist_gc_maybe()
+
+    def _persist_gc_maybe(self) -> None:
+        """Periodically prune the sqlite mirror to bound DB growth.
+
+        Fires every ``persistence_gc_interval`` terminal events and asks
+        the mirror to keep at most ``persistence_keep`` rows. Cheap when
+        no pruning is needed (a single COUNT-style query). Never raises.
+        """
+        if self._persistence is None:
+            return
+        self._persistence_terminal_count += 1
+        if self._persistence_terminal_count % self._persistence_gc_interval != 0:
+            return
+        try:
+            deleted = self._persistence.delete_old(keep=self._persistence_keep)
+            if deleted > 0:
+                logger.info(
+                    "JobPersistence GC pruned %d old rows (keeping %d)",
+                    deleted,
+                    self._persistence_keep,
+                )
+        except Exception as exc:  # noqa: BLE001 - never crash the reaper
+            logger.warning("JobPersistence GC failed: %s", exc)
 
     def _prune_history(self) -> None:
         """Trim completed jobs beyond ``history_size``. Running jobs stay."""
