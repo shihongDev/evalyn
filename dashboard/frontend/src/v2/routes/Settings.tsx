@@ -18,7 +18,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '../AppShell';
-import { Btn, Card, Eyebrow, Pill, Skeleton, Spinner, UpdatingChip } from '../ui';
+import { Btn, Card, Eyebrow, Pill, Skeleton, Spinner, StatusDot, UpdatingChip } from '../ui';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { E } from '../tokens';
 import { settingsApi, type ProviderState, type SettingsState } from '../api/settings';
@@ -455,19 +455,17 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
     }
   }
 
-  // Display value for the API key input. When the user has edited (apiKey
-  // is non-empty) we honor that. Otherwise: if the key is set on the
-  // backend, show a redacted placeholder; if not set, show empty so the
-  // input visually invites typing.
-  const displayValue = apiKey.length > 0
-    ? apiKey
-    : state.is_set
-      ? '••••••••••••'
-      : '';
-
-  // Ollama uses a base_url instead of an API key; we still expose a key
-  // field for symmetry but the placeholder hints that it's optional.
+  // The input's controlled value mirrors apiKey directly. When the backend
+  // already has a key, we surface that via placeholder + adjacent helper
+  // text rather than seeding the value with bullet characters - those used
+  // to get appended to the user's first keystroke (sk-abc became
+  // ••••••••sk-abc) because controlled input + decorative value don't mix.
   const isOllama = id === 'ollama';
+  const inputPlaceholder = isOllama
+    ? 'Leave blank for local Ollama'
+    : state.is_set
+      ? 'Type to replace, or leave blank to keep current key'
+      : 'sk-...';
 
   return (
     <Card style={{ padding: 20 }}>
@@ -496,25 +494,45 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
           <input
             id={`apikey-${id}`}
             type={revealKey ? 'text' : 'password'}
-            value={displayValue}
-            placeholder={isOllama ? 'Leave blank for local Ollama' : 'sk-...'}
+            value={apiKey}
+            placeholder={inputPlaceholder}
             onChange={(e) => setApiKey(e.target.value)}
-            onFocus={() => {
-              // First focus on a redacted key clears the placeholder dots
-              // so the user can type a fresh key without manually deleting.
-              if (apiKey.length === 0 && state.is_set) setApiKey('');
-            }}
             style={INPUT_STYLE}
+            spellCheck={false}
+            autoComplete="off"
           />
           <Btn
             kind="ghost"
             size="sm"
             onClick={() => setRevealKey((v) => !v)}
-            title={revealKey ? 'Hide key' : 'Show key'}
+            disabled={apiKey.length === 0}
+            title={
+              apiKey.length === 0
+                ? 'Type a key to reveal it'
+                : revealKey
+                  ? 'Hide key'
+                  : 'Show key'
+            }
           >
             {revealKey ? 'Hide' : 'Show'}
           </Btn>
         </div>
+        {state.is_set && apiKey.length === 0 && !isOllama && (
+          <div
+            style={{
+              marginTop: 6,
+              fontSize: 11,
+              color: E.text3,
+              fontFamily: E.fMono,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <StatusDot status="pass" size={5} />
+            Key is set. The current value is hidden for safety.
+          </div>
+        )}
       </div>
 
       {/* Model row */}
@@ -615,11 +633,44 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
         </div>
       )}
 
-      {!state.is_set && (
+      {!state.is_set && PROVIDER_KEY_HELP[id] && (
         <div style={{ marginTop: 12, fontSize: 12, color: E.text2 }}>
-          Add API key {String.fromCharCode(8594)}
+          {isOllama ? (
+            <>
+              Run Ollama locally and point it at the default port. See{' '}
+              <a
+                href={PROVIDER_KEY_HELP[id]}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: E.ember, textDecoration: 'none' }}
+              >
+                ollama.com {String.fromCharCode(8599)}
+              </a>
+              {' '}for setup.
+            </>
+          ) : (
+            <>
+              Need a key? Get one at{' '}
+              <a
+                href={PROVIDER_KEY_HELP[id]}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: E.ember, textDecoration: 'none' }}
+              >
+                {new URL(PROVIDER_KEY_HELP[id]).hostname.replace(/^www\./, '')}{' '}
+                {String.fromCharCode(8599)}
+              </a>
+              .
+            </>
+          )}
         </div>
       )}
     </Card>
   );
 }
+
+const PROVIDER_KEY_HELP: Record<string, string> = {
+  anthropic: 'https://console.anthropic.com/settings/keys',
+  openai: 'https://platform.openai.com/api-keys',
+  ollama: 'https://ollama.com/download',
+};
