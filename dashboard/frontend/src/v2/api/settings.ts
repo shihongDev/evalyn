@@ -3,11 +3,15 @@
  *
  * Mirrors the CSRF + JSON conventions used by src/v2/api/client.ts: read the
  * <meta name="workbench-token"> tag on mutations and forward it as the
- * X-Workbench-Token header. The settings endpoints predate the v2 namespace
- * so they live under /api/settings (no /api/v2 prefix).
+ * X-Workbench-Token header. On 403 (stale token after a server restart),
+ * refetch the index page to scrape the new token, patch the in-DOM meta,
+ * and retry once. The endpoints predate the v2 namespace so they live
+ * under /api/settings (no /api/v2 prefix).
  *
  * Backend reference: dashboard/evalyn_dashboard/api/settings.py.
  */
+
+import { readCsrfToken, refreshCsrfToken } from './csrf';
 
 const BASE = '/api/settings';
 
@@ -38,12 +42,6 @@ export interface SaveBody {
   base_url?: string;
 }
 
-function csrfToken(): string | null {
-  if (typeof document === 'undefined') return null;
-  const meta = document.querySelector<HTMLMetaElement>('meta[name="workbench-token"]');
-  return meta?.content ?? null;
-}
-
 async function jget<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { headers: { Accept: 'application/json' } });
   if (!res.ok) {
@@ -54,14 +52,22 @@ async function jget<T>(path: string): Promise<T> {
 }
 
 async function jpost<T>(path: string, body: unknown): Promise<T> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const tok = csrfToken();
-  if (tok) headers['X-Workbench-Token'] = tok;
-  const res = await fetch(`${BASE}${path}`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  });
+  const url = `${BASE}${path}`;
+  const send = async (token: string | null): Promise<Response> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['X-Workbench-Token'] = token;
+    return fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+  };
+  let res = await send(readCsrfToken());
+  // Stale-token self-heal: server rotated its CSRF token (typically
+  // because of a restart). Refetch the index, patch the meta, retry
+  // once. Don't loop - if the second 403 fires, something else is wrong.
+  if (res.status === 403) {
+    const fresh = await refreshCsrfToken();
+    if (fresh) {
+      res = await send(fresh);
+    }
+  }
   // The /test/{provider} endpoint deliberately returns 400 with a JSON body
   // when a connection probe fails. Surface that body to the caller rather
   // than throwing, so the UI can render the error message inline.
