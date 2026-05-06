@@ -29,6 +29,7 @@ import type {
   AnnotationSessionMeta,
 } from '../api/types';
 import { E } from '../tokens';
+import { MOD_KEY as MOD_KEY_LABEL } from '../platform';
 
 const LABEL_CYCLE: Record<AnnotationLabel, AnnotationLabel> = {
   pass: 'fail',
@@ -36,13 +37,8 @@ const LABEL_CYCLE: Record<AnnotationLabel, AnnotationLabel> = {
   skip: 'pass',
 };
 
-/** Platform-aware modifier glyph for the cheat sheet. ⌘ on Mac, Ctrl
- * elsewhere. Detected once at module load - we don't expect users to
- * hot-swap operating systems mid-session. */
-const MOD_KEY_LABEL: string =
-  typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform)
-    ? '⌘'
-    : 'Ctrl';
+// MOD_KEY_LABEL is imported from `../platform` (see top-of-file imports)
+// so the shortcut glyph stays consistent across surfaces.
 
 const LABEL_BG: Record<AnnotationLabel, string> = {
   pass: E.passDim,

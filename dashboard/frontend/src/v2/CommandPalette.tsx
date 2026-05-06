@@ -26,6 +26,7 @@ import { v2 } from './api/client';
 import type { ExperimentRow, DatasetCard, RubricRow } from './api/types';
 import { openCliRunner } from './cliRunnerBridge';
 import { E } from './tokens';
+import { MOD_KEY } from './platform';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -577,7 +578,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         >
           <span>↑↓ navigate</span>
           <span>↵ open</span>
-          <span>⌘↵ ask co-pilot</span>
+          <span>{MOD_KEY}↵ ask co-pilot</span>
           <span>esc close</span>
           <span style={{ flex: 1 }} />
           <button
