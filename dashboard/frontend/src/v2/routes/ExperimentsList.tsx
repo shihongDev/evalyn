@@ -29,6 +29,57 @@ import type { ExperimentRow } from '../api/types';
 // rendered as "-" (UX walkthrough finding).
 const COLS = '24px 2.4fr 90px 90px 80px 90px 110px';
 
+/** Escape one cell for CSV. Wraps in quotes if it contains comma,
+ * double-quote, newline, or carriage return; doubles internal quotes
+ * per RFC 4180. */
+function csvCell(v: string | number | null | undefined): string {
+  if (v == null) return '';
+  const s = String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
+}
+
+/** Serialize the rows the user is currently looking at (post-filter,
+ * post-sort) as CSV bytes. The columns match the on-screen table plus
+ * a few useful extras (id, status, when). */
+function rowsToCsv(rows: ExperimentRow[]): string {
+  const header = ['id', 'name', 'author', 'status', 'when', 'pass_pct', 'delta', 'items', 'cost', 'tags'];
+  const lines = [header.join(',')];
+  for (const r of rows) {
+    lines.push(
+      [
+        csvCell(r.id),
+        csvCell(r.name),
+        csvCell(r.author),
+        csvCell(r.status),
+        csvCell(r.when_iso),
+        csvCell(r.pass),
+        csvCell(r.delta),
+        csvCell(r.items),
+        csvCell(r.cost),
+        csvCell(r.tags.join('; ')),
+      ].join(','),
+    );
+  }
+  // Trailing newline so the final row ends cleanly when opened in Excel
+  // / Numbers / Sheets.
+  return lines.join('\n') + '\n';
+}
+
+function downloadFile(name: string, mime: string, contents: string): void {
+  const blob = new Blob([contents], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // Defer revoke so Safari has time to start the download before the
+  // blob URL is invalidated.
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 type StatusFilter = 'any' | 'completed' | 'running' | 'failed' | 'warn';
 type SortOrder = 'recent' | 'oldest' | 'pass-desc' | 'pass-asc';
 type ViewMode = 'flat' | 'grouped';
@@ -464,7 +515,27 @@ export default function ExperimentsList() {
             </h1>
           </div>
           <span style={{ flex: 1 }} />
-          <Btn kind="secondary" size="md" disabled title="Coming soon">
+          <Btn
+            kind="secondary"
+            size="md"
+            onClick={() => {
+              if (!filtered || filtered.length === 0) return;
+              // Filename matches what the user is looking at: filtered count,
+              // current sort, and a date stamp so repeated exports don't clobber.
+              const stamp = new Date().toISOString().slice(0, 10);
+              downloadFile(
+                `evalyn-experiments-${stamp}.csv`,
+                'text/csv;charset=utf-8',
+                rowsToCsv(filtered),
+              );
+            }}
+            disabled={!filtered || filtered.length === 0}
+            title={
+              !filtered || filtered.length === 0
+                ? 'Nothing to export with the current filters'
+                : `Download the ${filtered.length} currently visible row${filtered.length === 1 ? '' : 's'} as CSV (opens in Excel, Numbers, Sheets)`
+            }
+          >
             ↗ Export CSV
           </Btn>
           <Btn kind="primary" size="md" onClick={() => navigate(NEW_EVAL_TARGET)} data-coachmark="experiments-new-button">
