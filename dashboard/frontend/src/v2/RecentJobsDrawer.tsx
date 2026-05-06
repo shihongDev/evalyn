@@ -26,6 +26,7 @@ import {
   clearJobsHistory,
   loadJobsHistory,
   patchJob,
+  setFailureAckTime,
   subscribeJobsHistory,
   type JobHistoryEntry,
   type JobHistoryStatus,
@@ -51,6 +52,16 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
   useEffect(() => {
     return subscribeJobsHistory(() => setEntries(loadJobsHistory()));
   }, []);
+
+  // Acknowledge currently-known failures whenever the drawer opens.
+  // The AppShell tab title's "!N" prefix counts only failures whose
+  // failed_at_iso is newer than this ack timestamp, so opening the
+  // drawer clears the badge in this tab AND, via the ACK_KEY storage
+  // event, in any other tab open on the same dashboard.
+  useEffect(() => {
+    if (!open) return;
+    setFailureAckTime(Date.now());
+  }, [open]);
 
   const failedCount = useMemo(
     () => entries.reduce((n, e) => (e.status === 'failed' ? n + 1 : n), 0),

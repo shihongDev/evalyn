@@ -32,6 +32,7 @@ import {
   activeJobCount,
   loadJobsHistory,
   subscribeJobsHistory,
+  unacknowledgedFailureCount,
 } from './jobsHistory';
 import { v2 } from './api/client';
 import { listCli } from './api/cli';
@@ -254,9 +255,20 @@ export function AppShell({
   const [runningCount, setRunningCount] = useState<number>(() =>
     activeJobCount(loadJobsHistory()),
   );
+  // `unackedFailureCount` counts failures that occurred AFTER the last
+  // time the user viewed the Recent Jobs drawer; surfaced as a "!N"
+  // segment in the tab title so a user on another tab notices that an
+  // overnight or background-tab job failed without having to click in.
+  // Same notifier as runningCount keeps both fresh on history mutations
+  // AND on ack updates from RecentJobsDrawer (open === true).
+  const [unackedFailureCount, setUnackedFailureCount] = useState<number>(() =>
+    unacknowledgedFailureCount(loadJobsHistory()),
+  );
   useEffect(() => {
     return subscribeJobsHistory(() => {
-      setRunningCount(activeJobCount(loadJobsHistory()));
+      const list = loadJobsHistory();
+      setRunningCount(activeJobCount(list));
+      setUnackedFailureCount(unacknowledgedFailureCount(list));
     });
   }, []);
 
@@ -318,16 +330,25 @@ export function AppShell({
   // the tab is identifiable across other windows. Standard pattern
   // from chat / CI products: a numeric prefix is the most universal
   // notification surface a web app has - works in every browser, no
-  // permission prompt, no platform shenanigans. Re-runs on
-  // runningCount change so the prefix stays fresh as jobs land.
+  // permission prompt, no platform shenanigans.
+  //
+  // When recent jobs have failed since the user last opened the
+  // drawer, append "!N" so a regression on a backgrounded tab is
+  // visible without having to switch back. Order is "(running) !failed
+  // base" so a glance at the title leads with active work, then
+  // outstanding failures, then context.
   useEffect(() => {
     const path = location.pathname;
     const match = TITLE_FOR_PATH.find(([prefix]) =>
       prefix === '/' ? path === '/' : path.startsWith(prefix),
     );
     const base = match ? `${match[1]} · Evalyn` : 'Evalyn · Workbench';
-    document.title = runningCount > 0 ? `(${runningCount}) ${base}` : base;
-  }, [location.pathname, runningCount]);
+    const segments = [
+      runningCount > 0 ? `(${runningCount})` : '',
+      unackedFailureCount > 0 ? `!${unackedFailureCount}` : '',
+    ].filter(Boolean);
+    document.title = segments.length > 0 ? `${segments.join(' ')} ${base}` : base;
+  }, [location.pathname, runningCount, unackedFailureCount]);
 
   // Global hotkeys:
   //   Cmd/Ctrl+K toggles the command palette.

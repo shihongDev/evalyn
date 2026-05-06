@@ -17,6 +17,7 @@
  */
 
 const STORAGE_KEY = 'evalyn:v2:jobsHistory';
+const ACK_KEY = 'evalyn:v2:jobsFailureAckTs';
 const MAX_ENTRIES = 30;
 
 export type JobHistoryStatus =
@@ -38,6 +39,11 @@ export interface JobHistoryEntry {
   exit_code?: number | null;
   /** Human-friendly duration string ("12.4s") or seconds-as-string. */
   duration?: string;
+  /** ISO 8601 timestamp when the status first transitioned to 'failed'.
+   * Distinct from started_at_iso because a job queued before the user
+   * last opened the drawer can still produce a failure AFTER that ack.
+   * Stamped automatically by patchJob. */
+  failed_at_iso?: string;
 }
 
 function safeStorage(): Storage | null {
@@ -103,7 +109,19 @@ export function patchJob(jobId: string, patch: Partial<JobHistoryEntry>): void {
   const list = loadJobsHistory();
   const idx = list.findIndex((e) => e.job_id === jobId);
   if (idx < 0) return;
-  list[idx] = { ...list[idx], ...patch, job_id: jobId };
+  // Stamp failed_at_iso on first transition to 'failed' so the
+  // unacknowledged-failures badge in the AppShell title knows when the
+  // failure became visible (started_at_iso is when the job was queued,
+  // which can be much earlier).
+  let merged: Partial<JobHistoryEntry> = patch;
+  if (
+    patch.status === 'failed' &&
+    list[idx].status !== 'failed' &&
+    !patch.failed_at_iso
+  ) {
+    merged = { ...patch, failed_at_iso: new Date().toISOString() };
+  }
+  list[idx] = { ...list[idx], ...merged, job_id: jobId };
   saveJobsHistory(list);
 }
 
@@ -151,11 +169,13 @@ function notify(): void {
 }
 
 // Cross-tab updates: storage events fire in OTHER tabs only, so a second
-// open tab's drawer stays in sync after history mutations here.
+// open tab's drawer stays in sync after history mutations here. We also
+// listen for ACK_KEY changes so a sibling tab opening the drawer
+// triggers a title-prefix re-compute in this tab.
 if (typeof window !== 'undefined') {
   try {
     window.addEventListener('storage', (ev) => {
-      if (ev.key === STORAGE_KEY) notify();
+      if (ev.key === STORAGE_KEY || ev.key === ACK_KEY) notify();
     });
   } catch {
     // ignore
@@ -191,6 +211,53 @@ export function activeJobCount(entries?: JobHistoryEntry[]): number {
   let n = 0;
   for (const e of list) {
     if (e.status === 'queued' || e.status === 'running') n++;
+  }
+  return n;
+}
+
+/** Read the timestamp at which the user last viewed the Recent Jobs
+ * drawer. Used as the "ack" boundary for the unacknowledged-failures
+ * count surfaced in the tab title. Returns 0 when unset (so every
+ * recorded failure is treated as unacknowledged on first session). */
+export function getFailureAckTime(): number {
+  const ls = safeStorage();
+  if (!ls) return 0;
+  try {
+    const raw = ls.getItem(ACK_KEY);
+    if (!raw) return 0;
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Persist the "ack" timestamp; called by the drawer on open to
+ * acknowledge currently-known failures. Notifies subscribers so the
+ * tab-title prefix recomputes in the same tab. */
+export function setFailureAckTime(ms: number): void {
+  const ls = safeStorage();
+  if (!ls) return;
+  try {
+    ls.setItem(ACK_KEY, String(ms));
+    notify();
+  } catch {
+    // ignore
+  }
+}
+
+/** Convenience: count failed entries whose failure timestamp is newer
+ * than the user's last drawer-open ack. Falls back to started_at_iso
+ * for legacy entries without failed_at_iso. */
+export function unacknowledgedFailureCount(entries?: JobHistoryEntry[]): number {
+  const list = entries ?? loadJobsHistory();
+  const ack = getFailureAckTime();
+  let n = 0;
+  for (const e of list) {
+    if (e.status !== 'failed') continue;
+    const ts = e.failed_at_iso ?? e.started_at_iso;
+    const t = Date.parse(ts);
+    if (Number.isFinite(t) && t > ack) n++;
   }
   return n;
 }
