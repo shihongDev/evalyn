@@ -489,6 +489,7 @@ function KeyHints({ forceOpen = false }: { forceOpen?: boolean }) {
       title: 'Display',
       items: [
         ['?', 'toggle this sheet'],
+        [`${MOD_KEY_LABEL} ,`, 'settings menu'],
         ['Esc', 'exit / close'],
       ],
     },
@@ -1724,6 +1725,14 @@ export default function AnnotateSession() {
         if (!currentItem) return;
         e.preventDefault();
         void submitVerdict();
+        return;
+      }
+      // Cmd/Ctrl+, = toggle the settings menu (canonical preferences
+      // shortcut on Mac and many cross-platform apps). Caught here
+      // before the modifier-bail so it works regardless of focus.
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault();
+        setShowSettings((v) => !v);
         return;
       }
       // Cmd/Ctrl+Enter = finalize. Same code path as clicking Finish
