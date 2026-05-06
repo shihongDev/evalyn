@@ -433,8 +433,8 @@ function KeyHints({ forceOpen = false }: { forceOpen?: boolean }) {
       title: 'Navigate',
       items: [
         ['← / →', 'prev / next'],
-        ['T', 'next todo'],
-        ['D', 'next override'],
+        ['T / ⇧T', 'next/prev todo'],
+        ['D / ⇧D', 'next/prev override'],
         ['G', 'focus search'],
       ],
     },
@@ -1684,12 +1684,13 @@ export default function AnnotateSession() {
         toggleBookmark(currentItem.item_id);
       } else if (k === 'd') {
         // "d" jumps to the next item where the user disagreed with the
-        // AI's pass/fail. Wraps around from start if no match forward.
-        // No-op when there are zero disagreements anywhere - the
-        // header pill already tells the user that count is 0.
+        // AI. Shift+D for previous. Wraps in both directions. No-op
+        // when there are zero disagreements anywhere - the header
+        // pill already tells the user that count is 0.
         e.preventDefault();
-        const findOverride = (start: number, dir: 1 | -1): number => {
-          for (let i = start + dir; i >= 0 && i < items.length; i += dir) {
+        const dir: 1 | -1 = e.shiftKey ? -1 : 1;
+        const findOverride = (start: number, d: 1 | -1): number => {
+          for (let i = start + d; i >= 0 && i < items.length; i += d) {
             const it = items[i];
             if (!it.annotated) continue;
             const ai = aiVerdictMap(it);
@@ -1703,8 +1704,11 @@ export default function AnnotateSession() {
           }
           return -1;
         };
-        let next = findOverride(cursor, 1);
-        if (next === -1) next = findOverride(-1, 1);
+        let next = findOverride(cursor, dir);
+        if (next === -1) {
+          // Wrap from the opposite end so the loop is closed.
+          next = findOverride(dir === 1 ? -1 : items.length, dir);
+        }
         if (next >= 0 && next !== cursor) setCursor(next);
       } else if (k === 'g') {
         // "g" focuses the search input (Vim/Gmail "go to" pattern).
@@ -1715,18 +1719,21 @@ export default function AnnotateSession() {
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
       } else if (k === 't') {
-        // "t" jumps to the next un-annotated (todo) item. Mirrors D
-        // for the parallel "show me what's left" navigation pattern.
-        // Wraps around. No-op when nothing is left to do.
+        // "t" jumps to the next un-annotated (todo) item. Shift+T for
+        // previous. Wraps in both directions. No-op when nothing
+        // matches.
         e.preventDefault();
-        const findTodo = (start: number, dir: 1 | -1): number => {
-          for (let i = start + dir; i >= 0 && i < items.length; i += dir) {
+        const dir: 1 | -1 = e.shiftKey ? -1 : 1;
+        const findTodo = (start: number, d: 1 | -1): number => {
+          for (let i = start + d; i >= 0 && i < items.length; i += d) {
             if (!items[i].annotated) return i;
           }
           return -1;
         };
-        let next = findTodo(cursor, 1);
-        if (next === -1) next = findTodo(-1, 1);
+        let next = findTodo(cursor, dir);
+        if (next === -1) {
+          next = findTodo(dir === 1 ? -1 : items.length, dir);
+        }
         if (next >= 0 && next !== cursor) setCursor(next);
       } else if (k === 's') {
         // "s" marks every metric on this item as skip and advances.
