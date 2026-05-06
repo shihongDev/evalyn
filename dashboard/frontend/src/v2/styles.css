@@ -91,6 +91,36 @@ textarea:focus-visible {
 }
 
 /*
+ * Suspense route-fallback fade-in. The fallback shows immediately on
+ * any lazy nav (otherwise React would crash), but with a 100 ms
+ * `animation-delay` + `backwards` fill, the spinner stays at opacity 0
+ * for the first 100 ms - long enough that a cached chunk load (which
+ * resolves in <50 ms) never visibly flashes a spinner. Slow loads
+ * cleanly fade in after the delay.
+ *
+ * The "show after delay" pattern; without it, hover-preloaded chunks
+ * still produced a tiny but distracting flash on click.
+ */
+@keyframes eRouteFallbackFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.eRouteFallback {
+  animation: eRouteFallbackFadeIn 200ms ease 100ms backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eRouteFallback {
+    animation: none !important;
+  }
+}
+
+/*
  * Co-pilot UI guidance tour styles.
  *
  * Single ember accent matching tokens.ts. Pulsing focus ring on highlighted

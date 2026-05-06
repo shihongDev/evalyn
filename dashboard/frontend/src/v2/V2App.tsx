@@ -43,11 +43,14 @@ const NotFound = lazy(preload.preloadNotFound);
 /** Suspense fallback shown while a route chunk is downloading. We render
  * the AppShell chrome around a centered spinner so the navbar stays in
  * place across the transition - feels like a route change, not a full
- * page reload. */
+ * page reload. The .eRouteFallback class delays the spinner fade-in by
+ * 100 ms so cached / hover-preloaded chunks (which resolve in <50 ms)
+ * never visibly flash a loading state. */
 function RouteFallback() {
   return (
     <AppShell>
       <div
+        className="eRouteFallback"
         style={{
           display: 'flex',
           alignItems: 'center',
