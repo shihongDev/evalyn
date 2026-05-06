@@ -1853,7 +1853,12 @@ export default function AnnotateSession() {
           // Wrap from the opposite end so the loop is closed.
           next = findOverride(dir === 1 ? -1 : items.length, dir);
         }
-        if (next >= 0 && next !== cursor) setCursor(next);
+        if (next >= 0 && next !== cursor) {
+          setCursor(next);
+          setAriaStatus(
+            `Moved to ${dir === 1 ? 'next' : 'previous'} override, item ${next + 1} of ${items.length}`,
+          );
+        }
       } else if (k === 'g') {
         // "g" focuses the search input (Vim/Gmail "go to" pattern).
         // Saves a mouse trip when the user wants to find a specific
@@ -1878,7 +1883,12 @@ export default function AnnotateSession() {
         if (next === -1) {
           next = findTodo(dir === 1 ? -1 : items.length, dir);
         }
-        if (next >= 0 && next !== cursor) setCursor(next);
+        if (next >= 0 && next !== cursor) {
+          setCursor(next);
+          setAriaStatus(
+            `Moved to ${dir === 1 ? 'next' : 'previous'} todo, item ${next + 1} of ${items.length}`,
+          );
+        }
       } else if (k === 's') {
         // "s" marks every metric on this item as skip and advances.
         // Useful for items the annotator wants to defer / can't judge.
