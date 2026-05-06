@@ -816,6 +816,12 @@ export default function AnnotateSession() {
   }, [session]);
   const allDone = items.length > 0 && items.every((it) => it.annotated);
 
+  // Ref to the item card so we can auto-scroll to its top when the
+  // cursor changes. Otherwise scroll position from the previous item
+  // (e.g., bottom of a long output) carries over and the user has to
+  // manually scroll up to read the new item.
+  const itemCardRef = useRef<HTMLDivElement | null>(null);
+
   // Cursor: precedence on initial mount is URL ?item= > localStorage
   // cursor > first un-annotated > 0. Persisting by item_id (not index)
   // means reordered/re-paginated items don't mis-aim on the next load.
@@ -864,6 +870,23 @@ export default function AnnotateSession() {
       );
     }
   }, [sessionId, cursor, items, searchParams, setSearchParams]);
+
+  // Auto-scroll to the top of the item card on cursor change so the
+  // new item is readable from the start. Skip on initial mount (the
+  // user just landed; immediate scroll would be jarring) by gating on
+  // initialCursorRef. The 80px buffer keeps the AppShell breadcrumb
+  // and page header visible above the card. Browsers automatically
+  // honor prefers-reduced-motion for behavior:'smooth'.
+  useEffect(() => {
+    if (!initialCursorRef.current) return;
+    const el = itemCardRef.current;
+    if (!el) return;
+    const targetY = window.scrollY + el.getBoundingClientRect().top - 80;
+    // Only scroll if we'd actually move - avoids tiny jiggles when
+    // the card is already at the right position.
+    if (Math.abs(targetY - window.scrollY) < 4) return;
+    window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
+  }, [cursor]);
 
   // Seed local notes from any persisted note on each item the first time
   // we see it. User edits override; we only re-seed for unseen item ids.
@@ -3379,8 +3402,11 @@ export default function AnnotateSession() {
         })()}
 
         {/* ITEM CARD - keyed on cursor so each navigation triggers
-            the slide-in animation. Cheap retrigger via key swap. */}
+            the slide-in animation. Cheap retrigger via key swap.
+            Wrapper div carries the ref for the auto-scroll-to-top
+            effect (Card component doesn't expose a ref). */}
         {currentItem ? (
+          <div ref={itemCardRef}>
           <Card
             key={currentItem.item_id}
             style={{
@@ -4010,6 +4036,7 @@ export default function AnnotateSession() {
               </Btn>
             </div>
           </Card>
+          </div>
         ) : (
           <Card style={{ padding: 18 }}>
             <div style={{ fontSize: 13, color: E.text3 }}>
