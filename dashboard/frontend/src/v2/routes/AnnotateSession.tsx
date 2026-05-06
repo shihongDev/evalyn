@@ -30,6 +30,7 @@ import type {
 } from '../api/types';
 import { E } from '../tokens';
 import { MOD_KEY as MOD_KEY_LABEL } from '../platform';
+import { linkifyText, type UrlCounter } from '../textRender';
 
 const LABEL_CYCLE: Record<AnnotationLabel, AnnotationLabel> = {
   pass: 'fail',
@@ -69,81 +70,9 @@ const LABEL_GLYPH: Record<AnnotationLabel, string> = {
  * (or future hover effects) can flash the matching evidence row. Empty or
  * not-found snippets are silently skipped - we never crash on bad input.
  */
-/** Mutable URL counter passed through linkifyText calls so numbering
- * stays continuous across the multiple text portions emitted by
- * renderWithHighlights (between marks). Reset per top-level render. */
-type UrlCounter = { value: number };
-
-/** Split a text run into plain strings + small citation-style link
- * buttons. URLs in long outputs (especially research-agent results)
- * are visually heavy as raw text; collapsing them into [1] [2] [3]
- * keeps the pane skimmable while preserving one-click access via
- * hover-title and click. Opens in a new tab with rel=noopener for
- * security. */
-function linkifyText(text: string, counter: UrlCounter): React.ReactNode[] {
-  if (!text) return [text];
-  // Practical URL pattern: http(s) only; terminates at whitespace,
-  // angle/quote chars, and brace/bracket/paren chars.
-  const urlRegex = /https?:\/\/[^\s<>"'{}|\\^[\]()]+/g;
-  const parts: React.ReactNode[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = urlRegex.exec(text)) !== null) {
-    let url = match[0];
-    let end = match.index + url.length;
-    // Strip trailing punctuation that almost certainly belongs to the
-    // surrounding prose: 'see https://x.com/, also...' should link
-    // 'https://x.com/' not 'https://x.com/,'.
-    while (url.length > 0 && /[.,;:!?]$/.test(url)) {
-      url = url.slice(0, -1);
-      end -= 1;
-    }
-    if (url.length === 0) continue;
-    if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
-    }
-    counter.value += 1;
-    const n = counter.value;
-    parts.push(
-      <a
-        key={`u${match.index}`}
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        title={url}
-        style={{
-          display: 'inline-block',
-          fontFamily: E.fMono,
-          fontSize: 10,
-          fontWeight: 500,
-          lineHeight: 1.2,
-          color: '#d96a2c',
-          background: '#fcefe2',
-          border: '1px solid #d96a2c33',
-          borderRadius: 4,
-          padding: '0 5px',
-          textDecoration: 'none',
-          marginLeft: 2,
-          marginRight: 2,
-          verticalAlign: 'baseline',
-          cursor: 'pointer',
-          transition: 'background 140ms',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = '#f9dcc1';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = '#fcefe2';
-        }}
-      >
-        [{n}]
-      </a>,
-    );
-    lastIndex = end;
-  }
-  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
-  return parts.length > 0 ? parts : [text];
-}
+// linkifyText / UrlCounter were previously defined here. Extracted to
+// `../textRender` so other surfaces (Review, etc.) can reuse the same
+// citation-button rendering. Imported at the top of the file.
 
 function renderWithHighlights(
   text: string,

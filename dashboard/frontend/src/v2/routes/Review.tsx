@@ -11,6 +11,7 @@ import type { CalibrationSuggestion, ReviewItem, ReviewQueue } from '../api/type
 import { listCli, type CliSchema } from '../api/cli';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { useRouteTour } from '../tour/useRouteTour';
+import { linkifyText, makeUrlCounter } from '../textRender';
 import { REVIEW_FAILURES_TOUR_ID } from '../tour/scripts/reviewFailures';
 import { useProject } from '../hooks/useProject';
 import { openCliRunner } from '../cliRunnerBridge';
@@ -46,7 +47,11 @@ function pillColor(kind: 'pass' | 'fail' | 'warn'): string {
 }
 
 function highlightedText(text: string, highlights: string[]) {
-  if (highlights.length === 0) return text;
+  // Build a single shared URL counter so [N] numbering stays continuous
+  // across all the non-marked segments (otherwise each segment would
+  // restart at [1]).
+  const urlCounter = makeUrlCounter();
+  if (highlights.length === 0) return linkifyText(text, urlCounter);
   const parts: { text: string; mark: boolean }[] = [{ text, mark: false }];
   for (const h of highlights) {
     if (!h) continue;
@@ -79,7 +84,7 @@ function highlightedText(text: string, highlights: string[]) {
         {p.text}
       </span>
     ) : (
-      <span key={i}>{p.text}</span>
+      <span key={i}>{linkifyText(p.text, urlCounter)}</span>
     ),
   );
 }
@@ -552,7 +557,7 @@ export default function Review() {
                     lineHeight: 1.5,
                   }}
                 >
-                  {current.user_text}
+                  {linkifyText(current.user_text, makeUrlCounter())}
                 </div>
 
                 <Eyebrow style={{ marginTop: 18 }}>Agent response</Eyebrow>
@@ -584,7 +589,7 @@ export default function Review() {
                     lineHeight: 1.55,
                   }}
                 >
-                  {current.expected}
+                  {linkifyText(current.expected, makeUrlCounter())}
                 </div>
 
                 <div
