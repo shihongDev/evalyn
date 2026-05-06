@@ -61,17 +61,38 @@ class _EventStream:
     after delivering an ``exit`` event so consumers can write the
     idiomatic ``async for evt in stream`` loop without bookkeeping. Use
     ``put_nowait`` for fanout from JobManager.
+
+    Replay phase: ``JobManager.subscribe`` flips the stream into replay
+    mode before registering it for live fanout. While replaying, live
+    events from ``_emit`` divert into ``_live_buffer`` instead of the
+    queue; ``_end_replay`` flushes the buffer in emit order, then
+    switches the stream to direct fanout. This preserves correct
+    ordering even if a future change makes queue puts yield mid-replay.
     """
 
     def __init__(self) -> None:
         self._queue: asyncio.Queue = asyncio.Queue()
         self._closed = False
+        self._replaying = False
+        self._live_buffer: list[dict] = []
 
     def put_nowait(self, event: dict) -> None:
-        self._queue.put_nowait(event)
+        if self._replaying:
+            self._live_buffer.append(event)
+        else:
+            self._queue.put_nowait(event)
 
     async def put(self, event: dict) -> None:
         await self._queue.put(event)
+
+    def _begin_replay(self) -> None:
+        self._replaying = True
+
+    def _end_replay(self) -> None:
+        for event in self._live_buffer:
+            self._queue.put_nowait(event)
+        self._live_buffer.clear()
+        self._replaying = False
 
     def __aiter__(self) -> "_EventStream":
         return self
@@ -304,32 +325,39 @@ class JobManager:
             raise KeyError(job_id)
 
         stream = _EventStream()
-
-        # Determine cursor and decide whether a truncated marker is needed
-        # at the head of the replay.
         cursor = since if since is not None else 0
 
-        # If anything has been dropped and the cursor is below the current
-        # horizon, surface that fact first. The marker uses event_id 0 so
-        # it sorts before any real event.
-        if job._truncated_dropped > 0 and cursor < job._truncated_horizon - 1:
-            await stream.put(
-                {
-                    "type": "truncated",
-                    "count": job._truncated_dropped,
-                    "ts": time.time(),
-                    "event_id": 0,
-                }
-            )
-
-        # Replay events strictly above cursor.
-        for event in job.events:
-            if event["event_id"] > cursor:
-                await stream.put(event)
-
-        # Register for live fanout.
+        # Atomic registration: flip into replay mode, register for live
+        # fanout, snapshot the replay set. asyncio is cooperative so the
+        # following sync block is not interleaved with _emit. After this,
+        # any live event arriving via _emit goes to stream._live_buffer
+        # (replaying=True) and will be flushed in order after the replay
+        # loop, preventing both event loss and out-of-order delivery.
+        stream._begin_replay()
         job._subscribers.add(stream)
+        snapshot_id = job._next_event_id - 1
+        needs_truncated_marker = (
+            job._truncated_dropped > 0 and cursor < job._truncated_horizon - 1
+        )
+        replay_events = [
+            evt for evt in job.events
+            if cursor < evt["event_id"] <= snapshot_id
+        ]
+
         try:
+            if needs_truncated_marker:
+                # Marker uses event_id 0 so it sorts before any real event.
+                await stream.put(
+                    {
+                        "type": "truncated",
+                        "count": job._truncated_dropped,
+                        "ts": time.time(),
+                        "event_id": 0,
+                    }
+                )
+            for event in replay_events:
+                await stream.put(event)
+            stream._end_replay()
             yield stream
         finally:
             job._subscribers.discard(stream)

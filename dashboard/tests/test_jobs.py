@@ -12,10 +12,12 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import time
+from unittest.mock import patch
 
 import pytest
 
-from evalyn_dashboard.jobs import JobManager
+from evalyn_dashboard.jobs import Job, JobManager, _EventStream
 
 
 # ---------------------------------------------------------------------------
@@ -262,6 +264,81 @@ async def test_event_ids_are_monotonic():
     ids = [e["event_id"] for e in received]
     assert ids == sorted(ids)
     assert len(set(ids)) == len(ids)
+
+
+# ---------------------------------------------------------------------------
+# Regression: KNOWN_ISSUES.md #1 (subscribe replay/registration race)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_subscribe_registers_before_replay_and_buffers_concurrent_emit():
+    """Two invariants closing the documented race:
+
+    1. The new subscriber must be in ``job._subscribers`` BEFORE the
+       replay loop's first ``await`` runs. Previously, registration
+       happened after replay, leaving a window where ``_emit()`` would
+       fan out to other subscribers only and drop events for the new one.
+    2. An ``_emit()`` arriving during the replay phase must be buffered
+       on the stream and flushed in order after the replay events,
+       never lost or reordered.
+    """
+    jm = JobManager()
+    job = Job(id="j1", cmd=[], started_at=time.time())
+    jm._jobs["j1"] = job
+    for i in range(3):
+        jm._emit(job, {"type": "stdout", "line": f"r{i}", "ts": time.time()})
+
+    seen_registered = []
+    original_put = _EventStream.put
+    emitted = {"v": False}
+
+    async def hooked_put(self, event):
+        seen_registered.append(self in job._subscribers)
+        if not emitted["v"]:
+            emitted["v"] = True
+            jm._emit(
+                job,
+                {"type": "stdout", "line": "live", "ts": time.time()},
+            )
+        return await original_put(self, event)
+
+    received: list[dict] = []
+    with patch.object(_EventStream, "put", hooked_put):
+        async with jm.subscribe("j1") as stream:
+            jm._emit(
+                job,
+                {"type": "exit", "code": 0, "duration": 0.0, "ts": time.time()},
+            )
+            async for evt in stream:
+                received.append(evt)
+                if evt["type"] == "exit":
+                    break
+
+    assert all(seen_registered), (
+        "subscribe() must register the stream before the replay loop"
+    )
+    lines = [e["line"] for e in received if e["type"] == "stdout"]
+    assert lines == ["r0", "r1", "r2", "live"], f"got {lines}"
+    assert received[-1]["type"] == "exit"
+
+
+def test_event_stream_replay_buffer_orders_live_after_flush():
+    """Direct unit test of _EventStream.{_begin,_end}_replay buffering."""
+    s = _EventStream()
+    s._begin_replay()
+    s.put_nowait({"type": "stdout", "line": "live1", "event_id": 10})
+    s.put_nowait({"type": "stdout", "line": "live2", "event_id": 11})
+    assert s._queue.empty(), "live events must buffer during replay"
+
+    s._end_replay()
+    drained = []
+    while not s._queue.empty():
+        drained.append(s._queue.get_nowait())
+    assert [d["line"] for d in drained] == ["live1", "live2"]
+
+    s.put_nowait({"type": "exit", "code": 0, "event_id": 12})
+    assert s._queue.get_nowait()["type"] == "exit"
 
 
 # ---------------------------------------------------------------------------

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Subscriber race in `JobManager.subscribe()`** (KNOWN_ISSUES.md #1). Live job events emitted between the replay phase and subscriber registration could be silently dropped on slow or freshly-attached WebSocket clients. `_EventStream` now buffers concurrent `_emit()` events into `_live_buffer` during replay; `subscribe()` registers the stream first, snapshots `_next_event_id`, replays from the snapshot, then flushes the buffer in order. Result: no event loss and no out-of-order delivery, even if future changes make queue puts yield mid-replay.
+
 ### Added
 
 - **Co-pilot guidance tours.** Each tabbed route (Home, Datasets, Experiments, Review, Metrics) ships a short Driver.js-powered walk-through that auto-fires on first visit, anchored to stable `data-coachmark` attributes on real UI elements. Each tour has an independent `localStorage` completion flag, so finishing one does not suppress the others.
