@@ -1,1 +1,0 @@
-import{C as e,D as t}from"./AppShell-Ca5yhQ65.js";function n(){let{data:n}=e(`home`,t.home);return n?n.project:null}export{n as t};
