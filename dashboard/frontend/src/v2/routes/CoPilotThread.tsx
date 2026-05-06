@@ -18,6 +18,7 @@ import { E } from '../tokens';
 import { Btn, Eyebrow } from '../ui';
 import { Bubble, PlanCard, ToolBlock } from '../copilot/atoms';
 import { linkifyText, makeUrlCounter } from '../textRender';
+import { MOD_KEY } from '../platform';
 import { useCoPilotThread } from '../copilot/useCoPilotThread';
 import {
   loadThreadIndex,
@@ -547,7 +548,7 @@ export default function CoPilotThread() {
                     fontFamily: E.fMono,
                   }}
                 >
-                  ⌘+Enter to send
+                  {MOD_KEY}+Enter to send
                 </span>
                 <span style={{ flex: 1 }} />
                 <Btn

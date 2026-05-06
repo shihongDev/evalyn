@@ -15,6 +15,7 @@ import { E } from '../tokens';
 import { Btn, Pill } from '../ui';
 import { Bubble, PlanCard, ToolBlock } from './atoms';
 import { linkifyText, makeUrlCounter } from '../textRender';
+import { MOD_KEY } from '../platform';
 import { useCoPilotThread } from './useCoPilotThread';
 import { deriveContextChips, prependContextTag, type ContextKind } from './contextChips';
 
@@ -358,6 +359,7 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
               size="sm"
               onClick={submit}
               disabled={!draft.trim() || status === 'streaming' || pending != null}
+              title={`Send (${MOD_KEY} ⏎)`}
               style={{ width: 26, height: 26, padding: 0, justifyContent: 'center' }}
             >
               ↑
@@ -373,7 +375,7 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
             textAlign: 'center',
           }}
         >
-          Read-only commands run automatically · writes ask first
+          {MOD_KEY} ⏎ to send · read-only commands run automatically · writes ask first
         </div>
       </div>
       </div>
