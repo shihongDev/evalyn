@@ -181,13 +181,30 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Reset query + autofocus on every open.
+  // Reset query + autofocus on every open. Also capture the element
+  // that had focus before the palette opened so we can hand control
+  // back to it on close - keyboard users who Cmd+K'd from a row in
+  // ExperimentsList should land back on that row instead of <body>.
   useEffect(() => {
     if (!open) return;
+    const prevFocus = document.activeElement as HTMLElement | null;
     setQuery('');
     setActiveIndex(0);
     const id = setTimeout(() => inputRef.current?.focus(), 0);
-    return () => clearTimeout(id);
+    return () => {
+      clearTimeout(id);
+      // Skip body - focusing it strips the focus ring without giving
+      // the user a meaningful target. Skip the palette's own input
+      // which would re-trigger the modal's focus-trap on Safari.
+      if (
+        prevFocus &&
+        prevFocus !== document.body &&
+        prevFocus !== inputRef.current &&
+        document.contains(prevFocus)
+      ) {
+        prevFocus.focus();
+      }
+    };
   }, [open]);
 
   const loading = !cmds || !runs || !datasets || !rubrics;

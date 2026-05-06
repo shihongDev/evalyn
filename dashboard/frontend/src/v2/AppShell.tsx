@@ -839,6 +839,21 @@ export function AppShell({
  * cheat sheets in routes like AnnotateSession cover their own
  * in-page hotkeys. */
 function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
+  // Capture and restore focus on close so keyboard users return to the
+  // element that triggered the overlay (the visible "?" header button
+  // or the source of the ? hotkey) instead of <body>.
+  useEffect(() => {
+    const prevFocus = document.activeElement as HTMLElement | null;
+    return () => {
+      if (
+        prevFocus &&
+        prevFocus !== document.body &&
+        document.contains(prevFocus)
+      ) {
+        prevFocus.focus();
+      }
+    };
+  }, []);
   const SHORTCUTS: Array<{ keys: string; label: string }> = [
     { keys: `${MOD_KEY} K`, label: 'Open command palette' },
     { keys: `${MOD_KEY} ,`, label: 'Open Settings' },

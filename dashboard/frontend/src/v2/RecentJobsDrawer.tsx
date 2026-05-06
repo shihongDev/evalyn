@@ -102,14 +102,26 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Close on Escape.
+  // Close on Escape. Also restore focus to whatever element opened the
+  // drawer so keyboard users land back on the trigger button instead
+  // of <body>.
   useEffect(() => {
     if (!open) return;
+    const prevFocus = document.activeElement as HTMLElement | null;
     function onKey(ev: KeyboardEvent) {
       if (ev.key === 'Escape') onClose();
     }
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      if (
+        prevFocus &&
+        prevFocus !== document.body &&
+        document.contains(prevFocus)
+      ) {
+        prevFocus.focus();
+      }
+    };
   }, [open, onClose]);
 
   const onRowClick = (entry: JobHistoryEntry) => {
