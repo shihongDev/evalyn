@@ -123,6 +123,11 @@ export default function RunDetail() {
   const compareActive = Boolean(compareWith && compareDetail && !compareErr);
   const [activeTab, setActiveTab] = useState(0);
   const [rerunBusy, setRerunBusy] = useState(false);
+  // Inline status for header actions - replaces window.alert dialogs that
+  // jarred against the v2 design. shareState toggles the "Share" button
+  // label, rerunErr surfaces failures from the run-eval form-open path.
+  const [shareState, setShareState] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [rerunErr, setRerunErr] = useState<string | null>(null);
 
   function clearCompare(): void {
     navigate(`/experiments/${encodeURIComponent(runId ?? '')}`);
@@ -215,6 +220,7 @@ export default function RunDetail() {
   async function handleRerun() {
     if (!detail || rerunBusy) return;
     setRerunBusy(true);
+    setRerunErr(null);
     try {
       // Pull the catalog (cached after first hit) and look up `run-eval`.
       // We can't reconstruct the original argv from disk - results.json
@@ -224,8 +230,8 @@ export default function RunDetail() {
       const cmds: CliSchema[] = await listCli();
       const runEval = cmds.find((c) => c.id === 'run-eval');
       if (!runEval) {
-        window.alert(
-          'Cannot re-run: the `run-eval` command is not in this build of the CLI catalog.',
+        setRerunErr(
+          'The `run-eval` command is not in this build of the CLI catalog.',
         );
         return;
       }
@@ -244,19 +250,96 @@ export default function RunDetail() {
       }
       openCliRunner(runEval, { initialValues });
     } catch (e: unknown) {
-      window.alert(`Failed to open re-run form:\n${String(e)}`);
+      setRerunErr(`Failed to open re-run form: ${String(e)}`);
     } finally {
       setRerunBusy(false);
     }
   }
 
+  async function handleShare() {
+    // The deep-link URL for a run is its current pathname - already shareable
+    // since the dashboard routes are stable. Copy to clipboard so the user
+    // can paste straight into Slack/email/etc.
+    const url = window.location.href;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setShareState('copied');
+      window.setTimeout(() => setShareState('idle'), 2000);
+    } catch {
+      setShareState('error');
+      window.setTimeout(() => setShareState('idle'), 3000);
+    }
+  }
+
   const headerExtra = (
-    <div style={{ display: 'flex', gap: 6 }}>
-      <Btn kind="ghost" size="sm" disabled title="Coming soon - export run as a shareable link">
-        ↗ Share
-      </Btn>
-      <Btn kind="ghost" size="sm" disabled title="Coming soon - clone this run's config as a new evaluation">
-        ⎘ Duplicate
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      {rerunErr && (
+        <span
+          role="alert"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            fontSize: 11,
+            color: E.fail,
+            fontFamily: E.fMono,
+            maxWidth: 320,
+          }}
+          title={rerunErr}
+        >
+          <span
+            style={{
+              maxWidth: 280,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {rerunErr}
+          </span>
+          <button
+            type="button"
+            onClick={() => setRerunErr(null)}
+            aria-label="Dismiss error"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'currentColor',
+              cursor: 'pointer',
+              fontSize: 13,
+              lineHeight: 1,
+              padding: '0 2px',
+              opacity: 0.7,
+            }}
+          >
+            ×
+          </button>
+        </span>
+      )}
+      <Btn
+        kind="ghost"
+        size="sm"
+        onClick={() => void handleShare()}
+        title={
+          shareState === 'copied'
+            ? 'URL copied to clipboard'
+            : shareState === 'error'
+              ? 'Browser blocked clipboard access'
+              : 'Copy this run\'s URL to your clipboard'
+        }
+      >
+        {shareState === 'copied' ? '✓ Copied' : shareState === 'error' ? '✗ Failed' : '↗ Share'}
       </Btn>
       <Btn
         kind="primary"
