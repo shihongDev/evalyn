@@ -209,7 +209,15 @@ export default function CoPilotThread() {
     setHistoryTick((n) => n + 1);
   }, [threadId, status, messages]);
 
-  const grouped = useMemo(() => groupByRecency(index), [index]);
+  const [threadFilter, setThreadFilter] = useState('');
+
+  const filteredIndex = useMemo(() => {
+    const q = threadFilter.trim().toLowerCase();
+    if (!q) return index;
+    return index.filter((e) => e.title.toLowerCase().includes(q));
+  }, [index, threadFilter]);
+
+  const grouped = useMemo(() => groupByRecency(filteredIndex), [filteredIndex]);
 
   const activeTitle = useMemo(() => {
     if (threadId) {
@@ -267,22 +275,83 @@ export default function CoPilotThread() {
             kind="secondary"
             size="sm"
             onClick={handleNewThread}
-            style={{ width: '100%', justifyContent: 'center', marginBottom: 14 }}
+            style={{ width: '100%', justifyContent: 'center', marginBottom: 8 }}
           >
             ＋ New thread
           </Btn>
 
-          {grouped.today.length === 0 && grouped.earlier.length === 0 && (
-            <div
+          {/* Filter only renders once there are at least a handful of
+              threads - below that, scrolling is just as fast and the
+              extra input adds visual weight for no real benefit. */}
+          {index.length >= 5 && (
+            <input
+              type="text"
+              value={threadFilter}
+              onChange={(e) => setThreadFilter(e.target.value)}
+              placeholder="Filter threads..."
+              aria-label="Filter threads"
               style={{
-                padding: '12px 10px',
+                width: '100%',
+                padding: '6px 10px',
+                marginBottom: 10,
                 fontSize: 12,
-                color: E.text3,
-                lineHeight: 1.55,
+                fontFamily: E.fSans,
+                background: E.panel2,
+                color: E.text1,
+                border: `1px solid ${E.hair2}`,
+                borderRadius: 6,
+                outline: 'none',
+                boxSizing: 'border-box',
               }}
-            >
-              No conversations yet. Start one on the right.
-            </div>
+            />
+          )}
+
+          {/* Empty list AND no filter -> first-time copy. Filter active
+              and zero hits -> a different "no matches" message that
+              surfaces a Clear button. Splitting these two states keeps
+              the empty case from sounding broken when the user has
+              threads but the filter just doesn't match. */}
+          {grouped.today.length === 0 && grouped.earlier.length === 0 && (
+            threadFilter.trim() ? (
+              <div
+                style={{
+                  padding: '12px 10px',
+                  fontSize: 12,
+                  color: E.text3,
+                  lineHeight: 1.55,
+                }}
+              >
+                No threads match "{threadFilter.trim()}".
+                <button
+                  type="button"
+                  onClick={() => setThreadFilter('')}
+                  style={{
+                    display: 'block',
+                    marginTop: 6,
+                    background: 'transparent',
+                    border: 'none',
+                    color: E.ember,
+                    cursor: 'pointer',
+                    padding: 0,
+                    fontSize: 11.5,
+                    fontFamily: E.fMono,
+                  }}
+                >
+                  Clear filter
+                </button>
+              </div>
+            ) : (
+              <div
+                style={{
+                  padding: '12px 10px',
+                  fontSize: 12,
+                  color: E.text3,
+                  lineHeight: 1.55,
+                }}
+              >
+                No conversations yet. Start one on the right.
+              </div>
+            )
           )}
 
           {grouped.today.length > 0 && (
@@ -295,6 +364,16 @@ export default function CoPilotThread() {
                     key={t.id}
                     type="button"
                     onClick={() => handleSelectThread(t.id)}
+                    onMouseEnter={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = E.panel2;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = 'transparent';
+                      }
+                    }}
                     style={{
                       width: '100%',
                       textAlign: 'left',
@@ -304,6 +383,7 @@ export default function CoPilotThread() {
                       cursor: 'pointer',
                       background: isActive ? E.panel3 : 'transparent',
                       marginBottom: 2,
+                      transition: 'background 140ms',
                     }}
                   >
                     <div
@@ -344,6 +424,16 @@ export default function CoPilotThread() {
                     key={t.id}
                     type="button"
                     onClick={() => handleSelectThread(t.id)}
+                    onMouseEnter={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = E.panel2;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = 'transparent';
+                      }
+                    }}
                     style={{
                       width: '100%',
                       textAlign: 'left',
@@ -358,6 +448,7 @@ export default function CoPilotThread() {
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
+                      transition: 'background 140ms',
                     }}
                   >
                     {t.title}
