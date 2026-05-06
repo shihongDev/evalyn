@@ -6,14 +6,16 @@
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { AppShell } from '../AppShell';
-import { Btn, Card, Eyebrow, Glossary, Pill, Skeleton, UpdatingChip } from '../ui';
+import { Btn, Card, Eyebrow, Glossary, Pill, Skeleton, Spinner, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
-import { runCli } from '../api/cli';
+import { listCli, runCli } from '../api/cli';
+import type { CliSchema } from '../api/cli';
 import type { RubricDetail, RubricRow } from '../api/types';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { useRouteTour } from '../tour/useRouteTour';
 import { READ_METRICS_TOUR_ID } from '../tour/scripts/readMetrics';
 import { useProject } from '../hooks/useProject';
+import { openCliRunner } from '../cliRunnerBridge';
 import { E } from '../tokens';
 
 const KIND_COLOR: Record<RubricRow['kind'], string> = {
@@ -47,6 +49,12 @@ export default function Metrics() {
   useRouteTour(READ_METRICS_TOUR_ID, !!(list && !listErr));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [calibrateBusy, setCalibrateBusy] = useState(false);
+  // Inline calibration feedback - replaces the old window.alert dialogs
+  // which interrupted flow and looked like a 1990s app inside the v2 UI.
+  const [calibrateMsg, setCalibrateMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(
+    null,
+  );
+  const { data: cliCatalog } = useV2Resource<CliSchema[]>('commands', listCli);
 
   // Auto-pick the first rubric once the list lands, but don't override an
   // explicit user selection.
@@ -72,20 +80,35 @@ export default function Metrics() {
   async function handleRecalibrate() {
     if (!detail || calibrateBusy) return;
     setCalibrateBusy(true);
+    setCalibrateMsg(null);
     try {
       // The calibrate CLI also requires --annotations; if the user hasn't
       // produced one yet the backend will surface "missing required args".
       const { job_id } = await runCli('calibrate', { 'metric-id': detail.id });
-      window.alert(
-        `Started calibration job ${job_id}. Open the co-pilot dock to stream progress.`,
-      );
+      setCalibrateMsg({
+        kind: 'ok',
+        text: `Started job ${job_id.slice(0, 8)}. Open the co-pilot dock to stream progress.`,
+      });
+      window.setTimeout(() => setCalibrateMsg(null), 6000);
     } catch (e: unknown) {
-      window.alert(
-        `Could not start calibration:\n${String(e)}\n\nTip: 'evalyn calibrate' needs an annotations JSONL. Run 'evalyn annotate' first to produce one.`,
-      );
+      setCalibrateMsg({
+        kind: 'err',
+        text: `Could not start: ${String(e)}. Tip: calibrate needs an annotations JSONL - run 'evalyn annotate' first.`,
+      });
     } finally {
       setCalibrateBusy(false);
     }
+  }
+
+  // select-metrics has required --target and --llm-caller params, so
+  // opening the runner without the catalog (no param form) would let
+  // the user submit blank and fail server-side. We gate the button on
+  // catalog availability instead. The catalog is shared with /commands
+  // so it's cached on a typical session.
+  const newRubricCmd = cliCatalog?.find((c) => c.id === 'select-metrics') ?? null;
+
+  function handleNewRubric() {
+    if (newRubricCmd) openCliRunner(newRubricCmd);
   }
 
   return (
@@ -117,8 +140,13 @@ export default function Metrics() {
           <Btn
             kind="primary"
             size="md"
-            disabled
-            title="Define rubrics in evalyn.yaml or run `evalyn select-metrics` from the CLI"
+            onClick={handleNewRubric}
+            disabled={!newRubricCmd}
+            title={
+              newRubricCmd
+                ? 'Open the select-metrics command - LLM-guided picker that drafts a new rubric for you'
+                : 'Loading command catalog...'
+            }
           >
             + New rubric
           </Btn>
@@ -246,8 +274,24 @@ export default function Metrics() {
           {/* Detail */}
           <Card style={{ padding: 0, overflow: 'hidden' }} data-coachmark="metrics-rubric">
             {!selectedId && (
-              <div style={{ padding: 24, color: E.text3, fontSize: 13, textAlign: 'center' }}>
-                No rubrics defined yet.
+              <div
+                style={{
+                  padding: 32,
+                  color: E.text3,
+                  fontSize: 13,
+                  textAlign: 'center',
+                  lineHeight: 1.6,
+                }}
+              >
+                {list && list.length > 0 ? (
+                  <>Select a rubric on the left to see its dimensions and calibration.</>
+                ) : (
+                  <>
+                    No rubrics yet. Click <b style={{ color: E.text2 }}>+ New rubric</b> above to draft one,
+                    <br />
+                    or define them in <code style={{ fontFamily: E.fMono, color: E.text2 }}>evalyn.yaml</code>.
+                  </>
+                )}
               </div>
             )}
             {selectedId && detailErr && (
@@ -324,9 +368,51 @@ export default function Metrics() {
                         : `Spawn 'evalyn calibrate --metric-id ${detail.id}'`
                     }
                   >
-                    {calibrateBusy ? 'Starting...' : 'Re-calibrate'}
+                    {calibrateBusy ? (
+                      <>
+                        <Spinner size={11} /> Starting
+                      </>
+                    ) : (
+                      'Re-calibrate'
+                    )}
                   </Btn>
                 </div>
+                {calibrateMsg && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    style={{
+                      padding: '10px 18px',
+                      borderBottom: `1px solid ${E.hair}`,
+                      background: calibrateMsg.kind === 'ok' ? E.passDim : E.failDim,
+                      fontSize: 12,
+                      color: calibrateMsg.kind === 'ok' ? E.pass : E.fail,
+                      fontFamily: E.fMono,
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 8,
+                    }}
+                  >
+                    <span style={{ flex: 1, lineHeight: 1.5 }}>{calibrateMsg.text}</span>
+                    <button
+                      type="button"
+                      onClick={() => setCalibrateMsg(null)}
+                      aria-label="Dismiss message"
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'currentColor',
+                        cursor: 'pointer',
+                        fontSize: 14,
+                        lineHeight: 1,
+                        padding: 0,
+                        opacity: 0.7,
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
                 <div style={{ padding: 18 }}>
                   <Eyebrow>Dimensions - weighted</Eyebrow>
                   <div
