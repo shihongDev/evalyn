@@ -57,6 +57,22 @@ interface NavItem {
   prefetch?: () => void;
 }
 
+/** Maps common breadcrumb labels back to the route path they came from
+ * so the breadcrumb's parent segments can be clickable. Routes pass
+ * `breadcrumb={['Annotate', 'run/abc']}` and we want "Annotate" to link
+ * to /annotate. Built off-line since route names are stable. */
+const BREADCRUMB_ROUTE_FOR_LABEL: Record<string, string> = {
+  Home: '/',
+  Annotate: '/annotate',
+  Experiments: '/experiments',
+  Datasets: '/datasets',
+  Metrics: '/metrics',
+  Review: '/review',
+  Reports: '/reports',
+  Commands: '/commands',
+  Settings: '/settings',
+};
+
 const NAV_ITEMS: NavItem[] = [
   { id: 'home', path: '/', icon: '◐', label: 'Home', prefetch: () => prefetchV2('home', v2.home) },
   {
@@ -376,12 +392,46 @@ export function AppShell({
                 color: E.text2,
               }}
             >
-              {breadcrumb.map((b, i) => (
-                <span key={`${b}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: i === breadcrumb.length - 1 ? E.text1 : E.text2 }}>{b}</span>
-                  {i < breadcrumb.length - 1 && <span style={{ color: E.text4 }}>›</span>}
-                </span>
-              ))}
+              {breadcrumb.map((b, i) => {
+                const isLast = i === breadcrumb.length - 1;
+                // Map common labels to their canonical route paths so
+                // parent segments become clickable. Last segment stays
+                // text ("you are here"). Backwards-compatible - existing
+                // string[] callers get this for free without API changes.
+                const path = isLast ? null : BREADCRUMB_ROUTE_FOR_LABEL[b] ?? null;
+                return (
+                  <span key={`${b}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {path ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate(path)}
+                        title={`Go to ${b}`}
+                        style={{
+                          color: E.text2,
+                          background: 'transparent',
+                          border: 'none',
+                          padding: 0,
+                          font: 'inherit',
+                          cursor: 'pointer',
+                          textDecoration: 'none',
+                          transition: 'color 160ms',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = E.ember;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = E.text2;
+                        }}
+                      >
+                        {b}
+                      </button>
+                    ) : (
+                      <span style={{ color: isLast ? E.text1 : E.text2 }}>{b}</span>
+                    )}
+                    {!isLast && <span style={{ color: E.text4 }}>›</span>}
+                  </span>
+                );
+              })}
             </div>
           </>
         )}
