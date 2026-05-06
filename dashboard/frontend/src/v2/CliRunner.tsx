@@ -115,19 +115,26 @@ function coerce(kind: CliParamKind, raw: unknown): unknown {
   return raw;
 }
 
-/** True if every required param has a non-empty value. */
-function isFormValid(
+/** Names of required params still missing a value. Empty when the
+ * form is valid; used both for the boolean validity check (length === 0)
+ * and for the Run button's tooltip ("Missing required: foo, bar") so
+ * the user sees exactly which fields are blocking submit. */
+function missingRequired(
   params: CliParam[],
   values: Record<string, unknown>,
-): boolean {
+): string[] {
+  const out: string[] = [];
   for (const p of params) {
     if (!p.required) continue;
     const v = coerce(p.kind, values[p.name]);
-    if (v === undefined) return false;
-    if (Array.isArray(v) && v.length === 0) return false;
-    if (typeof v === 'string' && v.trim() === '') return false;
+    if (v === undefined) {
+      out.push(p.name);
+      continue;
+    }
+    if (Array.isArray(v) && v.length === 0) out.push(p.name);
+    else if (typeof v === 'string' && v.trim() === '') out.push(p.name);
   }
-  return true;
+  return out;
 }
 
 /** Map a status to a pill color + label. */
@@ -393,10 +400,11 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
   const isWriteCommand = !READ_ONLY_ALLOWLIST.has(cli.id);
   const isRunning = status === 'running' || status === 'queued';
   const hasJob = jobId !== null;
-  const formValid = useMemo(() => isFormValid(cli.params, values), [
+  const missing = useMemo(() => missingRequired(cli.params, values), [
     cli.params,
     values,
   ]);
+  const formValid = missing.length === 0;
 
   // Build the args dict actually sent to the backend (drop empties, coerce).
   const submitArgs = useMemo<Record<string, unknown>>(() => {
@@ -730,7 +738,7 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
                   disabled={submitting || !formValid}
                   title={
                     !formValid
-                      ? 'Fill in all required fields'
+                      ? `Missing required: ${missing.join(', ')}`
                       : isWriteCommand
                         ? 'This command writes - review preview first'
                         : undefined
