@@ -16,7 +16,46 @@ import { useRouteTour } from '../tour/useRouteTour';
 import { READ_METRICS_TOUR_ID } from '../tour/scripts/readMetrics';
 import { useProject } from '../hooks/useProject';
 import { openCliRunner } from '../cliRunnerBridge';
+import { copyToClipboard } from '../clipboard';
 import { E } from '../tokens';
+
+/** Render the rubric as portable markdown. The frontend doesn't carry
+ * the full backend YAML (prompt, level rubric, metadata are server-only),
+ * so this is a "starting point" reference - the user reads it side-by-
+ * side while drafting a new rubric in their config or via select-metrics. */
+function rubricToMarkdown(d: RubricDetail): string {
+  const lines: string[] = [];
+  lines.push(`# ${d.name}`);
+  lines.push('');
+  lines.push(`Metric id: \`${d.id}\``);
+  lines.push('');
+  if (d.dimensions.length > 0) {
+    lines.push('## Dimensions');
+    lines.push('');
+    lines.push('| Label | Kind | Weight | Example |');
+    lines.push('|---|---|---|---|');
+    for (const dim of d.dimensions) {
+      const ex = dim.example.replaceAll('|', '\\|').replaceAll('\n', ' ');
+      lines.push(
+        `| ${dim.label} | ${dim.kind === 'judge' ? 'LLM judge' : 'programmatic'} | ${dim.weight_pct}% | ${ex} |`,
+      );
+    }
+    lines.push('');
+  }
+  lines.push('## Calibration');
+  lines.push(`- Status: ${d.calibration.label}`);
+  if (d.calibration.kappa != null) {
+    lines.push(`- Cohen's kappa: ${d.calibration.kappa.toFixed(2)}`);
+  }
+  if (d.calibration.false_positives_pct != null) {
+    lines.push(`- False positives: ${d.calibration.false_positives_pct.toFixed(1)}%`);
+  }
+  if (d.calibration.false_negatives_pct != null) {
+    lines.push(`- False negatives: ${d.calibration.false_negatives_pct.toFixed(1)}%`);
+  }
+  lines.push(`- Sample size: ${d.calibration.sample_size}`);
+  return lines.join('\n');
+}
 
 const KIND_COLOR: Record<RubricRow['kind'], string> = {
   'LLM judge': E.ember,
@@ -54,6 +93,7 @@ export default function Metrics() {
   const [calibrateMsg, setCalibrateMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(
     null,
   );
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
   const { data: cliCatalog } = useV2Resource<CliSchema[]>('commands', listCli);
 
   // Auto-pick the first rubric once the list lands, but don't override an
@@ -109,6 +149,17 @@ export default function Metrics() {
 
   function handleNewRubric() {
     if (newRubricCmd) openCliRunner(newRubricCmd);
+  }
+
+  async function handleCopyRubric(d: RubricDetail) {
+    try {
+      await copyToClipboard(rubricToMarkdown(d));
+      setCopyState('copied');
+      window.setTimeout(() => setCopyState('idle'), 2000);
+    } catch {
+      setCopyState('error');
+      window.setTimeout(() => setCopyState('idle'), 3000);
+    }
   }
 
   return (
@@ -352,10 +403,20 @@ export default function Metrics() {
                   <Btn
                     kind="ghost"
                     size="sm"
-                    disabled
-                    title="Coming soon - copy this rubric as a starting point for a new one"
+                    onClick={() => void handleCopyRubric(detail)}
+                    title={
+                      copyState === 'copied'
+                        ? 'Rubric on clipboard'
+                        : copyState === 'error'
+                          ? 'Browser blocked clipboard access'
+                          : 'Copy this rubric (dimensions table + calibration stats) as markdown - useful as a reference when drafting a new one'
+                    }
                   >
-                    Duplicate
+                    {copyState === 'copied'
+                      ? '✓ Copied'
+                      : copyState === 'error'
+                        ? '✗ Failed'
+                        : 'Copy'}
                   </Btn>
                   <Btn
                     kind="ghost"

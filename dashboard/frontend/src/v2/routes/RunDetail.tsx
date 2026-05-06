@@ -225,12 +225,14 @@ export default function RunDetail() {
     );
   }
 
+  // Compare lives as a flag on the Items tab (header opens compare via
+  // ?compare=...), not as a standalone tab. Trace has no implementation.
+  // Keeping disabled stubs in the tab strip just confused users into
+  // hovering them looking for a hidden surface, so they are dropped.
   const tabs = [
     'Summary',
     `Items - ${detail.dataset.n}`,
     `Failures - ${detail.failure_clusters.total_failures}`,
-    'Compare',
-    'Trace',
   ];
 
   async function handleRerun() {
@@ -506,21 +508,16 @@ export default function RunDetail() {
           {tabs.map((t, i) => {
             const isActive = i === activeTab;
             // Summary (0) and Items (1) render in-place. Failures (2)
-            // deep-links into the first cluster if one exists; the rest honest-stub.
+            // deep-links into the first cluster if one exists; if no
+            // failures, the tab is honestly disabled.
             const firstCluster = detail.failure_clusters.clusters[0];
-            const isSummary = i === 0;
-            const isItems = i === 1;
             const isFailures = i === 2;
-            const isComingSoon = !isSummary && !isItems && !isFailures;
-            const failuresDisabled = isFailures && !firstCluster;
-            const disabled = isComingSoon || failuresDisabled;
-            const title = isComingSoon
-              ? 'Coming soon - the Summary tab covers this surface today'
-              : failuresDisabled
-                ? 'No failures in this run'
-                : isFailures
-                  ? `Open the first failure cluster (${firstCluster?.label ?? ''})`
-                  : undefined;
+            const disabled = isFailures && !firstCluster;
+            const title = disabled
+              ? 'No failures in this run'
+              : isFailures
+                ? `Open the first failure cluster (${firstCluster?.label ?? ''})`
+                : undefined;
             return (
               <button
                 key={t}
