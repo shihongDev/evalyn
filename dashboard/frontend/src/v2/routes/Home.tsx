@@ -26,6 +26,7 @@ import { Welcome } from '../ui/Welcome';
 import { v2 } from '../api/client';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { E } from '../tokens';
+import { linkifyText, makeUrlCounter } from '../textRender';
 
 function formatDelta(d: number, inverse: boolean): string {
   if (d === 0) return 'flat';
@@ -498,7 +499,9 @@ export default function Home() {
               </Btn>
             </div>
             <div style={{ padding: '18px 22px', fontSize: 13.5, color: E.text1, lineHeight: 1.65 }}>
-              <div style={{ whiteSpace: 'pre-wrap' }}>{snap.brief.body_md}</div>
+              <div style={{ whiteSpace: 'pre-wrap' }}>
+                {linkifyText(snap.brief.body_md, makeUrlCounter())}
+              </div>
               {snap.brief.actions.length > 0 && (
                 <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {snap.brief.actions.map((act) => (

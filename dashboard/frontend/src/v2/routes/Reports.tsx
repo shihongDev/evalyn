@@ -8,6 +8,7 @@ import { Btn, Card, Eyebrow, Pill, Skeleton, Spinner, UpdatingChip } from '../ui
 import { v2 } from '../api/client';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { E } from '../tokens';
+import { linkifyText, makeUrlCounter } from '../textRender';
 
 function deltaPillColor(kind: 'pass' | 'fail' | 'warn' | 'info'): string {
   if (kind === 'pass') return E.pass;
@@ -155,7 +156,7 @@ export default function Reports() {
                   whiteSpace: 'pre-wrap',
                 }}
               >
-                {data.tldr_md}
+                {linkifyText(data.tldr_md, makeUrlCounter())}
               </div>
             </Card>
 
@@ -267,7 +268,7 @@ export default function Reports() {
                         whiteSpace: 'pre-wrap',
                       }}
                     >
-                      {data.blocking.body_md}{' '}
+                      {linkifyText(data.blocking.body_md, makeUrlCounter())}{' '}
                       <b style={{ color: E.text0 }}>Owner:</b> {data.blocking.owner}.{' '}
                       <b style={{ color: E.text0 }}>ETA:</b> {data.blocking.eta}.
                     </div>
