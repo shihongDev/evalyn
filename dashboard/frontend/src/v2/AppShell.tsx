@@ -295,13 +295,21 @@ export function AppShell({
   // tab reads "Evalyn · Workbench", making multi-tab workflows
   // (compare two runs, annotate while watching a job) hard to scan.
   // First-match-wins prefix lookup against TITLE_FOR_PATH.
+  //
+  // When jobs are actively running, prefix the title with "(N) " so
+  // the tab is identifiable across other windows. Standard pattern
+  // from chat / CI products: a numeric prefix is the most universal
+  // notification surface a web app has - works in every browser, no
+  // permission prompt, no platform shenanigans. Re-runs on
+  // runningCount change so the prefix stays fresh as jobs land.
   useEffect(() => {
     const path = location.pathname;
     const match = TITLE_FOR_PATH.find(([prefix]) =>
       prefix === '/' ? path === '/' : path.startsWith(prefix),
     );
-    document.title = match ? `${match[1]} · Evalyn` : 'Evalyn · Workbench';
-  }, [location.pathname]);
+    const base = match ? `${match[1]} · Evalyn` : 'Evalyn · Workbench';
+    document.title = runningCount > 0 ? `(${runningCount}) ${base}` : base;
+  }, [location.pathname, runningCount]);
 
   // Global hotkeys:
   //   Cmd/Ctrl+K toggles the command palette.
