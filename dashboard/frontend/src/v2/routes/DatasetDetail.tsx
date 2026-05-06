@@ -274,6 +274,12 @@ export default function DatasetDetail() {
                         goRun(r.id);
                       }
                     }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = E.panel2;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                    }}
                     style={{
                       display: 'grid',
                       gridTemplateColumns: '1fr 90px 70px 80px 80px',
@@ -283,6 +289,7 @@ export default function DatasetDetail() {
                       borderTop: i ? `1px solid ${E.hair}` : 'none',
                       cursor: 'pointer',
                       fontSize: 12,
+                      transition: 'background 140ms',
                     }}
                   >
                     <div

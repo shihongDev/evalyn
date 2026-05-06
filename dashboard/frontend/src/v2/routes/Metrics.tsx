@@ -193,6 +193,18 @@ export default function Metrics() {
                     key={r.id}
                     type="button"
                     onClick={() => setSelectedId(r.id)}
+                    onMouseEnter={(e) => {
+                      // Subtle hover signal on inactive rows. Skip on
+                      // the active row (it already has emberDim bg).
+                      if (!isActive) {
+                        e.currentTarget.style.background = E.panel2;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = 'transparent';
+                      }
+                    }}
                     style={{
                       width: '100%',
                       display: 'flex',
@@ -204,6 +216,7 @@ export default function Metrics() {
                       background: isActive ? E.emberDim : 'transparent',
                       border: 'none',
                       textAlign: 'left',
+                      transition: 'background 140ms',
                     }}
                   >
                     <span

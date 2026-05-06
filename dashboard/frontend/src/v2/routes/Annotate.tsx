@@ -271,6 +271,12 @@ export default function Annotate() {
                   key={s.id}
                   type="button"
                   onClick={() => navigate(`/annotate/${encodeURIComponent(s.id)}`)}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = E.panel2;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                  }}
                   style={{
                     display: 'block',
                     width: '100%',
@@ -280,6 +286,7 @@ export default function Annotate() {
                     background: 'transparent',
                     border: 'none',
                     cursor: 'pointer',
+                    transition: 'background 140ms',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -308,6 +315,12 @@ export default function Annotate() {
                     key={s.id}
                     type="button"
                     onClick={() => navigate(`/annotate/${encodeURIComponent(s.id)}`)}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = E.panel2;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                    }}
                     style={{
                       display: 'block',
                       width: '100%',
@@ -317,6 +330,7 @@ export default function Annotate() {
                       background: 'transparent',
                       border: 'none',
                       cursor: 'pointer',
+                      transition: 'background 140ms',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
