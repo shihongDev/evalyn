@@ -39,6 +39,12 @@ export interface JobLine {
   text: string;
   /** Unix seconds (server clock for stdout/stderr; client clock for system). */
   ts: number;
+  /** Server-assigned monotonic id for this event. Present on every event the
+   * backend originates (stdout/stderr/truncated/exit); ``undefined`` for
+   * client-synthesized ``system`` lines. Callers can pass the highest
+   * observed ``event_id`` back as ``subscribeJob({ since })`` on reconnect
+   * so the backend skips already-delivered events. */
+  event_id?: number;
 }
 
 export interface JobStatus {
@@ -182,18 +188,36 @@ interface SubscribeHandlers {
   onClose?: (ev: CloseEvent) => void;
 }
 
+interface SubscribeOptions {
+  /** When set, ask the backend to replay only events with ``event_id > since``.
+   * Use the highest ``event_id`` observed on the prior connection to avoid
+   * re-delivering lines the caller already has. Omit on first subscribe. */
+  since?: number;
+}
+
 /**
  * Open a ``/ws/jobs/{id}`` subscription. Returns a ``{close()}`` handle that
  * tears the socket down. The wrapper translates raw backend events into
  * ``JobLine`` and ``JobStatus`` callbacks so callers don't have to know the
  * wire shape. Handlers are best-effort: any throws are swallowed to keep
  * the socket alive.
+ *
+ * Pass ``options.since`` on reconnect to resume where the prior socket left
+ * off; the backend honors a ``?since=N`` query param and replays only
+ * events with ``event_id > N``.
  */
 export function subscribeJob(
   id: string,
   handlers: SubscribeHandlers,
+  options?: SubscribeOptions,
 ): { close: () => void } {
-  const ws = new WebSocket(wsUrl(`/ws/jobs/${encodeURIComponent(id)}`));
+  const sinceQs =
+    options?.since != null && Number.isFinite(options.since)
+      ? `?since=${encodeURIComponent(String(options.since))}`
+      : '';
+  const ws = new WebSocket(
+    wsUrl(`/ws/jobs/${encodeURIComponent(id)}${sinceQs}`),
+  );
   // Emit an initial "running" status so the UI flips out of "queued" the
   // moment the socket connects (the backend already started the process
   // before we even subscribed - the WS is just for live tail).
@@ -208,16 +232,19 @@ export function subscribeJob(
       return;
     }
     const t = evt.type as string | undefined;
+    const eid =
+      typeof evt.event_id === 'number' ? (evt.event_id as number) : undefined;
     if (t === 'stdout' || t === 'stderr') {
       const text = (evt.line as string | undefined) ?? '';
       const ts = (evt.ts as number | undefined) ?? Date.now() / 1000;
-      safeCall(handlers.onLine, { kind: t, text, ts });
+      safeCall(handlers.onLine, { kind: t, text, ts, event_id: eid });
     } else if (t === 'truncated') {
       const count = (evt.count as number | undefined) ?? 0;
       safeCall(handlers.onLine, {
         kind: 'system',
         text: `[server dropped ${count} earlier lines]`,
         ts: (evt.ts as number | undefined) ?? Date.now() / 1000,
+        event_id: eid,
       });
     } else if (t === 'exit') {
       const code = (evt.code as number | undefined) ?? -1;
