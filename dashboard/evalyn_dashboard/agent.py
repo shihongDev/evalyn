@@ -700,14 +700,41 @@ class _Thread:
 
 
 class _AgentEventStream:
-    """Per-subscriber queue, async-iterable until thread closes."""
+    """Per-subscriber queue, async-iterable until thread closes.
+
+    Replay phase (closes KNOWN_ISSUES.md #3): ``AgentRuntime.subscribe``
+    flips the stream into replay mode before registering it for live
+    fanout. While replaying, live events arriving via ``put_nowait``
+    divert into ``_live_buffer``; replay events use ``_replay_put`` to
+    bypass the buffer. ``_end_replay`` flushes the buffer in emit order
+    and switches the stream to direct fanout. This keeps order correct
+    even if a future change adds awaits in the subscribe body.
+    """
 
     def __init__(self) -> None:
         self._queue: asyncio.Queue = asyncio.Queue()
         self._closed = False
+        self._replaying = False
+        self._live_buffer: list[dict[str, Any]] = []
 
     def put_nowait(self, event: dict[str, Any]) -> None:
+        if self._replaying:
+            self._live_buffer.append(event)
+        else:
+            self._queue.put_nowait(event)
+
+    def _replay_put(self, event: dict[str, Any]) -> None:
+        """Replay path: bypass the live buffer when enqueuing history."""
         self._queue.put_nowait(event)
+
+    def _begin_replay(self) -> None:
+        self._replaying = True
+
+    def _end_replay(self) -> None:
+        for event in self._live_buffer:
+            self._queue.put_nowait(event)
+        self._live_buffer.clear()
+        self._replaying = False
 
     def close(self) -> None:
         self._closed = True
@@ -864,16 +891,35 @@ class AgentRuntime:
         Replays buffered events whose ``event_id > since`` (or all events
         when ``since`` is None) before live fanout begins. The stream
         closes automatically when the thread is marked closed.
+
+        Closes KNOWN_ISSUES.md #3 (subscribe race). Flow:
+          1. ``_begin_replay()`` flips the stream into replay mode so any
+             concurrent ``_emit()`` arriving via ``put_nowait`` is buffered.
+          2. Register the stream in ``thread.subscribers`` BEFORE replay
+             so live fanout is not lost between replay-end and registration.
+          3. Snapshot ``_next_event_id`` so the replay set is bounded;
+             events with ``event_id > snapshot_id`` are guaranteed to
+             arrive via the now-registered live fanout.
+          4. Replay via ``_replay_put`` (bypasses the live buffer).
+          5. ``_end_replay()`` flushes any buffered live events in order.
         """
         thread = self._threads.get(thread_id)
         if thread is None:
             raise KeyError(thread_id)
         cursor = since if since is not None else 0
         stream = _AgentEventStream()
-        for evt in thread.events:
-            if evt.get("event_id", 0) > cursor:
-                stream.put_nowait(evt)
+
+        stream._begin_replay()
         thread.subscribers.add(stream)
+        snapshot_id = thread._next_event_id - 1
+        replay_events = [
+            evt for evt in thread.events
+            if cursor < evt.get("event_id", 0) <= snapshot_id
+        ]
+        for evt in replay_events:
+            stream._replay_put(evt)
+        stream._end_replay()
+
         try:
             yield stream
         finally:

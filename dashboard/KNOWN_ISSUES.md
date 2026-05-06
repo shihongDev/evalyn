@@ -27,9 +27,7 @@ two-column panel; reuse the existing `diffArgs` helper in
 
 ### 3. AgentRuntime.subscribe race (agent.py:700-713)
 
-Same pattern as #1: events emitted between replay and subscriber registration are dropped. Risk is higher here because confirmation_required events not reaching client cause stuck UI.
-
-**Fix sketch:** identical to #1.
+RESOLVED 2026-05-06 (fix/agent-subscribe-race). Mirrored the #1 fix to `_AgentEventStream`: it now has a replay phase with a live-event buffer. `AgentRuntime.subscribe` calls `_begin_replay()`, registers the stream BEFORE replay, snapshots `_next_event_id`, replays via `_replay_put` (which bypasses the buffer), then `_end_replay()` flushes any concurrent `_emit()` events that arrived during replay. Confirmation_required events emitted in the registration window are no longer dropped; UI cannot get stuck waiting for them. Regression tests: `test_agent.py::test_subscribe_registers_before_replay` and `::test_agent_event_stream_replay_buffer_orders_live_after_flush`.
 
 ### 4. ToolCallCard confirm doesn't pass call.id (ChatPanel.tsx:208-219)
 

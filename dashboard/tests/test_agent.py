@@ -29,6 +29,7 @@ from evalyn_dashboard.agent import (
     OpenAIProvider,
     ProviderEvent,
     ProviderToolCall,
+    _AgentEventStream,
     _argv_for_tool,
     _to_anthropic_tools,
     _to_openai_tools,
@@ -557,6 +558,81 @@ async def test_subscribe_replays_buffered_events() -> None:
             if evt["type"] == "final":
                 break
     assert [e["type"] for e in received] == ["text_delta", "final"]
+
+
+# ---------------------------------------------------------------------------
+# Regression: KNOWN_ISSUES.md #3 (AgentRuntime.subscribe race)
+# ---------------------------------------------------------------------------
+
+
+def test_agent_event_stream_replay_buffer_orders_live_after_flush() -> None:
+    """Direct unit test of _AgentEventStream.{_begin,_end}_replay buffering.
+
+    During replay, put_nowait events buffer and the queue stays empty.
+    _end_replay flushes them to the queue in original emit order.
+    After end_replay, put_nowait goes straight to the queue.
+    """
+    s = _AgentEventStream()
+    s._begin_replay()
+    s.put_nowait({"type": "text_delta", "text": "live1", "event_id": 10})
+    s.put_nowait({"type": "text_delta", "text": "live2", "event_id": 11})
+    assert s._queue.empty(), "live events must buffer during replay"
+
+    s._end_replay()
+    drained = []
+    while not s._queue.empty():
+        drained.append(s._queue.get_nowait())
+    assert [d["text"] for d in drained] == ["live1", "live2"]
+
+    s.put_nowait({"type": "final", "event_id": 12})
+    assert s._queue.get_nowait()["type"] == "final"
+
+
+@pytest.mark.asyncio
+async def test_subscribe_registers_before_replay() -> None:
+    """KNOWN_ISSUES.md #3 regression. Verify the new invariant: the
+    subscriber stream is registered in ``thread.subscribers`` BEFORE
+    any replay event is enqueued. Previously, registration happened
+    after replay so live ``_emit`` calls between the last replay and
+    registration would be silently dropped on the new subscriber.
+    """
+    provider = MockProvider(
+        [
+            [
+                ProviderEvent(kind="text_delta", text="hello"),
+                ProviderEvent(kind="finish"),
+            ]
+        ]
+    )
+    runtime = AgentRuntime(
+        provider_factory=lambda: provider,
+        catalog=_sample_catalog(),
+        tool_runner=_unused_runner,
+    )
+    thread_id = runtime.create_thread()
+    await runtime.start_turn(thread_id, "hi")
+
+    thread = runtime._threads[thread_id]
+    pre_count = len(thread.subscribers)
+
+    received: list[dict[str, Any]] = []
+    async with runtime.subscribe(thread_id) as stream:
+        # By the time __aenter__ has yielded, registration must be done.
+        # The old code did registration AFTER replay; the fix moves it
+        # BEFORE. Closes the gap KNOWN_ISSUES.md #3 documents.
+        assert stream in thread.subscribers, (
+            "subscribe() must register the stream before yielding"
+        )
+        # Sanity: replay still delivered the buffered events.
+        async for evt in stream:
+            received.append(evt)
+            if evt["type"] == "final":
+                break
+
+    assert any(e["type"] == "text_delta" for e in received)
+    assert received[-1]["type"] == "final"
+    # Cleanup happened on context exit.
+    assert len(thread.subscribers) == pre_count
 
 
 # ---------------------------------------------------------------------------
