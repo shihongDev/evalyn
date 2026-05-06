@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **RecentJobsDrawer's "show failed only" filter is now persistent.** The chip state lives in localStorage under `evalyn:v2:jobsDrawer:failureFilter`, so a user who toggles "show failed only" while tracking a regression across multiple eval iterations stays in that mode after a page refresh. The auto-clear path (failed count drops to 0) clears the localStorage entry too, so an accidentally-armed filter never ghosts across sessions.
 - **`subscribeJob` reconnect-with-cursor.** `dashboard/frontend/src/v2/api/jobs.ts::subscribeJob` now accepts an optional `{ since }` option and forwards it as `?since=N` on the `/ws/jobs/{id}` URL; the backend's existing `since` support means a reconnecting client can skip events with `event_id <= since`. `JobLine` gained an optional `event_id` field carrying the server-assigned monotonic id, so callers can track the high-water mark and pass it back on reconnect to avoid re-receiving already-displayed lines. Additive: no behavior change for current callers.
 - **KNOWN_ISSUES.md #2 marked OBSOLETE.** The "WS reconnect close handler shares mutable conn ref" issue described `store.ts:329, 389` and the `unsubscribeJob` helper, both deleted in the v2 dashboard rewrite. The current shared WS in `v2/api/v2ws.ts` already implements the recommended `_ws === ws` close-handler guard. Cleaned up the entry so future maintainers do not chase a non-existent bug.
 

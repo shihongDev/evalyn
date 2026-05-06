@@ -24,9 +24,11 @@ import { Btn, Eyebrow, Pill, StatusDot } from './ui';
 import { fetchJobStatus } from './api/jobs';
 import {
   clearJobsHistory,
+  getJobsDrawerFailureFilter,
   loadJobsHistory,
   patchJob,
   setFailureAckTime,
+  setJobsDrawerFailureFilter,
   subscribeJobsHistory,
   type JobHistoryEntry,
   type JobHistoryStatus,
@@ -46,7 +48,18 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
   // "Show failed only" filter, toggled via a clickable badge in the
   // header. Lets a user spot recent regressions in a long history
   // (the local cap is 30 entries) without scanning each pill by eye.
-  const [failureFilter, setFailureFilter] = useState(false);
+  // Persisted to localStorage so users tracking regressions across
+  // sessions stay in "failed only" mode after a page refresh.
+  const [failureFilter, setFailureFilterState] = useState<boolean>(() =>
+    getJobsDrawerFailureFilter(),
+  );
+  const setFailureFilter: typeof setFailureFilterState = (next) => {
+    setFailureFilterState((prev) => {
+      const resolved = typeof next === 'function' ? next(prev) : next;
+      setJobsDrawerFailureFilter(resolved);
+      return resolved;
+    });
+  };
 
   // Re-render whenever history mutates (within this tab or another).
   useEffect(() => {
