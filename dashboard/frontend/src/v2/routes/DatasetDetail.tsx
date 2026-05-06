@@ -88,7 +88,7 @@ export default function DatasetDetail() {
   const project = useProject();
 
   const fetcher = useCallback(() => v2.dataset(name), [name]);
-  const { data, err, reloading, isInitialLoad } = useV2Resource<DatasetDetailT>(
+  const { data, err, refetch, reloading, isInitialLoad } = useV2Resource<DatasetDetailT>(
     `dataset:${name}`,
     fetcher,
   );
@@ -197,7 +197,11 @@ export default function DatasetDetail() {
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Eyebrow>Dataset</Eyebrow>
-              <UpdatingChip visible={reloading && !isInitialLoad} />
+              <UpdatingChip
+                visible={reloading && !isInitialLoad}
+                error={data ? err : null}
+                onRetry={refetch}
+              />
             </div>
             <h1
               style={{

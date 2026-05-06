@@ -57,7 +57,7 @@ const SELECT_STYLE = {
 export default function Datasets() {
   const project = useProject();
   const navigate = useNavigate();
-  const { data, err, reloading, isInitialLoad } = useV2Resource(
+  const { data, err, refetch, reloading, isInitialLoad } = useV2Resource(
     'datasets',
     v2.datasets,
   );
@@ -275,7 +275,11 @@ export default function Datasets() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Eyebrow>Evaluation inputs</Eyebrow>
-              <UpdatingChip visible={reloading && !isInitialLoad} />
+              <UpdatingChip
+                visible={reloading && !isInitialLoad}
+                error={data ? err : null}
+                onRetry={refetch}
+              />
             </div>
             <h1
               style={{

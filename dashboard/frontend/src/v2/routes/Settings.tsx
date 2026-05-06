@@ -92,7 +92,11 @@ export default function Settings() {
       <div style={{ padding: '32px 36px', maxWidth: 920 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Eyebrow>Workspace configuration</Eyebrow>
-          <UpdatingChip visible={reloading && !isInitialLoad} />
+          <UpdatingChip
+            visible={reloading && !isInitialLoad}
+            error={data ? err : null}
+            onRetry={refetch}
+          />
         </div>
         <h1
           style={{

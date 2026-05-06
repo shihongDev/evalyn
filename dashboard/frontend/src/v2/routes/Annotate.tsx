@@ -203,7 +203,11 @@ export default function Annotate() {
       <div style={{ padding: '32px 36px', maxWidth: 1100 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
           <Eyebrow>Human annotation</Eyebrow>
-          <UpdatingChip visible={reloading && !isInitialLoad} />
+          <UpdatingChip
+            visible={reloading && !isInitialLoad}
+            error={sessionList ? err : null}
+            onRetry={refetch}
+          />
         </div>
         <h1
           style={{

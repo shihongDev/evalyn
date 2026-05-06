@@ -82,6 +82,7 @@ export default function Metrics() {
   const {
     data: list,
     err: listErr,
+    refetch: listRefetch,
     reloading: listReloading,
     isInitialLoad: listInitial,
   } = useV2Resource<RubricRow[]>('rubrics', v2.rubrics);
@@ -169,7 +170,11 @@ export default function Metrics() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Eyebrow>How quality is graded</Eyebrow>
-              <UpdatingChip visible={listReloading && !listInitial} />
+              <UpdatingChip
+                visible={listReloading && !listInitial}
+                error={list ? listErr : null}
+                onRetry={listRefetch}
+              />
             </div>
             <h1
               style={{

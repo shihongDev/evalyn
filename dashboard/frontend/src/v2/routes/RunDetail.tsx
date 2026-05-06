@@ -104,6 +104,7 @@ export default function RunDetail() {
   const {
     data: detail,
     err,
+    refetch,
     reloading,
     isInitialLoad,
   } = useV2Resource<ExperimentDetail>(`experiment:${runId ?? ''}`, fetcher);
@@ -450,7 +451,11 @@ export default function RunDetail() {
               <span style={{ fontFamily: E.fMono, fontSize: 11, color: E.text3 }}>
                 {detail.id} - {detail.status} {detail.finished_at_iso} - {detail.duration} - {detail.cost}
               </span>
-              <UpdatingChip visible={reloading && !isInitialLoad} />
+              <UpdatingChip
+                visible={reloading && !isInitialLoad}
+                error={detail ? err : null}
+                onRetry={refetch}
+              />
             </div>
             <h1
               style={{
@@ -1414,6 +1419,7 @@ function ItemsCompareTab({
   const {
     data: thisItems,
     err: thisErr,
+    refetch: thisRefetch,
     reloading: thisReloading,
     isInitialLoad: thisInitial,
   } = useV2Resource<ExperimentItemsResponse>(
@@ -1423,6 +1429,7 @@ function ItemsCompareTab({
   const {
     data: otherItems,
     err: otherErr,
+    refetch: otherRefetch,
     reloading: otherReloading,
     isInitialLoad: otherInitial,
   } = useV2Resource<ExperimentItemsResponse>(
@@ -1519,6 +1526,13 @@ function ItemsCompareTab({
   const totalsUnchanged = allRows.length - totalsRegressed - totalsFixed;
   const reloading = thisReloading || otherReloading;
   const isInitialLoad = thisInitial || otherInitial;
+  // Surface either side's background-refresh error. The retry kicks
+  // both refetches since the user doesn't think of them as separate.
+  const combinedErr = thisErr ?? otherErr ?? null;
+  const refetchBoth = useCallback(() => {
+    void thisRefetch();
+    void otherRefetch();
+  }, [thisRefetch, otherRefetch]);
 
   // Soft "missing on the other side" notice: rows where the other
   // run doesn't carry this item_id at all (e.g. dataset extended).
@@ -1607,7 +1621,11 @@ function ItemsCompareTab({
         <span style={{ fontSize: 11.5, color: E.text2, fontFamily: E.fMono }}>
           {visibleRows.length} of {allRows.length} rows
         </span>
-        <UpdatingChip visible={reloading && !isInitialLoad} />
+        <UpdatingChip
+          visible={reloading && !isInitialLoad}
+          error={thisItems && otherItems ? combinedErr : null}
+          onRetry={refetchBoth}
+        />
       </div>
 
       {visibleRows.length === 0 ? (
@@ -1957,7 +1975,7 @@ function ItemsTab({ runId, initialFilter }: ItemsTabProps) {
     () => v2.experimentItems(runId, { offset, limit: PAGE_SIZE, filter, sort }),
     [runId, offset, filter, sort],
   );
-  const { data, err, reloading, isInitialLoad } = useV2Resource<ExperimentItemsResponse>(
+  const { data, err, refetch, reloading, isInitialLoad } = useV2Resource<ExperimentItemsResponse>(
     `experimentItems:${runId}:${offset}:${filter}:${sort}`,
     fetcher,
   );
@@ -2090,7 +2108,11 @@ function ItemsTab({ runId, initialFilter }: ItemsTabProps) {
         <span style={{ fontSize: 11.5, color: E.text2, fontFamily: E.fMono }}>
           Showing {showingFrom}-{showingTo} of {data.total}
         </span>
-        <UpdatingChip visible={reloading && !isInitialLoad} />
+        <UpdatingChip
+          visible={reloading && !isInitialLoad}
+          error={data ? err : null}
+          onRetry={refetch}
+        />
       </div>
 
       {data.total === 0 ? (

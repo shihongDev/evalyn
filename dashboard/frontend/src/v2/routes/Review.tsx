@@ -241,7 +241,11 @@ export default function Review() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Eyebrow>Where the judge wants a second opinion</Eyebrow>
-              <UpdatingChip visible={reloading && !isInitialLoad} />
+              <UpdatingChip
+                visible={reloading && !isInitialLoad}
+                error={queue ? queueErr : null}
+                onRetry={refetchQueue}
+              />
             </div>
             <h1
               style={{

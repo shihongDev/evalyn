@@ -325,7 +325,7 @@ function buildGroups(rows: ExperimentRow[]): DatasetGroup[] {
 const COLLAPSE_THRESHOLD = 20;
 
 export default function ExperimentsList() {
-  const { data: rows, err, reloading, isInitialLoad } = useV2Resource(
+  const { data: rows, err, refetch, reloading, isInitialLoad } = useV2Resource(
     'experiments',
     v2.experiments,
   );
@@ -520,7 +520,11 @@ export default function ExperimentsList() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Eyebrow>All evaluations</Eyebrow>
-              <UpdatingChip visible={reloading && !isInitialLoad} />
+              <UpdatingChip
+                visible={reloading && !isInitialLoad}
+                error={rows ? err : null}
+                onRetry={refetch}
+              />
             </div>
             <h1
               style={{

@@ -71,7 +71,7 @@ export default function FailureCluster() {
     () => v2.cluster(runId, clusterId),
     [runId, clusterId],
   );
-  const { data, err, reloading, isInitialLoad } = useV2Resource<ClusterDetail>(
+  const { data, err, refetch, reloading, isInitialLoad } = useV2Resource<ClusterDetail>(
     `cluster:${runId}:${clusterId}`,
     fetcher,
   );
@@ -169,7 +169,11 @@ export default function FailureCluster() {
                       ? ` - ${((data.total_in_cluster / data.total_items_in_run) * 100).toFixed(1)}% of all items`
                       : ''}
                   </span>
-                  <UpdatingChip visible={reloading && !isInitialLoad} />
+                  <UpdatingChip
+                    visible={reloading && !isInitialLoad}
+                    error={data ? err : null}
+                    onRetry={refetch}
+                  />
                 </div>
                 <h1
                   style={{

@@ -92,7 +92,11 @@ export default function Reports() {
       <div style={{ padding: '32px 36px', maxWidth: 1080 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Eyebrow>Weekly summary - auto-generated</Eyebrow>
-          <UpdatingChip visible={reloading && !isInitialLoad} />
+          <UpdatingChip
+            visible={reloading && !isInitialLoad}
+            error={data ? err : null}
+            onRetry={refetch}
+          />
         </div>
         <h1
           style={{
