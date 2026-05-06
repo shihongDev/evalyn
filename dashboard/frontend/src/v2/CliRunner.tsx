@@ -484,7 +484,16 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
         display: 'flex',
         justifyContent: 'flex-end',
       }}
-      onClick={onCloseClick}
+      // Backdrop click is a no-op while a job is actively running -
+      // accidental misclicks shouldn't drop the live output stream
+      // mid-execution. Users can still close via the × button or Esc
+      // (both intentional gestures); on close the job continues on
+      // the backend and the user can re-attach from Recent Jobs.
+      onClick={(ev) => {
+        if (ev.target !== ev.currentTarget) return;
+        if (status === 'running' || status === 'queued') return;
+        onCloseClick();
+      }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -538,6 +547,11 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
             type="button"
             onClick={onCloseClick}
             aria-label="Close"
+            title={
+              status === 'running' || status === 'queued'
+                ? 'Close panel (job keeps running - re-attach from Recent Jobs)'
+                : 'Close panel'
+            }
             style={{
               width: 28,
               height: 28,
