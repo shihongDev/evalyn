@@ -3019,7 +3019,24 @@ export default function AnnotateSession() {
             const skipped = session.items_skipped;
             const total = session.items_total;
             const todo = Math.max(0, total - done - skipped);
-            return `${done} done · ${skipped} skipped · ${todo} todo · ${total} total`;
+            const parts = [
+              `${done} done`,
+              `${skipped} skipped`,
+              `${todo} todo`,
+              `${total} total`,
+            ];
+            // Append session age when available - same NaN-defensive
+            // Date.parse pattern as the all-done banner / session pill
+            // tooltip. Adds "started Xm ago" without taking layout
+            // space.
+            if (session.started_at_iso) {
+              const startMs = Date.parse(session.started_at_iso);
+              if (!Number.isNaN(startMs)) {
+                const elapsedSec = Math.max(0, (Date.now() - startMs) / 1000);
+                parts.push(`started ${formatDuration(elapsedSec)} ago`);
+              }
+            }
+            return parts.join(' · ');
           })()}
           style={{
             height: 4,
