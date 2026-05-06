@@ -572,6 +572,41 @@ export function AppShell({
             {MOD_KEY}K Search
           </Btn>
         )}
+        {vp === 'desktop' && (
+          <button
+            type="button"
+            onClick={() => setHelpOpen(true)}
+            aria-label="Show keyboard shortcuts"
+            title="Keyboard shortcuts (?)"
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: 6,
+              border: `1px solid ${E.hair2}`,
+              background: 'transparent',
+              color: E.text2,
+              cursor: 'pointer',
+              fontFamily: E.fMono,
+              fontSize: 12,
+              fontWeight: 500,
+              lineHeight: 1,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'color 120ms, border-color 120ms',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = E.text0;
+              e.currentTarget.style.borderColor = E.text3;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = E.text2;
+              e.currentTarget.style.borderColor = E.hair2;
+            }}
+          >
+            ?
+          </button>
+        )}
         {/* User initials - decorative until a profile menu exists. */}
         <span
           style={{
