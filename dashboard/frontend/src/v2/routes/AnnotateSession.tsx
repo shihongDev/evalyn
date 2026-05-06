@@ -19,6 +19,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, StatusDot } from '../ui';
 import { useV2Resource } from '../hooks/useV2Resource';
+import { useArmedConfirm } from '../hooks/useArmedConfirm';
 import { annotationApi } from '../api/annotation';
 import type {
   AnnotationEvidence,
@@ -2038,6 +2039,15 @@ export default function AnnotateSession() {
     };
   }, [showSettings]);
 
+  // Two-click arms for the two destructive settings-menu actions.
+  // Replaces the older window.confirm() prompts that jarred against the
+  // dropdown's chrome and trapped focus in OS UI. First click flips the
+  // menu item label to "Confirm: ...?"; second click within 4 s
+  // proceeds. Pattern matches the rest of the dashboard (Jobs drawer
+  // Clear history, Datasets bulk-evaluate).
+  const bookmarksArm = useArmedConfirm();
+  const draftArm = useArmedConfirm();
+
   const resetBookmarks = useCallback(() => {
     if (!sessionId) return;
     const n = Object.keys(bookmarks).length;
@@ -2045,26 +2055,28 @@ export default function AnnotateSession() {
       setShowSettings(false);
       return;
     }
-    const ok = window.confirm(
-      `Remove all ${n} bookmark${n === 1 ? '' : 's'} for this session?`,
-    );
-    if (!ok) return;
+    if (!bookmarksArm.armed) {
+      bookmarksArm.arm();
+      return;
+    }
+    bookmarksArm.reset();
     setBookmarks({});
     setShowSettings(false);
-  }, [sessionId, bookmarks]);
+  }, [sessionId, bookmarks, bookmarksArm]);
 
   const clearLocalDraft = useCallback(() => {
     if (!sessionId) return;
-    const ok = window.confirm(
-      'Clear the local draft (in-progress verdicts, notes, and evidence on items not yet saved)? This does NOT undo verdicts already saved to the server.',
-    );
-    if (!ok) return;
+    if (!draftArm.armed) {
+      draftArm.arm();
+      return;
+    }
+    draftArm.reset();
     clearDraft(sessionId);
     setVerdicts({});
     setNotes({});
     setEvidence({});
     setShowSettings(false);
-  }, [sessionId]);
+  }, [sessionId, draftArm]);
 
   // Scrubber hover preview - shows a small floating tooltip with the
   // item's input preview after a 400ms hover. Helps users navigate
@@ -2499,11 +2511,20 @@ export default function AnnotateSession() {
                     e.currentTarget.style.background = 'transparent';
                   }}
                 >
-                  Reset bookmarks
-                  {Object.keys(bookmarks).length > 0 && (
-                    <span style={{ color: E.text3, marginLeft: 6 }}>
-                      ({Object.keys(bookmarks).length})
+                  {bookmarksArm.armed ? (
+                    <span style={{ color: E.fail }}>
+                      Confirm: clear {Object.keys(bookmarks).length} bookmark
+                      {Object.keys(bookmarks).length === 1 ? '' : 's'}?
                     </span>
+                  ) : (
+                    <>
+                      Reset bookmarks
+                      {Object.keys(bookmarks).length > 0 && (
+                        <span style={{ color: E.text3, marginLeft: 6 }}>
+                          ({Object.keys(bookmarks).length})
+                        </span>
+                      )}
+                    </>
                   )}
                 </button>
                 <button
@@ -2530,17 +2551,37 @@ export default function AnnotateSession() {
                     e.currentTarget.style.background = 'transparent';
                   }}
                 >
-                  Clear local draft
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: E.text3,
-                      marginTop: 2,
-                      lineHeight: 1.3,
-                    }}
-                  >
-                    Drops in-progress UI state, not server records.
-                  </div>
+                  {draftArm.armed ? (
+                    <>
+                      <span style={{ color: E.fail }}>
+                        Confirm: drop in-progress draft?
+                      </span>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: E.text3,
+                          marginTop: 2,
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        Auto-cancels in 4 s. Server records are not affected.
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      Clear local draft
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: E.text3,
+                          marginTop: 2,
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        Drops in-progress UI state, not server records.
+                      </div>
+                    </>
+                  )}
                 </button>
               </div>
             )}
