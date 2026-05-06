@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+
+- **CliRunner WS line batching via requestAnimationFrame.** Chatty eval runs (100s of stdout lines/sec) used to call `setLines` once per WebSocket message, triggering one React render per line. CliRunner now buffers lines in a ref and flushes once per animation frame (`requestAnimationFrame`), capping render rate at ~60Hz regardless of line rate. The buffer is bounded at `MAX_OUTPUT_LINES` so a backgrounded tab cannot accumulate unbounded memory while rAF is paused. Cleanup on unmount and Re-run cancels any pending frame and clears stale lines so they do not bleed into a new run. No visible behavior change for slow streams; high-rate streams stop juddering.
+
 ### Changed
 
 - **`subscribeJob` reconnect-with-cursor.** `dashboard/frontend/src/v2/api/jobs.ts::subscribeJob` now accepts an optional `{ since }` option and forwards it as `?since=N` on the `/ws/jobs/{id}` URL; the backend's existing `since` support means a reconnecting client can skip events with `event_id <= since`. `JobLine` gained an optional `event_id` field carrying the server-assigned monotonic id, so callers can track the high-water mark and pass it back on reconnect to avoid re-receiving already-displayed lines. Additive: no behavior change for current callers.
