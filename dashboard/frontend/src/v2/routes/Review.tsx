@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Glossary, Pill, Skeleton, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
@@ -103,7 +104,11 @@ export default function Review() {
   // the runner pre-filled. Cached at the module level by useV2Resource;
   // every other consumer that hits the catalog reuses this data.
   const { data: cmds } = useV2Resource<CliSchema[]>('commands', listCli);
+  const navigate = useNavigate();
   const [submitErr, setSubmitErr] = useState<string | null>(null);
+  // Inline calibrate-open errors. Replaces window.alert() which jarred
+  // against the v2 design and trapped the user behind an OK button.
+  const [calibrateErr, setCalibrateErr] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -114,8 +119,8 @@ export default function Review() {
     (s: CalibrationSuggestion) => {
       const cmd = cmds?.find((c) => c.id === 'calibrate');
       if (!cmd) {
-        window.alert(
-          'Cannot open calibrate: the command is not in this build of the CLI catalog.',
+        setCalibrateErr(
+          'The calibrate command is not in this build of the CLI catalog.',
         );
         return;
       }
@@ -127,6 +132,7 @@ export default function Review() {
       for (const [key, value] of Object.entries(s.cli_args)) {
         if (paramNames.has(key)) initialValues[key] = value;
       }
+      setCalibrateErr(null);
       openCliRunner(cmd, { initialValues });
     },
     [cmds],
@@ -358,6 +364,44 @@ export default function Review() {
                 </Btn>
               </div>
             )}
+          </div>
+        )}
+
+        {calibrateErr && (
+          <div
+            role="alert"
+            style={{
+              marginTop: 14,
+              padding: '10px 14px',
+              borderRadius: 8,
+              background: E.failDim,
+              border: `1px solid ${E.fail}55`,
+              color: E.fail,
+              fontFamily: E.fMono,
+              fontSize: 12,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <span style={{ flex: 1, lineHeight: 1.5 }}>{calibrateErr}</span>
+            <button
+              type="button"
+              onClick={() => setCalibrateErr(null)}
+              aria-label="Dismiss error"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'currentColor',
+                cursor: 'pointer',
+                fontSize: 14,
+                lineHeight: 1,
+                padding: '0 2px',
+                opacity: 0.7,
+              }}
+            >
+              ×
+            </button>
           </div>
         )}
 
@@ -796,8 +840,18 @@ export default function Review() {
                     kind="bare"
                     size="sm"
                     style={{ marginTop: 8 }}
-                    disabled
-                    title="Coming soon - a glossary entry on uncertainty sampling and reviewer rotation"
+                    onClick={() => {
+                      // Send the user to the co-pilot pre-seeded with a
+                      // question about sampling. The co-pilot has the
+                      // codebase + tools to actually answer; this is more
+                      // useful than a static glossary blurb would be.
+                      const q =
+                        'How does the review queue choose which items to surface? ' +
+                        'Explain uncertainty sampling, reviewer rotation, and how ' +
+                        'the rationale behind this batch was computed.';
+                      navigate(`/copilot?prefill=${encodeURIComponent(q)}`);
+                    }}
+                    title="Ask the co-pilot to explain how this batch was sampled"
                   >
                     How sampling works -&gt;
                   </Btn>
