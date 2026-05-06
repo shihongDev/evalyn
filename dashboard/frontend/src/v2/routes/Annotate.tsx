@@ -267,46 +267,93 @@ export default function Annotate() {
                   No sessions in progress. Start one on the right.
                 </div>
               )}
-              {inProgress.map((s, i) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => navigate(`/annotate/${encodeURIComponent(s.id)}`)}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = E.panel2;
-                    // Warm the AnnotateSession chunk (57 KB - largest of
-                    // any route) so the click->paint path is in cache.
-                    void preloadAnnotateSession();
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent';
-                  }}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '14px 18px',
-                    borderTop: i ? `1px solid ${E.hair}` : 'none',
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    transition: 'background 140ms',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <StatusDot status="running" size={6} />
-                    <span style={{ fontSize: 13, color: E.text0, fontWeight: 500 }}>
-                      {s.source_kind}: {s.source_id}
-                    </span>
-                    <Pill mono style={{ fontSize: 9.5, padding: '1px 7px' }}>
-                      {s.metric_ids.length} metric{s.metric_ids.length !== 1 ? 's' : ''}
-                    </Pill>
-                  </div>
-                  <div style={{ fontSize: 11, color: E.text3, marginTop: 4, fontFamily: E.fMono }}>
-                    {s.items_done}/{s.items_total} done · {shortRel(s.last_active_iso)}
-                  </div>
-                </button>
-              ))}
+              {inProgress.map((s, i) => {
+                // Progress shown as both bar and text - bar gives the
+                // glanceable "how close is this to done" signal, text
+                // gives the precise count for users who care about the
+                // exact number of items left.
+                const pct =
+                  s.items_total > 0
+                    ? Math.min(100, Math.round((s.items_done / s.items_total) * 100))
+                    : 0;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => navigate(`/annotate/${encodeURIComponent(s.id)}`)}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = E.panel2;
+                      // Warm the AnnotateSession chunk (57 KB - largest of
+                      // any route) so the click->paint path is in cache.
+                      void preloadAnnotateSession();
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                    }}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '14px 18px',
+                      borderTop: i ? `1px solid ${E.hair}` : 'none',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'background 140ms',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <StatusDot status="running" size={6} />
+                      <span style={{ fontSize: 13, color: E.text0, fontWeight: 500 }}>
+                        {s.source_kind}: {s.source_id}
+                      </span>
+                      <Pill mono style={{ fontSize: 9.5, padding: '1px 7px' }}>
+                        {s.metric_ids.length} metric{s.metric_ids.length !== 1 ? 's' : ''}
+                      </Pill>
+                      <span style={{ flex: 1 }} />
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: E.text2,
+                          fontFamily: E.fMono,
+                          fontWeight: 500,
+                        }}
+                      >
+                        {pct}%
+                      </span>
+                    </div>
+                    {/* Progress bar - track in panel3, fill in ember.
+                        2 px tall, full-width, 1 px radius so the ends
+                        don't look squared off. */}
+                    <div
+                      role="progressbar"
+                      aria-valuenow={pct}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label={`${s.items_done} of ${s.items_total} items annotated`}
+                      style={{
+                        height: 2,
+                        background: E.panel3,
+                        borderRadius: 1,
+                        overflow: 'hidden',
+                        marginTop: 8,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${pct}%`,
+                          height: '100%',
+                          background: E.ember,
+                          transition: 'width 240ms ease',
+                        }}
+                      />
+                    </div>
+                    <div style={{ fontSize: 11, color: E.text3, marginTop: 6, fontFamily: E.fMono }}>
+                      {s.items_done}/{s.items_total} done · {shortRel(s.last_active_iso)}
+                    </div>
+                  </button>
+                );
+              })}
             </Card>
 
             {recent.length > 0 && (
