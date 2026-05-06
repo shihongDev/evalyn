@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Subscriber race in `AgentRuntime.subscribe()`** (KNOWN_ISSUES.md #3). Same pattern as the JobManager fix below: `_AgentEventStream` gained a replay phase with `_live_buffer`, `_replay_put`, `_begin_replay`, `_end_replay`. `AgentRuntime.subscribe` now registers the stream BEFORE replay, snapshots `_next_event_id`, replays via `_replay_put` (bypasses the buffer), and flushes concurrent `_emit` events at the end. Confirmation_required events emitted during the previous registration gap are no longer dropped; the chat UI cannot get stuck waiting for them.
 - **Subscriber race in `JobManager.subscribe()`** (KNOWN_ISSUES.md #1). Live job events emitted between the replay phase and subscriber registration could be silently dropped on slow or freshly-attached WebSocket clients. `_EventStream` now buffers concurrent `_emit()` events into `_live_buffer` during replay; `subscribe()` registers the stream first, snapshots `_next_event_id`, replays from the snapshot, then flushes the buffer in order. Result: no event loss and no out-of-order delivery, even if future changes make queue puts yield mid-replay.
 
 ### Added
