@@ -12,9 +12,10 @@
  */
 
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
 import Home from './routes/Home';
 import { AppShell } from './AppShell';
+import { ErrorBoundary } from './ErrorBoundary';
 import { Spinner } from './ui';
 import { E } from './tokens';
 
@@ -71,9 +72,14 @@ function RouteFallback() {
   );
 }
 
-export function V2App() {
+/** Inner shell that lives below BrowserRouter so it can read useLocation
+ * for the ErrorBoundary's resetKey. A render crash on route A doesn't
+ * strand the user permanently - navigating to route B clears the
+ * boundary so they can keep working. */
+function RoutedShell() {
+  const location = useLocation();
   return (
-    <BrowserRouter>
+    <ErrorBoundary resetKey={location.pathname}>
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={<Home />} />
@@ -97,6 +103,14 @@ export function V2App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
+    </ErrorBoundary>
+  );
+}
+
+export function V2App() {
+  return (
+    <BrowserRouter>
+      <RoutedShell />
     </BrowserRouter>
   );
 }
