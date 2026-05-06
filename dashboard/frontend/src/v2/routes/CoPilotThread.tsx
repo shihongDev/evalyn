@@ -20,6 +20,7 @@ import { Bubble, PlanCard, ToolBlock } from '../copilot/atoms';
 import { linkifyText, makeUrlCounter } from '../textRender';
 import { MOD_KEY } from '../platform';
 import { useCoPilotThread } from '../copilot/useCoPilotThread';
+import { useStickToBottom } from '../hooks/useStickToBottom';
 import {
   loadThreadIndex,
   upsertThread,
@@ -249,6 +250,10 @@ export default function CoPilotThread() {
   };
 
   const sendDisabled = !draft.trim() || status === 'streaming' || pending != null;
+
+  // Auto-scroll to the bottom on new messages / streaming updates,
+  // unless the user has scrolled up to read history.
+  const { scrollRef: convRef, onScroll: onConvScroll } = useStickToBottom(messages);
 
   return (
     <AppShell hideCoPilot breadcrumb={['Co-pilot', activeTitle]}>
@@ -486,7 +491,11 @@ export default function CoPilotThread() {
             </div>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '24px 36px' }}>
+          <div
+            ref={convRef}
+            onScroll={onConvScroll}
+            style={{ flex: 1, overflowY: 'auto', padding: '24px 36px' }}
+          >
             <div style={{ maxWidth: 720 }}>
               {messages.length === 0 && (
                 <div style={{ padding: '12px 4px' }}>

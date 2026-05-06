@@ -17,6 +17,7 @@ import { Bubble, PlanCard, ToolBlock } from './atoms';
 import { linkifyText, makeUrlCounter } from '../textRender';
 import { MOD_KEY } from '../platform';
 import { useCoPilotThread } from './useCoPilotThread';
+import { useStickToBottom } from '../hooks/useStickToBottom';
 import { deriveContextChips, prependContextTag, type ContextKind } from './contextChips';
 
 export type CoPilotDockMode = 'docked' | 'overlay' | 'sheet';
@@ -115,6 +116,10 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
     setDraft('');
     void send(t);
   };
+
+  // Auto-scroll the dock conversation pane on new messages / streaming
+  // updates. Same hook as the full /copilot route, smaller container.
+  const { scrollRef: convRef, onScroll: onConvScroll } = useStickToBottom(messages);
 
   // Per-mode wrapper styles. The dock body markup itself is identical across
   // modes; only positioning + animation change here.
@@ -245,7 +250,11 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
         </button>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '18px 18px 8px' }}>
+      <div
+        ref={convRef}
+        onScroll={onConvScroll}
+        style={{ flex: 1, overflowY: 'auto', padding: '18px 18px 8px' }}
+      >
         {messages.length === 0 && (
           <div style={{ padding: '20px 4px' }}>
             <div style={{ color: E.text3, fontSize: 12.5, lineHeight: 1.55 }}>
