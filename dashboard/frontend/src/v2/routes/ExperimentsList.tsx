@@ -402,11 +402,27 @@ export default function ExperimentsList() {
     });
   }
 
+  function clearSelection() {
+    setSelected(new Set());
+  }
+
   function compareSelected() {
     if (selected.size !== 2) return;
     const [a, b] = Array.from(selected);
     navigate(`/experiments/${encodeURIComponent(a)}?compare=${encodeURIComponent(b)}`);
   }
+
+  // State-dependent label for the Compare button. Telling the user
+  // exactly how many more they need to pick (or which is the wrong count)
+  // is more helpful than "Compare 0 selected" which reads as broken.
+  const compareLabel: string =
+    selected.size === 0
+      ? 'Compare runs...'
+      : selected.size === 1
+        ? 'Pick 1 more to compare'
+        : selected.size === 2
+          ? 'Compare 2 →'
+          : `Pick exactly 2 (${selected.size} selected)`;
 
   const filtered = useMemo(() => {
     if (!rows) return null;
@@ -681,8 +697,32 @@ export default function ExperimentsList() {
             ))}
           </select>
           <span style={{ width: 1, height: 20, background: E.hair2 }} />
-          <Btn kind="secondary" size="sm" disabled={selected.size !== 2} onClick={compareSelected}>
-            Compare {selected.size} selected →
+          {selected.size > 0 && (
+            <Btn
+              kind="ghost"
+              size="sm"
+              onClick={clearSelection}
+              title="Clear all selected runs"
+            >
+              ✕ Clear ({selected.size})
+            </Btn>
+          )}
+          <Btn
+            kind="secondary"
+            size="sm"
+            disabled={selected.size !== 2}
+            onClick={compareSelected}
+            title={
+              selected.size === 2
+                ? 'Open both runs side-by-side'
+                : selected.size === 0
+                  ? 'Tick the checkbox on two runs to enable compare'
+                  : selected.size === 1
+                    ? 'Tick one more run to enable compare'
+                    : `Compare needs exactly 2 runs (${selected.size} ticked)`
+            }
+          >
+            {compareLabel}
           </Btn>
         </div>
 
