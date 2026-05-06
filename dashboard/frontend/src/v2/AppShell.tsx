@@ -748,13 +748,19 @@ export function AppShell({
           <CoPilotDock onClose={() => setDockOpen(false)} mode={dockMode} />
         )}
 
-        {/* Floating "Ask co-pilot" button on tablet/mobile when dock closed.
-            Sits inside the body so it visually belongs to the main area. */}
-        {!hideCoPilot && !showDock && vp !== 'desktop' && (
+        {/* Floating "Ask co-pilot" button visible on every viewport when
+            the dock is closed. On desktop the dock normally occupies the
+            right column; when the user dismisses it the FAB takes its
+            place as the affordance to bring it back, mirroring the
+            bottom-left Recent Jobs FAB. Without this the only desktop
+            re-open path was Cmd+J - reachable, but not discoverable.
+            Tooltip teaches the shortcut so mouse users learn it. */}
+        {!hideCoPilot && !showDock && (
           <button
             type="button"
             onClick={() => setDockOpen(true)}
             aria-label="Open co-pilot"
+            title={`Open co-pilot (${MOD_KEY} J)`}
             style={{
               position: 'fixed',
               right: 18,
