@@ -399,11 +399,22 @@ export default function Home() {
             ) : (
               snap.active_experiments.map((e, i) => {
                 const sparkColor = e.status === 'warn' ? E.warn : e.status === 'running' ? E.ember : E.pass;
-                const subline = e.status === 'running' && e.progress
+                const isRunning = e.status === 'running' && e.progress != null;
+                const subline = isRunning && e.progress
                   ? `${e.progress.done} / ${e.progress.total} items`
                   : e.pass != null
                     ? `pass ${e.pass}%${e.delta_pts != null ? ` - ${e.delta_pts >= 0 ? '+' : ''}${e.delta_pts} pts` : ''}`
                     : '';
+                // Reuse the Annotate landing's tiny progress-bar pattern
+                // for running experiments. Same affordance: glanceable
+                // "how close to done" without doing the division yourself.
+                const pct =
+                  isRunning && e.progress && e.progress.total > 0
+                    ? Math.min(
+                        100,
+                        Math.round((e.progress.done / e.progress.total) * 100),
+                      )
+                    : null;
                 return (
                   <button
                     key={e.id}
@@ -437,7 +448,45 @@ export default function Home() {
                     <StatusDot status={e.status} animated={e.status === 'running'} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, color: E.text0, fontWeight: 500 }}>{e.name}</div>
-                      <div style={{ fontSize: 11, color: E.text3, marginTop: 2, fontFamily: E.fMono }}>{subline}</div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: E.text3,
+                          marginTop: 2,
+                          fontFamily: E.fMono,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                        }}
+                      >
+                        <span>{subline}</span>
+                        {pct != null && <span style={{ color: E.text2 }}>{pct}%</span>}
+                      </div>
+                      {pct != null && (
+                        <div
+                          role="progressbar"
+                          aria-valuenow={pct}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-label={`${e.progress?.done} of ${e.progress?.total} items processed`}
+                          style={{
+                            height: 2,
+                            background: E.panel3,
+                            borderRadius: 1,
+                            overflow: 'hidden',
+                            marginTop: 6,
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: `${pct}%`,
+                              height: '100%',
+                              background: E.ember,
+                              transition: 'width 240ms ease',
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                     {e.spark.length > 0 && <Spark data={e.spark} color={sparkColor} dot />}
                   </button>
