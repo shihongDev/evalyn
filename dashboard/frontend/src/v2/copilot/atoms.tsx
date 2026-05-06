@@ -50,6 +50,37 @@ export function Bubble({ who, children }: { who: 'you' | 'agent'; children: Reac
   );
 }
 
+/**
+ * Inline "thinking" indicator for the conversation pane. Shown when the
+ * agent has received a turn but hasn't streamed any text yet - that
+ * empty beat between send and first chunk used to make the user wonder
+ * whether the message went through. Three dots pulse via the existing
+ * eDotPulse keyframe, staggered with `animation-delay` to produce the
+ * typewriter "..." effect. Reduced-motion users get static dots.
+ */
+export function ThinkingBubble() {
+  return (
+    <Bubble who="agent">
+      <span
+        role="status"
+        aria-label="Co-pilot is thinking"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 4,
+          fontSize: 18,
+          color: E.text3,
+          lineHeight: 1,
+        }}
+      >
+        <span style={{ animation: 'eDotPulse 1.2s ease-in-out infinite', animationDelay: '0s' }}>·</span>
+        <span style={{ animation: 'eDotPulse 1.2s ease-in-out infinite', animationDelay: '0.2s' }}>·</span>
+        <span style={{ animation: 'eDotPulse 1.2s ease-in-out infinite', animationDelay: '0.4s' }}>·</span>
+      </span>
+    </Bubble>
+  );
+}
+
 function statusGlyph(status: ToolBlockEntry['status']): { symbol: string; color: string } {
   if (status === 'error') return { symbol: '✗', color: E.fail };
   if (status === 'complete') return { symbol: '✓', color: E.pass };

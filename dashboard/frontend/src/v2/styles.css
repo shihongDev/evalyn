@@ -314,4 +314,10 @@ textarea:focus-visible {
   @keyframes eShake {
     from, to { transform: none; }
   }
+  /* eDotPulse drives StatusDot's running indicator and the co-pilot
+     thinking dots. Holding at full opacity preserves the visual signal
+     (something is happening) without the motion. */
+  @keyframes eDotPulse {
+    from, to { opacity: 1; }
+  }
 }

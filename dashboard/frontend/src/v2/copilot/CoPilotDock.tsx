@@ -13,7 +13,7 @@ import { useRef, useState, type CSSProperties } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { E } from '../tokens';
 import { Btn, Pill } from '../ui';
-import { Bubble, PlanCard, ToolBlock } from './atoms';
+import { Bubble, PlanCard, ThinkingBubble, ToolBlock } from './atoms';
 import { linkifyText, makeUrlCounter } from '../textRender';
 import { MOD_KEY } from '../platform';
 import { useCoPilotThread } from './useCoPilotThread';
@@ -323,6 +323,10 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
             )}
           </Bubble>
         ))}
+        {/* See CoPilotThread for context on the empty-beat indicator. */}
+        {status === 'streaming' &&
+          messages.length > 0 &&
+          messages[messages.length - 1].role === 'you' && <ThinkingBubble />}
       </div>
       {scrolledUp && (
         <button

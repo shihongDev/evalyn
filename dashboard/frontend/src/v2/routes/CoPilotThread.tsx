@@ -16,7 +16,7 @@ import { useLocation, useNavigate, useParams, useSearchParams } from 'react-rout
 import { AppShell } from '../AppShell';
 import { E } from '../tokens';
 import { Btn, Eyebrow } from '../ui';
-import { Bubble, PlanCard, ToolBlock } from '../copilot/atoms';
+import { Bubble, PlanCard, ThinkingBubble, ToolBlock } from '../copilot/atoms';
 import { linkifyText, makeUrlCounter } from '../textRender';
 import { MOD_KEY } from '../platform';
 import { useCoPilotThread } from '../copilot/useCoPilotThread';
@@ -571,6 +571,16 @@ export default function CoPilotThread() {
                   )}
                 </Bubble>
               ))}
+              {/* The empty beat between user-message-sent and the
+                  agent's first chunk used to look like nothing was
+                  happening. Show pulsing dots in an agent bubble so
+                  the user knows the request is in flight. As soon
+                  as text_delta arrives, useCoPilotThread creates the
+                  real agent bubble and last-message becomes 'agent'
+                  - the dots vanish naturally. */}
+              {status === 'streaming' &&
+                messages.length > 0 &&
+                messages[messages.length - 1].role === 'you' && <ThinkingBubble />}
               {error && (
                 <div
                   style={{
