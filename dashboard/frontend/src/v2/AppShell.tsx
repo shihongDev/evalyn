@@ -18,7 +18,7 @@
  * this shell is responsible for chrome only.
  */
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { useLocation, useNavigate, NavLink } from 'react-router-dom';
 import { E } from './tokens';
 import { Btn, Eyebrow, Pill, StatusDot } from './ui';
@@ -200,6 +200,10 @@ export function AppShell({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [jobsDrawerOpen, setJobsDrawerOpen] = useState(false);
+  // Global keyboard-shortcut help overlay. Triggered by `?` from any
+  // route except /annotate/:sessionId where the annotation page has
+  // its own per-session cheat sheet for in-page hotkeys.
+  const [helpOpen, setHelpOpen] = useState(false);
   // `runningCount` drives the badge on the floating + topbar Recent Jobs
   // buttons. We re-read once on mount and on every history mutation -
   // jobsHistory's notifier covers same-tab + cross-tab changes.
@@ -280,9 +284,29 @@ export function AppShell({
         if (location.pathname !== '/settings') navigate('/settings');
         return;
       }
+      // Global help overlay. ? lists app-wide shortcuts. AnnotateSession
+      // has its own per-session ? for in-page annotation hotkeys.
+      if (
+        e.key === '?' &&
+        !location.pathname.startsWith('/annotate/')
+      ) {
+        // Don't fire when the user is typing into a text input - they're
+        // likely typing a literal '?' character.
+        const target = e.target as HTMLElement | null;
+        if (
+          target &&
+          (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT')
+        ) {
+          return;
+        }
+        e.preventDefault();
+        setHelpOpen((v) => !v);
+        return;
+      }
       if (e.key === 'Escape') {
         setPaletteOpen((v) => (v ? false : v));
         setDrawerOpen((v) => (v ? false : v));
+        setHelpOpen((v) => (v ? false : v));
         // Also close the dock when it is overlaying content (tablet/mobile).
         if (vp !== 'desktop' && dockOpen) setDockOpen(false);
       }
@@ -682,6 +706,119 @@ export function AppShell({
         open={jobsDrawerOpen}
         onClose={() => setJobsDrawerOpen(false)}
       />
+      {helpOpen && <ShortcutHelpOverlay onClose={() => setHelpOpen(false)} />}
+    </div>
+  );
+}
+
+/** Global keyboard-shortcut help overlay. Triggered by ? from any
+ * non-annotate route. Lists app-wide shortcuts only - the per-page
+ * cheat sheets in routes like AnnotateSession cover their own
+ * in-page hotkeys. */
+function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
+  const SHORTCUTS: Array<{ keys: string; label: string }> = [
+    { keys: `${MOD_KEY} K`, label: 'Open command palette' },
+    { keys: `${MOD_KEY} ,`, label: 'Open Settings' },
+    { keys: '?', label: 'Toggle this help' },
+    { keys: 'Esc', label: 'Close any open overlay' },
+  ];
+  return (
+    <div
+      role="dialog"
+      aria-label="Keyboard shortcuts"
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(20, 18, 14, 0.32)',
+        backdropFilter: 'blur(2px)',
+        zIndex: 1100,
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+        paddingTop: 120,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#fbf7ee',
+          border: `1px solid ${E.hair2}`,
+          borderRadius: 8,
+          boxShadow: '0 12px 32px rgba(20,18,14,0.18)',
+          minWidth: 320,
+          maxWidth: 420,
+          padding: 20,
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            marginBottom: 14,
+          }}
+        >
+          <Eyebrow>Keyboard shortcuts</Eyebrow>
+          <span
+            style={{
+              fontSize: 10,
+              color: E.text3,
+              fontFamily: E.fMono,
+            }}
+          >
+            global · works on any page
+          </span>
+        </div>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'auto 1fr',
+            columnGap: 14,
+            rowGap: 8,
+          }}
+        >
+          {SHORTCUTS.map(({ keys, label }) => (
+            <Fragment key={keys}>
+              <kbd
+                style={{
+                  fontFamily: E.fMono,
+                  fontSize: 11,
+                  color: E.text1,
+                  background: E.panel2,
+                  border: `1px solid ${E.hair2}`,
+                  borderRadius: 4,
+                  padding: '2px 8px',
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap',
+                  alignSelf: 'center',
+                }}
+              >
+                {keys}
+              </kbd>
+              <span
+                style={{ fontSize: 12, color: E.text2, alignSelf: 'center' }}
+              >
+                {label}
+              </span>
+            </Fragment>
+          ))}
+        </div>
+        <div
+          style={{
+            marginTop: 14,
+            paddingTop: 12,
+            borderTop: `1px solid ${E.hair}`,
+            fontSize: 11,
+            color: E.text3,
+            fontFamily: E.fMono,
+            lineHeight: 1.55,
+          }}
+        >
+          Pages with their own hotkeys (annotate sessions) show a per-page
+          ⌨ keys chip in the corner.
+        </div>
+      </div>
     </div>
   );
 }
