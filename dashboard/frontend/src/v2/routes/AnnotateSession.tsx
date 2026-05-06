@@ -69,13 +69,67 @@ const LABEL_GLYPH: Record<AnnotationLabel, string> = {
  * (or future hover effects) can flash the matching evidence row. Empty or
  * not-found snippets are silently skipped - we never crash on bad input.
  */
+/** Split a text run into plain strings + clickable link nodes. URLs
+ * in long outputs (especially research-agent results) are visually
+ * heavy as raw text; rendering them as styled links makes the pane
+ * skimmable and gives the user one-click access. Opens in a new tab,
+ * with rel='noopener noreferrer' for security. */
+function linkifyText(text: string): React.ReactNode[] {
+  if (!text) return [text];
+  // Practical URL pattern: http(s) only; terminates at whitespace,
+  // angle/quote chars, and brace/bracket/paren chars.
+  const urlRegex = /https?:\/\/[^\s<>"'{}|\\^[\]()]+/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = urlRegex.exec(text)) !== null) {
+    let url = match[0];
+    let end = match.index + url.length;
+    // Strip trailing punctuation that almost certainly belongs to the
+    // surrounding prose, not the URL: 'see https://x.com/, also...'
+    // should link 'https://x.com/' not 'https://x.com/,'.
+    while (url.length > 0 && /[.,;:!?]$/.test(url)) {
+      url = url.slice(0, -1);
+      end -= 1;
+    }
+    if (url.length === 0) continue;
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    parts.push(
+      <a
+        key={`u${match.index}`}
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={url}
+        style={{
+          color: '#d96a2c',
+          textDecoration: 'underline',
+          textDecorationStyle: 'dotted',
+          textUnderlineOffset: '2px',
+          wordBreak: 'break-all',
+        }}
+      >
+        {url}
+      </a>,
+    );
+    lastIndex = end;
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return parts.length > 0 ? parts : [text];
+}
+
 function renderWithHighlights(
   text: string,
   snippets: string[],
   onClick: (snippetIdx: number) => void,
   flashSnippetIdx: number | null = null,
 ): React.ReactNode {
-  if (!text || snippets.length === 0) return text;
+  // Empty text - nothing to render. With no highlights to apply, fall
+  // back to plain linkified text so URLs are still clickable.
+  if (!text) return text;
+  if (snippets.length === 0) return linkifyText(text);
   type Range = { start: number; end: number; snippetIdx: number };
   const ranges: Range[] = [];
   snippets.forEach((s, i) => {
@@ -88,7 +142,7 @@ function renderWithHighlights(
       cursor = idx + s.length;
     }
   });
-  if (ranges.length === 0) return text;
+  if (ranges.length === 0) return linkifyText(text);
   ranges.sort((a, b) => a.start - b.start || a.end - b.end);
   // Merge overlaps; keep the first snippet idx that opened the range
   // so the click handler points at SOMETHING, even if multiple snippets
@@ -105,7 +159,10 @@ function renderWithHighlights(
   const nodes: React.ReactNode[] = [];
   let cur = 0;
   merged.forEach((r, i) => {
-    if (cur < r.start) nodes.push(text.slice(cur, r.start));
+    // Linkify the plain text between marks so URLs in regular content
+    // are still clickable. The mark element wraps highlighted ranges
+    // verbatim - we don't linkify inside marks (rare to highlight a URL).
+    if (cur < r.start) nodes.push(...linkifyText(text.slice(cur, r.start)));
     const isFlashing = flashSnippetIdx === r.snippetIdx;
     nodes.push(
       <mark
@@ -131,7 +188,7 @@ function renderWithHighlights(
     );
     cur = r.end;
   });
-  if (cur < text.length) nodes.push(text.slice(cur));
+  if (cur < text.length) nodes.push(...linkifyText(text.slice(cur)));
   return nodes;
 }
 
@@ -426,7 +483,7 @@ const Pane = function Pane({
           overflow: expanded ? 'visible' : 'auto',
         }}
       >
-        {text ? (renderBody ? renderBody(text) : text) : '(empty)'}
+        {text ? (renderBody ? renderBody(text) : linkifyText(text)) : '(empty)'}
       </div>
     </div>
   );
