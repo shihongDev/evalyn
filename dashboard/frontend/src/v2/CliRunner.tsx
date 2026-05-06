@@ -257,6 +257,52 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
   });
 
   const subRef = useRef<{ close: () => void } | null>(null);
+
+  // Line throughput buffer. WS messages can arrive at hundreds of lines per
+  // second on chatty eval runs; one setLines per message means one React
+  // render per line which causes visible jank. We coalesce arrivals into
+  // ref-buffered batches flushed once per animation frame (60Hz max),
+  // turning N renders/sec into <=60 renders/sec regardless of the line
+  // rate. When the tab is backgrounded, rAF pauses, so we do no work
+  // until the user returns. Cleanup on unmount cancels any pending frame.
+  const linesBufferRef = useRef<JobLine[]>([]);
+  const flushScheduledRef = useRef<number | null>(null);
+
+  const flushLineBuffer = useCallback(() => {
+    flushScheduledRef.current = null;
+    const buf = linesBufferRef.current;
+    if (buf.length === 0) return;
+    linesBufferRef.current = [];
+    setLines((prev) => {
+      const merged = prev.concat(buf);
+      if (merged.length > MAX_OUTPUT_LINES) {
+        return merged.slice(merged.length - MAX_OUTPUT_LINES);
+      }
+      return merged;
+    });
+  }, []);
+
+  const enqueueLine = useCallback(
+    (line: JobLine) => {
+      const buf = linesBufferRef.current;
+      buf.push(line);
+      // When the tab is backgrounded rAF pauses; the buffer would otherwise
+      // grow unboundedly while lines keep streaming. Cap at MAX_OUTPUT_LINES
+      // since anything beyond that is going to be sliced off on flush anyway.
+      if (buf.length > MAX_OUTPUT_LINES) {
+        buf.splice(0, buf.length - MAX_OUTPUT_LINES);
+      }
+      if (flushScheduledRef.current != null) return;
+      if (typeof requestAnimationFrame === 'function') {
+        flushScheduledRef.current = requestAnimationFrame(flushLineBuffer);
+      } else {
+        // jsdom / SSR fallback: fire on the next macrotask.
+        flushScheduledRef.current = window.setTimeout(flushLineBuffer, 16);
+      }
+    },
+    [flushLineBuffer],
+  );
+
   // Output streaming auto-scroll via the shared chat-style hook. Sticks
   // to bottom on new lines unless the user has scrolled up to inspect
   // history (e.g. mid-stream stack trace), in which case we render a
@@ -299,15 +345,7 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
       // replay buffered lines from `?since=0`-style reconnect semantics).
       subRef.current?.close();
       subRef.current = subscribeJob(resumeJobId, {
-        onLine: (line) => {
-          setLines((prev) => {
-            const next = [...prev, line];
-            if (next.length > MAX_OUTPUT_LINES) {
-              return next.slice(next.length - MAX_OUTPUT_LINES);
-            }
-            return next;
-          });
-        },
+        onLine: enqueueLine,
         onStatus: (s: JobStatus) => {
           setStatus(s.status);
           patchJob(resumeJobId, {
@@ -335,10 +373,20 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
   }, []);
 
   // Tear down the WS subscription on unmount or when starting a fresh job.
+  // Also cancel any pending rAF flush so we don't setState after unmount.
   useEffect(() => {
     return () => {
       subRef.current?.close();
       subRef.current = null;
+      if (flushScheduledRef.current != null) {
+        if (typeof cancelAnimationFrame === 'function') {
+          cancelAnimationFrame(flushScheduledRef.current);
+        } else {
+          window.clearTimeout(flushScheduledRef.current);
+        }
+        flushScheduledRef.current = null;
+      }
+      linesBufferRef.current = [];
     };
   }, []);
 
@@ -396,20 +444,12 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
         status: 'queued',
       };
       upsertJob(entry);
-      // Open the WS subscription. Hand the lines straight to setState; the
-      // ring-buffer trim happens in the updater so we never keep more than
-      // MAX_OUTPUT_LINES in memory.
+      // Open the WS subscription. Lines flow through enqueueLine, which
+      // batches by animation frame so chatty jobs (100s of lines/sec) cap
+      // at one render per ~16ms instead of one per line.
       subRef.current?.close();
       subRef.current = subscribeJob(job_id, {
-        onLine: (line) => {
-          setLines((prev) => {
-            const next = [...prev, line];
-            if (next.length > MAX_OUTPUT_LINES) {
-              return next.slice(next.length - MAX_OUTPUT_LINES);
-            }
-            return next;
-          });
-        },
+        onLine: enqueueLine,
         onStatus: (s: JobStatus) => {
           setStatus(s.status);
           patchJob(job_id, {
@@ -450,6 +490,17 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
     // so the user can tweak + re-run quickly.
     subRef.current?.close();
     subRef.current = null;
+    // Discard any lines still queued for the previous job; they are stale
+    // now and would otherwise flush as the first lines of the new run.
+    if (flushScheduledRef.current != null) {
+      if (typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(flushScheduledRef.current);
+      } else {
+        window.clearTimeout(flushScheduledRef.current);
+      }
+      flushScheduledRef.current = null;
+    }
+    linesBufferRef.current = [];
     setJobId(null);
     setLines([]);
     setError(null);
