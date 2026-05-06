@@ -12,7 +12,9 @@ import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, StackBar, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
 import { loadDemo } from '../api/demo';
-import { runCli } from '../api/cli';
+import { listCli, runCli } from '../api/cli';
+import type { CliSchema } from '../api/cli';
+import { openCliRunner } from '../cliRunnerBridge';
 import { upsertJob, type JobHistoryEntry } from '../jobsHistory';
 import { useV2Resource, prefetchV2 } from '../hooks/useV2Resource';
 import { useRouteTour } from '../tour/useRouteTour';
@@ -22,8 +24,12 @@ import { preloadDatasetDetail } from '../routePreloads';
 import { E } from '../tokens';
 
 const COVERAGE_COLORS = [E.ember, E.steel, '#a78bfa', E.warn, E.text3];
-const NEW_DATASET_HINT = 'Use `evalyn build-dataset` from the CLI';
-const IMPORT_CSV_HINT = 'No CSV importer yet - use `evalyn build-dataset` from the CLI';
+// build-dataset is the CLI route to "make a dataset from a file." Both
+// Import CSV and + New dataset open the CliRunner with this command
+// pre-selected. The button is disabled while the catalog is loading.
+const BUILD_DATASET_HINT_LOADING = 'Loading command catalog...';
+const IMPORT_CSV_HINT_READY = 'Open the build-dataset command - converts a JSONL/CSV file into an evalyn dataset';
+const NEW_DATASET_HINT_READY = 'Open the build-dataset command - draft a new dataset from traces or a file';
 /** Above this many selected datasets, ask the user to confirm before firing. */
 const BULK_CONFIRM_THRESHOLD = 50;
 /** CLI id for the run-eval command spawned by the bulk toolbar. */
@@ -57,6 +63,15 @@ const SELECT_STYLE = {
 export default function Datasets() {
   const project = useProject();
   const navigate = useNavigate();
+  // CLI catalog for the Import CSV button; cached at the module level so
+  // navigating to /commands or /metrics later reuses this fetch.
+  const { data: cliCatalog } = useV2Resource<CliSchema[]>('commands', listCli);
+  const buildDatasetCmd = cliCatalog?.find((c) => c.id === 'build-dataset') ?? null;
+
+  function handleImportCsv() {
+    if (buildDatasetCmd) openCliRunner(buildDatasetCmd);
+  }
+
   const { data, err, refetch, reloading, isInitialLoad } = useV2Resource(
     'datasets',
     v2.datasets,
@@ -301,10 +316,23 @@ export default function Datasets() {
             </p>
           </div>
           <span style={{ flex: 1 }} />
-          <Btn kind="secondary" size="md" disabled title={IMPORT_CSV_HINT}>
+          <Btn
+            kind="secondary"
+            size="md"
+            onClick={handleImportCsv}
+            disabled={!buildDatasetCmd}
+            title={buildDatasetCmd ? IMPORT_CSV_HINT_READY : BUILD_DATASET_HINT_LOADING}
+          >
             Import CSV
           </Btn>
-          <Btn kind="primary" size="md" disabled title={NEW_DATASET_HINT} data-coachmark="datasets-new-button">
+          <Btn
+            kind="primary"
+            size="md"
+            onClick={handleImportCsv}
+            disabled={!buildDatasetCmd}
+            title={buildDatasetCmd ? NEW_DATASET_HINT_READY : BUILD_DATASET_HINT_LOADING}
+            data-coachmark="datasets-new-button"
+          >
             + New dataset
           </Btn>
         </div>
@@ -557,13 +585,19 @@ export default function Datasets() {
         {data && data.length === 0 && (
           <Card style={{ padding: 32, marginTop: 22, textAlign: 'center' }}>
             <div style={{ fontSize: 14, color: E.text1, marginBottom: 14 }}>
-              No datasets yet. Load the demo to explore, or build one from the CLI.
+              No datasets yet. Load the demo to explore, or build one with build-dataset.
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
               <Btn kind="primary" size="md" onClick={handleLoadDemo} disabled={demoLoading}>
                 {demoLoading ? 'Loading...' : 'Load demo'}
               </Btn>
-              <Btn kind="secondary" size="md" disabled title={IMPORT_CSV_HINT}>
+              <Btn
+                kind="secondary"
+                size="md"
+                onClick={handleImportCsv}
+                disabled={!buildDatasetCmd}
+                title={buildDatasetCmd ? IMPORT_CSV_HINT_READY : BUILD_DATASET_HINT_LOADING}
+              >
                 Import CSV
               </Btn>
             </div>
