@@ -14,6 +14,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { E } from '../tokens';
 import { Btn, Pill } from '../ui';
 import { Bubble, PlanCard, ToolBlock } from './atoms';
+import { linkifyText, makeUrlCounter } from '../textRender';
 import { useCoPilotThread } from './useCoPilotThread';
 import { deriveContextChips, prependContextTag, type ContextKind } from './contextChips';
 
@@ -287,7 +288,7 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
         )}
         {messages.map((m) => (
           <Bubble key={m.id} who={m.role}>
-            {m.text}
+            {linkifyText(m.text, makeUrlCounter())}
             {m.tools.length > 0 && <ToolBlock entries={m.tools} />}
             {m.pending_confirm && (
               <PlanCard

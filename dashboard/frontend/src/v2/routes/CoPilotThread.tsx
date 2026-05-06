@@ -17,6 +17,7 @@ import { AppShell } from '../AppShell';
 import { E } from '../tokens';
 import { Btn, Eyebrow } from '../ui';
 import { Bubble, PlanCard, ToolBlock } from '../copilot/atoms';
+import { linkifyText, makeUrlCounter } from '../textRender';
 import { useCoPilotThread } from '../copilot/useCoPilotThread';
 import {
   loadThreadIndex,
@@ -444,7 +445,7 @@ export default function CoPilotThread() {
               )}
               {messages.map((m) => (
                 <Bubble key={m.id} who={m.role}>
-                  {m.text}
+                  {linkifyText(m.text, makeUrlCounter())}
                   {m.tools.length > 0 && <ToolBlock entries={m.tools} />}
                   {m.pending_confirm && (
                     <PlanCard
