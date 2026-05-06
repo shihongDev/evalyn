@@ -2981,14 +2981,25 @@ export default function AnnotateSession() {
           </div>
         )}
 
-        {/* PROGRESS BAR */}
+        {/* PROGRESS BAR - hover for the breakdown of done / skipped /
+            todo against total. Cheap surfacing of numbers that already
+            live in session meta. */}
         <div
+          title={(() => {
+            if (!session) return undefined;
+            const done = session.items_done;
+            const skipped = session.items_skipped;
+            const total = session.items_total;
+            const todo = Math.max(0, total - done - skipped);
+            return `${done} done · ${skipped} skipped · ${todo} todo · ${total} total`;
+          })()}
           style={{
             height: 4,
             background: E.panel2,
             borderRadius: 2,
             overflow: 'hidden',
             marginBottom: 18,
+            cursor: 'help',
           }}
         >
           <div
