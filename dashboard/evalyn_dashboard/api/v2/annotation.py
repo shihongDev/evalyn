@@ -61,10 +61,14 @@ _SOURCE_KINDS = ("run", "dataset", "cluster", "custom")
 _VALID_LABELS = ("pass", "fail", "skip")
 _TERMINAL_STATUSES = {"completed", "abandoned"}
 
-# Per-pane character cap on the preview fields. Bumped from 240 (a teaser)
-# to 8000 because annotators can't make a verdict on truncated content.
-# At limit=200 this is ~2MB / page worst case, which is fine on localhost.
-_PREVIEW_CHAR_CAP = 8000
+# Per-pane character cap on the preview fields. The user explicitly
+# wanted to see the WHOLE output for verdict-making. 200000 (200KB)
+# covers any realistic LLM output (research-agent style with dozens
+# of citations runs ~30-80KB at the high end). At limit=200 worst-
+# case payload is ~120MB but in practice items are nowhere near the
+# cap; typical pages are <5MB. Increase further if real outputs
+# routinely exceed this.
+_PREVIEW_CHAR_CAP = 200000
 
 # Bounds on per-item evidence (text snippets the annotator highlighted
 # from the output as justification for their verdict). These caps exist

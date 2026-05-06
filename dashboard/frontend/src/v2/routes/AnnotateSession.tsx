@@ -69,12 +69,18 @@ const LABEL_GLYPH: Record<AnnotationLabel, string> = {
  * (or future hover effects) can flash the matching evidence row. Empty or
  * not-found snippets are silently skipped - we never crash on bad input.
  */
-/** Split a text run into plain strings + clickable link nodes. URLs
- * in long outputs (especially research-agent results) are visually
- * heavy as raw text; rendering them as styled links makes the pane
- * skimmable and gives the user one-click access. Opens in a new tab,
- * with rel='noopener noreferrer' for security. */
-function linkifyText(text: string): React.ReactNode[] {
+/** Mutable URL counter passed through linkifyText calls so numbering
+ * stays continuous across the multiple text portions emitted by
+ * renderWithHighlights (between marks). Reset per top-level render. */
+type UrlCounter = { value: number };
+
+/** Split a text run into plain strings + small citation-style link
+ * buttons. URLs in long outputs (especially research-agent results)
+ * are visually heavy as raw text; collapsing them into [1] [2] [3]
+ * keeps the pane skimmable while preserving one-click access via
+ * hover-title and click. Opens in a new tab with rel=noopener for
+ * security. */
+function linkifyText(text: string, counter: UrlCounter): React.ReactNode[] {
   if (!text) return [text];
   // Practical URL pattern: http(s) only; terminates at whitespace,
   // angle/quote chars, and brace/bracket/paren chars.
@@ -86,8 +92,8 @@ function linkifyText(text: string): React.ReactNode[] {
     let url = match[0];
     let end = match.index + url.length;
     // Strip trailing punctuation that almost certainly belongs to the
-    // surrounding prose, not the URL: 'see https://x.com/, also...'
-    // should link 'https://x.com/' not 'https://x.com/,'.
+    // surrounding prose: 'see https://x.com/, also...' should link
+    // 'https://x.com/' not 'https://x.com/,'.
     while (url.length > 0 && /[.,;:!?]$/.test(url)) {
       url = url.slice(0, -1);
       end -= 1;
@@ -96,6 +102,8 @@ function linkifyText(text: string): React.ReactNode[] {
     if (match.index > lastIndex) {
       parts.push(text.slice(lastIndex, match.index));
     }
+    counter.value += 1;
+    const n = counter.value;
     parts.push(
       <a
         key={`u${match.index}`}
@@ -104,14 +112,31 @@ function linkifyText(text: string): React.ReactNode[] {
         rel="noopener noreferrer"
         title={url}
         style={{
+          display: 'inline-block',
+          fontFamily: E.fMono,
+          fontSize: 10,
+          fontWeight: 500,
+          lineHeight: 1.2,
           color: '#d96a2c',
-          textDecoration: 'underline',
-          textDecorationStyle: 'dotted',
-          textUnderlineOffset: '2px',
-          wordBreak: 'break-all',
+          background: '#fcefe2',
+          border: '1px solid #d96a2c33',
+          borderRadius: 4,
+          padding: '0 5px',
+          textDecoration: 'none',
+          marginLeft: 2,
+          marginRight: 2,
+          verticalAlign: 'baseline',
+          cursor: 'pointer',
+          transition: 'background 140ms',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = '#f9dcc1';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = '#fcefe2';
         }}
       >
-        {url}
+        [{n}]
       </a>,
     );
     lastIndex = end;
@@ -129,7 +154,8 @@ function renderWithHighlights(
   // Empty text - nothing to render. With no highlights to apply, fall
   // back to plain linkified text so URLs are still clickable.
   if (!text) return text;
-  if (snippets.length === 0) return linkifyText(text);
+  const urlCounter: UrlCounter = { value: 0 };
+  if (snippets.length === 0) return linkifyText(text, urlCounter);
   type Range = { start: number; end: number; snippetIdx: number };
   const ranges: Range[] = [];
   snippets.forEach((s, i) => {
@@ -142,7 +168,7 @@ function renderWithHighlights(
       cursor = idx + s.length;
     }
   });
-  if (ranges.length === 0) return linkifyText(text);
+  if (ranges.length === 0) return linkifyText(text, urlCounter);
   ranges.sort((a, b) => a.start - b.start || a.end - b.end);
   // Merge overlaps; keep the first snippet idx that opened the range
   // so the click handler points at SOMETHING, even if multiple snippets
@@ -162,7 +188,7 @@ function renderWithHighlights(
     // Linkify the plain text between marks so URLs in regular content
     // are still clickable. The mark element wraps highlighted ranges
     // verbatim - we don't linkify inside marks (rare to highlight a URL).
-    if (cur < r.start) nodes.push(...linkifyText(text.slice(cur, r.start)));
+    if (cur < r.start) nodes.push(...linkifyText(text.slice(cur, r.start), urlCounter));
     const isFlashing = flashSnippetIdx === r.snippetIdx;
     nodes.push(
       <mark
@@ -188,7 +214,7 @@ function renderWithHighlights(
     );
     cur = r.end;
   });
-  if (cur < text.length) nodes.push(...linkifyText(text.slice(cur)));
+  if (cur < text.length) nodes.push(...linkifyText(text.slice(cur), urlCounter));
   return nodes;
 }
 
@@ -470,20 +496,24 @@ const Pane = function Pane({
           if (bodyRef) bodyRef(el);
         }}
         style={{
-          padding: 10,
+          padding: 12,
           background: emphasized ? E.panel : E.panel2,
           border: emphasized ? `1px solid ${E.hair}` : 'none',
           borderRadius: 6,
-          fontSize: 13,
+          fontSize: 15,
           color: muted ? E.text2 : E.text1,
-          lineHeight: 1.5,
+          lineHeight: 1.6,
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
           maxHeight: naturalCap,
           overflow: expanded ? 'visible' : 'auto',
         }}
       >
-        {text ? (renderBody ? renderBody(text) : linkifyText(text)) : '(empty)'}
+        {text
+          ? renderBody
+            ? renderBody(text)
+            : linkifyText(text, { value: 0 })
+          : '(empty)'}
       </div>
     </div>
   );
