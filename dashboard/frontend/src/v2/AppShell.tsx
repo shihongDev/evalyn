@@ -204,6 +204,17 @@ export function AppShell({
   // route except /annotate/:sessionId where the annotation page has
   // its own per-session cheat sheet for in-page hotkeys.
   const [helpOpen, setHelpOpen] = useState(false);
+  // Scroll-to-top button. Appears when the page is scrolled past
+  // ~600px so the user has a one-click escape from deep within long
+  // pages (RunDetail, AnnotateSession, Reports). Listens with
+  // passive: true so we don't fight the scroll thread.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 600);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   // `runningCount` drives the badge on the floating + topbar Recent Jobs
   // buttons. We re-read once on mount and on every history mutation -
   // jobsHistory's notifier covers same-tab + cross-tab changes.
@@ -707,6 +718,50 @@ export function AppShell({
         onClose={() => setJobsDrawerOpen(false)}
       />
       {helpOpen && <ShortcutHelpOverlay onClose={() => setHelpOpen(false)} />}
+      {/* SCROLL-TO-TOP - small floating button visible when the page
+          is scrolled deep. Bottom-right, above any drawer/dock since
+          those overlay z-index 880-900; the button uses 850 so it
+          tucks behind them when those open. */}
+      {scrolled && (
+        <button
+          type="button"
+          onClick={() =>
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }
+          aria-label="Scroll to top"
+          title="Scroll to top"
+          style={{
+            position: 'fixed',
+            bottom: 18,
+            right: 18,
+            width: 38,
+            height: 38,
+            borderRadius: 50,
+            background: '#fbf7ee',
+            border: `1px solid ${E.hair2}`,
+            boxShadow: '0 4px 14px rgba(20,18,14,0.12)',
+            cursor: 'pointer',
+            color: E.text2,
+            fontSize: 16,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 850,
+            transition: 'background 140ms, color 140ms, transform 140ms',
+            animation: 'eItemSlideIn 200ms ease-out',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#fcefe2';
+            e.currentTarget.style.color = E.ember;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#fbf7ee';
+            e.currentTarget.style.color = E.text2;
+          }}
+        >
+          ↑
+        </button>
+      )}
     </div>
   );
 }
