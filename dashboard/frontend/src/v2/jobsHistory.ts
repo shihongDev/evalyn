@@ -18,6 +18,7 @@
 
 const STORAGE_KEY = 'evalyn:v2:jobsHistory';
 const ACK_KEY = 'evalyn:v2:jobsFailureAckTs';
+const FILTER_KEY = 'evalyn:v2:jobsDrawer:failureFilter';
 const MAX_ENTRIES = 30;
 
 export type JobHistoryStatus =
@@ -243,6 +244,37 @@ export function setFailureAckTime(ms: number): void {
     notify();
   } catch {
     // ignore
+  }
+}
+
+/** Read the persisted "show failed only" preference for the Recent
+ * Jobs drawer. Defaults to false on missing/unset/parse error so a
+ * fresh session shows all jobs by default. */
+export function getJobsDrawerFailureFilter(): boolean {
+  const ls = safeStorage();
+  if (!ls) return false;
+  try {
+    return ls.getItem(FILTER_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Persist the "show failed only" preference. Called by the drawer
+ * whenever the user toggles the chip so the choice survives page
+ * reloads - useful for users tracking regressions over time who do
+ * not want to re-arm the filter on every refresh. */
+export function setJobsDrawerFailureFilter(on: boolean): void {
+  const ls = safeStorage();
+  if (!ls) return;
+  try {
+    if (on) {
+      ls.setItem(FILTER_KEY, '1');
+    } else {
+      ls.removeItem(FILTER_KEY);
+    }
+  } catch {
+    // Quota / private mode - silently degrade.
   }
 }
 
