@@ -524,6 +524,12 @@ export default function CoPilotThread() {
                   fontFamily: E.fSans,
                   resize: 'none',
                   lineHeight: 1.55,
+                  // Auto-grow with content. The full thread route has
+                  // more vertical room than the dock so the cap is
+                  // higher (320 vs 200).
+                  fieldSizing: 'content',
+                  minHeight: 60,
+                  maxHeight: 320,
                 }}
               />
               <div

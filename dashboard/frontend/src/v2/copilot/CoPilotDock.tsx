@@ -332,6 +332,12 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
               fontSize: 13,
               fontFamily: E.fSans,
               resize: 'none',
+              // Auto-grow with content. Bounded so a long question
+              // doesn't push the input out of the dock - older
+              // browsers fall back to rows=2.
+              fieldSizing: 'content',
+              minHeight: 38,
+              maxHeight: 200,
             }}
           />
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
