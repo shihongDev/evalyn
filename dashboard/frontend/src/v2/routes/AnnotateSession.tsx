@@ -2473,6 +2473,10 @@ export default function AnnotateSession() {
               >
                 {label}
                 <span
+                  // key={count} forces a remount on count change so the
+                  // bump keyframe re-runs. Static when count is the same
+                  // across renders (no perpetual animation).
+                  key={count}
                   style={{
                     fontSize: 10,
                     color: active ? E.ember : E.text3,
@@ -2482,6 +2486,8 @@ export default function AnnotateSession() {
                     padding: '0 5px',
                     minWidth: 14,
                     textAlign: 'center',
+                    animation: 'eCountBump 340ms ease-out',
+                    display: 'inline-block',
                   }}
                 >
                   {count}
