@@ -3,12 +3,14 @@
  * Wires v2.weeklyReport() into the design from screens-4.jsx.
  */
 
+import { useState } from 'react';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, Spinner, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { E } from '../tokens';
 import { linkifyText, makeUrlCounter } from '../textRender';
+import type { WeeklyReport } from '../api/types';
 
 function deltaPillColor(kind: 'pass' | 'fail' | 'warn' | 'info'): string {
   if (kind === 'pass') return E.pass;
@@ -24,11 +26,80 @@ function deltaPillBg(kind: 'pass' | 'fail' | 'warn' | 'info'): string {
   return E.infoDim;
 }
 
+/** Render the report as markdown that pastes cleanly into Slack, email,
+ * Notion, or any other tool. Format chosen to look reasonable in both
+ * raw-text and Markdown-rendered surfaces. */
+function reportToMarkdown(r: WeeklyReport): string {
+  const lines: string[] = [];
+  lines.push(`# ${r.project_name} - week of ${r.week_label}`);
+  lines.push('');
+  lines.push(`_Drafted by co-pilot - ${r.generated_at_iso}_`);
+  lines.push('');
+  lines.push('## TL;DR');
+  lines.push(r.tldr_md.trim());
+  lines.push('');
+  if (r.big_numbers.length > 0) {
+    lines.push('## Highlights');
+    for (const n of r.big_numbers) {
+      lines.push(`- **${n.label}:** ${n.value} (${n.delta}) - ${n.sub}`);
+    }
+    lines.push('');
+  }
+  if (r.shipped.length > 0) {
+    lines.push('## What we shipped');
+    for (const s of r.shipped) lines.push(`- ${s.text}`);
+    lines.push('');
+  }
+  if (r.blocking) {
+    lines.push('## What\'s blocking');
+    lines.push(`**${r.blocking.title}**`);
+    lines.push('');
+    lines.push(r.blocking.body_md.trim());
+    lines.push('');
+    lines.push(`Owner: ${r.blocking.owner} - ETA: ${r.blocking.eta}`);
+    lines.push('');
+  }
+  if (r.up_next.length > 0) {
+    lines.push('## Up next');
+    for (const s of r.up_next) lines.push(`- ${s.text}`);
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
 export default function Reports() {
   const { data, err, refetch, reloading, isInitialLoad } = useV2Resource(
     'weeklyReport',
     v2.weeklyReport,
   );
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+
+  async function handleCopy() {
+    if (!data) return;
+    const md = reportToMarkdown(data);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(md);
+      } else {
+        // Fallback for very old browsers / non-secure contexts: use a
+        // hidden textarea + execCommand. Best effort - won't reach here on
+        // any modern setup, but keeps the action from feeling broken.
+        const ta = document.createElement('textarea');
+        ta.value = md;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopyState('copied');
+      window.setTimeout(() => setCopyState('idle'), 2000);
+    } catch {
+      setCopyState('error');
+      window.setTimeout(() => setCopyState('idle'), 3000);
+    }
+  }
 
   return (
     <AppShell contextChip={{ name: data?.project_name ?? 'Loading', version: '' }}>
@@ -55,22 +126,19 @@ export default function Reports() {
           </p>
         )}
 
-        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
           <Btn
             kind="primary"
             size="md"
-            disabled
-            title="Coming soon - post the rendered report to a Slack channel"
+            onClick={() => void handleCopy()}
+            disabled={!data}
+            title={
+              !data
+                ? 'Wait for the report to load'
+                : 'Copy as markdown - paste into Slack, email, Notion, or anywhere else'
+            }
           >
-            Send to Slack
-          </Btn>
-          <Btn
-            kind="secondary"
-            size="md"
-            disabled
-            title="Coming soon - export the report as a PDF you can share"
-          >
-            Export PDF
+            {copyState === 'copied' ? 'Copied' : 'Copy report'}
           </Btn>
           <Btn
             kind="ghost"
@@ -87,6 +155,16 @@ export default function Reports() {
               'Regenerate'
             )}
           </Btn>
+          {copyState === 'copied' && (
+            <Pill mono color={E.pass} bg={E.passDim}>
+              Markdown on clipboard
+            </Pill>
+          )}
+          {copyState === 'error' && (
+            <Pill mono color={E.fail} bg={E.failDim}>
+              Copy failed - browser blocked clipboard
+            </Pill>
+          )}
         </div>
 
         {err && (
