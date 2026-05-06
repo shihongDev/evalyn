@@ -180,7 +180,50 @@ export default function Home() {
               <div style={{ padding: '14px 18px', borderBottom: `1px solid ${E.hair}` }}>
                 <span style={{ fontSize: 13, color: E.text0, fontWeight: 500 }}>Recent activity</span>
               </div>
-              <div style={{ padding: 18, fontSize: 12.5, color: E.text3 }}>No runs yet.</div>
+              <div
+                style={{
+                  padding: 22,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 10,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 22,
+                    color: E.text4,
+                    fontFamily: E.fSerif,
+                    lineHeight: 1,
+                  }}
+                  aria-hidden
+                >
+                  ◆
+                </span>
+                <span style={{ fontSize: 13, color: E.text2, textAlign: 'center' }}>
+                  No runs yet.
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: E.text3,
+                    textAlign: 'center',
+                    fontFamily: E.fMono,
+                    maxWidth: 280,
+                  }}
+                >
+                  Run an evaluation from the CLI or load the demo to populate
+                  this feed.
+                </span>
+                <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                  <Btn kind="secondary" size="sm" onClick={() => navigate('/commands')}>
+                    Browse commands
+                  </Btn>
+                  <Btn kind="ghost" size="sm" onClick={() => navigate('/datasets')}>
+                    Datasets →
+                  </Btn>
+                </div>
+              </div>
             </Card>
           </div>
 
