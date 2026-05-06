@@ -405,6 +405,7 @@ export default function CoPilotThread() {
                         e.currentTarget.style.background = 'transparent';
                       }
                     }}
+                    title={t.title}
                     style={{
                       width: '100%',
                       textAlign: 'left',
@@ -465,6 +466,7 @@ export default function CoPilotThread() {
                         e.currentTarget.style.background = 'transparent';
                       }
                     }}
+                    title={t.title}
                     style={{
                       width: '100%',
                       textAlign: 'left',

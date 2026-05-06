@@ -575,6 +575,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                         data-palette-index={flatIdx}
                         onClick={() => entry.nav()}
                         onMouseEnter={() => setActiveIndex(flatIdx)}
+                        title={`${entry.label}${entry.sublabel ? ` - ${entry.sublabel}` : ''}`}
                         style={{
                           width: '100%',
                           display: 'flex',
