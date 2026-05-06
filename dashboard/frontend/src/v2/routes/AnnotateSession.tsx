@@ -2144,7 +2144,34 @@ export default function AnnotateSession() {
         {/* HEADER */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
           <Eyebrow>Annotation session</Eyebrow>
-          <Pill mono color={E.text3} bg={E.panel3}>
+          <Pill
+            mono
+            color={E.text3}
+            bg={E.panel3}
+            title={(() => {
+              // Multiline title - rendered as native browser tooltip,
+              // newlines display correctly in Chrome/Firefox/Safari.
+              const lines: string[] = [];
+              lines.push(
+                `Source: ${session.source_kind} / ${session.source_id}`,
+              );
+              if (session.annotator_id) {
+                lines.push(`Annotator: ${session.annotator_id}`);
+              }
+              lines.push(`Items: ${session.items_total}`);
+              if (session.started_at_iso) {
+                const startMs = Date.parse(session.started_at_iso);
+                if (!Number.isNaN(startMs)) {
+                  const elapsedSec = Math.max(
+                    0,
+                    (Date.now() - startMs) / 1000,
+                  );
+                  lines.push(`Started: ${formatDuration(elapsedSec)} ago`);
+                }
+              }
+              return lines.join('\n');
+            })()}
+          >
             {session.id}
           </Pill>
           <span style={{ flex: 1 }} />
