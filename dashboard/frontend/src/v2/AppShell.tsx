@@ -884,7 +884,10 @@ export function AppShell({
       {/* SCROLL-TO-TOP - small floating button visible when the page
           is scrolled deep. Bottom-right, above any drawer/dock since
           those overlay z-index 880-900; the button uses 850 so it
-          tucks behind them when those open. */}
+          tucks behind them when those open.
+          When the "Ask co-pilot" FAB is also showing (dock closed +
+          not on /copilot), stack above it instead of overlapping
+          - the FAB is 38 px tall + 8 px gap = 64 px offset. */}
       {scrolled && (
         <button
           type="button"
@@ -895,7 +898,7 @@ export function AppShell({
           title="Scroll to top"
           style={{
             position: 'fixed',
-            bottom: 18,
+            bottom: !hideCoPilot && !showDock ? 64 : 18,
             right: 18,
             width: 38,
             height: 38,
