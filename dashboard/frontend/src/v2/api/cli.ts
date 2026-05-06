@@ -15,6 +15,8 @@
  *   server-side when null, so callers should treat them as `undefined`.
  */
 
+import { readCsrfToken, refreshCsrfToken } from './csrf';
+
 export type CliParamKind =
   | 'string'
   | 'long-text'
@@ -72,30 +74,32 @@ export function commandSummary(cmd: CliSchema): string {
   return (cmd.blurb && cmd.blurb.trim()) || (cmd.description && cmd.description.trim()) || '';
 }
 
-/** CSRF token for mutating requests against the workbench API. */
-function csrfToken(): string | null {
-  if (typeof document === 'undefined') return null;
-  const meta = document.querySelector<HTMLMetaElement>('meta[name="workbench-token"]');
-  return meta?.content ?? null;
-}
-
 /**
  * POST /api/cli/run - spawns ``evalyn <cli_id> <args...>`` on the server and
  * returns a job_id the caller can stream from. Throws on non-2xx with the
  * server's error body included so callers can surface it to the user.
+ *
+ * Self-heals stale CSRF tokens after a server restart (refetch index,
+ * scrape new token, retry once) via the shared csrf.ts helpers.
  */
 export async function runCli(
   cliId: string,
   args: Record<string, unknown>,
 ): Promise<{ job_id: string }> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const tok = csrfToken();
-  if (tok) headers['X-Workbench-Token'] = tok;
-  const res = await fetch('/api/cli/run', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ cli_id: cliId, args }),
-  });
+  const send = async (token: string | null): Promise<Response> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['X-Workbench-Token'] = token;
+    return fetch('/api/cli/run', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ cli_id: cliId, args }),
+    });
+  };
+  let res = await send(readCsrfToken());
+  if (res.status === 403) {
+    const fresh = await refreshCsrfToken();
+    if (fresh) res = await send(fresh);
+  }
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`POST /api/cli/run ${res.status}: ${body}`);

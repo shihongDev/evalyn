@@ -1,10 +1,13 @@
 /**
  * v2 API client - typed fetchers for /api/v2/*.
  *
- * Reuses the CSRF + JSON conventions from the existing dashboard ./api.ts
- * (workbench-token meta + X-Workbench-Token header on mutations).
+ * Mutations attach the X-Workbench-Token header from the
+ * <meta name="workbench-token"> tag. On 403 (stale token after a
+ * server restart), refetch the index, scrape the new token, retry
+ * once via the shared csrf.ts helpers.
  */
 
+import { readCsrfToken, refreshCsrfToken } from './csrf';
 import type {
   HomeSnapshot,
   ExperimentList,
@@ -25,12 +28,6 @@ import { loadDemo as demoLoadHelper } from './demo';
 
 const BASE = '/api/v2';
 
-function csrfToken(): string | null {
-  if (typeof document === 'undefined') return null;
-  const meta = document.querySelector<HTMLMetaElement>('meta[name="workbench-token"]');
-  return meta?.content ?? null;
-}
-
 async function jget<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { headers: { Accept: 'application/json' } });
   if (!res.ok) {
@@ -41,14 +38,20 @@ async function jget<T>(path: string): Promise<T> {
 }
 
 async function jpost<T>(path: string, body: unknown): Promise<T> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const tok = csrfToken();
-  if (tok) headers['X-Workbench-Token'] = tok;
-  const res = await fetch(`${BASE}${path}`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  });
+  const url = `${BASE}${path}`;
+  const send = async (token: string | null): Promise<Response> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['X-Workbench-Token'] = token;
+    return fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+  };
+  let res = await send(readCsrfToken());
+  // Stale-token self-heal: server rotated its CSRF token (typically
+  // because of a restart). Refetch the index, patch the meta, retry
+  // once. Don't loop - if the second 403 fires, something else is wrong.
+  if (res.status === 403) {
+    const fresh = await refreshCsrfToken();
+    if (fresh) res = await send(fresh);
+  }
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`POST ${path} ${res.status}: ${text}`);

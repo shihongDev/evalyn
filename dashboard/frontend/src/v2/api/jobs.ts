@@ -23,6 +23,7 @@
  */
 
 import { runCli } from './cli';
+import { readCsrfToken, refreshCsrfToken } from './csrf';
 
 export type JobStatusKind =
   | 'queued'
@@ -59,14 +60,6 @@ interface ApiJobRecord {
   duration?: number | null;
 }
 
-function csrfToken(): string | null {
-  if (typeof document === 'undefined') return null;
-  const meta = document.querySelector<HTMLMetaElement>(
-    'meta[name="workbench-token"]',
-  );
-  return meta?.content ?? null;
-}
-
 function wsUrl(path: string): string {
   const proto =
     typeof window !== 'undefined' && window.location.protocol === 'https:'
@@ -88,15 +81,21 @@ export async function startJob(
   return runCli(cliId, args);
 }
 
-/** Cancel a running job (SIGTERM with grace period, then SIGKILL server-side). */
+/** Cancel a running job (SIGTERM with grace period, then SIGKILL server-side).
+ * Self-heals stale CSRF tokens after a server restart by refetching the
+ * index, scraping the new token, and retrying once. */
 export async function cancelJob(id: string): Promise<{ ok: boolean }> {
-  const headers: Record<string, string> = {};
-  const tok = csrfToken();
-  if (tok) headers['X-Workbench-Token'] = tok;
-  const res = await fetch(`/api/jobs/${encodeURIComponent(id)}/cancel`, {
-    method: 'POST',
-    headers,
-  });
+  const url = `/api/jobs/${encodeURIComponent(id)}/cancel`;
+  const send = async (token: string | null): Promise<Response> => {
+    const headers: Record<string, string> = {};
+    if (token) headers['X-Workbench-Token'] = token;
+    return fetch(url, { method: 'POST', headers });
+  };
+  let res = await send(readCsrfToken());
+  if (res.status === 403) {
+    const fresh = await refreshCsrfToken();
+    if (fresh) res = await send(fresh);
+  }
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`POST /api/jobs/${id}/cancel ${res.status}: ${body}`);
