@@ -23,6 +23,7 @@ import {
 import { E } from './tokens';
 import { Btn, Eyebrow, Pill, StatusDot } from './ui';
 import { useStickToBottom } from './hooks/useStickToBottom';
+import { copyToClipboard } from './clipboard';
 import type { CliParam, CliParamKind, CliSchema } from './api/cli';
 import { commandSummary } from './api/cli';
 import {
@@ -1026,6 +1027,29 @@ function OutputSection({
   scrolledUp,
   jumpToBottom,
 }: OutputSectionProps) {
+  // Inline clipboard state for the Copy button. Idle -> copied flips
+  // the label briefly; idle -> error covers the rare browser-blocked
+  // case (non-secure context with no clipboard API and execCommand
+  // disabled).
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+
+  async function handleCopy() {
+    if (lines.length === 0) return;
+    // Concatenate output lines into a single string. Stderr lines stay
+    // interleaved with stdout - same order they arrived in - because
+    // splitting them would lose the chronology that's often what the
+    // user actually cares about ("error happened RIGHT after this log").
+    const text = lines.map((l) => l.text).join('\n');
+    try {
+      await copyToClipboard(text);
+      setCopyState('copied');
+      window.setTimeout(() => setCopyState('idle'), 2000);
+    } catch {
+      setCopyState('error');
+      window.setTimeout(() => setCopyState('idle'), 3000);
+    }
+  }
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0 }}>
         <div
@@ -1040,9 +1064,47 @@ function OutputSection({
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-all',
             flexShrink: 0,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 8,
           }}
         >
-          $ {preview}
+          <span style={{ flex: 1, minWidth: 0 }}>$ {preview}</span>
+          <button
+            type="button"
+            onClick={() => void handleCopy()}
+            disabled={lines.length === 0}
+            aria-label="Copy output to clipboard"
+            title={
+              lines.length === 0
+                ? 'Nothing to copy yet'
+                : copyState === 'copied'
+                  ? 'Output copied'
+                  : copyState === 'error'
+                    ? 'Browser blocked clipboard access'
+                    : `Copy ${lines.length} line${lines.length === 1 ? '' : 's'} of output to clipboard`
+            }
+            style={{
+              flexShrink: 0,
+              padding: '0 8px',
+              fontFamily: E.fMono,
+              fontSize: 10.5,
+              color: copyState === 'copied' ? E.pass : copyState === 'error' ? E.fail : E.text2,
+              background: 'transparent',
+              border: `1px solid ${E.hair2}`,
+              borderRadius: 4,
+              cursor: lines.length === 0 ? 'not-allowed' : 'pointer',
+              opacity: lines.length === 0 ? 0.5 : 1,
+              lineHeight: 1.6,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {copyState === 'copied'
+              ? '✓ Copied'
+              : copyState === 'error'
+                ? '✗ Failed'
+                : 'Copy output'}
+          </button>
         </div>
         <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex' }}>
         <div
