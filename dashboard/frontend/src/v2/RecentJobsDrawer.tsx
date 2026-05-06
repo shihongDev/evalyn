@@ -18,7 +18,7 @@
  * the drawer if they want a fresh check.
  */
 
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { E } from './tokens';
 import { Btn, Eyebrow, Pill, StatusDot } from './ui';
 import { fetchJobStatus } from './api/jobs';
@@ -187,6 +187,9 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
         </div>
         <DrawerFooter
           hasEntries={entries.length > 0}
+          activeCount={entries.filter(
+            (e) => e.status === 'queued' || e.status === 'running',
+          ).length}
           onClear={() => {
             clearJobsHistory();
           }}
@@ -253,11 +256,53 @@ function DrawerHeader({ onClose, count }: { onClose: () => void; count: number }
 
 function DrawerFooter({
   hasEntries,
+  activeCount,
   onClear,
 }: {
   hasEntries: boolean;
+  /** Count of rows whose status is still queued or running. We surface
+   * this in the footer copy and gate clear behind a stronger confirm
+   * when non-zero, since the localStorage entry is the only handle the
+   * user has to re-attach mid-stream. */
+  activeCount: number;
   onClear: () => void;
 }) {
+  // Two-click confirm. First click flips to "Confirm" for 4s; second
+  // click within that window actually clears. Avoids a destructive
+  // single-click action while keeping the button compact (no modal).
+  const [armed, setArmed] = useState(false);
+  const armedTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (armedTimerRef.current != null) {
+        window.clearTimeout(armedTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleClick = () => {
+    if (!armed) {
+      setArmed(true);
+      armedTimerRef.current = window.setTimeout(() => {
+        setArmed(false);
+        armedTimerRef.current = null;
+      }, 4000);
+      return;
+    }
+    if (armedTimerRef.current != null) {
+      window.clearTimeout(armedTimerRef.current);
+      armedTimerRef.current = null;
+    }
+    setArmed(false);
+    onClear();
+  };
+
+  const footerText =
+    activeCount > 0
+      ? `${activeCount} job${activeCount === 1 ? '' : 's'} still running - clearing won't cancel them`
+      : 'Local history only - clearing does not cancel running jobs';
+
   return (
     <div
       style={{
@@ -274,14 +319,26 @@ function DrawerFooter({
         style={{
           flex: 1,
           fontSize: 11,
-          color: E.text3,
+          color: activeCount > 0 ? E.warn : E.text3,
           lineHeight: 1.4,
         }}
       >
-        Local history only · clearing does not cancel running jobs
+        {footerText}
       </span>
-      <Btn kind="ghost" size="sm" onClick={onClear} disabled={!hasEntries}>
-        Clear history
+      <Btn
+        kind={armed ? 'primary' : 'ghost'}
+        size="sm"
+        onClick={handleClick}
+        disabled={!hasEntries}
+        title={
+          armed
+            ? 'Click again to clear (auto-cancels in 4s)'
+            : activeCount > 0
+              ? `Clear ${activeCount} active + finished jobs from local history`
+              : 'Clear all jobs from local history'
+        }
+      >
+        {armed ? 'Confirm clear?' : 'Clear history'}
       </Btn>
     </div>
   );
