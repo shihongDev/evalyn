@@ -186,6 +186,17 @@ interface SubscribeHandlers {
   onStatus: (status: JobStatus) => void;
   onError?: (err: Event | Error) => void;
   onClose?: (ev: CloseEvent) => void;
+  /** Fired when the wrapper has scheduled a reconnect attempt after an
+   * unexpected close. ``attempt`` is 1-indexed: 1 on the first retry,
+   * 2 on the second, etc. Consumers typically debounce this signal
+   * (~1.5s) before showing a "Reconnecting" indicator so brief blips
+   * we recover from quickly stay invisible. */
+  onReconnecting?: (attempt: number) => void;
+  /** Fired when a reconnect attempt successfully connected and the
+   * stream is live again. Consumers should clear any "Reconnecting"
+   * UI surfaced from a prior onReconnecting. Not fired on the very
+   * first connect (use onStatus 'running' for that). */
+  onReconnected?: () => void;
 }
 
 interface SubscribeOptions {
@@ -262,6 +273,16 @@ export function subscribeJob(
     }
     const backoffMs = Math.min(8000, 1000 * 2 ** attempts);
     attempts += 1;
+    // Notify consumers that we are about to retry. attempt is 1-indexed
+    // so the first retry fires onReconnecting(1). Inline the try/catch
+    // rather than route through safeCall<T> because the helper's
+    // generic signature does not handle a callback with a non-trivial
+    // argument cleanly here.
+    try {
+      handlers.onReconnecting?.(attempts);
+    } catch {
+      // ignore - keep the reconnect path alive
+    }
     reconnectTimer = window.setTimeout(() => {
       reconnectTimer = null;
       open();
@@ -284,10 +305,20 @@ export function subscribeJob(
     ws = socket;
 
     socket.addEventListener('open', () => {
+      const wasReconnecting = attempts > 0;
       attempts = 0;
       if (firstOpen) {
         firstOpen = false;
         safeCall(handlers.onStatus, { id, status: 'running' });
+      } else if (wasReconnecting) {
+        // We had at least one failed attempt before this success, so
+        // the consumer may have surfaced a "Reconnecting" pill via
+        // onReconnecting. Tell them the stream is live again.
+        try {
+          handlers.onReconnected?.();
+        } catch {
+          // ignore
+        }
       }
     });
 

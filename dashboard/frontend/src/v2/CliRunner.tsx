@@ -265,6 +265,29 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
 
   const subRef = useRef<{ close: () => void } | null>(null);
 
+  // Debounced "Reconnecting" indicator. The WS subscriber retries
+  // transparently with exp backoff (1s -> 2s -> 4s -> 8s -> 8s); we
+  // surface that to the user only when the disconnect lasts >1.5s,
+  // hiding the cosmetic flash for blips we recover from quickly.
+  const [reconnecting, setReconnecting] = useState(false);
+  const reconnectArmTimerRef = useRef<number | null>(null);
+
+  const handleReconnecting = useCallback(() => {
+    if (reconnectArmTimerRef.current != null) return;
+    reconnectArmTimerRef.current = window.setTimeout(() => {
+      reconnectArmTimerRef.current = null;
+      setReconnecting(true);
+    }, 1500);
+  }, []);
+
+  const handleReconnected = useCallback(() => {
+    if (reconnectArmTimerRef.current != null) {
+      window.clearTimeout(reconnectArmTimerRef.current);
+      reconnectArmTimerRef.current = null;
+    }
+    setReconnecting(false);
+  }, []);
+
   // Line throughput buffer. WS messages can arrive at hundreds of lines per
   // second on chatty eval runs; one setLines per message means one React
   // render per line which causes visible jank. We coalesce arrivals into
@@ -369,6 +392,8 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
           // already been set by the snapshot fetch above.
           setError((prev) => prev ?? 'Lost connection to job stream.');
         },
+        onReconnecting: handleReconnecting,
+        onReconnected: handleReconnected,
       });
     })();
     return () => {
@@ -380,7 +405,8 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
   }, []);
 
   // Tear down the WS subscription on unmount or when starting a fresh job.
-  // Also cancel any pending rAF flush so we don't setState after unmount.
+  // Also cancel any pending rAF flush + reconnect-arm timer so we don't
+  // setState after unmount.
   useEffect(() => {
     return () => {
       subRef.current?.close();
@@ -392,6 +418,10 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
           window.clearTimeout(flushScheduledRef.current);
         }
         flushScheduledRef.current = null;
+      }
+      if (reconnectArmTimerRef.current != null) {
+        window.clearTimeout(reconnectArmTimerRef.current);
+        reconnectArmTimerRef.current = null;
       }
       linesBufferRef.current = [];
     };
@@ -458,6 +488,8 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
       subRef.current?.close();
       subRef.current = subscribeJob(job_id, {
         onLine: enqueueLine,
+        onReconnecting: handleReconnecting,
+        onReconnected: handleReconnected,
         onStatus: (s: JobStatus) => {
           setStatus(s.status);
           patchJob(job_id, {
@@ -509,6 +541,12 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
       flushScheduledRef.current = null;
     }
     linesBufferRef.current = [];
+    // Drop any lingering "Reconnecting" indicator from the previous run.
+    if (reconnectArmTimerRef.current != null) {
+      window.clearTimeout(reconnectArmTimerRef.current);
+      reconnectArmTimerRef.current = null;
+    }
+    setReconnecting(false);
     setJobId(null);
     setLines([]);
     setError(null);
@@ -701,6 +739,7 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
               onOutputScroll={onOutputScroll}
               scrolledUp={outputScrolledUp}
               jumpToBottom={jumpToOutputBottom}
+              reconnecting={reconnecting}
             />
           )}
         </div>
@@ -1074,6 +1113,11 @@ interface OutputSectionProps {
   onOutputScroll: () => void;
   scrolledUp: boolean;
   jumpToBottom: () => void;
+  /** True when the WS subscriber is reconnecting after an unexpected
+   * close and the disconnect has lasted past the parent's debounce
+   * threshold (1.5s). Renders a small pill in the preview row so the
+   * user knows the gap in output is recoverable, not a hung eval. */
+  reconnecting?: boolean;
 }
 
 function OutputSection({
@@ -1085,6 +1129,7 @@ function OutputSection({
   onOutputScroll,
   scrolledUp,
   jumpToBottom,
+  reconnecting = false,
 }: OutputSectionProps) {
   // Inline clipboard state for the Copy button. Idle -> copied flips
   // the label briefly; idle -> error covers the rare browser-blocked
@@ -1202,6 +1247,41 @@ function OutputSection({
           }}
         >
           <span style={{ flex: 1, minWidth: 0 }}>$ {preview}</span>
+          {reconnecting && (
+            <span
+              role="status"
+              aria-live="polite"
+              aria-label="Reconnecting to job stream"
+              title="WebSocket lost - retrying with backoff"
+              style={{
+                flexShrink: 0,
+                padding: '0 8px',
+                fontFamily: E.fMono,
+                fontSize: 10.5,
+                color: E.warn,
+                background: 'rgba(217, 161, 79, 0.15)',
+                border: `1px solid rgba(217, 161, 79, 0.4)`,
+                borderRadius: 4,
+                lineHeight: 1.6,
+                whiteSpace: 'nowrap',
+                fontWeight: 500,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: E.warn,
+                  display: 'inline-block',
+                }}
+              />
+              Reconnecting…
+            </span>
+          )}
           {stderrCount > 0 && (
             <button
               type="button"
