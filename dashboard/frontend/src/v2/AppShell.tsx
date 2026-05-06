@@ -643,12 +643,21 @@ export function AppShell({
             kind="ghost"
             size="sm"
             onClick={() => setJobsDrawerOpen(true)}
-            title="Recent jobs"
+            title={
+              unackedFailureCount > 0
+                ? `Recent jobs - ${unackedFailureCount} failed since last viewed`
+                : runningCount > 0
+                  ? `Recent jobs - ${runningCount} running`
+                  : 'Recent jobs'
+            }
             style={{ gap: 6, position: 'relative' }}
           >
             <span style={{ fontSize: 13, lineHeight: 1 }}>⟳</span>
             Jobs
             {runningCount > 0 && <BadgeCount n={runningCount} inline />}
+            {unackedFailureCount > 0 && (
+              <BadgeCount n={unackedFailureCount} inline tone="failed" />
+            )}
           </Btn>
         )}
         {vp !== 'mobile' && (
@@ -817,6 +826,9 @@ export function AppShell({
           <span style={{ fontSize: 14, lineHeight: 1 }}>⟳</span>
           Recent jobs
           {runningCount > 0 && <BadgeCount n={runningCount} />}
+          {unackedFailureCount > 0 && (
+            <BadgeCount n={unackedFailureCount} tone="failed" />
+          )}
         </button>
       </div>
 
@@ -1063,8 +1075,23 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
 /** Compact numeric badge used by the Recent Jobs buttons. The `inline` variant
  * sits on a Btn (less prominent) while the default ships on the floating
  * pill. Number is clamped to "9+" past 9 to keep the pill round. */
-function BadgeCount({ n, inline }: { n: number; inline?: boolean }) {
-  const text = n > 9 ? '9+' : String(n);
+interface BadgeCountProps {
+  n: number;
+  inline?: boolean;
+  /** Tone of the badge. 'running' (default) is ember and indicates
+   * jobs in flight. 'failed' is red and indicates jobs that failed
+   * since the user last viewed the Recent Jobs drawer. */
+  tone?: 'running' | 'failed';
+}
+
+function BadgeCount({ n, inline, tone = 'running' }: BadgeCountProps) {
+  // Failed counts are prefixed with "!" so the user can read the badge
+  // even at a glance: "!2" reads as "two failed", separate from "2"
+  // which is a count of running.
+  const numText = n > 9 ? '9+' : String(n);
+  const text = tone === 'failed' ? `!${numText}` : numText;
+  const bg = tone === 'failed' ? E.fail : E.ember;
+  const color = tone === 'failed' ? '#fff' : E.emberInk;
   return (
     <span
       style={{
@@ -1075,8 +1102,8 @@ function BadgeCount({ n, inline }: { n: number; inline?: boolean }) {
         height: inline ? 16 : 18,
         padding: '0 5px',
         borderRadius: 999,
-        background: E.ember,
-        color: E.emberInk,
+        background: bg,
+        color,
         fontSize: inline ? 10 : 11,
         fontFamily: E.fMono,
         fontWeight: 600,
