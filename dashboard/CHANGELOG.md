@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
+- **Co-pilot chat text-delta batching via requestAnimationFrame.** The streaming agent reply previously called `setMessages` per token (~80/sec for Sonnet, faster for Haiku), each rebuilding the messages array, the agent bubble, and concatenating bubble text. `useCoPilotThread` now coalesces deltas into a `Map<messageId, accumulatedText>` ref and flushes once per animation frame, so the chat re-renders at most ~60Hz regardless of token rate. Other event kinds (tool_call_*, final, error) pass through directly. The `final` event force-flushes pending deltas before applying its patch so the bubble's text is current and never "rewinds" mid-stream. WS reconnect, thread reset, and unmount all cancel pending rAF and clear the buffer to prevent stale tokens leaking into a new conversation.
 - **CliRunner WS line batching via requestAnimationFrame.** Chatty eval runs (100s of stdout lines/sec) used to call `setLines` once per WebSocket message, triggering one React render per line. CliRunner now buffers lines in a ref and flushes once per animation frame (`requestAnimationFrame`), capping render rate at ~60Hz regardless of line rate. The buffer is bounded at `MAX_OUTPUT_LINES` so a backgrounded tab cannot accumulate unbounded memory while rAF is paused. Cleanup on unmount and Re-run cancels any pending frame and clears stale lines so they do not bleed into a new run. No visible behavior change for slow streams; high-rate streams stop juddering.
 
 ### Changed

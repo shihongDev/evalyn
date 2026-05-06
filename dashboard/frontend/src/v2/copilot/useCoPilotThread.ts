@@ -95,16 +95,64 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
   const threadIdRef = useRef<string | null>(threadId);
   threadIdRef.current = threadId;
 
-  const handleEvent = useCallback((evt: AgentWsEvent) => {
-    if (evt.type === 'text_delta') {
-      setMessages((prev) => {
-        const { next } = findOrCreateAgentBubble(prev, evt.message_id);
-        return patchAgentBubble(next, evt.message_id, (b) => ({
+  // text_delta arrives once per token. On a fast-streaming model
+  // (Sonnet ~80 tok/sec, Haiku faster) that becomes 80+ setMessages calls
+  // per second, each rebuilding the messages array, the agent bubble,
+  // and concatenating the bubble text. We coalesce deltas per message_id
+  // into a Map ref and flush once per animation frame, so the chat view
+  // re-renders at most ~60Hz regardless of token rate. Other event kinds
+  // (tool_call_*, final, error) are infrequent and pass through directly.
+  const textBufferRef = useRef<Map<string, string>>(new Map());
+  const flushScheduledRef = useRef<number | null>(null);
+
+  const flushTextBuffer = useCallback(() => {
+    if (flushScheduledRef.current != null) {
+      if (typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(flushScheduledRef.current);
+      } else {
+        window.clearTimeout(flushScheduledRef.current);
+      }
+      flushScheduledRef.current = null;
+    }
+    const buf = textBufferRef.current;
+    if (buf.size === 0) return;
+    const pending = new Map(buf);
+    buf.clear();
+    setMessages((prev) => {
+      let arr = prev;
+      for (const [messageId, deltaText] of pending) {
+        const { next } = findOrCreateAgentBubble(arr, messageId);
+        arr = patchAgentBubble(next, messageId, (b) => ({
           ...b,
-          text: (b.text ?? '') + evt.text,
+          text: (b.text ?? '') + deltaText,
           streaming: true,
         }));
-      });
+      }
+      return arr;
+    });
+  }, []);
+
+  const enqueueTextDelta = useCallback(
+    (messageId: string, text: string) => {
+      const buf = textBufferRef.current;
+      buf.set(messageId, (buf.get(messageId) ?? '') + text);
+      if (flushScheduledRef.current != null) return;
+      if (typeof requestAnimationFrame === 'function') {
+        flushScheduledRef.current = requestAnimationFrame(flushTextBuffer);
+      } else {
+        // jsdom / SSR fallback.
+        flushScheduledRef.current = window.setTimeout(flushTextBuffer, 16);
+      }
+    },
+    [flushTextBuffer],
+  );
+
+  const handleEvent = useCallback((evt: AgentWsEvent) => {
+    if (evt.type === 'text_delta') {
+      enqueueTextDelta(evt.message_id, evt.text);
+      // setStatus with the same value is a no-op in React 18+, so this is
+      // effectively a single render-trigger per status transition rather
+      // than per token. Cheap to leave inline.
       setStatus('streaming');
       return;
     }
@@ -234,6 +282,12 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
     }
 
     if (evt.type === 'final') {
+      // Drain any pending text-delta batch synchronously so the bubble's
+      // accumulated text is committed BEFORE the final patch runs.
+      // Without this, a final event arriving between two rAF flushes
+      // would patch the bubble while it still missed the last few tokens,
+      // causing visible text to "rewind" when final.text == undefined.
+      flushTextBuffer();
       // agent.py emits 'final' WITHOUT message_id (see emit sites at lines
       // 911, 923, 949, 975, 989, 1018). Fall back to the last streaming
       // bubble so the typing indicator clears.
@@ -262,7 +316,7 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
       setError(evt.message);
       setStatus('error');
     }
-  }, []);
+  }, [enqueueTextDelta, flushTextBuffer]);
 
   // Open / re-open the WS whenever threadId changes.
   useEffect(() => {
@@ -284,6 +338,17 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
     return () => {
       sub.close();
       wsRef.current = null;
+      // Cancel any pending text-delta flush so we do not setMessages
+      // after the hook has detached from this thread (or unmounted).
+      if (flushScheduledRef.current != null) {
+        if (typeof cancelAnimationFrame === 'function') {
+          cancelAnimationFrame(flushScheduledRef.current);
+        } else {
+          window.clearTimeout(flushScheduledRef.current);
+        }
+        flushScheduledRef.current = null;
+      }
+      textBufferRef.current.clear();
     };
   }, [threadId, handleEvent]);
 
@@ -333,6 +398,17 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
   );
 
   const resetTo = useCallback((newThreadId: string | null) => {
+    // Drop any pending text deltas from the previous thread so they do not
+    // bleed into the new conversation when the next rAF fires.
+    if (flushScheduledRef.current != null) {
+      if (typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(flushScheduledRef.current);
+      } else {
+        window.clearTimeout(flushScheduledRef.current);
+      }
+      flushScheduledRef.current = null;
+    }
+    textBufferRef.current.clear();
     setMessages([]);
     setPending(null);
     setStatus('idle');
