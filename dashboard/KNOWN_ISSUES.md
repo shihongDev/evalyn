@@ -6,9 +6,7 @@ Tracked but not yet fixed. Each entry includes severity, file:line, what's wrong
 
 ### 1. Subscriber race in JobManager.subscribe() (jobs.py:289-295)
 
-In `subscribe()`, events are replayed from `job.events` BEFORE the stream is registered in `job._subscribers`. Between the last replay `await` and the registration, `_emit()` can run and deliver live events only to already-registered subscribers, causing the new subscriber to miss events. Truncation horizon does not protect this gap because the events are real, not dropped.
-
-**Fix sketch:** Register the subscriber in `_subscribers` first, capture the current event_id as a snapshot, then replay only events with `id <= snapshot_id`. The live fanout will deliver events with `id > snapshot_id`. No duplication.
+RESOLVED 2026-05-06 (fix/jobs-subscribe-race). `_EventStream` gained a replay phase. `subscribe()` now calls `_begin_replay()` and registers the stream in `_subscribers` BEFORE any await, snapshots the current `_next_event_id`, replays only events with `id <= snapshot_id` from a pre-built list, then calls `_end_replay()` which flushes any concurrent `_emit()` events that arrived during replay. Live events emitted while replaying divert into `_live_buffer` so they deliver in emit order AFTER replay events, never lost or reordered. Regression test: `test_jobs.py::test_subscribe_registers_before_replay_and_buffers_concurrent_emit`.
 
 ### 2. WS reconnect close handler shares mutable conn ref (store.ts:329, 389)
 
