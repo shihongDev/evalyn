@@ -6,7 +6,14 @@
  * and tag filter. Pattern mirrors ExperimentsList.tsx.
  */
 
-import { useMemo, useState, type ChangeEvent, type MouseEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type MouseEvent,
+} from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, StackBar, UpdatingChip } from '../ui';
@@ -227,21 +234,47 @@ export default function Datasets() {
     setBulkInfo(null);
   };
 
+  // Two-click confirm for large bulk runs (>=50 datasets). First click
+  // arms the button (label flips to "Confirm: spawn N jobs?" for 4 s);
+  // a second click within that window proceeds. Replaces an older
+  // window.confirm() prompt that jarred against the v2 chrome and
+  // trapped the user behind a native OK button. Same pattern as the
+  // Jobs drawer's Clear history.
+  const [bulkArmed, setBulkArmed] = useState(false);
+  const bulkArmTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (bulkArmTimerRef.current != null) {
+        window.clearTimeout(bulkArmTimerRef.current);
+      }
+    };
+  }, []);
+
   // Fire one POST /api/cli/run per selected dataset (in parallel). On
   // partial failure we report which datasets failed but never roll back
   // already-spawned jobs - they're real backend work the user wanted.
   const handleBulkEvaluate = async () => {
     if (bulkBusy || selected.size === 0) return;
     const targets = Array.from(selected);
-    if (
-      targets.length >= BULK_CONFIRM_THRESHOLD &&
-      typeof window !== 'undefined' &&
-      !window.confirm(
-        `This will start ${targets.length} evaluation jobs. LLM-judge runs may incur cost. Continue?`,
-      )
-    ) {
+    if (targets.length >= BULK_CONFIRM_THRESHOLD && !bulkArmed) {
+      // First click on a large run: arm the button, don't spawn.
+      setBulkArmed(true);
+      if (bulkArmTimerRef.current != null) {
+        window.clearTimeout(bulkArmTimerRef.current);
+      }
+      bulkArmTimerRef.current = window.setTimeout(() => {
+        setBulkArmed(false);
+        bulkArmTimerRef.current = null;
+      }, 4000);
       return;
     }
+    // Either small run (<50) or already-armed: proceed.
+    if (bulkArmTimerRef.current != null) {
+      window.clearTimeout(bulkArmTimerRef.current);
+      bulkArmTimerRef.current = null;
+    }
+    setBulkArmed(false);
     setBulkBusy(true);
     setBulkErr(null);
     setBulkInfo(null);
@@ -545,10 +578,19 @@ export default function Datasets() {
               size="sm"
               onClick={handleBulkEvaluate}
               disabled={bulkBusy || selected.size === 0}
+              title={
+                bulkArmed
+                  ? 'Click again to confirm. Auto-cancels in 4 s. LLM-judge runs may incur cost.'
+                  : selected.size >= BULK_CONFIRM_THRESHOLD
+                    ? `Spawn ${selected.size} eval jobs - large bulk run will ask to confirm`
+                    : `Spawn ${selected.size} eval job${selected.size === 1 ? '' : 's'}`
+              }
             >
               {bulkBusy
                 ? `Spawning ${selected.size}...`
-                : `Evaluate ${selected.size} selected ->`}
+                : bulkArmed
+                  ? `Confirm: spawn ${selected.size} jobs?`
+                  : `Evaluate ${selected.size} selected ->`}
             </Btn>
           </div>
         </div>
