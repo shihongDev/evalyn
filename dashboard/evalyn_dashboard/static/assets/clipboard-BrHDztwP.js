@@ -1,0 +1,1 @@
+async function e(e){if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(e);return}let t=document.createElement(`textarea`);t.value=e,t.style.position=`fixed`,t.style.left=`-9999px`,document.body.appendChild(t),t.select();try{document.execCommand(`copy`)}finally{document.body.removeChild(t)}}export{e as t};
