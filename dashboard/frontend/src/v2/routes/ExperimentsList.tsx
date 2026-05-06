@@ -127,6 +127,19 @@ function Row({ r, i, isSelected, onToggle, onNavigate, hideName }: RowProps) {
         gap: 8,
         background: isSelected ? E.emberDim : 'transparent',
         cursor: 'pointer',
+        transition: 'background 140ms',
+      }}
+      onMouseEnter={(e) => {
+        // Subtle hover bg to signal interactivity. Skip when selected
+        // (it already has its own emberDim bg) to avoid a visual blip.
+        if (!isSelected) {
+          e.currentTarget.style.background = E.panel2;
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!isSelected) {
+          e.currentTarget.style.background = 'transparent';
+        }
       }}
       onClick={(ev) => {
         if ((ev.target as HTMLElement).tagName === 'INPUT') return;
