@@ -743,7 +743,20 @@ function Sidebar({ mode, active, navigate, dockOpen, setDockOpen, onAfterNavigat
             key={item.id}
             to={item.path}
             end={item.path === '/'}
-            onMouseEnter={warm}
+            onMouseEnter={(e) => {
+              warm();
+              // Subtle hover bg on inactive items so the nav feels
+              // responsive. Skip on the active item (it already has
+              // its own bg) to avoid a visual blip.
+              if (!isActive) {
+                e.currentTarget.style.background = E.panel2;
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isActive) {
+                e.currentTarget.style.background = 'transparent';
+              }
+            }}
             onFocus={warm}
             onTouchStart={warm}
             onClick={() => onAfterNavigate?.()}
@@ -764,6 +777,7 @@ function Sidebar({ mode, active, navigate, dockOpen, setDockOpen, onAfterNavigat
               border: 'none',
               textAlign: 'left',
               textDecoration: 'none',
+              transition: 'background 140ms',
             }}
           >
             <span
