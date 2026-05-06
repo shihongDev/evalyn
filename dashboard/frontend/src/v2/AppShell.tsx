@@ -22,6 +22,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { useLocation, useNavigate, NavLink } from 'react-router-dom';
 import { E } from './tokens';
 import { Btn, Eyebrow, Pill, StatusDot } from './ui';
+import { MOD_KEY } from './platform';
 import { useV2Store } from './store/store';
 import { CoPilotDock } from './copilot/CoPilotDock';
 import { CommandPalette } from './CommandPalette';
@@ -473,7 +474,7 @@ export function AppShell({
             onClick={() => setPaletteOpen(true)}
             style={{ fontFamily: E.fMono, gap: 4 }}
           >
-            ⌘K Search
+            {MOD_KEY}K Search
           </Btn>
         )}
         {/* User initials - decorative until a profile menu exists. */}

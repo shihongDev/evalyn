@@ -432,7 +432,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             gap: 10,
           }}
         >
-          <span style={{ fontFamily: E.fMono, fontSize: 12, color: E.text3 }}>⌘K</span>
+          <span style={{ fontFamily: E.fMono, fontSize: 12, color: E.text3 }}>{MOD_KEY}K</span>
           <input
             ref={inputRef}
             value={query}
