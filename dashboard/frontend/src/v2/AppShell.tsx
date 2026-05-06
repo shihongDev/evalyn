@@ -74,6 +74,21 @@ const BREADCRUMB_ROUTE_FOR_LABEL: Record<string, string> = {
   Settings: '/settings',
 };
 
+/** Maps a pathname prefix to a friendly tab title. Prefix-based so
+ * /experiments/abc inherits "Experiments". Used by useDocumentTitle. */
+const TITLE_FOR_PATH: Array<[string, string]> = [
+  ['/experiments', 'Experiments'],
+  ['/datasets', 'Datasets'],
+  ['/metrics', 'Metrics'],
+  ['/review', 'Review'],
+  ['/reports', 'Reports'],
+  ['/commands', 'Commands'],
+  ['/settings', 'Settings'],
+  ['/annotate', 'Annotate'],
+  ['/copilot', 'Co-pilot'],
+  ['/', 'Home'],
+];
+
 const NAV_ITEMS: NavItem[] = [
   { id: 'home', path: '/', icon: '◐', label: 'Home', prefetch: () => prefetchV2('home', v2.home) },
   {
@@ -226,6 +241,18 @@ export function AppShell({
   }, [vp, drawerOpen]);
   useEffect(() => {
     setDrawerOpen(false);
+  }, [location.pathname]);
+
+  // Browser tab title reflects the current route. Without this every
+  // tab reads "Evalyn · Workbench", making multi-tab workflows
+  // (compare two runs, annotate while watching a job) hard to scan.
+  // First-match-wins prefix lookup against TITLE_FOR_PATH.
+  useEffect(() => {
+    const path = location.pathname;
+    const match = TITLE_FOR_PATH.find(([prefix]) =>
+      prefix === '/' ? path === '/' : path.startsWith(prefix),
+    );
+    document.title = match ? `${match[1]} · Evalyn` : 'Evalyn · Workbench';
   }, [location.pathname]);
 
   // Global hotkeys:
