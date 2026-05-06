@@ -394,6 +394,25 @@ export function AppShell({
         setHelpOpen((v) => !v);
         return;
       }
+      // Toggle the co-pilot dock. Skipped on /copilot (the dock is
+      // hidden there - the full thread route IS the dock surface) and
+      // on /annotate/:sessionId where the user's keyboard is fully
+      // booked by the per-session annotation hotkeys.
+      //
+      // Picked Cmd+J because Cmd+K is already taken (palette), Cmd+L
+      // is Safari's address bar on macOS, and Cmd+/ overlaps with
+      // typical "show shortcuts" conventions. J is one key away from
+      // K so muscle memory transfers.
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        (e.key === 'j' || e.key === 'J') &&
+        !hideCoPilot &&
+        !location.pathname.startsWith('/annotate/')
+      ) {
+        e.preventDefault();
+        setDockOpen(!dockOpen);
+        return;
+      }
       if (e.key === 'Escape') {
         setPaletteOpen((v) => (v ? false : v));
         setDrawerOpen((v) => (v ? false : v));
@@ -404,7 +423,7 @@ export function AppShell({
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [vp, dockOpen, setDockOpen, location.pathname, navigate]);
+  }, [vp, dockOpen, hideCoPilot, setDockOpen, location.pathname, navigate]);
 
   const showDock = !hideCoPilot && dockOpen;
   // Dock layout mode: 'docked' takes a grid column on desktop; 'overlay' and
@@ -926,6 +945,7 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
   }, []);
   const SHORTCUTS: Array<{ keys: string; label: string }> = [
     { keys: `${MOD_KEY} K`, label: 'Open command palette' },
+    { keys: `${MOD_KEY} J`, label: 'Toggle co-pilot dock' },
     { keys: `${MOD_KEY} ,`, label: 'Open Settings' },
     { keys: '?', label: 'Toggle this help' },
     { keys: 'Esc', label: 'Close any open overlay' },
