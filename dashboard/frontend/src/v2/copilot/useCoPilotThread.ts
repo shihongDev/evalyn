@@ -364,6 +364,10 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
         ts: Date.now() / 1000,
       };
       setMessages((prev) => [...prev, userMsg]);
+      // Clear any stale error from a previous failed turn so the user
+      // doesn't see the old fail banner alongside their fresh message.
+      // If THIS turn fails, the catch below sets a new error.
+      setError(null);
       setStatus('streaming');
       try {
         const tid = threadIdRef.current;
@@ -380,6 +384,10 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
     },
     [],
   );
+
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
 
   const confirm = useCallback(
     async (approve: boolean) => {
@@ -416,7 +424,7 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
     setThreadId(newThreadId);
   }, []);
 
-  return { threadId, messages, pending, status, error, send, confirm, resetTo };
+  return { threadId, messages, pending, status, error, send, confirm, resetTo, clearError };
 }
 
 function formatArgsShort(args: Record<string, unknown>): string {

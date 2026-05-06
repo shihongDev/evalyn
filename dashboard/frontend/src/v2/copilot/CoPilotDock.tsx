@@ -81,7 +81,16 @@ interface CoPilotDockProps {
 }
 
 export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
-  const { messages, pending, send, confirm, status, threadId } = useCoPilotThread();
+  const {
+    messages,
+    pending,
+    send,
+    confirm,
+    status,
+    threadId,
+    error,
+    clearError,
+  } = useCoPilotThread();
   const [draft, setDraft] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
@@ -335,6 +344,45 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
         {status === 'streaming' &&
           messages.length > 0 &&
           messages[messages.length - 1].role === 'you' && <ThinkingBubble />}
+        {error && (
+          <div
+            role="alert"
+            style={{
+              marginTop: 12,
+              padding: '8px 12px',
+              background: E.failDim,
+              border: `1px solid ${E.fail}33`,
+              borderRadius: 6,
+              color: E.fail,
+              fontSize: 11.5,
+              fontFamily: E.fMono,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 6,
+              lineHeight: 1.4,
+            }}
+          >
+            <span style={{ flex: 1 }}>{error}</span>
+            <button
+              type="button"
+              onClick={clearError}
+              aria-label="Dismiss error"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'currentColor',
+                cursor: 'pointer',
+                fontSize: 13,
+                lineHeight: 1,
+                padding: '0 2px',
+                opacity: 0.7,
+                flexShrink: 0,
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
       </div>
       {scrolledUp && (
         <button

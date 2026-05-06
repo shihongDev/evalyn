@@ -136,8 +136,17 @@ export default function CoPilotThread() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { threadId, messages, pending, status, error, send, confirm, resetTo } =
-    useCoPilotThread({ initialThreadId: routeThreadId });
+  const {
+    threadId,
+    messages,
+    pending,
+    status,
+    error,
+    send,
+    confirm,
+    resetTo,
+    clearError,
+  } = useCoPilotThread({ initialThreadId: routeThreadId });
 
   const [draft, setDraft] = useState('');
   const [historyTick, setHistoryTick] = useState(0);
@@ -595,6 +604,7 @@ export default function CoPilotThread() {
                 messages[messages.length - 1].role === 'you' && <ThinkingBubble />}
               {error && (
                 <div
+                  role="alert"
                   style={{
                     marginTop: 12,
                     padding: '10px 14px',
@@ -604,9 +614,30 @@ export default function CoPilotThread() {
                     color: E.fail,
                     fontSize: 12.5,
                     fontFamily: E.fMono,
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 8,
                   }}
                 >
-                  {error}
+                  <span style={{ flex: 1, lineHeight: 1.5 }}>{error}</span>
+                  <button
+                    type="button"
+                    onClick={clearError}
+                    aria-label="Dismiss error"
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'currentColor',
+                      cursor: 'pointer',
+                      fontSize: 14,
+                      lineHeight: 1,
+                      padding: '0 2px',
+                      opacity: 0.7,
+                      flexShrink: 0,
+                    }}
+                  >
+                    ×
+                  </button>
                 </div>
               )}
             </div>
