@@ -253,7 +253,12 @@ export default function CoPilotThread() {
 
   // Auto-scroll to the bottom on new messages / streaming updates,
   // unless the user has scrolled up to read history.
-  const { scrollRef: convRef, onScroll: onConvScroll } = useStickToBottom(messages);
+  const {
+    scrollRef: convRef,
+    onScroll: onConvScroll,
+    scrolledUp,
+    jumpToBottom,
+  } = useStickToBottom(messages);
 
   return (
     <AppShell hideCoPilot breadcrumb={['Co-pilot', activeTitle]}>
@@ -492,6 +497,15 @@ export default function CoPilotThread() {
           </div>
 
           <div
+            style={{
+              position: 'relative',
+              flex: 1,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+          <div
             ref={convRef}
             onScroll={onConvScroll}
             style={{ flex: 1, overflowY: 'auto', padding: '24px 36px' }}
@@ -574,6 +588,34 @@ export default function CoPilotThread() {
                 </div>
               )}
             </div>
+          </div>
+          {scrolledUp && (
+            <button
+              type="button"
+              onClick={jumpToBottom}
+              aria-label="Jump to latest message"
+              style={{
+                position: 'absolute',
+                bottom: 16,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                padding: '6px 14px',
+                borderRadius: 999,
+                background: E.ember,
+                color: E.emberInk,
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: 11.5,
+                fontFamily: E.fMono,
+                fontWeight: 500,
+                boxShadow: `0 6px 18px rgba(217,106,44,0.32)`,
+                zIndex: 5,
+                animation: 'eRouteFallbackFadeIn 200ms ease',
+              }}
+            >
+              ↓ Jump to latest
+            </button>
+          )}
           </div>
 
           {/* Composer */}

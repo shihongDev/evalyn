@@ -119,7 +119,12 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
 
   // Auto-scroll the dock conversation pane on new messages / streaming
   // updates. Same hook as the full /copilot route, smaller container.
-  const { scrollRef: convRef, onScroll: onConvScroll } = useStickToBottom(messages);
+  const {
+    scrollRef: convRef,
+    onScroll: onConvScroll,
+    scrolledUp,
+    jumpToBottom,
+  } = useStickToBottom(messages);
 
   // Per-mode wrapper styles. The dock body markup itself is identical across
   // modes; only positioning + animation change here.
@@ -251,6 +256,15 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
       </div>
 
       <div
+        style={{
+          position: 'relative',
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+      <div
         ref={convRef}
         onScroll={onConvScroll}
         style={{ flex: 1, overflowY: 'auto', padding: '18px 18px 8px' }}
@@ -309,6 +323,35 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
             )}
           </Bubble>
         ))}
+      </div>
+      {scrolledUp && (
+        <button
+          type="button"
+          onClick={jumpToBottom}
+          aria-label="Jump to latest message"
+          style={{
+            position: 'absolute',
+            bottom: 12,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '5px 12px',
+            borderRadius: 999,
+            background: E.ember,
+            color: E.emberInk,
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: 11,
+            fontFamily: E.fMono,
+            fontWeight: 500,
+            boxShadow: `0 6px 18px rgba(217,106,44,0.32)`,
+            zIndex: 5,
+            animation: 'eRouteFallbackFadeIn 200ms ease',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          ↓ Jump to latest
+        </button>
+      )}
       </div>
 
       <div style={{ padding: 14, borderTop: `1px solid ${E.hair}` }}>
