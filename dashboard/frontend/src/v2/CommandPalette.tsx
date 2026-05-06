@@ -317,9 +317,22 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     return [...cmdsTop, ...runsTop, ...datasetsTop, ...rubricsTop];
   }, [allEntries, datasets, rubrics]);
 
-  const filtered = useMemo<Entry[]>(() => {
+  // Filtered list + total match count. We cap visible rows at MAX_VISIBLE
+  // for cheap rendering, but expose the uncapped totalMatches so the
+  // header can show "50 of 173" instead of just "50" - users with large
+  // command/run libraries otherwise can't tell if they're seeing all
+  // matches or just the first slice.
+  const { filtered, totalMatches } = useMemo<{
+    filtered: Entry[];
+    totalMatches: number;
+  }>(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return defaultEntries.slice(0, MAX_VISIBLE);
+    if (!needle) {
+      return {
+        filtered: defaultEntries.slice(0, MAX_VISIBLE),
+        totalMatches: defaultEntries.length,
+      };
+    }
 
     type Scored = { e: Entry; rank: number };
     const scored: Scored[] = [];
@@ -348,7 +361,10 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       if (a.e.kindOrder !== b.e.kindOrder) return a.e.kindOrder - b.e.kindOrder;
       return a.e.label.localeCompare(b.e.label);
     });
-    return scored.slice(0, MAX_VISIBLE).map((s) => s.e);
+    return {
+      filtered: scored.slice(0, MAX_VISIBLE).map((s) => s.e),
+      totalMatches: scored.length,
+    };
   }, [query, allEntries, defaultEntries]);
 
   // Clamp the active index when the list changes.
@@ -498,8 +514,17 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
               fontFamily: E.fSans,
             }}
           />
-          <span style={{ fontFamily: E.fMono, fontSize: 10, color: E.text3 }}>
-            {flat.length}
+          <span
+            style={{ fontFamily: E.fMono, fontSize: 10, color: E.text3 }}
+            title={
+              totalMatches > MAX_VISIBLE
+                ? `Showing the top ${MAX_VISIBLE} of ${totalMatches} matches. Refine the query to see more.`
+                : undefined
+            }
+          >
+            {totalMatches > MAX_VISIBLE
+              ? `${flat.length} of ${totalMatches}`
+              : flat.length}
           </span>
         </div>
 
