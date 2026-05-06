@@ -1104,8 +1104,26 @@ export default function AnnotateSession() {
   // item, jump to the first matching item from current cursor (search
   // forward first, then wrap to start). If nothing matches we leave
   // cursor in place and the no-match notice in the render handles the rest.
+  // Also announces the new visible count to screen readers.
   useEffect(() => {
     if (items.length === 0) return;
+    // Compute matches up-front so we can announce even when cursor
+    // is already on a matching item (no jump needed).
+    const matchCount = items.reduce(
+      (n, it) => (matchesVisible(it) ? n + 1 : n),
+      0,
+    );
+    const filterActive = filter !== 'all' || searchQuery !== '';
+    if (filterActive) {
+      const label = searchQuery
+        ? `search "${searchQuery}"${filter !== 'all' ? ` and ${filter}` : ''}`
+        : filter;
+      setAriaStatus(
+        `Showing ${matchCount} of ${items.length} items matching ${label}`,
+      );
+    } else {
+      setAriaStatus(`Showing all ${items.length} items`);
+    }
     if (matchesVisible(items[cursor])) return;
     let idx = -1;
     for (let i = cursor + 1; i < items.length; i++) {
@@ -1148,6 +1166,14 @@ export default function AnnotateSession() {
   // in two places at once (header badge + scrubber position). Auto-
   // clears after the keyframe runs so a re-render doesn't replay it.
   const [lastSavedItemId, setLastSavedItemId] = useState<string | null>(null);
+
+  // Sparse aria-live announcements for screen readers. Sighted users
+  // get the Saved badge + scrubber pulse + filter chip animation;
+  // SR users need an audible signal for the same events. Polite
+  // (queues, doesn't interrupt) and atomic (read whole message).
+  // Updated only for high-signal events: save, bulk save complete,
+  // filter change. Skips noisy events (hover, cycle, nav).
+  const [ariaStatus, setAriaStatus] = useState('');
   useEffect(() => {
     if (!lastSavedItemId) return;
     const t = setTimeout(() => setLastSavedItemId(null), 1200);
@@ -1459,6 +1485,7 @@ export default function AnnotateSession() {
         // Pulse the matching scrubber dot for visual confirmation
         // tied to position-in-session, not just the header badge.
         setLastSavedItemId(currentItem.item_id);
+        setAriaStatus(`Saved item ${cursor + 1} of ${items.length}`);
         // Capture per-item wall-clock for the avg/ETA header chip.
         const now = Date.now();
         const deltaSec = (now - lastSaveAtRef.current) / 1000;
@@ -1544,17 +1571,28 @@ export default function AnnotateSession() {
     if (toSave.length === 0) return;
     setSaveAllProgress({ done: 0, total: toSave.length });
     setSubmitErr(null);
+    let savedCount = 0;
     for (let i = 0; i < toSave.length; i++) {
       const ok = await saveItem(toSave[i]);
       if (!ok) {
         setSubmitErr(`Save All stopped at ${i + 1}/${toSave.length}.`);
         break;
       }
-      setSaveAllProgress({ done: i + 1, total: toSave.length });
+      savedCount = i + 1;
+      setSaveAllProgress({ done: savedCount, total: toSave.length });
     }
     void refetchSession();
     void refetchItems();
     setSavedTick((t) => t + 1);
+    if (savedCount === toSave.length) {
+      setAriaStatus(
+        `Saved ${savedCount} item${savedCount === 1 ? '' : 's'} in bulk`,
+      );
+    } else {
+      setAriaStatus(
+        `Bulk save stopped after ${savedCount} of ${toSave.length} items`,
+      );
+    }
     // Hold the final progress text briefly so the user sees the
     // completion state, then clear.
     window.setTimeout(() => setSaveAllProgress(null), 800);
@@ -2140,6 +2178,28 @@ export default function AnnotateSession() {
 
   return (
     <AppShell breadcrumb={['Annotate', `${session.source_kind}:${session.source_id}`]}>
+      {/* Visually-hidden live region for screen readers. Announces
+          high-signal events (saves, bulk save, filter change). The
+          clip technique keeps it in the accessibility tree without
+          taking visual space. */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        style={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          padding: 0,
+          margin: -1,
+          overflow: 'hidden',
+          clip: 'rect(0,0,0,0)',
+          whiteSpace: 'nowrap',
+          border: 0,
+        }}
+      >
+        {ariaStatus}
+      </div>
       <div style={{ padding: '24px 36px 30px', maxWidth: 1100 }}>
         {/* HEADER */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
