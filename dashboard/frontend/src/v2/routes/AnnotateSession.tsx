@@ -3497,7 +3497,7 @@ export default function AnnotateSession() {
                 Item {cursor + 1} of {items.length}
                 {hasUnsavedChanges && (
                   <span
-                    title="You have unsaved verdict changes for this item. Press N or ⌘/Ctrl+S to save."
+                    title={`You have unsaved verdict changes for this item. Press N or ${MOD_KEY_LABEL}+S to save.`}
                     style={{ color: E.ember, marginLeft: 4, fontSize: 14, lineHeight: 0 }}
                     aria-label="Unsaved changes"
                   >

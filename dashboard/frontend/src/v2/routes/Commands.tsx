@@ -2,15 +2,14 @@
  * Commands - browseable index of every evalyn CLI subcommand.
  *
  * Reads `GET /api/cli` (the introspected catalog) and groups the result by
- * `group`. Each row offers a "Ask co-pilot ->" shortcut that navigates to
- * the co-pilot route. We intentionally do NOT build a CLI form runner here -
- * the user can run read-only commands through the co-pilot, and writes get a
- * confirmation prompt there.
+ * `group`. Two actions per row:
+ *   - "Ask co-pilot ->" navigates to /copilot?prefill=<question> so the
+ *     thread composer opens pre-seeded.
+ *   - "Run" opens the in-page CLI runner sheet.
  *
- * Lane 2 owns CoPilotThread.tsx; coordinate with them OR fall back to anchor
- * + hash. For the v2 first cut we just navigate to /copilot without a
- * prefill query - users type the question themselves.
- * TODO: prefill the composer once CoPilotThread reads ?prefill=
+ * Deep-link form: /commands?prefill=<cmd-id>&<param>=<value>... auto-opens
+ * the runner with the supplied initial values, then strips the params so a
+ * refresh doesn't re-fire.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';

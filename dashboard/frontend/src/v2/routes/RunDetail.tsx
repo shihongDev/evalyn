@@ -1516,10 +1516,25 @@ function ItemsCompareTab({
       </div>
 
       {visibleRows.length === 0 ? (
-        <Card style={{ padding: 24 }}>
-          <div style={{ fontSize: 13, color: E.text2 }}>
-            No items match this filter.
+        <Card
+          style={{
+            padding: 18,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
+          <div style={{ flex: 1, fontSize: 13, color: E.text2 }}>
+            No items in the <b style={{ color: E.ember }}>{filter}</b> bucket.
+            <div style={{ fontSize: 11, color: E.text3, marginTop: 2, fontFamily: E.fMono }}>
+              {allRows.length} row{allRows.length === 1 ? '' : 's'} total - try a different filter.
+            </div>
           </div>
+          {filter !== 'all' && (
+            <Btn kind="secondary" size="sm" onClick={() => setFilter('all')}>
+              Show all
+            </Btn>
+          )}
         </Card>
       ) : (
         <Card style={{ padding: 0, overflow: 'hidden' }}>
@@ -1980,8 +1995,25 @@ function ItemsTab({ runId }: ItemsTabProps) {
       </div>
 
       {data.total === 0 ? (
-        <Card style={{ padding: 24 }}>
-          <div style={{ fontSize: 13, color: E.text2 }}>No items match this filter.</div>
+        <Card
+          style={{
+            padding: 18,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
+          <div style={{ flex: 1, fontSize: 13, color: E.text2 }}>
+            No items match the <b style={{ color: E.ember }}>{filter}</b> filter.
+            <div style={{ fontSize: 11, color: E.text3, marginTop: 2, fontFamily: E.fMono }}>
+              Try switching to "All" to see every item.
+            </div>
+          </div>
+          {filter !== 'all' && (
+            <Btn kind="secondary" size="sm" onClick={() => changeFilter('all')}>
+              Show all
+            </Btn>
+          )}
         </Card>
       ) : (
         <Card style={{ padding: 0, overflow: 'hidden' }}>
@@ -2021,8 +2053,22 @@ function ItemsTab({ runId }: ItemsTabProps) {
           </div>
 
           {visibleItems.length === 0 ? (
-            <div style={{ padding: 18, fontSize: 12.5, color: E.text3 }}>
-              No items match the search.
+            <div
+              style={{
+                padding: 18,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              <div style={{ flex: 1, fontSize: 12.5, color: E.text3 }}>
+                No items match{' '}
+                <b style={{ color: E.ember, fontFamily: E.fMono }}>"{search}"</b>
+                {' '}on this page.
+              </div>
+              <Btn kind="secondary" size="sm" onClick={() => setSearch('')}>
+                Clear search
+              </Btn>
             </div>
           ) : (
             visibleItems.map((it) => {
