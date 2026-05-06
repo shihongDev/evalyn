@@ -3,7 +3,7 @@
  * Wires v2.cluster(runId, clusterId) into the design from screens-4.jsx.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Bar, Btn, Card, Eyebrow, Glossary, LineChart, Pill, Skeleton, UpdatingChip } from '../ui';
@@ -13,6 +13,65 @@ import { useV2Resource } from '../hooks/useV2Resource';
 import { useProject } from '../hooks/useProject';
 import { linkifyText, makeUrlCounter } from '../textRender';
 import { E } from '../tokens';
+
+/** Render the cluster as portable markdown - label, prose pattern,
+ * trigger phrases, item table, and suggested fix if present. The output
+ * pastes cleanly into Slack, Notion, GitHub issues, or email. */
+function clusterToMarkdown(d: ClusterDetail, runId: string): string {
+  const lines: string[] = [];
+  lines.push(`# ${d.label}`);
+  lines.push('');
+  lines.push(`Run \`${runId}\` - ${d.total_in_cluster} of ${d.total_failures_in_run} failures`);
+  if (d.total_items_in_run > 0) {
+    const pct = ((d.total_in_cluster / d.total_items_in_run) * 100).toFixed(1);
+    lines.push(`(${pct}% of all items in this run)`);
+  }
+  lines.push('');
+  lines.push('## Pattern');
+  lines.push(d.pattern.trim());
+  lines.push('');
+  if (d.triggers.length > 0) {
+    lines.push('## Trigger phrases');
+    for (const t of d.triggers) lines.push(`- "${t.phrase}" (${t.count}x)`);
+    lines.push('');
+  }
+  if (d.items.length > 0) {
+    lines.push(`## Failed items (${d.items.length})`);
+    lines.push('');
+    lines.push('| ID | Input | Output | Metric | Score |');
+    lines.push('|---|---|---|---|---|');
+    for (const it of d.items) {
+      const u = it.user.replaceAll('|', '\\|').replaceAll('\n', ' ');
+      const o = it.hallucinated.replaceAll('|', '\\|').replaceAll('\n', ' ');
+      lines.push(`| ${it.id} | ${u} | ${o} | ${it.tier} | ${it.score.toFixed(2)} |`);
+    }
+    lines.push('');
+  }
+  if (d.suggested_fix) {
+    lines.push('## Co-pilot\'s suggested fix');
+    lines.push(d.suggested_fix.body_md.trim());
+    lines.push('');
+    lines.push(
+      `_Estimated impact: ${d.suggested_fix.estimated_impact} - cost ${d.suggested_fix.cost} - duration ${d.suggested_fix.duration}_`,
+    );
+  }
+  return lines.join('\n');
+}
+
+async function copyToClipboard(text: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+}
 
 export default function FailureCluster() {
   const params = useParams<{ runId: string; clusterId: string }>();
@@ -29,6 +88,36 @@ export default function FailureCluster() {
     `cluster:${runId}:${clusterId}`,
     fetcher,
   );
+
+  // Per-button copy state. Two buttons share the pattern: bundle-as-md
+  // for the whole cluster, and copy the suggested fix prose alone. Each
+  // flips its own label briefly so the user gets affordance feedback.
+  const [bundleCopy, setBundleCopy] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [fixCopy, setFixCopy] = useState<'idle' | 'copied' | 'error'>('idle');
+
+  async function handleCopyBundle() {
+    if (!data) return;
+    try {
+      await copyToClipboard(clusterToMarkdown(data, runId));
+      setBundleCopy('copied');
+      window.setTimeout(() => setBundleCopy('idle'), 2000);
+    } catch {
+      setBundleCopy('error');
+      window.setTimeout(() => setBundleCopy('idle'), 3000);
+    }
+  }
+
+  async function handleCopyFix() {
+    if (!data?.suggested_fix) return;
+    try {
+      await copyToClipboard(data.suggested_fix.body_md.trim());
+      setFixCopy('copied');
+      window.setTimeout(() => setFixCopy('idle'), 2000);
+    } catch {
+      setFixCopy('error');
+      window.setTimeout(() => setFixCopy('idle'), 3000);
+    }
+  }
 
   const triggerMax = data ? Math.max(...data.triggers.map((t) => t.count), 1) : 1;
   const trendMax = data?.trend.y_max ?? 20;
@@ -233,18 +322,20 @@ export default function FailureCluster() {
                 <Btn
                   kind="ghost"
                   size="sm"
-                  disabled
-                  title="Coming soon - push these failed items to the human review queue"
+                  onClick={() => void handleCopyBundle()}
+                  title={
+                    bundleCopy === 'copied'
+                      ? 'Cluster bundle on clipboard'
+                      : bundleCopy === 'error'
+                        ? 'Browser blocked clipboard access'
+                        : 'Copy this cluster (label, pattern, items, suggested fix) as markdown - paste into Slack, Notion, or a GitHub issue'
+                  }
                 >
-                  Send to review queue
-                </Btn>
-                <Btn
-                  kind="ghost"
-                  size="sm"
-                  disabled
-                  title="Coming soon - per-cluster export; today, use `evalyn export` from the CLI"
-                >
-                  Export
+                  {bundleCopy === 'copied'
+                    ? '✓ Copied'
+                    : bundleCopy === 'error'
+                      ? '✗ Failed'
+                      : 'Copy as markdown'}
                 </Btn>
               </div>
               <div
@@ -359,31 +450,42 @@ export default function FailureCluster() {
                 >
                   Estimated impact: {data.suggested_fix.estimated_impact}
                 </div>
-                <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
+                <div
+                  style={{
+                    marginTop: 14,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                  }}
+                >
                   <Btn
                     kind="primary"
                     size="md"
-                    disabled
-                    title="Coming soon - the co-pilot suggested-fix runner isn't wired yet"
+                    onClick={() => void handleCopyFix()}
+                    title={
+                      fixCopy === 'copied'
+                        ? 'Fix on clipboard'
+                        : fixCopy === 'error'
+                          ? 'Browser blocked clipboard access'
+                          : 'Copy this suggested fix to your clipboard - paste into a PR description, ticket, or Slack thread'
+                    }
                   >
-                    Run draft eval ({data.suggested_fix.cost}, {data.suggested_fix.duration}) -&gt;
+                    {fixCopy === 'copied'
+                      ? '✓ Copied'
+                      : fixCopy === 'error'
+                        ? '✗ Failed'
+                        : 'Copy fix'}
                   </Btn>
-                  <Btn
-                    kind="secondary"
-                    size="md"
-                    disabled
-                    title="Coming soon - inline diff view for proposed prompt/code changes"
+                  <span
+                    style={{
+                      fontSize: 11.5,
+                      color: E.text3,
+                      fontFamily: E.fMono,
+                    }}
                   >
-                    Review the change
-                  </Btn>
-                  <Btn
-                    kind="bare"
-                    size="md"
-                    disabled
-                    title="Coming soon - show the equivalent `evalyn` CLI invocation"
-                  >
-                    Show as command
-                  </Btn>
+                    Apply manually then re-run via the experiment header
+                  </span>
                 </div>
               </Card>
             )}
