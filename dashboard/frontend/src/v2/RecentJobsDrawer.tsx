@@ -187,6 +187,24 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
     onClose();
   };
 
+  // Re-run path: open the CliRunner pre-filled with the entry's args
+  // but WITHOUT a resumeJobId, so the user lands on the form ready for
+  // a fresh launch (one Run click away). Skipping the catalog stub
+  // path here because re-run requires a real schema to render the
+  // form - if the cli_id is gone from the catalog we just fall back
+  // to the resume row click (which can show the cached output).
+  const onRerun = (entry: JobHistoryEntry) => {
+    const cli = cliCatalog?.find((c) => c.id === entry.cli_id);
+    if (!cli) {
+      onRowClick(entry);
+      return;
+    }
+    openCliRunner(cli, {
+      initialValues: entry.cli_args,
+    });
+    onClose();
+  };
+
   if (!open) return null;
 
   return (
@@ -239,7 +257,12 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
             <FilterEmptyState />
           ) : (
             visibleEntries.map((e) => (
-              <JobRow key={e.job_id} entry={e} onClick={() => onRowClick(e)} />
+              <JobRow
+                key={e.job_id}
+                entry={e}
+                onClick={() => onRowClick(e)}
+                onRerun={() => onRerun(e)}
+              />
             ))
           )}
         </div>
@@ -490,28 +513,35 @@ function FilterEmptyState() {
 interface JobRowProps {
   entry: JobHistoryEntry;
   onClick: () => void;
+  /** "Re-run" handler: open the runner with this row's args pre-filled
+   * but no resumeJobId, so the user gets the form ready for a fresh
+   * launch. Hidden for running/queued rows (they already have a live
+   * job) and for the unknown-eviction state. */
+  onRerun?: () => void;
 }
 
-function JobRow({ entry, onClick }: JobRowProps) {
+function JobRow({ entry, onClick, onRerun }: JobRowProps) {
   const dim = entry.status === 'unknown';
   const pill = statusPillFor(entry.status);
   const rel = useMemo(() => relativeTime(entry.started_at_iso), [entry.started_at_iso]);
+  // Re-run only makes sense for terminal rows the user can rerun. We
+  // hide it for queued/running (live job already exists) and for
+  // unknown (backend lost the record - the cli_args we cached should
+  // still work, but the status is suspect, so skip rather than risk
+  // surprising the user with an unexpected fresh launch).
+  const canRerun =
+    onRerun != null &&
+    (entry.status === 'complete' ||
+      entry.status === 'failed' ||
+      entry.status === 'cancelled');
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       style={{
         display: 'flex',
-        alignItems: 'flex-start',
-        gap: 10,
+        alignItems: 'stretch',
         width: '100%',
-        padding: '10px 18px',
-        background: 'transparent',
-        border: 'none',
         borderBottom: `1px solid ${E.hair}`,
-        textAlign: 'left',
-        cursor: 'pointer',
         opacity: dim ? 0.6 : 1,
       }}
       onMouseEnter={(e) => {
@@ -520,61 +550,113 @@ function JobRow({ entry, onClick }: JobRowProps) {
       onMouseLeave={(e) => {
         e.currentTarget.style.background = 'transparent';
       }}
-      title={dim ? 'Backend evicted this job (server restart?)' : entry.job_id}
     >
-      <div style={{ paddingTop: 4, flexShrink: 0 }}>
-        <StatusDot
-          status={dotStatusFor(entry.status)}
-          animated={entry.status === 'running'}
-        />
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            fontFamily: E.fMono,
-            fontSize: 12.5,
-            color: E.text0,
-            fontWeight: 500,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {entry.cli_id}
+      <button
+        type="button"
+        onClick={onClick}
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 10,
+          flex: 1,
+          minWidth: 0,
+          padding: '10px 18px',
+          background: 'transparent',
+          border: 'none',
+          textAlign: 'left',
+          cursor: 'pointer',
+          color: 'inherit',
+        }}
+        title={dim ? 'Backend evicted this job (server restart?)' : entry.job_id}
+      >
+        <div style={{ paddingTop: 4, flexShrink: 0 }}>
+          <StatusDot
+            status={dotStatusFor(entry.status)}
+            animated={entry.status === 'running'}
+          />
         </div>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            marginTop: 3,
-            fontSize: 11,
-            color: E.text3,
-          }}
-        >
-          <span>{rel}</span>
-          {entry.duration && (
-            <>
-              <span style={{ color: E.text4 }}>·</span>
-              <span style={{ fontFamily: E.fMono }}>
-                {formatDuration(entry.duration)}
-              </span>
-            </>
-          )}
-          {entry.exit_code !== undefined &&
-            entry.exit_code !== null &&
-            entry.status !== 'running' && (
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontFamily: E.fMono,
+              fontSize: 12.5,
+              color: E.text0,
+              fontWeight: 500,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {entry.cli_id}
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              marginTop: 3,
+              fontSize: 11,
+              color: E.text3,
+            }}
+          >
+            <span>{rel}</span>
+            {entry.duration && (
               <>
                 <span style={{ color: E.text4 }}>·</span>
-                <span style={{ fontFamily: E.fMono }}>exit {entry.exit_code}</span>
+                <span style={{ fontFamily: E.fMono }}>
+                  {formatDuration(entry.duration)}
+                </span>
               </>
             )}
+            {entry.exit_code !== undefined &&
+              entry.exit_code !== null &&
+              entry.status !== 'running' && (
+                <>
+                  <span style={{ color: E.text4 }}>·</span>
+                  <span style={{ fontFamily: E.fMono }}>exit {entry.exit_code}</span>
+                </>
+              )}
+          </div>
         </div>
-      </div>
-      <Pill mono color={pill.color} bg={pill.bg}>
-        {pill.label}
-      </Pill>
-    </button>
+        <Pill mono color={pill.color} bg={pill.bg}>
+          {pill.label}
+        </Pill>
+      </button>
+      {canRerun && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRerun!();
+          }}
+          aria-label={`Re-run ${entry.cli_id} with the same arguments`}
+          title="Re-run with the same args"
+          style={{
+            flexShrink: 0,
+            width: 36,
+            border: 'none',
+            background: 'transparent',
+            color: E.text3,
+            cursor: 'pointer',
+            fontSize: 14,
+            lineHeight: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onMouseEnter={(e) => {
+            // Brighten on hover so it reads as actionable, distinct
+            // from the row's own (panel2) hover background.
+            e.currentTarget.style.color = E.text0;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = E.text3;
+          }}
+        >
+          ↻
+        </button>
+      )}
+    </div>
   );
 }
 
