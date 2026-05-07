@@ -436,6 +436,7 @@ function CoverageCard({
     >
       <Card
         hover
+        aria-label={`Open dataset ${row.name}`}
         onClick={() => onOpen(row.name)}
         style={{
           padding: 14,

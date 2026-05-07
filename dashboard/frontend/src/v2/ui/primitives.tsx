@@ -6,6 +6,8 @@
 import type {
   CSSProperties,
   FocusEventHandler,
+  KeyboardEventHandler,
+  MouseEvent as ReactMouseEvent,
   MouseEventHandler,
   ReactNode,
 } from 'react';
@@ -18,6 +20,12 @@ interface CardProps {
   hover?: boolean;
   accent?: boolean;
   onClick?: MouseEventHandler<HTMLDivElement>;
+  /** Accessible name when the card itself is the action (i.e. has
+   * `onClick`). Required for SR users to know what activating the
+   * card does - especially when the visible card content is a chart
+   * or icon rather than a sentence. Ignored when `onClick` is unset
+   * (a non-interactive card has no need for an aria-label). */
+  'aria-label'?: string;
   /** Optional coachmark id for the co-pilot UI guidance tour to anchor on. */
   'data-coachmark'?: string;
 }
@@ -29,11 +37,30 @@ export function Card({
   hover,
   accent,
   onClick,
+  'aria-label': ariaLabel,
   'data-coachmark': dataCoachmark,
 }: CardProps) {
+  // When the card itself is the click target, expose it as a button
+  // to AT and add Enter/Space activation so keyboard users can reach
+  // and trigger it. Without this the card was effectively
+  // mouse-only - tab skipped right past it.
+  const interactive = Boolean(onClick);
+  const onKeyDown: KeyboardEventHandler<HTMLDivElement> | undefined = interactive
+    ? (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          // Stop space from scrolling the page; mirror the click path.
+          e.preventDefault();
+          onClick?.(e as unknown as ReactMouseEvent<HTMLDivElement>);
+        }
+      }
+    : undefined;
   return (
     <div
       onClick={onClick}
+      onKeyDown={onKeyDown}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      aria-label={interactive ? ariaLabel : undefined}
       data-coachmark={dataCoachmark}
       // .eCardHover lifts the card on hover via box-shadow and a 1 px
       // upward translate. Box-shadow is intentionally chosen over a

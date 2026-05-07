@@ -134,6 +134,13 @@ function JudgeProgressRing({
   return (
     <Card
       hover
+      aria-label={`Judge ${ring.name}: ${
+        ring.done
+          ? 'trusted'
+          : ring.low
+            ? 'needs work'
+            : `${ring.need} more annotations to threshold`
+      }${active ? ', currently selected' : ''}. Click to select.`}
       style={{
         padding: 14,
         borderColor,
