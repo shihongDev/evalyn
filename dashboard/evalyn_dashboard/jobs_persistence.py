@@ -68,7 +68,8 @@ CREATE TABLE IF NOT EXISTS jobs (
   ended_at_iso TEXT,
   duration_s REAL,
   stdout_tail TEXT NOT NULL DEFAULT '',
-  stderr_tail TEXT NOT NULL DEFAULT ''
+  stderr_tail TEXT NOT NULL DEFAULT '',
+  stderr_count INTEGER NOT NULL DEFAULT 0
 );
 """
 
@@ -76,6 +77,14 @@ _INDEX = (
     "CREATE INDEX IF NOT EXISTS idx_jobs_started_at "
     "ON jobs(started_at_iso DESC);"
 )
+
+# Forward migrations for installations whose jobs.sqlite predates a
+# new column. Each entry is the ALTER statement; we catch sqlite3
+# OperationalError "duplicate column name" so re-running on an
+# already-migrated DB is a no-op. Order matters - newest at the bottom.
+_MIGRATIONS = [
+    "ALTER TABLE jobs ADD COLUMN stderr_count INTEGER NOT NULL DEFAULT 0;",
+]
 
 
 class JobPersistence:
@@ -105,6 +114,21 @@ class JobPersistence:
             with self._connect() as conn:
                 conn.execute(_SCHEMA)
                 conn.execute(_INDEX)
+                # Forward migrations for older installations. Each ALTER
+                # is wrapped in its own try/except so a "duplicate column
+                # name" error (already migrated) is silently ignored, and
+                # an unrelated failure on one migration does not abort
+                # the others. New columns get NOT NULL DEFAULT so existing
+                # rows back-fill automatically.
+                for stmt in _MIGRATIONS:
+                    try:
+                        conn.execute(stmt)
+                    except sqlite3.OperationalError as exc:
+                        msg = str(exc).lower()
+                        if "duplicate column name" not in msg:
+                            logger.warning(
+                                "JobPersistence migration skipped (%s): %s", exc, stmt
+                            )
                 # WAL gives better concurrent read behaviour. Set once.
                 try:
                     conn.execute("PRAGMA journal_mode=WAL;")
@@ -125,15 +149,27 @@ class JobPersistence:
         return conn
 
     def _readable(self) -> bool:
-        """Return True iff the DB file already exists (read-only operations)."""
+        """Return True iff the DB file already exists (read-only operations).
+
+        When the file exists but our schema is not yet marked ready, we
+        still trigger ``_ensure_schema()`` so any forward migrations run
+        BEFORE the first read. Without this, an older jobs.sqlite would
+        be read with the old schema (missing newer columns) until a
+        write path forced the migration.
+        """
         if self._disabled:
             return False
         if self._schema_ready:
             return True
         try:
-            return self.db_path.exists()
+            if not self.db_path.exists():
+                return False
         except OSError:
             return False
+        # File exists but not yet migrated. Run schema + migrations now
+        # so the read sees the up-to-date column set. _ensure_schema is
+        # idempotent and self-disables on hard failure.
+        return self._ensure_schema()
 
     # ------------------------------------------------------------------
     # Writes
@@ -182,19 +218,35 @@ class JobPersistence:
         exit_code: int | None = None,
         ended_at_iso: str | None = None,
         duration_s: float | None = None,
+        stderr_count: int | None = None,
     ) -> None:
-        """Patch terminal-state fields for an existing row."""
+        """Patch terminal-state fields for an existing row.
+
+        ``stderr_count`` is optional: when provided, it overwrites the
+        column. Pass ``None`` to leave the existing value untouched
+        (e.g. mid-run patches that don't yet know the final count).
+        """
         if not self._ensure_schema():
             return
         try:
             with self._connect() as conn:
+                if stderr_count is None:
+                    conn.execute(
+                        """
+                        UPDATE jobs
+                           SET status=?, exit_code=?, ended_at_iso=?, duration_s=?
+                         WHERE job_id=?
+                        """,
+                        (status, exit_code, ended_at_iso, duration_s, job_id),
+                    )
+                    return
                 conn.execute(
                     """
                     UPDATE jobs
-                       SET status=?, exit_code=?, ended_at_iso=?, duration_s=?
+                       SET status=?, exit_code=?, ended_at_iso=?, duration_s=?, stderr_count=?
                      WHERE job_id=?
                     """,
-                    (status, exit_code, ended_at_iso, duration_s, job_id),
+                    (status, exit_code, ended_at_iso, duration_s, stderr_count, job_id),
                 )
         except (OSError, sqlite3.Error) as exc:
             logger.warning("JobPersistence patch_status(%s) failed: %s", job_id, exc)

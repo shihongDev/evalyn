@@ -309,3 +309,87 @@ def test_persistence_gc_no_op_when_persistence_disabled() -> None:
     jm._persist_gc_maybe()
     jm._persist_gc_maybe()
     jm._persist_gc_maybe()
+
+
+# ---------------------------------------------------------------------------
+# Test 7: stderr_count persisted across runs and surfaces in get/list_recent
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_persistence_stores_stderr_count(tmp_path: Path) -> None:
+    """JobManager passes stderr_count to JobPersistence on terminal status;
+    a fresh JobPersistence reading the same DB returns it via get() and
+    list_recent()."""
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+    jm = JobManager(persistence=persistence)
+
+    job_id = await jm.spawn(
+        [
+            sys.executable,
+            "-c",
+            "import sys\n"
+            "for i in range(4):\n"
+            "    sys.stderr.write(f'err {i}\\n')\n",
+        ]
+    )
+    await jm.wait(job_id, timeout=5)
+
+    # In-memory says 4. Persistence should have it too.
+    job = jm.get(job_id)
+    assert job is not None
+    assert job.stderr_count == 4
+
+    fresh = JobPersistence(db_path=db)
+    row = fresh.get(job_id)
+    assert row is not None
+    assert row.get("stderr_count") == 4
+
+
+def test_persistence_migrates_stderr_count_into_existing_db(tmp_path: Path) -> None:
+    """Older installations have a jobs.sqlite that predates the
+    stderr_count column. The forward-migration ALTER must run cleanly
+    on first load and back-fill 0 for existing rows."""
+    db = tmp_path / "jobs.sqlite"
+    # Hand-craft a legacy DB without the stderr_count column.
+    with sqlite3.connect(str(db)) as conn:
+        conn.execute(
+            """
+            CREATE TABLE jobs (
+              job_id TEXT PRIMARY KEY,
+              cli_id TEXT NOT NULL,
+              args_json TEXT NOT NULL,
+              cmd TEXT,
+              status TEXT NOT NULL,
+              exit_code INTEGER,
+              started_at_iso TEXT NOT NULL,
+              ended_at_iso TEXT,
+              duration_s REAL,
+              stdout_tail TEXT NOT NULL DEFAULT '',
+              stderr_tail TEXT NOT NULL DEFAULT ''
+            );
+            """
+        )
+        conn.execute(
+            "INSERT INTO jobs (job_id, cli_id, args_json, cmd, status, "
+            "started_at_iso) VALUES (?, ?, ?, ?, ?, ?)",
+            ("legacy-1", "x", "{}", "x", "complete", "2026-01-01T00:00:00.000000+00:00"),
+        )
+
+    # Loading the persistence should migrate the schema and the legacy
+    # row should now have stderr_count = 0 by virtue of the DEFAULT.
+    persistence = JobPersistence(db_path=db)
+    row = persistence.get("legacy-1")
+    assert row is not None
+    assert row.get("stderr_count") == 0
+
+    # And future writes should be able to set it.
+    persistence.patch_status(
+        job_id="legacy-1",
+        status="complete",
+        stderr_count=7,
+    )
+    row2 = persistence.get("legacy-1")
+    assert row2 is not None
+    assert row2.get("stderr_count") == 7

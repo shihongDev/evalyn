@@ -551,6 +551,7 @@ class JobManager:
                 exit_code=job.exit_code,
                 ended_at_iso=_iso_utc(job.ended_at) if job.ended_at else None,
                 duration_s=job.duration,
+                stderr_count=job.stderr_count,
             )
         except Exception as exc:  # noqa: BLE001 - never crash the reaper
             logger.warning("persist_job_terminal(%s) failed: %s", job.id, exc)
