@@ -794,6 +794,14 @@ export default function Datasets() {
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoErr, setDemoErr] = useState<string | null>(null);
   const handleLoadDemo = async () => {
+    // Guard same-frame double-clicks: the Btn is
+    // disabled={demoLoading} but React's batching means a rapid
+    // second click sees the OLD closure with demoLoading=false
+    // and would fire a second loadDemo() POST before the
+    // disabled state hits the DOM. Idempotency depends on the
+    // backend; bail here to avoid wasted bandwidth + duplicate
+    // import on backends that don't dedupe.
+    if (demoLoading) return;
     setDemoErr(null);
     setDemoLoading(true);
     try {

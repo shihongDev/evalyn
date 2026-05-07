@@ -606,7 +606,12 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
   const dirty = trimmedKey.length > 0 || model !== (state.model ?? '');
 
   async function handleSave() {
-    if (!dirty) return;
+    // Guard same-frame double-clicks: the Save button is
+    // disabled={!dirty || saving}, but React's batched state
+    // updates leave a same-frame second click able to slip
+    // through with the OLD closure (saving=false). Bail
+    // explicitly so a rapid second click is a no-op.
+    if (saving || !dirty) return;
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
