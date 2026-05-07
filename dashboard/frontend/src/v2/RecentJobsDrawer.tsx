@@ -21,7 +21,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { E } from './tokens';
 import { Btn, Eyebrow, Pill, StatusDot } from './ui';
-import { cancelJob, fetchJobStatus } from './api/jobs';
+import { cancelJob, fetchJobStatus, restartJob } from './api/jobs';
 import {
   clearJobsHistory,
   getJobsDrawerFailureFilter,
@@ -31,6 +31,7 @@ import {
   setFailureAckTime,
   setJobsDrawerFailureFilter,
   subscribeJobsHistory,
+  upsertJob,
   type JobHistoryEntry,
   type JobHistoryStatus,
 } from './jobsHistory';
@@ -208,22 +209,43 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
     onClose();
   };
 
-  // Re-run path: open the CliRunner pre-filled with the entry's args
-  // but WITHOUT a resumeJobId, so the user lands on the form ready for
-  // a fresh launch (one Run click away). Skipping the catalog stub
-  // path here because re-run requires a real schema to render the
-  // form - if the cli_id is gone from the catalog we just fall back
-  // to the resume row click (which can show the cached output).
-  const onRerun = (entry: JobHistoryEntry) => {
-    const cli = cliCatalog?.find((c) => c.id === entry.cli_id);
-    if (!cli) {
-      onRowClick(entry);
-      return;
+  // Re-run path: one-click via the server's POST /api/jobs/{id}/restart
+  // (added in tick 35). The server looks up the source's stored cli_id
+  // + args, rebuilds argv from the canonical args dict (NOT the lossy
+  // space-joined cmd string), and spawns a fresh subprocess. We
+  // optimistically upsert a 'running' history entry so the new row
+  // appears immediately; the runner / WS will fill in real status as
+  // events arrive.
+  //
+  // On API failure (404 because cli_id no longer in catalog, 409
+  // because source has no cli_id, network blip, etc.) we fall back to
+  // the original behavior: open the runner pre-filled so the user can
+  // either click Run as-is or tweak args first. This keeps the rare
+  // "edit before rerun" affordance reachable without cluttering the row
+  // with a second button.
+  const onRerun = async (entry: JobHistoryEntry) => {
+    try {
+      const { job_id: newId } = await restartJob(entry.job_id);
+      upsertJob({
+        job_id: newId,
+        cli_id: entry.cli_id,
+        cli_args: entry.cli_args,
+        started_at_iso: new Date().toISOString(),
+        status: 'running',
+      });
+      onClose();
+    } catch (err) {
+      console.warn('restartJob failed; falling back to prefill', err);
+      const cli = cliCatalog?.find((c) => c.id === entry.cli_id);
+      if (!cli) {
+        onRowClick(entry);
+        return;
+      }
+      openCliRunner(cli, {
+        initialValues: entry.cli_args,
+      });
+      onClose();
     }
-    openCliRunner(cli, {
-      initialValues: entry.cli_args,
-    });
-    onClose();
   };
 
   // Cancel path: send SIGTERM via the existing /api/jobs/{id}/cancel
@@ -807,7 +829,7 @@ function JobRow({ entry, onClick, onRerun, onCancel }: JobRowProps) {
             onRerun!();
           }}
           aria-label={`Re-run ${entry.cli_id} with the same arguments`}
-          title="Re-run with the same args"
+          title="Re-run with the same args (instant)"
           style={{
             flexShrink: 0,
             width: 36,
