@@ -514,6 +514,34 @@ class JobPersistence:
             logger.warning("JobPersistence delete_old failed: %s", exc)
             return 0
 
+    def db_size_bytes(self) -> int:
+        """Disk footprint of the persistence db, in bytes.
+
+        Sums the main file plus the ``-wal`` and ``-shm`` sidecars
+        when present. Important: in WAL mode, deleted rows show up
+        as growth in the WAL file rather than the main file until
+        a checkpoint runs, so summing both gives the actual on-disk
+        cost a user pays.
+
+        Useful for ``/api/health`` snapshots: an SRE watching the
+        dashboard long-term can spot bloat trending toward a vacuum
+        before it becomes an incident. Returns 0 when the file
+        doesn't exist (e.g. fresh install pre-first-write) or stat
+        fails (filesystem permissions surprise) - caller should
+        treat 0 as "no signal" rather than "file is empty".
+        """
+        try:
+            total = 0
+            if self.db_path.exists():
+                total += self.db_path.stat().st_size
+            for ext in ("-wal", "-shm"):
+                sidecar = self.db_path.with_name(self.db_path.name + ext)
+                if sidecar.exists():
+                    total += sidecar.stat().st_size
+            return total
+        except OSError:
+            return 0
+
     def vacuum(self) -> bool:
         """Reclaim disk space from previously-deleted rows.
 

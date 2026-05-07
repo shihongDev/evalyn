@@ -660,6 +660,48 @@ def test_vacuum_returns_false_on_unwritable_path(tmp_path: Path) -> None:
     assert persistence.vacuum() is False
 
 
+def test_db_size_bytes_zero_before_first_write(tmp_path: Path) -> None:
+    """Before any write, the db file does not exist on disk. Health
+    snapshots taken in this state must report 0 rather than raising
+    or creating the file as a side effect."""
+    persistence = JobPersistence(db_path=tmp_path / "fresh.sqlite")
+    assert persistence.db_size_bytes() == 0
+    # The probe must NOT create the file; otherwise repeated probes
+    # would scribble on disk for a healthcheck.
+    assert not (tmp_path / "fresh.sqlite").exists()
+
+
+def test_db_size_bytes_includes_wal_sidecar(tmp_path: Path) -> None:
+    """In WAL mode, recent writes land in the ``-wal`` sidecar until
+    a checkpoint runs. ``db_size_bytes()`` must sum the main file
+    plus the -wal/-shm sidecars so the reported size matches the
+    actual disk footprint a user pays for. Without this, the metric
+    would under-count writes-since-last-checkpoint and SREs watching
+    for bloat would miss real growth."""
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+    # Trigger a write to materialize the file + WAL.
+    persistence.upsert_job(
+        job_id="j1",
+        cli_id="run-eval",
+        args={},
+        cmd="x",
+        status="complete",
+        started_at_iso="2026-01-01T00:00:00.000000+00:00",
+    )
+    main_size = db.stat().st_size if db.exists() else 0
+    reported = persistence.db_size_bytes()
+    # Reported total must be >= the main file alone, since it adds
+    # any sidecars on top.
+    assert reported >= main_size
+    assert reported > 0
+    # If the WAL exists (it usually does after a write in WAL mode),
+    # the reported total must strictly include it.
+    wal = db.with_name(db.name + "-wal")
+    if wal.exists():
+        assert reported >= main_size + wal.stat().st_size
+
+
 # ---------------------------------------------------------------------------
 # Composite indexes for filtered list_recent queries
 # ---------------------------------------------------------------------------
