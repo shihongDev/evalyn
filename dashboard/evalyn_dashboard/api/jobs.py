@@ -502,6 +502,7 @@ async def get_job_output_txt(
     stream: str | None = None,
     tail: int | None = None,
     download: bool = False,
+    include_meta: bool = False,
 ) -> PlainTextResponse:
     """Plain-text variant of ``/output`` with stdout and stderr
     interleaved in chronological emit order (the order they hit the
@@ -518,6 +519,14 @@ async def get_job_output_txt(
     rendering it inline. Filename derives from the job_id prefix and
     the stream filter (if any) so multiple downloads to the same
     Downloads folder don't clobber each other.
+
+    Optional ``?include_meta=1`` prepends a small ``#`` comment header
+    with the job_id, cli_id, started_at, ended_at, exit_code, and
+    duration so a downloaded log file is self-describing. Without this,
+    a user opening a saved log a week later can't easily tell which
+    run produced it. The header lines start with ``#`` so most log
+    tools (less, awk, grep) treat them as comments without
+    intervention.
 
     Sources:
       1. In-memory: walks ``job.events`` in event_id order so stdout
@@ -543,6 +552,77 @@ async def get_job_output_txt(
         raise HTTPException(
             status_code=400, detail="tail must be >= 1 if provided"
         )
+
+    def _meta_prefix() -> str:
+        """Return the ``# ...`` header lines for ``?include_meta=1``,
+        empty string otherwise. Reads in-memory job state when present,
+        falls back to the persisted row, returns empty header when
+        neither is available (the body itself will already 404 in that
+        case so this won't be observable in practice).
+        """
+        if not include_meta:
+            return ""
+        job = jm.get(job_id)
+        if job is not None:
+            cli_id = job.cli_id or "(unknown)"
+            started = job.started_at
+            ended = job.ended_at
+            exit_code = job.exit_code
+            state = job.state
+        else:
+            persistence = _persistence_for(jm)
+            row = persistence.get(job_id) if persistence is not None else None
+            if row is None:
+                return ""
+            cli_id = row.get("cli_id") or "(unknown)"
+            started = row.get("started_at_iso") or ""
+            ended = row.get("ended_at_iso") or ""
+            exit_code = row.get("exit_code")
+            state = row.get("status") or "(unknown)"
+        # Format started_at: in-memory is unix epoch float, persisted
+        # is already ISO. Normalize to ISO for the header.
+        if isinstance(started, (int, float)):
+            try:
+                started = (
+                    datetime.fromtimestamp(float(started))
+                    .astimezone()
+                    .isoformat(timespec="seconds")
+                )
+            except (OSError, ValueError):
+                started = "(unknown)"
+        if isinstance(ended, (int, float)) and ended:
+            try:
+                ended = (
+                    datetime.fromtimestamp(float(ended))
+                    .astimezone()
+                    .isoformat(timespec="seconds")
+                )
+            except (OSError, ValueError):
+                ended = "(unknown)"
+        # Stream + tail are caller-controlled query params; reflecting
+        # them in the header makes a tail=20-stderr download readable
+        # at a glance.
+        scope_bits = []
+        if stream:
+            scope_bits.append(f"stream={stream}")
+        if tail is not None:
+            scope_bits.append(f"tail={tail}")
+        scope = ", ".join(scope_bits) or "all"
+        lines = [
+            f"# evalyn job log",
+            f"# job_id: {job_id}",
+            f"# cli: {cli_id}",
+            f"# started_at: {started or '(unknown)'}",
+        ]
+        if ended:
+            lines.append(f"# ended_at: {ended}")
+        if state:
+            lines.append(f"# status: {state}")
+        if exit_code is not None:
+            lines.append(f"# exit_code: {exit_code}")
+        lines.append(f"# scope: {scope}")
+        lines.append(f"#")
+        return "\n".join(lines) + "\n"
 
     def _download_headers() -> dict[str, str]:
         """Header dict for ?download=1 responses, empty otherwise.
@@ -604,7 +684,7 @@ async def get_job_output_txt(
         if text and not text.endswith("\n"):
             text = text + "\n"
         return PlainTextResponse(
-            _maybe_tail(text),
+            _meta_prefix() + _maybe_tail(text),
             media_type="text/plain; charset=utf-8",
             headers=_download_headers(),
         )
@@ -620,7 +700,7 @@ async def get_job_output_txt(
                 if body and not body.endswith("\n"):
                     body = body + "\n"
                 return PlainTextResponse(
-                    _maybe_tail(body),
+                    _meta_prefix() + _maybe_tail(body),
                     media_type="text/plain; charset=utf-8",
                     headers=_download_headers(),
                 )
@@ -629,7 +709,7 @@ async def get_job_output_txt(
                 if body and not body.endswith("\n"):
                     body = body + "\n"
                 return PlainTextResponse(
-                    _maybe_tail(body),
+                    _meta_prefix() + _maybe_tail(body),
                     media_type="text/plain; charset=utf-8",
                     headers=_download_headers(),
                 )
@@ -647,7 +727,7 @@ async def get_job_output_txt(
                 if not stderr_tail.endswith("\n"):
                     parts.append("\n")
             return PlainTextResponse(
-                _maybe_tail("".join(parts)),
+                _meta_prefix() + _maybe_tail("".join(parts)),
                 media_type="text/plain; charset=utf-8",
                 headers=_download_headers(),
             )
