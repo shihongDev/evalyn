@@ -14,6 +14,8 @@ from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
+from ._ws_heartbeat import spawn_heartbeat
+
 logger = logging.getLogger(__name__)
 
 
@@ -52,6 +54,9 @@ def register_agent_ws_routes(app: FastAPI) -> None:
                 client_disconnected.set()
 
         reader_task = asyncio.create_task(reader())
+        heartbeat_task = spawn_heartbeat(
+            websocket, send_lock, client_disconnected,
+        )
 
         try:
             async with runtime.subscribe(thread_id, since=since) as stream:
@@ -72,10 +77,12 @@ def register_agent_ws_routes(app: FastAPI) -> None:
             logger.warning("ws/agent/%s stream error: %s", thread_id, exc)
         finally:
             reader_task.cancel()
-            try:
-                await reader_task
-            except (asyncio.CancelledError, Exception):  # noqa: BLE001
-                pass
+            heartbeat_task.cancel()
+            for t in (reader_task, heartbeat_task):
+                try:
+                    await t
+                except (asyncio.CancelledError, Exception):  # noqa: BLE001
+                    pass
             try:
                 await websocket.close()
             except Exception:  # noqa: BLE001

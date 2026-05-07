@@ -15,20 +15,22 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import time
 from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
+from ._ws_heartbeat import WS_PING_INTERVAL_S, spawn_heartbeat
+
 logger = logging.getLogger(__name__)
 
-# How often to send an application-layer ping. Chosen to be safely
-# under the typical NAT / proxy idle timeout (60-120s on most cloud
-# providers; AWS NLB defaults to 350s, but corporate proxies can be
-# as aggressive as 60s). A 25s cadence keeps the connection warm
-# without flooding the wire on otherwise-quiet jobs (e.g. an eval that
-# spends a minute in a single LLM call before printing again).
-WS_PING_INTERVAL_S = 25.0
+# Re-export so existing tests that patch
+# ``evalyn_dashboard.api.jobs_ws.WS_PING_INTERVAL_S`` still work.
+# The authoritative value lives in :mod:`_ws_heartbeat`; this module
+# just re-binds the name. Tests that patch THIS attr will not affect
+# the shared loop, so future tests should patch the helper module
+# directly. We keep the alias for back-compat with the regression
+# test added in the previous tick.
+__all__ = ["register_ws_routes", "WS_PING_INTERVAL_S"]
 
 
 def register_ws_routes(app: FastAPI) -> None:
@@ -75,43 +77,9 @@ def register_ws_routes(app: FastAPI) -> None:
                 client_disconnected.set()
 
         reader_task = asyncio.create_task(reader())
-
-        async def heartbeat() -> None:
-            """Send a periodic application-layer ping so idle WS
-            connections aren't reaped by NATs / proxies.
-
-            A long-running eval can sit in a single LLM call for
-            minutes without producing output; without these pings,
-            many proxies (default-60s in some corporate setups)
-            silently close the underlying TCP connection and the
-            client only notices when the next event would have
-            arrived. The ping keeps the link warm.
-
-            Frame shape ``{"type":"ping","ts":<unix>}`` is parsed by
-            the FE's JSON path and discarded by the if/else chain
-            (no matching branch). No new wire field; no FE change
-            required to ship safely.
-
-            send_lock shared with the event-fanout loop so we never
-            interleave a ping into the middle of a large event frame.
-            """
-            try:
-                while not client_disconnected.is_set():
-                    await asyncio.sleep(WS_PING_INTERVAL_S)
-                    if client_disconnected.is_set():
-                        return
-                    async with send_lock:
-                        try:
-                            await websocket.send_text(
-                                json.dumps({"type": "ping", "ts": time.time()})
-                            )
-                        except Exception:  # noqa: BLE001 - peer gone
-                            client_disconnected.set()
-                            return
-            except asyncio.CancelledError:
-                return
-
-        heartbeat_task = asyncio.create_task(heartbeat())
+        heartbeat_task = spawn_heartbeat(
+            websocket, send_lock, client_disconnected,
+        )
 
         try:
             async with jm.subscribe(job_id, since=since) as stream:
