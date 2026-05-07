@@ -1504,6 +1504,21 @@ function OutputSection({
   // stderr-count chip in the header. Resets implicitly when this
   // component unmounts (e.g. switching to a different command tab).
   const [stderrFilter, setStderrFilter] = useState(false);
+  // Free-text output filter. Customer pain: 1000+ streamed lines and
+  // browser Ctrl+F doesn't survive scroll/streaming additions cleanly.
+  // The raw input is captured immediately for responsive typing; the
+  // debounced query (150ms) is what the visibleLines memo actually
+  // matches against, so heavy-output runs don't refilter on every
+  // keystroke. Empty / whitespace-only treated as no-filter.
+  // AND-combines with the stderrFilter chip.
+  const [outputFilterInput, setOutputFilterInput] = useState('');
+  const [outputFilterQuery, setOutputFilterQuery] = useState('');
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setOutputFilterQuery(outputFilterInput.trim().toLowerCase());
+    }, 150);
+    return () => window.clearTimeout(handle);
+  }, [outputFilterInput]);
 
   async function handleCopy() {
     if (lines.length === 0) return;
@@ -1561,13 +1576,21 @@ function OutputSection({
   // are kept visible since they describe diagnostic state, not stdout
   // content. Memoized so the filter pass does not run on every unrelated
   // re-render (lines updates ~60Hz during streaming due to rAF batching).
-  const visibleLines = useMemo(
-    () =>
-      stderrFilter
-        ? lines.filter((l) => l.kind === 'stderr' || l.kind === 'system')
-        : lines,
-    [lines, stderrFilter],
-  );
+  const visibleLines = useMemo(() => {
+    let out = lines;
+    if (stderrFilter) {
+      out = out.filter((l) => l.kind === 'stderr' || l.kind === 'system');
+    }
+    if (outputFilterQuery) {
+      // Text filter applies to ALL lines (including system) so a
+      // user grep-ing for "ERROR" doesn't accidentally see a
+      // "[server dropped N lines]" marker counted as a match.
+      out = out.filter((l) =>
+        l.text.toLowerCase().includes(outputFilterQuery),
+      );
+    }
+    return out;
+  }, [lines, stderrFilter, outputFilterQuery]);
 
   // Auto-clear the filter when no stderr exists. Two scenarios:
   //   (a) terminal status reached with zero stderr - filter would be
@@ -1688,6 +1711,42 @@ function OutputSection({
                 }}
               />
               Reconnecting…
+            </span>
+          )}
+          {lines.length > 0 && (
+            <input
+              type="search"
+              value={outputFilterInput}
+              onChange={(e) => setOutputFilterInput(e.target.value)}
+              placeholder="Filter output..."
+              aria-label="Filter output by substring"
+              style={{
+                flexShrink: 0,
+                width: 140,
+                padding: '2px 8px',
+                fontFamily: E.fMono,
+                fontSize: 10.5,
+                color: E.text0,
+                background: E.panel2,
+                border: `1px solid ${E.hair2}`,
+                borderRadius: 4,
+                lineHeight: 1.6,
+                outline: 'none',
+              }}
+            />
+          )}
+          {outputFilterQuery && (
+            <span
+              aria-live="polite"
+              style={{
+                flexShrink: 0,
+                fontSize: 10,
+                fontFamily: E.fMono,
+                color: visibleLines.length === 0 ? E.fail : E.text3,
+              }}
+              title={`${visibleLines.length} of ${lines.length} lines match`}
+            >
+              {visibleLines.length}/{lines.length}
             </span>
           )}
           {stderrCount > 0 && (
