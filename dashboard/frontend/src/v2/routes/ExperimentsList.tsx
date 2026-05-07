@@ -763,7 +763,7 @@ export default function ExperimentsList() {
             disabled={newEvalBusy}
             data-coachmark="experiments-new-button"
           >
-            + New evaluation
+            {newEvalBusy ? 'Loading...' : '+ New evaluation'}
           </Btn>
         </div>
 
@@ -928,8 +928,20 @@ export default function ExperimentsList() {
               Run your first evaluation to see the lineage view.
             </div>
             <div style={{ marginTop: 14 }}>
-              <Btn kind="primary" size="md" onClick={handleNewEvaluation}>
-                Run your first eval
+              {/* Mirror the header "+ New evaluation" button's disabled
+                  guard so the user gets the same visual confirmation
+                  that the click registered. The internal `if
+                  (newEvalBusy) return` already prevents duplicate
+                  fires, but without the disabled prop the button
+                  stayed primary-styled while the catalog loaded -
+                  invited a confused second click. */}
+              <Btn
+                kind="primary"
+                size="md"
+                onClick={handleNewEvaluation}
+                disabled={newEvalBusy}
+              >
+                {newEvalBusy ? 'Loading...' : 'Run your first eval'}
               </Btn>
             </div>
           </Card>
