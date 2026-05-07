@@ -81,6 +81,25 @@ function relativeTime(iso: string | null | undefined): string {
   return `${months}mo ago`;
 }
 
+/** Relative-time formatter for the Test chip's "tested Ns ago" label.
+ * Takes a millisecond timestamp + an explicit "now" so the parent can
+ * trigger re-renders via state (the regular Date.now() call inside
+ * would freeze the label until something else re-renders). Includes
+ * second-resolution for the first minute - useful right after a click
+ * because "tested just now" -> "tested 30s ago" is a quick natural
+ * progression that confirms the chip is live. */
+function relativeTestTime(testedAtMs: number, nowMs: number): string {
+  const diff = Math.max(0, nowMs - testedAtMs);
+  const sec = Math.floor(diff / 1000);
+  if (sec < 5) return 'tested just now';
+  if (sec < 60) return `tested ${sec}s ago`;
+  const mins = Math.floor(sec / 60);
+  if (mins < 60) return `tested ${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `tested ${hours}h ago`;
+  return `tested ${Math.floor(hours / 24)}d ago`;
+}
+
 export default function Settings() {
   const { data, err, refetch, reloading, isInitialLoad } = useV2Resource<SettingsState>(
     'settings',
@@ -523,7 +542,24 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
   const [modelsLoading, setModelsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [testResult, setTestResult] = useState<{
+    ok: boolean;
+    message: string;
+    /** Wall-clock time the test landed, used to render "tested 30s ago"
+     * so the user can tell at a glance whether the chip reflects a
+     * fresh probe or a stale earlier result. */
+    testedAtMs: number;
+  } | null>(null);
+  // Re-render once a minute while a result is visible so the
+  // "tested Ns/Nm ago" label stays current. Cheap: 1Hz/min and only
+  // when a result exists. Skipping setInterval entirely when no
+  // result is showing keeps idle pages quiet.
+  const [nowMs, setNowMs] = useState(Date.now());
+  useEffect(() => {
+    if (!testResult) return;
+    const id = window.setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, [testResult]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -599,9 +635,24 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
     setTestResult(null);
     try {
       const r = await settingsApi.test(id);
-      setTestResult({ ok: r.ok, message: r.ok ? 'Connection ok' : (r.error ?? 'Test failed') });
+      const now = Date.now();
+      setTestResult({
+        ok: r.ok,
+        message: r.ok ? 'Connection ok' : (r.error ?? 'Test failed'),
+        testedAtMs: now,
+      });
+      // Sync the relative-time clock so the first render of the
+      // result chip shows "tested just now" rather than a diff
+      // against a stale mount-time nowMs.
+      setNowMs(now);
     } catch (e) {
-      setTestResult({ ok: false, message: String(e) });
+      const now = Date.now();
+      setTestResult({
+        ok: false,
+        message: String(e),
+        testedAtMs: now,
+      });
+      setNowMs(now);
     } finally {
       setTesting(false);
     }
@@ -744,13 +795,25 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
           {testing ? <><Spinner size={11} /> Testing</> : 'Test connection'}
         </Btn>
         {testResult && (
-          <Pill
-            mono
-            color={testResult.ok ? E.pass : E.fail}
-            bg={testResult.ok ? E.passDim : E.failDim}
-          >
-            {testResult.ok ? 'Pass' : 'Fail'}
-          </Pill>
+          <>
+            <Pill
+              mono
+              color={testResult.ok ? E.pass : E.fail}
+              bg={testResult.ok ? E.passDim : E.failDim}
+            >
+              {testResult.ok ? 'Pass' : 'Fail'}
+            </Pill>
+            <span
+              title={new Date(testResult.testedAtMs).toLocaleString()}
+              style={{
+                fontFamily: E.fMono,
+                fontSize: 10.5,
+                color: E.text3,
+              }}
+            >
+              {relativeTestTime(testResult.testedAtMs, nowMs)}
+            </span>
+          </>
         )}
         {saveSuccess && (
           <Pill mono color={E.pass} bg={E.passDim}>

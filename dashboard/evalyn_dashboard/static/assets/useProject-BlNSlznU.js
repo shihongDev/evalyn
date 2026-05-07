@@ -1,1 +1,0 @@
-import{j as e,w as t}from"./AppShell-M-ieU5is.js";function n(){let{data:n}=t(`home`,e.home);return n?n.project:null}export{n as t};
