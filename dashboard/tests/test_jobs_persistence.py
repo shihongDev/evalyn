@@ -827,6 +827,61 @@ def test_last_vacuum_at_unchanged_on_failed_vacuum(tmp_path: Path) -> None:
     assert persistence.last_vacuum_at() == 1234.5
 
 
+def test_vacuum_emits_info_log_on_success(tmp_path: Path, caplog) -> None:
+    """A successful vacuum must leave a server-log trail at INFO
+    so operators can grep "did vacuum run during shutdown?" or
+    "when was the last successful compaction?" without relying
+    on a server-restart timestamp.
+
+    This test pins the contract independent of the admin-vacuum
+    endpoint - the persistence layer's own log line covers the
+    shutdown-hook path that's NOT routed through the API."""
+    import logging
+
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+    persistence.upsert_job(
+        job_id="j1",
+        cli_id="x",
+        args={},
+        cmd="x",
+        status="complete",
+        started_at_iso="2026-01-01T00:00:00.000000+00:00",
+    )
+
+    with caplog.at_level(logging.INFO, logger="evalyn_dashboard.jobs_persistence"):
+        ok = persistence.vacuum()
+    assert ok is True
+
+    matched = [
+        rec for rec in caplog.records
+        if rec.message.startswith("JobPersistence vacuum succeeded")
+    ]
+    assert len(matched) == 1, (
+        f"expected one success log line, got: "
+        f"{[r.message for r in caplog.records]}"
+    )
+
+
+def test_vacuum_no_log_on_failure_path(tmp_path: Path, caplog) -> None:
+    """When vacuum() returns False (e.g. unreadable / missing
+    file), the success log must NOT fire - the existing WARN
+    log on the failure path is the sole record. Otherwise
+    operators would see "vacuum succeeded" lines that didn't
+    correspond to actual compactions."""
+    import logging
+
+    persistence = JobPersistence(db_path=tmp_path / "missing.sqlite")
+    with caplog.at_level(logging.INFO, logger="evalyn_dashboard.jobs_persistence"):
+        ok = persistence.vacuum()
+    assert ok is False
+    matched = [
+        rec for rec in caplog.records
+        if rec.message.startswith("JobPersistence vacuum succeeded")
+    ]
+    assert len(matched) == 0
+
+
 def test_db_size_bytes_zero_before_first_write(tmp_path: Path) -> None:
     """Before any write, the db file does not exist on disk. Health
     snapshots taken in this state must report 0 rather than raising
