@@ -9,7 +9,7 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Btn, Card, Eyebrow } from './index';
+import { Btn, Card, Eyebrow, Spinner } from './index';
 import { loadDemo } from '../api/demo';
 import { errorMessage } from '../api/errors';
 import { E } from '../tokens';
@@ -116,7 +116,13 @@ export function Welcome() {
           disabled={loading}
           aria-busy={loading}
         >
-          {loading ? 'Loading...' : 'Load demo data'}
+          {loading ? (
+            <>
+              <Spinner size={11} /> Loading
+            </>
+          ) : (
+            'Load demo data'
+          )}
         </Btn>
         <Btn kind="secondary" size="md" onClick={() => navigate('/copilot')}>
           Open co-pilot
@@ -125,6 +131,7 @@ export function Welcome() {
 
       {err && (
         <div
+          role="alert"
           style={{
             marginTop: 14,
             padding: '8px 12px',
