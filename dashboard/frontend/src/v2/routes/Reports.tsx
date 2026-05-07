@@ -467,8 +467,16 @@ function DistributionRail({ onSendNow, compareMode, setCompareMode }: Distributi
           <Btn kind="primary" size="sm" style={{ marginTop: 4 }} onClick={onSendNow}>
             Send now {'▸'}
           </Btn>
-          <Btn kind="ghost" size="sm" title="Distribution targets are placeholders for now">
-            + Add destination
+          {/* Honestly disabled - distribution destinations are
+              placeholders. Previously this rendered as an active
+              ghost button and clicking it did nothing. */}
+          <Btn
+            kind="ghost"
+            size="sm"
+            disabled
+            title="Custom destinations are not wired up yet"
+          >
+            + Add destination (soon)
           </Btn>
         </div>
       </Card>

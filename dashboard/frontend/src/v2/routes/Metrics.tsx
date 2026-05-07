@@ -1077,12 +1077,17 @@ function RubricEditor({
                 'Save rubric'
               )}
             </Btn>
+            {/* Placeholder for the future "replay this rubric on the
+                most recent run" action. Honestly disabled until the
+                replay endpoint exists - clicking did nothing before
+                the fix and the user got no feedback. */}
             <Btn
               kind="secondary"
               size="sm"
-              title="Replay this rubric on the most recent run (placeholder)"
+              disabled
+              title="Replay on recent run is not wired up yet"
             >
-              Test on recent run -&gt;
+              Test on recent run (soon)
             </Btn>
             <Btn
               kind="ghost"
