@@ -149,6 +149,23 @@ function BriefHeader({ snap, reloading, onRegenerate, onNavigate }: BriefHeaderP
     if (!snap.brief) return '';
     return shortTime(snap.brief.generated_at_iso);
   }, [snap.brief]);
+  // Surface a freshness signal only when the brief is actually
+  // recent. The previous unconditional "fresh" pill claimed the
+  // brief was current even when generated_at_iso was hours or
+  // days ago, undermining trust in any other freshness signal in
+  // the dashboard. Buckets:
+  //   <= 60 min  -> "fresh" (pass)
+  //   1 - 6 h    -> no pill (time-ago in eyebrow is enough)
+  //   > 6 h      -> "stale" (warn) - regenerate is one click away
+  const briefFreshness = useMemo<'fresh' | 'aging' | 'stale'>(() => {
+    if (!snap.brief) return 'fresh';
+    const t = Date.parse(snap.brief.generated_at_iso);
+    if (!Number.isFinite(t)) return 'aging';
+    const ageMin = (Date.now() - t) / 60_000;
+    if (ageMin <= 60) return 'fresh';
+    if (ageMin <= 360) return 'aging';
+    return 'stale';
+  }, [snap.brief]);
   const highlights = useMemo(() => deriveBriefHighlights(snap), [snap]);
 
   // Pick canonical CTAs. Backend supplies brief.actions but we also build
@@ -208,9 +225,19 @@ function BriefHeader({ snap, reloading, onRegenerate, onNavigate }: BriefHeaderP
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <Eyebrow>{snap.brief ? `Brief - ${briefTime || 'just now'}` : 'Brief'}</Eyebrow>
-          {snap.brief && (
+          {snap.brief && briefFreshness === 'fresh' && (
             <Pill bg={E.passDim} color={E.pass} mono>
               fresh
+            </Pill>
+          )}
+          {snap.brief && briefFreshness === 'stale' && (
+            <Pill
+              bg={E.warnDim}
+              color={E.warn}
+              mono
+              title="Brief generated more than 6 hours ago - regenerate for current state"
+            >
+              stale
             </Pill>
           )}
         </div>
@@ -492,6 +519,35 @@ interface QueueRowProps {
   onNavigate: (path: string) => void;
 }
 
+/** Extract an experiment id from a route path like
+ * `/experiments/<id>` or `/experiments/<id>?tab=items`, or null
+ * if the path doesn't match. Used by the queue row's hover/focus
+ * prefetch to warm the experiment-detail data + chunk before the
+ * user clicks. Returns null for non-experiment paths so we don't
+ * waste a fetch on attention items that link elsewhere. */
+export function experimentIdFromPath(path: string): string | null {
+  // Pull off any querystring/hash so they don't contaminate the
+  // id segment.
+  const stripped = path.split('?')[0].split('#')[0];
+  const match = stripped.match(/^\/experiments\/([^/]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+/** Idempotent hover/focus warmup for a queue-row click target.
+ * Prefetches the experiment-detail JSON + chunks the RunDetail
+ * code split so the click->paint is instant when the user
+ * follows through. No-op for attention items that link to a
+ * non-experiment path (Home routes a small set; non-matches just
+ * fall through to whatever the route's own warmup looks like
+ * after navigation). */
+function warmupCtaTarget(target: string): void {
+  const expId = experimentIdFromPath(target);
+  if (expId) {
+    void preloadRunDetail();
+    prefetchV2(`experiment:${expId}`, () => v2.experiment(expId));
+  }
+}
+
 function QueueRow({ item, isLast, onNavigate }: QueueRowProps) {
   const prio = priorityForSeverity(item.severity);
   const bg = item.severity === 'fail' ? E.failDim : item.severity === 'warn' ? E.warnDim : E.panel2;
@@ -519,9 +575,16 @@ function QueueRow({ item, isLast, onNavigate }: QueueRowProps) {
       }}
       onMouseEnter={(ev) => {
         ev.currentTarget.style.background = E.panel2;
+        warmupCtaTarget(item.cta_target);
       }}
       onMouseLeave={(ev) => {
         ev.currentTarget.style.background = 'transparent';
+      }}
+      // Mirror the warmup on keyboard focus so Tab users get the
+      // same instant click->paint as mouse hover (the
+      // LiveStreamingCard does the same).
+      onFocus={() => {
+        warmupCtaTarget(item.cta_target);
       }}
       style={{
         display: 'grid',
