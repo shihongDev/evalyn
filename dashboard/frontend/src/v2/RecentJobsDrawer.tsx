@@ -103,14 +103,46 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
     [entries],
   );
 
-  // Filtered view used by the row list. We deliberately exclude
-  // cancelled and unknown from the failure filter: cancelled is
-  // user-driven (not an unexpected failure), unknown means the backend
-  // evicted the record (server restart). Surface only true failures.
-  const visibleEntries = useMemo(
-    () => (failureFilter ? entries.filter((e) => e.status === 'failed') : entries),
-    [entries, failureFilter],
-  );
+  // Search filter state. The raw input is captured immediately so
+  // typing feels responsive; the value used for filtering is debounced
+  // 120ms so a long history isn't refiltered on every keystroke.
+  // Substring match (case-insensitive) against cli_id + a JSON dump of
+  // cli_args so "model=gpt-4o" and "compare" both find what you'd
+  // expect. Empty / whitespace-only query treated as no filter.
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setSearchQuery(searchInput.trim().toLowerCase());
+    }, 120);
+    return () => window.clearTimeout(handle);
+  }, [searchInput]);
+  const searchRef = useRef<HTMLInputElement | null>(null);
+
+  // Filtered view used by the row list. Failure filter and search
+  // filter AND-combine. We deliberately exclude cancelled and unknown
+  // from the failure filter: cancelled is user-driven (not an
+  // unexpected failure), unknown means the backend evicted the record
+  // (server restart). Surface only true failures.
+  const visibleEntries = useMemo(() => {
+    let out = entries;
+    if (failureFilter) out = out.filter((e) => e.status === 'failed');
+    if (searchQuery) {
+      out = out.filter((e) => {
+        if (e.cli_id.toLowerCase().includes(searchQuery)) return true;
+        // JSON.stringify is fine here - cli_args is a small object
+        // serialized once per pass; the alternative (deep-walking
+        // values) is more code with no real win.
+        try {
+          const dump = JSON.stringify(e.cli_args).toLowerCase();
+          return dump.includes(searchQuery);
+        } catch {
+          return false;
+        }
+      });
+    }
+    return out;
+  }, [entries, failureFilter, searchQuery]);
 
   // Auto-clear the filter when no failures remain so an accidental
   // toggle does not strand the user with an empty list once they
@@ -201,7 +233,32 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
     if (!open) return;
     const prevFocus = document.activeElement as HTMLElement | null;
     function onKey(ev: KeyboardEvent) {
-      if (ev.key === 'Escape') onClose();
+      if (ev.key === 'Escape') {
+        // Two-step Escape: clear search first, close drawer second.
+        // Lets a user back out of a filter without losing the drawer
+        // entirely - matches the cmd-palette / spotlight idiom.
+        if (searchInput) {
+          ev.preventDefault();
+          setSearchInput('');
+          return;
+        }
+        onClose();
+        return;
+      }
+      // "/" focuses the search input when the drawer is open and the
+      // user is not already in another input. Common power-user
+      // shortcut from GitHub / Slack search.
+      if (
+        ev.key === '/' &&
+        !ev.metaKey &&
+        !ev.ctrlKey &&
+        !ev.altKey
+      ) {
+        const tag = (ev.target as HTMLElement | null)?.tagName?.toLowerCase();
+        if (tag === 'input' || tag === 'textarea') return;
+        ev.preventDefault();
+        searchRef.current?.focus();
+      }
     }
     window.addEventListener('keydown', onKey);
     return () => {
@@ -214,7 +271,7 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
         prevFocus.focus();
       }
     };
-  }, [open, onClose]);
+  }, [open, onClose, searchInput]);
 
   const onRowClick = (entry: JobHistoryEntry) => {
     const cli = cliCatalog?.find((c) => c.id === entry.cli_id);
@@ -442,6 +499,53 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
           bulkRerunPending={bulkRerunPending}
           capacity={capacity}
         />
+        {/* Thin search row. Tucked under the header rather than packed
+            into the chip line so a long history with active filters
+            stays readable. "/" focuses, Escape clears (or closes the
+            drawer if the search is already empty). */}
+        {entries.length > 0 && (
+          <div
+            style={{
+              padding: '6px 14px 8px',
+              borderBottom: `1px solid ${E.hair}`,
+              flexShrink: 0,
+            }}
+          >
+            <input
+              ref={searchRef}
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Filter by cli or args... (press / to focus)"
+              aria-label="Filter recent jobs by cli or arg substring"
+              style={{
+                width: '100%',
+                padding: '6px 10px',
+                fontSize: 12,
+                fontFamily: E.fMono,
+                color: E.text0,
+                background: E.panel2,
+                border: `1px solid ${E.hair}`,
+                borderRadius: 4,
+                outline: 'none',
+              }}
+            />
+            {searchQuery && (
+              <div
+                aria-live="polite"
+                style={{
+                  marginTop: 4,
+                  fontSize: 10.5,
+                  fontFamily: E.fMono,
+                  color: E.text3,
+                }}
+              >
+                {visibleEntries.length}{' '}
+                {visibleEntries.length === 1 ? 'match' : 'matches'}
+              </div>
+            )}
+          </div>
+        )}
         {actionMessage && (
           <div
             role="status"
@@ -468,7 +572,7 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
         >
           {entries.length === 0 ? (
             <EmptyState />
-          ) : visibleEntries.length === 0 && failureFilter ? (
+          ) : visibleEntries.length === 0 && (failureFilter || searchQuery) ? (
             <FilterEmptyState />
           ) : (
             visibleEntries.map((e) => (
