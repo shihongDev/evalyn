@@ -606,7 +606,10 @@ export default function RunDetail() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <Eyebrow style={{ color: E.steel }}>Compare with</Eyebrow>
-              <StatusDot status={compareDetail.status} />
+              <StatusDot
+                status={compareDetail.status}
+                label={`Compare run status: ${compareDetail.status}`}
+              />
               <span style={{ fontFamily: E.fMono, fontSize: 11, color: E.text2 }}>
                 {compareDetail.id}
               </span>

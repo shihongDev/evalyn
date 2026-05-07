@@ -733,6 +733,7 @@ function JobRow({ entry, onClick, onRerun, onCancel }: JobRowProps) {
           <StatusDot
             status={dotStatusFor(entry.status)}
             animated={entry.status === 'running'}
+            label={`Job status: ${entry.status}`}
           />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>

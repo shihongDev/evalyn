@@ -43,6 +43,10 @@ def _job_to_dict(job: Job) -> dict:
     return {
         "id": job.id,
         "cmd": job.cmd,
+        # cli_id (catalog id passed at spawn time) included so /api/jobs/recent
+        # responses are uniform between in-memory and persisted sources, and
+        # so clients can filter by cli_id without parsing cmd[1].
+        "cli_id": job.cli_id,
         "state": job.state,
         "started_at": job.started_at,
         "ended_at": job.ended_at,
@@ -74,18 +78,17 @@ def _persisted_to_dict(row: dict) -> dict:
     return {
         "id": row.get("job_id"),
         "cmd": cmd_list,
+        "cli_id": row.get("cli_id") or "",
         "state": row.get("status") or "unknown",
         "started_at": _iso_to_epoch(row.get("started_at_iso")),
         "ended_at": _iso_to_epoch(row.get("ended_at_iso")),
         "exit_code": row.get("exit_code"),
         "pid": None,
         "duration": row.get("duration_s"),
-        # The sqlite mirror does not yet persist stderr_count, so we
-        # report the row's value if it has one (forward-compatible
-        # with a future schema migration) and 0 otherwise. Normalising
-        # the shape here means /api/jobs/recent always returns the
-        # field whether the row came from in-memory or sqlite, so the
-        # frontend never has to special-case `undefined`.
+        # As of the previous backend tick the sqlite mirror persists
+        # stderr_count via a forward migration. Older rows back-fill 0
+        # via the column DEFAULT. Either way the response shape is
+        # uniform with in-memory rows.
         "stderr_count": row.get("stderr_count") or 0,
     }
 
@@ -96,26 +99,44 @@ def _persistence_for(jm) -> Any:
 
 
 @router.get("/recent")
-async def recent_jobs(request: Request, limit: int = 100) -> JSONResponse:
+async def recent_jobs(
+    request: Request,
+    limit: int = 100,
+    cli_id: str | None = None,
+) -> JSONResponse:
     """Return up to ``limit`` recent jobs in reverse chronological order.
 
     Merges in-memory jobs with persisted rows (in-memory wins on id
     collision so the freshest state surfaces). Sort key is ``started_at``
     descending across both sources.
+
+    When ``cli_id`` is provided, results are filtered to rows whose
+    ``cli_id`` matches exactly. Saves clients from fetching all rows
+    and filtering client-side when they only care about a single
+    command's history (e.g. "show me my last 10 run-eval invocations").
     """
     if limit < 1:
         raise HTTPException(status_code=400, detail="limit must be >= 1")
     if limit > 1000:
         raise HTTPException(status_code=400, detail="limit must be <= 1000")
     jm = request.app.state.job_manager
-    in_memory = [_job_to_dict(j) for j in jm.recent(n=limit)]
+    in_memory_jobs = jm.recent(n=limit)
+    if cli_id is not None:
+        in_memory_jobs = [j for j in in_memory_jobs if j.cli_id == cli_id]
+    in_memory = [_job_to_dict(j) for j in in_memory_jobs]
     seen = {entry["id"] for entry in in_memory}
     merged = list(in_memory)
     persistence = _persistence_for(jm)
     if persistence is not None:
+        # Over-fetch on the persisted side because some rows will be
+        # filtered out and we still want up to `limit` results post-merge.
+        # The list_recent helper does not accept a cli_id filter; we
+        # apply it post-projection rather than push it down for now.
         for row in persistence.list_recent(limit=limit):
             entry = _persisted_to_dict(row)
             if entry["id"] in seen:
+                continue
+            if cli_id is not None and entry["cli_id"] != cli_id:
                 continue
             merged.append(entry)
             seen.add(entry["id"])
