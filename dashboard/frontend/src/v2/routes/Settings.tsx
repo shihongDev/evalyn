@@ -22,6 +22,7 @@ import { Btn, Card, Eyebrow, Pill, Skeleton, Spinner, StatusDot, UpdatingChip } 
 import { useV2Resource } from '../hooks/useV2Resource';
 import { E } from '../tokens';
 import { errorMessage } from '../api/errors';
+import { fetchSystemHealth, type SystemHealth } from '../api/health';
 import { settingsApi, type ProviderState, type SettingsState } from '../api/settings';
 import { TOUR_ENABLED_KEY, tourCompletedKey } from '../store/store';
 import { KNOWN_TOUR_IDS } from '../tour/useTour';
@@ -195,6 +196,8 @@ export default function Settings() {
             </div>
 
             <GuidanceToggleCard />
+
+            <SystemStatusCard />
           </>
         )}
 
@@ -202,6 +205,167 @@ export default function Settings() {
       </div>
     </AppShell>
   );
+}
+
+/**
+ * Lives at the bottom of Settings as a passive status surface
+ * for operators running the dashboard long-term. Pairs with the
+ * `jobs_persisted` + `jobs_db_bytes` fields recently added to
+ * `/api/health`.
+ *
+ * Customer scenario this answers: "I've been running the
+ * dashboard for two months. Is the sqlite mirror getting big? Did
+ * the server hot-restart since I last tabbed away? How many slots
+ * are currently busy?" Settings is the right surface (not the top
+ * bar) because none of these are actionable enough to deserve
+ * always-visible chrome - operators look here when they want
+ * answers.
+ *
+ * Polled every 15s (matches the perceived "still fresh" window
+ * for status surfaces). Hidden entirely on fetch failure -
+ * health is a nice-to-have indicator, never load-bearing.
+ */
+function SystemStatusCard() {
+  const [health, setHealth] = useState<SystemHealth | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function poll() {
+      const h = await fetchSystemHealth();
+      if (cancelled) return;
+      setHealth(h);
+      setLoaded(true);
+    }
+    void poll();
+    const interval = window.setInterval(() => void poll(), 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  if (!loaded) return null;
+  if (health === null) return null;
+
+  return (
+    <Card style={{ padding: 20, marginTop: 14 }}>
+      <Eyebrow>System status</Eyebrow>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: '10px 24px',
+          marginTop: 12,
+          fontFamily: E.fMono,
+          fontSize: 12,
+        }}
+      >
+        <StatusRow
+          label="Version"
+          value={health.version}
+          tooltip="Build identifier reported by the running server"
+        />
+        <StatusRow
+          label="Uptime"
+          value={formatUptime(health.uptime_seconds)}
+          tooltip={`Started at ${new Date(health.started_at * 1000).toLocaleString()}`}
+        />
+        <StatusRow
+          label="Running jobs"
+          value={
+            health.max_concurrent > 0
+              ? `${health.running} / ${health.max_concurrent}`
+              : `${health.running}`
+          }
+          tooltip={
+            health.max_concurrent > 0
+              ? `Concurrent slot cap is ${health.max_concurrent}`
+              : 'Concurrency cap is disabled'
+          }
+        />
+        <StatusRow
+          label="Agent threads"
+          value={`${health.agent_open_threads} open / ${health.agent_threads} total`}
+          tooltip="Co-pilot threads still active vs all in memory"
+        />
+        <StatusRow
+          label="Persisted jobs"
+          value={health.jobs_persisted.toLocaleString()}
+          tooltip="Rows in the sqlite mirror"
+        />
+        <StatusRow
+          label="DB size"
+          value={formatBytes(health.jobs_db_bytes)}
+          tooltip="Main + WAL + SHM file size; vacuumed on graceful shutdown"
+        />
+      </div>
+      <p style={{ fontSize: 11, color: E.text3, margin: '14px 0 0' }}>
+        Polled every 15s. Numbers are best-effort: a degraded
+        persistence layer reports 0 rather than failing.
+      </p>
+    </Card>
+  );
+}
+
+function StatusRow({
+  label,
+  value,
+  tooltip,
+}: {
+  label: string;
+  value: string;
+  tooltip?: string;
+}) {
+  return (
+    <div
+      title={tooltip}
+      style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}
+    >
+      <span style={{ color: E.text3, minWidth: 110 }}>{label}</span>
+      <span style={{ color: E.text0 }}>{value}</span>
+    </div>
+  );
+}
+
+/**
+ * Format a byte count as human-readable. KiB-base (1024) since
+ * the values come from `os.stat().st_size` which the user will
+ * compare against `du`, `ls -lh`, etc., all of which are KiB-base
+ * by default on the platforms operators care about.
+ */
+export function formatBytes(n: number): string {
+  if (!Number.isFinite(n) || n < 0) return '-';
+  if (n < 1024) return `${n} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let value = n / 1024;
+  let i = 0;
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024;
+    i += 1;
+  }
+  // 1 decimal under 100, none above - reads cleanly across the
+  // common range (a few KB up to multi-GB).
+  return value < 100
+    ? `${value.toFixed(1)} ${units[i]}`
+    : `${Math.round(value)} ${units[i]}`;
+}
+
+/**
+ * Format uptime as the largest meaningful unit, e.g. "3d 4h",
+ * "1h 12m", "47s". Operators want a glance-able scale, not
+ * second-precision for a 9-day-old process.
+ */
+export function formatUptime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '-';
+  const s = Math.floor(seconds);
+  const days = Math.floor(s / 86400);
+  const hours = Math.floor((s % 86400) / 3600);
+  const mins = Math.floor((s % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  if (mins > 0) return `${mins}m`;
+  return `${s}s`;
 }
 
 /**
