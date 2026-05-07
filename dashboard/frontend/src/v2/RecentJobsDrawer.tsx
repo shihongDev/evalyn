@@ -21,7 +21,13 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { E } from './tokens';
 import { Btn, Eyebrow, Pill, StatusDot } from './ui';
-import { cancelJob, fetchJobStatus, restartJob } from './api/jobs';
+import {
+  cancelJob,
+  fetchJobStatus,
+  fetchJobsCapacity,
+  restartJob,
+  type JobsCapacity,
+} from './api/jobs';
 import { CapacityError } from './api/errors';
 import {
   clearJobsHistory,
@@ -49,6 +55,12 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
   const [entries, setEntries] = useState<JobHistoryEntry[]>(() => loadJobsHistory());
   const [cliCatalog, setCliCatalog] = useState<CliSchema[] | null>(null);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  // Capacity status (running / max_concurrent) for a small chip in the
+  // header. Polled every 5s while the drawer is open; suppressed when
+  // closed (no point spending bandwidth on a UI nobody is looking at).
+  // Null until the first fetch returns or if the fetch ever fails -
+  // we never block the UI on a stats fetch.
+  const [capacity, setCapacity] = useState<JobsCapacity | null>(null);
   // "Show failed only" filter, toggled via a clickable badge in the
   // header. Lets a user spot recent regressions in a long history
   // (the local cap is 30 entries) without scanning each pill by eye.
@@ -129,6 +141,25 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
       cancelled = true;
     };
   }, [open, cliCatalog, catalogError]);
+
+  // Capacity poll: fetch /api/jobs/stats every 5s while the drawer is
+  // open. Fires immediately on open so the chip lights up without a
+  // visible delay; subsequent ticks pick up natural changes (a job
+  // finishing, a fresh spawn). Closed drawer = no polling.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    const tick = async () => {
+      const cap = await fetchJobsCapacity();
+      if (!cancelled) setCapacity(cap);
+    };
+    void tick();
+    const interval = window.setInterval(() => void tick(), 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [open]);
 
   // One-shot per-open refresh of any row that LOOKS like it's still active.
   // Avoids polling - if the user wants newer data, they re-open the drawer.
@@ -409,6 +440,7 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
           onToggleFailureFilter={() => setFailureFilter((v) => !v)}
           onBulkRerunFailures={onBulkRerunFailures}
           bulkRerunPending={bulkRerunPending}
+          capacity={capacity}
         />
         {actionMessage && (
           <div
@@ -489,6 +521,7 @@ function DrawerHeader({
   onToggleFailureFilter,
   onBulkRerunFailures,
   bulkRerunPending,
+  capacity,
 }: {
   onClose: () => void;
   count: number;
@@ -497,6 +530,7 @@ function DrawerHeader({
   onToggleFailureFilter: () => void;
   onBulkRerunFailures: () => void;
   bulkRerunPending: boolean;
+  capacity: JobsCapacity | null;
 }) {
   return (
     <div
@@ -529,6 +563,44 @@ function DrawerHeader({
               {count}
             </span>
           )}
+          {capacity &&
+            capacity.max_concurrent > 0 &&
+            capacity.running > 0 && (
+              <span
+                aria-label={`${capacity.running} of ${capacity.max_concurrent} concurrent slots in use`}
+                title={
+                  capacity.running >= capacity.max_concurrent
+                    ? `At capacity: ${capacity.running} / ${capacity.max_concurrent} running. New runs will queue.`
+                    : `${capacity.running} / ${capacity.max_concurrent} running`
+                }
+                style={{
+                  fontSize: 10.5,
+                  fontFamily: E.fMono,
+                  padding: '0 8px',
+                  borderRadius: 4,
+                  lineHeight: 1.6,
+                  whiteSpace: 'nowrap',
+                  // Highlight when at the cap so the user notices the
+                  // throttling reason for any "queue full" banner that
+                  // surfaces in this drawer.
+                  color:
+                    capacity.running >= capacity.max_concurrent
+                      ? E.ember
+                      : E.text2,
+                  background:
+                    capacity.running >= capacity.max_concurrent
+                      ? 'rgba(217, 132, 51, 0.16)'
+                      : 'rgba(255, 255, 255, 0.04)',
+                  border: `1px solid ${
+                    capacity.running >= capacity.max_concurrent
+                      ? 'rgba(217, 132, 51, 0.45)'
+                      : E.hair
+                  }`,
+                }}
+              >
+                {capacity.running} / {capacity.max_concurrent} running
+              </span>
+            )}
           {failedCount > 0 && (
             <button
               type="button"
