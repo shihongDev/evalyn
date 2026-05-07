@@ -1,1 +1,0 @@
-import{h as e,m as t}from"./index-BUMGRNu4.js";function n(){let{data:n}=t(`home`,e.home);return n?n.project:null}export{n as t};
