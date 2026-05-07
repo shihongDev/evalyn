@@ -185,10 +185,21 @@ async def chat(request: Request) -> JSONResponse:
         raise HTTPException(status_code=503, detail="agent runtime not configured")
 
     thread_id = body.get("thread_id")
+    is_new_thread = False
     if not isinstance(thread_id, str) or not runtime.has_thread(thread_id):
         thread_id = runtime.create_thread()
+        is_new_thread = True
 
     runtime.schedule_turn(thread_id, message)
+    # Audit log on thread CREATE (not every chat). High-volume
+    # turns are silent; the operationally-interesting "user
+    # started a new conversation" moment is captured. Useful for
+    # postmortems answering "how many sessions started during
+    # the incident window?" or "did anyone use the agent
+    # yesterday?". The turn body is intentionally NOT logged -
+    # user prompts may be sensitive.
+    if is_new_thread:
+        logger.info("agent thread created: thread_id=%s", thread_id)
     return JSONResponse({"thread_id": thread_id})
 
 
