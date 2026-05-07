@@ -1,1 +1,0 @@
-import{A as e,w as t}from"./AppShell-DMVf6eW7.js";function n(){let{data:n}=t(`home`,e.home);return n?n.project:null}export{n as t};

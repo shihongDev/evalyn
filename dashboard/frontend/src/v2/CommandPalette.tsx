@@ -435,10 +435,25 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   function onKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setActiveIndex((i) => Math.min(flat.length - 1, i + 1));
+      // Wrap from the bottom back to the top so a power user holding
+      // ArrowDown loops through the list instead of getting stuck on
+      // the last entry. Same pattern is standard in Slack / VS Code
+      // / GitHub command palettes.
+      setActiveIndex((i) => (flat.length === 0 ? 0 : (i + 1) % flat.length));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setActiveIndex((i) => Math.max(0, i - 1));
+      setActiveIndex((i) =>
+        flat.length === 0 ? 0 : (i - 1 + flat.length) % flat.length,
+      );
+    } else if (e.key === 'Home') {
+      // Jump to first / last - useful when the user has scrolled far
+      // into the list and wants to bounce back without holding ↑ for
+      // a second.
+      e.preventDefault();
+      setActiveIndex(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setActiveIndex(Math.max(0, flat.length - 1));
     } else if (e.key === 'Enter') {
       e.preventDefault();
       const entry = flat[activeIndex];
@@ -459,6 +474,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     <div
       role="dialog"
       aria-modal="true"
+      aria-label="Command palette"
       onClick={onClose}
       style={{
         position: 'fixed',
