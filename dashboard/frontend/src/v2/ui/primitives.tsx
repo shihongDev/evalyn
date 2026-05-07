@@ -121,6 +121,29 @@
  *     compute target Y relative to main.getBoundingClientRect.
  *     scrollIntoView() is fine - it walks up the parent chain
  *     to find the actual scrollable ancestor.
+ *
+ * 11. Visible labels with present-tense action language must be
+ *     gated on whether the action is currently true. Static
+ *     category names ("Recent runs", "Pinned dimensions") are
+ *     fine; state-claiming labels ("streaming now", "fresh",
+ *     "next") need a conditional. Three concrete fixes from
+ *     the same anti-pattern:
+ *       - Brief "fresh" pill always lit even when generated
+ *         hours ago (5924d27); now buckets fresh / aging /
+ *         stale by Date.parse(generated_at_iso).
+ *       - Live-streaming eyebrow said "streaming now" while
+ *         the body said "No live runs" (e2c295d); now flips
+ *         to "Live runs" at idle.
+ *       - AnnotateSession Save & next button said "& next ->"
+ *         on the last item even though pressing N saved
+ *         without advancing (fded3fa); now says "(last item)"
+ *         when findInFilter(cursor, 1) < 0.
+ *     Discoverability rule: any Eyebrow or button label that
+ *     uses present-tense action language ("streaming",
+ *     "next", "saving", "syncing", "fresh", "live", "active"
+ *     when used as a state) needs a conditional check that
+ *     the action is actually happening. The body and label
+ *     must agree under all branches.
  */
 
 import type {
@@ -278,6 +301,13 @@ interface BtnProps {
    * exposes the same action - prevents AT from announcing the
    * button as a duplicate. */
   'aria-hidden'?: boolean;
+  /** Override the button's accessible name. Useful when the
+   * visible content is a glyph or icon ("↗ Share", "↻", "✓ Copied")
+   * that reads as gibberish or punctuation to screen readers.
+   * The visible text stays for sighted users; AT users hear
+   * `aria-label`. Don't set this if the visible text is already
+   * descriptive (most button labels are). */
+  'aria-label'?: string;
   /** Signal an in-flight async operation to AT. Pair with
    * `disabled` so the button is unreachable to mouse and
    * keyboard, and a label change (e.g. "Save" -> "Saving...")
@@ -331,6 +361,7 @@ export function Btn({
   title,
   tabIndex,
   'aria-hidden': ariaHidden,
+  'aria-label': ariaLabel,
   'aria-busy': ariaBusy,
   'aria-expanded': ariaExpanded,
   'aria-controls': ariaControls,
@@ -347,6 +378,7 @@ export function Btn({
       title={title}
       tabIndex={tabIndex}
       aria-hidden={ariaHidden}
+      aria-label={ariaLabel}
       aria-busy={ariaBusy}
       aria-expanded={ariaExpanded}
       aria-controls={ariaControls}
