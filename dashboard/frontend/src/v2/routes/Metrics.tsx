@@ -29,6 +29,7 @@ import {
   UpdatingChip,
 } from '../ui';
 import { v2 } from '../api/client';
+import { errorMessage } from '../api/errors';
 import type { RubricDetail, RubricRow } from '../api/types';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { useRouteTour } from '../tour/useRouteTour';
@@ -1253,7 +1254,7 @@ export default function Metrics() {
       }, 3000);
     } catch (e: unknown) {
       setSaveStatus('error');
-      setSaveError(String(e));
+      setSaveError(errorMessage(e));
     } finally {
       setSaving(false);
     }

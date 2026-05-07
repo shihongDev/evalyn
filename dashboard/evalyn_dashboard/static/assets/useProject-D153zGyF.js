@@ -1,1 +1,0 @@
-import{h as e,m as t}from"./index-MyJsJG4K.js";function n(){let{data:n}=t(`home`,e.home);return n?n.project:null}export{n as t};

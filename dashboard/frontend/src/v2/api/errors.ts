@@ -67,3 +67,20 @@ export async function maybeParseCapacityError(
     retryAfterSeconds,
   });
 }
+
+/**
+ * Normalise an `unknown` thrown value to a user-friendly message
+ * string. Repeated 17+ times across v2 routes as
+ * `e instanceof Error ? e.message : String(e)` - extracted here
+ * so the pattern lives in one place and any future enrichment
+ * (e.g. CapacityError-specific phrasing, network error
+ * formatting) only needs editing at one site.
+ *
+ * Bare `String(e)` on an Error renders as "Error: <message>",
+ * which double-prefixes when the caller already says "Failed to
+ * X:". Going through this helper keeps the visible string clean.
+ */
+export function errorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  return String(e);
+}

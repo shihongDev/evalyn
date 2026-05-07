@@ -21,6 +21,7 @@ import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, Spinner, StatusDot, UpdatingChip } from '../ui';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { E } from '../tokens';
+import { errorMessage } from '../api/errors';
 import { settingsApi, type ProviderState, type SettingsState } from '../api/settings';
 import { TOUR_ENABLED_KEY, tourCompletedKey } from '../store/store';
 import { KNOWN_TOUR_IDS } from '../tour/useTour';
@@ -337,7 +338,7 @@ function ActiveProviderCard({ data, onChanged }: ActiveProviderCardProps) {
       setTimeout(() => setSuccess(false), 2000);
       onChanged();
     } catch (e) {
-      setError(String(e));
+      setError(errorMessage(e));
     } finally {
       setPending(false);
     }
@@ -588,7 +589,7 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
       })
       .catch((e) => {
         if (cancelled) return;
-        setModelsErr(String(e));
+        setModelsErr(errorMessage(e));
         setModels([]);
       })
       .finally(() => {
@@ -629,7 +630,7 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
       setTimeout(() => setSaveSuccess(false), 2000);
       onSaved();
     } catch (e) {
-      setSaveError(String(e));
+      setSaveError(errorMessage(e));
     } finally {
       setSaving(false);
     }

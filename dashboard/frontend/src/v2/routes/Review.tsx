@@ -38,6 +38,7 @@ import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, UpdatingChip } from '../ui';
 import { Bar, Donut } from '../ui/charts';
 import { v2 } from '../api/client';
+import { errorMessage } from '../api/errors';
 import type {
   CalibrationSuggestion,
   ClustersResponse,
@@ -485,7 +486,7 @@ export default function Review() {
           scheduleChipDismiss();
         }
       } catch (e) {
-        setSubmitErr(String(e));
+        setSubmitErr(errorMessage(e));
       } finally {
         setSubmitting(false);
       }
@@ -516,7 +517,7 @@ export default function Review() {
           if (chip) lastChipResult = chip;
         } catch (e) {
           failed += 1;
-          setSubmitErr(String(e));
+          setSubmitErr(errorMessage(e));
         }
       }
       // Clear submitted ids out of the selection.

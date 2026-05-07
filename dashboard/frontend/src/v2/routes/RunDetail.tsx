@@ -25,6 +25,7 @@ import {
 } from '../ui';
 import type { LineSeries } from '../ui';
 import { v2 } from '../api/client';
+import { errorMessage } from '../api/errors';
 import { listCli } from '../api/cli';
 import type { CliSchema } from '../api/cli';
 import type {
@@ -313,7 +314,7 @@ export default function RunDetail() {
       }
       openCliRunner(runEval, { initialValues });
     } catch (e: unknown) {
-      setRerunErr(`Failed to open re-run form: ${String(e)}`);
+      setRerunErr(`Failed to open re-run form: ${errorMessage(e)}`);
     } finally {
       setRerunBusy(false);
     }
