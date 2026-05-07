@@ -496,3 +496,74 @@ async def test_recent_caps_at_n():
         await jm.wait(jid, timeout=5)
     recent = jm.recent(n=2)
     assert len(recent) == 2
+
+
+# ---------------------------------------------------------------------------
+# Concurrency cap (max_concurrent)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_running_count_tracks_running_subprocesses():
+    """running_count reflects 'running' jobs only - terminals excluded."""
+    jm = JobManager()
+    assert jm.running_count() == 0
+
+    long_id = await jm.spawn([sys.executable, "-c", "import time; time.sleep(60)"])
+    # Wait briefly for the subprocess setup to flip state to running.
+    for _ in range(20):
+        if jm.running_count() == 1:
+            break
+        await asyncio.sleep(0.05)
+    assert jm.running_count() == 1
+
+    short_id = await jm.spawn([sys.executable, "-c", "pass"])
+    await jm.wait(short_id, timeout=5)
+    # Short job is terminal; long job still running.
+    assert jm.running_count() == 1
+
+    await jm.cancel(long_id)
+    await jm.wait(long_id, timeout=5)
+    assert jm.running_count() == 0
+
+
+@pytest.mark.asyncio
+async def test_spawn_raises_when_at_max_concurrent():
+    """At the cap, spawn raises ConcurrencyLimitExceeded BEFORE creating
+    the subprocess. Cancelling a running job opens capacity again."""
+    from evalyn_dashboard.jobs import ConcurrencyLimitExceeded
+
+    jm = JobManager(max_concurrent=2)
+    long_cmd = [sys.executable, "-c", "import time; time.sleep(60)"]
+    a = await jm.spawn(long_cmd)
+    b = await jm.spawn(long_cmd)
+    for _ in range(20):
+        if jm.running_count() == 2:
+            break
+        await asyncio.sleep(0.05)
+
+    with pytest.raises(ConcurrencyLimitExceeded) as info:
+        await jm.spawn(long_cmd)
+    assert "max_concurrent=2" in str(info.value)
+
+    await jm.cancel(a)
+    await jm.wait(a, timeout=5)
+    c = await jm.spawn(long_cmd)  # should not raise
+    try:
+        assert c
+    finally:
+        await jm.cancel(b)
+        await jm.cancel(c)
+        await jm.wait(b, timeout=5)
+        await jm.wait(c, timeout=5)
+
+
+@pytest.mark.asyncio
+async def test_max_concurrent_zero_disables_cap():
+    """max_concurrent=0 disables the cap (test/dev escape hatch)."""
+    jm = JobManager(max_concurrent=0)
+    ids = []
+    for _ in range(8):
+        ids.append(await jm.spawn([sys.executable, "-c", "pass"]))
+    for jid in ids:
+        await jm.wait(jid, timeout=5)

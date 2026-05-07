@@ -340,7 +340,26 @@ async def run_cli(request: Request) -> JSONResponse:
     cmd = ["evalyn", cli_id, *argv_tail]
 
     job_manager = request.app.state.job_manager
-    job_id = await job_manager.spawn(cmd, cli_id=cli_id, args=args)
+    from ..jobs import ConcurrencyLimitExceeded
+
+    try:
+        job_id = await job_manager.spawn(cmd, cli_id=cli_id, args=args)
+    except ConcurrencyLimitExceeded as exc:
+        # 503 with Retry-After is the correct shape for "we're full,
+        # try again". A retry-aware client (and our FE) can back off
+        # without surfacing a confusing error to the user. The header
+        # is a hint, not a guarantee - by then the FE has usually
+        # finished its current spawn anyway.
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": str(exc),
+                "running": job_manager.running_count(),
+                "max_concurrent": job_manager.max_concurrent,
+            },
+            status_code=503,
+            headers={"Retry-After": "5"},
+        )
     return JSONResponse({"job_id": job_id})
 
 

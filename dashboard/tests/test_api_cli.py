@@ -457,3 +457,38 @@ def test_run_happy_path_returns_job_id(monkeypatch):
     # Job should exist in the JobManager.
     job = app.state.job_manager.get(body["job_id"])
     assert job is not None
+
+
+def test_run_at_capacity_returns_503(monkeypatch):
+    """When JobManager is at max_concurrent, /api/cli/run returns 503
+    with Retry-After + a body that surfaces ``running`` and
+    ``max_concurrent`` so a UI can render a useful message instead of
+    the raw error string.
+
+    We simulate saturation by monkeypatching ``running_count`` to
+    return the cap; the spawn path then raises before any subprocess
+    is created, which means the test stays fast and deterministic
+    without actually holding two long-lived subprocesses.
+    """
+    app = build_app()
+    client = TestClient(app)
+
+    jm = app.state.job_manager
+    jm.max_concurrent = 2
+    monkeypatch.setattr(jm, "running_count", lambda: 2)
+
+    html = client.get("/").text
+    token = re.search(r'content="([^"]+)"', html).group(1)
+
+    r = client.post(
+        "/api/cli/run",
+        json={"cli_id": "list-runs", "args": {"limit": 5, "format": "json"}},
+        headers={CSRF_HEADER: token},
+    )
+    assert r.status_code == 503, r.text
+    body = r.json()
+    assert body.get("ok") is False
+    assert body.get("running") == 2
+    assert body.get("max_concurrent") == 2
+    assert "max_concurrent=2" in body.get("error", "")
+    assert r.headers.get("Retry-After") == "5"

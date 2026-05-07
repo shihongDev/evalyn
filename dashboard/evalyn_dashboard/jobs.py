@@ -52,6 +52,21 @@ DEFAULT_HISTORY_SIZE = 100
 # the GC call the .evalyn/data/jobs.sqlite table grew unboundedly.
 DEFAULT_PERSISTENCE_KEEP = 200
 DEFAULT_PERSISTENCE_GC_INTERVAL = 50
+# Concurrency cap. Without one, an accidental rapid-fire spawn (a script
+# that loops POST /api/cli/run, an over-eager UI test, a stuck retry
+# loop) can spawn dozens of subprocesses and OOM the host. The default
+# is intentionally generous - a normal interactive session never hits
+# it - but the cap exists so pathological cases get a clean 503 from
+# the API layer rather than a wedged box.
+DEFAULT_MAX_CONCURRENT = 16
+
+
+class ConcurrencyLimitExceeded(RuntimeError):
+    """Raised by :meth:`JobManager.spawn` when ``running_count`` is at
+    ``max_concurrent``. The API layer translates this to HTTP 503 with
+    a Retry-After hint; downstream code should NOT catch and silently
+    retry (that's how thundering herds form). Callers that legitimately
+    want to wait can poll ``running_count`` until a slot frees."""
 
 
 def _iso_utc(ts: float) -> str:
@@ -187,10 +202,15 @@ class JobManager:
         persistence: JobPersistence | None = None,
         persistence_keep: int = DEFAULT_PERSISTENCE_KEEP,
         persistence_gc_interval: int = DEFAULT_PERSISTENCE_GC_INTERVAL,
+        max_concurrent: int = DEFAULT_MAX_CONCURRENT,
     ) -> None:
         self.grace_seconds = grace_seconds
         self.max_log = max_log
         self.history_size = history_size
+        # 0 or negative disables the cap (used in tests that intentionally
+        # spawn many cheap jobs). Positive values are the hard limit on
+        # concurrent ``running`` subprocesses.
+        self.max_concurrent = max(0, int(max_concurrent))
         self._jobs: dict[str, Job] = {}
         # Insertion order tracked by dict; Python 3.7+ preserves it.
         # Optional sqlite mirror. None disables persistence (test default).
@@ -223,8 +243,18 @@ class JobManager:
         mirror (when configured) so the dashboard's Recent Jobs drawer can
         reconstruct state after a restart. They have no effect on subprocess
         execution.
+
+        Raises :class:`ConcurrencyLimitExceeded` if ``max_concurrent`` is
+        positive and ``running_count`` is already at the cap. The check
+        happens BEFORE the subprocess is created so a rejected spawn
+        never starts a process. The API layer maps this to HTTP 503.
         """
         _validate_cmd(cmd)
+        if self.max_concurrent and self.running_count() >= self.max_concurrent:
+            raise ConcurrencyLimitExceeded(
+                f"job manager at capacity: {self.running_count()} running "
+                f"(max_concurrent={self.max_concurrent})"
+            )
 
         job_id = uuid.uuid4().hex
         job = Job(
@@ -307,6 +337,16 @@ class JobManager:
     def get(self, job_id: str) -> Job | None:
         """Return the Job for ``job_id`` or None if unknown."""
         return self._jobs.get(job_id)
+
+    def running_count(self) -> int:
+        """Number of jobs currently in the ``running`` state.
+
+        Used by ``spawn``'s capacity check and by ``/api/jobs/stats`` to
+        surface saturation in the dashboard. Does NOT include ``pending``
+        (no such intermediate state in the current pipeline) or terminal
+        states.
+        """
+        return sum(1 for j in self._jobs.values() if j.state == "running")
 
     def purge(self, job_id: str) -> bool:
         """Drop a finished job from in-memory + persistence by id.
