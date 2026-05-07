@@ -501,6 +501,7 @@ async def get_job_output_txt(
     job_id: str,
     stream: str | None = None,
     tail: int | None = None,
+    download: bool = False,
 ) -> PlainTextResponse:
     """Plain-text variant of ``/output`` with stdout and stderr
     interleaved in chronological emit order (the order they hit the
@@ -511,6 +512,12 @@ async def get_job_output_txt(
     stream. Default (omitted) keeps the existing interleaved behavior.
     Useful for ``curl ... | grep`` only on stdout, or pulling the
     error log alone for further analysis.
+
+    Optional ``?download=1`` adds a ``Content-Disposition: attachment``
+    header so a browser visit downloads the file rather than
+    rendering it inline. Filename derives from the job_id prefix and
+    the stream filter (if any) so multiple downloads to the same
+    Downloads folder don't clobber each other.
 
     Sources:
       1. In-memory: walks ``job.events`` in event_id order so stdout
@@ -536,6 +543,29 @@ async def get_job_output_txt(
         raise HTTPException(
             status_code=400, detail="tail must be >= 1 if provided"
         )
+
+    def _download_headers() -> dict[str, str]:
+        """Header dict for ?download=1 responses, empty otherwise.
+        Filename derives from the job_id prefix + stream filter so a
+        user downloading both streams of the same job to the same
+        folder doesn't clobber the prior file. Stream-suffix only when
+        a filter is active. ``-tail`` segment when truncated. The
+        prefix is the first 8 chars of the job_id - enough to
+        disambiguate within a normal Downloads folder, short enough
+        to be readable in the file save dialog.
+        """
+        if not download:
+            return {}
+        suffix_parts: list[str] = []
+        if stream:
+            suffix_parts.append(stream)
+        if tail is not None:
+            suffix_parts.append(f"tail{tail}")
+        suffix = ("-" + "-".join(suffix_parts)) if suffix_parts else ""
+        filename = f"evalyn-job-{job_id[:8]}{suffix}.log"
+        return {
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        }
 
     def _maybe_tail(text: str) -> str:
         """Trim ``text`` to the last ``tail`` lines if ``tail`` is set.
@@ -576,6 +606,7 @@ async def get_job_output_txt(
         return PlainTextResponse(
             _maybe_tail(text),
             media_type="text/plain; charset=utf-8",
+            headers=_download_headers(),
         )
 
     persistence = _persistence_for(jm)
@@ -589,14 +620,18 @@ async def get_job_output_txt(
                 if body and not body.endswith("\n"):
                     body = body + "\n"
                 return PlainTextResponse(
-                    _maybe_tail(body), media_type="text/plain; charset=utf-8"
+                    _maybe_tail(body),
+                    media_type="text/plain; charset=utf-8",
+                    headers=_download_headers(),
                 )
             if stream == "stderr":
                 body = stderr_tail
                 if body and not body.endswith("\n"):
                     body = body + "\n"
                 return PlainTextResponse(
-                    _maybe_tail(body), media_type="text/plain; charset=utf-8"
+                    _maybe_tail(body),
+                    media_type="text/plain; charset=utf-8",
+                    headers=_download_headers(),
                 )
             parts: list[str] = []
             if stdout_tail:
@@ -614,6 +649,7 @@ async def get_job_output_txt(
             return PlainTextResponse(
                 _maybe_tail("".join(parts)),
                 media_type="text/plain; charset=utf-8",
+                headers=_download_headers(),
             )
     raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
 

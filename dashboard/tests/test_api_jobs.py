@@ -595,3 +595,64 @@ def test_restart_source_without_cli_id_returns_409():
         )
         assert r.status_code == 409
         assert "cli_id" in r.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# /output.txt?download=1 attaches a Content-Disposition header
+# ---------------------------------------------------------------------------
+
+
+def test_output_txt_download_adds_attachment_header():
+    """?download=1 turns the same plain-text body into a file
+    download by setting Content-Disposition. Filename derives from
+    the job_id prefix so concurrent downloads don't clobber each
+    other in the user's Downloads folder."""
+    app = build_app()
+    with TestClient(app) as client:
+        job_id = _spawn(
+            client,
+            app,
+            [sys.executable, "-c", "print('hello'); print('world')"],
+        )
+        _wait(client, app, job_id)
+
+        # Without ?download: no Content-Disposition (browser renders
+        # inline, curl pipes happily).
+        r1 = client.get(f"/api/jobs/{job_id}/output.txt")
+        assert r1.status_code == 200
+        assert "content-disposition" not in {k.lower() for k in r1.headers.keys()}
+
+        # With ?download=1: attachment + sensible filename.
+        r2 = client.get(f"/api/jobs/{job_id}/output.txt?download=1")
+        assert r2.status_code == 200
+        cd = r2.headers.get("content-disposition", "")
+        assert "attachment" in cd
+        # First 8 chars of job_id used as the filename prefix.
+        assert f"evalyn-job-{job_id[:8]}" in cd
+        assert cd.endswith('.log"')
+
+
+def test_output_txt_download_filename_includes_stream_and_tail():
+    """When ?stream and ?tail are also present, the filename suffix
+    encodes them so multiple downloads of slices of the same job
+    don't clobber each other."""
+    app = build_app()
+    with TestClient(app) as client:
+        job_id = _spawn(
+            client,
+            app,
+            [
+                sys.executable,
+                "-c",
+                "import sys\nfor i in range(5):\n  print(i)\nsys.stderr.write('err\\n')\n",
+            ],
+        )
+        _wait(client, app, job_id)
+
+        r = client.get(
+            f"/api/jobs/{job_id}/output.txt?download=1&stream=stderr&tail=3"
+        )
+        assert r.status_code == 200
+        cd = r.headers.get("content-disposition", "")
+        assert "attachment" in cd
+        assert f"evalyn-job-{job_id[:8]}-stderr-tail3.log" in cd
