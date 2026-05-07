@@ -1266,6 +1266,14 @@ function Sidebar({ mode, active, navigate, dockOpen, setDockOpen, onAfterNavigat
             // explicit aria-label on the link itself so AT users get
             // "Home" instead of a punctuation character.
             aria-label={isIcon ? item.label : undefined}
+            // Explicit aria-current overrides NavLink's URL-based
+            // default. Needed because activeIdFromPath() applies
+            // route-mapping rules (e.g. /copilot -> home is the
+            // visually active tab) that NavLink's exact-match logic
+            // doesn't know about. Without this, SR users on /copilot
+            // hear no "current page" indicator while sighted users
+            // see Home highlighted.
+            aria-current={isActive ? 'page' : undefined}
             style={{
               display: 'flex',
               alignItems: 'center',
