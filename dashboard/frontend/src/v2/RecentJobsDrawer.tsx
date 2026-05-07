@@ -176,21 +176,51 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
   }, [open, cliCatalog, catalogError]);
 
   // Capacity poll: fetch /api/jobs/stats every 5s while the drawer is
-  // open. Fires immediately on open so the chip lights up without a
-  // visible delay; subsequent ticks pick up natural changes (a job
-  // finishing, a fresh spawn). Closed drawer = no polling.
+  // open AND the tab is visible. Fires immediately on open so the chip
+  // lights up without a visible delay; subsequent ticks pick up natural
+  // changes (a job finishing, a fresh spawn). Closed drawer = no
+  // polling. Backgrounded tab = no polling either - the chip is
+  // invisible, so the user gains nothing from the fetch and the
+  // dashboard burns network/CPU on always-open tabs. When the tab
+  // returns to visible we fire an immediate refetch so the chip
+  // reflects state-of-the-world without waiting up to 5s.
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
+    let interval: number | null = null;
+
     const tick = async () => {
       const cap = await fetchJobsCapacity();
       if (!cancelled) setCapacity(cap);
     };
-    void tick();
-    const interval = window.setInterval(() => void tick(), 5000);
+
+    const start = () => {
+      if (interval !== null) return;
+      void tick();
+      interval = window.setInterval(() => void tick(), 5000);
+    };
+    const stop = () => {
+      if (interval !== null) {
+        window.clearInterval(interval);
+        interval = null;
+      }
+    };
+
+    if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+      start();
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        start();
+      } else {
+        stop();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      stop();
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [open]);
 
