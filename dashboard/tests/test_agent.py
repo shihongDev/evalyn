@@ -1459,6 +1459,63 @@ async def test_create_thread_seeds_system_prompt() -> None:
     assert "start_tour" in messages[0]["content"]
 
 
+def test_thread_counts_zero_on_fresh_runtime() -> None:
+    """Brand-new AgentRuntime has no threads. Healthcheck reads
+    `thread_counts` for the agent_threads / agent_open_threads
+    fields, so the empty-runtime baseline must report zeros
+    (not some stale or default-initialized non-zero)."""
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider([]),
+        catalog=[],
+        tool_runner=_unused_runner,
+    )
+    counts = runtime.thread_counts()
+    assert counts == {"total": 0, "open": 0}
+
+
+def test_thread_counts_matches_create_then_remove() -> None:
+    """Create N threads -> total=N open=N. Remove one -> total=N-1
+    open=N-1. The total/open relationship matters because the
+    healthcheck surfaces them separately and "open > total"
+    would be a clear contract bug."""
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider([]),
+        catalog=[],
+        tool_runner=_unused_runner,
+    )
+    a = runtime.create_thread()
+    runtime.create_thread()
+    runtime.create_thread()
+    counts = runtime.thread_counts()
+    assert counts == {"total": 3, "open": 3}
+
+    runtime.remove_thread(a)
+    counts2 = runtime.thread_counts()
+    assert counts2 == {"total": 2, "open": 2}
+
+
+def test_thread_counts_open_excludes_closed() -> None:
+    """Closing a thread keeps it in `total` but drops it from
+    `open`. This is the load-bearing distinction for the
+    "are agents stuck?" forensic question - a runtime with many
+    closed threads (normal post-conversation state) shouldn't
+    look saturated to a healthcheck reading `open`."""
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider([]),
+        catalog=[],
+        tool_runner=_unused_runner,
+    )
+    a = runtime.create_thread()
+    runtime.create_thread()
+
+    # Mark `a` as closed via the internal flag (the test mirrors
+    # what `final` would do in production).
+    runtime._threads[a].closed = True
+
+    counts = runtime.thread_counts()
+    assert counts == {"total": 2, "open": 1}
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
