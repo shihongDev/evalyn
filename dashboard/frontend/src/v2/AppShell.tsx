@@ -73,6 +73,7 @@ import { useTour } from './tour/useTour';
 import { TourMenu } from './tour/TourMenu';
 import {
   preloadAnnotate,
+  preloadByPath,
   preloadCommands,
   preloadDatasets,
   preloadExperimentsList,
@@ -815,9 +816,15 @@ export function AppShell({
                         onMouseEnter={(e) => {
                           e.currentTarget.style.color = E.ember;
                           // Warm parent-route data + chunk so the
-                          // click->paint is instant. Mirrors the
-                          // side-nav NavLink prefetch.
-                          NAV_PREFETCH_BY_PATH[path]?.();
+                          // click->paint is instant. Prefer the
+                          // NAV_ITEMS prefetch (chunk + data) when
+                          // the path has one; fall back to
+                          // chunk-only via preloadByPath for paths
+                          // not in the side nav (e.g. /copilot,
+                          // which has a breadcrumb mapping but no
+                          // NAV_ITEMS entry).
+                          const warm = NAV_PREFETCH_BY_PATH[path] ?? preloadByPath(path);
+                          warm?.();
                         }}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.color = E.text2;
@@ -825,7 +832,8 @@ export function AppShell({
                         onFocus={() => {
                           // Keyboard parity: Tab users get the same
                           // warmup as mouse hovers.
-                          NAV_PREFETCH_BY_PATH[path]?.();
+                          const warm = NAV_PREFETCH_BY_PATH[path] ?? preloadByPath(path);
+                          warm?.();
                         }}
                       >
                         {b}
