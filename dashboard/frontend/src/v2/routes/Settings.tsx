@@ -422,7 +422,11 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
     };
   }, [id]);
 
-  const dirty = apiKey.length > 0 || model !== (state.model ?? '');
+  // Compute dirty against the *trimmed* key so a stray space bar does
+  // not enable Save (and worse, submit a whitespace-only key that the
+  // backend would happily store and then fail every API call with).
+  const trimmedKey = apiKey.trim();
+  const dirty = trimmedKey.length > 0 || model !== (state.model ?? '');
 
   async function handleSave() {
     if (!dirty) return;
@@ -430,7 +434,10 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
     setSaveError(null);
     setSaveSuccess(false);
     const body: { api_key?: string; model?: string } = {};
-    if (apiKey.length > 0) body.api_key = apiKey;
+    // Always submit the trimmed value - secret managers and password
+    // managers commonly paste with a trailing newline or stray space
+    // that would silently break auth on every subsequent request.
+    if (trimmedKey.length > 0) body.api_key = trimmedKey;
     if (model !== (state.model ?? '')) body.model = model;
     try {
       await settingsApi.save(id, body);
