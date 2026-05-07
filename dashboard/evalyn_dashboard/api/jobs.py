@@ -418,6 +418,80 @@ async def get_job_output(request: Request, job_id: str) -> JSONResponse:
     raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
 
 
+@router.get("/{job_id}/output.txt")
+async def get_job_output_txt(
+    request: Request, job_id: str
+) -> PlainTextResponse:
+    """Plain-text variant of ``/output`` with stdout and stderr
+    interleaved in chronological emit order (the order they hit the
+    subprocess pipes). Suitable for ``curl ... | grep error`` or
+    redirecting straight into a log file.
+
+    Sources:
+      1. In-memory: walks ``job.events`` in event_id order so stdout
+         and stderr stay correctly interleaved.
+      2. Persisted only: concatenates ``stdout_tail`` then
+         ``stderr_tail`` with a clear divider, since the persisted
+         tails are stored separately and the original chronology is
+         lost. The divider keeps tooling from accidentally treating
+         stderr lines as stdout.
+      3. Both miss -> 404.
+
+    Caps: in-memory builds a string at most ``MAX_PERSISTED_OUTPUT * 2``
+    chars long (one per stream). For very chatty jobs the live tail
+    via ``/ws/jobs/{id}`` remains the right tool.
+    """
+    from ..jobs_persistence import MAX_PERSISTED_OUTPUT
+
+    jm = request.app.state.job_manager
+    job = jm.get(job_id)
+    if job is not None:
+        # Walk events in event_id order to preserve interleaving.
+        # Each event already has event_id set monotonically.
+        ordered_lines: list[str] = []
+        for event in sorted(job.events, key=lambda e: e.get("event_id", 0)):
+            t = event.get("type")
+            if t in ("stdout", "stderr"):
+                ordered_lines.append(event.get("line", ""))
+        text = "\n".join(ordered_lines)
+        # Symmetric cap with the JSON endpoint - 2 * MAX_PERSISTED_OUTPUT
+        # so the total budget matches stdout + stderr separately.
+        cap = MAX_PERSISTED_OUTPUT * 2
+        if len(text) > cap:
+            text = text[-cap:]
+        if not text.endswith("\n"):
+            text = text + "\n"
+        return PlainTextResponse(
+            text,
+            media_type="text/plain; charset=utf-8",
+        )
+
+    persistence = _persistence_for(jm)
+    if persistence is not None:
+        row = persistence.get(job_id)
+        if row is not None:
+            stdout_tail = row.get("stdout_tail") or ""
+            stderr_tail = row.get("stderr_tail") or ""
+            parts: list[str] = []
+            if stdout_tail:
+                parts.append(stdout_tail)
+                if not stdout_tail.endswith("\n"):
+                    parts.append("\n")
+            if stderr_tail:
+                # Divider so tooling reading text/plain doesn't conflate
+                # stdout and stderr. The persisted tails lost their
+                # original interleaving; this is the best we can do.
+                parts.append("--- stderr ---\n")
+                parts.append(stderr_tail)
+                if not stderr_tail.endswith("\n"):
+                    parts.append("\n")
+            return PlainTextResponse(
+                "".join(parts),
+                media_type="text/plain; charset=utf-8",
+            )
+    raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
+
+
 @router.delete("/{job_id}")
 async def delete_job(request: Request, job_id: str) -> JSONResponse:
     """Remove a finished job from in-memory + persistence.

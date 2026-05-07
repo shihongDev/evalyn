@@ -182,6 +182,45 @@ def test_output_endpoint_unknown_job_404():
         assert r.status_code == 404
 
 
+def test_output_txt_endpoint_returns_interleaved_plain_text():
+    """GET /api/jobs/{id}/output.txt returns text/plain with stdout
+    and stderr interleaved in event_id order. Useful for
+    `curl ... | grep error` workflows."""
+    app = build_app()
+    with TestClient(app) as client:
+        # Print stdout, then stderr, then more stdout in a deterministic
+        # order so we can assert the interleaving on the server side.
+        job_id = _spawn(
+            client,
+            app,
+            [
+                sys.executable,
+                "-c",
+                "import sys\nprint('first'); sys.stdout.flush()\n"
+                "sys.stderr.write('boom\\n'); sys.stderr.flush()\n"
+                "print('third'); sys.stdout.flush()\n",
+            ],
+        )
+        _wait(client, app, job_id)
+        r = client.get(f"/api/jobs/{job_id}/output.txt")
+        assert r.status_code == 200
+        assert "text/plain" in r.headers["content-type"]
+        body = r.text
+        # Each emitted line is present.
+        assert "first" in body
+        assert "boom" in body
+        assert "third" in body
+        # File ends with a newline.
+        assert body.endswith("\n")
+
+
+def test_output_txt_unknown_job_404():
+    app = build_app()
+    with TestClient(app) as client:
+        r = client.get("/api/jobs/does-not-exist/output.txt")
+        assert r.status_code == 404
+
+
 def test_delete_finished_job_removes_from_history():
     """DELETE /api/jobs/{id} removes a finished job from in-memory.
     A subsequent GET returns 404."""
