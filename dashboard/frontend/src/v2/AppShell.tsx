@@ -1189,6 +1189,12 @@ function Sidebar({ mode, active, navigate, dockOpen, setDockOpen, onAfterNavigat
             onTouchStart={warm}
             onClick={() => onAfterNavigate?.()}
             title={isIcon ? item.label : undefined}
+            // In icon-only mode the visible label span is hidden, so
+            // the only thing screen readers would otherwise hear is
+            // the icon glyph (e.g. "◐") which is meaningless. Set an
+            // explicit aria-label on the link itself so AT users get
+            // "Home" instead of a punctuation character.
+            aria-label={isIcon ? item.label : undefined}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -1209,6 +1215,10 @@ function Sidebar({ mode, active, navigate, dockOpen, setDockOpen, onAfterNavigat
             }}
           >
             <span
+              // Icons are decorative - screen readers should skip the
+              // glyph and read either the visible label span (full
+              // mode) or the link's aria-label (icon mode).
+              aria-hidden="true"
               style={{
                 fontSize: isIcon ? 14 : 12,
                 color: isActive ? E.ember : E.text3,
