@@ -107,6 +107,20 @@
  *    header). Discoverability rule: any button whose visible
  *    icon/label changes based on a `boolean` open state needs
  *    aria-expanded on the same boolean.
+ *
+ * 10. Scroll-related code targets <main id="main-content">,
+ *     not window. AppShell's main region has overflow: auto,
+ *     which means the document itself never scrolls - inner
+ *     content scroll lives on the region. window.scrollY is
+ *     always 0; window.scrollTo is a no-op. Concrete bugs
+ *     found from this mismatch (668319c, edb6d97):
+ *       - scroll-to-top FAB never appeared on long pages
+ *       - PUSH-nav scroll reset landed users mid-page
+ *       - AnnotateSession auto-scroll-to-card silently failed
+ *     The pattern: read main.scrollTop, write main.scrollTo,
+ *     compute target Y relative to main.getBoundingClientRect.
+ *     scrollIntoView() is fine - it walks up the parent chain
+ *     to find the actual scrollable ancestor.
  */
 
 import type {
