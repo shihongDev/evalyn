@@ -404,6 +404,7 @@ export default function CoPilotThread() {
                     key={t.id}
                     type="button"
                     onClick={() => handleSelectThread(t.id)}
+                    aria-current={isActive ? 'page' : undefined}
                     onMouseEnter={(e) => {
                       if (!isActive) {
                         e.currentTarget.style.background = E.panel2;
@@ -465,6 +466,7 @@ export default function CoPilotThread() {
                     key={t.id}
                     type="button"
                     onClick={() => handleSelectThread(t.id)}
+                    aria-current={isActive ? 'page' : undefined}
                     onMouseEnter={(e) => {
                       if (!isActive) {
                         e.currentTarget.style.background = E.panel2;

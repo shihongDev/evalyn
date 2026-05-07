@@ -29,6 +29,13 @@ def test_healthcheck() -> None:
     assert body["running"] >= 0
     assert isinstance(body["max_concurrent"], int)
     assert body["max_concurrent"] >= 0
+    # Agent thread snapshot.
+    assert isinstance(body["agent_threads"], int)
+    assert body["agent_threads"] >= 0
+    assert isinstance(body["agent_open_threads"], int)
+    assert body["agent_open_threads"] >= 0
+    # Open threads cannot exceed total.
+    assert body["agent_open_threads"] <= body["agent_threads"]
 
 
 def test_healthcheck_capacity_zero_when_idle() -> None:
@@ -57,6 +64,9 @@ def test_healthcheck_survives_missing_job_manager(monkeypatch) -> None:
     assert body["ok"] is True
     assert body["running"] == 0
     assert body["max_concurrent"] == 0
+    # Agent fields are also defensive.
+    assert body["agent_threads"] == 0
+    assert body["agent_open_threads"] == 0
 
 
 def test_index_served() -> None:
