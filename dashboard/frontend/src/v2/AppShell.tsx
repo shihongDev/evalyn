@@ -216,6 +216,20 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
+/** Path -> prefetch fn map derived from NAV_ITEMS. Used by the
+ * breadcrumb buttons to warm parent-route data + chunk on hover/
+ * focus, matching the warmup the side-nav already does on its
+ * own NavLinks. Without this, clicking a parent breadcrumb
+ * (e.g. "Experiments") to back out of a deep route paid a fresh
+ * network round-trip every time. The map is initialized from the
+ * NAV_ITEMS array so adding a new nav item with a prefetch fn
+ * automatically gets breadcrumb-hover prewarming for free. */
+const NAV_PREFETCH_BY_PATH: Record<string, () => void> = Object.fromEntries(
+  NAV_ITEMS.filter((n): n is NavItem & { prefetch: () => void } =>
+    n.prefetch !== undefined,
+  ).map((n) => [n.path, n.prefetch]),
+);
+
 const PINNED: { name: string; q: number; status: 'pass' | 'warn' | 'fail' }[] = [];
 
 export type Viewport = 'mobile' | 'tablet' | 'desktop';
@@ -795,9 +809,18 @@ export function AppShell({
                         }}
                         onMouseEnter={(e) => {
                           e.currentTarget.style.color = E.ember;
+                          // Warm parent-route data + chunk so the
+                          // click->paint is instant. Mirrors the
+                          // side-nav NavLink prefetch.
+                          NAV_PREFETCH_BY_PATH[path]?.();
                         }}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.color = E.text2;
+                        }}
+                        onFocus={() => {
+                          // Keyboard parity: Tab users get the same
+                          // warmup as mouse hovers.
+                          NAV_PREFETCH_BY_PATH[path]?.();
                         }}
                       >
                         {b}
