@@ -13,6 +13,8 @@
  * just because they opened Settings.
  */
 
+import { readCsrfToken, refreshCsrfToken } from './csrf';
+
 export interface SystemHealth {
   ok: boolean;
   version: string;
@@ -91,7 +93,6 @@ export interface VacuumResult {
  * non-2xx. Self-heals stale CSRF tokens after a server restart
  * (matches the cancelJob retry pattern in api/jobs.ts). */
 export async function vacuumPersistence(): Promise<VacuumResult> {
-  const { readCsrfToken, refreshCsrfToken } = await import('./csrf');
   const send = async (token: string | null): Promise<Response> =>
     fetch('/api/jobs/admin/vacuum', {
       method: 'POST',
@@ -126,7 +127,6 @@ export interface PruneResult {
  * Destructive; callers wrap in a two-click confirmation.
  * Self-heals stale CSRF tokens. */
 export async function pruneOldJobs(keep: number): Promise<PruneResult> {
-  const { readCsrfToken, refreshCsrfToken } = await import('./csrf');
   const url = `/api/jobs/admin/prune?keep=${encodeURIComponent(String(keep))}`;
   const send = async (token: string | null): Promise<Response> =>
     fetch(url, {
