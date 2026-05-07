@@ -694,6 +694,7 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
           activeCount={entries.filter(
             (e) => e.status === 'queued' || e.status === 'running',
           ).length}
+          onExport={() => exportEntriesAsCsv(entries)}
           onClear={() => {
             clearJobsHistory();
           }}
@@ -929,6 +930,7 @@ function DrawerHeader({
 function DrawerFooter({
   hasEntries,
   activeCount,
+  onExport,
   onClear,
   onCancelAll,
 }: {
@@ -938,6 +940,8 @@ function DrawerFooter({
    * when non-zero, since the localStorage entry is the only handle the
    * user has to re-attach mid-stream. */
   activeCount: number;
+  /** Export the local drawer history as a CSV download. */
+  onExport: () => void;
   onClear: () => void;
   /** Bulk cancel handler. Iterates active rows and sends SIGTERM to
    * each via /api/jobs/{id}/cancel. Wrapped in two-click confirm. */
@@ -1023,6 +1027,15 @@ function DrawerFooter({
         </Btn>
       )}
       <Btn
+        kind="ghost"
+        size="sm"
+        onClick={onExport}
+        disabled={!hasEntries}
+        title="Download the local drawer history as CSV"
+      >
+        Export CSV
+      </Btn>
+      <Btn
         kind={clearArm.armed ? 'primary' : 'ghost'}
         size="sm"
         onClick={handleClick}
@@ -1039,6 +1052,73 @@ function DrawerFooter({
       </Btn>
     </div>
   );
+}
+
+/** Serialize a single CSV cell. Wraps in quotes when needed (commas,
+ * quotes, newlines) and doubles internal quotes per RFC 4180. Empty /
+ * undefined values become empty cells (no surrounding quotes). */
+function csvCell(v: unknown): string {
+  if (v === null || v === undefined) return '';
+  const s = typeof v === 'string' ? v : JSON.stringify(v);
+  if (s === '') return '';
+  if (/[",\r\n]/.test(s)) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+/** Build a CSV text body from the drawer's history entries.
+ * Newest-first to match the drawer's visual order. */
+function buildEntriesCsv(entries: JobHistoryEntry[]): string {
+  const headers = [
+    'job_id',
+    'cli_id',
+    'cli_args_json',
+    'status',
+    'exit_code',
+    'started_at_iso',
+    'failed_at_iso',
+    'duration',
+    'stderr_count',
+    'pinned',
+  ];
+  const lines: string[] = [headers.join(',')];
+  for (const e of entries) {
+    lines.push(
+      [
+        csvCell(e.job_id),
+        csvCell(e.cli_id),
+        csvCell(JSON.stringify(e.cli_args ?? {})),
+        csvCell(e.status),
+        csvCell(e.exit_code ?? ''),
+        csvCell(e.started_at_iso),
+        csvCell(e.failed_at_iso ?? ''),
+        csvCell(e.duration ?? ''),
+        csvCell(e.stderr_count ?? ''),
+        csvCell(e.pinned ? 'true' : 'false'),
+      ].join(','),
+    );
+  }
+  return lines.join('\n') + '\n';
+}
+
+/** Trigger a CSV download for the local drawer history. Browser
+ * blob-URL pattern matches what CliRunner's "Download .log" uses. */
+function exportEntriesAsCsv(entries: JobHistoryEntry[]): void {
+  if (entries.length === 0) return;
+  const csv = buildEntriesCsv(entries);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `evalyn-jobs-${ts}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Defer revoke to give the browser a tick to start the download;
+  // matches the pattern used in CliRunner's handleDownload.
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function EmptyState() {
