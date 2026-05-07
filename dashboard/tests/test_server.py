@@ -24,6 +24,39 @@ def test_healthcheck() -> None:
     assert body["started_at"] > 0
     assert isinstance(body["uptime_seconds"], int)
     assert body["uptime_seconds"] >= 0
+    # Capacity snapshot for SRE dashboards.
+    assert isinstance(body["running"], int)
+    assert body["running"] >= 0
+    assert isinstance(body["max_concurrent"], int)
+    assert body["max_concurrent"] >= 0
+
+
+def test_healthcheck_capacity_zero_when_idle() -> None:
+    """A freshly-built app with no jobs yet reports running=0 and
+    a positive max_concurrent (the default JobManager cap)."""
+    client = TestClient(build_app())
+    body = client.get("/api/health").json()
+    assert body["running"] == 0
+    # Default cap is 16; we don't assert the exact value (it could
+    # change) but it must be > 0 since the cap is enabled by default.
+    assert body["max_concurrent"] > 0
+
+
+def test_healthcheck_survives_missing_job_manager(monkeypatch) -> None:
+    """If the job_manager is somehow missing (early-startup race or
+    a test rig that doesn't attach one), /api/health must NOT 500 -
+    it falls back to running=0 / max_concurrent=0 so external
+    monitors keep getting 200s."""
+    app = build_app()
+    # Simulate the degraded state by clearing the attribute.
+    monkeypatch.delattr(app.state, "job_manager", raising=False)
+    client = TestClient(app)
+    r = client.get("/api/health")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is True
+    assert body["running"] == 0
+    assert body["max_concurrent"] == 0
 
 
 def test_index_served() -> None:

@@ -349,7 +349,7 @@ def build_app(
 
     @app.get("/api/health")
     async def healthcheck() -> dict:
-        """Return basic process health.
+        """Return basic process health + capacity snapshot.
 
         Shape:
           {
@@ -357,20 +357,43 @@ def build_app(
             version: "<semver>",
             started_at: <unix epoch float>,
             uptime_seconds: <int>,
+            running: <int>,        # currently-running jobs
+            max_concurrent: <int>, # cap; 0 = disabled
           }
 
-        Useful for external monitors (curl-based liveness checks,
-        process supervisors, dev-server "is it up yet?" loops) and
-        for tagging UI responses to a specific build at debug time.
+        Useful for:
+          - external monitors (curl-based liveness checks, process
+            supervisors, dev-server "is it up yet?" loops)
+          - tagging UI responses to a specific build at debug time
+          - SRE dashboards that want to alert on saturation
+            (running >= max_concurrent for sustained periods is a
+            signal the cap should be raised or the workload spread)
+
+        ``running`` and ``max_concurrent`` are best-effort: if the
+        job_manager is somehow not yet attached (early in startup),
+        we report zeros rather than failing the healthcheck. The
+        endpoint MUST stay reachable even when the job system is in
+        a degraded state; that's its whole point.
         """
         import time as _time
 
         started_at = float(getattr(app.state, "started_at", _time.time()))
+        jm = getattr(app.state, "job_manager", None)
+        running = 0
+        max_concurrent = 0
+        if jm is not None:
+            try:
+                running = jm.running_count()
+                max_concurrent = jm.max_concurrent
+            except Exception:  # noqa: BLE001 - never fail healthcheck on JM
+                pass
         return {
             "ok": True,
             "version": app.version,
             "started_at": started_at,
             "uptime_seconds": int(_time.time() - started_at),
+            "running": running,
+            "max_concurrent": max_concurrent,
         }
 
     _register_api_routers(app)
