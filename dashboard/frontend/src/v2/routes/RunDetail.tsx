@@ -2192,26 +2192,39 @@ function ItemsTab({ runId, initialFilter }: ItemsTabProps) {
     fetcher,
   );
 
-  // Prefetch the NEXT page once the current one resolves so a click
-  // on "Next →" is instant. Without this, paging through a long item
-  // list pays a network round-trip on every click. Kicked off lazily
-  // (after data lands so we know `total`) and only when there IS a
-  // next page (don't waste a request on the final page). useV2Resource
-  // dedupes by cache key so this is a no-op if the user has already
-  // clicked next once and we're back-paging.
+  // Prefetch the NEXT and PREVIOUS pages once the current one
+  // resolves so paging in either direction is instant. Without
+  // these, a "did I miss something" back-and-forth scroll pays a
+  // round-trip every click. Lazy (after data lands so we know
+  // `total`) and bounds-checked on both ends. useV2Resource dedupes
+  // by cache key so a back-and-forth oscillation is fetch-free
+  // after the first traversal.
   useEffect(() => {
     if (!data) return;
     const nextOffset = offset + PAGE_SIZE;
-    if (nextOffset >= data.total) return;
-    prefetchV2(
-      `experimentItems:${runId}:${nextOffset}:${filter}:${sort}`,
-      () => v2.experimentItems(runId, {
-        offset: nextOffset,
-        limit: PAGE_SIZE,
-        filter,
-        sort,
-      }),
-    );
+    if (nextOffset < data.total) {
+      prefetchV2(
+        `experimentItems:${runId}:${nextOffset}:${filter}:${sort}`,
+        () => v2.experimentItems(runId, {
+          offset: nextOffset,
+          limit: PAGE_SIZE,
+          filter,
+          sort,
+        }),
+      );
+    }
+    const prevOffset = offset - PAGE_SIZE;
+    if (prevOffset >= 0) {
+      prefetchV2(
+        `experimentItems:${runId}:${prevOffset}:${filter}:${sort}`,
+        () => v2.experimentItems(runId, {
+          offset: prevOffset,
+          limit: PAGE_SIZE,
+          filter,
+          sort,
+        }),
+      );
+    }
   }, [data, offset, filter, sort, runId]);
 
   if (err && !data) {
