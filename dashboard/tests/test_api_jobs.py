@@ -180,3 +180,60 @@ def test_output_endpoint_unknown_job_404():
     with TestClient(app) as client:
         r = client.get("/api/jobs/does-not-exist/output")
         assert r.status_code == 404
+
+
+def test_delete_finished_job_removes_from_history():
+    """DELETE /api/jobs/{id} removes a finished job from in-memory.
+    A subsequent GET returns 404."""
+    app = build_app()
+    with TestClient(app) as client:
+        token = _token_from(client)
+        job_id = _spawn(client, app, [sys.executable, "-c", "pass"])
+        _wait(client, app, job_id)
+
+        # Sanity: GET works pre-delete.
+        assert client.get(f"/api/jobs/{job_id}").status_code == 200
+
+        r = client.delete(
+            f"/api/jobs/{job_id}", headers={CSRF_HEADER: token}
+        )
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body == {"ok": True, "id": job_id}
+
+        # Now 404.
+        assert client.get(f"/api/jobs/{job_id}").status_code == 404
+
+
+def test_delete_running_job_returns_409():
+    """A queued/running job cannot be deleted - client must cancel first.
+    409 prevents an orphaned subprocess + reaper task."""
+    app = build_app()
+    app.state.job_manager.grace_seconds = 0.3
+    with TestClient(app) as client:
+        token = _token_from(client)
+        job_id = _spawn(
+            client, app, [sys.executable, "-c", "import time; time.sleep(60)"]
+        )
+        try:
+            r = client.delete(
+                f"/api/jobs/{job_id}", headers={CSRF_HEADER: token}
+            )
+            assert r.status_code == 409
+            # Body should hint at the cancel-first remedy.
+            assert "cancel" in r.json()["detail"].lower()
+        finally:
+            client.post(
+                f"/api/jobs/{job_id}/cancel", headers={CSRF_HEADER: token}
+            )
+            _wait(client, app, job_id)
+
+
+def test_delete_unknown_job_returns_404():
+    app = build_app()
+    with TestClient(app) as client:
+        token = _token_from(client)
+        r = client.delete(
+            "/api/jobs/does-not-exist", headers={CSRF_HEADER: token}
+        )
+        assert r.status_code == 404

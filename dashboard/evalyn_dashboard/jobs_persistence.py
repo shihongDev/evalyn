@@ -363,6 +363,20 @@ class JobPersistence:
     # GC
     # ------------------------------------------------------------------
 
+    def delete(self, job_id: str) -> bool:
+        """Delete a single row by job_id. Returns True if a row was
+        removed, False otherwise (unknown id, or persistence
+        unavailable). Idempotent."""
+        if not self._readable():
+            return False
+        try:
+            with self._connect() as conn:
+                cur = conn.execute("DELETE FROM jobs WHERE job_id=?", (job_id,))
+                return (cur.rowcount or 0) > 0
+        except (OSError, sqlite3.Error) as exc:
+            logger.warning("JobPersistence delete(%s) failed: %s", job_id, exc)
+            return False
+
     def delete_old(self, keep: int = 100) -> int:
         """Keep the ``keep`` most recent rows; delete the rest. Returns count deleted."""
         if not self._readable():
