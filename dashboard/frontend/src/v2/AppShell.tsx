@@ -82,6 +82,11 @@ const BREADCRUMB_ROUTE_FOR_LABEL: Record<string, string> = {
   Reports: '/reports',
   Commands: '/commands',
   Settings: '/settings',
+  // /copilot/:threadId pages render breadcrumb=['Co-pilot', title].
+  // Without this entry the parent segment was a dead label - the
+  // user couldn't click back to the empty thread to start a new
+  // conversation without using the sidebar's "+ New thread" button.
+  'Co-pilot': '/copilot',
 };
 
 /** Maps a pathname prefix to a friendly tab title. Prefix-based so
