@@ -25,3 +25,30 @@ export const preloadSettings = () => import('./routes/Settings');
 export const preloadAnnotate = () => import('./routes/Annotate');
 export const preloadAnnotateSession = () => import('./routes/AnnotateSession');
 export const preloadNotFound = () => import('./routes/NotFound');
+
+/**
+ * Map a route path (top-level only) to its preload function. Used by
+ * surfaces that hold a string path and want to warm the chunk on
+ * hover - NotFound's "Did you mean?" suggestions, the AppShell nav
+ * rail, the Cmd+K palette. Returns `undefined` for paths that don't
+ * have a separate chunk (Home is eager) or don't match a known route.
+ *
+ * Top-level paths only - sub-routes like `/experiments/:runId` aren't
+ * keyed here; their parents preload the same chunk anyway since the
+ * sub-route ships in the parent's bundle.
+ */
+const PRELOAD_BY_PATH: Record<string, () => Promise<unknown>> = {
+  '/copilot': preloadCoPilotThread,
+  '/experiments': preloadExperimentsList,
+  '/datasets': preloadDatasets,
+  '/metrics': preloadMetrics,
+  '/review': preloadReview,
+  '/reports': preloadReports,
+  '/commands': preloadCommands,
+  '/settings': preloadSettings,
+  '/annotate': preloadAnnotate,
+};
+
+export function preloadByPath(path: string): (() => Promise<unknown>) | undefined {
+  return PRELOAD_BY_PATH[path];
+}
