@@ -1,935 +1,1083 @@
 /**
- * ExperimentsList - browseable table of all evaluation runs.
- * Selection state is client-side; "Compare 2 selected" routes to RunDetail
- * with ?compare=<otherId>.
+ * ExperimentsList - lineage view of evaluation runs.
  *
- * Two views: Flat (the original 7-column table) and Grouped (one
- * collapsible section per dataset). Grouped is the default once the
- * project has any meaningful repetition, since N runs on the same
- * agent otherwise read as a wall of identical labels.
+ * Replaces the old flat sortable table. The page is organised as a
+ * vertical timeline ("lineage stream") with a sticky right rail that
+ * holds a compare drawer + a project pulse card. Saved-view chips above
+ * the stream let the user pivot between common slices ("All runs",
+ * "My week", "Below ship gate", "Cost spike") without re-building
+ * filters every visit; the active view persists in localStorage.
+ *
+ * Selection: clicking a node circle toggles the run as selected. The
+ * compare drawer fills as soon as 2 runs are picked; "Open full diff"
+ * navigates to RunDetail with `?compare=`.
+ *
+ * Data source: `v2.experiments()` (the existing list endpoint). The
+ * proposal envisages a richer `/experiments/lineage` endpoint that
+ * carries config_diff + project pulse_spark; until that lands the page
+ * synthesises a minimal lineage from the list rows. config_diff stays
+ * empty in this mode (the legacy payload doesn't capture it) and the
+ * pulse spark is the recent pass-rate sequence.
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../AppShell';
-import { Card, Eyebrow, Pill, Btn, StatusDot, Spark, Skeleton, UpdatingChip } from '../ui';
-// Deep-link target for "+ New evaluation". Lane I of iter 4 ships a CLI
-// runner consuming ``?prefill=run-eval``; until then the user lands on
-// the Commands page (graceful fallback over a dead-end "Wizard" card).
-const NEW_EVAL_TARGET = '/commands?prefill=run-eval';
+import {
+  Card,
+  Eyebrow,
+  Pill,
+  Btn,
+  StatusDot,
+  Spark,
+  StackBar,
+  Skeleton,
+  UpdatingChip,
+} from '../ui';
 import { v2 } from '../api/client';
-import { useV2Resource } from '../hooks/useV2Resource';
+import { useV2Resource, prefetchV2 } from '../hooks/useV2Resource';
+import { listCli, type CliSchema } from '../api/cli';
+import { openCliRunner } from '../cliRunnerBridge';
+import { preloadRunDetail } from '../routePreloads';
 import { useRouteTour } from '../tour/useRouteTour';
 import { RUN_EVAL_TOUR_ID } from '../tour/scripts/runEval';
 import { E } from '../tokens';
-import type { ExperimentRow } from '../api/types';
+import type { ExperimentRow, RunStatus } from '../api/types';
 
-// Columns: select, name, pass, delta, items, cost, spark.
-// Duration column dropped - prod runs don't carry duration_s, every cell
-// rendered as "-" (UX walkthrough finding).
-const COLS = '24px 2.4fr 90px 90px 80px 90px 110px';
+// Deep-link target used as a graceful fallback if the CLI catalog hasn't
+// loaded yet (matches the legacy implementation's behaviour).
+const NEW_EVAL_TARGET = '/commands?prefill=run-eval';
+const SAVED_VIEW_LS_KEY = 'evalyn:experiments:savedView';
 
-/** Escape one cell for CSV. Wraps in quotes if it contains comma,
- * double-quote, newline, or carriage return; doubles internal quotes
- * per RFC 4180. */
-function csvCell(v: string | number | null | undefined): string {
-  if (v == null) return '';
-  const s = String(v);
-  return /[",\n\r]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
+type SavedView = 'all' | 'week' | 'gate' | 'cost';
+
+const SAVED_VIEW_VALUES: readonly SavedView[] = ['all', 'week', 'gate', 'cost'];
+
+/** Locally-defined lineage shapes. The richer `/experiments/lineage`
+ * endpoint described in the design doc is not wired yet; we synthesise
+ * this from `v2.experiments()` until it lands. */
+interface FailureMix {
+  pass: number;
+  warn: number;
+  fail: number;
 }
 
-/** Serialize the rows the user is currently looking at (post-filter,
- * post-sort) as CSV bytes. The columns match the on-screen table plus
- * a few useful extras (id, status, when). */
-function rowsToCsv(rows: ExperimentRow[]): string {
-  const header = ['id', 'name', 'author', 'status', 'when', 'pass_pct', 'delta', 'items', 'cost', 'tags'];
-  const lines = [header.join(',')];
-  for (const r of rows) {
-    lines.push(
-      [
-        csvCell(r.id),
-        csvCell(r.name),
-        csvCell(r.author),
-        csvCell(r.status),
-        csvCell(r.when_iso),
-        csvCell(r.pass),
-        csvCell(r.delta),
-        csvCell(r.items),
-        csvCell(r.cost),
-        csvCell(r.tags.join('; ')),
-      ].join(','),
-    );
-  }
-  // Trailing newline so the final row ends cleanly when opened in Excel
-  // / Numbers / Sheets.
-  return lines.join('\n') + '\n';
-}
-
-function downloadFile(name: string, mime: string, contents: string): void {
-  const blob = new Blob([contents], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  // Defer revoke so Safari has time to start the download before the
-  // blob URL is invalidated.
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-type StatusFilter = 'any' | 'completed' | 'running' | 'failed' | 'warn';
-type SortOrder = 'recent' | 'oldest' | 'pass-desc' | 'pass-asc';
-type ViewMode = 'flat' | 'grouped';
-
-const STATUS_VALUES: readonly StatusFilter[] = ['any', 'completed', 'running', 'failed', 'warn'];
-const SORT_VALUES: readonly SortOrder[] = ['recent', 'oldest', 'pass-desc', 'pass-asc'];
-const VIEW_VALUES: readonly ViewMode[] = ['flat', 'grouped'];
-
-const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
-  { value: 'any', label: 'Status: Any' },
-  { value: 'completed', label: 'Status: Completed' },
-  { value: 'running', label: 'Status: Running' },
-  { value: 'failed', label: 'Status: Failed' },
-  { value: 'warn', label: 'Status: Warn' },
-];
-
-const SORT_OPTIONS: { value: SortOrder; label: string }[] = [
-  { value: 'recent', label: 'Sort: Recent' },
-  { value: 'oldest', label: 'Sort: Oldest' },
-  { value: 'pass-desc', label: 'Sort: Pass ↓' },
-  { value: 'pass-asc', label: 'Sort: Pass ↑' },
-];
-
-const SELECT_STYLE = {
-  background: 'transparent',
-  color: E.text2,
-  border: `1px solid ${E.hair2}`,
-  borderRadius: 6,
-  padding: '4px 8px',
-  fontSize: 11,
-  fontFamily: E.fSans,
-  cursor: 'pointer',
-  outline: 'none',
-} as const;
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function deltaColor(d: string): string {
-  if (d === 'baseline') return E.steel;
-  if (d === '-' || d === '—' || d === '') return E.text3;
-  if (d.startsWith('-') || d.startsWith('−')) return E.fail;
-  return E.pass;
-}
-
-function sparkColor(status: string): string {
-  if (status === 'warn') return E.warn;
-  if (status === 'running') return E.ember;
-  if (status === 'failed') return E.fail;
-  return E.pass;
-}
-
-/**
- * Run ids look like '20260330-012500_cd347c59'. Inside a dataset group
- * the dataset name is redundant, so each row gets the parsed timestamp
- * plus the short hash - "Mar 30, 01:25  cd347c59". Falls back to the
- * raw id if the prefix doesn't parse.
- */
-function friendlyRunLabel(id: string): string {
-  const m = id.match(/^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})(?:_(.+))?$/);
-  if (!m) return id;
-  const [, , mo, d, h, mi, , tail] = m;
-  const month = MONTHS[parseInt(mo, 10) - 1] ?? mo;
-  const day = parseInt(d, 10);
-  const hh = h;
-  const mm = mi;
-  const hash = tail ? ` ${tail}` : '';
-  return `${month} ${day}, ${hh}:${mm}${hash}`;
-}
-
-function median(values: number[]): number | null {
-  if (values.length === 0) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-}
-
-interface RowProps {
-  r: ExperimentRow;
-  i: number;
-  isSelected: boolean;
-  onToggle: () => void;
-  onNavigate: () => void;
-  /** When true, hide the dataset name from the row label (it's in the group header). */
-  hideName?: boolean;
-}
-
-function Row({ r, i, isSelected, onToggle, onNavigate, hideName }: RowProps) {
-  return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: COLS,
-        padding: '14px 18px',
-        borderTop: i ? `1px solid ${E.hair}` : 'none',
-        alignItems: 'center',
-        gap: 8,
-        background: isSelected ? E.emberDim : 'transparent',
-        cursor: 'pointer',
-        transition: 'background 140ms',
-      }}
-      onMouseEnter={(e) => {
-        // Subtle hover bg to signal interactivity. Skip when selected
-        // (it already has its own emberDim bg) to avoid a visual blip.
-        if (!isSelected) {
-          e.currentTarget.style.background = E.panel2;
-        }
-        // Warm both the RunDetail chunk and this run's payload so the
-        // click->paint path is in the cache by the time the user
-        // actually navigates. Browser dedupes concurrent imports/fetches.
-        void preloadRunDetail();
-        prefetchV2(`experiment:${r.id}`, () => v2.experiment(r.id));
-      }}
-      onMouseLeave={(e) => {
-        if (!isSelected) {
-          e.currentTarget.style.background = 'transparent';
-        }
-      }}
-      onClick={(ev) => {
-        if ((ev.target as HTMLElement).tagName === 'INPUT') return;
-        onNavigate();
-      }}
-    >
-      <input
-        type="checkbox"
-        checked={isSelected}
-        onChange={onToggle}
-        onClick={(ev) => ev.stopPropagation()}
-        style={{ accentColor: E.ember }}
-      />
-      <div style={{ minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <StatusDot status={r.status} animated={r.status === 'running'} />
-          <span style={{ fontSize: 13.5, color: E.text0, fontWeight: 500 }}>
-            {hideName ? friendlyRunLabel(r.id) : r.name}
-          </span>
-          {r.tags.map((t) => (
-            <Pill
-              key={t}
-              mono
-              style={{ fontSize: 9.5, padding: '1px 7px', background: E.panel3, color: E.text2 }}
-            >
-              {t}
-            </Pill>
-          ))}
-          {r.err && (
-            <Pill mono color={E.fail} bg={E.failDim} style={{ fontSize: 9.5 }}>
-              {r.err}
-            </Pill>
-          )}
-        </div>
-        <div style={{ fontSize: 11, color: E.text3, marginTop: 3, fontFamily: E.fMono }}>
-          {hideName ? `${r.author} - ${r.when_iso}` : `${r.id} - ${r.author} - ${r.when_iso}`}
-        </div>
-      </div>
-      <div style={{ fontFamily: E.fSerif, fontSize: 17, color: r.pass != null ? E.text0 : E.text3 }}>
-        {r.pass != null ? `${r.pass}%` : '-'}
-      </div>
-      <div style={{ fontFamily: E.fMono, fontSize: 12, color: deltaColor(r.delta) }}>{r.delta}</div>
-      <div style={{ fontFamily: E.fMono, fontSize: 11, color: E.text2 }}>{r.items}</div>
-      <div style={{ fontFamily: E.fMono, fontSize: 11, color: E.text2 }}>{r.cost}</div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        {r.spark && r.spark.length > 0 ? (
-          <Spark data={r.spark} color={sparkColor(r.status)} dot w={90} h={24} />
-        ) : (
-          <span style={{ fontSize: 10, color: E.text3, fontFamily: E.fMono }}>n/a</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function TableHeader() {
-  return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: COLS,
-        padding: '11px 18px',
-        borderBottom: `1px solid ${E.hair}`,
-        fontFamily: E.fMono,
-        fontSize: 10,
-        color: E.text3,
-        textTransform: 'uppercase',
-        letterSpacing: '0.08em',
-      }}
-    >
-      <span></span>
-      <span>Experiment</span>
-      <span>Pass</span>
-      <span>Δ</span>
-      <span>Items</span>
-      <span>Cost</span>
-      <span style={{ textAlign: 'right' }}>Trend</span>
-    </div>
-  );
-}
-
-interface DatasetGroup {
+interface LineageRun {
+  id: string;
   name: string;
-  runs: ExperimentRow[]; // sorted newest-first (matches default sort)
-  medianPass: number | null;
-  spark: number[]; // pass rates oldest -> newest (for trend)
-  latestStatus: string;
+  author: string;
+  /** Humanised "2h" / "3d" string. */
+  when: string;
+  status: RunStatus;
+  pass: number | null;
+  /** Count completed, or "128/400" while running. */
+  items: number | string;
+  failure_mix: FailureMix | null;
+  /** What changed vs the previous run. Empty in fallback mode. */
+  config_diff: string;
+  tags: string[];
+  pinned?: boolean;
+  live?: boolean;
+  /** ISO timestamp - used for client-side sorting / "My week". */
+  when_iso: string;
+}
+
+interface Lineage {
+  runs: LineageRun[];
+  median_pass: number | null;
+  pulse_spark: number[];
 }
 
 /**
- * Build per-dataset groups from already-filtered+sorted rows. The input
- * order is preserved within each group (so newest-first stays
- * newest-first), but for the spark we re-derive an oldest-first
- * sequence of pass rates so the trend reads left-to-right in time.
+ * Convert an ExperimentRow (legacy /experiments shape) to a LineageRun.
+ * The legacy endpoint doesn't carry per-run failure mix or config diff,
+ * so those stay null/empty and the UI falls back to a sparser node
+ * card.
  */
-function buildGroups(rows: ExperimentRow[]): DatasetGroup[] {
-  const map = new Map<string, ExperimentRow[]>();
-  for (const r of rows) {
-    const arr = map.get(r.name);
-    if (arr) arr.push(r);
-    else map.set(r.name, [r]);
+function rowToLineage(r: ExperimentRow): LineageRun {
+  let when = '';
+  const t = Date.parse(r.when_iso);
+  if (!Number.isNaN(t)) {
+    const ms = Date.now() - t;
+    const days = ms / 86_400_000;
+    if (days < 1 / 24) when = `${Math.max(0, Math.round(ms / 60_000))}m`;
+    else if (days < 2) when = `${Math.round(days * 24)}h`;
+    else when = `${Math.round(days)}d`;
   }
-  const groups: DatasetGroup[] = [];
-  for (const [name, runs] of map) {
-    const passes = runs.map((r) => r.pass).filter((p): p is number => p != null);
-    const oldestFirst = [...runs].sort(
-      (a, b) => (Date.parse(a.when_iso) || 0) - (Date.parse(b.when_iso) || 0),
-    );
-    const spark = oldestFirst
-      .map((r) => r.pass)
-      .filter((p): p is number => p != null);
-    const latest = oldestFirst[oldestFirst.length - 1];
-    groups.push({
-      name,
-      runs,
-      medianPass: median(passes),
-      spark,
-      latestStatus: latest?.status ?? 'completed',
-    });
-  }
-  // Sort groups by run count desc - the noisy ones go first.
-  groups.sort((a, b) => b.runs.length - a.runs.length);
-  return groups;
+  return {
+    id: r.id,
+    name: r.name,
+    author: r.author,
+    when,
+    status: r.status,
+    pass: r.pass,
+    items: r.items,
+    failure_mix: null,
+    config_diff: '',
+    tags: r.tags ?? [],
+    pinned: false,
+    live: r.status === 'running',
+    when_iso: r.when_iso,
+  };
 }
 
-const COLLAPSE_THRESHOLD = 20;
+/** Build a synthesised Lineage from the legacy /experiments list. Sorts
+ * runs newest-first and computes a project median + pulse spark. */
+function synthesizeLineage(rows: ExperimentRow[]): Lineage {
+  const runs = rows.map(rowToLineage);
+  // Sort newest-first; runs with unparseable timestamps drift to the
+  // end so the freshest data stays at the top of the timeline.
+  runs.sort((a, b) => {
+    const at = Date.parse(a.when_iso) || -Infinity;
+    const bt = Date.parse(b.when_iso) || -Infinity;
+    return bt - at;
+  });
+  const passes = runs
+    .map((r) => r.pass)
+    .filter((p): p is number => p != null);
+  const sortedP = [...passes].sort((a, b) => a - b);
+  const median: number | null =
+    sortedP.length === 0
+      ? null
+      : sortedP.length % 2
+        ? sortedP[Math.floor(sortedP.length / 2)]
+        : (sortedP[sortedP.length / 2 - 1] + sortedP[sortedP.length / 2]) / 2;
+  // Pulse spark: pass rates oldest -> newest, up to 30 points.
+  const oldestFirst = [...runs].reverse();
+  const spark = oldestFirst
+    .map((r) => r.pass)
+    .filter((p): p is number => p != null)
+    .slice(-30);
+  return { runs, median_pass: median, pulse_spark: spark };
+}
 
-export default function ExperimentsList() {
-  const { data: rows, err, refetch, reloading, isInitialLoad } = useV2Resource(
-    'experiments',
-    v2.experiments,
+/** Days-since-now from an ISO timestamp. Infinity when unparseable so
+ * "My week" predicates (<= 7) safely exclude unknown dates. */
+function daysSince(iso: string): number {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return Infinity;
+  return (Date.now() - t) / 86_400_000;
+}
+
+/** Compare drawer placeholder lines for the empty state. */
+function CompareEmpty() {
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        padding: 10,
+        background: E.panel2,
+        borderRadius: 6,
+        border: `1px dashed ${E.hair2}`,
+        fontFamily: E.fMono,
+        fontSize: 11,
+        color: E.text3,
+        lineHeight: 1.5,
+      }}
+    >
+      <div>Click any 2 nodes to compare.</div>
+      <div style={{ marginTop: 6 }}>
+        Diff highlights what changed between runs (pass rate, tags, run id).
+      </div>
+    </div>
   );
-  useRouteTour(RUN_EVAL_TOUR_ID, !!(rows && !err));
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  // Filter / view state lives in the URL so refresh + back-button preserve it.
-  // Default values are stripped from the URL to keep it tidy. Unknown values
-  // fall back to defaults silently. View mode in URL = explicit override; if
-  // absent we fall back to the data-driven `suggestedMode` below.
-  const [searchParams, setSearchParams] = useSearchParams();
-  const query = searchParams.get('q') ?? '';
-  const statusRaw = searchParams.get('status');
-  const statusFilter: StatusFilter = STATUS_VALUES.includes(statusRaw as StatusFilter)
-    ? (statusRaw as StatusFilter)
-    : 'any';
-  const tagFilter = searchParams.get('tag') ?? 'any';
-  const authorFilter = searchParams.get('author') ?? 'any';
-  const sortRaw = searchParams.get('sort');
-  const sortOrder: SortOrder = SORT_VALUES.includes(sortRaw as SortOrder)
-    ? (sortRaw as SortOrder)
-    : 'recent';
-  const viewRaw = searchParams.get('view');
-  const viewOverride: ViewMode | null = VIEW_VALUES.includes(viewRaw as ViewMode)
-    ? (viewRaw as ViewMode)
-    : null;
+}
 
-  const updateParam = (key: string, value: string, isDefault: boolean) => {
-    const sp = new URLSearchParams(searchParams);
-    if (isDefault) sp.delete(key);
-    else sp.set(key, value);
-    setSearchParams(sp, { replace: true });
-  };
-  const setQuery = (next: string) => updateParam('q', next, next === '');
-  const setStatusFilter = (next: StatusFilter) =>
-    updateParam('status', next, next === 'any');
-  const setTagFilter = (next: string) => updateParam('tag', next, next === 'any');
-  const setAuthorFilter = (next: string) =>
-    updateParam('author', next, next === 'any');
-  const setSortOrder = (next: SortOrder) =>
-    updateParam('sort', next, next === 'recent');
-  const setViewMode = (next: ViewMode) => updateParam('view', next, false);
+interface NodeProps {
+  run: LineageRun;
+  selected: boolean;
+  onToggleSelect: () => void;
+  onOpen: () => void;
+}
 
-  // Per-group collapsed state. A group id present in the set is collapsed.
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const navigate = useNavigate();
-
-  // Derive tag/author option lists from the row set.
-  const tagOptions = useMemo(() => {
-    if (!rows) return [];
-    const seen = new Set<string>();
-    for (const r of rows) for (const t of r.tags) seen.add(t);
-    return Array.from(seen).sort();
-  }, [rows]);
-
-  const authorOptions = useMemo(() => {
-    if (!rows) return [];
-    return Array.from(new Set(rows.map((r) => r.author).filter(Boolean))).sort();
-  }, [rows]);
-
-  // Default view mode: grouped if there are >= 2 distinct datasets AND
-  // at least one dataset has >= 3 runs. Otherwise flat.
-  const suggestedMode: ViewMode = useMemo(() => {
-    if (!rows || rows.length === 0) return 'flat';
-    const counts = new Map<string, number>();
-    for (const r of rows) counts.set(r.name, (counts.get(r.name) ?? 0) + 1);
-    const distinct = counts.size;
-    let maxCount = 0;
-    for (const c of counts.values()) if (c > maxCount) maxCount = c;
-    return distinct >= 2 && maxCount >= 3 ? 'grouped' : 'flat';
-  }, [rows]);
-
-  const view: ViewMode = viewOverride ?? suggestedMode;
-
-  function toggle(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function clearSelection() {
-    setSelected(new Set());
-  }
-
-  function compareSelected() {
-    if (selected.size !== 2) return;
-    const [a, b] = Array.from(selected);
-    navigate(`/experiments/${encodeURIComponent(a)}?compare=${encodeURIComponent(b)}`);
-  }
-
-  // State-dependent label for the Compare button. Telling the user
-  // exactly how many more they need to pick (or which is the wrong count)
-  // is more helpful than "Compare 0 selected" which reads as broken.
-  const compareLabel: string =
-    selected.size === 0
-      ? 'Compare runs...'
-      : selected.size === 1
-        ? 'Pick 1 more to compare'
-        : selected.size === 2
-          ? 'Compare 2 →'
-          : `Pick exactly 2 (${selected.size} selected)`;
-
-  const filtered = useMemo(() => {
-    if (!rows) return null;
-    const q = query.trim().toLowerCase();
-    const matched = rows.filter((r) => {
-      if (q) {
-        const hit =
-          r.name.toLowerCase().includes(q) ||
-          r.author.toLowerCase().includes(q) ||
-          r.tags.some((t) => t.toLowerCase().includes(q));
-        if (!hit) return false;
-      }
-      if (statusFilter !== 'any' && r.status !== statusFilter) return false;
-      if (tagFilter !== 'any' && !r.tags.includes(tagFilter)) return false;
-      if (authorFilter !== 'any' && r.author !== authorFilter) return false;
-      return true;
-    });
-    // Sort in-place on a fresh copy.
-    const sorted = [...matched];
-    if (sortOrder === 'recent' || sortOrder === 'oldest') {
-      sorted.sort((a, b) => {
-        const at = Date.parse(a.when_iso) || 0;
-        const bt = Date.parse(b.when_iso) || 0;
-        return sortOrder === 'recent' ? bt - at : at - bt;
-      });
-    } else {
-      sorted.sort((a, b) => {
-        const ap = a.pass ?? -1;
-        const bp = b.pass ?? -1;
-        return sortOrder === 'pass-desc' ? bp - ap : ap - bp;
-      });
-    }
-    return sorted;
-  }, [rows, query, statusFilter, tagFilter, authorFilter, sortOrder]);
-
-  // Compute grouped view from filtered rows. Each group preserves the
-  // current sort order within it.
-  const groups = useMemo(() => {
-    if (!filtered) return null;
-    return buildGroups(filtered);
-  }, [filtered]);
-
-  function isGroupCollapsed(g: DatasetGroup): boolean {
-    // After seeding (see effect below), large groups are pre-added to
-    // `collapsed`. From then on the set is the single source of truth.
-    return collapsed.has(g.name);
-  }
-
-  function toggleGroup(name: string) {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  }
-
-  function expandAll() {
-    setCollapsed(new Set());
-  }
-
-  function collapseAll() {
-    if (!groups) return;
-    setCollapsed(new Set(groups.map((g) => g.name)));
-  }
-
-  // Per-group default-collapsed state for big groups. Seed once on
-  // first render that has groups, so the page doesn't render hundreds
-  // of rows on initial load. After that the user owns the set.
-  const [seededDefaults, setSeededDefaults] = useState(false);
-  useEffect(() => {
-    if (seededDefaults) return;
-    if (!groups || groups.length === 0) return;
-    const big = groups.filter((g) => g.runs.length > COLLAPSE_THRESHOLD).map((g) => g.name);
-    if (big.length > 0) {
-      setCollapsed((prev) => {
-        const next = new Set(prev);
-        for (const n of big) next.add(n);
-        return next;
-      });
-    }
-    setSeededDefaults(true);
-  }, [groups, seededDefaults]);
+function LineageNode({ run, selected, onToggleSelect, onOpen }: NodeProps) {
+  const isBaseline = run.tags?.includes('baseline');
+  const isRunning = run.status === 'running';
+  const isFailed = run.status === 'failed';
+  const ringColor = isRunning
+    ? E.ember
+    : isFailed
+      ? E.fail
+      : isBaseline
+        ? E.steel
+        : E.text3;
+  const fm = run.failure_mix;
+  const segs = fm
+    ? [
+        { value: fm.pass, color: E.pass, label: `pass ${fm.pass}` },
+        { value: fm.warn, color: E.warn, label: `warn ${fm.warn}` },
+        { value: fm.fail, color: E.fail, label: `fail ${fm.fail}` },
+      ]
+    : [];
+  const segTotal = segs.reduce((s, x) => s + x.value, 0);
 
   return (
-    <AppShell contextChip={{ name: 'Experiments', version: '' }}>
-      <div style={{ padding: '32px 36px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, marginBottom: 6 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Eyebrow>All evaluations</Eyebrow>
-              <UpdatingChip
-                visible={reloading && !isInitialLoad}
-                error={rows ? err : null}
-                onRetry={refetch}
-              />
-            </div>
-            <h1
-              style={{
-                fontFamily: E.fSerif,
-                fontSize: 32,
-                fontWeight: 400,
-                margin: 0,
-                color: E.text0,
-                letterSpacing: '-0.015em',
-                lineHeight: 1.1,
-              }}
-            >
-              Experiments
-            </h1>
-          </div>
-          <span style={{ flex: 1 }} />
-          <Btn
-            kind="secondary"
-            size="md"
-            onClick={() => {
-              if (!filtered || filtered.length === 0) return;
-              // Filename matches what the user is looking at: filtered count,
-              // current sort, and a date stamp so repeated exports don't clobber.
-              const stamp = new Date().toISOString().slice(0, 10);
-              downloadFile(
-                `evalyn-experiments-${stamp}.csv`,
-                'text/csv;charset=utf-8',
-                rowsToCsv(filtered),
-              );
-            }}
-            disabled={!filtered || filtered.length === 0}
-            title={
-              !filtered || filtered.length === 0
-                ? 'Nothing to export with the current filters'
-                : `Download the ${filtered.length} currently visible row${filtered.length === 1 ? '' : 's'} as CSV (opens in Excel, Numbers, Sheets)`
-            }
-          >
-            ↗ Export CSV
-          </Btn>
-          <Btn kind="primary" size="md" onClick={() => navigate(NEW_EVAL_TARGET)} data-coachmark="experiments-new-button">
-            ＋ New evaluation
-          </Btn>
-        </div>
-
-        {err && (
-          <Card style={{ marginTop: 14, padding: 16, borderColor: E.fail }}>
-            <Eyebrow style={{ color: E.fail }}>Error loading experiments</Eyebrow>
-            <div style={{ fontFamily: E.fMono, fontSize: 12, color: E.text2, marginTop: 6 }}>{err}</div>
-          </Card>
-        )}
-
-        {/* FILTER + COMPARE BAR */}
+    <div
+      style={{ position: 'relative', marginBottom: 12 }}
+      onMouseEnter={() => {
+        // Warm both the RunDetail chunk and the per-run payload so click
+        // -> paint stays under the perception threshold.
+        void preloadRunDetail();
+        prefetchV2(`experiment:${run.id}`, () => v2.experiment(run.id));
+      }}
+    >
+      {/* spine node */}
+      <button
+        type="button"
+        onClick={(ev) => {
+          ev.stopPropagation();
+          onToggleSelect();
+        }}
+        title={selected ? 'Click to deselect' : 'Click to select for compare'}
+        aria-pressed={selected}
+        style={{
+          position: 'absolute',
+          left: -22,
+          top: 16,
+          width: 16,
+          height: 16,
+          padding: 0,
+          borderRadius: '50%',
+          background: selected ? ringColor : E.panel,
+          border: `2px solid ${ringColor}`,
+          boxShadow: isRunning
+            ? `0 0 0 4px ${E.emberDim}`
+            : selected
+              ? `0 0 0 3px ${E.emberRim}`
+              : 'none',
+          cursor: 'pointer',
+          animation: isRunning ? 'eDotPulse 1.6s ease-in-out infinite' : 'none',
+        }}
+      />
+      <Card
+        accent={selected || run.pinned}
+        style={{
+          padding: '12px 14px',
+          // Highlight the card subtly when selected so the spine ring +
+          // card surface read as one unit.
+          background: selected ? E.emberDim : E.panel,
+        }}
+      >
         <div
-          data-coachmark="experiments-filters"
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: 8,
-            marginTop: 16,
-            padding: 8,
-            background: E.panel,
-            border: `1px solid ${E.hair}`,
-            borderRadius: 10,
+            marginBottom: 6,
+            flexWrap: 'wrap',
           }}
         >
-          {/* View toggle - segmented control */}
-          <div
+          <span style={{ fontFamily: E.fMono, fontSize: 10.5, color: E.text3 }}>
+            {run.when ? `${run.when} ago` : '-'}
+          </span>
+          <span style={{ color: E.text4 }}>·</span>
+          <button
+            type="button"
+            onClick={onOpen}
             style={{
-              display: 'inline-flex',
-              border: `1px solid ${E.hair2}`,
-              borderRadius: 6,
-              overflow: 'hidden',
-            }}
-            role="group"
-            aria-label="View mode"
-          >
-            {(['flat', 'grouped'] as const).map((m) => {
-              const active = view === m;
-              return (
-                <button
-                  key={m}
-                  onClick={() => setViewMode(m)}
-                  style={{
-                    background: active ? E.panel3 : 'transparent',
-                    color: active ? E.text0 : E.text2,
-                    border: 'none',
-                    padding: '4px 10px',
-                    fontSize: 11,
-                    fontFamily: E.fSans,
-                    cursor: 'pointer',
-                    fontWeight: active ? 500 : 400,
-                  }}
-                  aria-pressed={active}
-                >
-                  {m === 'flat' ? 'Flat' : 'Grouped'}
-                </button>
-              );
-            })}
-          </div>
-          {view === 'grouped' && groups && groups.length > 0 && (
-            <>
-              <Btn kind="secondary" size="sm" onClick={expandAll}>
-                Expand all
-              </Btn>
-              <Btn kind="secondary" size="sm" onClick={collapseAll}>
-                Collapse all
-              </Btn>
-            </>
-          )}
-          <input
-            placeholder="Search by name, author, tag..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            style={{
-              flex: 1,
               background: 'transparent',
               border: 'none',
-              outline: 'none',
-              color: E.text1,
+              padding: 0,
+              cursor: 'pointer',
               fontSize: 13,
-              padding: '4px 10px',
+              color: E.text0,
+              fontWeight: 500,
+              fontFamily: E.fSans,
+              textAlign: 'left',
             }}
-          />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            style={SELECT_STYLE}
-            aria-label="Filter by status"
           >
-            {STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value} style={{ background: E.panel }}>
-                {o.label}
-              </option>
+            {run.name}
+          </button>
+          {isBaseline && (
+            <Pill bg={E.steelDim} color={E.steel} mono>
+              baseline
+            </Pill>
+          )}
+          {run.live && (
+            <Pill bg={E.emberDim} color={E.ember} mono>
+              live
+            </Pill>
+          )}
+          {run.tags
+            ?.filter((t: string) => t !== 'baseline')
+            .map((t: string) => (
+              <Pill key={t} mono style={{ fontSize: 10 }}>
+                {t}
+              </Pill>
             ))}
-          </select>
-          <select
-            value={tagFilter}
-            onChange={(e) => setTagFilter(e.target.value)}
-            style={SELECT_STYLE}
-            disabled={tagOptions.length === 0}
-            aria-label="Filter by tag"
-            title={tagOptions.length === 0 ? 'No tags on any run yet' : 'Filter by tag'}
+          <span style={{ flex: 1 }} />
+          <span style={{ fontFamily: E.fMono, fontSize: 10.5, color: E.text3 }}>
+            {run.id} · {run.author}
+          </span>
+        </div>
+
+        {run.config_diff && (
+          <div
+            style={{
+              fontFamily: E.fMono,
+              fontSize: 10.5,
+              color: E.text2,
+              padding: '4px 8px',
+              background: E.panel2,
+              borderRadius: 4,
+              marginBottom: 8,
+              borderLeft: `2px solid ${E.ember}`,
+            }}
           >
-            <option value="any" style={{ background: E.panel }}>
-              Tag: Any
-            </option>
-            {tagOptions.map((t) => (
-              <option key={t} value={t} style={{ background: E.panel }}>
-                Tag: {t}
-              </option>
-            ))}
-          </select>
-          <select
-            value={authorFilter}
-            onChange={(e) => setAuthorFilter(e.target.value)}
-            style={SELECT_STYLE}
-            disabled={authorOptions.length === 0}
-            aria-label="Filter by author"
-            title={authorOptions.length === 0 ? 'No authors recorded yet' : 'Filter by author'}
-          >
-            <option value="any" style={{ background: E.panel }}>
-              Author: Any
-            </option>
-            {authorOptions.map((a) => (
-              <option key={a} value={a} style={{ background: E.panel }}>
-                Author: {a}
-              </option>
-            ))}
-          </select>
-          <select
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value as SortOrder)}
-            style={SELECT_STYLE}
-            aria-label="Sort order"
-          >
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value} style={{ background: E.panel }}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          <span style={{ width: 1, height: 20, background: E.hair2 }} />
-          {selected.size > 0 && (
-            <Btn
-              kind="ghost"
-              size="sm"
-              onClick={clearSelection}
-              title="Clear all selected runs"
-            >
-              ✕ Clear ({selected.size})
-            </Btn>
+            Δ {run.config_diff}
+          </div>
+        )}
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '90px 1fr 80px',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
+          <div>
+            {run.pass != null ? (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                <span
+                  style={{
+                    fontFamily: E.fSerif,
+                    fontSize: 22,
+                    color: E.text0,
+                    lineHeight: 1,
+                  }}
+                >
+                  {run.pass.toFixed(1)}
+                </span>
+                <span style={{ fontSize: 11, color: E.text3 }}>%</span>
+              </div>
+            ) : (
+              <div style={{ fontSize: 11, color: E.ember, fontFamily: E.fMono }}>
+                {String(run.items)}
+              </div>
+            )}
+          </div>
+          {segTotal > 0 ? (
+            <div>
+              <StackBar segments={segs} w="100%" h={6} />
+              <div
+                style={{
+                  marginTop: 4,
+                  fontFamily: E.fMono,
+                  fontSize: 9.5,
+                  color: E.text3,
+                  display: 'flex',
+                  gap: 10,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <span style={{ color: E.pass }}>● pass {fm!.pass}</span>
+                <span style={{ color: E.warn }}>● warn {fm!.warn}</span>
+                <span style={{ color: E.fail }}>● fail {fm!.fail}</span>
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontFamily: E.fMono, fontSize: 10.5, color: E.text3 }}>
+              {isRunning ? 'collecting items...' : 'no item breakdown'}
+            </div>
           )}
           <Btn
-            kind="secondary"
+            kind="ghost"
             size="sm"
-            disabled={selected.size !== 2}
-            onClick={compareSelected}
+            onClick={onOpen}
+            style={{ justifyContent: 'flex-end' }}
+          >
+            Open →
+          </Btn>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+interface CompareCardProps {
+  selected: LineageRun[];
+  onClear: () => void;
+  onOpenFullDiff: () => void;
+}
+
+function CompareCard({ selected, onClear, onOpenFullDiff }: CompareCardProps) {
+  return (
+    <Card style={{ padding: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Eyebrow>Compare drawer</Eyebrow>
+        <span style={{ flex: 1 }} />
+        {selected.length > 0 && (
+          <button
+            type="button"
+            onClick={onClear}
+            title="Clear selection"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: 11,
+              color: E.text3,
+              fontFamily: E.fMono,
+              padding: 0,
+            }}
+          >
+            clear
+          </button>
+        )}
+      </div>
+      {selected.length === 0 && <CompareEmpty />}
+      {selected.length === 1 && (
+        <>
+          <div
+            style={{
+              marginTop: 8,
+              fontFamily: E.fMono,
+              fontSize: 11,
+              color: E.text2,
+            }}
+          >
+            1 of 2 selected. Pick one more to compare.
+          </div>
+          <div
+            style={{
+              marginTop: 8,
+              padding: 10,
+              background: E.panel2,
+              borderRadius: 6,
+              border: `1px solid ${E.hair2}`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 11.5,
+              color: E.text1,
+            }}
+          >
+            <StatusDot status={selected[0].status} />
+            <span style={{ fontFamily: E.fMono }}>{selected[0].id}</span>
+            <span style={{ flex: 1 }} />
+            <span
+              style={{
+                fontFamily: E.fMono,
+                color: selected[0].pass != null ? E.text0 : E.text3,
+              }}
+            >
+              {selected[0].pass != null ? selected[0].pass.toFixed(1) : '-'}
+            </span>
+          </div>
+        </>
+      )}
+      {selected.length === 2 && (
+        <>
+          <div
+            style={{
+              marginTop: 10,
+              padding: 10,
+              background: E.panel2,
+              borderRadius: 6,
+              border: `1px dashed ${E.hair2}`,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: 11.5,
+                color: E.text1,
+                marginBottom: 4,
+              }}
+            >
+              <StatusDot status={selected[0].status} />
+              <span style={{ fontFamily: E.fMono }}>{selected[0].id}</span>
+              <span style={{ flex: 1 }} />
+              <span
+                style={{
+                  fontFamily: E.fMono,
+                  color: selected[0].pass != null ? E.pass : E.text3,
+                }}
+              >
+                {selected[0].pass != null ? selected[0].pass.toFixed(1) : '-'}
+              </span>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: 11.5,
+                color: E.text1,
+                marginBottom: 8,
+              }}
+            >
+              <StatusDot status={selected[1].status} />
+              <span style={{ fontFamily: E.fMono }}>{selected[1].id}</span>
+              <span style={{ flex: 1 }} />
+              <span
+                style={{
+                  fontFamily: E.fMono,
+                  color: selected[1].pass != null ? E.pass : E.text3,
+                }}
+              >
+                {selected[1].pass != null ? selected[1].pass.toFixed(1) : '-'}
+              </span>
+            </div>
+            <div
+              style={{
+                fontFamily: E.fMono,
+                fontSize: 10,
+                color: E.text2,
+                lineHeight: 1.6,
+                paddingTop: 8,
+                borderTop: `1px solid ${E.hair2}`,
+              }}
+            >
+              <div style={{ color: E.fail }}>- {selected[0].id}</div>
+              <div style={{ color: E.pass }}>+ {selected[1].id}</div>
+              {selected[0].pass != null && selected[1].pass != null && (
+                <div style={{ color: E.text3, marginTop: 4 }}>
+                  Δ pass {(selected[1].pass - selected[0].pass).toFixed(1)} pts
+                </div>
+              )}
+            </div>
+          </div>
+          <Btn
+            kind="primary"
+            size="sm"
+            onClick={onOpenFullDiff}
+            style={{ marginTop: 10, width: '100%', justifyContent: 'center' }}
+          >
+            Open full diff →
+          </Btn>
+        </>
+      )}
+    </Card>
+  );
+}
+
+interface ChipProps {
+  label: string;
+  count: number | null;
+  active: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+  title?: string;
+}
+
+function ViewChip({ label, count, active, onClick, disabled, title }: ChipProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      style={{
+        padding: '5px 10px',
+        borderRadius: 999,
+        border: `1px solid ${active ? E.ember : E.hair2}`,
+        background: active ? E.emberDim : E.panel,
+        color: active ? E.ember : E.text2,
+        fontSize: 11.5,
+        fontWeight: active ? 500 : 400,
+        fontFamily: E.fSans,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.4 : 1,
+      }}
+      aria-pressed={active}
+    >
+      {label}
+      {count != null && (
+        <span
+          style={{
+            fontFamily: E.fMono,
+            fontSize: 10,
+            color: active ? E.ember : E.text3,
+          }}
+        >
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+export default function ExperimentsList() {
+  const navigate = useNavigate();
+
+  // Data: legacy /experiments list endpoint. Synthesise lineage shape
+  // client-side until the richer /experiments/lineage endpoint is wired
+  // up across the stack.
+  const { data: rows, err, refetch, reloading, isInitialLoad } = useV2Resource(
+    'experiments',
+    v2.experiments,
+  );
+
+  // Fire the route tour once we have any data.
+  useRouteTour(RUN_EVAL_TOUR_ID, !!(rows && !err));
+
+  const data: Lineage | null = useMemo(() => {
+    if (!rows) return null;
+    return synthesizeLineage(rows);
+  }, [rows]);
+
+  // Selection: at most 2 ids.
+  const [selected, setSelected] = useState<string[]>([]);
+  const [hint, setHint] = useState<string | null>(null);
+
+  function toggleSelected(id: string) {
+    setHint(null);
+    setSelected((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= 2) return [prev[1], id];
+      return [...prev, id];
+    });
+  }
+
+  function clearSelected() {
+    setSelected([]);
+    setHint(null);
+  }
+
+  // Saved view persisted to localStorage. Defensive read in case storage
+  // is disabled (private browsing).
+  const [savedView, setSavedView] = useState<SavedView>(() => {
+    try {
+      const raw = localStorage.getItem(SAVED_VIEW_LS_KEY);
+      if (raw && SAVED_VIEW_VALUES.includes(raw as SavedView)) {
+        return raw as SavedView;
+      }
+    } catch {
+      // ignore
+    }
+    return 'all';
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SAVED_VIEW_LS_KEY, savedView);
+    } catch {
+      // ignore
+    }
+  }, [savedView]);
+
+  // Compute counts per saved view from the unfiltered run set.
+  const counts = useMemo(() => {
+    const runs = data?.runs ?? [];
+    const week = runs.filter((r) => daysSince(r.when_iso) <= 7).length;
+    const gate = runs.filter((r) => r.pass != null && r.pass < 80).length;
+    return { all: runs.length, week, gate };
+  }, [data]);
+
+  // Apply the active saved view to the lineage list.
+  const visible = useMemo(() => {
+    const runs = data?.runs ?? [];
+    if (savedView === 'week')
+      return runs.filter((r) => daysSince(r.when_iso) <= 7);
+    if (savedView === 'gate')
+      return runs.filter((r) => r.pass != null && r.pass < 80);
+    if (savedView === 'cost') return runs; // legacy payload has no cost
+    return runs;
+  }, [data, savedView]);
+
+  const selectedRuns: LineageRun[] = useMemo(() => {
+    const runs = data?.runs ?? [];
+    return selected
+      .map((id) => runs.find((r) => r.id === id))
+      .filter((r): r is LineageRun => !!r);
+  }, [selected, data]);
+
+  function openCompare() {
+    if (selected.length !== 2) {
+      setHint('Select 2 runs first.');
+      return;
+    }
+    const [a, b] = selected;
+    navigate(
+      `/experiments/${encodeURIComponent(a)}?compare=${encodeURIComponent(b)}`,
+    );
+  }
+
+  // "+ New evaluation" - load the CLI catalog lazily and open the runner.
+  // Falls back to the /commands deep link if the catalog can't load (so
+  // the button is never a dead-end).
+  const [newEvalBusy, setNewEvalBusy] = useState(false);
+  async function handleNewEvaluation() {
+    if (newEvalBusy) return;
+    setNewEvalBusy(true);
+    try {
+      const cmds: CliSchema[] = await listCli();
+      const runEval = cmds.find((c) => c.id === 'run-eval');
+      if (runEval) {
+        openCliRunner(runEval);
+      } else {
+        navigate(NEW_EVAL_TARGET);
+      }
+    } catch {
+      navigate(NEW_EVAL_TARGET);
+    } finally {
+      setNewEvalBusy(false);
+    }
+  }
+
+  const noRuns = data && data.runs.length === 0;
+
+  return (
+    <AppShell contextChip={{ name: 'Experiments', version: '' }}>
+      <div style={{ padding: 24 }}>
+        {/* Header row */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            marginBottom: 4,
+          }}
+        >
+          <Eyebrow>Experiments - lineage view</Eyebrow>
+          <UpdatingChip
+            visible={reloading && !isInitialLoad}
+            error={data ? err : null}
+            onRetry={refetch}
+          />
+          <span style={{ flex: 1 }} />
+          <Btn
+            kind="ghost"
+            size="sm"
+            onClick={openCompare}
+            disabled={selected.length === 0}
             title={
-              selected.size === 2
+              selected.length === 2
                 ? 'Open both runs side-by-side'
-                : selected.size === 0
-                  ? 'Tick the checkbox on two runs to enable compare'
-                  : selected.size === 1
-                    ? 'Tick one more run to enable compare'
-                    : `Compare needs exactly 2 runs (${selected.size} ticked)`
+                : 'Click any 2 nodes to enable compare'
             }
           >
-            {compareLabel}
+            ⇄ Compare 2
+          </Btn>
+          <Btn
+            kind="primary"
+            size="sm"
+            onClick={handleNewEvaluation}
+            disabled={newEvalBusy}
+            data-coachmark="experiments-new-button"
+          >
+            + New evaluation
           </Btn>
         </div>
 
-        {/* LOADING SKELETON */}
-        {!rows && !err && (
-          <Card style={{ marginTop: 14, padding: 0, overflow: 'hidden' }}>
-            {[0, 1, 2, 3, 4].map((i) => (
+        {/* Page title */}
+        <h1
+          style={{
+            fontFamily: E.fSerif,
+            fontSize: 28,
+            fontWeight: 400,
+            margin: '4px 0 14px',
+            color: E.text0,
+            letterSpacing: '-0.015em',
+            lineHeight: 1.1,
+          }}
+        >
+          How quality has moved
+        </h1>
+
+        {hint && (
+          <div
+            style={{
+              marginBottom: 10,
+              padding: '6px 10px',
+              background: E.emberDim,
+              border: `1px solid ${E.emberRim}`,
+              borderRadius: 6,
+              fontSize: 11.5,
+              color: E.ember,
+              fontFamily: E.fMono,
+              display: 'inline-block',
+            }}
+          >
+            {hint}
+          </div>
+        )}
+
+        {/* Saved views chip row */}
+        <div
+          style={{
+            display: 'flex',
+            gap: 6,
+            marginBottom: 14,
+            flexWrap: 'wrap',
+          }}
+          data-coachmark="experiments-filters"
+        >
+          <ViewChip
+            label="All runs"
+            count={counts.all}
+            active={savedView === 'all'}
+            onClick={() => setSavedView('all')}
+          />
+          <ViewChip
+            label="↑ My week"
+            count={counts.week}
+            active={savedView === 'week'}
+            onClick={() => setSavedView('week')}
+          />
+          <ViewChip
+            label="Below ship gate"
+            count={counts.gate}
+            active={savedView === 'gate'}
+            onClick={() => setSavedView('gate')}
+          />
+          {/* Cost spike: the legacy payload exposes cost only as a
+              formatted string ("$2.41"), which can't be reliably
+              compared to a median. Render the chip disabled so the
+              slot stays in the layout but the user understands the
+              filter is intentionally inactive until the lineage
+              endpoint ships numeric cost. */}
+          <ViewChip
+            label="Cost spike"
+            count={null}
+            active={false}
+            onClick={() => {
+              /* no-op */
+            }}
+            disabled
+            title="Per-run numeric cost is not available on this endpoint yet"
+          />
+          <ViewChip
+            label="+ Save current view"
+            count={null}
+            active={false}
+            onClick={() => {
+              /* placeholder for the persistent custom views feature */
+            }}
+            disabled
+            title="Custom views are coming soon"
+          />
+        </div>
+
+        {/* Inline error */}
+        {err && (
+          <Card
+            style={{
+              marginBottom: 14,
+              padding: 14,
+              borderColor: E.fail,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <div style={{ flex: 1 }}>
+              <Eyebrow style={{ color: E.fail }}>
+                Error loading experiments
+              </Eyebrow>
               <div
-                key={i}
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: COLS,
-                  padding: '14px 18px',
-                  borderTop: i ? `1px solid ${E.hair}` : 'none',
-                  alignItems: 'center',
-                  gap: 8,
+                  fontFamily: E.fMono,
+                  fontSize: 12,
+                  color: E.text2,
+                  marginTop: 4,
                 }}
               >
-                <Skeleton w={14} h={14} />
-                <div>
-                  <Skeleton w={`${60 + ((i * 7) % 30)}%`} h={13} />
-                  <div style={{ marginTop: 6 }}>
-                    <Skeleton w={180} h={10} />
-                  </div>
-                </div>
-                <Skeleton w={40} h={14} />
-                <Skeleton w={30} h={11} />
-                <Skeleton w={36} h={11} />
-                <Skeleton w={28} h={11} />
-                <Skeleton w={40} h={11} />
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <Skeleton w={70} h={20} />
-                </div>
+                {err}
               </div>
-            ))}
+            </div>
+            <Btn kind="secondary" size="sm" onClick={refetch}>
+              Retry
+            </Btn>
           </Card>
         )}
 
-        {rows && rows.length === 0 && (
-          <Card style={{ marginTop: 14, padding: 28, textAlign: 'center' }}>
+        {/* Loading skeleton */}
+        {!data && !err && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 280px',
+              gap: 14,
+            }}
+          >
+            <div style={{ paddingLeft: 22 }}>
+              {[0, 1, 2].map((i) => (
+                <Card key={i} style={{ padding: 14, marginBottom: 10 }}>
+                  <Skeleton w="40%" h={12} />
+                  <div style={{ marginTop: 8 }}>
+                    <Skeleton w="60%" h={10} />
+                  </div>
+                  <div style={{ marginTop: 14 }}>
+                    <Skeleton w="100%" h={6} />
+                  </div>
+                </Card>
+              ))}
+            </div>
+            <Card style={{ padding: 14 }}>
+              <Skeleton w="50%" h={10} />
+              <div style={{ marginTop: 10 }}>
+                <Skeleton w="100%" h={60} />
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {noRuns && (
+          <Card style={{ padding: 28, textAlign: 'center' }}>
             <Eyebrow>No experiments yet</Eyebrow>
             <div style={{ marginTop: 8, fontSize: 14, color: E.text2 }}>
-              Run your first evaluation to see results here.
+              Run your first evaluation to see the lineage view.
             </div>
             <div style={{ marginTop: 14 }}>
-              <Btn kind="primary" size="md" onClick={() => navigate(NEW_EVAL_TARGET)}>
+              <Btn kind="primary" size="md" onClick={handleNewEvaluation}>
                 Run your first eval
               </Btn>
             </div>
           </Card>
         )}
 
-        {/* FLAT VIEW */}
-        {view === 'flat' && filtered && filtered.length > 0 && (
-          <Card style={{ marginTop: 14, padding: 0, overflow: 'hidden' }} data-coachmark="experiments-list">
-            <TableHeader />
-            {filtered.map((r, i) => (
-              <Row
-                key={r.id}
-                r={r}
-                i={i}
-                isSelected={selected.has(r.id)}
-                onToggle={() => toggle(r.id)}
-                onNavigate={() => navigate(`/experiments/${encodeURIComponent(r.id)}`)}
+        {/* Main grid */}
+        {data && data.runs.length > 0 && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 280px',
+              gap: 14,
+            }}
+            data-coachmark="experiments-list"
+          >
+            {/* Lineage stream */}
+            <div style={{ position: 'relative', paddingLeft: 22 }}>
+              {/* Spine: dashed via CSS gradient. */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 7,
+                  top: 8,
+                  bottom: 0,
+                  width: 2,
+                  background: `linear-gradient(${E.hair2} 50%, transparent 0) 0/2px 6px`,
+                }}
               />
-            ))}
-          </Card>
-        )}
+              {visible.length === 0 ? (
+                <Card
+                  style={{
+                    padding: 18,
+                    fontSize: 12.5,
+                    color: E.text2,
+                    fontFamily: E.fSans,
+                  }}
+                >
+                  No runs match the current view.
+                  <Btn
+                    kind="ghost"
+                    size="sm"
+                    onClick={() => setSavedView('all')}
+                    style={{ marginLeft: 10 }}
+                  >
+                    Reset to All runs
+                  </Btn>
+                </Card>
+              ) : (
+                visible.map((run) => (
+                  <LineageNode
+                    key={run.id}
+                    run={run}
+                    selected={selected.includes(run.id)}
+                    onToggleSelect={() => toggleSelected(run.id)}
+                    onOpen={() =>
+                      navigate(`/experiments/${encodeURIComponent(run.id)}`)
+                    }
+                  />
+                ))
+              )}
+            </div>
 
-        {/* GROUPED VIEW */}
-        {view === 'grouped' && groups && groups.length > 0 && (
-          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {groups.map((g) => {
-              const isCollapsed = isGroupCollapsed(g);
-              const medianText =
-                g.medianPass != null ? `median ${g.medianPass.toFixed(1)}%` : 'median -';
-              return (
-                <Card key={g.name} style={{ padding: 0, overflow: 'hidden' }}>
-                  {/* Group header bar */}
-                  <button
-                    type="button"
-                    onClick={() => toggleGroup(g.name)}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.background = E.panel2;
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-                    }}
-                    aria-expanded={!isCollapsed}
+            {/* Right rail */}
+            <div
+              style={{
+                position: 'sticky',
+                top: 0,
+                alignSelf: 'flex-start',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+              }}
+            >
+              <CompareCard
+                selected={selectedRuns}
+                onClear={clearSelected}
+                onOpenFullDiff={openCompare}
+              />
+              <Card style={{ padding: 14 }}>
+                <Eyebrow>Pulse</Eyebrow>
+                <div
+                  style={{
+                    fontFamily: E.fSerif,
+                    fontSize: 24,
+                    color: E.text0,
+                    marginTop: 4,
+                  }}
+                >
+                  {data.median_pass != null
+                    ? data.median_pass.toFixed(1)
+                    : '-'}
+                  <span style={{ fontSize: 12, color: E.text3 }}>%</span>
+                </div>
+                <div style={{ fontSize: 10.5, color: E.text3, marginBottom: 8 }}>
+                  median across {counts.all} run{counts.all === 1 ? '' : 's'}
+                </div>
+                {data.pulse_spark.length > 0 ? (
+                  <Spark
+                    data={data.pulse_spark}
+                    w={250}
+                    h={40}
+                    color={E.steel}
+                  />
+                ) : (
+                  <div
                     style={{
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 12,
-                      padding: '14px 18px',
-                      minHeight: 52,
-                      background: 'transparent',
-                      border: 'none',
-                      borderBottom: !isCollapsed ? `1px solid ${E.hair}` : 'none',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'background 120ms',
+                      fontFamily: E.fMono,
+                      fontSize: 10.5,
+                      color: E.text3,
                     }}
                   >
-                    <span
-                      style={{
-                        fontFamily: E.fMono,
-                        fontSize: 12,
-                        color: E.text3,
-                        width: 14,
-                        display: 'inline-block',
-                      }}
-                      aria-hidden
-                    >
-                      {isCollapsed ? '▸' : '▾'}
-                    </span>
-                    <span
-                      style={{
-                        fontFamily: E.fMono,
-                        fontSize: 14,
-                        color: E.text0,
-                        fontWeight: 500,
-                      }}
-                    >
-                      {g.name}
-                    </span>
-                    <Pill
-                      mono
-                      style={{ fontSize: 10, padding: '1px 7px', background: E.panel3, color: E.text2 }}
-                    >
-                      {g.runs.length} {g.runs.length === 1 ? 'run' : 'runs'}
-                    </Pill>
-                    <span style={{ fontSize: 11, color: E.text3, fontFamily: E.fMono }}>
-                      {medianText}
-                    </span>
-                    <span style={{ flex: 1 }} />
-                    {g.spark.length > 0 ? (
-                      <Spark data={g.spark} color={sparkColor(g.latestStatus)} dot w={120} h={26} />
-                    ) : (
-                      <span style={{ fontSize: 10, color: E.text3, fontFamily: E.fMono }}>n/a</span>
-                    )}
-                  </button>
-
-                  {/* Group body */}
-                  {!isCollapsed && (
-                    <div>
-                      <TableHeader />
-                      {g.runs.map((r, i) => (
-                        <Row
-                          key={r.id}
-                          r={r}
-                          i={i}
-                          isSelected={selected.has(r.id)}
-                          onToggle={() => toggle(r.id)}
-                          onNavigate={() => navigate(`/experiments/${encodeURIComponent(r.id)}`)}
-                          hideName
-                        />
-                      ))}
-                    </div>
-                  )}
-                </Card>
-              );
-            })}
+                    not enough runs for a trend yet
+                  </div>
+                )}
+              </Card>
+            </div>
           </div>
         )}
 
-        {/* EMPTY FILTER RESULT */}
-        {filtered && filtered.length === 0 && rows && rows.length > 0 && (
-          <Card
+        {/* "Why this view" footer - explains the lineage redesign in
+            human terms; mirrors the proposal canvas. */}
+        {data && data.runs.length > 0 && (
+          <div
             style={{
               marginTop: 14,
-              padding: 18,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
+              padding: '12px 16px',
+              background: E.panel,
+              border: `1px dashed ${E.hair2}`,
+              borderRadius: 8,
+              fontSize: 11.5,
+              color: E.text2,
+              lineHeight: 1.5,
             }}
           >
-            <div style={{ flex: 1, fontSize: 13, color: E.text2 }}>
-              No experiments match
-              {query && (
-                <>
-                  {' '}<b style={{ color: E.ember }}>"{query}"</b>
-                </>
-              )}
-              {' '}with the current filters.
-              <div style={{ fontSize: 11, color: E.text3, marginTop: 2, fontFamily: E.fMono }}>
-                {rows.length} experiment{rows.length === 1 ? '' : 's'} hidden
-              </div>
-            </div>
-            {query && (
-              <Btn kind="secondary" size="sm" onClick={() => setQuery('')}>
-                Clear search
-              </Btn>
-            )}
-            <Btn kind="ghost" size="sm" onClick={() => setStatusFilter('any')}>
-              Reset filter
-            </Btn>
-          </Card>
+            <span
+              style={{
+                color: E.text3,
+                fontFamily: E.fMono,
+                fontSize: 10.5,
+              }}
+            >
+              why this view →
+            </span>{' '}
+            Tables sort runs; lineage shows what changed between them. Each
+            node carries its run id, pass rate and tags so you can read the
+            cause of any pass-rate move at a glance. Pick two nodes to
+            compare without losing your place.
+          </div>
         )}
 
         <div style={{ height: 30 }} />

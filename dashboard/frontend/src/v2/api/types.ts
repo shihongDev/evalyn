@@ -84,6 +84,12 @@ export interface HomeSnapshot {
 }
 
 /** /api/v2/experiments - list view rows. */
+export interface FailureMix {
+  pass: number;
+  warn: number;
+  fail: number;
+}
+
 export interface ExperimentRow {
   id: string;
   name: string;
@@ -97,6 +103,8 @@ export interface ExperimentRow {
   cost: string; // '$2.41'
   spark: number[] | null;
   tags: string[];
+  /** Per-item pass/warn/fail breakdown. Null when run has no items yet. */
+  failure_mix: FailureMix | null;
   err?: string;
 }
 
@@ -270,6 +278,13 @@ export interface DatasetDetail {
 }
 
 /** /api/v2/rubrics */
+export interface RubricDimensionDetail {
+  label: string;
+  weight: number;
+  fp: number;
+  fn: number;
+}
+
 export interface RubricRow {
   id: string;
   name: string;
@@ -278,6 +293,12 @@ export interface RubricRow {
   calibration_label: string; // 'k=0.81' or 'deterministic'
   calibration_kind: 'pass' | 'warn' | 'fail' | 'info';
   uses: number;
+  // Augmented v2 fields:
+  kappa: number | null;
+  drift_per_week: number;
+  sample_size: number;
+  weights: Record<string, number> | null;
+  dimensions_detail: RubricDimensionDetail[];
 }
 export type RubricList = RubricRow[];
 
@@ -298,6 +319,38 @@ export interface RubricDetail {
     example: string;
     kind: 'judge' | 'prog';
   }[];
+  // Augmented v2 fields:
+  kappa: number | null;
+  drift_per_week: number;
+  sample_size: number;
+  weights: Record<string, number> | null;
+  dimensions_detail: RubricDimensionDetail[];
+  confusion_matrix: { tp: number; tn: number; fp: number; fn: number } | null;
+}
+
+/** /api/v2/rubrics/trust */
+export interface TrustScoreboard {
+  metrics: {
+    name: string;
+    metric_type: 'llm' | 'programmatic';
+    score: number;
+    kappa: number | null;
+    drift_per_week: number;
+    sample_size: number | string;
+    needs_work: boolean;
+  }[];
+  thresholds: { annotation: 0.7; ship: 0.8 };
+}
+
+/** POST /api/v2/rubrics/{id} */
+export interface RubricSavePayload {
+  name?: string;
+  weights?: Record<string, number>;
+  dimensions?: { label: string; weight: number; fp?: number; fn?: number }[];
+}
+export interface RubricSaveResponse {
+  ok: true;
+  saved_at: string;
 }
 
 /** /api/v2/review/queue */
@@ -343,18 +396,28 @@ export interface ReviewVerdictPayload {
 }
 
 /** /api/v2/reports/weekly */
+export interface WeeklyBigNumber {
+  label: string;
+  value: string;
+  delta: string;
+  delta_kind: 'pass' | 'fail' | 'warn' | 'info';
+  sub: string;
+  good?: boolean;
+  spark?: number[];
+}
+
+export interface EvidenceLink {
+  section: 'wins' | 'blocking' | 'next';
+  ref: string;
+  url: string;
+}
+
 export interface WeeklyReport {
   week_label: string;
   project_name: string;
   generated_at_iso: string;
   tldr_md: string;
-  big_numbers: {
-    label: string;
-    value: string;
-    delta: string;
-    delta_kind: 'pass' | 'fail' | 'warn' | 'info';
-    sub: string;
-  }[];
+  big_numbers: WeeklyBigNumber[];
   shipped: { text: string }[];
   blocking: {
     title: string;
@@ -363,6 +426,14 @@ export interface WeeklyReport {
     eta: string;
   } | null;
   up_next: { text: string }[];
+  // Augmented v2 fields:
+  headline?: string;
+  audience_variants?: {
+    leadership: WeeklyReport;
+    engineering: WeeklyReport;
+    product: WeeklyReport;
+  };
+  evidence_links?: EvidenceLink[];
 }
 
 /* === Annotation sessions ============================================ */
@@ -450,4 +521,90 @@ export interface AnnotationVerdictResponse {
 
 export interface AnnotationSessionList {
   sessions: AnnotationSessionMeta[];
+}
+
+/* === New v2 redesign types ========================================== */
+
+/** /api/v2/experiments/lineage */
+export interface LineageRun {
+  id: string;
+  name: string;
+  author: string;
+  when: string; // '2h', '1d', etc.
+  status: RunStatus;
+  pass: number | null;
+  items: number | string; // number completed, or '128/400' if running
+  failure_mix: FailureMix | null;
+  config_diff: string;
+  tags: string[];
+  pinned?: boolean;
+  live?: boolean;
+}
+
+export interface Lineage {
+  runs: LineageRun[];
+  median_pass: number | null;
+  pulse_spark: number[];
+}
+
+/** /api/v2/experiments/{run_id}/clusters - semantic clusters via SDK. */
+export interface SemanticClusterItem {
+  id: string;
+  text: string;
+}
+
+export interface SemanticCluster {
+  id: string;
+  label: string;
+  n: number;
+  confidence: number;
+  kind: 'fail' | 'warn' | 'info';
+  pattern_hint: string | null;
+  items: SemanticClusterItem[];
+}
+
+export interface ClustersResponse {
+  clusters: SemanticCluster[];
+}
+
+/** /api/v2/annotation/smart-queue */
+export interface SmartQueueItem {
+  rank: number;
+  score: number;
+  judge_score: number;
+  text: string;
+  why: string;
+  item_id: string;
+  run_id: string;
+}
+
+export interface SmartQueue {
+  metric_id: string;
+  items: SmartQueueItem[];
+  est_to_threshold: number;
+  weights: {
+    uncertainty: 0.5;
+    disagreement: 0.3;
+    coverage: 0.15;
+    random: 0.05;
+  };
+}
+
+/** /api/cli/history */
+export type CommandRunStatus = 'pass' | 'fail' | 'running' | 'cancelled';
+
+export interface CommandRun {
+  job_id: string;
+  status: CommandRunStatus;
+  started_at: string;
+  duration_ms: number;
+  exit_code: number;
+  summary: string;
+  args: Record<string, string>;
+}
+
+export interface CommandHistory {
+  command: string;
+  runs: CommandRun[];
+  used_count_this_week: number;
 }

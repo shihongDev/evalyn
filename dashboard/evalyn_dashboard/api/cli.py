@@ -202,4 +202,126 @@ async def run_cli(request: Request) -> JSONResponse:
     return JSONResponse({"job_id": job_id})
 
 
+# ---------------------------------------------------------------------------
+# Per-command run history (sourced from the JobPersistence sqlite mirror)
+# ---------------------------------------------------------------------------
+
+
+def _persistence_status_to_run_status(status: str, exit_code: int | None) -> str:
+    """Map JobPersistence status to the v2 ``CommandHistory`` enum."""
+    if status == "running":
+        return "running"
+    if status == "cancelled":
+        return "cancelled"
+    if status == "complete" and (exit_code is None or exit_code == 0):
+        return "pass"
+    return "fail"
+
+
+def _summarise_args(cli_id: str, args: dict, duration_s: float | None) -> str:
+    """One-line summary like ``gold-set v12 - 410 items - 3m41s``.
+
+    The dataset / N items / duration tuple is the most useful triple for
+    a re-run UI; missing pieces are silently dropped. Falls back to the
+    cli_id when no args are interesting.
+    """
+    parts: list[str] = []
+    ds = args.get("dataset") or args.get("dataset_id") or args.get("dataset_name")
+    if isinstance(ds, str) and ds:
+        parts.append(ds)
+    n = args.get("n_items") or args.get("limit") or args.get("count")
+    if isinstance(n, (int, float)):
+        parts.append(f"{int(n)} items")
+    if isinstance(duration_s, (int, float)) and duration_s > 0:
+        secs = int(duration_s)
+        if secs >= 60:
+            parts.append(f"{secs // 60}m{secs % 60:02d}s")
+        else:
+            parts.append(f"{secs}s")
+    if not parts:
+        parts.append(cli_id)
+    return " - ".join(parts)
+
+
+@router.get("/history")
+async def get_command_history(
+    request: Request,
+    command: str | None = None,
+    limit: int = 10,
+) -> JSONResponse:
+    """Per-command run history sourced from the sqlite jobs mirror."""
+    if limit < 1 or limit > 200:
+        raise HTTPException(status_code=422, detail="limit must be 1..200")
+
+    job_manager = request.app.state.job_manager
+    persistence = getattr(job_manager, "_persistence", None)
+
+    rows: list[dict] = []
+    if persistence is not None:
+        try:
+            persisted = persistence.list_recent(limit=200)
+        except Exception:  # noqa: BLE001
+            persisted = []
+        for row in persisted:
+            cli = str(row.get("cli_id") or "")
+            if command and cli != command:
+                continue
+            args = row.get("args") if isinstance(row.get("args"), dict) else {}
+            duration_s = row.get("duration_s")
+            duration_ms = (
+                int(round(float(duration_s) * 1000.0))
+                if isinstance(duration_s, (int, float))
+                else 0
+            )
+            status = _persistence_status_to_run_status(
+                str(row.get("status") or ""), row.get("exit_code")
+            )
+            rows.append(
+                {
+                    "job_id": str(row.get("job_id") or ""),
+                    "status": status,
+                    "started_at": str(row.get("started_at_iso") or ""),
+                    "duration_ms": duration_ms,
+                    "exit_code": int(row.get("exit_code") or 0),
+                    "summary": _summarise_args(cli, args, duration_s),
+                    "args": {k: str(v) for k, v in args.items()},
+                }
+            )
+            if len(rows) >= limit:
+                break
+
+    # Compute "used_count_this_week" by walking all persisted rows for the
+    # given command and counting those started within the last 7 days.
+    from datetime import datetime, timedelta, timezone
+
+    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    used = 0
+    if persistence is not None:
+        try:
+            all_rows = persistence.list_recent(limit=500)
+        except Exception:  # noqa: BLE001
+            all_rows = []
+        for row in all_rows:
+            cli = str(row.get("cli_id") or "")
+            if command and cli != command:
+                continue
+            iso = row.get("started_at_iso")
+            if not isinstance(iso, str):
+                continue
+            try:
+                dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            if dt >= week_ago:
+                used += 1
+
+    return JSONResponse(
+        {
+            "command": command or "",
+            "runs": rows,
+            "used_count_this_week": used,
+        }
+    )
+
+
 __all__ = ["router", "args_to_argv"]

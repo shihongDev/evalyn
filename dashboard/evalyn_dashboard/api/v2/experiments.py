@@ -2,8 +2,10 @@
 
 Endpoints:
 - ``GET /``                          -> ExperimentList
+- ``GET /lineage``                   -> Lineage (run-by-run config diffs)
 - ``GET /{id}``                      -> ExperimentDetail
 - ``GET /{id}/cluster/{cluster_id}`` -> ClusterDetail
+- ``GET /{id}/clusters``             -> ClustersResponse (semantic, via SDK)
 
 Source of truth for the JSON shapes is
 ``dashboard/frontend/src/v2/api/types.ts``.
@@ -12,7 +14,9 @@ Source of truth for the JSON shapes is
 from __future__ import annotations
 
 import json
+import logging
 from collections import Counter, defaultdict
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -36,8 +40,51 @@ from ._shared import (
     total_cost,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 experiments_items.register(router)
+
+
+# ---------------------------------------------------------------------------
+# failure_mix: classify each item as pass/warn/fail based on metric_results.
+#   pass: every metric for the item passed
+#   warn: at least one soft (0.3 < score < 0.7) but no hard fail
+#   fail: at least one metric failed
+# Returns ``None`` when the run has zero items yet.
+# ---------------------------------------------------------------------------
+
+
+def _failure_mix(run: dict) -> dict | None:
+    """Compute per-item pass/warn/fail counts for ``run``.
+
+    Returns ``None`` when ``metric_results`` is empty (run has no items
+    yet). Soft-warn is keyed off the existing soft-band thresholds used
+    by the review queue.
+    """
+    item_state: dict[str, str] = {}
+    for r in run.get("metric_results") or []:
+        iid = r.get("item_id")
+        if iid is None:
+            continue
+        passed = r.get("passed")
+        score = r.get("score")
+        prior = item_state.get(iid, "pass")
+        if passed is False:
+            item_state[iid] = "fail"
+            continue
+        if prior == "fail":
+            continue
+        if isinstance(score, (int, float)) and 0.3 < float(score) < 0.7:
+            if prior != "warn":
+                item_state[iid] = "warn"
+
+    if not item_state:
+        return None
+    out = {"pass": 0, "warn": 0, "fail": 0}
+    for state in item_state.values():
+        out[state] = out.get(state, 0) + 1
+    return out
 
 
 def _items_string(run: dict) -> str:
@@ -112,6 +159,7 @@ def _serialize_row(run: dict, prev: dict | None) -> dict:
         "cost": fmt_cost(total_cost(run)),
         "spark": _spark_for_row(run),
         "tags": _tags(run),
+        "failure_mix": _failure_mix(run),
         **({"err": summary.get("error", "failed")} if summary.get("status") == "failed" else {}),
     }
 
@@ -138,6 +186,181 @@ async def list_experiments() -> JSONResponse:
 
     rows.sort(key=lambda x: x.get("when_iso") or "", reverse=True)
     return JSONResponse(rows)
+
+
+# ---------- Lineage ----------
+
+
+def _humanize_when(iso: str) -> str:
+    """Return ``"2h"``, ``"3d"``-style string from an iso timestamp.
+
+    Falls back to "" on parse failure. Reference time is "now" so freshly
+    written runs read as "0m" / "1m" / etc.
+    """
+    if not iso:
+        return ""
+    dt = parse_iso(iso)
+    if dt is None:
+        return ""
+    now = datetime.now(timezone.utc)
+    delta = now - dt
+    secs = int(delta.total_seconds())
+    if secs < 60:
+        return f"{max(0, secs)}s"
+    mins = secs // 60
+    if mins < 60:
+        return f"{mins}m"
+    hours = mins // 60
+    if hours < 48:
+        return f"{hours}h"
+    days = hours // 24
+    return f"{days}d"
+
+
+def _config_signature(run: dict) -> dict:
+    """Pull stored config bits worth diffing run-to-run.
+
+    Looks at ``judge_configs[*].model``, ``metrics[*].config``, and the
+    ``dataset_name``. Missing fields are dropped (not emitted as ``None``).
+    """
+    sig: dict[str, Any] = {}
+    judges: list[str] = []
+    for jc in run.get("judge_configs") or []:
+        if isinstance(jc, dict):
+            mdl = jc.get("model")
+            if isinstance(mdl, str) and mdl:
+                judges.append(mdl)
+    if judges:
+        sig["judge_model"] = sorted(set(judges))[0]
+    # Metric thresholds + judge models seen on metrics.
+    metric_models: list[str] = []
+    thresholds: list[float] = []
+    for m in run.get("metrics") or []:
+        if not isinstance(m, dict):
+            continue
+        cfg = m.get("config") or {}
+        if isinstance(cfg, dict):
+            mdl = cfg.get("model")
+            if isinstance(mdl, str) and mdl:
+                metric_models.append(mdl)
+            th = cfg.get("success_threshold")
+            if isinstance(th, (int, float)):
+                thresholds.append(float(th))
+    if metric_models and "judge_model" not in sig:
+        sig["judge_model"] = sorted(set(metric_models))[0]
+    if thresholds:
+        # Pick a stable representative; thresholds usually agree across metrics.
+        sig["threshold"] = round(sum(thresholds) / len(thresholds), 3)
+    ds = run.get("dataset_name") or run.get("_dataset")
+    if isinstance(ds, str) and ds:
+        sig["dataset_id"] = ds
+    return sig
+
+
+def _config_diff_str(curr: dict, prev: dict | None) -> str:
+    """Render a one-line config diff.
+
+    "no config change - baseline" when ``prev`` is None; otherwise lists
+    each key whose value differs as ``key X -> Y``. When nothing differs
+    returns ``"no config change"``.
+    """
+    if prev is None:
+        return "no config change - baseline"
+    curr_sig = _config_signature(curr)
+    prev_sig = _config_signature(prev)
+    diffs: list[str] = []
+    for key in sorted(set(curr_sig) | set(prev_sig)):
+        cv = curr_sig.get(key)
+        pv = prev_sig.get(key)
+        if cv == pv:
+            continue
+        diffs.append(f"{key} {pv} -> {cv}")
+    if not diffs:
+        return "no config change"
+    return ", ".join(diffs)
+
+
+def _items_count_or_progress(run: dict) -> Any:
+    """Return ``int`` for completed runs, ``"done/total"`` for running."""
+    item_ids = {mr.get("item_id") for mr in run.get("metric_results") or []}
+    n = len(item_ids)
+    summary = run.get("summary") or {}
+    if summary.get("in_progress") or summary.get("status") == "running":
+        total = summary.get("total_items") or n
+        return f"{n}/{total}"
+    return n
+
+
+def _lineage_pulse_spark(runs_oldest_first: list[dict]) -> list[float]:
+    """Return up to 12 recent pass-rate samples (oldest first)."""
+    out: list[float] = []
+    for r in runs_oldest_first[-12:]:
+        pr = run_pass_rate(r)
+        if pr is None:
+            continue
+        out.append(round(100.0 * pr, 1))
+    return out
+
+
+@router.get("/lineage")
+async def get_lineage() -> JSONResponse:
+    """Return runs-as-lineage with config diffs and pulse sparkline."""
+    if not dataset_roots():
+        return JSONResponse({"runs": [], "median_pass": None, "pulse_spark": []})
+    runs = load_all_runs()  # oldest first
+    if not runs:
+        return JSONResponse({"runs": [], "median_pass": None, "pulse_spark": []})
+
+    by_dataset: dict[str, list[dict]] = defaultdict(list)
+    for r in runs:
+        by_dataset[r["_dataset"]].append(r)
+
+    out_runs: list[dict] = []
+    pass_rates: list[float] = []
+    for dataset, drs in by_dataset.items():
+        for idx, r in enumerate(drs):
+            prev = drs[idx - 1] if idx > 0 else None
+            pr = run_pass_rate(r)
+            if pr is not None:
+                pass_rates.append(round(100.0 * pr, 1))
+            out_runs.append(
+                {
+                    "id": run_id(r),
+                    "name": _friendly_name(r),
+                    "author": "You",
+                    "when": _humanize_when(r.get("created_at") or ""),
+                    "status": run_status(r),
+                    "pass": round(pr * 100, 1) if pr is not None else None,
+                    "items": _items_count_or_progress(r),
+                    "failure_mix": _failure_mix(r),
+                    "config_diff": _config_diff_str(r, prev),
+                    "tags": _tags(r),
+                    "pinned": False,
+                    "live": run_status(r) == "running",
+                }
+            )
+
+    # Newest-first ordering using created_at from the source runs.
+    when_by_id: dict[str, str] = {run_id(r): (r.get("created_at") or "") for r in runs}
+    out_runs.sort(key=lambda x: when_by_id.get(x["id"], ""), reverse=True)
+
+    median_pass: float | None = None
+    if pass_rates:
+        s = sorted(pass_rates)
+        n = len(s)
+        median_pass = (
+            s[n // 2] if n % 2 else round((s[n // 2 - 1] + s[n // 2]) / 2.0, 1)
+        )
+
+    pulse = _lineage_pulse_spark(runs)
+
+    return JSONResponse(
+        {
+            "runs": out_runs,
+            "median_pass": median_pass,
+            "pulse_spark": pulse,
+        }
+    )
 
 
 # ---------- Detail ----------
@@ -583,3 +806,198 @@ async def get_cluster(exp_id: str, cluster_id: str) -> JSONResponse:
             "suggested_fix": None,
         }
     )
+
+
+# ---------- Semantic clusters (SDK-backed) ----------
+
+
+_CLUSTER_KIND_FAIL = "fail"
+_CLUSTER_KIND_WARN = "warn"
+_CLUSTER_KIND_INFO = "info"
+_MAX_CLUSTERS = 6
+
+
+def _semantic_cluster_kind(items_in_cluster: list[dict]) -> str:
+    """Heuristic kind based on the cluster's worst score.
+
+    All-failed -> fail; mixed soft -> warn; otherwise info. Keeps the
+    classifier simple given the SDK only emits failure-derived clusters.
+    """
+    scores = [it.get("score", 0.0) for it in items_in_cluster]
+    if not scores:
+        return _CLUSTER_KIND_INFO
+    if all(s == 0.0 or s is False for s in scores):
+        return _CLUSTER_KIND_FAIL
+    if any(0.3 < float(s or 0.0) < 0.7 for s in scores):
+        return _CLUSTER_KIND_WARN
+    return _CLUSTER_KIND_FAIL
+
+
+def _truncate(text: str, n: int = 120) -> str:
+    if not isinstance(text, str):
+        return ""
+    return text if len(text) <= n else text[: n - 1] + "…"
+
+
+def _build_metric_clusters_fallback(run: dict) -> list[dict]:
+    """Build clusters by metric grouping when the SDK is unavailable.
+
+    Same shape as the semantic response so the FE doesn't need to branch.
+    """
+    clusters_now = _cluster_run(run)
+    items_by_id = load_dataset_items(run_dataset_dir(run))
+    out: list[dict] = []
+    for metric_id, ids in sorted(clusters_now.items(), key=lambda kv: -len(kv[1])):
+        sample_items: list[dict] = []
+        for iid in ids[:25]:
+            item = items_by_id.get(iid, {})
+            sample_items.append({"id": iid, "text": _truncate(input_text(item), 120)})
+        out.append(
+            {
+                "id": f"metric-{metric_id}",
+                "label": metric_id,
+                "n": len(ids),
+                "confidence": 0.7,
+                "kind": _CLUSTER_KIND_FAIL,
+                "pattern_hint": None,
+                "items": sample_items,
+            }
+        )
+    return out[:_MAX_CLUSTERS]
+
+
+def _try_sdk_clusters(run: dict) -> list[dict] | None:
+    """Try the SDK's ``cluster_failures`` path. Returns ``None`` on failure.
+
+    Gracefully degrades: any import or runtime issue (no API key, no
+    network, etc.) returns ``None`` and the caller falls back to the
+    metric-grouping clusters. We avoid hitting the LLM in tests by
+    refusing to call when fewer than 3 failures or when the env signals
+    a test (``EVALYN_DASHBOARD_TEST_NO_CACHE`` is the dashboard's test
+    seam; reuse it here as a "no external calls" signal).
+    """
+    import os as _os
+
+    if _os.environ.get("EVALYN_DASHBOARD_TEST_NO_CACHE") == "1":
+        return None
+    if _os.environ.get("EVALYN_DASHBOARD_DISABLE_LLM_CLUSTER") == "1":
+        return None
+    try:
+        from evalyn_sdk.analysis.clustering import ReasonClusterer  # noqa: F401
+        from evalyn_sdk.models import MetricResult  # noqa: F401
+    except ImportError:
+        return None
+
+    failed_results: list[Any] = []
+    try:
+        for r in run.get("metric_results") or []:
+            if r.get("passed") is not False:
+                continue
+            try:
+                mr = MetricResult.from_dict(r)
+            except Exception:  # noqa: BLE001
+                continue
+            failed_results.append(mr)
+    except Exception:  # noqa: BLE001
+        return None
+
+    if len(failed_results) < 3:
+        # SDK falls back to one-cluster-per-case; not useful for the UI.
+        return None
+
+    try:
+        clusterer = ReasonClusterer()
+        result = clusterer.cluster_failures(
+            metric_results=failed_results,
+            dataset_items=None,
+            compute_embeddings=False,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("semantic clustering failed: %s", exc)
+        return None
+
+    items_by_id = load_dataset_items(run_dataset_dir(run))
+    score_by_item: dict[str, float] = {}
+    for r in run.get("metric_results") or []:
+        iid = r.get("item_id")
+        if iid is not None:
+            score_by_item[iid] = float(r.get("score") or 0.0)
+
+    out: list[dict] = []
+    for cluster in (result.clusters or [])[:_MAX_CLUSTERS]:
+        sample_items: list[dict] = []
+        for reason in (cluster.reasons or [])[:25]:
+            iid = ""
+            text = ""
+            for r in run.get("metric_results") or []:
+                if r.get("passed") is not False:
+                    continue
+                details = r.get("details") if isinstance(r.get("details"), dict) else {}
+                raw_judge = r.get("raw_judge") if isinstance(r.get("raw_judge"), dict) else {}
+                rsn = (raw_judge or {}).get("reason") or (details or {}).get("reason") or ""
+                if rsn == reason:
+                    iid = r.get("item_id") or ""
+                    text = input_text(items_by_id.get(iid, {})) or ""
+                    break
+            if not iid:
+                continue
+            sample_items.append({"id": iid, "text": _truncate(text, 120)})
+        scores = [score_by_item.get(it["id"], 0.0) for it in sample_items]
+        kind = _semantic_cluster_kind(
+            [{"score": s} for s in scores] if scores else [{"score": 0.0}]
+        )
+        out.append(
+            {
+                "id": cluster.cluster_id,
+                "label": cluster.label,
+                "n": cluster.count,
+                # Compactness proxy: shorter mean reason length -> tighter
+                # cluster. Keep within 0..1; default to 0.7 when unknown.
+                "confidence": 0.7,
+                "kind": kind,
+                "pattern_hint": cluster.label,
+                "items": sample_items,
+            }
+        )
+    return out or None
+
+
+@router.get("/{exp_id}/clusters")
+async def get_clusters(exp_id: str) -> JSONResponse:
+    """Semantic-cluster view of a run's failed items.
+
+    Tries the SDK's LLM-based clusterer first (``cluster_failures``); on
+    any failure (no API key, transient network, very small failure count)
+    falls back to the existing metric-grouping. Capped to 6 clusters,
+    with anything beyond folded into an "Other" cluster.
+    """
+    run, _, _ = _locate_run(exp_id)
+    if run is None:
+        raise HTTPException(404, f"experiment {exp_id} not found")
+
+    clusters = _try_sdk_clusters(run)
+    if clusters is None:
+        clusters = _build_metric_clusters_fallback(run)
+
+    # Cap to _MAX_CLUSTERS, lump tail into a single "Other" entry.
+    if len(clusters) > _MAX_CLUSTERS:
+        head = clusters[: _MAX_CLUSTERS - 1]
+        tail = clusters[_MAX_CLUSTERS - 1 :]
+        other_n = sum(c["n"] for c in tail)
+        other_items: list[dict] = []
+        for c in tail:
+            other_items.extend(c["items"][:5])
+        head.append(
+            {
+                "id": "other",
+                "label": "Other",
+                "n": other_n,
+                "confidence": 0.5,
+                "kind": _CLUSTER_KIND_INFO,
+                "pattern_hint": None,
+                "items": other_items[:25],
+            }
+        )
+        clusters = head
+
+    return JSONResponse({"clusters": clusters})

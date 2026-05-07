@@ -16,23 +16,40 @@ import type {
   ExperimentItemsFilter,
   ExperimentItemsSort,
   ClusterDetail,
+  ClustersResponse,
   DatasetList,
   DatasetDetail,
+  Lineage,
   RubricList,
   RubricDetail,
+  RubricSavePayload,
+  RubricSaveResponse,
   ReviewQueue,
   ReviewVerdictPayload,
+  SmartQueue,
+  TrustScoreboard,
+  CommandHistory,
   WeeklyReport,
 } from './types';
 import { loadDemo as demoLoadHelper } from './demo';
 
 const BASE = '/api/v2';
+const CLI_BASE = '/api/cli';
 
 async function jget<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { headers: { Accept: 'application/json' } });
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`GET ${path} ${res.status}: ${body}`);
+  }
+  return (await res.json()) as T;
+}
+
+async function jgetAbs<T>(url: string): Promise<T> {
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`GET ${url} ${res.status}: ${body}`);
   }
   return (await res.json()) as T;
 }
@@ -62,6 +79,7 @@ async function jpost<T>(path: string, body: unknown): Promise<T> {
 export const v2 = {
   home: (): Promise<HomeSnapshot> => jget('/home'),
   experiments: (): Promise<ExperimentList> => jget('/experiments'),
+  experimentsLineage: (): Promise<Lineage> => jget('/experiments/lineage'),
   experiment: (id: string): Promise<ExperimentDetail> =>
     jget(`/experiments/${encodeURIComponent(id)}`),
   experimentItems: (
@@ -87,15 +105,35 @@ export const v2 = {
     jget(
       `/experiments/${encodeURIComponent(runId)}/cluster/${encodeURIComponent(clusterId)}`,
     ),
+  experimentClusters: (runId: string): Promise<ClustersResponse> =>
+    jget(`/experiments/${encodeURIComponent(runId)}/clusters`),
   datasets: (): Promise<DatasetList> => jget('/datasets'),
   dataset: (name: string): Promise<DatasetDetail> =>
     jget(`/datasets/${encodeURIComponent(name)}`),
   rubrics: (): Promise<RubricList> => jget('/rubrics'),
+  rubricsTrust: (): Promise<TrustScoreboard> => jget('/rubrics/trust'),
   rubric: (id: string): Promise<RubricDetail> =>
     jget(`/rubrics/${encodeURIComponent(id)}/calibration`),
+  saveRubric: (id: string, payload: RubricSavePayload): Promise<RubricSaveResponse> =>
+    jpost(`/rubrics/${encodeURIComponent(id)}`, payload),
   reviewQueue: (): Promise<ReviewQueue> => jget('/review/queue'),
   submitVerdict: (p: ReviewVerdictPayload): Promise<{ ok: true }> =>
     jpost('/review/verdict', p),
   weeklyReport: (): Promise<WeeklyReport> => jget('/reports/weekly'),
+  annotationSmartQueue: (
+    metricId?: string,
+    limit: number = 20,
+  ): Promise<SmartQueue> => {
+    const params = new URLSearchParams();
+    if (metricId) params.set('metric_id', metricId);
+    params.set('limit', String(limit));
+    return jget(`/annotation/smart-queue?${params.toString()}`);
+  },
+  commandHistory: (commandId?: string, limit: number = 10): Promise<CommandHistory> => {
+    const params = new URLSearchParams();
+    if (commandId) params.set('command', commandId);
+    params.set('limit', String(limit));
+    return jgetAbs(`${CLI_BASE}/history?${params.toString()}`);
+  },
   demoLoad: (): Promise<{ loaded: boolean; project: string }> => demoLoadHelper(),
 };

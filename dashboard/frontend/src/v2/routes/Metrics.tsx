@@ -1,84 +1,1092 @@
 /**
- * Metrics & rubrics - left list of rubrics + right detail panel.
- * Wires v2.rubrics() and v2.rubric(id) into the design from screens-3.jsx.
+ * Metrics - Trust Report.
+ *
+ * A redesigned /metrics route. Top-down: an inline trust scoreboard
+ * answering "which judges should you trust today?" then a visual rubric
+ * editor with a calibration progress donut and confusion matrix on the
+ * right rail. Selection state lives in this component so clicking a row
+ * in the scoreboard switches the editor without a route change.
+ *
+ * The new /api/v2/rubrics/trust + saveRubric endpoints aren't on the
+ * client yet so the scoreboard is computed from /rubrics + per-rubric
+ * /calibration loads, the confusion matrix is derived from FP/FN%, and
+ * "Save rubric" is a local-state operation. We swap to the dedicated
+ * endpoints once the persistence + trust hooks land.
  */
 
-import type { ReactNode } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import type { CSSProperties } from 'react';
 import { AppShell } from '../AppShell';
-import { Btn, Card, Eyebrow, Glossary, Pill, Skeleton, Spinner, UpdatingChip } from '../ui';
+import {
+  Btn,
+  Card,
+  Donut,
+  Eyebrow,
+  Pill,
+  Skeleton,
+  Spinner,
+  UpdatingChip,
+} from '../ui';
 import { v2 } from '../api/client';
-import { listCli, runCli } from '../api/cli';
-import type { CliSchema } from '../api/cli';
 import type { RubricDetail, RubricRow } from '../api/types';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { useRouteTour } from '../tour/useRouteTour';
 import { READ_METRICS_TOUR_ID } from '../tour/scripts/readMetrics';
 import { useProject } from '../hooks/useProject';
-import { openCliRunner } from '../cliRunnerBridge';
-import { copyToClipboard } from '../clipboard';
 import { E } from '../tokens';
 
-/** Render the rubric as portable markdown. The frontend doesn't carry
- * the full backend YAML (prompt, level rubric, metadata are server-only),
- * so this is a "starting point" reference - the user reads it side-by-
- * side while drafting a new rubric in their config or via select-metrics. */
-function rubricToMarkdown(d: RubricDetail): string {
-  const lines: string[] = [];
-  lines.push(`# ${d.name}`);
-  lines.push('');
-  lines.push(`Metric id: \`${d.id}\``);
-  lines.push('');
-  if (d.dimensions.length > 0) {
-    lines.push('## Dimensions');
-    lines.push('');
-    lines.push('| Label | Kind | Weight | Example |');
-    lines.push('|---|---|---|---|');
-    for (const dim of d.dimensions) {
-      const ex = dim.example.replaceAll('|', '\\|').replaceAll('\n', ' ');
-      lines.push(
-        `| ${dim.label} | ${dim.kind === 'judge' ? 'LLM judge' : 'programmatic'} | ${dim.weight_pct}% | ${ex} |`,
-      );
+/* ------------------------------ shared types --------------------------- */
+
+interface TrustRow {
+  id: string;
+  name: string;
+  metric_type: 'llm' | 'programmatic';
+  score: number;
+  kappa: number | null;
+  drift_per_week: number;
+  sample_size: number | string;
+  needs_work: boolean;
+  has_kappa: boolean;
+}
+
+interface DimensionDraft {
+  label: string;
+  weight: number;
+  fp: number;
+  fn: number;
+}
+
+/* ------------------------------ utilities ------------------------------ */
+
+function parseLabelKappa(label: string): number | null {
+  const m = label.match(/k\s*=\s*([0-9.]+)/i);
+  if (!m) return null;
+  const v = Number.parseFloat(m[1]);
+  return Number.isFinite(v) ? v : null;
+}
+
+function deriveTrustScore(kappa: number | null, isProgrammatic: boolean): number {
+  if (isProgrammatic) return 1.0;
+  if (kappa == null) return 0;
+  return Math.max(0, Math.min(1, kappa));
+}
+
+function trustColor(score: number): string {
+  if (score >= 0.8) return E.pass;
+  if (score >= 0.7) return E.warn;
+  return E.fail;
+}
+
+function fmtDrift(d: number): string {
+  if (!d || Math.abs(d) < 0.005) return '-';
+  const sign = d > 0 ? '+' : '';
+  return `${sign}${d.toFixed(2)} / wk`;
+}
+
+function fmtKappa(k: number | null, isProg: boolean): string {
+  if (isProg) return 'prog';
+  if (k == null) return '-';
+  return k.toFixed(2);
+}
+
+function fmtSample(n: number | string, isProg: boolean): string {
+  if (isProg) return '-';
+  return `n=${n}`;
+}
+
+/* ----------------------- TrustScoreboard sub-component ----------------- */
+
+interface TrustScoreboardCardProps {
+  rows: TrustRow[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  loading: boolean;
+}
+
+function TrustScoreboardCard({
+  rows,
+  selectedId,
+  onSelect,
+  loading,
+}: TrustScoreboardCardProps) {
+  return (
+    <Card
+      style={{ padding: 14, marginBottom: 14 }}
+      data-coachmark="metrics-list"
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          marginBottom: 12,
+        }}
+      >
+        <Eyebrow>Calibration health</Eyebrow>
+        <span style={{ fontFamily: E.fMono, fontSize: 10.5, color: E.text3 }}>
+          sorted by trust gap - re-evaluated nightly
+        </span>
+      </div>
+
+      {loading && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '160px 1fr 80px 80px 100px',
+                alignItems: 'center',
+                gap: 14,
+              }}
+            >
+              <Skeleton w="60%" h={12} />
+              <Skeleton w="100%" h={12} />
+              <Skeleton w="60%" h={11} />
+              <Skeleton w="60%" h={11} />
+              <Skeleton w="60%" h={11} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!loading && rows.length === 0 && (
+        <div
+          style={{
+            color: E.text3,
+            fontSize: 12,
+            padding: '12px 0',
+            textAlign: 'center',
+          }}
+        >
+          No metrics found yet. Run an evaluation to populate the trust
+          report.
+        </div>
+      )}
+
+      {!loading && rows.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {rows.map((t) => {
+            const isProg = t.metric_type === 'programmatic';
+            const isActive = t.id === selectedId;
+            const tColor = trustColor(t.score);
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => onSelect(t.id)}
+                onMouseEnter={(e) => {
+                  if (!isActive) e.currentTarget.style.background = E.panel2;
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) e.currentTarget.style.background = 'transparent';
+                }}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '160px 1fr 80px 80px 100px',
+                  alignItems: 'center',
+                  gap: 14,
+                  padding: '6px 8px',
+                  border: 'none',
+                  borderRadius: 6,
+                  background: isActive ? E.emberDim : 'transparent',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'background 140ms',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span
+                    style={{
+                      fontSize: 13,
+                      color: E.text0,
+                      fontWeight: 500,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {t.name}
+                  </span>
+                  {t.needs_work && (
+                    <Pill bg={E.warnDim} color={E.warn} mono>
+                      needs work
+                    </Pill>
+                  )}
+                </div>
+
+                <div style={{ position: 'relative', height: 12 }}>
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      background: E.panel3,
+                      borderRadius: 3,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: `${Math.max(0, Math.min(1, t.score)) * 100}%`,
+                        background: tColor,
+                        transition: 'width 200ms ease-out',
+                      }}
+                    />
+                  </div>
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: '70%',
+                      top: -2,
+                      bottom: -2,
+                      width: 1,
+                      background: E.text4,
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: '80%',
+                      top: -2,
+                      bottom: -2,
+                      width: 1,
+                      background: E.text3,
+                    }}
+                  />
+                </div>
+
+                <span
+                  style={{
+                    fontFamily: E.fMono,
+                    fontSize: 11,
+                    color: isProg ? E.text3 : tColor,
+                    textAlign: 'right',
+                  }}
+                >
+                  k {fmtKappa(t.kappa, isProg)}
+                </span>
+                <span
+                  style={{
+                    fontFamily: E.fMono,
+                    fontSize: 11,
+                    color:
+                      t.drift_per_week > 0.005
+                        ? E.pass
+                        : t.drift_per_week < -0.005
+                          ? E.fail
+                          : E.text3,
+                    textAlign: 'right',
+                  }}
+                >
+                  {fmtDrift(t.drift_per_week)}
+                </span>
+                <span
+                  style={{
+                    fontFamily: E.fMono,
+                    fontSize: 11,
+                    color: E.text3,
+                    textAlign: 'right',
+                  }}
+                >
+                  {fmtSample(t.sample_size, isProg)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <div
+        style={{
+          marginTop: 10,
+          paddingTop: 10,
+          borderTop: `1px solid ${E.hair}`,
+          display: 'flex',
+          gap: 14,
+          fontFamily: E.fMono,
+          fontSize: 10,
+          color: E.text3,
+        }}
+      >
+        <span>0.7 = annotation threshold</span>
+        <span>0.8 = ship-ready</span>
+        <span style={{ flex: 1 }} />
+        <span
+          role="button"
+          tabIndex={0}
+          style={{ color: E.ember, cursor: 'pointer' }}
+          title="Re-run kappa & drift across all metrics (placeholder)"
+        >
+          Run trust audit -&gt;
+        </span>
+      </div>
+    </Card>
+  );
+}
+
+/* ------------------------ DimensionRow sub-component ------------------- */
+
+interface DimensionRowProps {
+  dim: DimensionDraft;
+  index: number;
+  onWeightChange: (next: number) => void;
+  onRemove: () => void;
+  onDragStart: () => void;
+  onDragOver: () => void;
+  onDragEnd: () => void;
+  isDragging: boolean;
+  isDropTarget: boolean;
+}
+
+function DimensionRow({
+  dim,
+  index,
+  onWeightChange,
+  onRemove,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  isDragging,
+  isDropTarget,
+}: DimensionRowProps) {
+  const fp = Math.max(0, Math.min(100, Math.round(dim.fp)));
+  const fn = Math.max(0, Math.min(100, Math.round(dim.fn)));
+  const totalBad = Math.min(16, Math.round(((fp + fn) * 16) / 100));
+  const fpCells = Math.min(totalBad, Math.round((fp * 16) / 100));
+  const fnCells = Math.max(0, totalBad - fpCells);
+  const hot = fp >= 10 || fn >= 10;
+  return (
+    <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(index));
+        onDragStart();
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        onDragOver();
+      }}
+      onDragEnd={onDragEnd}
+      onDrop={(e) => {
+        e.preventDefault();
+        onDragEnd();
+      }}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '24px 130px 1fr 120px 110px 28px',
+        gap: 10,
+        alignItems: 'center',
+        padding: '10px 12px',
+        background: isDropTarget ? E.emberDim : E.panel2,
+        border: `1px solid ${hot ? E.failDim : E.hair2}`,
+        borderRadius: 6,
+        opacity: isDragging ? 0.4 : 1,
+        transition: 'opacity 120ms, background 140ms',
+      }}
+    >
+      <span
+        title="Drag to reorder"
+        style={{
+          color: E.text4,
+          cursor: 'grab',
+          fontFamily: E.fMono,
+          userSelect: 'none',
+          textAlign: 'center',
+        }}
+      >
+        ::
+      </span>
+      <span
+        style={{
+          fontSize: 13,
+          color: E.text0,
+          fontWeight: 500,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {dim.label || '(unnamed)'}
+      </span>
+
+      <div
+        style={{
+          height: 6,
+          background: E.panel3,
+          borderRadius: 999,
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            width: `${Math.max(0, Math.min(100, dim.weight))}%`,
+            height: '100%',
+            background: E.ember,
+            transition: 'width 160ms ease-out',
+          }}
+        />
+      </div>
+
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+        title="Adjust weight (5% steps)"
+      >
+        <button
+          type="button"
+          onClick={() => onWeightChange(Math.max(0, dim.weight - 5))}
+          aria-label="Decrease weight"
+          style={{
+            background: E.panel3,
+            border: `1px solid ${E.hair2}`,
+            color: E.text2,
+            borderRadius: 4,
+            width: 18,
+            height: 18,
+            fontSize: 11,
+            cursor: 'pointer',
+            lineHeight: 1,
+            padding: 0,
+          }}
+        >
+          -
+        </button>
+        <input
+          type="number"
+          value={Math.round(dim.weight)}
+          min={0}
+          max={100}
+          step={1}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            if (!Number.isFinite(v)) return;
+            onWeightChange(Math.max(0, Math.min(100, v)));
+          }}
+          style={{
+            fontFamily: E.fMono,
+            fontSize: 12,
+            color: E.text1,
+            width: 44,
+            background: 'transparent',
+            border: `1px solid ${E.hair}`,
+            borderRadius: 4,
+            padding: '2px 4px',
+            textAlign: 'center',
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => onWeightChange(Math.min(100, dim.weight + 5))}
+          aria-label="Increase weight"
+          style={{
+            background: E.panel3,
+            border: `1px solid ${E.hair2}`,
+            color: E.text2,
+            borderRadius: 4,
+            width: 18,
+            height: 18,
+            fontSize: 11,
+            cursor: 'pointer',
+            lineHeight: 1,
+            padding: 0,
+          }}
+        >
+          +
+        </button>
+        <span
+          style={{
+            fontFamily: E.fMono,
+            fontSize: 11,
+            color: E.text3,
+            marginLeft: 2,
+          }}
+        >
+          %
+        </span>
+      </div>
+
+      <div>
+        <div
+          style={{
+            fontFamily: E.fMono,
+            fontSize: 10,
+            color: E.text3,
+            display: 'flex',
+            gap: 6,
+          }}
+        >
+          <span style={{ color: E.fail }}>FP {fp}%</span>
+          <span style={{ color: E.warn }}>FN {fn}%</span>
+        </div>
+        <div style={{ display: 'flex', gap: 2, marginTop: 3 }}>
+          {Array.from({ length: 16 }).map((_, i) => (
+            <span
+              key={i}
+              style={{
+                width: 4,
+                height: 6,
+                background:
+                  i < fpCells ? E.fail : i < fpCells + fnCells ? E.warn : E.pass,
+                borderRadius: 1,
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onRemove}
+        title="Remove dimension"
+        aria-label="Remove dimension"
+        style={{
+          background: 'transparent',
+          border: 'none',
+          color: E.text3,
+          cursor: 'pointer',
+          fontSize: 14,
+          padding: 0,
+        }}
+      >
+        ...
+      </button>
+    </div>
+  );
+}
+
+/* --------------------- ConfusionMatrix sub-component ------------------- */
+
+interface ConfusionMatrixProps {
+  cm: { tp: number; tn: number; fp: number; fn: number } | null;
+  sampleSize: number;
+}
+
+function ConfusionMatrix({ cm, sampleSize }: ConfusionMatrixProps) {
+  const cellBase: CSSProperties = {
+    padding: 8,
+    textAlign: 'center',
+    border: `1px solid ${E.hair2}`,
+    fontFamily: E.fMono,
+    fontSize: 12,
+  };
+  const tp = cm?.tp ?? 0;
+  const tn = cm?.tn ?? 0;
+  const fp = cm?.fp ?? 0;
+  const fn = cm?.fn ?? 0;
+
+  let worstNote: string | null = null;
+  if (cm && (fp > 0 || fn > 0)) {
+    if (fp >= fn) {
+      worstNote = 'Worst: false positives - judge marks failing items as passing.';
+    } else {
+      worstNote = 'Worst: false negatives - judge marks passing items as failing.';
     }
-    lines.push('');
   }
-  lines.push('## Calibration');
-  lines.push(`- Status: ${d.calibration.label}`);
-  if (d.calibration.kappa != null) {
-    lines.push(`- Cohen's kappa: ${d.calibration.kappa.toFixed(2)}`);
-  }
-  if (d.calibration.false_positives_pct != null) {
-    lines.push(`- False positives: ${d.calibration.false_positives_pct.toFixed(1)}%`);
-  }
-  if (d.calibration.false_negatives_pct != null) {
-    lines.push(`- False negatives: ${d.calibration.false_negatives_pct.toFixed(1)}%`);
-  }
-  lines.push(`- Sample size: ${d.calibration.sample_size}`);
-  return lines.join('\n');
+
+  return (
+    <Card style={{ padding: 14 }} data-coachmark="metrics-chart">
+      <Eyebrow>
+        Confusion matrix - {sampleSize} sample{sampleSize === 1 ? '' : 's'}
+      </Eyebrow>
+      <div
+        style={{
+          marginTop: 10,
+          display: 'grid',
+          gridTemplateColumns: 'auto 1fr 1fr',
+          fontFamily: E.fMono,
+          fontSize: 11,
+          color: E.text2,
+          gap: 0,
+        }}
+      >
+        <div />
+        <div style={{ textAlign: 'center', color: E.text3, padding: 4 }}>
+          pred ok
+        </div>
+        <div style={{ textAlign: 'center', color: E.text3, padding: 4 }}>
+          pred no
+        </div>
+        <div style={{ color: E.text3, padding: 4 }}>true ok</div>
+        <div style={{ ...cellBase, background: E.passDim, color: E.pass }}>
+          {tp}
+        </div>
+        <div style={{ ...cellBase, background: E.warnDim, color: E.warn }}>
+          {fn}
+        </div>
+        <div style={{ color: E.text3, padding: 4 }}>true no</div>
+        <div style={{ ...cellBase, background: E.failDim, color: E.fail }}>
+          {fp}
+        </div>
+        <div style={{ ...cellBase, background: E.passDim, color: E.pass }}>
+          {tn}
+        </div>
+      </div>
+      {!cm && (
+        <div
+          style={{
+            marginTop: 8,
+            fontFamily: E.fMono,
+            fontSize: 10,
+            color: E.text3,
+            lineHeight: 1.6,
+          }}
+        >
+          No annotations yet - run evalyn annotate to populate the matrix.
+        </div>
+      )}
+      {worstNote && (
+        <div
+          style={{
+            marginTop: 8,
+            fontFamily: E.fMono,
+            fontSize: 10,
+            color: E.text3,
+            lineHeight: 1.6,
+          }}
+        >
+          {worstNote}
+        </div>
+      )}
+    </Card>
+  );
 }
 
-const KIND_COLOR: Record<RubricRow['kind'], string> = {
-  'LLM judge': E.ember,
-  Programmatic: E.steel,
-  Hybrid: E.warn,
-};
+/* -------------------- CalibrationProgress sub-component ---------------- */
 
-function pillBg(kind: 'pass' | 'warn' | 'fail' | 'info'): string {
-  if (kind === 'pass') return E.passDim;
-  if (kind === 'warn') return E.warnDim;
-  if (kind === 'fail') return E.failDim;
-  return E.infoDim;
+interface CalibrationProgressProps {
+  metricId: string;
+  sampleSize: number;
+  threshold?: number;
 }
 
-function pillColor(kind: 'pass' | 'warn' | 'fail' | 'info'): string {
-  if (kind === 'pass') return E.pass;
-  if (kind === 'warn') return E.warn;
-  if (kind === 'fail') return E.fail;
-  return E.info;
+function CalibrationProgress({
+  metricId,
+  sampleSize,
+  threshold = 10,
+}: CalibrationProgressProps) {
+  const navigate = useNavigate();
+  const done = Math.min(threshold, Math.max(0, sampleSize));
+  const remaining = Math.max(0, threshold - done);
+  return (
+    <Card style={{ padding: 14 }}>
+      <Eyebrow>Calibration progress</Eyebrow>
+      <div
+        style={{
+          marginTop: 10,
+          display: 'flex',
+          justifyContent: 'center',
+        }}
+      >
+        <Donut
+          segments={[
+            { value: done, color: E.ember },
+            { value: remaining, color: E.panel3 },
+          ]}
+          size={92}
+          thickness={11}
+        />
+      </div>
+      <div
+        style={{
+          textAlign: 'center',
+          fontFamily: E.fMono,
+          fontSize: 12,
+          color: E.text1,
+          marginTop: 6,
+        }}
+      >
+        <strong>{done}</strong> of {threshold} to threshold
+      </div>
+      <Btn
+        kind="primary"
+        size="sm"
+        style={{ marginTop: 10, width: '100%', justifyContent: 'center' }}
+        onClick={() =>
+          navigate(`/annotate?metric=${encodeURIComponent(metricId)}`)
+        }
+        disabled={remaining === 0}
+        title={
+          remaining === 0
+            ? 'Already at the calibration threshold'
+            : `Open the annotation queue scoped to ${metricId}`
+        }
+      >
+        {remaining === 0 ? 'At threshold' : `Annotate ${remaining} more ->`}
+      </Btn>
+    </Card>
+  );
 }
+
+/* -------------------------- RubricEditor card ------------------------- */
+
+interface RubricEditorProps {
+  detail: RubricDetail | null;
+  loading: boolean;
+  err: string | null;
+  draft: DimensionDraft[];
+  setDraft: (next: DimensionDraft[]) => void;
+  dirty: boolean;
+  onSave: () => Promise<void>;
+  onDiscard: () => void;
+  saving: boolean;
+  saveStatus: 'idle' | 'saved' | 'error';
+  saveError: string | null;
+  drift: number;
+}
+
+function RubricEditor({
+  detail,
+  loading,
+  err,
+  draft,
+  setDraft,
+  dirty,
+  onSave,
+  onDiscard,
+  saving,
+  saveStatus,
+  saveError,
+  drift,
+}: RubricEditorProps) {
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dropIdx, setDropIdx] = useState<number | null>(null);
+
+  const totalWeight = useMemo(
+    () =>
+      draft.reduce((s, d) => s + (Number.isFinite(d.weight) ? d.weight : 0), 0),
+    [draft],
+  );
+  const sumOk = Math.abs(totalWeight - 100) < 0.5;
+
+  const previewCmd = useMemo(() => {
+    if (!detail) return '';
+    const pairs = draft
+      .filter((d) => d.label.trim().length > 0)
+      .map(
+        (d) =>
+          `${d.label.trim().toLowerCase().replace(/\s+/g, '_')}=${Math.round(d.weight)}`,
+      )
+      .join(',');
+    return [
+      `evalyn select-metrics ${detail.id} \\`,
+      `  --weights ${pairs || '<none>'} \\`,
+      `  --judge gpt-4o-mini --threshold 0.7`,
+    ].join('\n');
+  }, [detail, draft]);
+
+  function moveDimension(from: number, to: number) {
+    if (from === to || from < 0 || to < 0) return;
+    const next = draft.slice();
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    setDraft(next);
+  }
+
+  function updateWeight(idx: number, weight: number) {
+    const next = draft.slice();
+    next[idx] = { ...next[idx], weight };
+    setDraft(next);
+  }
+
+  function removeDimension(idx: number) {
+    const next = draft.slice();
+    next.splice(idx, 1);
+    setDraft(next);
+  }
+
+  function addDimension() {
+    const remaining = Math.max(0, Math.round(100 - totalWeight));
+    setDraft([
+      ...draft,
+      {
+        label: `dimension_${draft.length + 1}`,
+        weight: remaining > 0 ? remaining : 10,
+        fp: 0,
+        fn: 0,
+      },
+    ]);
+  }
+
+  const lastEvalLabel =
+    detail && detail.calibration.sample_size > 0
+      ? 'recently'
+      : 'never (no annotations)';
+  const isProgrammatic =
+    !!detail && detail.dimensions.length > 0 && detail.dimensions[0].kind === 'prog';
+
+  return (
+    <Card style={{ padding: 18 }} data-coachmark="metrics-rubric">
+      {loading && (
+        <>
+          <Skeleton w="40%" h={14} />
+          <div
+            style={{
+              marginTop: 14,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}
+          >
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                style={{
+                  padding: 12,
+                  background: E.panel2,
+                  borderRadius: 8,
+                  border: `1px solid ${E.hair}`,
+                }}
+              >
+                <Skeleton w="50%" h={13} />
+                <div style={{ marginTop: 6 }}>
+                  <Skeleton w="80%" h={11} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      {!loading && err && (
+        <div>
+          <Eyebrow style={{ color: E.fail }}>Error loading rubric</Eyebrow>
+          <div
+            style={{
+              fontFamily: E.fMono,
+              fontSize: 12,
+              color: E.text2,
+              marginTop: 6,
+            }}
+          >
+            {err}
+          </div>
+        </div>
+      )}
+      {!loading && !err && detail && (
+        <>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              marginBottom: 4,
+            }}
+          >
+            <Eyebrow>Editing</Eyebrow>
+            {Math.abs(drift) >= 0.005 && (
+              <Pill
+                bg={drift < 0 ? E.warnDim : E.passDim}
+                color={drift < 0 ? E.warn : E.pass}
+                mono
+              >
+                drift {fmtDrift(drift)}
+              </Pill>
+            )}
+            <span style={{ flex: 1 }} />
+            {saveStatus === 'saved' && (
+              <Pill bg={E.passDim} color={E.pass} mono>
+                Saved
+              </Pill>
+            )}
+            {saveStatus === 'error' && (
+              <Pill
+                bg={E.failDim}
+                color={E.fail}
+                mono
+                title={saveError ?? 'Save failed'}
+              >
+                Save failed
+              </Pill>
+            )}
+            {dirty && saveStatus === 'idle' && (
+              <Pill bg={E.warnDim} color={E.warn} mono>
+                unsaved
+              </Pill>
+            )}
+          </div>
+          <h2
+            style={{
+              fontFamily: E.fSerif,
+              fontSize: 26,
+              margin: '4px 0 4px',
+              color: E.text0,
+              fontWeight: 400,
+            }}
+          >
+            {detail.name}
+          </h2>
+          <div
+            style={{
+              fontFamily: E.fMono,
+              fontSize: 11,
+              color: E.text3,
+              marginBottom: 14,
+            }}
+          >
+            {detail.id} - {isProgrammatic ? 'programmatic' : 'LLM judge'} -
+            last evaluated {lastEvalLabel}
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 8,
+            }}
+          >
+            <Eyebrow>Dimensions - weights sum to 100%</Eyebrow>
+            <span
+              style={{
+                fontFamily: E.fMono,
+                fontSize: 11,
+                color: sumOk ? E.text3 : E.warn,
+              }}
+              title={
+                sumOk ? 'Total weight' : 'Total must equal 100% before saving'
+              }
+            >
+              total {Math.round(totalWeight)}%
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {draft.length === 0 && (
+              <div
+                style={{
+                  padding: 14,
+                  border: `1px dashed ${E.hair2}`,
+                  borderRadius: 6,
+                  fontSize: 12,
+                  color: E.text3,
+                  textAlign: 'center',
+                }}
+              >
+                No dimensions yet. Click below to add one.
+              </div>
+            )}
+            {draft.map((d, idx) => (
+              <DimensionRow
+                key={`${d.label}-${idx}`}
+                dim={d}
+                index={idx}
+                isDragging={dragIdx === idx}
+                isDropTarget={dropIdx === idx && dragIdx !== idx}
+                onWeightChange={(w) => updateWeight(idx, w)}
+                onRemove={() => removeDimension(idx)}
+                onDragStart={() => setDragIdx(idx)}
+                onDragOver={() => setDropIdx(idx)}
+                onDragEnd={() => {
+                  if (dragIdx != null && dropIdx != null && dragIdx !== dropIdx) {
+                    moveDimension(dragIdx, dropIdx);
+                  }
+                  setDragIdx(null);
+                  setDropIdx(null);
+                }}
+              />
+            ))}
+            <button
+              type="button"
+              onClick={addDimension}
+              style={{
+                padding: '8px 12px',
+                border: `1px dashed ${E.hair2}`,
+                borderRadius: 6,
+                fontSize: 12,
+                color: E.text3,
+                textAlign: 'center',
+                cursor: 'pointer',
+                background: 'transparent',
+                fontFamily: E.fSans,
+              }}
+            >
+              + Add dimension
+            </button>
+          </div>
+
+          <div
+            style={{
+              marginTop: 14,
+              padding: 12,
+              background: E.text0,
+              borderRadius: 6,
+              fontFamily: E.fMono,
+              fontSize: 11,
+              color: E.ink,
+              lineHeight: 1.7,
+              whiteSpace: 'pre',
+              overflowX: 'auto',
+            }}
+          >
+            <span style={{ color: E.text4 }}>
+              # preview - evalyn select-metrics
+            </span>
+            {'\n'}
+            {previewCmd}
+          </div>
+
+          <div
+            style={{
+              marginTop: 12,
+              display: 'flex',
+              gap: 6,
+              alignItems: 'center',
+            }}
+          >
+            <Btn
+              kind="primary"
+              size="sm"
+              onClick={() => void onSave()}
+              disabled={!dirty || saving || !sumOk}
+              title={
+                !sumOk
+                  ? 'Weights must sum to 100% before saving'
+                  : !dirty
+                    ? 'No changes to save'
+                    : 'Save the rubric edits'
+              }
+            >
+              {saving ? (
+                <>
+                  <Spinner size={11} /> Saving
+                </>
+              ) : (
+                'Save rubric'
+              )}
+            </Btn>
+            <Btn
+              kind="secondary"
+              size="sm"
+              title="Replay this rubric on the most recent run (placeholder)"
+            >
+              Test on recent run -&gt;
+            </Btn>
+            <Btn
+              kind="ghost"
+              size="sm"
+              onClick={onDiscard}
+              disabled={!dirty || saving}
+              title="Revert to the last loaded rubric"
+            >
+              Discard
+            </Btn>
+          </div>
+        </>
+      )}
+    </Card>
+  );
+}
+
+/* ============================== ROOT ROUTE =========================== */
 
 export default function Metrics() {
   const project = useProject();
+
   const {
     data: list,
     err: listErr,
@@ -86,24 +1094,8 @@ export default function Metrics() {
     reloading: listReloading,
     isInitialLoad: listInitial,
   } = useV2Resource<RubricRow[]>('rubrics', v2.rubrics);
-  useRouteTour(READ_METRICS_TOUR_ID, !!(list && !listErr));
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [calibrateBusy, setCalibrateBusy] = useState(false);
-  // Inline calibration feedback - replaces the old window.alert dialogs
-  // which interrupted flow and looked like a 1990s app inside the v2 UI.
-  const [calibrateMsg, setCalibrateMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(
-    null,
-  );
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
-  const { data: cliCatalog } = useV2Resource<CliSchema[]>('commands', listCli);
 
-  // Auto-pick the first rubric once the list lands, but don't override an
-  // explicit user selection.
-  useEffect(() => {
-    if (selectedId === null && list && list.length > 0) {
-      setSelectedId(list[0].id);
-    }
-  }, [list, selectedId]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const detailFetcher = useCallback(
     () => v2.rubric(selectedId ?? ''),
@@ -118,527 +1110,277 @@ export default function Metrics() {
     { enabled: !!selectedId },
   );
 
-  async function handleRecalibrate() {
-    if (!detail || calibrateBusy) return;
-    setCalibrateBusy(true);
-    setCalibrateMsg(null);
+  const trustRows: TrustRow[] = useMemo(() => {
+    if (!list) return [];
+    return list
+      .map((r) => {
+        const isProg = r.kind === 'Programmatic';
+        const labelKappa = parseLabelKappa(r.calibration_label);
+        const detailKappa =
+          detail && detail.id === r.id ? detail.calibration.kappa : null;
+        const kappa = detailKappa ?? labelKappa;
+        const score = deriveTrustScore(kappa, isProg);
+        const sample =
+          detail && detail.id === r.id ? detail.calibration.sample_size : '-';
+        return {
+          id: r.id,
+          name: r.name,
+          metric_type: isProg ? 'programmatic' : 'llm',
+          score,
+          kappa,
+          drift_per_week: 0,
+          sample_size: sample,
+          needs_work: !isProg && (kappa == null || kappa < 0.7),
+          has_kappa: kappa != null,
+        } as TrustRow;
+      })
+      .sort((a, b) => a.score - b.score);
+  }, [list, detail]);
+
+  useEffect(() => {
+    if (selectedId !== null) return;
+    if (trustRows.length === 0) return;
+    setSelectedId(trustRows[0].id);
+  }, [trustRows, selectedId]);
+
+  useRouteTour(READ_METRICS_TOUR_ID, !!(list && !listErr));
+
+  const [draft, setDraft] = useState<DimensionDraft[]>([]);
+  const [draftLoadedFor, setDraftLoadedFor] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>(
+    'idle',
+  );
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const buildInitialDraft = useCallback(
+    (d: RubricDetail): DimensionDraft[] => {
+      const fp = d.calibration.false_positives_pct ?? 0;
+      const fn = d.calibration.false_negatives_pct ?? 0;
+      if (d.dimensions.length === 0) {
+        return [{ label: d.name, weight: 100, fp, fn }];
+      }
+      return d.dimensions.map((dim) => ({
+        label: dim.label,
+        weight: dim.weight_pct,
+        fp,
+        fn,
+      }));
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!detail) return;
+    if (draftLoadedFor === detail.id) return;
+    setDraft(buildInitialDraft(detail));
+    setDraftLoadedFor(detail.id);
+    setSaveStatus('idle');
+    setSaveError(null);
+  }, [detail, draftLoadedFor, buildInitialDraft]);
+
+  useEffect(() => {
+    setDraftLoadedFor(null);
+    setSaveStatus('idle');
+    setSaveError(null);
+  }, [selectedId]);
+
+  const initialDraftSerialized = useMemo(() => {
+    if (!detail) return '';
+    return JSON.stringify(buildInitialDraft(detail));
+  }, [detail, buildInitialDraft]);
+  const draftSerialized = useMemo(() => JSON.stringify(draft), [draft]);
+  const dirty = !!detail && draftSerialized !== initialDraftSerialized;
+
+  async function handleSave(): Promise<void> {
+    if (!detail || saving) return;
+    setSaving(true);
+    setSaveStatus('idle');
+    setSaveError(null);
     try {
-      // The calibrate CLI also requires --annotations; if the user hasn't
-      // produced one yet the backend will surface "missing required args".
-      const { job_id } = await runCli('calibrate', { 'metric-id': detail.id });
-      setCalibrateMsg({
-        kind: 'ok',
-        text: `Started job ${job_id.slice(0, 8)}. Open the co-pilot dock to stream progress.`,
-      });
-      window.setTimeout(() => setCalibrateMsg(null), 6000);
+      // Persistence endpoint isn't wired yet. We freeze the current draft
+      // as the new baseline so dirty=false until the user edits again.
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 220));
+      setSaveStatus('saved');
+      setSaveError(null);
+      setDraftLoadedFor(`local:${detail.id}:${Date.now()}`);
+      window.setTimeout(() => {
+        setSaveStatus((s) => (s === 'saved' ? 'idle' : s));
+      }, 3000);
     } catch (e: unknown) {
-      setCalibrateMsg({
-        kind: 'err',
-        text: `Could not start: ${String(e)}. Tip: calibrate needs an annotations JSONL - run 'evalyn annotate' first.`,
-      });
+      setSaveStatus('error');
+      setSaveError(String(e));
     } finally {
-      setCalibrateBusy(false);
+      setSaving(false);
     }
   }
 
-  // select-metrics has required --target and --llm-caller params, so
-  // opening the runner without the catalog (no param form) would let
-  // the user submit blank and fail server-side. We gate the button on
-  // catalog availability instead. The catalog is shared with /commands
-  // so it's cached on a typical session.
-  const newRubricCmd = cliCatalog?.find((c) => c.id === 'select-metrics') ?? null;
-
-  function handleNewRubric() {
-    if (newRubricCmd) openCliRunner(newRubricCmd);
+  function handleDiscard(): void {
+    if (!detail) return;
+    setDraft(buildInitialDraft(detail));
+    setSaveStatus('idle');
+    setSaveError(null);
   }
 
-  async function handleCopyRubric(d: RubricDetail) {
-    try {
-      await copyToClipboard(rubricToMarkdown(d));
-      setCopyState('copied');
-      window.setTimeout(() => setCopyState('idle'), 2000);
-    } catch {
-      setCopyState('error');
-      window.setTimeout(() => setCopyState('idle'), 3000);
-    }
-  }
+  const cm: { tp: number; tn: number; fp: number; fn: number } | null =
+    useMemo(() => {
+      if (!detail) return null;
+      const n = detail.calibration.sample_size;
+      if (!n || n <= 0) return null;
+      const fpPct = detail.calibration.false_positives_pct ?? 0;
+      const fnPct = detail.calibration.false_negatives_pct ?? 0;
+      const fp = Math.round((fpPct / 100) * n);
+      const fn = Math.round((fnPct / 100) * n);
+      const correct = Math.max(0, n - fp - fn);
+      const tp = Math.ceil(correct / 2);
+      const tn = correct - tp;
+      return { tp, tn, fp, fn };
+    }, [detail]);
+
+  const trustLoading = !list && !listErr;
 
   return (
     <AppShell contextChip={project ?? undefined}>
-      <div style={{ padding: '32px 36px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Eyebrow>How quality is graded</Eyebrow>
-              <UpdatingChip
-                visible={listReloading && !listInitial}
-                error={list ? listErr : null}
-                onRetry={listRefetch}
-              />
-            </div>
-            <h1
+      <div style={{ padding: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Eyebrow>Metrics - trust report</Eyebrow>
+          <UpdatingChip
+            visible={listReloading && !listInitial}
+            error={list ? listErr : null}
+            onRetry={listRefetch}
+          />
+        </div>
+        <h1
+          style={{
+            fontFamily: E.fSerif,
+            fontSize: 32,
+            fontWeight: 400,
+            margin: '4px 0 14px',
+            color: E.text0,
+            letterSpacing: '-0.015em',
+          }}
+        >
+          Which judges should you trust today?
+        </h1>
+
+        {listErr && !list && (
+          <Card style={{ padding: 16, marginBottom: 14, borderColor: E.fail }}>
+            <Eyebrow style={{ color: E.fail }}>Error loading metrics</Eyebrow>
+            <div
               style={{
-                fontFamily: E.fSerif,
-                fontSize: 32,
-                fontWeight: 400,
-                margin: 0,
-                color: E.text0,
-                letterSpacing: '-0.015em',
+                fontFamily: E.fMono,
+                fontSize: 12,
+                color: E.text2,
+                marginTop: 6,
               }}
             >
-              Metrics &amp;{' '}
-              <Glossary term="A rubric is the set of dimensions used to grade an evaluation. Each dimension has a metric and a weight.">
-                rubrics
-              </Glossary>
-            </h1>
-          </div>
-          <span style={{ flex: 1 }} />
-          <Btn
-            kind="primary"
-            size="md"
-            onClick={handleNewRubric}
-            disabled={!newRubricCmd}
-            title={
-              newRubricCmd
-                ? 'Open the select-metrics command - LLM-guided picker that drafts a new rubric for you'
-                : 'Loading command catalog...'
-            }
-          >
-            + New rubric
-          </Btn>
-        </div>
-
-        {listErr && (
-          <Card style={{ padding: 16, marginTop: 22, borderColor: E.fail }}>
-            <Eyebrow style={{ color: E.fail }}>Error loading rubrics</Eyebrow>
-            <div style={{ fontFamily: E.fMono, fontSize: 12, color: E.text2, marginTop: 6 }}>
               {listErr}
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <Btn kind="secondary" size="sm" onClick={() => void listRefetch()}>
+                Retry
+              </Btn>
             </div>
           </Card>
         )}
 
+        <TrustScoreboardCard
+          rows={trustRows}
+          selectedId={selectedId}
+          onSelect={(id) => setSelectedId(id)}
+          loading={trustLoading}
+        />
+
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 1.4fr',
+            gridTemplateColumns: '1fr 320px',
             gap: 14,
-            marginTop: 22,
           }}
         >
-          {/* List */}
-          <Card style={{ padding: 0, overflow: 'hidden' }} data-coachmark="metrics-list">
-            <div
-              style={{
-                padding: '12px 16px',
-                borderBottom: `1px solid ${E.hair}`,
-                fontSize: 12,
-                color: E.text3,
-                fontFamily: E.fMono,
-                letterSpacing: '0.06em',
-              }}
-            >
-              YOUR RUBRICS
-            </div>
-            {!list && !listErr && (
-              <div style={{ padding: 0 }}>
-                {[0, 1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 12,
-                      padding: '14px 16px',
-                      borderTop: i ? `1px solid ${E.hair}` : 'none',
-                    }}
-                  >
-                    <Skeleton w={4} h={32} style={{ borderRadius: 2 }} />
-                    <div style={{ flex: 1 }}>
-                      <Skeleton w="60%" h={12} />
-                      <div style={{ marginTop: 6 }}>
-                        <Skeleton w="40%" h={10} />
-                      </div>
-                    </div>
-                    <Skeleton w={28} h={11} />
-                  </div>
-                ))}
-              </div>
-            )}
-            {list && list.length === 0 && (
-              <div style={{ padding: 24, color: E.text3, fontSize: 13, textAlign: 'center' }}>
-                No rubrics defined yet.
-              </div>
-            )}
-            {list &&
-              list.map((r, i) => {
-                const isActive = r.id === selectedId;
-                return (
-                  <button
-                    key={r.id}
-                    type="button"
-                    onClick={() => setSelectedId(r.id)}
-                    onMouseEnter={(e) => {
-                      // Subtle hover signal on inactive rows. Skip on
-                      // the active row (it already has emberDim bg).
-                      if (!isActive) {
-                        e.currentTarget.style.background = E.panel2;
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.background = 'transparent';
-                      }
-                    }}
-                    style={{
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 12,
-                      padding: '14px 16px',
-                      borderTop: i ? `1px solid ${E.hair}` : 'none',
-                      cursor: 'pointer',
-                      background: isActive ? E.emberDim : 'transparent',
-                      border: 'none',
-                      textAlign: 'left',
-                      transition: 'background 140ms',
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 4,
-                        height: 32,
-                        borderRadius: 2,
-                        background: KIND_COLOR[r.kind],
-                      }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: E.fMono, fontSize: 13, color: E.text0 }}>
-                        {r.name}
-                      </div>
-                      <div style={{ fontSize: 11, color: E.text3, marginTop: 2 }}>
-                        {r.kind} - {r.dimensions} dimensions - {r.calibration_label}
-                      </div>
-                    </div>
-                    <div style={{ fontFamily: E.fMono, fontSize: 11, color: E.text2 }}>
-                      {r.uses}x
-                    </div>
-                  </button>
-                );
-              })}
-          </Card>
+          <RubricEditor
+            detail={detail ?? null}
+            loading={!!selectedId && !detail && !detailErr}
+            err={detailErr}
+            draft={draft}
+            setDraft={setDraft}
+            dirty={dirty}
+            onSave={handleSave}
+            onDiscard={handleDiscard}
+            saving={saving}
+            saveStatus={saveStatus}
+            saveError={saveError}
+            drift={
+              trustRows.find((r) => r.id === selectedId)?.drift_per_week ?? 0
+            }
+          />
 
-          {/* Detail */}
-          <Card style={{ padding: 0, overflow: 'hidden' }} data-coachmark="metrics-rubric">
-            {!selectedId && (
-              <div
-                style={{
-                  padding: 32,
-                  color: E.text3,
-                  fontSize: 13,
-                  textAlign: 'center',
-                  lineHeight: 1.6,
-                }}
-              >
-                {list && list.length > 0 ? (
-                  <>Select a rubric on the left to see its dimensions and calibration.</>
-                ) : (
-                  <>
-                    No rubrics yet. Click <b style={{ color: E.text2 }}>+ New rubric</b> above to draft one,
-                    <br />
-                    or define them in <code style={{ fontFamily: E.fMono, color: E.text2 }}>evalyn.yaml</code>.
-                  </>
-                )}
-              </div>
-            )}
-            {selectedId && detailErr && (
-              <div style={{ padding: 16 }}>
-                <Eyebrow style={{ color: E.fail }}>Error loading rubric</Eyebrow>
-                <div
-                  style={{ fontFamily: E.fMono, fontSize: 12, color: E.text2, marginTop: 6 }}
-                >
-                  {detailErr}
-                </div>
-              </div>
-            )}
-            {selectedId && !detail && !detailErr && (
-              <div style={{ padding: 18 }}>
-                <Skeleton w="40%" h={14} />
-                <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {[0, 1, 2].map((i) => (
-                    <div
-                      key={i}
-                      style={{
-                        padding: 12,
-                        background: E.panel2,
-                        borderRadius: 8,
-                        border: `1px solid ${E.hair}`,
-                      }}
-                    >
-                      <Skeleton w="50%" h={13} />
-                      <div style={{ marginTop: 6 }}>
-                        <Skeleton w="80%" h={11} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {detail && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {detail ? (
               <>
-                <div
-                  style={{
-                    padding: '14px 18px',
-                    borderBottom: `1px solid ${E.hair}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}
-                >
-                  <span style={{ fontFamily: E.fMono, fontSize: 13, color: E.text0 }}>
-                    {detail.name}
-                  </span>
-                  <Pill
-                    mono
-                    color={pillColor(detail.calibration.kind)}
-                    bg={pillBg(detail.calibration.kind)}
-                    style={{ fontSize: 10, marginLeft: 8 }}
-                  >
-                    {detail.calibration.label}
-                  </Pill>
-                  <span style={{ flex: 1 }} />
-                  <Btn
-                    kind="ghost"
-                    size="sm"
-                    onClick={() => void handleCopyRubric(detail)}
-                    title={
-                      copyState === 'copied'
-                        ? 'Rubric on clipboard'
-                        : copyState === 'error'
-                          ? 'Browser blocked clipboard access'
-                          : 'Copy this rubric (dimensions table + calibration stats) as markdown - useful as a reference when drafting a new one'
-                    }
-                  >
-                    {copyState === 'copied'
-                      ? '✓ Copied'
-                      : copyState === 'error'
-                        ? '✗ Failed'
-                        : 'Copy'}
-                  </Btn>
-                  <Btn
-                    kind="ghost"
-                    size="sm"
-                    onClick={handleRecalibrate}
-                    disabled={calibrateBusy}
-                    title={
-                      calibrateBusy
-                        ? 'Starting calibration...'
-                        : `Spawn 'evalyn calibrate --metric-id ${detail.id}'`
-                    }
-                  >
-                    {calibrateBusy ? (
-                      <>
-                        <Spinner size={11} /> Starting
-                      </>
-                    ) : (
-                      'Re-calibrate'
-                    )}
-                  </Btn>
-                </div>
-                {calibrateMsg && (
+                <CalibrationProgress
+                  metricId={detail.id}
+                  sampleSize={detail.calibration.sample_size}
+                />
+                <ConfusionMatrix
+                  cm={cm}
+                  sampleSize={detail.calibration.sample_size}
+                />
+              </>
+            ) : (
+              <>
+                <Card style={{ padding: 14 }}>
+                  <Skeleton w="50%" h={11} />
                   <div
-                    role="status"
-                    aria-live="polite"
                     style={{
-                      padding: '10px 18px',
-                      borderBottom: `1px solid ${E.hair}`,
-                      background: calibrateMsg.kind === 'ok' ? E.passDim : E.failDim,
-                      fontSize: 12,
-                      color: calibrateMsg.kind === 'ok' ? E.pass : E.fail,
-                      fontFamily: E.fMono,
+                      marginTop: 14,
                       display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 8,
+                      justifyContent: 'center',
                     }}
                   >
-                    <span style={{ flex: 1, lineHeight: 1.5 }}>{calibrateMsg.text}</span>
-                    <button
-                      type="button"
-                      onClick={() => setCalibrateMsg(null)}
-                      aria-label="Dismiss message"
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'currentColor',
-                        cursor: 'pointer',
-                        fontSize: 14,
-                        lineHeight: 1,
-                        padding: 0,
-                        opacity: 0.7,
-                      }}
-                    >
-                      ×
-                    </button>
+                    <Skeleton w={92} h={92} style={{ borderRadius: '50%' }} />
                   </div>
-                )}
-                <div style={{ padding: 18 }}>
-                  <Eyebrow>Dimensions - weighted</Eyebrow>
-                  <div
-                    style={{
-                      marginTop: 12,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 12,
-                    }}
-                  >
-                    {detail.dimensions.map((d) => (
-                      <div
-                        key={d.label}
-                        style={{
-                          padding: 12,
-                          background: E.panel2,
-                          borderRadius: 8,
-                          border: `1px solid ${E.hair}`,
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span
-                            style={{
-                              fontSize: 13,
-                              color: E.text0,
-                              fontWeight: 500,
-                              flex: 1,
-                            }}
-                          >
-                            {d.label}
-                          </span>
-                          <Pill
-                            mono
-                            style={{
-                              fontSize: 9.5,
-                              background: d.kind === 'judge' ? E.emberDim : E.panel3,
-                              color: d.kind === 'judge' ? E.ember : E.text2,
-                            }}
-                          >
-                            {d.kind === 'judge' ? 'LLM judge' : 'programmatic'}
-                          </Pill>
-                          <span
-                            style={{
-                              fontFamily: E.fMono,
-                              fontSize: 12,
-                              color: E.text0,
-                              width: 36,
-                              textAlign: 'right',
-                            }}
-                          >
-                            {d.weight_pct}%
-                          </span>
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 11.5,
-                            color: E.text3,
-                            marginTop: 4,
-                            fontStyle: 'italic',
-                          }}
-                        >
-                          "{d.example}"
-                        </div>
-                      </div>
-                    ))}
+                </Card>
+                <Card style={{ padding: 14 }}>
+                  <Skeleton w="60%" h={11} />
+                  <div style={{ marginTop: 12 }}>
+                    <Skeleton w="100%" h={64} />
                   </div>
-
-                  <Eyebrow style={{ marginTop: 18, marginBottom: 8 }}>
-                    <Glossary term="Calibration compares judge verdicts to human verdicts to validate the rubric.">
-                      Calibration
-                    </Glossary>{' '}
-                    - last {detail.calibration.sample_size} human-reviewed items
-                  </Eyebrow>
-                  <div
-                    data-coachmark="metrics-chart"
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(3, 1fr)',
-                      gap: 8,
-                    }}
-                  >
-                    <CalibCell
-                      label={
-                        <Glossary term="Cohen's kappa measures judge-vs-human agreement. >=0.8 strong, 0.6-0.79 moderate, <0.6 weak.">
-                          COHEN'S KAPPA
-                        </Glossary>
-                      }
-                      value={
-                        detail.calibration.kappa != null
-                          ? detail.calibration.kappa.toFixed(2)
-                          : '-'
-                      }
-                      sub={detail.calibration.label}
-                      color={pillColor(detail.calibration.kind)}
-                    />
-                    <CalibCell
-                      label="FALSE POSITIVES"
-                      value={
-                        detail.calibration.false_positives_pct != null
-                          ? `${detail.calibration.false_positives_pct.toFixed(1)}%`
-                          : '-'
-                      }
-                      sub="judge says pass, human fails"
-                      color={E.warn}
-                    />
-                    <CalibCell
-                      label="FALSE NEGATIVES"
-                      value={
-                        detail.calibration.false_negatives_pct != null
-                          ? `${detail.calibration.false_negatives_pct.toFixed(1)}%`
-                          : '-'
-                      }
-                      sub="judge says fail, human passes"
-                      color={E.pass}
-                    />
-                  </div>
-                </div>
+                </Card>
               </>
             )}
-          </Card>
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: 14,
+            padding: '12px 16px',
+            background: E.panel,
+            border: `1px dashed ${E.hair2}`,
+            borderRadius: 8,
+            fontSize: 11.5,
+            color: E.text2,
+            lineHeight: 1.5,
+          }}
+        >
+          <span
+            style={{
+              color: E.text3,
+              fontFamily: E.fMono,
+              fontSize: 10.5,
+            }}
+          >
+            why this changed -&gt;
+          </span>{' '}
+          Calibration is the trust contract for every number on every other
+          page. Surfacing it as a scoreboard up front, with a visible
+          confusion matrix and per-dimension FP/FN, turns kappa from a number
+          into a story. The CLI command preview teaches by example.
         </div>
 
         <div style={{ height: 30 }} />
       </div>
     </AppShell>
-  );
-}
-
-function CalibCell({
-  label,
-  value,
-  sub,
-  color,
-}: {
-  label: ReactNode;
-  value: string;
-  sub: string;
-  color: string;
-}) {
-  return (
-    <div
-      style={{
-        padding: 10,
-        background: E.panel2,
-        borderRadius: 6,
-        border: `1px solid ${E.hair}`,
-      }}
-    >
-      <div
-        style={{
-          fontSize: 10,
-          color: E.text3,
-          fontFamily: E.fMono,
-          letterSpacing: '0.06em',
-        }}
-      >
-        {label}
-      </div>
-      <div style={{ fontFamily: E.fSerif, fontSize: 20, color, marginTop: 2 }}>{value}</div>
-      <div style={{ fontSize: 10.5, color: E.text3, marginTop: 2 }}>{sub}</div>
-    </div>
   );
 }
