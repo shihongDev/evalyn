@@ -915,15 +915,24 @@ export default function AnnotateSession() {
   // initialCursorRef. The 80px buffer keeps the AppShell breadcrumb
   // and page header visible above the card. Browsers automatically
   // honor prefers-reduced-motion for behavior:'smooth'.
+  //
+  // Operates on the AppShell's <main> region (overflow: auto) rather
+  // than the window: the document itself doesn't scroll, so window.
+  // scrollY was always 0 and the scroll never fired (matches the
+  // AppShell + V2App fixes in 668319c).
   useEffect(() => {
     if (!initialCursorRef.current) return;
     const el = itemCardRef.current;
     if (!el) return;
-    const targetY = window.scrollY + el.getBoundingClientRect().top - 80;
+    const main = document.getElementById('main-content');
+    if (!main) return;
+    const mainRect = main.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const targetY = main.scrollTop + (elRect.top - mainRect.top) - 80;
     // Only scroll if we'd actually move - avoids tiny jiggles when
     // the card is already at the right position.
-    if (Math.abs(targetY - window.scrollY) < 4) return;
-    window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
+    if (Math.abs(targetY - main.scrollTop) < 4) return;
+    main.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
   }, [cursor]);
 
   // Seed local notes from any persisted note on each item the first time
