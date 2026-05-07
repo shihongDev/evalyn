@@ -115,6 +115,7 @@ def _clear_caches_for_tests() -> None:
     _verdicts_file_cache.clear()
     _reviews_dirs_cache.clear()
     _clear_run_dirs_snapshots()
+    _clear_reviews_files_snapshots()
     try:
         from . import datasets as _datasets_mod  # noqa: WPS433 - intentional
         _datasets_mod._coverage_cache.clear()
@@ -949,8 +950,128 @@ def _walk_reviews_files(root: Path) -> list[tuple[Path, str]]:
     return out
 
 
+def _reviews_files_snapshot_dir() -> Path:
+    """Directory holding on-disk reviews-files snapshots, one file per root."""
+    return Path.cwd() / ".evalyn" / "cache" / "reviews_files"
+
+
+def _reviews_files_snapshot_path(root: Path) -> Path:
+    """Snapshot file for ``root``, hashed-name-keyed (mirrors run-dirs)."""
+    digest = hashlib.sha256(str(root).encode("utf-8")).hexdigest()[:16]
+    return _reviews_files_snapshot_dir() / f"{digest}.json"
+
+
+def _load_reviews_files_snapshot(
+    root: Path, mtime: float,
+) -> list[tuple[Path, str]] | None:
+    """Read the persisted reviews-files list for ``root`` if mtime matches.
+
+    Returns ``None`` on miss, mismatch, or any I/O/parse error - caller
+    falls back to the live walk and rewrites the snapshot.
+
+    Files that vanished since the snapshot was written are skipped
+    silently (same defensive shape as run-dirs); poisoning the cache
+    with stale paths would surface as confusing 404s in the
+    calibration_suggestions hot path. The mtime bump on the next
+    dataset add/remove rebuilds from scratch anyway.
+    """
+    path = _reviews_files_snapshot_path(root)
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        logger.warning("reviews_files snapshot parse failed at %s: %s", path, exc)
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("root") != str(root):
+        return None
+    if payload.get("mtime") != mtime:
+        return None
+    files = payload.get("files")
+    if not isinstance(files, list):
+        return None
+    out: list[tuple[Path, str]] = []
+    for entry in files:
+        if (
+            not isinstance(entry, list)
+            or len(entry) != 2
+            or not isinstance(entry[0], str)
+            or not isinstance(entry[1], str)
+        ):
+            return None
+        candidate = Path(entry[0])
+        if candidate.is_file():
+            out.append((candidate, entry[1]))
+    return out
+
+
+def _save_reviews_files_snapshot(
+    root: Path, mtime: float, files: list[tuple[Path, str]],
+) -> None:
+    """Atomically persist the reviews-files list for ``root`` keyed on mtime.
+
+    Best-effort: I/O error -> WARN log + swallow. The in-memory cache
+    is unaffected; we just take the slow walk next boot. Atomic via
+    ``NamedTemporaryFile`` + ``os.replace`` (same shape as run-dirs).
+    """
+    snap_dir = _reviews_files_snapshot_dir()
+    try:
+        snap_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        logger.warning(
+            "reviews_files snapshot mkdir failed at %s: %s", snap_dir, exc
+        )
+        return
+    payload = {
+        "root": str(root),
+        "mtime": mtime,
+        "files": [[str(p), name] for p, name in files],
+    }
+    final = _reviews_files_snapshot_path(root)
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            delete=False,
+            dir=str(snap_dir),
+            prefix=".tmp-",
+            suffix=".json",
+        ) as f:
+            json.dump(payload, f)
+            tmp_name = f.name
+        os.replace(tmp_name, final)
+    except OSError as exc:
+        logger.warning("reviews_files snapshot write failed at %s: %s", final, exc)
+
+
+def _clear_reviews_files_snapshots() -> None:
+    """Remove every persisted reviews-files snapshot. Test-only seam."""
+    snap_dir = _reviews_files_snapshot_dir()
+    if not snap_dir.is_dir():
+        return
+    for entry in snap_dir.iterdir():
+        try:
+            entry.unlink()
+        except OSError:
+            pass
+
+
 def _reviews_files_for_root(root: Path) -> list[tuple[Path, str]]:
-    """Return ``[(jsonl_path, dataset_name), ...]`` under ``root``, mtime-cached."""
+    """Return ``[(jsonl_path, dataset_name), ...]`` under ``root``, mtime-cached.
+
+    Cache layers (cheapest first), mirroring ``_list_run_dirs_for_root``:
+      1. Process memory (``_reviews_dirs_cache``).
+      2. On-disk snapshot under ``.evalyn/cache/reviews_files/`` keyed
+         on the root's mtime - survives process restarts so the first
+         request after a fresh dashboard launch skips the ~800ms WSL/
+         NTFS glob walk over hundreds of placeholder ``reviews/`` dirs.
+         calibration_suggestions sits on the /home and /review hot paths.
+      3. Live filesystem walk via :func:`_walk_reviews_files`.
+    """
     if not root.is_dir():
         return []
     if _caches_disabled():
@@ -962,8 +1083,13 @@ def _reviews_files_for_root(root: Path) -> list[tuple[Path, str]]:
     cached = _reviews_dirs_cache.get(root)
     if cached and cached[0] == mtime:
         return cached[1]
+    snapshot = _load_reviews_files_snapshot(root, mtime)
+    if snapshot is not None:
+        _reviews_dirs_cache[root] = (mtime, snapshot)
+        return snapshot
     out = _walk_reviews_files(root)
     _reviews_dirs_cache[root] = (mtime, out)
+    _save_reviews_files_snapshot(root, mtime, out)
     return out
 
 
