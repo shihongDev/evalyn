@@ -420,21 +420,27 @@ async def get_job_output(request: Request, job_id: str) -> JSONResponse:
 
 @router.get("/{job_id}/output.txt")
 async def get_job_output_txt(
-    request: Request, job_id: str
+    request: Request,
+    job_id: str,
+    stream: str | None = None,
 ) -> PlainTextResponse:
     """Plain-text variant of ``/output`` with stdout and stderr
     interleaved in chronological emit order (the order they hit the
     subprocess pipes). Suitable for ``curl ... | grep error`` or
     redirecting straight into a log file.
 
+    Optional ``?stream=stdout`` or ``?stream=stderr`` filters to one
+    stream. Default (omitted) keeps the existing interleaved behavior.
+    Useful for ``curl ... | grep`` only on stdout, or pulling the
+    error log alone for further analysis.
+
     Sources:
       1. In-memory: walks ``job.events`` in event_id order so stdout
-         and stderr stay correctly interleaved.
-      2. Persisted only: concatenates ``stdout_tail`` then
-         ``stderr_tail`` with a clear divider, since the persisted
-         tails are stored separately and the original chronology is
-         lost. The divider keeps tooling from accidentally treating
-         stderr lines as stdout.
+         and stderr stay correctly interleaved (when no stream filter).
+      2. Persisted only: returns ``stdout_tail`` and/or ``stderr_tail``
+         depending on the filter; with no filter, concatenates both
+         with a divider since the persisted tails lost their original
+         chronology.
       3. Both miss -> 404.
 
     Caps: in-memory builds a string at most ``MAX_PERSISTED_OUTPUT * 2``
@@ -443,15 +449,22 @@ async def get_job_output_txt(
     """
     from ..jobs_persistence import MAX_PERSISTED_OUTPUT
 
+    if stream is not None and stream not in ("stdout", "stderr"):
+        raise HTTPException(
+            status_code=400,
+            detail="stream must be 'stdout' or 'stderr' if provided",
+        )
+
     jm = request.app.state.job_manager
     job = jm.get(job_id)
     if job is not None:
-        # Walk events in event_id order to preserve interleaving.
-        # Each event already has event_id set monotonically.
+        # Walk events in event_id order. When stream filter is active,
+        # only emit lines of that kind; the chronological order within
+        # the chosen stream is preserved.
+        keep = ("stdout", "stderr") if stream is None else (stream,)
         ordered_lines: list[str] = []
         for event in sorted(job.events, key=lambda e: e.get("event_id", 0)):
-            t = event.get("type")
-            if t in ("stdout", "stderr"):
+            if event.get("type") in keep:
                 ordered_lines.append(event.get("line", ""))
         text = "\n".join(ordered_lines)
         # Symmetric cap with the JSON endpoint - 2 * MAX_PERSISTED_OUTPUT
@@ -459,7 +472,7 @@ async def get_job_output_txt(
         cap = MAX_PERSISTED_OUTPUT * 2
         if len(text) > cap:
             text = text[-cap:]
-        if not text.endswith("\n"):
+        if text and not text.endswith("\n"):
             text = text + "\n"
         return PlainTextResponse(
             text,
@@ -472,6 +485,20 @@ async def get_job_output_txt(
         if row is not None:
             stdout_tail = row.get("stdout_tail") or ""
             stderr_tail = row.get("stderr_tail") or ""
+            if stream == "stdout":
+                body = stdout_tail
+                if body and not body.endswith("\n"):
+                    body = body + "\n"
+                return PlainTextResponse(
+                    body, media_type="text/plain; charset=utf-8"
+                )
+            if stream == "stderr":
+                body = stderr_tail
+                if body and not body.endswith("\n"):
+                    body = body + "\n"
+                return PlainTextResponse(
+                    body, media_type="text/plain; charset=utf-8"
+                )
             parts: list[str] = []
             if stdout_tail:
                 parts.append(stdout_tail)
