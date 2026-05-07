@@ -32,6 +32,30 @@ async def _json_object_body(request: Request) -> dict:
     return body
 
 
+@router.delete("/threads/{thread_id}")
+async def delete_thread(request: Request, thread_id: str) -> JSONResponse:
+    """Remove an agent thread from the runtime.
+
+    Closes any active /ws/agent subscribers (their async iterators
+    unblock with StopAsyncIteration) and wakes any paused
+    confirmation gate with reject=False. Idempotent on a 404 - a
+    second DELETE for the same id returns 404 not 500.
+
+    Mirrors POST /api/jobs/{id}/cancel + DELETE /api/jobs/{id}: this
+    is admin cleanup for "I'm done with this thread", not a way to
+    cancel a turn mid-flight (the turn loop continues running but
+    its emits are no-ops once the thread object is gone).
+
+    200 on success, 404 if unknown.
+    """
+    runtime = getattr(request.app.state, "agent_runtime", None)
+    if runtime is None:
+        raise HTTPException(status_code=503, detail="agent runtime not configured")
+    if not runtime.remove_thread(thread_id):
+        raise HTTPException(status_code=404, detail=f"unknown thread: {thread_id}")
+    return JSONResponse({"ok": True, "id": thread_id})
+
+
 @router.get("/threads")
 async def list_threads(request: Request) -> JSONResponse:
     """Return a snapshot of every active agent thread.

@@ -469,6 +469,59 @@ def test_list_threads_returns_metadata_for_each_thread(tmp_path: Path) -> None:
         assert isinstance(t["has_pending_confirmation"], bool)
 
 
+def test_delete_thread_removes_from_runtime(tmp_path: Path) -> None:
+    """DELETE /api/agent/threads/{id} drops the thread from the runtime
+    so a subsequent GET /threads no longer lists it. 404 on unknown."""
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider(
+            [[ProviderEvent(kind="text_delta", text="hi"), ProviderEvent(kind="finish")]]
+        ),
+        catalog=_sample_catalog(),
+        tool_runner=_unused_runner,
+    )
+    client, token = _make_client(tmp_path, runtime)
+
+    # Create a thread, verify it lists.
+    r1 = client.post(
+        "/api/agent/chat",
+        json={"message": "hello"},
+        headers={CSRF_HEADER: token},
+    )
+    tid = r1.json()["thread_id"]
+    listed_before = {t["id"] for t in client.get("/api/agent/threads").json()}
+    assert tid in listed_before
+
+    # DELETE removes it.
+    r = client.delete(
+        f"/api/agent/threads/{tid}", headers={CSRF_HEADER: token}
+    )
+    assert r.status_code == 200
+    assert r.json() == {"ok": True, "id": tid}
+
+    # No longer listed.
+    listed_after = {t["id"] for t in client.get("/api/agent/threads").json()}
+    assert tid not in listed_after
+
+    # Idempotent miss returns 404, not 500.
+    r2 = client.delete(
+        f"/api/agent/threads/{tid}", headers={CSRF_HEADER: token}
+    )
+    assert r2.status_code == 404
+
+
+def test_delete_thread_unknown_returns_404(tmp_path: Path) -> None:
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider([]),
+        catalog=_sample_catalog(),
+        tool_runner=_unused_runner,
+    )
+    client, token = _make_client(tmp_path, runtime)
+    r = client.delete(
+        "/api/agent/threads/never-existed", headers={CSRF_HEADER: token}
+    )
+    assert r.status_code == 404
+
+
 def test_list_threads_503_when_runtime_missing(tmp_path: Path) -> None:
     """If agent_runtime is absent on app.state, the endpoint returns
     503 (matching the chat endpoint's behavior)."""

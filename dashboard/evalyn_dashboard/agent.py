@@ -904,6 +904,46 @@ class AgentRuntime:
         thread = self._threads.get(thread_id)
         return list(thread.messages) if thread else []
 
+    def remove_thread(self, thread_id: str) -> bool:
+        """Drop a thread from the runtime. Returns True if the thread
+        existed (and is now gone), False on miss.
+
+        Closes any active stream subscribers so their async iterators
+        unblock with StopAsyncIteration. The pending confirmation gate
+        (if any) is fired with reject=False so a paused tool-call
+        coroutine returns to the caller cleanly. Idempotent on the
+        already-removed case.
+
+        Note: a turn that is mid-execution will continue running its
+        async loop, but the runtime no longer holds a reference to the
+        thread object so the loop's eventual ``_emit`` calls are
+        no-ops (their target is the orphan ``thread.subscribers`` set,
+        already closed). The HTTP caller should not rely on the loop
+        actually stopping immediately - this is admin cleanup, not
+        cancellation.
+        """
+        thread = self._threads.get(thread_id)
+        if thread is None:
+            return False
+        # Close subscribers before deleting so any /ws/agent/{id} stream
+        # iterator unblocks with StopAsyncIteration. Best-effort - don't
+        # let one buggy stream object stop us from removing.
+        for sub in list(thread.subscribers):
+            try:
+                sub.close()
+            except Exception:  # noqa: BLE001
+                pass
+        # Wake any pending confirmation gate so a paused tool-call
+        # coroutine returns. Confirm decision is False (treated as user
+        # did not confirm).
+        try:
+            thread.confirm_decision = False
+            thread.confirm_event.set()
+        except Exception:  # noqa: BLE001
+            pass
+        del self._threads[thread_id]
+        return True
+
     def list_threads(self) -> list[dict[str, Any]]:
         """Return a JSON-friendly snapshot of every active thread.
 
