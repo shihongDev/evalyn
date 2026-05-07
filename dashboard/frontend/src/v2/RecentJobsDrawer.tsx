@@ -34,6 +34,7 @@ import {
   type JobHistoryStatus,
 } from './jobsHistory';
 import { listCli, previewCommand, type CliSchema } from './api/cli';
+import { useLiveDuration } from './hooks/useLiveDuration';
 import { openCliRunner } from './cliRunnerBridge';
 
 interface RecentJobsDrawerProps {
@@ -863,31 +864,3 @@ function formatDuration(d: string): string {
   return d;
 }
 
-/** Whole-second live counter from a started_at_iso baseline. Re-renders
- * the row once per second while ``live`` is true so a long-running eval
- * visibly counts up. Returns null when not live or when the timestamp
- * does not parse. Cleans up the interval on unmount or live -> false.
- *
- * Uses Date.now() at every tick rather than incrementing a count, so
- * a tab that backgrounds for 60s doesn't end up 60s "behind" when it
- * comes back into focus.
- */
-function useLiveDuration(
-  startedAtIso: string,
-  live: boolean,
-): string | null {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!live) return;
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, [live]);
-  if (!live) return null;
-  const t = Date.parse(startedAtIso);
-  if (!Number.isFinite(t)) return null;
-  const elapsedSec = Math.max(0, Math.floor((now - t) / 1000));
-  if (elapsedSec < 60) return `${elapsedSec}s`;
-  const m = Math.floor(elapsedSec / 60);
-  const s = elapsedSec % 60;
-  return `${m}m${s.toString().padStart(2, '0')}s`;
-}
