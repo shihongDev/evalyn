@@ -25,7 +25,7 @@ import { Btn, Eyebrow, Pill, StatusDot } from './ui';
 import { useStickToBottom } from './hooks/useStickToBottom';
 import { copyToClipboard } from './clipboard';
 import type { CliParam, CliParamKind, CliSchema } from './api/cli';
-import { commandSummary } from './api/cli';
+import { commandSummary, previewCommand } from './api/cli';
 import {
   cancelJob,
   fetchJobStatus,
@@ -77,27 +77,6 @@ const READ_ONLY_ALLOWLIST: ReadonlySet<string> = new Set([
 // ---------------------------------------------------------------------------
 
 const MAX_OUTPUT_LINES = 1000;
-
-/** Render an argv preview the user can sanity-check before clicking Run. */
-function previewCommand(cliId: string, values: Record<string, unknown>): string {
-  const parts: string[] = ['evalyn', cliId];
-  for (const [name, value] of Object.entries(values)) {
-    if (value === undefined || value === null || value === '') continue;
-    const flag = `--${name.replace(/_/g, '-')}`;
-    if (typeof value === 'boolean') {
-      if (value) parts.push(flag);
-      continue;
-    }
-    if (Array.isArray(value)) {
-      if (value.length === 0) continue;
-      parts.push(flag);
-      for (const v of value) parts.push(String(v));
-      continue;
-    }
-    parts.push(flag, String(value));
-  }
-  return parts.join(' ');
-}
 
 /** Coerce a CliParam value through its kind. Empty strings -> undefined. */
 function coerce(kind: CliParamKind, raw: unknown): unknown {

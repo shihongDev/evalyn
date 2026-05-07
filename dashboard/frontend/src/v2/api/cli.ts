@@ -75,6 +75,36 @@ export function commandSummary(cmd: CliSchema): string {
 }
 
 /**
+ * Render an argv preview the user can sanity-check ("evalyn cli-id --flag value
+ * --other ..."). Skips empty / null / undefined values, drops false booleans
+ * (the backend ignores them anyway), unfolds array values into multiple
+ * positional args after the flag. Used by CliRunner's preview row and the
+ * RecentJobsDrawer row tooltip so similar runs are easier to disambiguate.
+ */
+export function previewCommand(
+  cliId: string,
+  values: Record<string, unknown>,
+): string {
+  const parts: string[] = ['evalyn', cliId];
+  for (const [name, value] of Object.entries(values)) {
+    if (value === undefined || value === null || value === '') continue;
+    const flag = `--${name.replace(/_/g, '-')}`;
+    if (typeof value === 'boolean') {
+      if (value) parts.push(flag);
+      continue;
+    }
+    if (Array.isArray(value)) {
+      if (value.length === 0) continue;
+      parts.push(flag);
+      for (const v of value) parts.push(String(v));
+      continue;
+    }
+    parts.push(flag, String(value));
+  }
+  return parts.join(' ');
+}
+
+/**
  * POST /api/cli/run - spawns ``evalyn <cli_id> <args...>`` on the server and
  * returns a job_id the caller can stream from. Throws on non-2xx with the
  * server's error body included so callers can surface it to the user.
