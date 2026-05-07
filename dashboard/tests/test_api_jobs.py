@@ -905,6 +905,67 @@ def test_admin_prune_zero_keep_clears_all():
         assert body["kept"] == 0
 
 
+def test_admin_vacuum_emits_audit_log(caplog):
+    """A manual vacuum is uncommon enough that each invocation
+    should be discoverable in server logs (postmortem queries
+    like "did anyone vacuum during the incident window?"). INFO
+    so the default log level catches it."""
+    import logging
+
+    app = build_app()
+    with TestClient(app) as client:
+        # Need at least one row so vacuum() can run.
+        jid = _spawn(client, app, [sys.executable, "-c", "pass"])
+        _wait(client, app, jid)
+
+        token = _token_from(client)
+        with caplog.at_level(logging.INFO, logger="evalyn_dashboard.api.jobs"):
+            r = client.post(
+                "/api/jobs/admin/vacuum", headers={CSRF_HEADER: token}
+            )
+            assert r.status_code == 200
+
+        # Look for the audit-log message. We assert on the prefix
+        # rather than the exact bytes_saved value because the
+        # post-vacuum size depends on filesystem behavior
+        # (rounding etc).
+        matched = [
+            rec for rec in caplog.records
+            if rec.message.startswith("admin vacuum: before=")
+        ]
+        assert len(matched) == 1, (
+            f"expected exactly one admin-vacuum log line, "
+            f"got {len(matched)}: {[r.message for r in caplog.records]}"
+        )
+
+
+def test_admin_prune_emits_audit_log(caplog):
+    """Prune is destructive so each invocation must be in the
+    server log for audit trails."""
+    import logging
+
+    app = build_app()
+    with TestClient(app) as client:
+        jid = _spawn(client, app, [sys.executable, "-c", "pass"])
+        _wait(client, app, jid)
+
+        token = _token_from(client)
+        with caplog.at_level(logging.INFO, logger="evalyn_dashboard.api.jobs"):
+            r = client.post(
+                "/api/jobs/admin/prune?keep=0", headers={CSRF_HEADER: token}
+            )
+            assert r.status_code == 200
+
+        matched = [
+            rec for rec in caplog.records
+            if rec.message.startswith("admin prune: keep=")
+        ]
+        assert len(matched) == 1
+        # The log line records the keep value the caller passed,
+        # so the audit trail captures intent (not just outcome).
+        assert "keep=0" in matched[0].message
+
+
 def test_admin_vacuum_advances_last_vacuum_at_field_on_health():
     """A successful manual vacuum must propagate to /api/health's
     last_vacuum_at field. Closes the loop between the manual button
