@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tests
 
+- **Unit tests for `copilotDrafts.ts` LRU + per-thread semantics.** Same shape as cliRunnerDrafts (which we don't test yet); both came from the same per-context drafts pattern. 11 tests across 5 describe blocks: round-trip per threadId, the `__new__` pre-thread key (null/undefined/empty all bucket together but don't bleed into named threads), `clearCoPilotDraft` removes the entry entirely + empty-string save also removes, LRU cap evicts oldest at MAX_DRAFTS=20, save promotes a re-saved threadId to most-recently-used, corruption tolerance (poisoned JSON / wrong-shape store both return empty rather than throwing). 57/57 FE tests pass.
 - **Unit tests for `jobsHistory.ts` pin / cap / sort semantics.** 11 tests cover the localStorage layer that several recent features (pinning, day headers, history filter) depend on. Specifically: cap drops oldest unpinned but preserves pinned even when pins exceed the cap; `sortNewestFirst` puts pinned above unpinned regardless of age; `setJobPinned` toggles cleanly and is a no-op for unknown ids; `clearJobsHistory` preserves pinned and fully clears when no pins; `activeJobCliId` returns the cli_id only when exactly one job is active. Pure-function tests against jsdom's localStorage - no React. Each test resets the relevant storage key in `beforeEach` so order doesn't matter.
 
 ### Performance
