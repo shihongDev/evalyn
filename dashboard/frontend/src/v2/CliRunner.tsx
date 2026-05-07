@@ -645,6 +645,30 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
     onClose();
   }, [onClose]);
 
+  // Move focus into the runner on open and restore it on close.
+  // aria-modal alone does not move focus - keyboard users were left
+  // with focus on the trigger button behind the runner, so a Tab
+  // press walked them out into the page underneath. The close
+  // button is the safest landing target: it does not steal Enter
+  // away from form fields the user might want to type into next,
+  // but pressing Enter immediately bails out of the runner if
+  // that's what the user actually wants.
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    const prevFocus = document.activeElement as HTMLElement | null;
+    const t = window.setTimeout(() => closeBtnRef.current?.focus(), 0);
+    return () => {
+      window.clearTimeout(t);
+      if (
+        prevFocus &&
+        prevFocus !== document.body &&
+        document.contains(prevFocus)
+      ) {
+        prevFocus.focus();
+      }
+    };
+  }, []);
+
   // Clear visible scrollback (terminal Ctrl+L idiom). Does NOT cancel
   // the running job - only flushes the lines state and the rAF buffer
   // so the user can scroll to a fresh slate while the job keeps
@@ -767,6 +791,7 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
             </Pill>
           )}
           <button
+            ref={closeBtnRef}
             type="button"
             onClick={onCloseClick}
             aria-label="Close command runner"
