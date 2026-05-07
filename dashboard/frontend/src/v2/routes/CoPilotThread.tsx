@@ -274,6 +274,12 @@ export default function CoPilotThread() {
   }, [threadId, messages, index]);
 
   const submit = () => {
+    // Defensive guard: the submit button is `disabled` when
+    // streaming or a pending confirm is in flight, but React's
+    // batched state updates leave a same-frame double-click able
+    // to slip through with the stale closure. Match the dock's
+    // version of this guard so a rapid second click is a no-op.
+    if (status === 'streaming' || pending != null) return;
     const t = draft.trim();
     if (!t) return;
     setDraft('');

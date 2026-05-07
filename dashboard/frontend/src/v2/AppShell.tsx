@@ -322,6 +322,40 @@ export function AppShell({
     startV2EventStream();
   }, []);
 
+  // Idle-prefetch the lazy overlay chunks (CommandPalette /
+  // RecentJobsDrawer / CoPilotDock). Without this, the first time a
+  // user hits Cmd+K or clicks the Recent Jobs FAB they pay a 50-200ms
+  // chunk fetch before the overlay paints. With idle-prefetch, the
+  // chunks land in the browser cache during the post-paint quiet
+  // window and the first open is instant.
+  //
+  // requestIdleCallback (where available) runs only when the main
+  // thread has nothing more important to do - it doesn't compete
+  // with the initial route render. Falling back to setTimeout(0)
+  // keeps Safari working with a slightly looser idle definition.
+  // The dynamic import() returns a Promise we deliberately don't
+  // await; failures are silent because the user-driven open path
+  // will surface them via Suspense/ErrorBoundary if the network is
+  // genuinely down.
+  useEffect(() => {
+    const schedule =
+      typeof window !== 'undefined' &&
+      typeof (window as unknown as { requestIdleCallback?: unknown })
+        .requestIdleCallback === 'function'
+        ? (cb: () => void) =>
+            (
+              window as unknown as {
+                requestIdleCallback: (cb: () => void) => number;
+              }
+            ).requestIdleCallback(cb)
+        : (cb: () => void) => window.setTimeout(cb, 1500);
+    schedule(() => {
+      void import('./CommandPalette');
+      void import('./RecentJobsDrawer');
+      void import('./copilot/CoPilotDock');
+    });
+  }, []);
+
   // Connection status surface. Track raw status from v2ws, but only
   // SHOW the "Reconnecting" pill once disconnect has lasted >2 seconds
   // - brief blips during normal operation (server restarting in dev,
