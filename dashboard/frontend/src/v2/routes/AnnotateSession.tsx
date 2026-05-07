@@ -2807,6 +2807,7 @@ export default function AnnotateSession() {
                   type="button"
                   onClick={() => setSearchQuery('')}
                   title="Clear search (Esc)"
+                  aria-label="Clear search"
                   style={{
                     fontFamily: E.fMono,
                     fontSize: 12,
@@ -2818,7 +2819,7 @@ export default function AnnotateSession() {
                     lineHeight: 1,
                   }}
                 >
-                  ×
+                  <span aria-hidden="true">×</span>
                 </button>
               </>
             )}
@@ -4025,6 +4026,7 @@ export default function AnnotateSession() {
                           type="button"
                           onClick={() => removeEvidence(i)}
                           title="Remove this evidence"
+                          aria-label="Remove this evidence"
                           style={{
                             background: 'transparent',
                             border: 'none',
@@ -4036,7 +4038,7 @@ export default function AnnotateSession() {
                             lineHeight: 1,
                           }}
                         >
-                          ×
+                          <span aria-hidden="true">×</span>
                         </button>
                       </div>
                       );
