@@ -1457,7 +1457,14 @@ function OutputSection({
     // Absolute URL so a teammate clicking the pasted link from
     // chat/email lands on THIS dashboard rather than whatever origin
     // their browser currently has open.
-    const url = `${window.location.origin}/api/jobs/${encodeURIComponent(jobId)}/output.txt?download=1`;
+    //
+    // ?download=1 sets Content-Disposition so the link triggers a
+    // save-as. ?include_meta=1 prepends a # header with job_id, cli,
+    // started_at, status, exit_code so the recipient's downloaded
+    // file is self-describing - they can tell what run produced it
+    // without the chat context the link arrived with. The # prefix
+    // means log tools (less, awk, grep) treat the header as comments.
+    const url = `${window.location.origin}/api/jobs/${encodeURIComponent(jobId)}/output.txt?download=1&include_meta=1`;
     try {
       await copyToClipboard(url);
       setCopyUrlState('copied');
