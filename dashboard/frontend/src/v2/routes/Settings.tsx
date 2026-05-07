@@ -257,11 +257,21 @@ function SystemStatusCard() {
   const {
     value: health,
     loaded,
+    lastFetchAt,
     refetch: refetchHealth,
   } = useVisibilityPoll<SystemHealth | null>({
     fetcher: fetchSystemHealth,
     intervalMs: 15000,
   });
+  // Tick a `now` value every 5s so the freshness label re-renders
+  // (Refreshed 1s ago -> 2s ago ...) without forcing the polling
+  // hook to fire more often. We could pull this from a dedicated
+  // hook but a 5-line useEffect is fine for one consumer.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 5000);
+    return () => window.clearInterval(id);
+  }, []);
 
   // Manual vacuum handler. The button is the entry point; result
   // feedback (success bytes saved, or error message) renders next
@@ -525,11 +535,54 @@ function SystemStatusCard() {
           )}
         </div>
       </div>
-      <p style={{ fontSize: 11, color: E.text3, margin: '10px 0 0' }}>
-        Polled every 15s. Numbers are best-effort: a degraded
-        persistence layer reports 0 rather than failing. Compact
-        also runs automatically on graceful shutdown.
-      </p>
+      <div
+        style={{
+          marginTop: 10,
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: 10,
+          flexWrap: 'wrap',
+          fontSize: 11,
+          color: E.text3,
+        }}
+      >
+        <span>
+          Polled every 15s.
+          {lastFetchAt !== null && (
+            <>
+              {' '}
+              Refreshed{' '}
+              <span title={new Date(lastFetchAt).toLocaleString()}>
+                {formatRelativeAgo(lastFetchAt, now)} ago
+              </span>
+              .
+            </>
+          )}
+        </span>
+        <button
+          type="button"
+          onClick={() => refetchHealth()}
+          aria-label="Refresh system status now"
+          title="Refresh now (bypass the 15s poll interval)"
+          style={{
+            fontSize: 11,
+            color: E.text2,
+            background: 'transparent',
+            border: `1px solid ${E.hair}`,
+            borderRadius: 4,
+            padding: '2px 8px',
+            fontFamily: E.fMono,
+            cursor: 'pointer',
+          }}
+        >
+          Refresh
+        </button>
+        <span style={{ color: E.text4 }}>
+          Numbers are best-effort: a degraded persistence layer
+          reports 0 rather than failing. Compact also runs
+          automatically on graceful shutdown.
+        </span>
+      </div>
     </Card>
   );
 }
@@ -654,9 +707,9 @@ export function formatBytes(n: number): string {
  * means the process has been up for >30 days, which is itself
  * worth flagging as "you should probably restart".
  */
-export function formatRelativeAgo(eventAtMs: number): string {
+export function formatRelativeAgo(eventAtMs: number, nowMs?: number): string {
   if (!Number.isFinite(eventAtMs)) return '-';
-  const diffMs = Math.max(0, Date.now() - eventAtMs);
+  const diffMs = Math.max(0, (nowMs ?? Date.now()) - eventAtMs);
   const sec = Math.floor(diffMs / 1000);
   if (sec < 60) return `${sec}s`;
   const min = Math.floor(sec / 60);

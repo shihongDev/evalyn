@@ -53,6 +53,15 @@ export interface UseVisibilityPollResult<T> {
    * outcome). Useful for distinguishing initial-load skeleton
    * from "loaded but null/empty". */
   loaded: boolean;
+  /** Wall-clock millisecond timestamp of the last successful
+   * fetch resolution. `null` until the first fetch resolves.
+   * Useful for rendering a "Refreshed Ns ago" indicator so
+   * the user can spot a stalled poll loop (visibility-paused
+   * tabs return stale-looking cards on tab-return until the
+   * next tick lands). Updated on EACH fetch, not just identity-
+   * changing ones, so a fresh poll that returned identical data
+   * still counts as "the data is current". */
+  lastFetchAt: number | null;
   /** Manual refetch. Useful after a user action that's expected
    * to change the polled state (e.g. clicking "Compact now" on
    * the SystemStatusCard - immediate refetch lands the post-
@@ -68,6 +77,7 @@ export function useVisibilityPoll<T>(
 
   const [value, setValue] = useState<T | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [lastFetchAt, setLastFetchAt] = useState<number | null>(null);
 
   // Stash the latest fetcher in a ref so the polling effect
   // captures it without restarting when the caller passes a
@@ -95,6 +105,11 @@ export function useVisibilityPoll<T>(
       if (cancelled) return;
       setValue(next);
       setLoaded(true);
+      // Stamp the timestamp regardless of value identity. Two
+      // consecutive identical responses still mean "the data is
+      // current"; the freshness indicator should not freeze on
+      // an unchanged value.
+      setLastFetchAt(Date.now());
     }
 
     function start() {
@@ -135,5 +150,5 @@ export function useVisibilityPoll<T>(
     triggerRef.current?.();
   }, []);
 
-  return { value, loaded, refetch };
+  return { value, loaded, lastFetchAt, refetch };
 }

@@ -148,4 +148,18 @@ describe('formatRelativeAgo', () => {
   it('clamps future timestamps to 0s (no negative values)', () => {
     expect(formatRelativeAgo(NOW + 5_000)).toBe('0s');
   });
+
+  it('accepts an explicit nowMs override', () => {
+    // The optional `nowMs` argument lets a caller thread its
+    // re-render state (e.g. a setInterval-driven `now` value) so
+    // the relative label updates without depending on a side
+    // effect inside the formatter. Passing an override must
+    // produce the same result as if Date.now() were that value.
+    const PAST = NOW - 30_000;
+    // Without override: uses Date.now() = NOW (set via fake timer
+    // in beforeEach).
+    expect(formatRelativeAgo(PAST)).toBe('30s');
+    // With override pointing 60s ahead of NOW.
+    expect(formatRelativeAgo(PAST, NOW + 60_000)).toBe('1m');
+  });
 });
