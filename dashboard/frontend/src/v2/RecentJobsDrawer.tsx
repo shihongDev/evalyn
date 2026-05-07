@@ -27,6 +27,7 @@ import {
   getJobsDrawerFailureFilter,
   loadJobsHistory,
   patchJob,
+  pruneStaleUnknown,
   setFailureAckTime,
   setJobsDrawerFailureFilter,
   subscribeJobsHistory,
@@ -75,6 +76,12 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
   useEffect(() => {
     if (!open) return;
     setFailureAckTime(Date.now());
+    // Prune `unknown`-status entries older than 1 hour. They cannot be
+    // recovered or resumed (the backend evicted the record - usually
+    // a server restart), so they are pure clutter. The grace window
+    // is generous enough that a quick dev-server restart won't wipe
+    // a row the user might still want to inspect.
+    pruneStaleUnknown(60 * 60 * 1000);
   }, [open]);
 
   const failedCount = useMemo(
