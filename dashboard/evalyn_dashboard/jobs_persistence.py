@@ -124,6 +124,33 @@ class JobPersistence:
         # previous run vacuumed at shutdown. That's the right default
         # since the metric communicates "in this dashboard session".
         self._last_vacuum_at: float | None = None
+        # Short-TTL cache for stats(). Keyed by the
+        # `recent_failure_window_seconds` argument since different
+        # callers can pass different windows. Each entry is
+        # (cached_at_ts, value).
+        #
+        # Why cache: /api/health is polled every 15s by every
+        # dashboard tab. With multiple tabs open the cumulative SQL
+        # cost of repeating 4 aggregates per poll is real. A 5s TTL
+        # collapses concurrent multi-tab polls to ~1 query/poll/window
+        # without forcing fresh-data callers to wait too long.
+        #
+        # Why 5s: smaller than the 15s health-poll cadence so
+        # single-tab pollers always see fresh data; large enough to
+        # collapse the bursts when many tabs are open. Anything
+        # tighter would defeat the cache; anything looser would risk
+        # showing visibly-stale "Persisted jobs" counts after a
+        # bulk purge.
+        #
+        # Invalidation strategy: row-count-changing writes
+        # (upsert_job, patch_status, delete, delete_old, vacuum) call
+        # _invalidate_stats_cache() so the next stats() reads fresh.
+        # append_output / set_output_tails do NOT invalidate even
+        # though they change SUM(stderr_count) - those fire many
+        # times per second on a hot run, and clearing the cache that
+        # often defeats the whole point. The accepted staleness for
+        # stderr_count is bounded by the 5s TTL.
+        self._stats_cache: dict[int, tuple[float, dict]] = {}
 
     # ------------------------------------------------------------------
     # Init
@@ -246,6 +273,7 @@ class JobPersistence:
                     """,
                     (job_id, cli_id, payload, cmd, status, started_at_iso),
                 )
+            self._invalidate_stats_cache()
         except (OSError, sqlite3.Error) as exc:
             logger.warning("JobPersistence upsert_job(%s) failed: %s", job_id, exc)
 
@@ -277,15 +305,20 @@ class JobPersistence:
                         """,
                         (status, exit_code, ended_at_iso, duration_s, job_id),
                     )
-                    return
-                conn.execute(
-                    """
-                    UPDATE jobs
-                       SET status=?, exit_code=?, ended_at_iso=?, duration_s=?, stderr_count=?
-                     WHERE job_id=?
-                    """,
-                    (status, exit_code, ended_at_iso, duration_s, stderr_count, job_id),
-                )
+                else:
+                    conn.execute(
+                        """
+                        UPDATE jobs
+                           SET status=?, exit_code=?, ended_at_iso=?, duration_s=?, stderr_count=?
+                         WHERE job_id=?
+                        """,
+                        (status, exit_code, ended_at_iso, duration_s, stderr_count, job_id),
+                    )
+            # Invalidate after either branch since both change `status`
+            # (which the by_status group-by reads). The early-return
+            # in the previous shape skipped this; reorganized into
+            # if/else so the invalidation lands once for both paths.
+            self._invalidate_stats_cache()
         except (OSError, sqlite3.Error) as exc:
             logger.warning("JobPersistence patch_status(%s) failed: %s", job_id, exc)
 
@@ -426,6 +459,13 @@ class JobPersistence:
     # GC
     # ------------------------------------------------------------------
 
+    _STATS_CACHE_TTL_S = 5.0
+
+    def _invalidate_stats_cache(self) -> None:
+        """Drop all cached stats() entries. Called from row-count-
+        changing writes so the next stats() reads fresh from disk."""
+        self._stats_cache.clear()
+
     def stats(self, recent_failure_window_seconds: int = 86400) -> dict:
         """Aggregate counts over the persisted jobs table.
 
@@ -440,8 +480,21 @@ class JobPersistence:
             }
 
         Empty dict shape on read failure (logged at WARN). Each query
-        is a single aggregate so this is cheap even with many rows.
+        is a single aggregate so the underlying cost is cheap even
+        with many rows; cached for ``_STATS_CACHE_TTL_S`` seconds to
+        collapse multi-tab health-polling bursts (see __init__
+        commentary on the cache).
         """
+        # Cache hit path. Returning a shared dict reference is safe
+        # because callers MUST treat the result as read-only (the
+        # docstring shape commits to dict-of-immutables; mutating
+        # would be a contract violation regardless of caching).
+        cached = self._stats_cache.get(recent_failure_window_seconds)
+        if cached is not None:
+            cached_at, value = cached
+            if time.time() - cached_at < self._STATS_CACHE_TTL_S:
+                return value
+
         empty = {
             "total": 0,
             "by_status": {},
@@ -474,12 +527,17 @@ class JobPersistence:
                     "WHERE status=? AND started_at_iso > ?",
                     ("failed", cutoff_iso),
                 ).fetchone()[0] or 0
-            return {
+            result = {
                 "total": int(total),
                 "by_status": by_status,
                 "total_stderr": int(total_stderr),
                 "recent_failures": int(recent_failures),
             }
+            self._stats_cache[recent_failure_window_seconds] = (
+                time.time(),
+                result,
+            )
+            return result
         except (OSError, sqlite3.Error) as exc:
             logger.warning("JobPersistence stats failed: %s", exc)
             return empty
@@ -493,7 +551,10 @@ class JobPersistence:
         try:
             with self._connect() as conn:
                 cur = conn.execute("DELETE FROM jobs WHERE job_id=?", (job_id,))
-                return (cur.rowcount or 0) > 0
+                removed = (cur.rowcount or 0) > 0
+            if removed:
+                self._invalidate_stats_cache()
+            return removed
         except (OSError, sqlite3.Error) as exc:
             logger.warning("JobPersistence delete(%s) failed: %s", job_id, exc)
             return False
@@ -518,7 +579,10 @@ class JobPersistence:
                     "DELETE FROM jobs WHERE started_at_iso <= ?",
                     (cutoff,),
                 )
-                return cur.rowcount or 0
+                deleted = cur.rowcount or 0
+            if deleted:
+                self._invalidate_stats_cache()
+            return deleted
         except (OSError, sqlite3.Error) as exc:
             logger.warning("JobPersistence delete_old failed: %s", exc)
             return 0
@@ -590,6 +654,12 @@ class JobPersistence:
             # leave the previous timestamp in place (or None if
             # there's never been one).
             self._last_vacuum_at = time.time()
+            # VACUUM doesn't change row counts, but it DOES change
+            # everything stat()-able about the file (size, mtime).
+            # Invalidating ensures the post-vacuum stats() call
+            # doesn't return a value held over from before the
+            # compaction that's misleading in any way.
+            self._invalidate_stats_cache()
             return True
         except (OSError, sqlite3.Error) as exc:
             logger.warning("JobPersistence vacuum failed: %s", exc)
