@@ -160,6 +160,8 @@ export default function Settings() {
           <>
             <ActiveProviderCard data={data} onChanged={() => void refetch()} />
 
+            <BulkTestCard data={data} />
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 14 }}>
               {KNOWN_PROVIDERS.map((p) => (
                 <ProviderCard
@@ -357,6 +359,145 @@ function ActiveProviderCard({ data, onChanged }: ActiveProviderCardProps) {
       {error && (
         <div style={{ marginTop: 8, fontSize: 12, color: E.fail, fontFamily: E.fMono }}>
           {error}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+interface BulkTestCardProps {
+  data: SettingsState;
+}
+
+/** Bulk "Test all configured" affordance.
+ *
+ * Customer-cared admin scenario: user has multiple providers
+ * configured (OpenAI + Anthropic + Ollama) and wants a single click
+ * to verify which ones still work after a key rotation, base-URL
+ * change, or model deprecation. Without this, they'd have to scroll
+ * to each card and click Test individually.
+ *
+ * Sequential rather than parallel so:
+ *   - rate-limit / capacity errors don't cascade across providers
+ *   - the result list grows top-down in run order, which reads
+ *     naturally for the user
+ *   - one slow probe (cold ollama) doesn't bottleneck the others
+ *     visually - the in-flight pill makes progress obvious
+ *
+ * Hidden when no providers are configured (nothing to test).
+ */
+function BulkTestCard({ data }: BulkTestCardProps) {
+  const configured = useMemo(
+    () =>
+      Object.entries(data.providers)
+        .filter(([, st]) => st.is_set)
+        .map(([id]) => id)
+        .sort(),
+    [data.providers],
+  );
+  const [running, setRunning] = useState<string | null>(null);
+  const [results, setResults] = useState<
+    Record<string, { ok: boolean; message: string }>
+  >({});
+
+  if (configured.length === 0) return null;
+
+  const onRunAll = async () => {
+    setResults({});
+    for (const id of configured) {
+      setRunning(id);
+      try {
+        const r = await settingsApi.test(id);
+        setResults((prev) => ({
+          ...prev,
+          [id]: {
+            ok: r.ok,
+            message: r.ok ? 'Connection ok' : r.error ?? 'Test failed',
+          },
+        }));
+      } catch (e) {
+        setResults((prev) => ({
+          ...prev,
+          [id]: { ok: false, message: String(e) },
+        }));
+      }
+    }
+    setRunning(null);
+  };
+
+  return (
+    <Card style={{ padding: 16, marginTop: 14 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+        }}
+      >
+        <div>
+          <Eyebrow>Health check</Eyebrow>
+          <div
+            style={{
+              fontSize: 12,
+              color: E.text2,
+              marginTop: 4,
+              fontFamily: E.fMono,
+            }}
+          >
+            Test {configured.length} configured provider
+            {configured.length === 1 ? '' : 's'}
+          </div>
+        </div>
+        <Btn
+          kind="secondary"
+          size="md"
+          onClick={() => void onRunAll()}
+          disabled={running !== null}
+        >
+          {running ? (
+            <>
+              <Spinner size={11} /> Testing {running}
+            </>
+          ) : (
+            'Test all configured'
+          )}
+        </Btn>
+      </div>
+      {Object.keys(results).length > 0 && (
+        <div
+          style={{
+            marginTop: 12,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+          }}
+        >
+          {configured
+            .filter((id) => id in results)
+            .map((id) => {
+              const r = results[id];
+              return (
+                <div
+                  key={id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    gap: 8,
+                    fontSize: 12,
+                    fontFamily: E.fMono,
+                  }}
+                >
+                  <span style={{ color: r.ok ? E.pass : E.fail, width: 14 }}>
+                    {r.ok ? '✓' : '✗'}
+                  </span>
+                  <span style={{ color: E.text1, minWidth: 80 }}>{id}</span>
+                  <span style={{ color: r.ok ? E.text2 : E.fail, flex: 1 }}>
+                    {r.message}
+                  </span>
+                </div>
+              );
+            })}
         </div>
       )}
     </Card>
