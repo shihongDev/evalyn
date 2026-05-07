@@ -690,10 +690,10 @@ function ComposeStrip({
           {info}
         </span>
       )}
-      <Btn kind="ghost" size="sm" onClick={onPreview} disabled={busy}>
+      <Btn kind="ghost" size="sm" onClick={onPreview} disabled={busy} aria-busy={busy}>
         Preview blend
       </Btn>
-      <Btn kind="primary" size="sm" onClick={onRun} disabled={busy}>
+      <Btn kind="primary" size="sm" onClick={onRun} disabled={busy} aria-busy={busy}>
         {busy ? 'Spawning...' : '-> Run combined eval'}
       </Btn>
     </div>

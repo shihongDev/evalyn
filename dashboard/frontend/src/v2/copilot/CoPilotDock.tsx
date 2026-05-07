@@ -539,6 +539,7 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
               size="sm"
               onClick={submit}
               disabled={!draft.trim() || status === 'streaming' || pending != null}
+              aria-busy={status === 'streaming' || pending != null}
               title={`Send (${MOD_KEY} ⏎)`}
               style={{ width: 26, height: 26, padding: 0, justifyContent: 'center' }}
             >

@@ -1509,6 +1509,7 @@ function TracePane({
         <button
           type="button"
           disabled={submitting}
+          aria-busy={submitting}
           onClick={() => onSingle('pass')}
           title="Pass this item (P)"
           style={singleBtnStyle('pass', submitting)}
@@ -1519,6 +1520,7 @@ function TracePane({
         <button
           type="button"
           disabled={submitting}
+          aria-busy={submitting}
           onClick={() => onSingle('fail')}
           title="Fail this item (F)"
           style={singleBtnStyle('fail', submitting)}
@@ -1529,6 +1531,7 @@ function TracePane({
         <button
           type="button"
           disabled={submitting}
+          aria-busy={submitting}
           onClick={() => onSingle('skip')}
           title="Skip this item (S)"
           style={singleBtnStyle('skip', submitting)}

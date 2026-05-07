@@ -109,7 +109,13 @@ export function Welcome() {
       </ol>
 
       <div style={{ display: 'flex', gap: 8, marginTop: 22, flexWrap: 'wrap' }}>
-        <Btn kind="primary" size="md" onClick={onLoadDemo} disabled={loading}>
+        <Btn
+          kind="primary"
+          size="md"
+          onClick={onLoadDemo}
+          disabled={loading}
+          aria-busy={loading}
+        >
           {loading ? 'Loading...' : 'Load demo data'}
         </Btn>
         <Btn kind="secondary" size="md" onClick={() => navigate('/copilot')}>

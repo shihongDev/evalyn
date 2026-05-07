@@ -956,6 +956,7 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
                   size="md"
                   onClick={onRun}
                   disabled={submitting || !formValid}
+                  aria-busy={submitting}
                   title={
                     !formValid
                       ? `Missing required: ${missing.join(', ')}`
