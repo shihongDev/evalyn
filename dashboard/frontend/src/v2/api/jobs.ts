@@ -288,9 +288,11 @@ const MAX_RECONNECT_ATTEMPTS = 5;
  * Auto-reconnect: if the WS closes WITHOUT having delivered an ``exit``
  * event (network blip, dev-server restart, etc.) and the caller has not
  * invoked ``close()``, we transparently reconnect with exponential
- * backoff (1s, 2s, 4s, 8s, 8s; up to MAX_RECONNECT_ATTEMPTS) and pass
- * ``?since=lastSeenEventId`` so the backend replays ONLY events the
- * caller has not yet seen. The "running" onStatus pill fires on first
+ * backoff (1s, 2s, 4s, 8s, 8s; up to MAX_RECONNECT_ATTEMPTS) plus
+ * [0, 500ms) jitter so multiple tabs/jobs don't reconnect in
+ * lockstep on server recovery (thundering herd). Each reconnect
+ * passes ``?since=lastSeenEventId`` so the backend replays ONLY
+ * events the caller has not yet seen. The "running" onStatus pill fires on first
  * connect only - reconnects do not flip status back to running after a
  * cancel/exit was painted from a prior event.
  *
@@ -337,7 +339,13 @@ export function subscribeJob(
       );
       return;
     }
-    const backoffMs = Math.min(8000, 1000 * 2 ** attempts);
+    // Exponential backoff with jitter. Cap at 8s (per-job streams
+    // benefit from faster reconnect than the v2 events stream;
+    // user is likely watching live output). Jitter [0, 500ms)
+    // spreads reconnect across concurrent tabs/jobs so the
+    // server doesn't see a thundering herd after a blip.
+    const exp = Math.min(8000, 1000 * 2 ** attempts);
+    const backoffMs = exp + Math.random() * 500;
     attempts += 1;
     // Notify consumers that we are about to retry. attempt is 1-indexed
     // so the first retry fires onReconnecting(1). Inline the try/catch
