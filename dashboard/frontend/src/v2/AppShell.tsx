@@ -439,6 +439,14 @@ export function AppShell({
   // visible without having to switch back. Order is "(running) !failed
   // base" so a glance at the title leads with active work, then
   // outstanding failures, then context.
+  //
+  // When the route passes a breadcrumb with >= 2 segments (e.g.
+  // ['Experiments', 'baseline-v3']), the most-specific segment is
+  // prepended so multiple tabs of the same route ("Experiments")
+  // are distinguishable by their entity ("baseline-v3 ·
+  // Experiments · Evalyn"). Single-segment breadcrumbs are
+  // redundant with the route prefix and skipped.
+  const breadcrumbKey = breadcrumb ? breadcrumb.join('/') : '';
   useEffect(() => {
     const path = location.pathname;
     const match = TITLE_FOR_PATH.find(([prefix]) =>
@@ -455,12 +463,26 @@ export function AppShell({
         : runningCount > 0
           ? `(${runningCount})`
           : '';
+    const tail =
+      breadcrumb && breadcrumb.length >= 2
+        ? breadcrumb[breadcrumb.length - 1]
+        : '';
+    const titleBase = tail ? `${tail} · ${base}` : base;
     const segments = [
       runningPrefix,
       unackedFailureCount > 0 ? `!${unackedFailureCount}` : '',
     ].filter(Boolean);
-    document.title = segments.length > 0 ? `${segments.join(' ')} ${base}` : base;
-  }, [location.pathname, runningCount, unackedFailureCount, singleActiveCliId]);
+    document.title = segments.length > 0
+      ? `${segments.join(' ')} ${titleBase}`
+      : titleBase;
+  }, [
+    location.pathname,
+    runningCount,
+    unackedFailureCount,
+    singleActiveCliId,
+    breadcrumbKey,
+    breadcrumb,
+  ]);
 
   // Global hotkeys:
   //   Cmd/Ctrl+K toggles the command palette.
