@@ -152,7 +152,16 @@ class CredentialStore:
             record["model"] = model
         if base_url is not None:
             record["base_url"] = base_url
-        record["added_at"] = existing.get("added_at") or _utcnow_iso()
+        # Capture the timestamp once so a fresh record gets the SAME
+        # added_at and updated_at (two _utcnow_iso() calls would
+        # differ by microseconds, which is harmless but surprises
+        # anyone asserting equality).
+        now_iso = _utcnow_iso()
+        record["added_at"] = existing.get("added_at") or now_iso
+        # Bump on every write so a future "rotated N days ago" UI can
+        # distinguish "first set" from "last touched". added_at is the
+        # creation moment; updated_at advances on each set_provider.
+        record["updated_at"] = now_iso
 
         data["providers"][name] = record
         self._atomic_write(data)
@@ -199,7 +208,9 @@ class CredentialStore:
 
         Never includes plaintext ``api_key``. Each provider entry exposes:
         ``is_set`` (bool), ``model`` (str | None), ``added_at`` (str | None),
-        and ``base_url`` (str | None) when set.
+        ``updated_at`` (str | None - present when the record has been
+        written at least once via set_provider; useful for "rotated N
+        days ago" displays), and ``base_url`` (str | None) when set.
 
         Ollama is a local provider with a sensible default base_url
         (``DEFAULT_OLLAMA_BASE_URL``); we surface it as ``is_set=True``
@@ -222,6 +233,7 @@ class CredentialStore:
                 "is_set": is_set,
                 "model": rec.get("model"),
                 "added_at": rec.get("added_at"),
+                "updated_at": rec.get("updated_at"),
             }
             if "base_url" in rec:
                 entry["base_url"] = rec["base_url"]

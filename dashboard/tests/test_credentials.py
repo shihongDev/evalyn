@@ -35,7 +35,7 @@ def test_fresh_path_public_view_surfaces_ollama_only(tmp_path: Path) -> None:
     view = cs.public_view()
     assert view["active"] is None
     assert view["providers"] == {
-        "ollama": {"is_set": True, "model": None, "added_at": None},
+        "ollama": {"is_set": True, "model": None, "added_at": None, "updated_at": None},
     }
 
 
@@ -164,7 +164,7 @@ def test_malformed_json_treated_as_empty(tmp_path: Path) -> None:
     view = cs.public_view()
     assert view["active"] is None
     assert view["providers"] == {
-        "ollama": {"is_set": True, "model": None, "added_at": None},
+        "ollama": {"is_set": True, "model": None, "added_at": None, "updated_at": None},
     }
     # Should be able to recover by writing
     cs.set_provider("openai", api_key="sk-1", model="gpt-5.1")
