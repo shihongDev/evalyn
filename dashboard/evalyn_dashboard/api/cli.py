@@ -21,10 +21,13 @@ Validation rules (rejected with 400 on violation):
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
 
 from ..introspect import CliSchema, ParamSchema, catalog_to_payload
 
@@ -350,6 +353,15 @@ async def run_cli(request: Request) -> JSONResponse:
         # without surfacing a confusing error to the user. The header
         # is a hint, not a guarantee - by then the FE has usually
         # finished its current spawn anyway.
+        # Audit log for the rejected path so postmortems can
+        # distinguish "asked but blocked" from "asked and spawned"
+        # (matches the restart endpoint pattern).
+        logger.info(
+            "cli run rejected (capacity): cli_id=%s running=%s max=%s",
+            cli_id,
+            job_manager.running_count(),
+            job_manager.max_concurrent,
+        )
         return JSONResponse(
             {
                 "ok": False,
@@ -360,6 +372,14 @@ async def run_cli(request: Request) -> JSONResponse:
             status_code=503,
             headers={"Retry-After": "5"},
         )
+    # Audit log on successful spawn. Captures cli_id + new job_id
+    # so the log shows what was launched and gives a hook into the
+    # JobManager's own per-job logs. Args are intentionally NOT
+    # logged - user-supplied dict can contain paths, secrets pasted
+    # into form fields, etc. The forensic chain is: cli run log ->
+    # job_id -> JM/persistence per-job records (which already carry
+    # args without going through this log).
+    logger.info("cli run: cli_id=%s job_id=%s", cli_id, job_id)
     return JSONResponse({"job_id": job_id})
 
 

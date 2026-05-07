@@ -492,3 +492,90 @@ def test_run_at_capacity_returns_503(monkeypatch):
     assert body.get("max_concurrent") == 2
     assert "max_concurrent=2" in body.get("error", "")
     assert r.headers.get("Retry-After") == "5"
+
+
+def test_run_emits_audit_log(monkeypatch, caplog):
+    """Successful spawn emits an audit log line with cli_id +
+    job_id so postmortems can answer "what was launched during
+    the incident window?". Args are intentionally NOT logged
+    (would leak user-supplied paths/secrets into log files);
+    pinned by an explicit "args content must NOT appear" check."""
+    import logging
+
+    app = build_app()
+    client = TestClient(app)
+
+    real_spawn = app.state.job_manager.spawn
+
+    async def fake_spawn(cmd, *, cli_id="", args=None):
+        return await real_spawn(
+            [sys.executable, "-c", "print('ok')"], cli_id=cli_id, args=args
+        )
+
+    monkeypatch.setattr(app.state.job_manager, "spawn", fake_spawn)
+
+    html = client.get("/").text
+    token = re.search(r'content="([^"]+)"', html).group(1)
+
+    with caplog.at_level(logging.INFO, logger="evalyn_dashboard.api.cli"):
+        r = client.post(
+            "/api/cli/run",
+            json={"cli_id": "list-runs", "args": {"limit": 5, "format": "json"}},
+            headers={CSRF_HEADER: token},
+        )
+        assert r.status_code == 200
+        job_id = r.json()["job_id"]
+
+    matched = [
+        rec for rec in caplog.records
+        if rec.message.startswith("cli run: ")
+    ]
+    assert len(matched) == 1
+    assert "cli_id=list-runs" in matched[0].message
+    assert job_id in matched[0].message
+    # Args content must NOT leak into the log line. The arg
+    # values "5" and "json" would be ambiguous (could appear in
+    # other parts of the line) but the dict-style fragment is
+    # the test's tightest signal.
+    assert "args" not in matched[0].message.lower()
+    assert "limit=5" not in matched[0].message
+    assert "format=json" not in matched[0].message
+
+
+def test_run_at_capacity_emits_rejected_audit_log(monkeypatch, caplog):
+    """503 capacity-rejected path also gets an audit log entry
+    distinct from the success log. Pattern matches the restart
+    endpoint's "asked but blocked" / "asked and spawned" split."""
+    import logging
+
+    app = build_app()
+    client = TestClient(app)
+
+    jm = app.state.job_manager
+    jm.max_concurrent = 2
+    monkeypatch.setattr(jm, "running_count", lambda: 2)
+
+    html = client.get("/").text
+    token = re.search(r'content="([^"]+)"', html).group(1)
+
+    with caplog.at_level(logging.INFO, logger="evalyn_dashboard.api.cli"):
+        r = client.post(
+            "/api/cli/run",
+            json={"cli_id": "list-runs", "args": {}},
+            headers={CSRF_HEADER: token},
+        )
+        assert r.status_code == 503
+
+    matched = [
+        rec for rec in caplog.records
+        if rec.message.startswith("cli run rejected (capacity):")
+    ]
+    assert len(matched) == 1
+    assert "cli_id=list-runs" in matched[0].message
+    # The success log line ("cli run:") must NOT appear since no
+    # spawn happened.
+    success_matched = [
+        rec for rec in caplog.records
+        if rec.message.startswith("cli run: ")
+    ]
+    assert len(success_matched) == 0
