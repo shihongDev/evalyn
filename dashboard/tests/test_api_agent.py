@@ -809,6 +809,71 @@ def test_ws_agent_sends_periodic_ping_on_idle(
         assert pings >= 1, "expected at least one ping frame on idle agent WS"
 
 
+def test_confirm_emits_audit_log(tmp_path: Path, caplog) -> None:
+    """Confirm endpoint logs the approve/reject decision so
+    postmortems can answer "what tool calls did the user approve
+    during the incident window?". Volume is bounded by user pace
+    (once per tool confirmation, not per turn), so audit logging
+    is appropriate. The args_override (when present) is NOT
+    logged - same privacy rationale as the chat endpoint."""
+    import logging
+    import time
+
+    from evalyn_dashboard.agent import ProviderToolCall
+
+    tc = ProviderToolCall(id="tc-1", name="run-eval", arguments={"dataset": "ds"})
+    turns = [
+        [ProviderEvent(kind="tool_call", tool_call=tc), ProviderEvent(kind="finish")],
+        [ProviderEvent(kind="text_delta", text="done"), ProviderEvent(kind="finish")],
+    ]
+
+    async def runner(argv: list[str]) -> tuple[str, int]:
+        return "ran", 0
+
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider(turns),
+        catalog=_sample_catalog(),
+        tool_runner=runner,
+        confirm_timeout=2.0,
+    )
+    app = _make_app(tmp_path, runtime)
+    with TestClient(app) as client:
+        token = _token_from(client)
+        r = client.post(
+            "/api/agent/chat",
+            json={"message": "go"},
+            headers={CSRF_HEADER: token},
+        )
+        thread_id = r.json()["thread_id"]
+
+        # Wait for the runtime to reach the confirmation gate.
+        deadline = time.time() + 5.0
+        while time.time() < deadline:
+            evts = runtime._threads[thread_id].events
+            if any(e["type"] == "confirmation_required" for e in evts):
+                break
+            time.sleep(0.02)
+        else:
+            pytest.fail("confirmation_required never emitted")
+
+        with caplog.at_level(logging.INFO, logger="evalyn_dashboard.api.agent"):
+            r2 = client.post(
+                f"/api/agent/chat/{thread_id}/confirm",
+                json={"approve": False, "tool_call_id": "tc-1"},
+                headers={CSRF_HEADER: token},
+            )
+            assert r2.status_code == 200
+
+    matched = [
+        rec for rec in caplog.records
+        if rec.message.startswith("agent confirm:")
+    ]
+    assert len(matched) == 1
+    assert thread_id in matched[0].message
+    assert "approved=False" in matched[0].message
+    assert "tool_call_id=tc-1" in matched[0].message
+
+
 def test_chat_creates_thread_emits_audit_log(tmp_path: Path, caplog) -> None:
     """When chat creates a NEW thread (no thread_id passed or
     unknown id), emit an audit log line. High-volume same-thread
