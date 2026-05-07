@@ -18,16 +18,45 @@
  * this shell is responsible for chrome only.
  */
 
-import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  Fragment,
+  Suspense,
+  lazy,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import { useLocation, useNavigate, NavLink } from 'react-router-dom';
 import { E } from './tokens';
 import { Btn, Eyebrow, Pill, StatusDot } from './ui';
 import { MOD_KEY } from './platform';
 import { useV2Store } from './store/store';
-import { CoPilotDock } from './copilot/CoPilotDock';
-import { CommandPalette } from './CommandPalette';
 import { CliRunner } from './CliRunner';
-import { RecentJobsDrawer } from './RecentJobsDrawer';
+// Heavy overlays - lazy-loaded so the AppShell first paint doesn't pay
+// for code paths the user may never touch this session. The Suspense
+// boundaries below render null while the chunk fetches; the open
+// transitions are click-driven so a 50-200ms first-open delay is
+// acceptable. Subsequent opens hit the warm chunk and are instant.
+//
+// CliRunner is NOT lazy-loaded: its cliRunnerBridge import side-
+// effect hooks up the global openCliRunner() function used by routes
+// like Commands and the drawer Re-run path. Lazy-loading it would
+// require introducing a "deferred bridge" abstraction. Given CliRunner
+// is the most-used overlay in any session, eager-loading it is the
+// pragmatic call.
+const CoPilotDock = lazy(() =>
+  import('./copilot/CoPilotDock').then((m) => ({ default: m.CoPilotDock })),
+);
+const CommandPalette = lazy(() =>
+  import('./CommandPalette').then((m) => ({ default: m.CommandPalette })),
+);
+const RecentJobsDrawer = lazy(() =>
+  import('./RecentJobsDrawer').then((m) => ({
+    default: m.RecentJobsDrawer,
+  })),
+);
 import {
   activeJobCount,
   activeJobCliId,
@@ -790,7 +819,9 @@ export function AppShell({
         {/* CO-PILOT DOCK - rendered only when open + not hidden by route.
             Mode varies with viewport (docked column vs overlay vs sheet). */}
         {showDock && (
-          <CoPilotDock onClose={() => setDockOpen(false)} mode={dockMode} />
+          <Suspense fallback={null}>
+            <CoPilotDock onClose={() => setDockOpen(false)} mode={dockMode} />
+          </Suspense>
         )}
 
         {/* Floating "Ask co-pilot" button visible on every viewport when
@@ -916,18 +947,35 @@ export function AppShell({
         </>
       )}
 
-      {/* COMMAND PALETTE - rendered last so it overlays the rest of the shell. */}
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      {/* COMMAND PALETTE - rendered last so it overlays the rest of the shell.
+          Mounted only after the user opens it once; the lazy chunk loads
+          on first Cmd+K. Suspense fallback is null because the palette
+          is itself the entire visible response - blank during fetch is
+          fine, the user sees the palette appear as soon as the chunk
+          lands (typically 50-200ms on first click, instant after). */}
+      {paletteOpen && (
+        <Suspense fallback={null}>
+          <CommandPalette
+            open={paletteOpen}
+            onClose={() => setPaletteOpen(false)}
+          />
+        </Suspense>
+      )}
       {/* CLI RUNNER - global slide-over driven by openCliRunner() from any route.
           z-index 900 sits above the dock/nav (default) but below the palette
           modal (1000) so Cmd+K stays usable while a job is streaming. */}
       <CliRunner />
       {/* RECENT JOBS DRAWER - z-index 880 sits below CliRunner (900) so a
-          drawer-launched resume reads naturally as "drawer hands off to runner". */}
-      <RecentJobsDrawer
-        open={jobsDrawerOpen}
-        onClose={() => setJobsDrawerOpen(false)}
-      />
+          drawer-launched resume reads naturally as "drawer hands off to runner".
+          Same lazy-mount-on-first-open pattern as the palette. */}
+      {jobsDrawerOpen && (
+        <Suspense fallback={null}>
+          <RecentJobsDrawer
+            open={jobsDrawerOpen}
+            onClose={() => setJobsDrawerOpen(false)}
+          />
+        </Suspense>
+      )}
       {helpOpen && <ShortcutHelpOverlay onClose={() => setHelpOpen(false)} />}
       {/* SCROLL-TO-TOP - small floating button visible when the page
           is scrolled deep. Bottom-right, above any drawer/dock since
