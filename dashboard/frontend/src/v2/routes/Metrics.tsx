@@ -1255,6 +1255,23 @@ export default function Metrics() {
     setSaveError(null);
   }
 
+  // Warn the user before they leave the page (tab close, refresh,
+  // hard nav) if the rubric draft has unsaved edits. Modern browsers
+  // ignore the custom message text and show their own generic
+  // "leave site?" dialog, but the `returnValue` assignment is what
+  // triggers the prompt at all. SPA route changes within the
+  // dashboard are not guarded here - those are intentional navigations
+  // and the dirty pill in the editor card is enough warning.
+  useEffect(() => {
+    if (!dirty) return;
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+      e.returnValue = 'You have unsaved rubric edits.';
+    }
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty]);
+
   const cm: { tp: number; tn: number; fp: number; fn: number } | null =
     useMemo(() => {
       if (!detail) return null;

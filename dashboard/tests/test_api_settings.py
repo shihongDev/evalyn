@@ -44,7 +44,12 @@ def test_get_settings_surfaces_ollama_initially(tmp_path: Path) -> None:
     body = r.json()
     assert body["active"] is None
     assert body["providers"] == {
-        "ollama": {"is_set": True, "model": None, "added_at": None},
+        "ollama": {
+            "is_set": True,
+            "model": None,
+            "added_at": None,
+            "updated_at": None,
+        },
     }
 
 
@@ -313,3 +318,41 @@ def test_get_provider_unknown_returns_404(tmp_path: Path) -> None:
     client, _store, _token = _make_client(tmp_path)
     r = client.get("/api/settings/never-existed")
     assert r.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# updated_at tracking on set_provider
+# ---------------------------------------------------------------------------
+
+
+def test_set_provider_records_updated_at(tmp_path: Path) -> None:
+    """First write stamps both added_at and updated_at; subsequent
+    writes advance updated_at while added_at stays pinned to creation."""
+    client, _store, token = _make_client(tmp_path)
+
+    # First write.
+    client.post(
+        "/api/settings/openai",
+        json={"api_key": "sk-1", "model": "gpt-5.1"},
+        headers={CSRF_HEADER: token},
+    )
+    rec1 = client.get("/api/settings/openai").json()
+    assert rec1["added_at"] is not None
+    assert rec1["updated_at"] is not None
+    # Initial write: added_at and updated_at are equal because
+    # set_provider captures one timestamp and reuses it for both.
+    assert rec1["added_at"] == rec1["updated_at"]
+
+    # Subsequent write: updated_at advances; added_at stays.
+    # Note: we can't reliably assert > on string-compared timestamps
+    # without sleeping, but we can assert the structural invariant
+    # (added_at unchanged) and that updated_at is still present.
+    client.post(
+        "/api/settings/openai",
+        json={"model": "gpt-4o"},
+        headers={CSRF_HEADER: token},
+    )
+    rec2 = client.get("/api/settings/openai").json()
+    assert rec2["added_at"] == rec1["added_at"]  # creation pinned
+    assert rec2["updated_at"] is not None
+    assert rec2["model"] == "gpt-4o"
