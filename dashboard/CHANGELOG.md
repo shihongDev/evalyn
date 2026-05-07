@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Skip OS notification on `cancelled`.** The user just clicked Cancel - a popup telling them their job got cancelled is at best redundant, at worst spammy. The `NotifyOpts.status` type now narrows to `'complete' | 'failed'` so the contract is enforced at the type level rather than carried in caller comments. The hidden-tab gate inside `notifyJobTerminal` is unchanged.
+
 ### Added
 
 - **Browser notifications when a backgrounded job finishes.** Customer-cared scenario: user kicks off a long eval, switches to Slack / docs / another tab, and currently has to remember to come check. Now: when a job reaches a terminal state AND the dashboard tab is hidden AND the user has granted permission, an OS notification surfaces "run-eval finished (45s, exit 0)". Click the notification to focus the dashboard. New `frontend/src/v2/notifications.ts` wraps the Notification API with feature-detection, hidden-tab gating, per-`job_id` `tag` (so a queued -> failed sequence replaces rather than stacks), and silent-on-success / beep-on-failure. CliRunner's terminal-status handler calls `notifyJobTerminal`. Drawer header shows "Enable notifications" only when permission state is `'default'`; once granted/denied the affordance disappears (re-prompting is browser-blocked anyway). All API calls are wrapped in defensive guards so unsupported browsers (older Safari, embedded webviews) report `'denied'` instead of throwing.

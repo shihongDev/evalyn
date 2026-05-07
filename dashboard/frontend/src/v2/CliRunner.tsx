@@ -573,11 +573,13 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
           // and the job has reached a terminal state. notifyJobTerminal
           // is internally a no-op without permission / when the tab is
           // foreground, so this is safe to always call.
-          if (
-            s.status === 'complete' ||
-            s.status === 'failed' ||
-            s.status === 'cancelled'
-          ) {
+          // Notify on complete/failed only. We deliberately skip
+          // 'cancelled': the user just clicked Cancel, so a popup
+          // telling them their job got cancelled is at best redundant
+          // and at worst spammy. notifyJobTerminal still gates on
+          // permission + hidden-tab, so this is a foreground-friendly
+          // shape on top of those.
+          if (s.status === 'complete' || s.status === 'failed') {
             notifyJobTerminal({
               jobId: job_id,
               cliId: cli.id,
