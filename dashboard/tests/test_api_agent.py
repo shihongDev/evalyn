@@ -809,6 +809,84 @@ def test_ws_agent_sends_periodic_ping_on_idle(
         assert pings >= 1, "expected at least one ping frame on idle agent WS"
 
 
+def test_chat_creates_thread_emits_audit_log(tmp_path: Path, caplog) -> None:
+    """When chat creates a NEW thread (no thread_id passed or
+    unknown id), emit an audit log line. High-volume same-thread
+    turns stay silent so the log doesn't fill with chat noise; the
+    operationally-interesting "session started" moment is the one
+    captured. The user message itself is NOT logged - may contain
+    sensitive content."""
+    import logging
+
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider(
+            [[ProviderEvent(kind="text_delta", text="x"), ProviderEvent(kind="finish")]]
+        ),
+        catalog=_sample_catalog(),
+    )
+    client, token = _make_client(tmp_path, runtime)
+
+    with caplog.at_level(logging.INFO, logger="evalyn_dashboard.api.agent"):
+        r = client.post(
+            "/api/agent/chat",
+            json={"message": "hi"},
+            headers={CSRF_HEADER: token},
+        )
+        assert r.status_code == 200
+        thread_id = r.json()["thread_id"]
+
+    matched = [
+        rec for rec in caplog.records
+        if rec.message.startswith("agent thread created:")
+    ]
+    assert len(matched) == 1
+    assert thread_id in matched[0].message
+    # Critically: the user message ("hi") must NOT appear in the
+    # log line - prompts may be sensitive.
+    assert "hi" not in matched[0].message
+
+
+def test_chat_reuse_thread_does_not_emit_audit_log(tmp_path: Path, caplog) -> None:
+    """Subsequent turns on an existing thread (thread_id passed
+    AND matches a known thread) skip the audit log. Otherwise the
+    log would fill with chat noise on long conversations."""
+    import logging
+
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider(
+            [
+                [ProviderEvent(kind="text_delta", text="a"), ProviderEvent(kind="finish")],
+                [ProviderEvent(kind="text_delta", text="b"), ProviderEvent(kind="finish")],
+            ]
+        ),
+        catalog=_sample_catalog(),
+    )
+    client, token = _make_client(tmp_path, runtime)
+
+    # First chat: creates a thread (logs).
+    r1 = client.post(
+        "/api/agent/chat",
+        json={"message": "first"},
+        headers={CSRF_HEADER: token},
+    )
+    thread_id = r1.json()["thread_id"]
+
+    # Second chat with the SAME thread_id: should NOT log.
+    with caplog.at_level(logging.INFO, logger="evalyn_dashboard.api.agent"):
+        r2 = client.post(
+            "/api/agent/chat",
+            json={"message": "second", "thread_id": thread_id},
+            headers={CSRF_HEADER: token},
+        )
+        assert r2.status_code == 200
+
+    matched = [
+        rec for rec in caplog.records
+        if rec.message.startswith("agent thread created:")
+    ]
+    assert len(matched) == 0
+
+
 def test_purge_old_threads_emits_audit_log(tmp_path: Path, caplog) -> None:
     """Mirror the jobs-endpoint audit pattern: capture intent
     (max_age_s) AND outcome (removed). Useful for "did the
