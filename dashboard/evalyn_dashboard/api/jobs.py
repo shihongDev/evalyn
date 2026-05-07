@@ -32,6 +32,19 @@ from ..jobs import Job
 router = APIRouter()
 
 
+def _output_url_for(job_id: str) -> str:
+    """Canonical relative URL for downloading the job's log.
+
+    Frontends pasting share links use this exact shape (``?download=1``
+    so browsers save-as instead of rendering inline; ``?include_meta=1``
+    so the saved file carries a self-describing ``# job_id / cli /
+    started_at / ...`` header). Returned as a relative URL so the
+    client picks up the right origin (FE adds ``window.location.origin``
+    when sharing externally).
+    """
+    return f"/api/jobs/{job_id}/output.txt?download=1&include_meta=1"
+
+
 def _job_to_dict(job: Job) -> dict:
     """Project a :class:`Job` to its public JSON shape.
 
@@ -58,6 +71,11 @@ def _job_to_dict(job: Job) -> dict:
         # even on long jobs that overflow max_log. Frontend's Recent
         # Jobs drawer surfaces it as "5 stderr" inline.
         "stderr_count": job.stderr_count,
+        # Canonical log download URL. Lets the FE render a "↓ log"
+        # link per row without reconstructing the URL itself; lets
+        # external integrations (curl wrappers, Slack bots) paste a
+        # share-ready URL without knowing the convention.
+        "output_url": _output_url_for(job.id),
     }
 
 
@@ -75,8 +93,9 @@ def _persisted_to_dict(row: dict) -> dict:
     """Project a sqlite row to the same shape as :func:`_job_to_dict`."""
     cmd_str = row.get("cmd") or ""
     cmd_list = cmd_str.split(" ") if cmd_str else []
+    job_id = row.get("job_id") or ""
     return {
-        "id": row.get("job_id"),
+        "id": job_id,
         "cmd": cmd_list,
         "cli_id": row.get("cli_id") or "",
         "state": row.get("status") or "unknown",
@@ -90,6 +109,7 @@ def _persisted_to_dict(row: dict) -> dict:
         # via the column DEFAULT. Either way the response shape is
         # uniform with in-memory rows.
         "stderr_count": row.get("stderr_count") or 0,
+        "output_url": _output_url_for(job_id) if job_id else "",
     }
 
 
