@@ -492,6 +492,7 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
                 submit();
               }
             }}
+            aria-label="Co-pilot prompt"
             placeholder="Ask anything about your evals…"
             disabled={status === 'streaming' || pending != null}
             rows={2}

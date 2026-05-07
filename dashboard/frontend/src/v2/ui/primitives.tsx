@@ -55,6 +55,22 @@
  *    Concrete pattern: hoist the warm into a `warm` helper and
  *    attach it to all three event props rather than duplicating
  *    the body inline (see ExperimentsList lineage row).
+ *
+ * 7. Form inputs need a programmatic label, not just adjacent
+ *    text. A styled `<div>` next to an `<input>` looks labeled
+ *    but isn't - SR users tabbing in hear the type ("spin
+ *    button", "edit, blank") with no field name. Pick one:
+ *      - wrap the field in a real `<label htmlFor={id}>` and
+ *        give the input a matching `id` (use useId() so two
+ *        instances on the same page can't collide). This is
+ *        what the CliRunner ParamField does.
+ *      - if the input is decorative-row-style with no separate
+ *        visible label (e.g. CommandPalette search, CoPilotDock
+ *        chat box, Datasets / RecentJobsDrawer search), put an
+ *        explicit `aria-label` on the input itself so the
+ *        placeholder isn't the only signal of purpose.
+ *    The `placeholder` attribute is not a substitute for either -
+ *    it disappears on focus.
  */
 
 import type {

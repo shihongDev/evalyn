@@ -1562,6 +1562,7 @@ function TracePane({
         <textarea
           value={note}
           onChange={(e) => onNote(e.target.value)}
+          aria-label="Note for the team (optional)"
           placeholder="Optional - leave a note about this verdict"
           style={{
             width: '100%',

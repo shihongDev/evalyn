@@ -525,6 +525,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            aria-label="Search commands, runs, datasets, and rubrics"
             placeholder="Jump to a command, run, dataset, or rubric..."
             style={{
               flex: 1,
