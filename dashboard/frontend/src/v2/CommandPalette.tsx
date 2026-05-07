@@ -367,10 +367,16 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     };
   }, [query, allEntries, defaultEntries]);
 
-  // Clamp the active index when the list changes.
+  // Reset the highlight to the top result whenever the query changes.
+  // The previous "clamp only if out of bounds" rule left the highlight
+  // stranded mid-list when the new query still happened to have enough
+  // matches: e.g. typing "exp" → arrow to row 3 → typing "exper" left
+  // the highlight on row 3 of a now-different result set, instead of
+  // the most relevant new top match. Slack / VS Code / GitHub all
+  // reset to row 0 on every keystroke.
   useEffect(() => {
-    if (activeIndex >= filtered.length) setActiveIndex(0);
-  }, [filtered.length, activeIndex]);
+    setActiveIndex(0);
+  }, [query]);
 
   // Keep the active row visible during arrow-key navigation. Without
   // this, arrowing past the bottom of the visible window leaves the
