@@ -19,7 +19,8 @@
  * so this view stays usable in either state.
  */
 
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, UpdatingChip } from '../ui';
@@ -650,8 +651,50 @@ export default function Reports() {
 
   const report = data as AugmentedReport | null;
 
-  const [audience, setAudience] = useState<Audience>('Leadership');
-  const [compareMode, setCompareMode] = useState<CompareMode>('last-week');
+  // Both view selections live in the URL so links land the
+  // recipient on the same audience + compare lens the sender was
+  // looking at. Reload / browser back / "share with leadership"
+  // all preserve the choice. setSearchParams uses replace so
+  // tab clicks don't pollute the back stack with one entry per
+  // selection. Pattern matches Metrics' ?metric= (fc0c7cb).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const audienceParam = searchParams.get('audience');
+  const audience: Audience = AUDIENCES.includes(audienceParam as Audience)
+    ? (audienceParam as Audience)
+    : 'Leadership';
+  const setAudience = useCallback(
+    (next: Audience) => {
+      setSearchParams(
+        (prev) => {
+          const u = new URLSearchParams(prev);
+          if (next === 'Leadership') u.delete('audience');
+          else u.set('audience', next);
+          return u;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+  const compareParam = searchParams.get('compare');
+  const compareMode: CompareMode =
+    compareParam === 'four-week-avg' || compareParam === 'last-quarter'
+      ? compareParam
+      : 'last-week';
+  const setCompareMode = useCallback(
+    (next: CompareMode) => {
+      setSearchParams(
+        (prev) => {
+          const u = new URLSearchParams(prev);
+          if (next === 'last-week') u.delete('compare');
+          else u.set('compare', next);
+          return u;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
   const [sendState, setSendState] = useState<'idle' | 'sent'>('idle');
 
