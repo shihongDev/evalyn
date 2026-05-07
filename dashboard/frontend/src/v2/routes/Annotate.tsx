@@ -141,7 +141,8 @@ function JudgeProgressRing({
           : ring.low
             ? 'needs work'
             : `${ring.need} more annotations to threshold`
-      }${active ? ', currently selected' : ''}. Click to select.`}
+      }. Click to select.`}
+      aria-pressed={active}
       style={{
         padding: 14,
         borderColor,

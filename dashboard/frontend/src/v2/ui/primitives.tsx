@@ -169,6 +169,12 @@ interface CardProps {
    * or icon rather than a sentence. Ignored when `onClick` is unset
    * (a non-interactive card has no need for an aria-label). */
   'aria-label'?: string;
+  /** Selected/pressed state for cards that act as a toggle (e.g. a
+   * judge ring picker that drives a queue below). Per rule 1 of this
+   * file: any visible "active" highlight needs a matching ARIA state
+   * so SR users hear "pressed" when activated, not just sighted users
+   * seeing a 1 px rim. Only forwarded when `onClick` is set. */
+  'aria-pressed'?: boolean;
   /** Optional coachmark id for the co-pilot UI guidance tour to anchor on. */
   'data-coachmark'?: string;
 }
@@ -181,6 +187,7 @@ export function Card({
   accent,
   onClick,
   'aria-label': ariaLabel,
+  'aria-pressed': ariaPressed,
   'data-coachmark': dataCoachmark,
 }: CardProps) {
   // When the card itself is the click target, expose it as a button
@@ -204,6 +211,7 @@ export function Card({
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}
       aria-label={interactive ? ariaLabel : undefined}
+      aria-pressed={interactive && ariaPressed != null ? ariaPressed : undefined}
       data-coachmark={dataCoachmark}
       // .eCardHover lifts the card on hover via box-shadow and a 1 px
       // upward translate. Box-shadow is intentionally chosen over a
