@@ -73,9 +73,9 @@ export function ThinkingBubble() {
           lineHeight: 1,
         }}
       >
-        <span style={{ animation: 'eDotPulse 1.2s ease-in-out infinite', animationDelay: '0s' }}>·</span>
-        <span style={{ animation: 'eDotPulse 1.2s ease-in-out infinite', animationDelay: '0.2s' }}>·</span>
-        <span style={{ animation: 'eDotPulse 1.2s ease-in-out infinite', animationDelay: '0.4s' }}>·</span>
+        <span aria-hidden="true" style={{ animation: 'eDotPulse 1.2s ease-in-out infinite', animationDelay: '0s' }}>·</span>
+        <span aria-hidden="true" style={{ animation: 'eDotPulse 1.2s ease-in-out infinite', animationDelay: '0.2s' }}>·</span>
+        <span aria-hidden="true" style={{ animation: 'eDotPulse 1.2s ease-in-out infinite', animationDelay: '0.4s' }}>·</span>
       </span>
     </Bubble>
   );
