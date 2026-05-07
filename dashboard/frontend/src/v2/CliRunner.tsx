@@ -562,14 +562,53 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
     onClose();
   }, [onClose]);
 
-  // Close on Escape - matches palette behavior.
+  // Clear visible scrollback (terminal Ctrl+L idiom). Does NOT cancel
+  // the running job - only flushes the lines state and the rAF buffer
+  // so the user can scroll to a fresh slate while the job keeps
+  // streaming. The job's own `lines` state survives unaffected on the
+  // server side; reattaching with ?since=0 would re-replay everything.
+  const clearOutput = useCallback(() => {
+    if (flushScheduledRef.current != null) {
+      if (typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(flushScheduledRef.current);
+      } else {
+        window.clearTimeout(flushScheduledRef.current);
+      }
+      flushScheduledRef.current = null;
+    }
+    linesBufferRef.current = [];
+    setLines([]);
+  }, []);
+
+  // Close on Escape - matches palette behavior. Ctrl+L (or Cmd+L on
+  // macOS) clears the visible scrollback, mirroring terminal idiom.
+  // We intentionally only intercept Ctrl+L when the user is NOT
+  // typing in an editable element (form mode) so the form retains
+  // standard browser shortcut behavior.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onCloseClick();
+      if (e.key === 'Escape') {
+        onCloseClick();
+        return;
+      }
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        !e.altKey &&
+        !e.shiftKey &&
+        e.key.toLowerCase() === 'l'
+      ) {
+        const target = e.target as HTMLElement | null;
+        const tag = target?.tagName?.toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) {
+          return;
+        }
+        e.preventDefault();
+        clearOutput();
+      }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onCloseClick]);
+  }, [onCloseClick, clearOutput]);
 
   const pill = statusPill(status);
 
