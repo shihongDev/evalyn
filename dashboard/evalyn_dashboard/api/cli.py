@@ -415,7 +415,7 @@ async def get_command_history(
         raise HTTPException(status_code=422, detail="limit must be 1..200")
 
     job_manager = request.app.state.job_manager
-    persistence = getattr(job_manager, "_persistence", None)
+    persistence = job_manager.persistence
 
     rows: list[dict] = []
     if persistence is not None:
