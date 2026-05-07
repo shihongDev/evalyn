@@ -44,6 +44,17 @@
  *    RecentJobsDrawer, CliRunner) follow the same pattern: capture
  *    prevFocus on open, focus a meaningful element inside, restore
  *    prevFocus on unmount.
+ *
+ * 6. Prefetch hooks must fire for keyboard users too. Any
+ *    `onMouseEnter` that warms a route chunk or in-flight fetch
+ *    needs a paired `onFocus` on the same element with the same
+ *    body. Mouse hover triggers warm; keyboard Tab triggers
+ *    focus; both should be sub-perception by click time. The
+ *    AppShell nav rail also adds `onTouchStart` for mobile - copy
+ *    that triple when the link is on the primary nav surface.
+ *    Concrete pattern: hoist the warm into a `warm` helper and
+ *    attach it to all three event props rather than duplicating
+ *    the body inline (see ExperimentsList lineage row).
  */
 
 import type {
