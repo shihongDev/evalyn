@@ -1,0 +1,1 @@
+import{A as e,w as t}from"./AppShell-ChRJS_0i.js";function n(){let{data:n}=t(`home`,e.home);return n?n.project:null}export{n as t};

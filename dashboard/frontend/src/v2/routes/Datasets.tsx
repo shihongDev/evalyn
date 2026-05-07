@@ -1068,21 +1068,59 @@ export default function Datasets() {
               flexWrap: 'wrap',
             }}
           >
-            <input
-              placeholder="Search datasets by name or tag..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+            <div
               style={{
                 flex: 1,
                 minWidth: 180,
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                color: E.text1,
-                fontSize: 13,
-                padding: '4px 10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
               }}
-            />
+            >
+              <input
+                aria-label="Search datasets by name or tag"
+                placeholder="Search datasets by name or tag..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  // Esc clears the query - matches the rest of the
+                  // dashboard's search inputs (AnnotateSession etc.).
+                  if (e.key === 'Escape' && query) {
+                    e.preventDefault();
+                    setQuery('');
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  color: E.text1,
+                  fontSize: 13,
+                  padding: '4px 10px',
+                }}
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  title="Clear search (Esc)"
+                  aria-label="Clear search"
+                  style={{
+                    fontFamily: E.fMono,
+                    fontSize: 13,
+                    color: E.text3,
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '0 6px',
+                    lineHeight: 1,
+                  }}
+                >
+                  <span aria-hidden="true">×</span>
+                </button>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => setHideEmpty(!hideEmpty)}
