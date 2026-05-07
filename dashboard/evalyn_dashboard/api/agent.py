@@ -32,6 +32,26 @@ async def _json_object_body(request: Request) -> dict:
     return body
 
 
+@router.get("/threads")
+async def list_threads(request: Request) -> JSONResponse:
+    """Return a snapshot of every active agent thread.
+
+    Each entry: ``{id, message_count, event_count, closed,
+    has_pending_confirmation}``. Useful for an admin/debug surface
+    answering "what threads has this runtime accumulated?", or for
+    polling whether a thread is gated on user confirmation (a stuck
+    chat).
+
+    The bodies of messages and events are NOT included - they can
+    grow large and a list endpoint should stay lightweight. Fetch the
+    full event stream via ``/ws/agent/{thread_id}``.
+    """
+    runtime = getattr(request.app.state, "agent_runtime", None)
+    if runtime is None:
+        raise HTTPException(status_code=503, detail="agent runtime not configured")
+    return JSONResponse(runtime.list_threads())
+
+
 @router.post("/chat")
 async def chat(request: Request) -> JSONResponse:
     body = await _json_object_body(request)
