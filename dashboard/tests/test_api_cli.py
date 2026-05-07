@@ -186,6 +186,33 @@ def test_get_catalog_does_not_require_csrf():
 
 
 # ---------------------------------------------------------------------------
+# GET /api/cli/{cli_id}
+# ---------------------------------------------------------------------------
+
+
+def test_get_cli_single_returns_schema():
+    """GET /api/cli/{cli_id} returns the same JSON shape as one entry
+    in the full catalog. Useful for deep-link clients."""
+    client, _ = _client_with_token()
+    catalog = client.get("/api/cli").json()
+    assert len(catalog) >= 1
+    sample = catalog[0]
+    cli_id = sample["id"]
+
+    r = client.get(f"/api/cli/{cli_id}")
+    assert r.status_code == 200
+    body = r.json()
+    # Same shape as the catalog entry.
+    assert body == sample
+
+
+def test_get_cli_unknown_returns_404():
+    client, _ = _client_with_token()
+    r = client.get("/api/cli/does-not-exist")
+    assert r.status_code == 404
+
+
+# ---------------------------------------------------------------------------
 # POST /api/cli/run
 # ---------------------------------------------------------------------------
 

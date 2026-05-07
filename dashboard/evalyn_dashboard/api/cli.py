@@ -171,6 +171,25 @@ async def get_catalog(request: Request) -> JSONResponse:
     return JSONResponse(catalog_to_payload(catalog))
 
 
+@router.get("/{cli_id}")
+async def get_cli(request: Request, cli_id: str) -> JSONResponse:
+    """Return one CLI's schema. Same JSON shape as one entry in
+    ``GET /api/cli``; 404 on unknown.
+
+    Useful for deep-link clients that already know the cli_id and
+    don't need to download the full catalog (35+ entries) just to
+    render one form. Saves bandwidth on routes like
+    ``/runner/run-eval`` where the entry point is the cli_id itself.
+    """
+    catalog: list[CliSchema] = request.app.state.cli_catalog
+    schema = next((s for s in catalog if s.id == cli_id), None)
+    if schema is None:
+        raise HTTPException(status_code=404, detail=f"unknown cli_id: {cli_id}")
+    from ..introspect import schema_to_dict
+
+    return JSONResponse(schema_to_dict(schema))
+
+
 @router.post("/run")
 async def run_cli(request: Request) -> JSONResponse:
     """Validate args and spawn ``evalyn <cli_id> ...``."""
