@@ -120,6 +120,26 @@ async def test_provider(request: Request, provider: str) -> JSONResponse:
     return JSONResponse(result, status_code=status)
 
 
+@router.delete("/{provider}")
+async def delete_provider(request: Request, provider: str) -> JSONResponse:
+    """Remove a provider's stored credentials.
+
+    Mirrors purge patterns from jobs/agent. If the removed provider
+    was the currently-active one, ``active`` is cleared so the
+    dashboard does not point at a now-missing record. The user must
+    explicitly ``POST /active`` to switch providers afterwards.
+
+    200 + ``{ok, provider}`` on success, 404 if the provider has no
+    stored record (idempotent miss returns 404 not 500).
+    """
+    store = _get_store(request)
+    if not store.remove_provider(provider):
+        raise HTTPException(
+            status_code=404, detail=f"unknown provider: {provider}"
+        )
+    return JSONResponse({"ok": True, "provider": provider})
+
+
 @router.post("/{provider}")
 async def set_provider(request: Request, provider: str) -> JSONResponse:
     store = _get_store(request)

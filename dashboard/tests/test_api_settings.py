@@ -217,3 +217,67 @@ def test_test_provider_failure_returns_400(tmp_path: Path) -> None:
     body = r.json()
     assert body["ok"] is False
     assert "rate limit" in body["error"]
+
+
+# ---------------------------------------------------------------------------
+# DELETE /api/settings/{provider}
+# ---------------------------------------------------------------------------
+
+
+def test_delete_provider_removes_record(tmp_path: Path) -> None:
+    """DELETE /api/settings/{provider} drops the stored record so a
+    subsequent GET no longer lists it. 404 on miss; idempotent."""
+    client, store, token = _make_client(tmp_path)
+
+    # Set + delete openai.
+    r1 = client.post(
+        "/api/settings/openai",
+        json={"api_key": "sk-test", "model": "gpt-5.1"},
+        headers={CSRF_HEADER: token},
+    )
+    assert r1.status_code == 200
+    # Sanity: the record is now there.
+    pre = client.get("/api/settings").json()
+    assert "openai" in pre.get("providers", {})
+
+    r = client.delete("/api/settings/openai", headers={CSRF_HEADER: token})
+    assert r.status_code == 200
+    assert r.json() == {"ok": True, "provider": "openai"}
+
+    # No longer surfaces.
+    post = client.get("/api/settings").json()
+    assert "openai" not in post.get("providers", {})
+
+    # Idempotent miss returns 404.
+    r2 = client.delete("/api/settings/openai", headers={CSRF_HEADER: token})
+    assert r2.status_code == 404
+
+
+def test_delete_active_provider_clears_active(tmp_path: Path) -> None:
+    """If the deleted provider was active, the active field is cleared."""
+    client, store, token = _make_client(tmp_path)
+    client.post(
+        "/api/settings/openai",
+        json={"api_key": "sk-test", "model": "gpt-5.1"},
+        headers={CSRF_HEADER: token},
+    )
+    client.post(
+        "/api/settings/active",
+        json={"provider": "openai"},
+        headers={CSRF_HEADER: token},
+    )
+    pre = client.get("/api/settings").json()
+    assert pre.get("active") == "openai"
+
+    client.delete("/api/settings/openai", headers={CSRF_HEADER: token})
+    post = client.get("/api/settings").json()
+    # Cleared rather than picking some other provider.
+    assert post.get("active") in ("", None)
+
+
+def test_delete_provider_unknown_returns_404(tmp_path: Path) -> None:
+    client, _store, token = _make_client(tmp_path)
+    r = client.delete(
+        "/api/settings/never-existed", headers={CSRF_HEADER: token}
+    )
+    assert r.status_code == 404
