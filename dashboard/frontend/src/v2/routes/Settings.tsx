@@ -16,7 +16,7 @@
  * for the standard skeleton/cache treatment used by the rest of v2.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, Spinner, StatusDot, UpdatingChip } from '../ui';
 import { useV2Resource } from '../hooks/useV2Resource';
@@ -272,6 +272,35 @@ function SystemStatusCard() {
     const id = window.setInterval(() => setNow(Date.now()), 5000);
     return () => window.clearInterval(id);
   }, []);
+
+  // Optimistic visual confirmation for the Refresh button.
+  // Without this, clicking Refresh is silent: the lastFetchAt
+  // label will eventually update to "0s ago", but on a fast
+  // network the user might miss the transition entirely. A
+  // brief "Refreshed ✓" label change makes the click feel
+  // received. Optimistic rather than awaiting the actual fetch
+  // so even a slow/failed fetch shows visual confirmation that
+  // the click was registered.
+  const [refreshFlash, setRefreshFlash] = useState(false);
+  const refreshTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current !== null) {
+        window.clearTimeout(refreshTimerRef.current);
+      }
+    };
+  }, []);
+  function handleRefresh() {
+    refetchHealth();
+    setRefreshFlash(true);
+    if (refreshTimerRef.current !== null) {
+      window.clearTimeout(refreshTimerRef.current);
+    }
+    refreshTimerRef.current = window.setTimeout(() => {
+      setRefreshFlash(false);
+      refreshTimerRef.current = null;
+    }, 1200);
+  }
 
   // Manual vacuum handler. The button is the entry point; result
   // feedback (success bytes saved, or error message) renders next
@@ -562,10 +591,10 @@ function SystemStatusCard() {
         <Btn
           kind="ghost"
           size="sm"
-          onClick={() => refetchHealth()}
+          onClick={handleRefresh}
           title="Refresh now (bypass the 15s poll interval)"
         >
-          Refresh
+          {refreshFlash ? 'Refreshed ✓' : 'Refresh'}
         </Btn>
         <span style={{ color: E.text4 }}>
           Numbers are best-effort: a degraded persistence layer
