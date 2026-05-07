@@ -78,6 +78,23 @@ _INDEX = (
     "ON jobs(started_at_iso DESC);"
 )
 
+# Composite indexes for the most common filtered+ordered queries on
+# list_recent. Without these, a "?cli_id=run-eval" filter on a table
+# with thousands of rows scans the table in started_at_iso order and
+# discards non-matches. The composite indexes let SQLite seek directly
+# to the cli_id (or status) prefix, then walk in started_at_iso order.
+#
+# These are CREATE INDEX IF NOT EXISTS so re-running on an existing
+# DB is a no-op. The single-column idx_jobs_started_at above stays
+# useful for unfiltered list_recent calls and for ?since/?before-only
+# windowed queries.
+_COMPOSITE_INDEXES = (
+    "CREATE INDEX IF NOT EXISTS idx_jobs_cli_id_started_at "
+    "ON jobs(cli_id, started_at_iso DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_jobs_status_started_at "
+    "ON jobs(status, started_at_iso DESC);",
+)
+
 # Forward migrations for installations whose jobs.sqlite predates a
 # new column. Each entry is the ALTER statement; we catch sqlite3
 # OperationalError "duplicate column name" so re-running on an
@@ -114,6 +131,18 @@ class JobPersistence:
             with self._connect() as conn:
                 conn.execute(_SCHEMA)
                 conn.execute(_INDEX)
+                # Composite indexes for filtered list_recent queries.
+                # IF NOT EXISTS makes them no-ops on already-migrated
+                # DBs. Wrap each in try/except so an unrelated failure
+                # on one (e.g. read-only filesystem mid-creation) does
+                # not abort the rest of init.
+                for idx_stmt in _COMPOSITE_INDEXES:
+                    try:
+                        conn.execute(idx_stmt)
+                    except sqlite3.OperationalError as exc:
+                        logger.warning(
+                            "JobPersistence index creation failed: %s", exc
+                        )
                 # Forward migrations for older installations. Each ALTER
                 # is wrapped in its own try/except so a "duplicate column
                 # name" error (already migrated) is silently ignored, and
