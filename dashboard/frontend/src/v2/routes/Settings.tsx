@@ -229,19 +229,56 @@ function SystemStatusCard() {
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [loaded, setLoaded] = useState(false);
 
+  // Visibility-aware polling. When the tab is hidden the user
+  // can't see the card so polling is pure waste; we pause on
+  // hidden, resume on visible. On resume, fire an immediate
+  // refetch so the card lands fresh - a 15s wait after tabbing
+  // back would feel stale (uptime climbing from a wall-clock
+  // value the user can guess is wrong).
+  //
+  // Same pattern as the drawer's start/stop helper. Keeping the
+  // interval id in a ref-like local scope (closed over by start()
+  // and stop()) avoids a stale-closure bug where stop() could
+  // miss the latest interval handle.
   useEffect(() => {
     let cancelled = false;
+    let intervalId: number | null = null;
+
     async function poll() {
       const h = await fetchSystemHealth();
       if (cancelled) return;
       setHealth(h);
       setLoaded(true);
     }
-    void poll();
-    const interval = window.setInterval(() => void poll(), 15000);
+
+    function start() {
+      if (intervalId !== null) return;
+      void poll();
+      intervalId = window.setInterval(() => void poll(), 15000);
+    }
+
+    function stop() {
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+        intervalId = null;
+      }
+    }
+
+    if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+      start();
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        start();
+      } else {
+        stop();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      stop();
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, []);
 
