@@ -20,7 +20,7 @@
  * pulse spark is the recent pass-rate sequence.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import {
@@ -677,6 +677,11 @@ export default function ExperimentsList() {
     return { all: runs.length, week, gate };
   }, [data]);
 
+  // Ref + "/" hotkey focus, mirroring the drawer / runner-output
+  // patterns. Press "/" outside any input/textarea and the cursor
+  // lands in the search box. Esc inside the box clears the filter
+  // first; second Esc blurs back to body.
+  const searchRef = useRef<HTMLInputElement | null>(null);
   // Free-text search filter on top of the saved-view filter.
   // Substring match (case-insensitive) against id, name, author, and
   // tags so a user can grep for "fewshot-v2" or "@daisy" or a tag.
@@ -707,6 +712,23 @@ export default function ExperimentsList() {
     }, 120);
     return () => window.clearTimeout(handle);
   }, [searchInput]);
+  // "/" hotkey to focus the search input (drawer / output-filter
+  // pattern). Skip when the user is already typing in another
+  // input/textarea so we don't intercept normal characters.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) {
+        return;
+      }
+      e.preventDefault();
+      searchRef.current?.focus();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Apply the active saved view AND the search filter to the lineage
   // list. AND-combined: the chip narrows the cohort, the search
@@ -908,10 +930,23 @@ export default function ExperimentsList() {
           />
           <span style={{ flex: 1 }} />
           <input
+            ref={searchRef}
             type="search"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search runs..."
+            onKeyDown={(e) => {
+              // Esc inside the box: clear first, then blur.
+              if (e.key === 'Escape') {
+                if (searchInput) {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  setSearchInput('');
+                  return;
+                }
+                searchRef.current?.blur();
+              }
+            }}
+            placeholder="Search runs... (/ to focus)"
             aria-label="Search runs by id, name, author, or tag"
             style={{
               minWidth: 200,
