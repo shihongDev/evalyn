@@ -1428,8 +1428,20 @@ export default function AnnotateSession() {
       }
       const range = sel.getRangeAt(0);
       const rect = range.getBoundingClientRect();
-      const x = Math.max(160, Math.min(window.innerWidth - 160, rect.left + rect.width / 2));
-      const y = rect.bottom + 8;
+      // Half of the popover's 360px maxWidth is 180; add 12 px of
+      // breathing room so the box-shadow doesn't kiss the viewport
+      // edge. The previous clamp used 160 - 20 px short of the actual
+      // half-width - which let the popover clip near either edge.
+      const x = Math.max(192, Math.min(window.innerWidth - 192, rect.left + rect.width / 2));
+      // Popover is ~210 px tall when expanded; if the selection is
+      // close to the bottom of the viewport, anchor *above* the
+      // selection instead so we don't render below the fold.
+      const POPOVER_H = 210;
+      const yBelow = rect.bottom + 8;
+      const y =
+        yBelow + POPOVER_H > window.innerHeight - 12
+          ? Math.max(12, rect.top - POPOVER_H - 8)
+          : yBelow;
       const snippet = text.length > 2000 ? text.slice(0, 2000) : text;
       setEvidencePopover({ snippet, x, y });
     }
