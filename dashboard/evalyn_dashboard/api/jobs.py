@@ -21,6 +21,7 @@ sits on the ``/ws/`` prefix instead of ``/api/``.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any
 
@@ -28,6 +29,8 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from ..jobs import Job
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -967,6 +970,17 @@ async def vacuum_persistence(request: Request) -> JSONResponse:
         after = int(persistence.db_size_bytes())
     except Exception:  # noqa: BLE001
         after = 0
+    saved = before - after
+    # Audit log for operators: a manual vacuum is uncommon enough
+    # that recording each invocation is useful for postmortems
+    # ("did anyone vacuum during the incident window?"). INFO
+    # rather than DEBUG so default log levels capture it.
+    logger.info(
+        "admin vacuum: before=%s after=%s saved=%s",
+        before,
+        after,
+        saved,
+    )
     return JSONResponse(
         {
             "ok": True,
@@ -974,7 +988,7 @@ async def vacuum_persistence(request: Request) -> JSONResponse:
             "after": after,
             # Negative/zero is fine; FE renders "(no change)" in
             # that case rather than showing a misleading positive.
-            "bytes_saved": before - after,
+            "bytes_saved": saved,
         }
     )
 
@@ -1024,6 +1038,16 @@ async def prune_old_jobs(request: Request, keep: int = 100) -> JSONResponse:
         kept = int(persistence.stats().get("total", 0))
     except Exception:  # noqa: BLE001
         kept = 0
+    # Audit log: prune is destructive so each invocation should
+    # be discoverable in server logs. Records the requested keep
+    # value alongside the rowcount actually deleted (which may
+    # be smaller if the table was already at or below `keep`).
+    logger.info(
+        "admin prune: keep=%s deleted=%s kept=%s",
+        keep,
+        int(deleted),
+        kept,
+    )
     return JSONResponse(
         {"ok": True, "deleted": int(deleted), "kept": kept},
     )
