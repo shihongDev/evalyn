@@ -129,11 +129,47 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
   // Substring match (case-insensitive) against cli_id + a JSON dump of
   // cli_args so "model=gpt-4o" and "compare" both find what you'd
   // expect. Empty / whitespace-only query treated as no filter.
-  const [searchInput, setSearchInput] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
+  // Search query persists in sessionStorage so reopening the drawer
+  // in the same tab session restores the last query - useful for
+  // "I was filtering to find compare jobs, switched tabs, came back"
+  // without reaching across persistent localStorage (which would
+  // carry stale filters between sessions weeks apart). sessionStorage
+  // clears on tab close, which is the right TTL for transient search.
+  const [searchInput, setSearchInput] = useState(() => {
+    try {
+      return window.sessionStorage.getItem('evalyn:v2:jobsDrawer:searchQuery') ?? '';
+    } catch {
+      return '';
+    }
+  });
+  const [searchQuery, setSearchQuery] = useState(() => {
+    try {
+      return (
+        window.sessionStorage.getItem('evalyn:v2:jobsDrawer:searchQuery') ?? ''
+      ).trim().toLowerCase();
+    } catch {
+      return '';
+    }
+  });
   useEffect(() => {
     const handle = window.setTimeout(() => {
       setSearchQuery(searchInput.trim().toLowerCase());
+      // Mirror to sessionStorage so re-open in the same tab session
+      // lands the previous filter. Empty input removes the entry
+      // (cleaner storage; load returns '' anyway).
+      try {
+        if (searchInput) {
+          window.sessionStorage.setItem(
+            'evalyn:v2:jobsDrawer:searchQuery', searchInput,
+          );
+        } else {
+          window.sessionStorage.removeItem(
+            'evalyn:v2:jobsDrawer:searchQuery',
+          );
+        }
+      } catch {
+        // Quota / private mode - persistence is best-effort.
+      }
     }, 120);
     return () => window.clearTimeout(handle);
   }, [searchInput]);
