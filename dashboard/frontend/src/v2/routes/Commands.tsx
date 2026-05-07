@@ -48,7 +48,6 @@ import {
   type JobHistoryEntry,
 } from '../jobsHistory';
 import { copyToClipboard } from '../clipboard';
-import { MOD_KEY } from '../platform';
 import { E } from '../tokens';
 
 // --- constants ---------------------------------------------------------
@@ -698,12 +697,18 @@ function ShellPreview({ cliId, values }: ShellPreviewProps) {
   const trimmed = useMemo(() => nonEmpty(values), [values]);
   const fullLine = useMemo(() => previewCommand(cliId, trimmed), [cliId, trimmed]);
 
-  const [copied, setCopied] = useState(false);
-  const onCopy = useCallback(() => {
-    void copyToClipboard(fullLine).then(() => {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1100);
-    });
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+  const onCopy = useCallback(async () => {
+    try {
+      await copyToClipboard(fullLine);
+      setCopyState('copied');
+      window.setTimeout(() => setCopyState('idle'), 1100);
+    } catch {
+      // Surface clipboard permission failures - silently swallowing
+      // them left users tapping a "copy" button that did nothing.
+      setCopyState('error');
+      window.setTimeout(() => setCopyState('idle'), 2500);
+    }
   }, [fullLine]);
 
   // Build display tokens: prompt, "evalyn <cmd>", then per-flag chunks.
@@ -762,15 +767,15 @@ function ShellPreview({ cliId, values }: ShellPreviewProps) {
       })}
       <button
         type="button"
-        onClick={onCopy}
-        title="Copy command"
+        onClick={() => void onCopy()}
+        title={copyState === 'error' ? 'Copy failed - check clipboard permission' : 'Copy command'}
         style={{
           position: 'absolute',
           top: 8,
           right: 8,
           fontFamily: E.fMono,
           fontSize: 10,
-          color: copied ? SHELL_TEXT : SHELL_DIM,
+          color: copyState === 'error' ? E.fail : copyState === 'copied' ? SHELL_TEXT : SHELL_DIM,
           padding: '2px 6px',
           border: `1px solid ${SHELL_BG}`,
           background: 'rgba(255,255,255,0.04)',
@@ -778,7 +783,7 @@ function ShellPreview({ cliId, values }: ShellPreviewProps) {
           cursor: 'pointer',
         }}
       >
-        {copied ? 'copied' : 'copy'}
+        {copyState === 'error' ? 'failed' : copyState === 'copied' ? 'copied' : 'copy'}
       </button>
     </div>
   );
@@ -810,9 +815,25 @@ function CommandForm({
   const summary = commandSummary(cli);
   const group = commandGroup(cli);
   const params = cli.params;
+  // Footer "Copy command" feedback. The button used to claim a Cmd+C
+  // shortcut that was never wired and gave no on-click feedback;
+  // shows whether the clipboard write actually landed.
+  const [footerCopyState, setFooterCopyState] =
+    useState<'idle' | 'copied' | 'error'>('idle');
 
   function setField(name: string, v: unknown) {
     setValues({ ...values, [name]: v });
+  }
+
+  async function handleCopyCommand() {
+    try {
+      await copyToClipboard(previewCommand(cli.id, nonEmpty(values)));
+      setFooterCopyState('copied');
+      window.setTimeout(() => setFooterCopyState('idle'), 1500);
+    } catch {
+      setFooterCopyState('error');
+      window.setTimeout(() => setFooterCopyState('idle'), 2500);
+    }
   }
 
   const followUps = (COMMON_AFTER[cli.id] ?? []).filter((id) => {
@@ -900,12 +921,18 @@ function CommandForm({
           <Btn
             kind="ghost"
             size="md"
-            onClick={() => {
-              void copyToClipboard(previewCommand(cli.id, nonEmpty(values)));
-            }}
-            title={`${MOD_KEY}+C copies the rendered command line`}
+            onClick={() => void handleCopyCommand()}
+            title={
+              footerCopyState === 'error'
+                ? 'Copy failed - check clipboard permission'
+                : 'Copy the rendered command line to the clipboard'
+            }
           >
-            {MOD_KEY}+C copy
+            {footerCopyState === 'copied'
+              ? 'Copied'
+              : footerCopyState === 'error'
+                ? 'Copy failed'
+                : 'Copy command'}
           </Btn>
         </div>
       </Card>
