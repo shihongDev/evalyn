@@ -21,6 +21,7 @@ import { linkifyText, makeUrlCounter } from '../textRender';
 import { MOD_KEY } from '../platform';
 import { useCoPilotThread } from '../copilot/useCoPilotThread';
 import { useStickToBottom } from '../hooks/useStickToBottom';
+import { useSearchFilter } from '../hooks/useSearchFilter';
 import {
   loadThreadIndex,
   upsertThread,
@@ -254,13 +255,26 @@ export default function CoPilotThread() {
     setHistoryTick((n) => n + 1);
   }, [threadId, status, messages]);
 
-  const [threadFilter, setThreadFilter] = useState('');
+  // Thread title filter via the shared useSearchFilter hook. No
+  // sessionStorage key (filter is per-visit; persisting across
+  // visits would surprise users coming back to a previously-narrow
+  // sidebar). No "/" hotkey at the window level - the runner-output
+  // and items-tab already claim "/" when their surfaces are active,
+  // and the thread sidebar is always visible alongside; adding
+  // another "/" handler would race them. Hook still provides
+  // debounced query (120ms) + two-step Esc + focus ref.
+  const {
+    input: threadFilter,
+    setInput: setThreadFilter,
+    query: threadFilterQuery,
+    inputRef: threadFilterRef,
+    onKeyDown: onThreadFilterKeyDown,
+  } = useSearchFilter({});
 
   const filteredIndex = useMemo(() => {
-    const q = threadFilter.trim().toLowerCase();
-    if (!q) return index;
-    return index.filter((e) => e.title.toLowerCase().includes(q));
-  }, [index, threadFilter]);
+    if (!threadFilterQuery) return index;
+    return index.filter((e) => e.title.toLowerCase().includes(threadFilterQuery));
+  }, [index, threadFilterQuery]);
 
   const grouped = useMemo(() => groupByRecency(filteredIndex), [filteredIndex]);
 
@@ -348,17 +362,11 @@ export default function CoPilotThread() {
               extra input adds visual weight for no real benefit. */}
           {index.length >= 5 && (
             <input
+              ref={threadFilterRef}
               type="text"
               value={threadFilter}
               onChange={(e) => setThreadFilter(e.target.value)}
-              onKeyDown={(e) => {
-                // Esc clears the filter - matches the rest of the
-                // dashboard's search inputs.
-                if (e.key === 'Escape' && threadFilter) {
-                  e.preventDefault();
-                  setThreadFilter('');
-                }
-              }}
+              onKeyDown={onThreadFilterKeyDown}
               placeholder="Filter threads..."
               aria-label="Filter threads"
               style={{
@@ -383,7 +391,12 @@ export default function CoPilotThread() {
               the empty case from sounding broken when the user has
               threads but the filter just doesn't match. */}
           {grouped.today.length === 0 && grouped.earlier.length === 0 && (
-            threadFilter.trim() ? (
+            // Branch on the debounced query (matches what
+            // filteredIndex / grouped is actually using); using the
+            // raw `threadFilter` would flash "No conversations yet"
+            // for ~120ms after clearing via Esc. Same anti-pattern
+            // ItemsTab had before its useSearchFilter retrofit.
+            threadFilterQuery ? (
               <div
                 style={{
                   padding: '12px 10px',
@@ -392,7 +405,7 @@ export default function CoPilotThread() {
                   lineHeight: 1.55,
                 }}
               >
-                No threads match "{threadFilter.trim()}".
+                No threads match "{threadFilter}".
                 <button
                   type="button"
                   onClick={() => setThreadFilter('')}
