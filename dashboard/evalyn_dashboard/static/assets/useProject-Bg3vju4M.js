@@ -1,1 +1,0 @@
-import{A as e,w as t}from"./AppShell-wM78a1ga.js";function n(){let{data:n}=t(`home`,e.home);return n?n.project:null}export{n as t};

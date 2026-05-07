@@ -565,7 +565,12 @@ export function AppShell({
         {breadcrumb && breadcrumb.length > 0 && vp === 'desktop' && (
           <>
             <span style={{ color: E.text4 }}>·</span>
-            <div
+            {/* Use <nav aria-label="Breadcrumb"> so AT can announce the
+                trail as a navigation landmark and let SR users skip past
+                it; aria-current="page" marks the final segment as the
+                current location. */}
+            <nav
+              aria-label="Breadcrumb"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -608,13 +613,20 @@ export function AppShell({
                         {b}
                       </button>
                     ) : (
-                      <span style={{ color: isLast ? E.text1 : E.text2 }}>{b}</span>
+                      <span
+                        aria-current={isLast ? 'page' : undefined}
+                        style={{ color: isLast ? E.text1 : E.text2 }}
+                      >
+                        {b}
+                      </span>
                     )}
-                    {!isLast && <span style={{ color: E.text4 }}>›</span>}
+                    {!isLast && (
+                      <span aria-hidden="true" style={{ color: E.text4 }}>›</span>
+                    )}
                   </span>
                 );
               })}
-            </div>
+            </nav>
           </>
         )}
         <span style={{ flex: 1 }} />
