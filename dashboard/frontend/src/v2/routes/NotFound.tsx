@@ -12,7 +12,23 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow } from '../ui';
+import * as preload from '../routePreloads';
 import { E } from '../tokens';
+
+/** Map a known route path to its lazy-chunk preload function. Used by
+ * the "Did you mean?" suggestions so a hover warms the chunk before
+ * the click. Home is omitted since it's eagerly loaded in V2App. */
+const PRELOAD_FOR_PATH: Record<string, (() => Promise<unknown>) | undefined> = {
+  '/experiments': preload.preloadExperimentsList,
+  '/datasets': preload.preloadDatasets,
+  '/metrics': preload.preloadMetrics,
+  '/review': preload.preloadReview,
+  '/reports': preload.preloadReports,
+  '/commands': preload.preloadCommands,
+  '/settings': preload.preloadSettings,
+  '/annotate': preload.preloadAnnotate,
+  '/copilot': preload.preloadCoPilotThread,
+};
 
 const KNOWN_ROUTES: Array<{ path: string; label: string }> = [
   { path: '/', label: 'Home' },
@@ -127,6 +143,12 @@ export default function NotFound() {
                     onMouseEnter={(e) => {
                       e.currentTarget.style.borderColor = E.ember;
                       e.currentTarget.style.color = E.ember;
+                      // Warm the route chunk while the user is still
+                      // hovering so the click->paint path is in cache.
+                      // Same pattern as the AppShell nav rail and
+                      // every in-page list link.
+                      const fn = PRELOAD_FOR_PATH[s.path];
+                      if (fn) void fn();
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.borderColor = E.hair;
