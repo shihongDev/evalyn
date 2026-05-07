@@ -110,6 +110,40 @@ export async function cancelJob(id: string): Promise<{ ok: boolean }> {
   return { ok: true };
 }
 
+/** Subset of `/api/jobs/stats` that the FE actually consumes. The
+ * server returns more (total, by_status, total_stderr,
+ * recent_failures); we type only the fields we render so unrelated
+ * additions don't force frontend-side changes. `max_concurrent=0`
+ * means the cap is disabled (server tells us so explicitly). */
+export interface JobsCapacity {
+  running: number;
+  max_concurrent: number;
+}
+
+/** Fetch `/api/jobs/stats` and return only the capacity slice.
+ *
+ * Returns null on any error (network, 500, malformed body). The chip
+ * caller treats null as "hide the chip" - capacity is a nice-to-have
+ * status indicator, never load-bearing, so we never want a stats
+ * fetch failure to surface as a user-visible error. */
+export async function fetchJobsCapacity(): Promise<JobsCapacity | null> {
+  try {
+    const res = await fetch('/api/jobs/stats', {
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as Record<string, unknown>;
+    const running = body.running;
+    const maxConcurrent = body.max_concurrent;
+    if (typeof running !== 'number' || typeof maxConcurrent !== 'number') {
+      return null;
+    }
+    return { running, max_concurrent: maxConcurrent };
+  } catch {
+    return null;
+  }
+}
+
 /** Re-spawn a finished job using its original `cli_id` + `args`.
  *
  * Calls `POST /api/jobs/{id}/restart`; the server looks up the source's
