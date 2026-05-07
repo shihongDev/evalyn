@@ -160,6 +160,7 @@ function JudgeProgressRing({
         />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
+            title={ring.name}
             style={{
               fontSize: 12.5,
               color: E.text0,
@@ -261,6 +262,7 @@ function SmartQueueRow({
           "{text}"
         </div>
         <div
+          title={`judge says ${judgeScore.toFixed(2)} - ${why}`}
           style={{
             fontFamily: E.fMono,
             fontSize: 10,

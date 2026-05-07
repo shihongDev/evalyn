@@ -382,6 +382,7 @@ export default function FailureCluster() {
                 >
                   <span style={{ fontFamily: E.fMono, fontSize: 11, color: E.text3 }}>{s.id}</span>
                   <span
+                    title={s.user}
                     style={{
                       color: E.text2,
                       overflow: 'hidden',
@@ -392,6 +393,7 @@ export default function FailureCluster() {
                     {s.user}
                   </span>
                   <span
+                    title={s.hallucinated}
                     style={{
                       color: E.text1,
                       overflow: 'hidden',

@@ -367,6 +367,7 @@ export default function DatasetDetail() {
                     }}
                   >
                     <div
+                      title={r.id}
                       style={{
                         fontFamily: E.fMono,
                         fontSize: 11.5,
@@ -435,6 +436,7 @@ export default function DatasetDetail() {
                     }}
                   >
                     <div
+                      title={m.id}
                       style={{
                         fontFamily: E.fMono,
                         fontSize: 11.5,
