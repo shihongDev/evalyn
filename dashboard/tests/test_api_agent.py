@@ -649,6 +649,76 @@ def test_list_threads_503_when_runtime_missing(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+def test_thread_messages_returns_user_and_assistant(tmp_path: Path) -> None:
+    """GET /api/agent/threads/{id}/messages returns user + assistant
+    bodies in conversation order. System prompt is filtered out so a
+    public-ish endpoint doesn't leak prompt text."""
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider(
+            [
+                [
+                    ProviderEvent(kind="text_delta", text="hi back"),
+                    ProviderEvent(kind="finish"),
+                ]
+            ]
+        ),
+        catalog=_sample_catalog(),
+        tool_runner=_unused_runner,
+    )
+    client, token = _make_client(tmp_path, runtime)
+
+    # Drive a turn end-to-end so the thread has user + assistant.
+    r = client.post(
+        "/api/agent/chat",
+        json={"message": "hello"},
+        headers={CSRF_HEADER: token},
+    )
+    thread_id = r.json()["thread_id"]
+    deadline = time.time() + 5.0
+    while time.time() < deadline:
+        evts = runtime._threads[thread_id].events
+        if any(e["type"] == "final" for e in evts):
+            break
+        time.sleep(0.02)
+
+    r = client.get(f"/api/agent/threads/{thread_id}/messages")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["id"] == thread_id
+    msgs = body["messages"]
+    # System prompt filtered out.
+    assert all(m.get("role") != "system" for m in msgs)
+    # User and assistant both present.
+    roles = [m.get("role") for m in msgs]
+    assert "user" in roles
+    assert "assistant" in roles
+    # User content matches what we posted.
+    user_msg = next(m for m in msgs if m.get("role") == "user")
+    assert user_msg["content"] == "hello"
+
+
+def test_thread_messages_unknown_thread_returns_404(tmp_path: Path) -> None:
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider([]),
+        catalog=_sample_catalog(),
+        tool_runner=_unused_runner,
+    )
+    client, _ = _make_client(tmp_path, runtime)
+    r = client.get("/api/agent/threads/never-existed/messages")
+    assert r.status_code == 404
+
+
+def test_thread_messages_503_when_runtime_missing() -> None:
+    """Mirrors the chat / list endpoints: missing runtime -> 503."""
+    from evalyn_dashboard.server import build_app
+
+    app = build_app()
+    app.state.agent_runtime = None
+    client = TestClient(app)
+    r = client.get("/api/agent/threads/anything/messages")
+    assert r.status_code == 503
+
+
 def test_ws_agent_sends_periodic_ping_on_idle(
     tmp_path: Path, monkeypatch
 ) -> None:

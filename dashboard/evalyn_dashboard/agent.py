@@ -975,6 +975,30 @@ class AgentRuntime:
         """
         return [self._thread_to_dict(t) for t in self._threads.values()]
 
+    def thread_messages(self, thread_id: str) -> list[dict[str, Any]] | None:
+        """Return a copy of the thread's user+assistant messages, or
+        None if the thread is unknown.
+
+        Filters out the system prompt (clients of the HTTP endpoint
+        rarely care about it; including it would also leak the prompt
+        text on a public-ish read endpoint). Returns a deep-enough
+        copy so callers can mutate freely without affecting the
+        runtime's in-memory list.
+
+        Used by ``GET /api/agent/threads/{id}/messages`` for clients
+        that want the conversation text without setting up a WS
+        subscription (e.g. an agent-runner test harness, a CLI tool
+        scripting around the dashboard).
+        """
+        thread = self._threads.get(thread_id)
+        if thread is None:
+            return None
+        return [
+            dict(m)
+            for m in thread.messages
+            if m.get("role") != "system"
+        ]
+
     def thread_counts(self) -> dict[str, int]:
         """Return ``{total, open}`` thread counts.
 

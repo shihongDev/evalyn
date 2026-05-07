@@ -73,6 +73,45 @@ async def get_thread(request: Request, thread_id: str) -> JSONResponse:
     return JSONResponse(meta)
 
 
+@router.get("/threads/{thread_id}/messages")
+async def get_thread_messages(request: Request, thread_id: str) -> JSONResponse:
+    """Return the user + assistant message bodies for a thread.
+
+    Useful when a client wants the conversation text without setting
+    up a WebSocket - e.g. an agent-runner test harness checking what
+    the assistant answered, a CLI tool scripting around the
+    dashboard, or a scheduled report capturing thread snapshots.
+
+    Filters out the system prompt (clients rarely care about it and
+    including it would leak prompt text on a public-ish read
+    endpoint). Tool-call structure inside assistant messages is
+    preserved as-is.
+
+    Response shape:
+      {
+        "id": "<thread_id>",
+        "messages": [
+          {"role": "user", "content": "..."},
+          {"role": "assistant", "content": "..."},
+          ...
+        ]
+      }
+
+    404 when the thread is unknown.
+    """
+    runtime = getattr(request.app.state, "agent_runtime", None)
+    if runtime is None:
+        raise HTTPException(
+            status_code=503, detail="agent runtime not configured"
+        )
+    messages = runtime.thread_messages(thread_id)
+    if messages is None:
+        raise HTTPException(
+            status_code=404, detail=f"unknown thread: {thread_id}"
+        )
+    return JSONResponse({"id": thread_id, "messages": messages})
+
+
 @router.delete("/threads/{thread_id}")
 async def delete_thread(request: Request, thread_id: str) -> JSONResponse:
     """Remove an agent thread from the runtime.
