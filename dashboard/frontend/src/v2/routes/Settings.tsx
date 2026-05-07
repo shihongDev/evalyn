@@ -16,10 +16,11 @@
  * for the standard skeleton/cache treatment used by the rest of v2.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, Spinner, StatusDot, UpdatingChip } from '../ui';
 import { useV2Resource } from '../hooks/useV2Resource';
+import { useVisibilityPoll } from '../hooks/useVisibilityPoll';
 import { E } from '../tokens';
 import { errorMessage } from '../api/errors';
 import {
@@ -237,70 +238,21 @@ interface VacuumFeedback {
 }
 
 function SystemStatusCard() {
-  const [health, setHealth] = useState<SystemHealth | null>(null);
-  const [loaded, setLoaded] = useState(false);
   const [vacuum, setVacuum] = useState<VacuumFeedback>({ state: 'idle' });
-  // We need a way to refetch health on demand (after a successful
-  // manual vacuum) without waiting for the next poll tick. Stash
-  // the refetch in a ref so the click handler can call it without
-  // depending on the polling effect's closure.
-  const refetchRef = useRef<(() => void) | null>(null);
-
-  // Visibility-aware polling. When the tab is hidden the user
-  // can't see the card so polling is pure waste; we pause on
-  // hidden, resume on visible. On resume, fire an immediate
-  // refetch so the card lands fresh - a 15s wait after tabbing
-  // back would feel stale (uptime climbing from a wall-clock
-  // value the user can guess is wrong).
-  //
-  // Same pattern as the drawer's start/stop helper. Keeping the
-  // interval id in a ref-like local scope (closed over by start()
-  // and stop()) avoids a stale-closure bug where stop() could
-  // miss the latest interval handle.
-  useEffect(() => {
-    let cancelled = false;
-    let intervalId: number | null = null;
-
-    async function poll() {
-      const h = await fetchSystemHealth();
-      if (cancelled) return;
-      setHealth(h);
-      setLoaded(true);
-    }
-
-    function start() {
-      if (intervalId !== null) return;
-      void poll();
-      intervalId = window.setInterval(() => void poll(), 15000);
-    }
-
-    function stop() {
-      if (intervalId !== null) {
-        window.clearInterval(intervalId);
-        intervalId = null;
-      }
-    }
-
-    refetchRef.current = () => void poll();
-
-    if (typeof document === 'undefined' || document.visibilityState === 'visible') {
-      start();
-    }
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        start();
-      } else {
-        stop();
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      cancelled = true;
-      stop();
-      document.removeEventListener('visibilitychange', onVisibility);
-      refetchRef.current = null;
-    };
-  }, []);
+  // Visibility-aware polling lives in the shared hook so this
+  // surface and the drawer's capacity chip don't drift on the
+  // subtle parts (start/stop idempotence, visible-on-mount gate,
+  // cleanup ordering). The hook returns a refetch() we can call
+  // after a manual vacuum so the post-vacuum state lands inline
+  // instead of waiting up to 15s for the next poll.
+  const {
+    value: health,
+    loaded,
+    refetch: refetchHealth,
+  } = useVisibilityPoll<SystemHealth | null>({
+    fetcher: fetchSystemHealth,
+    intervalMs: 15000,
+  });
 
   // Manual vacuum handler. The button is the entry point; result
   // feedback (success bytes saved, or error message) renders next
@@ -311,7 +263,7 @@ function SystemStatusCard() {
     try {
       const res = await vacuumPersistence();
       setVacuum({ state: 'success', bytesSaved: res.bytes_saved });
-      refetchRef.current?.();
+      refetchHealth();
       // Auto-clear success feedback after a few seconds so the
       // card returns to its passive status appearance.
       window.setTimeout(() => {
