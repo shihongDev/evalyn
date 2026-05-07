@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Re-running a pinned job inherits the pin on the new entry.** Customer scenario: user pinned a reference run as a known-good baseline ("don't lose this one"). Re-running it before this change produced a fresh entry with `pinned=false`, so the next history-cap eviction would silently drop the rerun and the user's "keep this around" intent was broken on every re-run. Now both single-row Re-run and bulk Re-run inherit `entry.pinned` onto the upserted new entry. The chain of "the run I keep around" survives re-runs. No-op for unpinned source jobs (the `pinned: true` field is only spread when the source had it).
 - **Skip OS notification on `cancelled`.** The user just clicked Cancel - a popup telling them their job got cancelled is at best redundant, at worst spammy. The `NotifyOpts.status` type now narrows to `'complete' | 'failed'` so the contract is enforced at the type level rather than carried in caller comments. The hidden-tab gate inside `notifyJobTerminal` is unchanged.
 
 ### Added

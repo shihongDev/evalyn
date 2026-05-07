@@ -14,6 +14,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -1029,13 +1030,21 @@ interface ParamFieldProps {
 }
 
 function ParamField({ param, value, onChange }: ParamFieldProps) {
+  // useId-prefixed so multiple ParamFields on the same page don't
+  // collide on htmlFor/id even when two fields share a param.name.
+  // The visible label text is unchanged; this is purely the
+  // SR-side association so "Tab into this input" announces the
+  // field name instead of bare "spin button" or "edit, blank".
+  const fieldId = `${useId()}-${param.name}`;
   const labelEl = (
-    <div
+    <label
+      htmlFor={fieldId}
       style={{
         display: 'flex',
         alignItems: 'center',
         gap: 6,
         marginBottom: 4,
+        cursor: 'default',
       }}
     >
       <span
@@ -1051,6 +1060,7 @@ function ParamField({ param, value, onChange }: ParamFieldProps) {
       {param.required && (
         <span
           title="Required"
+          aria-label="Required"
           style={{
             display: 'inline-block',
             width: 6,
@@ -1070,7 +1080,7 @@ function ParamField({ param, value, onChange }: ParamFieldProps) {
       >
         {param.kind}
       </span>
-    </div>
+    </label>
   );
 
   const help = param.help ?? undefined;
@@ -1078,7 +1088,7 @@ function ParamField({ param, value, onChange }: ParamFieldProps) {
   return (
     <div>
       {labelEl}
-      {renderInput(param, value, onChange)}
+      {renderInput(param, value, onChange, fieldId)}
       {help && (
         <div style={{ fontSize: 11, color: E.text3, marginTop: 4, lineHeight: 1.4 }}>
           {help}
@@ -1105,6 +1115,10 @@ function renderInput(
   param: CliParam,
   value: unknown,
   onChange: (v: unknown) => void,
+  /** Optional element id so the parent's `<label htmlFor={id}>`
+   * binds to the actual interactive input. The bool branch wraps
+   * its own label so it ignores this. */
+  id?: string,
 ): ReactElement {
   const { kind, options } = param;
   if (kind === 'bool') {
@@ -1131,6 +1145,7 @@ function renderInput(
   if (kind === 'select') {
     return (
       <select
+        id={id}
         value={typeof value === 'string' ? value : ''}
         onChange={(e) => onChange(e.target.value)}
         style={inputStyle}
@@ -1151,6 +1166,7 @@ function renderInput(
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         {opts.length === 0 ? (
           <input
+            id={id}
             type="text"
             value={arr.join(',')}
             placeholder="comma-separated values"
@@ -1196,6 +1212,7 @@ function renderInput(
   if (kind === 'number') {
     return (
       <input
+        id={id}
         type="number"
         value={value === undefined || value === null ? '' : String(value)}
         onChange={(e) => onChange(e.target.value)}
@@ -1209,6 +1226,7 @@ function renderInput(
   if (kind === 'long-text') {
     return (
       <textarea
+        id={id}
         value={typeof value === 'string' ? value : ''}
         onChange={(e) => onChange(e.target.value)}
         rows={4}
@@ -1219,6 +1237,7 @@ function renderInput(
   // string + path -> text input
   return (
     <input
+      id={id}
       type="text"
       value={typeof value === 'string' ? value : ''}
       onChange={(e) => onChange(e.target.value)}

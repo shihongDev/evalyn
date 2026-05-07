@@ -426,6 +426,11 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
         cli_args: entry.cli_args,
         started_at_iso: new Date().toISOString(),
         status: 'running',
+        // Inherit pinned-ness from the source. A user who pinned a
+        // reference run and then re-runs it almost certainly wants the
+        // new spawn pinned too - the chain of "the run I keep around"
+        // shouldn't break on every re-run.
+        ...(entry.pinned ? { pinned: true } : {}),
       });
       onClose();
     } catch (err) {
@@ -496,6 +501,9 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
             cli_args: entry.cli_args,
             started_at_iso: new Date().toISOString(),
             status: 'running',
+            // Inherit pinned-ness, same rationale as the single-row
+            // onRerun above.
+            ...(entry.pinned ? { pinned: true } : {}),
           });
           succeeded += 1;
         } catch (err) {
