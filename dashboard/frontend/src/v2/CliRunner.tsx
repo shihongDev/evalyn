@@ -1427,6 +1427,28 @@ function OutputSection({
     }
   }
 
+  // Independent state for the "Copy log URL" action so it doesn't
+  // tint the other copy buttons (and vice versa).
+  const [copyUrlState, setCopyUrlState] = useState<
+    'idle' | 'copied' | 'error'
+  >('idle');
+
+  async function handleCopyLogUrl() {
+    if (!jobId || typeof window === 'undefined') return;
+    // Absolute URL so a teammate clicking the pasted link from
+    // chat/email lands on THIS dashboard rather than whatever origin
+    // their browser currently has open.
+    const url = `${window.location.origin}/api/jobs/${encodeURIComponent(jobId)}/output.txt?download=1`;
+    try {
+      await copyToClipboard(url);
+      setCopyUrlState('copied');
+      window.setTimeout(() => setCopyUrlState('idle'), 2000);
+    } catch {
+      setCopyUrlState('error');
+      window.setTimeout(() => setCopyUrlState('idle'), 3000);
+    }
+  }
+
   async function handleCopyCommand() {
     // Copy the preview line WITHOUT the leading "$ " sigil so it's
     // ready to paste into a real terminal. The sigil exists only to
@@ -1776,6 +1798,44 @@ function OutputSection({
                 : copyIdState === 'error'
                   ? '✗ Failed'
                   : 'Copy ID'}
+            </button>
+          )}
+          {jobId && (
+            <button
+              type="button"
+              onClick={() => void handleCopyLogUrl()}
+              aria-label="Copy a shareable download URL for this job's log"
+              title={
+                copyUrlState === 'copied'
+                  ? 'Log URL copied'
+                  : copyUrlState === 'error'
+                    ? 'Browser blocked clipboard access'
+                    : 'Copy a shareable URL that downloads this job\'s log'
+              }
+              style={{
+                flexShrink: 0,
+                padding: '0 8px',
+                fontFamily: E.fMono,
+                fontSize: 10.5,
+                color:
+                  copyUrlState === 'copied'
+                    ? E.pass
+                    : copyUrlState === 'error'
+                      ? E.fail
+                      : E.text2,
+                background: 'transparent',
+                border: `1px solid ${E.hair2}`,
+                borderRadius: 4,
+                cursor: 'pointer',
+                lineHeight: 1.6,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {copyUrlState === 'copied'
+                ? '✓ URL copied'
+                : copyUrlState === 'error'
+                  ? '✗ Failed'
+                  : 'Copy log URL'}
             </button>
           )}
           <button
