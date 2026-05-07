@@ -470,7 +470,13 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
             setStatus('error');
             return;
           }
-          const delay = Math.min(1000 * 2 ** attempt, MAX_DELAY_MS);
+          // Exp backoff with [0, 500ms) jitter so the outer
+          // (this hook) and inner (subscribeAgent) reconnect
+          // ladders don't reconnect in lockstep across tabs on
+          // server recovery. Same jitter magnitude as the other
+          // three FE-side WS reconnect paths.
+          const exp = Math.min(1000 * 2 ** attempt, MAX_DELAY_MS);
+          const delay = exp + Math.random() * 500;
           attempt += 1;
           setStatus('reconnecting');
           reconnectTimer = setTimeout(open, delay);
