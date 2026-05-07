@@ -51,6 +51,7 @@ import { useRouteTour } from '../tour/useRouteTour';
 import { REVIEW_FAILURES_TOUR_ID } from '../tour/scripts/reviewFailures';
 import { useProject } from '../hooks/useProject';
 import { openCliRunner } from '../cliRunnerBridge';
+import { linkifyText, makeUrlCounter } from '../textRender';
 import { E } from '../tokens';
 
 type Verdict = 'pass' | 'fail' | 'skip';

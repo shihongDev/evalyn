@@ -229,6 +229,12 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
     }
 
     if (evt.type === 'tool_call_proposal') {
+      // Drain pending text deltas first so the bubble that owns the
+      // streaming text exists in `messages` before we attach the tool.
+      // Without this, ensureAgentBubble spawns a fresh bubble for the
+      // tool while a later text-buffer flush spawns ANOTHER bubble for
+      // the text - leaving a dangling empty bubble (caught by F1 test).
+      flushTextBuffer();
       // Frontend-only tools (start_tour etc.) are dispatched here. The
       // tool block still renders in the conversation timeline so the user
       // sees what the agent decided to do, but the *effect* (e.g. starting
