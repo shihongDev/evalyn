@@ -923,6 +923,15 @@ async def restart_job(request: Request, job_id: str) -> JSONResponse:
     try:
         new_job_id = await jm.spawn(cmd, cli_id=cli_id, args=args)
     except ConcurrencyLimitExceeded as exc:
+        # 503 path - the restart was requested but capacity was full.
+        # Logged as a separate "rejected" event so the audit trail
+        # distinguishes "asked to restart, blocked" from "asked to
+        # restart, succeeded".
+        logger.info(
+            "admin restart rejected (capacity): source=%s cli_id=%s",
+            job_id,
+            cli_id,
+        )
         return JSONResponse(
             {
                 "ok": False,
@@ -933,6 +942,16 @@ async def restart_job(request: Request, job_id: str) -> JSONResponse:
             status_code=503,
             headers={"Retry-After": "5"},
         )
+    # Success path: capture the source -> new mapping so postmortems
+    # can trace lineage of restarts ("which run was this restarted
+    # from?"). The new_job_id alone is in the response body; the
+    # source linkage lives only here in the log.
+    logger.info(
+        "admin restart: source=%s cli_id=%s new_job_id=%s",
+        job_id,
+        cli_id,
+        new_job_id,
+    )
     return JSONResponse({"job_id": new_job_id})
 
 

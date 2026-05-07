@@ -986,6 +986,45 @@ def test_delete_404_does_not_emit_audit_log(caplog):
         assert len(matched) == 0
 
 
+def test_restart_emits_audit_log_with_source_linkage(caplog):
+    """Restart audit log records the source -> new_job_id mapping
+    so postmortems can trace restart lineage. The new_job_id alone
+    is in the response body; the source linkage lives only in the
+    log."""
+    import logging
+
+    app = build_app()
+    with TestClient(app) as client:
+        token = _token_from(client)
+        # Spawn with cli_id metadata so restart can find the schema.
+        source_id = _spawn_with_meta(
+            client, app,
+            [sys.executable, "-c", "pass"],
+            cli_id="status",
+            args={},
+        )
+        _wait(client, app, source_id)
+
+        with caplog.at_level(logging.INFO, logger="evalyn_dashboard.api.jobs"):
+            r = client.post(
+                f"/api/jobs/{source_id}/restart", headers={CSRF_HEADER: token}
+            )
+            assert r.status_code == 200
+            new_id = r.json()["job_id"]
+
+        matched = [
+            rec for rec in caplog.records
+            if rec.message.startswith("admin restart: source=")
+        ]
+        assert len(matched) == 1
+        # Both source and new id are captured for lineage tracing.
+        assert source_id in matched[0].message
+        assert new_id in matched[0].message
+        # Cleanup so a still-running restart doesn't strand the
+        # next test's TestClient teardown.
+        client.portal.call(app.state.job_manager.cancel, new_id)
+
+
 def test_admin_vacuum_emits_audit_log(caplog):
     """A manual vacuum is uncommon enough that each invocation
     should be discoverable in server logs (postmortem queries
