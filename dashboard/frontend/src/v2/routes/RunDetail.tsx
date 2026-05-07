@@ -37,6 +37,7 @@ import type {
 } from '../api/types';
 import { useV2Resource, prefetchV2 } from '../hooks/useV2Resource';
 import { useProject } from '../hooks/useProject';
+import { useSearchFilter } from '../hooks/useSearchFilter';
 import { openCliRunner } from '../cliRunnerBridge';
 import { copyToClipboard } from '../clipboard';
 import { E } from '../tokens';
@@ -2180,7 +2181,33 @@ function ItemsTab({ runId, initialFilter }: ItemsTabProps) {
   const [offset, setOffset] = useState(0);
   const [filter, setFilter] = useState<ExperimentItemsFilter>(initialFilter ?? 'all');
   const [sort, setSort] = useState<ExperimentItemsSort>('item_id');
-  const [search, setSearch] = useState('');
+  // Page-local item-id search via the shared useSearchFilter hook.
+  // No sessionStorage here - the search is run-specific and a stale
+  // query from a different run/tab would confuse. Hook provides the
+  // debounce + Esc handling + focus ref; the "/" hotkey below
+  // mirrors the drawer / experiments / runner-output pattern.
+  const {
+    input: search,
+    setInput: setSearch,
+    query: searchQuery,
+    inputRef: searchRef,
+    onKeyDown: onSearchKeyDown,
+  } = useSearchFilter({});
+  // Window-level "/" focuses the search box. Skipped when the user
+  // is already typing in another input/textarea/contentEditable
+  // surface (would otherwise eat their actual character).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) return;
+      e.preventDefault();
+      searchRef.current?.focus();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [searchRef]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const fetcher = useCallback(
@@ -2249,8 +2276,8 @@ function ItemsTab({ runId, initialFilter }: ItemsTabProps) {
     );
   }
 
-  const visibleItems = search.trim()
-    ? data.items.filter((it) => it.id.toLowerCase().includes(search.trim().toLowerCase()))
+  const visibleItems = searchQuery
+    ? data.items.filter((it) => it.id.toLowerCase().includes(searchQuery))
     : data.items;
 
   const showingFrom = data.total === 0 ? 0 : offset + 1;
@@ -2345,22 +2372,18 @@ function ItemsTab({ runId, initialFilter }: ItemsTabProps) {
           }}
         >
           <input
+            ref={searchRef}
             type="text"
             aria-label="Filter items on this page by id"
-            placeholder="Filter this page by id..."
+            placeholder="Filter this page by id... (/ to focus)"
             title={
-              search.trim()
+              searchQuery
                 ? `Filtering ${visibleItems.length} of ${data.items.length} items on this page (page-local; items on other pages aren't searched)`
                 : 'Filter visible items on this page by id (substring match). Items on other pages aren\'t searched - use Prev/Next to scan more.'
             }
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape' && search) {
-                e.preventDefault();
-                setSearch('');
-              }
-            }}
+            onKeyDown={onSearchKeyDown}
             style={{
               flex: 1,
               padding: '6px 10px',
@@ -2474,9 +2497,14 @@ function ItemsTab({ runId, initialFilter }: ItemsTabProps) {
               }}
             >
               <div style={{ flex: 1, fontSize: 12.5, color: E.text3 }}>
-                {search.trim() ? (
+                {searchQuery ? (
                   // Search active + no matches: clarify scope
                   // (page-local) AND offer the page-paging escape.
+                  // Branch on `searchQuery` (debounced) not `search`
+                  // (raw) so the message matches what the filter is
+                  // actually doing - otherwise clearing search via
+                  // Esc flashes the wrong empty-state for ~120ms
+                  // while the debounced query catches up.
                   <>
                     No items match{' '}
                     <b style={{ color: E.ember, fontFamily: E.fMono }}>"{search}"</b>
@@ -2513,7 +2541,7 @@ function ItemsTab({ runId, initialFilter }: ItemsTabProps) {
                   <>This page is empty.</>
                 )}
               </div>
-              {search.trim() && (
+              {searchQuery && (
                 <Btn kind="secondary" size="sm" onClick={() => setSearch('')}>
                   Clear search
                 </Btn>

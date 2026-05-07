@@ -697,7 +697,15 @@ export function AppShell({
             {/* Project chip - currently a passive identity badge. Switching
                 projects from the UI is on the roadmap; until then, render as
                 a non-clickable <span> so the caret doesn't imply a dropdown. */}
+            {/* Cap the chip on long project names so the breadcrumb +
+                header buttons stay reachable on mid-width viewports
+                (same problem 7a2e1a8 fixed for the breadcrumb tail).
+                title= mirrors the full name on hover; rule 3 of the
+                v2 conventions. */}
             <span
+              title={`${contextChip.name}${
+                contextChip.version ? ` · ${contextChip.version}` : ''
+              }`}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -708,10 +716,24 @@ export function AppShell({
                 border: `1px solid ${E.hair2}`,
                 color: E.text1,
                 fontSize: 12.5,
+                maxWidth: 240,
               }}
             >
-              <span style={{ fontWeight: 500 }}>{contextChip.name}</span>
-              <span style={{ color: E.text3, fontSize: 11 }}>{contextChip.version ?? '-'}</span>
+              <span
+                style={{
+                  fontWeight: 500,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  minWidth: 0,
+                  flex: 1,
+                }}
+              >
+                {contextChip.name}
+              </span>
+              <span style={{ color: E.text3, fontSize: 11, flexShrink: 0 }}>
+                {contextChip.version ?? '-'}
+              </span>
             </span>
           </>
         )}
