@@ -155,6 +155,14 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
   };
 
   const submit = () => {
+    // Defensive guard: the submit Btn and the textarea are both
+    // `disabled` while status === 'streaming' or pending != null,
+    // which prevents user-driven double-fires under normal latency.
+    // But React's batched state updates mean a rapid double-click
+    // within the same paint frame sees the OLD closure with
+    // status='idle', and both invocations would pass through.
+    // Bail explicitly so the second click is a no-op even pre-render.
+    if (status === 'streaming' || pending != null) return;
     const t = draft.trim();
     if (!t) return;
     setDraft('');
