@@ -30,6 +30,7 @@ import { CliRunner } from './CliRunner';
 import { RecentJobsDrawer } from './RecentJobsDrawer';
 import {
   activeJobCount,
+  activeJobCliId,
   loadJobsHistory,
   subscribeJobsHistory,
   unacknowledgedFailureCount,
@@ -269,11 +270,19 @@ export function AppShell({
   const [unackedFailureCount, setUnackedFailureCount] = useState<number>(() =>
     unacknowledgedFailureCount(loadJobsHistory()),
   );
+  // When EXACTLY one job is active, surface its cli_id in the tab
+  // title so the user can tell at a glance which command is running
+  // without switching tabs. With zero or 2+ active jobs we fall back
+  // to the bare count so we don't arbitrarily pick one to highlight.
+  const [singleActiveCliId, setSingleActiveCliId] = useState<string | null>(
+    () => activeJobCliId(loadJobsHistory()),
+  );
   useEffect(() => {
     return subscribeJobsHistory(() => {
       const list = loadJobsHistory();
       setRunningCount(activeJobCount(list));
       setUnackedFailureCount(unacknowledgedFailureCount(list));
+      setSingleActiveCliId(activeJobCliId(list));
     });
   }, []);
 
@@ -348,12 +357,22 @@ export function AppShell({
       prefix === '/' ? path === '/' : path.startsWith(prefix),
     );
     const base = match ? `${match[1]} · Evalyn` : 'Evalyn · Workbench';
+    // Running prefix: "(N)" by default, or "(1) <cli_id>" when there's
+    // exactly one active job. Including the cli_id only in the
+    // singular case avoids arbitrarily privileging one job over its
+    // siblings when several run in parallel.
+    const runningPrefix =
+      runningCount === 1 && singleActiveCliId
+        ? `(1) ${singleActiveCliId}`
+        : runningCount > 0
+          ? `(${runningCount})`
+          : '';
     const segments = [
-      runningCount > 0 ? `(${runningCount})` : '',
+      runningPrefix,
       unackedFailureCount > 0 ? `!${unackedFailureCount}` : '',
     ].filter(Boolean);
     document.title = segments.length > 0 ? `${segments.join(' ')} ${base}` : base;
-  }, [location.pathname, runningCount, unackedFailureCount]);
+  }, [location.pathname, runningCount, unackedFailureCount, singleActiveCliId]);
 
   // Global hotkeys:
   //   Cmd/Ctrl+K toggles the command palette.

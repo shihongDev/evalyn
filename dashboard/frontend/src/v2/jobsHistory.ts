@@ -242,6 +242,23 @@ export function activeJobCount(entries?: JobHistoryEntry[]): number {
   return n;
 }
 
+/** Return the cli_id of the SINGLE active (queued/running) job, or
+ * null if zero or more-than-one are active. Used by the tab title:
+ * "(1) run-eval Evalyn" is friendlier than "(1) Evalyn" when only
+ * one job is in flight; with multiple we drop back to the bare count
+ * to avoid arbitrarily picking one. */
+export function activeJobCliId(entries?: JobHistoryEntry[]): string | null {
+  const list = entries ?? loadJobsHistory();
+  let found: string | null = null;
+  for (const e of list) {
+    if (e.status === 'queued' || e.status === 'running') {
+      if (found !== null) return null;
+      found = e.cli_id || null;
+    }
+  }
+  return found;
+}
+
 /** Read the timestamp at which the user last viewed the Recent Jobs
  * drawer. Used as the "ack" boundary for the unacknowledged-failures
  * count surfaced in the tab title. Returns 0 when unset (so every

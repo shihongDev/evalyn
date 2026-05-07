@@ -2149,37 +2149,41 @@ export default function AnnotateSession() {
 
   // (allDone was also hoisted up - see early in the function body.)
 
-  // Copy-link feedback: when the user copies a deep-link to clipboard,
-  // we replace the button glyph with "✓ Copied" briefly so the action
-  // is acknowledged without a separate toast layer.
-  const [copiedTick, setCopiedTick] = useState(0);
+  // Copy-link feedback. Three-state flash so a clipboard rejection
+  // (insecure context, denied permission, URL ctor blew up) does not
+  // silently no-op the way the previous tick-counter version did.
+  const [copyLinkState, setCopyLinkState] =
+    useState<'idle' | 'copied' | 'error'>('idle');
   const copyItemLink = useCallback(() => {
     if (typeof window === 'undefined' || !currentItem) return;
-    if (!navigator.clipboard?.writeText) return;
+    if (!navigator.clipboard?.writeText) {
+      setCopyLinkState('error');
+      return;
+    }
     try {
       const url = new URL(window.location.href);
       url.searchParams.set('item', currentItem.item_id);
-      // Only flash "Copied" if the write actually succeeded, so an
-      // insecure context (no clipboard permission) doesn't lie to
-      // the user. Promise rejection is silent - the user just won't
-      // see feedback and can try again or copy the URL bar manually.
       navigator.clipboard.writeText(url.toString()).then(
-        () => setCopiedTick((t) => t + 1),
-        () => {
-          // ignore - browser denied
-        },
+        () => setCopyLinkState('copied'),
+        () => setCopyLinkState('error'),
       );
     } catch {
-      // ignore - URL ctor or property access failed
+      // URL ctor or property access blew up - surface as a failure
+      // so the user knows to try again rather than wondering whether
+      // the click registered.
+      setCopyLinkState('error');
     }
   }, [currentItem]);
-  // Auto-clear the copied feedback after 1.5s. Counter-keyed so
-  // consecutive copies retrigger cleanly.
+  // Auto-clear the feedback after a beat - 1.5s for success, 2.5s
+  // for failure so the user has time to read the error glyph.
   useEffect(() => {
-    if (copiedTick === 0) return;
-    const t = window.setTimeout(() => setCopiedTick(0), 1500);
+    if (copyLinkState === 'idle') return;
+    const t = window.setTimeout(
+      () => setCopyLinkState('idle'),
+      copyLinkState === 'copied' ? 1500 : 2500,
+    );
     return () => window.clearTimeout(t);
-  }, [copiedTick]);
+  }, [copyLinkState]);
 
   // Finalize confirmation gate. We only require the user to confirm
   // when there are still un-annotated items - clicking Finish then is
@@ -3631,21 +3635,41 @@ export default function AnnotateSession() {
               <button
                 type="button"
                 onClick={copyItemLink}
-                title="Copy a sharable link to this item"
+                title={
+                  copyLinkState === 'error'
+                    ? 'Copy failed - check clipboard permission'
+                    : 'Copy a sharable link to this item'
+                }
                 style={{
-                  background: copiedTick > 0 ? '#fcefe2' : 'transparent',
-                  border: `1px solid ${copiedTick > 0 ? E.ember : 'transparent'}`,
+                  background:
+                    copyLinkState === 'copied' ? '#fcefe2' : 'transparent',
+                  border: `1px solid ${
+                    copyLinkState === 'error'
+                      ? E.fail
+                      : copyLinkState === 'copied'
+                        ? E.ember
+                        : 'transparent'
+                  }`,
                   borderRadius: 4,
                   cursor: 'pointer',
                   fontFamily: E.fMono,
                   fontSize: 11,
-                  color: copiedTick > 0 ? E.ember : E.text3,
+                  color:
+                    copyLinkState === 'error'
+                      ? E.fail
+                      : copyLinkState === 'copied'
+                        ? E.ember
+                        : E.text3,
                   padding: '2px 6px',
                   lineHeight: 1,
                   transition: 'all 160ms',
                 }}
               >
-                {copiedTick > 0 ? '✓ Copied' : '🔗 Copy link'}
+                {copyLinkState === 'copied'
+                  ? '✓ Copied'
+                  : copyLinkState === 'error'
+                    ? '✗ Copy failed'
+                    : '🔗 Copy link'}
               </button>
               <span style={{ flex: 1 }} />
               <Btn kind="ghost" size="sm" onClick={goPrev} disabled={cursor === 0}>
