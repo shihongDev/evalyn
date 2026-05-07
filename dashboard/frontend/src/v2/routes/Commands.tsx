@@ -328,9 +328,16 @@ function LeftRail({
         }}
       >
         <input
+          aria-label="Filter commands"
           placeholder="Filter commands"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && query) {
+              e.preventDefault();
+              setQuery('');
+            }
+          }}
           style={{
             flex: 1,
             background: 'transparent',
@@ -342,6 +349,26 @@ function LeftRail({
             minWidth: 0,
           }}
         />
+        {query && (
+          <button
+            type="button"
+            onClick={() => setQuery('')}
+            title="Clear filter (Esc)"
+            aria-label="Clear filter"
+            style={{
+              fontFamily: E.fMono,
+              fontSize: 12,
+              color: E.text3,
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '0 4px',
+              lineHeight: 1,
+            }}
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        )}
       </div>
 
       {recents.length > 0 && (

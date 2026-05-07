@@ -320,6 +320,14 @@ export default function CoPilotThread() {
               type="text"
               value={threadFilter}
               onChange={(e) => setThreadFilter(e.target.value)}
+              onKeyDown={(e) => {
+                // Esc clears the filter - matches the rest of the
+                // dashboard's search inputs.
+                if (e.key === 'Escape' && threadFilter) {
+                  e.preventDefault();
+                  setThreadFilter('');
+                }
+              }}
               placeholder="Filter threads..."
               aria-label="Filter threads"
               style={{

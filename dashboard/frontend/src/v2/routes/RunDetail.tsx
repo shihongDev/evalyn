@@ -2164,24 +2164,62 @@ function ItemsTab({ runId, initialFilter }: ItemsTabProps) {
           </select>
         </div>
 
-        <input
-          type="text"
-          placeholder="Search item id..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+        <div
           style={{
             flex: 1,
             minWidth: 180,
             maxWidth: 320,
-            padding: '6px 10px',
-            fontSize: 12,
-            fontFamily: E.fMono,
-            borderRadius: 6,
+            display: 'flex',
+            alignItems: 'center',
             border: `1px solid ${E.hair}`,
+            borderRadius: 6,
             background: E.panel,
-            color: E.text1,
           }}
-        />
+        >
+          <input
+            type="text"
+            aria-label="Search item by id"
+            placeholder="Search item id..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' && search) {
+                e.preventDefault();
+                setSearch('');
+              }
+            }}
+            style={{
+              flex: 1,
+              padding: '6px 10px',
+              fontSize: 12,
+              fontFamily: E.fMono,
+              border: 'none',
+              outline: 'none',
+              background: 'transparent',
+              color: E.text1,
+            }}
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              title="Clear search (Esc)"
+              aria-label="Clear search"
+              style={{
+                fontFamily: E.fMono,
+                fontSize: 13,
+                color: E.text3,
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '0 8px',
+                lineHeight: 1,
+              }}
+            >
+              <span aria-hidden="true">×</span>
+            </button>
+          )}
+        </div>
 
         <span style={{ flex: 1 }} />
 
