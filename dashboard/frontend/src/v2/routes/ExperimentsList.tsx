@@ -30,6 +30,7 @@ import {
   Btn,
   StatusDot,
   Spark,
+  Spinner,
   StackBar,
   Skeleton,
   UpdatingChip,
@@ -815,7 +816,13 @@ export default function ExperimentsList() {
             aria-busy={newEvalBusy}
             data-coachmark="experiments-new-button"
           >
-            {newEvalBusy ? 'Loading...' : '+ New evaluation'}
+            {newEvalBusy ? (
+              <>
+                <Spinner size={11} /> Loading
+              </>
+            ) : (
+              '+ New evaluation'
+            )}
           </Btn>
         </div>
 
@@ -1027,8 +1034,15 @@ export default function ExperimentsList() {
                 size="md"
                 onClick={handleNewEvaluation}
                 disabled={newEvalBusy}
+                aria-busy={newEvalBusy}
               >
-                {newEvalBusy ? 'Loading...' : 'Run your first eval'}
+                {newEvalBusy ? (
+                  <>
+                    <Spinner size={11} /> Loading
+                  </>
+                ) : (
+                  'Run your first eval'
+                )}
               </Btn>
             </div>
           </Card>
