@@ -109,6 +109,35 @@ export async function cancelJob(id: string): Promise<{ ok: boolean }> {
   return { ok: true };
 }
 
+/** Re-spawn a finished job using its original `cli_id` + `args`.
+ *
+ * Calls `POST /api/jobs/{id}/restart`; the server looks up the source's
+ * stored metadata, rebuilds argv via `args_to_argv`, and spawns a fresh
+ * subprocess. Returns the new `job_id`.
+ *
+ * Self-heals stale CSRF tokens after a server restart (matches the
+ * `cancelJob` retry pattern). 404 if the source is unknown or its
+ * `cli_id` is no longer in the catalog; 409 if the source is still
+ * running or has no `cli_id`. */
+export async function restartJob(id: string): Promise<{ job_id: string }> {
+  const url = `/api/jobs/${encodeURIComponent(id)}/restart`;
+  const send = async (token: string | null): Promise<Response> => {
+    const headers: Record<string, string> = {};
+    if (token) headers['X-Workbench-Token'] = token;
+    return fetch(url, { method: 'POST', headers });
+  };
+  let res = await send(readCsrfToken());
+  if (res.status === 403) {
+    const fresh = await refreshCsrfToken();
+    if (fresh) res = await send(fresh);
+  }
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`POST /api/jobs/${id}/restart ${res.status}: ${body}`);
+  }
+  return (await res.json()) as { job_id: string };
+}
+
 /** Best-effort fetch of a job's static metadata (cmd, state). */
 export async function getJob(id: string): Promise<ApiJobRecord | null> {
   try {
