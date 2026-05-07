@@ -71,6 +71,27 @@
  *        placeholder isn't the only signal of purpose.
  *    The `placeholder` attribute is not a substitute for either -
  *    it disappears on focus.
+ *
+ * 8. Async handlers need an internal busy guard, not just
+ *    `disabled` on the trigger. React's batched state updates
+ *    let a same-frame second activation slip through with the
+ *    OLD closure, so two POSTs go out for one click pair. The
+ *    pattern is belts-and-suspenders:
+ *      external: `disabled={busy || ...}` on every trigger
+ *      internal: `if (busy) return;` as the first line of the
+ *               handler body
+ *    The internal guard is mandatory for any handler that:
+ *      - is bound to a keyboard auto-repeat key (Enter, Space,
+ *        N/P/F type single-letter keys) - holding the key
+ *        bypasses the visual disabled cue entirely;
+ *      - is bound to two or more triggers (e.g. a header button +
+ *        an empty-state button + a hotkey) where the disabled
+ *        prop has to be passed to all of them and one might
+ *        drift over time.
+ *    Sites following the pattern: RunDetail handleRerun, both
+ *    copilot submit() functions, Settings handleSave, Datasets
+ *    handleLoadDemo, AnnotateSession submitVerdict +
+ *    finalizeSession + saveAllUnsaved.
  */
 
 import type {

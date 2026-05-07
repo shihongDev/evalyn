@@ -2222,6 +2222,15 @@ export default function AnnotateSession() {
 
   async function finalizeSession() {
     if (!sessionId) return;
+    // Bail on re-entry: Cmd+Enter is bound to finalize via the
+    // global keyboard handler, and the confirm-dialog "Finish &
+    // save" button shows up in three different render paths
+    // (header bar, scrubber footer, finalize-confirm modal). All
+    // three buttons are disabled={finalizing}, but a rapid second
+    // activation in the same paint frame slips through with the
+    // stale closure - matches the same pattern as the copilot +
+    // settings + datasets + submitVerdict guards.
+    if (finalizing) return;
     setFinalizing(true);
     setFinalizeErr(null);
     try {
