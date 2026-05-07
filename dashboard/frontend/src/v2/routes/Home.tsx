@@ -505,6 +505,10 @@ function QueueRow({ item, isLast, onNavigate }: QueueRowProps) {
       // action ("Priority P0: <title>, <subtitle>, Open") rather than
       // a sequence of orphan strings followed by a duplicate button.
       aria-label={`Priority ${prio}: ${item.title}${item.subtitle ? `, ${item.subtitle}` : ''}, ${actionLabel}`}
+      // title= mirrors the visible truncated text so sighted users
+      // can read a long title or subtitle that's been ellipsized in
+      // the row's narrow middle column.
+      title={`${item.title}${item.subtitle ? `\n${item.subtitle}` : ''}`}
       onClick={() => onNavigate(item.cta_target)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -648,6 +652,8 @@ function LiveStreamingCard({ experiments, onNavigate }: LiveStreamingCardProps) 
             void preloadRunDetail();
             prefetchV2(`experiment:${live.id}`, () => v2.experiment(live.id));
           }}
+          title={`Open ${live.name}`}
+          aria-label={`Open live run ${live.name}`}
           style={{
             display: 'block',
             textAlign: 'left',

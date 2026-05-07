@@ -877,6 +877,7 @@ export default function RunDetail() {
                           }}
                         />
                         <span
+                          title={c.label}
                           style={{
                             flex: 1,
                             color: E.text1,
@@ -946,6 +947,7 @@ export default function RunDetail() {
                         }}
                       />
                       <span
+                        title={c.label}
                         style={{
                           flex: 1,
                           color: E.text1,

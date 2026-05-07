@@ -364,6 +364,7 @@ function LeftRail({
                   key={cmd.id}
                   type="button"
                   onClick={() => onSelect(cmd.id)}
+                  title={cmd.id}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
