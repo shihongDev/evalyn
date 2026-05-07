@@ -778,6 +778,8 @@ export function AppShell({
             kind="ghost"
             size="sm"
             onClick={() => setJobsDrawerOpen(true)}
+            aria-expanded={jobsDrawerOpen}
+            aria-haspopup="dialog"
             title={
               unackedFailureCount > 0
                 ? `Recent jobs - ${unackedFailureCount} failed since last viewed`
@@ -800,6 +802,8 @@ export function AppShell({
             kind="ghost"
             size="sm"
             onClick={() => setPaletteOpen(true)}
+            aria-expanded={paletteOpen}
+            aria-haspopup="dialog"
             style={{ fontFamily: E.fMono, gap: 4 }}
           >
             {MOD_KEY}K Search
@@ -810,6 +814,8 @@ export function AppShell({
             type="button"
             onClick={() => setHelpOpen(true)}
             aria-label="Show keyboard shortcuts"
+            aria-expanded={helpOpen}
+            aria-haspopup="dialog"
             title="Keyboard shortcuts (?)"
             style={{
               width: 26,

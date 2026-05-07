@@ -92,6 +92,21 @@
  *    copilot submit() functions, Settings handleSave, Datasets
  *    handleLoadDemo, AnnotateSession submitVerdict +
  *    finalizeSession + saveAllUnsaved.
+ *
+ * 9. Buttons that toggle a disclosure-style surface (drawer,
+ *    dropdown, modal trigger, accordion section) need
+ *    `aria-expanded` mirroring the open/closed boolean. SR
+ *    users can't infer "is the controlled thing currently
+ *    showing?" from the button's visible label alone -
+ *    aria-expanded is the only signal that flips with state.
+ *    Pair with `aria-controls={id}` pointing at the controlled
+ *    element, and `aria-haspopup="dialog"|"menu"|"listbox"`
+ *    when the surface is one of those. Triggers wired through
+ *    Btn already accept all three props (mobile hamburger,
+ *    Recent Jobs / Palette / Help triggers in the AppShell
+ *    header). Discoverability rule: any button whose visible
+ *    icon/label changes based on a `boolean` open state needs
+ *    aria-expanded on the same boolean.
  */
 
 import type {
@@ -256,6 +271,21 @@ interface BtnProps {
    * button, dimmed" with no indication that the action is
    * actually running rather than just unavailable. */
   'aria-busy'?: boolean;
+  /** True when the button controls a disclosure-style surface
+   * (drawer, dropdown, dialog) and that surface is currently
+   * open. SR users hear "expanded" / "collapsed" alongside
+   * the button name. Pair with `aria-controls` pointing at
+   * the controlled element's id. */
+  'aria-expanded'?: boolean;
+  /** Element id of the controlled surface (drawer / dialog /
+   * popup) - lets AT users jump from the trigger to the
+   * opened content via the controls relationship. */
+  'aria-controls'?: string;
+  /** Hint about the type of popup the button opens, when the
+   * controlled surface is a dialog or menu rather than a plain
+   * disclosure region. Most common values: "dialog", "menu",
+   * "listbox". */
+  'aria-haspopup'?: 'dialog' | 'menu' | 'listbox' | 'true';
   /** Optional coachmark id for the co-pilot UI guidance tour to anchor on. */
   'data-coachmark'?: string;
 }
@@ -288,6 +318,9 @@ export function Btn({
   tabIndex,
   'aria-hidden': ariaHidden,
   'aria-busy': ariaBusy,
+  'aria-expanded': ariaExpanded,
+  'aria-controls': ariaControls,
+  'aria-haspopup': ariaHaspopup,
   'data-coachmark': dataCoachmark,
 }: BtnProps) {
   return (
@@ -301,6 +334,9 @@ export function Btn({
       tabIndex={tabIndex}
       aria-hidden={ariaHidden}
       aria-busy={ariaBusy}
+      aria-expanded={ariaExpanded}
+      aria-controls={ariaControls}
+      aria-haspopup={ariaHaspopup}
       data-coachmark={dataCoachmark}
       style={{
         display: 'inline-flex',
