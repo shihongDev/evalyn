@@ -48,6 +48,34 @@ def _coerce_number(value: Any) -> float | int | None:
     return None
 
 
+def _collect_validation_errors(
+    schema: CliSchema, args: dict[str, Any]
+) -> list[str]:
+    """Non-raising counterpart of ``_validate_args``. Returns a list of
+    human-readable error strings; empty list means valid.
+
+    Used by the ``POST /api/cli/{cli_id}/validate`` preflight endpoint.
+    Surfacing all errors in one response lets a form highlight every
+    bad field at once instead of round-tripping per error.
+    """
+    errors: list[str] = []
+    by_name: dict[str, ParamSchema] = {p.name: p for p in schema.params}
+
+    unknown = sorted(set(args) - set(by_name))
+    if unknown:
+        errors.append(f"unknown args: {', '.join(unknown)}")
+
+    missing = [
+        p.name
+        for p in schema.params
+        if p.required and (p.name not in args or args[p.name] in (None, ""))
+    ]
+    if missing:
+        errors.append(f"missing required args: {', '.join(missing)}")
+
+    return errors
+
+
 def _validate_args(schema: CliSchema, args: dict[str, Any]) -> list[str]:
     """Raise :class:`HTTPException` 400 if ``args`` violate ``schema``.
 
@@ -169,6 +197,38 @@ async def get_catalog(request: Request) -> JSONResponse:
     """Return the full CLI catalog cached on app state at startup."""
     catalog: list[CliSchema] = request.app.state.cli_catalog
     return JSONResponse(catalog_to_payload(catalog))
+
+
+@router.post("/{cli_id}/validate")
+async def validate_cli_args(request: Request, cli_id: str) -> JSONResponse:
+    """Validate args against a CLI's schema without spawning.
+
+    Body: ``{args: {<name>: <value>, ...}}``. Returns
+    ``{valid: bool, errors: list[str]}``. 404 if the cli_id is
+    unknown.
+
+    Useful as a form preflight: surfaces missing-required fields and
+    unknown flags in one response so the UI can highlight every bad
+    field at once. Distinct from the implicit validation in
+    ``POST /api/cli/run`` which 400s on the first violation.
+    """
+    try:
+        body = await request.json()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"invalid json: {exc}") from exc
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="body must be a json object")
+    args = body.get("args", {})
+    if not isinstance(args, dict):
+        raise HTTPException(status_code=400, detail="args must be a json object")
+
+    catalog: list[CliSchema] = request.app.state.cli_catalog
+    schema = next((s for s in catalog if s.id == cli_id), None)
+    if schema is None:
+        raise HTTPException(status_code=404, detail=f"unknown cli_id: {cli_id}")
+
+    errors = _collect_validation_errors(schema, args)
+    return JSONResponse({"valid": len(errors) == 0, "errors": errors})
 
 
 @router.get("/{cli_id}")

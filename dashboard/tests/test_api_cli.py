@@ -213,6 +213,66 @@ def test_get_cli_unknown_returns_404():
 
 
 # ---------------------------------------------------------------------------
+# POST /api/cli/{cli_id}/validate
+# ---------------------------------------------------------------------------
+
+
+def test_validate_returns_valid_for_correct_args():
+    """show-span requires call_id + span; supplying both passes."""
+    client, token = _client_with_token()
+    r = client.post(
+        "/api/cli/show-span/validate",
+        json={"args": {"call_id": "abc", "span": "outer"}},
+        headers={CSRF_HEADER: token},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["valid"] is True
+    assert body["errors"] == []
+
+
+def test_validate_returns_errors_for_missing_required():
+    """Empty args for show-span should surface the missing-required."""
+    client, token = _client_with_token()
+    r = client.post(
+        "/api/cli/show-span/validate",
+        json={"args": {}},
+        headers={CSRF_HEADER: token},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["valid"] is False
+    assert any("missing required" in e.lower() for e in body["errors"])
+
+
+def test_validate_returns_errors_for_unknown_flag():
+    client, token = _client_with_token()
+    r = client.post(
+        "/api/cli/show-span/validate",
+        json={
+            "args": {"call_id": "abc", "span": "outer", "totally_made_up": 42}
+        },
+        headers={CSRF_HEADER: token},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["valid"] is False
+    assert any(
+        "unknown" in e.lower() and "totally_made_up" in e for e in body["errors"]
+    )
+
+
+def test_validate_unknown_cli_returns_404():
+    client, token = _client_with_token()
+    r = client.post(
+        "/api/cli/does-not-exist/validate",
+        json={"args": {}},
+        headers={CSRF_HEADER: token},
+    )
+    assert r.status_code == 404
+
+
+# ---------------------------------------------------------------------------
 # POST /api/cli/run
 # ---------------------------------------------------------------------------
 
