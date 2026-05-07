@@ -119,21 +119,48 @@ def _persistence_for(jm) -> Any:
 
 
 def _validate_recent_args(
-    limit: int, since: float | None, before: float | None = None
+    limit: int,
+    since: float | None,
+    before: float | None = None,
+    cli_id: str | None = None,
 ) -> None:
     """Shared validation for /recent, /recent.csv, /recent.ndjson."""
+    import math
+
     if limit < 1:
         raise HTTPException(status_code=400, detail="limit must be >= 1")
     if limit > 1000:
         raise HTTPException(status_code=400, detail="limit must be <= 1000")
-    if since is not None and since < 0:
-        raise HTTPException(status_code=400, detail="since must be >= 0")
-    if before is not None and before < 0:
-        raise HTTPException(status_code=400, detail="before must be >= 0")
+    if since is not None:
+        if since < 0:
+            raise HTTPException(status_code=400, detail="since must be >= 0")
+        if not math.isfinite(since):
+            raise HTTPException(
+                status_code=400, detail="since must be a finite number"
+            )
+    if before is not None:
+        if before < 0:
+            raise HTTPException(status_code=400, detail="before must be >= 0")
+        if not math.isfinite(before):
+            raise HTTPException(
+                status_code=400, detail="before must be a finite number"
+            )
     if since is not None and before is not None and before <= since:
         raise HTTPException(
             status_code=400,
             detail="before must be > since (windowed queries are open intervals)",
+        )
+    # ?cli_id with embedded commas almost always means the user meant
+    # ?cli_ids= (the multi-value variant). Without this check we'd
+    # silently filter for the LITERAL string "foo,bar" and the user
+    # would see an empty result with no hint as to why.
+    if cli_id is not None and "," in cli_id:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "cli_id must be a single value; "
+                "use ?cli_ids=foo,bar for multiple values"
+            ),
         )
 
 
@@ -245,7 +272,7 @@ async def recent_jobs(
     All filters are pushed down to SQL on the persisted side and
     applied in-memory for the live set.
     """
-    _validate_recent_args(limit, since, before)
+    _validate_recent_args(limit, since, before, cli_id)
     parsed_cli_ids = _parse_cli_ids(cli_ids)
     rows = _collect_recent_rows(
         request.app.state.job_manager,
@@ -281,7 +308,7 @@ async def recent_jobs_csv(
     anyway). Caller wanting the full shape should use the JSON
     endpoint and convert client-side.
     """
-    _validate_recent_args(limit, since, before)
+    _validate_recent_args(limit, since, before, cli_id)
     parsed_cli_ids = _parse_cli_ids(cli_ids)
     rows = _collect_recent_rows(
         request.app.state.job_manager,
@@ -349,7 +376,7 @@ async def recent_jobs_ndjson(
     """
     import json
 
-    _validate_recent_args(limit, since, before)
+    _validate_recent_args(limit, since, before, cli_id)
     parsed_cli_ids = _parse_cli_ids(cli_ids)
     rows = _collect_recent_rows(
         request.app.state.job_manager,
