@@ -39,6 +39,8 @@ from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
+from .._ws_heartbeat import spawn_heartbeat
+
 logger = logging.getLogger(__name__)
 
 # Process-wide set of currently subscribed sockets. Membership is
@@ -83,10 +85,29 @@ def register_v2_ws_routes(app: FastAPI) -> None:
     async def v2_events(ws: WebSocket) -> None:
         await ws.accept()
         _subscribers.add(ws)
+        # Send-lock matters for the heartbeat: the broadcast() free
+        # function and the heartbeat task could otherwise interleave
+        # send_text calls and corrupt a frame. The lock here is
+        # local to this handler; broadcast() doesn't share it (it's
+        # a different code path that snapshots subscribers and
+        # accepts torn writes via its except-and-discard pattern).
+        # For pings, we use the lock to serialize against the pong
+        # response below, the only place we directly send_text from
+        # this handler.
+        send_lock = asyncio.Lock()
+        disconnected = asyncio.Event()
+        # Server-side heartbeat. Without this, idle connections
+        # (no cache_invalidate events for >60s) get reaped by NATs
+        # and corporate proxies. The FE's onclose handler triggers
+        # reconnect, but the user pays a 60-120s detection window.
+        # 25s heartbeat keeps the link warm. Same shared helper as
+        # jobs_ws and agent_ws.
+        heartbeat_task = spawn_heartbeat(ws, send_lock, disconnected)
         try:
             # Hello frame: lets the FE confirm the connection actually
             # came up (some proxies drop WS upgrades silently).
-            await ws.send_text(json.dumps({"type": "hello", "v": 1}))
+            async with send_lock:
+                await ws.send_text(json.dumps({"type": "hello", "v": 1}))
             # Drain inbound frames so we notice client disconnects and
             # can answer ``ping`` probes. We don't otherwise interpret
             # what the client sends.
@@ -94,7 +115,8 @@ def register_v2_ws_routes(app: FastAPI) -> None:
                 msg = await ws.receive_text()
                 if msg == "ping":
                     try:
-                        await ws.send_text(json.dumps({"type": "pong"}))
+                        async with send_lock:
+                            await ws.send_text(json.dumps({"type": "pong"}))
                     except Exception:  # noqa: BLE001
                         break
         except WebSocketDisconnect:
@@ -102,6 +124,12 @@ def register_v2_ws_routes(app: FastAPI) -> None:
         except Exception as exc:  # noqa: BLE001 - log + close cleanly
             logger.warning("v2 ws handler error: %s", exc)
         finally:
+            disconnected.set()
+            heartbeat_task.cancel()
+            try:
+                await heartbeat_task
+            except (asyncio.CancelledError, Exception):  # noqa: BLE001
+                pass
             _subscribers.discard(ws)
             try:
                 await ws.close()

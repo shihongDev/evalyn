@@ -22,7 +22,14 @@
 export type V2Event =
   | { type: 'hello'; v: number }
   | { type: 'cache_invalidate'; keys: string[] }
-  | { type: 'pong' };
+  | { type: 'pong' }
+  // Server-pushed heartbeat ping. The FE doesn't reply or react;
+  // the frame's job is just to keep NATs from reaping idle WS
+  // connections. The shared `_ws_heartbeat` helper sends one
+  // every 25s. Listed in the union so `isV2Event` lets the frame
+  // pass through (any unrecognized type would be filtered out
+  // before reaching subscribers, who then never see it).
+  | { type: 'ping'; ts: number };
 
 /** Coarse connection status surfaced to UI subscribers.
  *
@@ -106,7 +113,12 @@ function scheduleReconnect(): void {
 function isV2Event(value: unknown): value is V2Event {
   if (value == null || typeof value !== 'object') return false;
   const t = (value as { type?: unknown }).type;
-  return t === 'hello' || t === 'cache_invalidate' || t === 'pong';
+  return (
+    t === 'hello' ||
+    t === 'cache_invalidate' ||
+    t === 'pong' ||
+    t === 'ping'
+  );
 }
 
 /**
