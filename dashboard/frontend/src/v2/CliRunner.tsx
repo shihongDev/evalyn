@@ -865,6 +865,7 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
               jumpToBottom={jumpToOutputBottom}
               reconnecting={reconnecting}
               startedAtIso={jobStartedAtIso}
+              jobId={jobId}
             />
           )}
         </div>
@@ -1257,6 +1258,11 @@ interface OutputSectionProps {
    * "running 12s" counter via useLiveDuration. Null when no job is
    * active (form mode) or after Re-run resets state. */
   startedAtIso?: string | null;
+  /** Server-assigned job_id for the active subscription. Surfaces a
+   * "Copy ID" button in the preview action row so a user filing a
+   * support ticket or grep-ing logs can grab it in one click. Null
+   * when no job has been spawned yet. */
+  jobId?: string | null;
 }
 
 function OutputSection({
@@ -1270,12 +1276,30 @@ function OutputSection({
   jumpToBottom,
   reconnecting = false,
   startedAtIso = null,
+  jobId = null,
 }: OutputSectionProps) {
   // Inline clipboard state for the Copy button. Idle -> copied flips
   // the label briefly; idle -> error covers the rare browser-blocked
   // case (non-secure context with no clipboard API and execCommand
   // disabled).
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+  // Independent state for the "Copy ID" action so a successful output
+  // copy doesn't tint the ID button (and vice versa).
+  const [copyIdState, setCopyIdState] = useState<'idle' | 'copied' | 'error'>(
+    'idle',
+  );
+
+  async function handleCopyJobId() {
+    if (!jobId) return;
+    try {
+      await copyToClipboard(jobId);
+      setCopyIdState('copied');
+      window.setTimeout(() => setCopyIdState('idle'), 2000);
+    } catch {
+      setCopyIdState('error');
+      window.setTimeout(() => setCopyIdState('idle'), 3000);
+    }
+  }
 
   // Live "running 12s" counter for queued/running jobs. Hidden once a
   // terminal status arrives (the existing exitInfo footer takes over
@@ -1534,6 +1558,44 @@ function OutputSection({
               }}
             >
               ↥ first
+            </button>
+          )}
+          {jobId && (
+            <button
+              type="button"
+              onClick={() => void handleCopyJobId()}
+              aria-label={`Copy job ID ${jobId} to clipboard`}
+              title={
+                copyIdState === 'copied'
+                  ? `Copied: ${jobId}`
+                  : copyIdState === 'error'
+                    ? 'Browser blocked clipboard access'
+                    : `Copy job ID (${jobId.slice(0, 8)}...) to clipboard`
+              }
+              style={{
+                flexShrink: 0,
+                padding: '0 8px',
+                fontFamily: E.fMono,
+                fontSize: 10.5,
+                color:
+                  copyIdState === 'copied'
+                    ? E.pass
+                    : copyIdState === 'error'
+                      ? E.fail
+                      : E.text2,
+                background: 'transparent',
+                border: `1px solid ${E.hair2}`,
+                borderRadius: 4,
+                cursor: 'pointer',
+                lineHeight: 1.6,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {copyIdState === 'copied'
+                ? '✓ ID copied'
+                : copyIdState === 'error'
+                  ? '✗ Failed'
+                  : 'Copy ID'}
             </button>
           )}
           <button
