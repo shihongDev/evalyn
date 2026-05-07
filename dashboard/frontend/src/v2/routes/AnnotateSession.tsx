@@ -315,21 +315,22 @@ const Pane = function Pane({
   // would appear even on short content (clicks would do nothing visible).
   const [overflowing, setOverflowing] = useState(false);
   const innerRef = useRef<HTMLDivElement | null>(null);
-  // Copy-to-clipboard feedback. true for 1.5s after a successful copy.
-  // Auto-clears via the cleanup setTimeout.
-  const [copied, setCopied] = useState(false);
+  // Copy-to-clipboard feedback. The previous boolean version silently
+  // swallowed clipboard rejections (permission denied, insecure
+  // context, focus lost), so the user clicked Copy and saw nothing.
+  // Three-state lets us flash a "failed" pill in red so the click
+  // never feels like a no-op.
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
   useEffect(() => {
-    if (!copied) return;
-    const t = setTimeout(() => setCopied(false), 1500);
+    if (copyState === 'idle') return;
+    const t = setTimeout(() => setCopyState('idle'), copyState === 'copied' ? 1500 : 2500);
     return () => clearTimeout(t);
-  }, [copied]);
+  }, [copyState]);
   const copyToClipboard = useCallback(() => {
     if (!navigator.clipboard?.writeText || !text) return;
     navigator.clipboard.writeText(text).then(
-      () => setCopied(true),
-      () => {
-        // ignore - browser denied
-      },
+      () => setCopyState('copied'),
+      () => setCopyState('error'),
     );
   }, [text]);
 
@@ -385,20 +386,42 @@ const Pane = function Pane({
           <button
             type="button"
             onClick={copyToClipboard}
-            title={copied ? 'Copied to clipboard' : 'Copy pane content to clipboard'}
+            title={
+              copyState === 'copied'
+                ? 'Copied to clipboard'
+                : copyState === 'error'
+                  ? 'Copy failed - check clipboard permission'
+                  : 'Copy pane content to clipboard'
+            }
             style={{
               fontFamily: E.fMono,
               fontSize: 10,
-              color: copied ? E.ember : E.text2,
-              background: copied ? '#fcefe2' : 'transparent',
-              border: `1px solid ${copied ? E.ember : E.hair}`,
+              color:
+                copyState === 'error'
+                  ? E.fail
+                  : copyState === 'copied'
+                    ? E.ember
+                    : E.text2,
+              background:
+                copyState === 'copied' ? '#fcefe2' : 'transparent',
+              border: `1px solid ${
+                copyState === 'error'
+                  ? E.fail
+                  : copyState === 'copied'
+                    ? E.ember
+                    : E.hair
+              }`,
               borderRadius: 4,
               padding: '2px 8px',
               cursor: 'pointer',
               transition: 'all 160ms',
             }}
           >
-            {copied ? '✓ Copied' : 'Copy'}
+            {copyState === 'copied'
+              ? '✓ Copied'
+              : copyState === 'error'
+                ? 'Copy failed'
+                : 'Copy'}
           </button>
         )}
         {showToggle && (
