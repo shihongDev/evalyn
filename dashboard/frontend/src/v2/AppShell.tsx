@@ -1233,7 +1233,7 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
     { keys: 'Esc', label: 'Close any open overlay' },
   ];
   const CONTEXT_SHORTCUTS: Array<{ keys: string; label: string }> = [
-    { keys: '/', label: 'Focus search (drawer / output / experiments)' },
+    { keys: '/', label: 'Focus search (drawer / output / experiments / items)' },
     { keys: `${MOD_KEY} L`, label: 'Clear output (CliRunner)' },
     { keys: `${MOD_KEY} ↵`, label: 'Send message (Co-pilot composer)' },
     { keys: `${MOD_KEY} S`, label: 'Save annotations (Annotate session)' },
