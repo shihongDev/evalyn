@@ -104,6 +104,7 @@ async def recent_jobs(
     limit: int = 100,
     cli_id: str | None = None,
     status: str | None = None,
+    since: float | None = None,
 ) -> JSONResponse:
     """Return up to ``limit`` recent jobs in reverse chronological order.
 
@@ -118,27 +119,43 @@ async def recent_jobs(
     - ``status`` matches one of ``queued`` / ``running`` / ``complete`` /
       ``failed`` / ``cancelled``. Lets a caller list "only failed jobs"
       for a regression scan.
+    - ``since`` is a unix epoch (float) keeping only jobs whose
+      ``started_at > since``. Useful for polling - hand back the
+      previous response's max ``started_at`` to fetch only the delta.
 
-    Both filters are pushed down to SQL on the persisted side and
+    All filters are pushed down to SQL on the persisted side and
     applied in-memory for the live set.
     """
     if limit < 1:
         raise HTTPException(status_code=400, detail="limit must be >= 1")
     if limit > 1000:
         raise HTTPException(status_code=400, detail="limit must be <= 1000")
+    if since is not None and since < 0:
+        raise HTTPException(status_code=400, detail="since must be >= 0")
     jm = request.app.state.job_manager
     in_memory_jobs = jm.recent(n=limit)
     if cli_id is not None:
         in_memory_jobs = [j for j in in_memory_jobs if j.cli_id == cli_id]
     if status is not None:
         in_memory_jobs = [j for j in in_memory_jobs if j.state == status]
+    if since is not None:
+        in_memory_jobs = [j for j in in_memory_jobs if j.started_at > since]
     in_memory = [_job_to_dict(j) for j in in_memory_jobs]
     seen = {entry["id"] for entry in in_memory}
     merged = list(in_memory)
     persistence = _persistence_for(jm)
     if persistence is not None:
+        # Convert epoch -> ISO so the SQL comparison stays string-based
+        # against the column. ISO-8601 lexicographic ordering matches
+        # chronological ordering when zone offsets are present (we use
+        # +00:00 throughout via _iso_utc), so this is correct.
+        since_iso: str | None = None
+        if since is not None:
+            from datetime import datetime, timezone
+
+            since_iso = datetime.fromtimestamp(since, tz=timezone.utc).isoformat()
         for row in persistence.list_recent(
-            limit=limit, cli_id=cli_id, status=status
+            limit=limit, cli_id=cli_id, status=status, since_iso=since_iso
         ):
             entry = _persisted_to_dict(row)
             if entry["id"] in seen:

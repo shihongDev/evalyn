@@ -347,6 +347,50 @@ async def test_persistence_stores_stderr_count(tmp_path: Path) -> None:
     assert row.get("stderr_count") == 4
 
 
+def test_list_recent_filters_by_since_iso(tmp_path: Path) -> None:
+    """list_recent(since_iso=X) keeps only rows whose started_at_iso > X.
+    Useful for polling: the caller hands back the previous response's
+    max timestamp to fetch only the delta."""
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+    iso_baseline = "2026-01-01T00:00:00.000000+00:00"
+    iso_after_5s = "2026-01-01T00:00:05.000000+00:00"
+    iso_after_10s = "2026-01-01T00:00:10.000000+00:00"
+    persistence.upsert_job(
+        job_id="early",
+        cli_id="x",
+        args={},
+        cmd="x",
+        status="complete",
+        started_at_iso=iso_baseline,
+    )
+    persistence.upsert_job(
+        job_id="middle",
+        cli_id="x",
+        args={},
+        cmd="x",
+        status="complete",
+        started_at_iso=iso_after_5s,
+    )
+    persistence.upsert_job(
+        job_id="late",
+        cli_id="x",
+        args={},
+        cmd="x",
+        status="complete",
+        started_at_iso=iso_after_10s,
+    )
+
+    after_5s = persistence.list_recent(limit=100, since_iso=iso_after_5s)
+    # Strictly greater than: 'middle' should NOT be included.
+    ids = {r["job_id"] for r in after_5s}
+    assert ids == {"late"}
+
+    after_baseline = persistence.list_recent(limit=100, since_iso=iso_baseline)
+    ids2 = {r["job_id"] for r in after_baseline}
+    assert ids2 == {"middle", "late"}
+
+
 def test_list_recent_filters_by_status(tmp_path: Path) -> None:
     """list_recent(status=X) pushes the filter to SQL. Combined with
     cli_id, both clauses AND together."""
