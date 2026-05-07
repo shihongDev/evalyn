@@ -681,6 +681,8 @@ export function AppShell({
         <button
           type="button"
           onClick={() => navigate('/')}
+          aria-label="Go to home"
+          title="Home"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -691,7 +693,10 @@ export function AppShell({
             padding: 0,
           }}
         >
-          <div style={{ width: 14, height: 14, borderRadius: 4, background: E.ember }} />
+          <div
+            aria-hidden="true"
+            style={{ width: 14, height: 14, borderRadius: 4, background: E.ember }}
+          />
           <span
             style={{
               fontFamily: E.fSerif,

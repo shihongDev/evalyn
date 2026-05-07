@@ -1,1 +1,0 @@
-import{g as e,h as t}from"./index-CB3QmcSd.js";function n(){let{data:n}=t(`home`,e.home);return n?n.project:null}export{n as t};
