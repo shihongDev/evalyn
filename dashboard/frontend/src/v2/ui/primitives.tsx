@@ -147,6 +147,17 @@ interface BtnProps {
   disabled?: boolean;
   type?: 'button' | 'submit' | 'reset';
   title?: string;
+  /** Override the button's tab order. Pass `-1` to remove the button
+   * from the keyboard tab sequence - useful when a parent element has
+   * already taken on the interactive role (e.g. a clickable card whose
+   * inner CTA button is decorative for keyboard users). The mouse
+   * click path stays intact. */
+  tabIndex?: number;
+  /** Hide the button from accessibility tree. Use together with
+   * tabIndex={-1} when an enclosing interactive ancestor already
+   * exposes the same action - prevents AT from announcing the
+   * button as a duplicate. */
+  'aria-hidden'?: boolean;
   /** Optional coachmark id for the co-pilot UI guidance tour to anchor on. */
   'data-coachmark'?: string;
 }
@@ -176,6 +187,8 @@ export function Btn({
   disabled,
   type = 'button',
   title,
+  tabIndex,
+  'aria-hidden': ariaHidden,
   'data-coachmark': dataCoachmark,
 }: BtnProps) {
   return (
@@ -186,6 +199,8 @@ export function Btn({
       onFocus={onFocus}
       disabled={disabled}
       title={title}
+      tabIndex={tabIndex}
+      aria-hidden={ariaHidden}
       data-coachmark={dataCoachmark}
       style={{
         display: 'inline-flex',
