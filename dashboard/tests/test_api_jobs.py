@@ -221,6 +221,41 @@ def test_output_txt_unknown_job_404():
         assert r.status_code == 404
 
 
+def test_output_txt_stream_filter():
+    """?stream=stdout returns only stdout lines; ?stream=stderr returns
+    only stderr lines. Default returns both interleaved. Invalid value
+    rejected with 400."""
+    app = build_app()
+    with TestClient(app) as client:
+        job_id = _spawn(
+            client,
+            app,
+            [
+                sys.executable,
+                "-c",
+                "import sys\nprint('mark-out')\nsys.stderr.write('mark-err\\n')\n",
+            ],
+        )
+        _wait(client, app, job_id)
+
+        r_out = client.get(f"/api/jobs/{job_id}/output.txt?stream=stdout")
+        assert r_out.status_code == 200
+        assert "mark-out" in r_out.text
+        assert "mark-err" not in r_out.text
+
+        r_err = client.get(f"/api/jobs/{job_id}/output.txt?stream=stderr")
+        assert r_err.status_code == 200
+        assert "mark-err" in r_err.text
+        assert "mark-out" not in r_err.text
+
+        r_both = client.get(f"/api/jobs/{job_id}/output.txt")
+        assert "mark-out" in r_both.text
+        assert "mark-err" in r_both.text
+
+        r_bad = client.get(f"/api/jobs/{job_id}/output.txt?stream=both")
+        assert r_bad.status_code == 400
+
+
 def test_delete_finished_job_removes_from_history():
     """DELETE /api/jobs/{id} removes a finished job from in-memory.
     A subsequent GET returns 404."""
