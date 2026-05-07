@@ -1115,6 +1115,10 @@ function ClusterStrip({ clusters, activeId, onSelect }: ClusterStripProps) {
             type="button"
             key={c.id}
             onClick={() => onSelect(c.id)}
+            aria-pressed={active}
+            aria-label={`${c.label}, ${c.items.length} item${c.items.length === 1 ? '' : 's'}${
+              c.confidence != null ? `, confidence ${c.confidence.toFixed(2)}` : ''
+            }`}
             style={{
               textAlign: 'left',
               padding: '10px 12px',
