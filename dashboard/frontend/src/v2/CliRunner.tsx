@@ -36,6 +36,7 @@ import {
   type JobStatus,
   type JobStatusKind,
 } from './api/jobs';
+import { CapacityError } from './api/errors';
 import { closeCliRunner, subscribeRunner } from './cliRunnerBridge';
 import {
   loadJobsHistory,
@@ -517,9 +518,24 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
         },
       });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setError(msg);
-      setStatus('failed');
+      // Capacity 503: don't render a raw "POST /api/cli/run 503: ..."
+      // string. Show a clear message with cap state and reset to idle
+      // so the user can hit Run again after a few seconds without
+      // first having to clear an error state.
+      if (e instanceof CapacityError) {
+        setError(
+          `Job queue full (${e.running} / ${e.maxConcurrent} running). Try again in a few seconds.`,
+        );
+        // Revert to the pre-click state so the Run button is reachable
+        // again. We avoid 'failed' because nothing actually failed on
+        // the server - the spawn was rejected before the subprocess
+        // was created.
+        setStatus('queued');
+      } else {
+        const msg = e instanceof Error ? e.message : String(e);
+        setError(msg);
+        setStatus('failed');
+      }
     } finally {
       setSubmitting(false);
     }

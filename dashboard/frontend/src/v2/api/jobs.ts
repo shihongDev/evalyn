@@ -24,6 +24,7 @@
 
 import { runCli } from './cli';
 import { readCsrfToken, refreshCsrfToken } from './csrf';
+import { maybeParseCapacityError } from './errors';
 
 export type JobStatusKind =
   | 'queued'
@@ -132,6 +133,8 @@ export async function restartJob(id: string): Promise<{ job_id: string }> {
     if (fresh) res = await send(fresh);
   }
   if (!res.ok) {
+    const cap = await maybeParseCapacityError(res);
+    if (cap) throw cap;
     const body = await res.text();
     throw new Error(`POST /api/jobs/${id}/restart ${res.status}: ${body}`);
   }

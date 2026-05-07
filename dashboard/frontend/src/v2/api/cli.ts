@@ -16,6 +16,7 @@
  */
 
 import { readCsrfToken, refreshCsrfToken } from './csrf';
+import { maybeParseCapacityError } from './errors';
 
 export type CliParamKind =
   | 'string'
@@ -131,6 +132,8 @@ export async function runCli(
     if (fresh) res = await send(fresh);
   }
   if (!res.ok) {
+    const cap = await maybeParseCapacityError(res);
+    if (cap) throw cap;
     const body = await res.text();
     throw new Error(`POST /api/cli/run ${res.status}: ${body}`);
   }
