@@ -30,6 +30,11 @@ import {
 } from './api/jobs';
 import { CapacityError } from './api/errors';
 import {
+  notificationPermission,
+  requestNotificationPermission,
+  type NotificationPermissionState,
+} from './notifications';
+import {
   clearJobsHistory,
   getJobsDrawerFailureFilter,
   loadJobsHistory,
@@ -44,6 +49,7 @@ import {
   type JobHistoryStatus,
 } from './jobsHistory';
 import { listCli, previewCommand, type CliSchema } from './api/cli';
+import { useArmedConfirm } from './hooks/useArmedConfirm';
 import { useLiveDuration } from './hooks/useLiveDuration';
 import { openCliRunner } from './cliRunnerBridge';
 
@@ -76,6 +82,19 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
       setJobsDrawerFailureFilter(resolved);
       return resolved;
     });
+  };
+
+  // Browser notifications permission. Read once on mount; update
+  // after the user clicks "Enable notifications". When 'default',
+  // the drawer header shows the enable affordance; once granted or
+  // denied, the link disappears (re-prompting is browser-blocked
+  // anyway, so showing it would be misleading).
+  const [notifPerm, setNotifPerm] = useState<NotificationPermissionState>(
+    () => notificationPermission(),
+  );
+  const onEnableNotifications = async () => {
+    const result = await requestNotificationPermission();
+    setNotifPerm(result);
   };
 
   // Re-render whenever history mutates (within this tab or another).
@@ -540,6 +559,8 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
           onBulkRerunFailures={onBulkRerunFailures}
           bulkRerunPending={bulkRerunPending}
           capacity={capacity}
+          notifPerm={notifPerm}
+          onEnableNotifications={onEnableNotifications}
         />
         {/* Thin search row. Tucked under the header rather than packed
             into the chip line so a long history with active filters
@@ -671,6 +692,8 @@ function DrawerHeader({
   onBulkRerunFailures,
   bulkRerunPending,
   capacity,
+  notifPerm,
+  onEnableNotifications,
 }: {
   onClose: () => void;
   count: number;
@@ -680,6 +703,8 @@ function DrawerHeader({
   onBulkRerunFailures: () => void;
   bulkRerunPending: boolean;
   capacity: JobsCapacity | null;
+  notifPerm: NotificationPermissionState;
+  onEnableNotifications: () => void;
 }) {
   return (
     <div
@@ -817,6 +842,30 @@ function DrawerHeader({
           )}
         </div>
       </div>
+      {notifPerm === 'default' && (
+        <button
+          type="button"
+          onClick={onEnableNotifications}
+          aria-label="Enable browser notifications for backgrounded jobs"
+          title="Get an OS notification when a job finishes while you are on another tab"
+          style={{
+            flexShrink: 0,
+            padding: '0 8px',
+            fontFamily: E.fMono,
+            fontSize: 10.5,
+            color: E.text2,
+            background: 'transparent',
+            border: `1px solid ${E.hair2}`,
+            borderRadius: 4,
+            cursor: 'pointer',
+            lineHeight: 1.6,
+            whiteSpace: 'nowrap',
+            marginRight: 6,
+          }}
+        >
+          Enable notifications
+        </button>
+      )}
       <button
         type="button"
         onClick={onClose}
