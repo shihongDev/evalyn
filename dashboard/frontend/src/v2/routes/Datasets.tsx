@@ -283,6 +283,8 @@ function CoverageMap({ data, onAutoMine, autoMineEnabled }: CoverageMapProps) {
       ) : (
         <>
           <div
+            role="list"
+            aria-label="Coverage by category"
             style={{
               marginTop: 12,
               display: 'grid',
@@ -319,7 +321,9 @@ function CoverageMap({ data, onAutoMine, autoMineEnabled }: CoverageMapProps) {
               return (
                 <div
                   key={t.label}
-                  title={`${t.label} - ${t.pct}% coverage`}
+                  role="listitem"
+                  title={`${t.label} - ${t.status}, ${t.pct}% coverage`}
+                  aria-label={`${t.label}: ${t.status}, ${t.pct} percent coverage`}
                   style={{
                     background: fillBg,
                     border: `1px solid ${fillBorder}`,
