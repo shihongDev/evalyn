@@ -184,3 +184,34 @@ def test_settings_get_returns_redacted_view() -> None:
     assert r.status_code == 200
     body = r.json()
     assert "providers" in body and "active" in body
+
+
+def test_shutdown_hook_calls_persistence_vacuum() -> None:
+    """The shutdown lifespan hook fires JobPersistence.vacuum() so the
+    on-disk sqlite mirror gets compacted on clean exit. Without this,
+    long-running dashboards accumulate fragmentation that delete_old's
+    page-mark-only behavior never reclaims.
+
+    Uses TestClient as a context manager so the lifespan startup +
+    shutdown both run. We swap in a counter on the persistence
+    object's vacuum method to observe the call.
+    """
+    app = build_app()
+    jm = app.state.job_manager
+    persistence = jm._persistence
+    assert persistence is not None
+    calls = {"n": 0}
+    real_vacuum = persistence.vacuum
+
+    def counting_vacuum() -> bool:
+        calls["n"] += 1
+        return real_vacuum()
+
+    persistence.vacuum = counting_vacuum  # type: ignore[method-assign]
+
+    with TestClient(app):
+        # No-op block: just enter+exit the lifespan to trigger startup
+        # + shutdown.
+        pass
+
+    assert calls["n"] == 1, "shutdown hook should call vacuum exactly once"
