@@ -453,7 +453,7 @@ function CompareCard({ selected, onClear, onOpenFullDiff }: CompareCardProps) {
               color: E.text1,
             }}
           >
-            <StatusDot status={selected[0].status} />
+            <StatusDot status={selected[0].status} label={`Status: ${selected[0].status}`} />
             <span style={{ fontFamily: E.fMono }}>{selected[0].id}</span>
             <span style={{ flex: 1 }} />
             <span
@@ -488,7 +488,7 @@ function CompareCard({ selected, onClear, onOpenFullDiff }: CompareCardProps) {
                 marginBottom: 4,
               }}
             >
-              <StatusDot status={selected[0].status} />
+              <StatusDot status={selected[0].status} label={`Status: ${selected[0].status}`} />
               <span style={{ fontFamily: E.fMono }}>{selected[0].id}</span>
               <span style={{ flex: 1 }} />
               <span
@@ -510,7 +510,7 @@ function CompareCard({ selected, onClear, onOpenFullDiff }: CompareCardProps) {
                 marginBottom: 8,
               }}
             >
-              <StatusDot status={selected[1].status} />
+              <StatusDot status={selected[1].status} label={`Status: ${selected[1].status}`} />
               <span style={{ fontFamily: E.fMono }}>{selected[1].id}</span>
               <span style={{ flex: 1 }} />
               <span
