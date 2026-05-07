@@ -1,0 +1,1 @@
+import{j as e,w as t}from"./AppShell-45asfaph.js";function n(){let{data:n}=t(`home`,e.home);return n?n.project:null}export{n as t};

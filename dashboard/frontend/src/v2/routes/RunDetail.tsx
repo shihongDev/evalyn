@@ -567,8 +567,44 @@ export default function RunDetail() {
           </div>
         </div>
 
-        {/* TABS */}
-        <div style={{ display: 'flex', gap: 2, marginTop: 22, borderBottom: `1px solid ${E.hair}` }}>
+        {/* TABS - proper ARIA tablist with arrow-key navigation, mirroring
+            the Reports AudienceTabs pattern. Failures is borderline since
+            it can deep-link to a cluster, but visually it lives in the
+            same strip; the click handler (and Enter activation) keeps the
+            existing nav behaviour intact. */}
+        <div
+          role="tablist"
+          aria-label="Run sections"
+          onKeyDown={(e) => {
+            // Find next non-disabled tab in the requested direction.
+            const moveBy = (delta: 1 | -1): number | null => {
+              const n = tabs.length;
+              for (let step = 1; step <= n; step += 1) {
+                const i = (activeTab + delta * step + n) % n;
+                const isFailuresI = i === 2;
+                const disabledI = isFailuresI && !detail.failure_clusters.clusters[0];
+                if (!disabledI) return i;
+              }
+              return null;
+            };
+            let nextIdx: number | null = null;
+            if (e.key === 'ArrowRight') nextIdx = moveBy(1);
+            else if (e.key === 'ArrowLeft') nextIdx = moveBy(-1);
+            else if (e.key === 'Home') nextIdx = 0;
+            else if (e.key === 'End') nextIdx = tabs.length - 1;
+            if (nextIdx === null) return;
+            e.preventDefault();
+            setActiveTab(nextIdx);
+            // Defer focus so React commits the new selected state first.
+            window.setTimeout(() => {
+              const next = document.querySelector<HTMLButtonElement>(
+                `[data-rundetail-tab="${nextIdx}"]`,
+              );
+              next?.focus();
+            }, 0);
+          }}
+          style={{ display: 'flex', gap: 2, marginTop: 22, borderBottom: `1px solid ${E.hair}` }}
+        >
           {tabs.map((t, i) => {
             const isActive = i === activeTab;
             // Summary (0) and Items (1) render in-place. Failures (2)
@@ -586,6 +622,10 @@ export default function RunDetail() {
               <button
                 key={t}
                 type="button"
+                role="tab"
+                aria-selected={isActive}
+                tabIndex={isActive ? 0 : -1}
+                data-rundetail-tab={i}
                 disabled={disabled}
                 title={title}
                 onClick={() => {
