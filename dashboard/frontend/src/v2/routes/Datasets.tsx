@@ -27,7 +27,7 @@ import {
 } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
-import { Btn, Card, Eyebrow, Pill, Skeleton, UpdatingChip } from '../ui';
+import { Btn, Card, Eyebrow, Pill, Skeleton, Spinner, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
 import { loadDemo } from '../api/demo';
 import { errorMessage } from '../api/errors';
@@ -700,7 +700,13 @@ function ComposeStrip({
         Preview blend
       </Btn>
       <Btn kind="primary" size="sm" onClick={onRun} disabled={busy} aria-busy={busy}>
-        {busy ? 'Spawning...' : '-> Run combined eval'}
+        {busy ? (
+          <>
+            <Spinner size={11} /> Spawning
+          </>
+        ) : (
+          '-> Run combined eval'
+        )}
       </Btn>
     </div>
   );
@@ -1286,7 +1292,13 @@ export default function Datasets() {
                 disabled={demoLoading}
                 aria-busy={demoLoading}
               >
-                {demoLoading ? 'Loading...' : 'Load demo'}
+                {demoLoading ? (
+                  <>
+                    <Spinner size={11} /> Loading
+                  </>
+                ) : (
+                  'Load demo'
+                )}
               </Btn>
               <Btn
                 kind="secondary"
