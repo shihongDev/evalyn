@@ -347,6 +347,41 @@ async def test_persistence_stores_stderr_count(tmp_path: Path) -> None:
     assert row.get("stderr_count") == 4
 
 
+def test_list_recent_filters_by_before_and_window(tmp_path: Path) -> None:
+    """list_recent(before_iso=X) keeps only rows whose started_at_iso < X.
+    Combined with since_iso, both clauses give a windowed query."""
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+    iso_t0 = "2026-01-01T00:00:00.000000+00:00"
+    iso_t5 = "2026-01-01T00:00:05.000000+00:00"
+    iso_t10 = "2026-01-01T00:00:10.000000+00:00"
+    iso_t15 = "2026-01-01T00:00:15.000000+00:00"
+    for jid, ts in [
+        ("a", iso_t0),
+        ("b", iso_t5),
+        ("c", iso_t10),
+        ("d", iso_t15),
+    ]:
+        persistence.upsert_job(
+            job_id=jid,
+            cli_id="x",
+            args={},
+            cmd="x",
+            status="complete",
+            started_at_iso=ts,
+        )
+
+    # before only: strictly less than t10 -> a, b
+    only_before = persistence.list_recent(limit=100, before_iso=iso_t10)
+    assert {r["job_id"] for r in only_before} == {"a", "b"}
+
+    # since AND before: strictly between t0 and t15 -> b, c
+    windowed = persistence.list_recent(
+        limit=100, since_iso=iso_t0, before_iso=iso_t15
+    )
+    assert {r["job_id"] for r in windowed} == {"b", "c"}
+
+
 def test_list_recent_filters_by_since_iso(tmp_path: Path) -> None:
     """list_recent(since_iso=X) keeps only rows whose started_at_iso > X.
     Useful for polling: the caller hands back the previous response's
