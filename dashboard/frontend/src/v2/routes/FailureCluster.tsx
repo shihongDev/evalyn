@@ -11,6 +11,7 @@ import { v2 } from '../api/client';
 import type { ClusterDetail } from '../api/types';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { useProject } from '../hooks/useProject';
+import { preloadCoPilotThread } from '../routePreloads';
 import { linkifyText, makeUrlCounter } from '../textRender';
 import { copyToClipboard } from '../clipboard';
 import { E } from '../tokens';
@@ -203,6 +204,8 @@ export default function FailureCluster() {
                 kind="primary"
                 size="md"
                 onClick={() => navigate('/copilot')}
+                onMouseEnter={() => void preloadCoPilotThread()}
+                onFocus={() => void preloadCoPilotThread()}
                 title="Open the co-pilot - paste this cluster's pattern to get started"
               >
                 Fix with co-pilot -&gt;
