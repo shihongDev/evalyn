@@ -824,6 +824,73 @@ def test_admin_vacuum_returns_before_after_and_bytes_saved():
         assert body["bytes_saved"] == body["before"] - body["after"]
 
 
+def test_admin_prune_requires_csrf():
+    """Like vacuum, prune is a destructive POST that mutates
+    persistence; missing token must 403 before the prune runs."""
+    app = build_app()
+    with TestClient(app) as client:
+        r = client.post("/api/jobs/admin/prune?keep=10")
+        assert r.status_code == 403
+
+
+def test_admin_prune_rejects_negative_keep():
+    """A negative keep would result in unbounded deletion. Reject
+    with 400 before touching persistence."""
+    app = build_app()
+    with TestClient(app) as client:
+        token = _token_from(client)
+        r = client.post(
+            "/api/jobs/admin/prune?keep=-1", headers={CSRF_HEADER: token}
+        )
+        assert r.status_code == 400
+        assert "keep" in r.json()["detail"].lower()
+
+
+def test_admin_prune_returns_deleted_and_kept_counts():
+    """Happy path: spawn a few jobs, prune to keep=1, the response
+    reflects the rowcount that got deleted plus the post-prune
+    total. Kept must equal the requested keep (or fewer if the
+    pre-prune total was already smaller)."""
+    app = build_app()
+    with TestClient(app) as client:
+        # Three jobs so the prune actually has work to do.
+        for _ in range(3):
+            jid = _spawn(client, app, [sys.executable, "-c", "pass"])
+            _wait(client, app, jid)
+
+        token = _token_from(client)
+        r = client.post(
+            "/api/jobs/admin/prune?keep=1", headers={CSRF_HEADER: token}
+        )
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["ok"] is True
+        # We had 3 rows, asked to keep 1 -> 2 deleted, 1 kept.
+        # delete_old's "older than the keep-th newest" semantics
+        # may delete >= 2 depending on tie-breaks, so we assert
+        # an inequality.
+        assert body["deleted"] >= 2
+        assert body["kept"] >= 0 and body["kept"] <= 1
+
+
+def test_admin_prune_zero_keep_clears_all():
+    """keep=0 is allowed and means delete everything. Confirms the
+    >=0 boundary is intentional, not an off-by-one."""
+    app = build_app()
+    with TestClient(app) as client:
+        jid = _spawn(client, app, [sys.executable, "-c", "pass"])
+        _wait(client, app, jid)
+
+        token = _token_from(client)
+        r = client.post(
+            "/api/jobs/admin/prune?keep=0", headers={CSRF_HEADER: token}
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["ok"] is True
+        assert body["kept"] == 0
+
+
 def test_admin_vacuum_advances_last_vacuum_at_field_on_health():
     """A successful manual vacuum must propagate to /api/health's
     last_vacuum_at field. Closes the loop between the manual button

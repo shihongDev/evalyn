@@ -111,3 +111,39 @@ export async function vacuumPersistence(): Promise<VacuumResult> {
   }
   return (await res.json()) as VacuumResult;
 }
+
+/** Result of POST /api/jobs/admin/prune. ``deleted`` is the
+ * rowcount that got pruned; ``kept`` is the post-prune total
+ * from stats() so the UI can show the new persisted count
+ * without a separate health refetch. */
+export interface PruneResult {
+  ok: boolean;
+  deleted: number;
+  kept: number;
+}
+
+/** Prune persisted job rows older than the `keep` most recent.
+ * Destructive; callers wrap in a two-click confirmation.
+ * Self-heals stale CSRF tokens. */
+export async function pruneOldJobs(keep: number): Promise<PruneResult> {
+  const { readCsrfToken, refreshCsrfToken } = await import('./csrf');
+  const url = `/api/jobs/admin/prune?keep=${encodeURIComponent(String(keep))}`;
+  const send = async (token: string | null): Promise<Response> =>
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        ...(token ? { 'X-CSRF-Token': token } : {}),
+      },
+    });
+  let res = await send(readCsrfToken());
+  if (res.status === 403) {
+    const fresh = await refreshCsrfToken();
+    if (fresh) res = await send(fresh);
+  }
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`POST /api/jobs/admin/prune ${res.status}: ${text}`);
+  }
+  return (await res.json()) as PruneResult;
+}
