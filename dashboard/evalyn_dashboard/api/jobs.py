@@ -370,6 +370,13 @@ async def jobs_stats(
             status_code=400, detail="recent_window_s must be >= 0"
         )
     jm = request.app.state.job_manager
+    # Capacity surface is independent of persistence - always include
+    # so a frontend can render a "X / Y running" chip without an extra
+    # round-trip. ``max_concurrent=0`` means the cap is disabled.
+    capacity = {
+        "running": jm.running_count(),
+        "max_concurrent": jm.max_concurrent,
+    }
     persistence = _persistence_for(jm)
     if persistence is None:
         # Test setups without persistence: build the same shape from
@@ -386,9 +393,12 @@ async def jobs_stats(
                 "recent_failures": sum(
                     1 for j in in_mem if j.state == "failed"
                 ),
+                **capacity,
             }
         )
-    return JSONResponse(persistence.stats(recent_window_s))
+    body = persistence.stats(recent_window_s)
+    body.update(capacity)
+    return JSONResponse(body)
 
 
 @router.get("/{job_id}")
@@ -712,7 +722,21 @@ async def restart_job(request: Request, job_id: str) -> JSONResponse:
 
     argv_tail = args_to_argv(schema, args)
     cmd = ["evalyn", cli_id, *argv_tail]
-    new_job_id = await jm.spawn(cmd, cli_id=cli_id, args=args)
+    from ..jobs import ConcurrencyLimitExceeded
+
+    try:
+        new_job_id = await jm.spawn(cmd, cli_id=cli_id, args=args)
+    except ConcurrencyLimitExceeded as exc:
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": str(exc),
+                "running": jm.running_count(),
+                "max_concurrent": jm.max_concurrent,
+            },
+            status_code=503,
+            headers={"Retry-After": "5"},
+        )
     return JSONResponse({"job_id": new_job_id})
 
 
