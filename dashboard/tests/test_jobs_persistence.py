@@ -726,3 +726,67 @@ def test_filtered_query_uses_composite_index(tmp_path: Path) -> None:
     assert "idx_jobs_cli_id_started_at" in plan_text, (
         f"expected composite cli_id index in plan; got: {plan_text}"
     )
+
+
+def test_legacy_db_without_composite_indexes_gets_them_on_init(
+    tmp_path: Path,
+) -> None:
+    """A jobs.sqlite that pre-dates the composite-index commit should
+    pick up the new indexes on next startup. CREATE INDEX IF NOT
+    EXISTS is the mechanism; this test pins that the existing
+    _ensure_schema flow runs the new statements (not just on
+    fresh DBs)."""
+    db = tmp_path / "jobs.sqlite"
+    # Hand-craft a legacy DB with the table + only the original
+    # single-column index. Mirrors the shape installations had
+    # before composite indexes shipped.
+    with sqlite3.connect(str(db)) as conn:
+        conn.execute(
+            """
+            CREATE TABLE jobs (
+              job_id TEXT PRIMARY KEY,
+              cli_id TEXT NOT NULL,
+              args_json TEXT NOT NULL,
+              cmd TEXT,
+              status TEXT NOT NULL,
+              exit_code INTEGER,
+              started_at_iso TEXT NOT NULL,
+              ended_at_iso TEXT,
+              duration_s REAL,
+              stdout_tail TEXT NOT NULL DEFAULT '',
+              stderr_tail TEXT NOT NULL DEFAULT '',
+              stderr_count INTEGER NOT NULL DEFAULT 0
+            );
+            """
+        )
+        conn.execute(
+            "CREATE INDEX idx_jobs_started_at ON jobs(started_at_iso DESC)"
+        )
+
+    # Opening with JobPersistence triggers _ensure_schema, which runs
+    # CREATE INDEX IF NOT EXISTS for the composites.
+    persistence = JobPersistence(db_path=db)
+    # Force schema init via a write.
+    persistence.upsert_job(
+        job_id="legacy-2",
+        cli_id="run-eval",
+        args={},
+        cmd="x",
+        status="complete",
+        started_at_iso="2026-05-07T00:00:00.000000+00:00",
+    )
+
+    with sqlite3.connect(str(db)) as conn:
+        names = {
+            r[0]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='index'"
+            )
+        }
+    # Both composite indexes should now exist (added by the ALTER-
+    # equivalent forward migration, even though they're CREATE
+    # INDEX IF NOT EXISTS rather than ALTER TABLE).
+    assert "idx_jobs_cli_id_started_at" in names
+    assert "idx_jobs_status_started_at" in names
+    # And the original index is still there.
+    assert "idx_jobs_started_at" in names
