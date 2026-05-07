@@ -137,6 +137,27 @@ export function removeJob(jobId: string): void {
   saveJobsHistory(list);
 }
 
+/** Drop entries whose status is 'unknown' (backend evicted the record,
+ * usually a server restart) and whose started_at_iso is older than the
+ * given cutoff in milliseconds. Returns the count removed. Used by the
+ * Recent Jobs drawer on each open to prevent stale unknown rows from
+ * accumulating in localStorage forever - they cannot be recovered or
+ * resumed, so keeping them past a grace window adds clutter without
+ * value. */
+export function pruneStaleUnknown(maxAgeMs: number): number {
+  const list = loadJobsHistory();
+  const cutoff = Date.now() - maxAgeMs;
+  const kept = list.filter((e) => {
+    if (e.status !== 'unknown') return true;
+    const t = Date.parse(e.started_at_iso);
+    if (!Number.isFinite(t)) return true; // can't decide age - keep
+    return t >= cutoff;
+  });
+  if (kept.length === list.length) return 0;
+  saveJobsHistory(kept);
+  return list.length - kept.length;
+}
+
 /** Drop every entry. Does NOT cancel any actually-running jobs. */
 export function clearJobsHistory(): void {
   const ls = safeStorage();
