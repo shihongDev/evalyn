@@ -904,6 +904,32 @@ class AgentRuntime:
         thread = self._threads.get(thread_id)
         return list(thread.messages) if thread else []
 
+    def list_threads(self) -> list[dict[str, Any]]:
+        """Return a JSON-friendly snapshot of every active thread.
+
+        Each entry: ``{id, message_count, event_count, closed,
+        has_pending_confirmation}``. Useful for admin/debug surfaces
+        answering "what threads has this runtime accumulated?". The
+        message and event counts are cheap (len() on the lists);
+        ``closed`` reflects whether ``final`` has fired; the
+        confirmation flag tells the caller a turn is gated on user
+        approval (a stuck thread).
+        """
+        out: list[dict[str, Any]] = []
+        for tid, thread in self._threads.items():
+            out.append(
+                {
+                    "id": tid,
+                    "message_count": len(thread.messages),
+                    "event_count": len(thread.events),
+                    "closed": thread.closed,
+                    "has_pending_confirmation": (
+                        thread.pending_tool_call_id is not None
+                    ),
+                }
+            )
+        return out
+
     def confirm(
         self,
         thread_id: str,

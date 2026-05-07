@@ -408,3 +408,76 @@ def test_confirmation_flow_approve_runs_tool(tmp_path: Path) -> None:
 
 async def _unused_runner(argv: list[str]) -> tuple[str, int]:  # pragma: no cover
     raise AssertionError(f"runner should not be called: {argv}")
+
+
+# ---------------------------------------------------------------------------
+# GET /api/agent/threads
+# ---------------------------------------------------------------------------
+
+
+def test_list_threads_empty_when_runtime_fresh(tmp_path: Path) -> None:
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider([]),
+        catalog=_sample_catalog(),
+        tool_runner=_unused_runner,
+    )
+    client, _token = _make_client(tmp_path, runtime)
+    r = client.get("/api/agent/threads")
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+def test_list_threads_returns_metadata_for_each_thread(tmp_path: Path) -> None:
+    """Threads created via the runtime show up in the listing with
+    cheap metadata (counts + flags). The full message bodies are NOT
+    included; the listing should stay lightweight."""
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider(
+            [[ProviderEvent(kind="text_delta", text="hi"), ProviderEvent(kind="finish")]]
+        ),
+        catalog=_sample_catalog(),
+        tool_runner=_unused_runner,
+    )
+    client, token = _make_client(tmp_path, runtime)
+    # Create two threads via the chat endpoint.
+    r1 = client.post(
+        "/api/agent/chat",
+        json={"message": "first"},
+        headers={CSRF_HEADER: token},
+    )
+    assert r1.status_code == 200
+    r2 = client.post(
+        "/api/agent/chat",
+        json={"message": "second"},
+        headers={CSRF_HEADER: token},
+    )
+    assert r2.status_code == 200
+    tid1 = r1.json()["thread_id"]
+    tid2 = r2.json()["thread_id"]
+
+    r = client.get("/api/agent/threads")
+    assert r.status_code == 200
+    body = r.json()
+    ids = {t["id"] for t in body}
+    assert tid1 in ids
+    assert tid2 in ids
+    # Each entry has the documented shape; counts are integers.
+    for t in body:
+        assert isinstance(t["message_count"], int) and t["message_count"] >= 1
+        assert isinstance(t["event_count"], int)
+        assert isinstance(t["closed"], bool)
+        assert isinstance(t["has_pending_confirmation"], bool)
+
+
+def test_list_threads_503_when_runtime_missing(tmp_path: Path) -> None:
+    """If agent_runtime is absent on app.state, the endpoint returns
+    503 (matching the chat endpoint's behavior)."""
+    from evalyn_dashboard.server import build_app
+
+    app = build_app()
+    # build_app installs an agent_runtime by default; clear it to
+    # simulate a misconfigured deployment.
+    app.state.agent_runtime = None
+    client = TestClient(app)
+    r = client.get("/api/agent/threads")
+    assert r.status_code == 503
