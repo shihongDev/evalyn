@@ -438,6 +438,13 @@ export default function RunDetail() {
               ? 'Browser blocked clipboard access'
               : 'Copy this run\'s URL to your clipboard'
         }
+        aria-label={
+          shareState === 'copied'
+            ? 'Run URL copied to clipboard'
+            : shareState === 'error'
+              ? 'Failed to copy run URL'
+              : "Copy this run's URL to clipboard"
+        }
       >
         {shareState === 'copied' ? '✓ Copied' : shareState === 'error' ? '✗ Failed' : '↗ Share'}
       </Btn>
@@ -452,6 +459,12 @@ export default function RunDetail() {
           rerunBusy
             ? 'Loading...'
             : `Open the run-eval form pre-filled for ${detail.dataset.name}`
+        }
+        aria-busy={rerunBusy}
+        aria-label={
+          rerunBusy
+            ? 'Loading re-run form'
+            : `Re-run with the same dataset (${detail.dataset.name})`
         }
       >
         {rerunBusy ? (
