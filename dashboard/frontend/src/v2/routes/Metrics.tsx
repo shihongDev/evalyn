@@ -101,6 +101,10 @@ interface TrustScoreboardCardProps {
   rows: TrustRow[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** Called when the user clicks "Run an evaluation" in the empty
+   * state. The card itself doesn't know the route - the parent owns
+   * navigation - so this is a pure callback. */
+  onRunEval: () => void;
   loading: boolean;
 }
 
@@ -108,6 +112,7 @@ function TrustScoreboardCard({
   rows,
   selectedId,
   onSelect,
+  onRunEval,
   loading,
 }: TrustScoreboardCardProps) {
   return (
@@ -154,14 +159,21 @@ function TrustScoreboardCard({
       {!loading && rows.length === 0 && (
         <div
           style={{
-            color: E.text3,
-            fontSize: 12,
-            padding: '12px 0',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 12,
+            padding: '24px 0 8px',
             textAlign: 'center',
           }}
         >
-          No metrics found yet. Run an evaluation to populate the trust
-          report.
+          <div style={{ color: E.text2, fontSize: 13, maxWidth: 360 }}>
+            No metrics yet. Run your first evaluation - the trust report
+            fills in once judges have something to score.
+          </div>
+          <Btn kind="primary" size="sm" onClick={onRunEval}>
+            Run an evaluation →
+          </Btn>
         </div>
       )}
 
@@ -176,6 +188,8 @@ function TrustScoreboardCard({
                 key={t.id}
                 type="button"
                 onClick={() => onSelect(t.id)}
+                aria-pressed={isActive}
+                aria-label={`${t.name}${isActive ? ', selected' : ''} - trust score ${Math.round(t.score * 100)} of 100${t.needs_work ? ', needs work' : ''}`}
                 onMouseEnter={(e) => {
                   if (!isActive) e.currentTarget.style.background = E.panel2;
                 }}
@@ -1086,6 +1100,7 @@ function RubricEditor({
 
 export default function Metrics() {
   const project = useProject();
+  const navigate = useNavigate();
 
   const {
     data: list,
@@ -1288,6 +1303,7 @@ export default function Metrics() {
           rows={trustRows}
           selectedId={selectedId}
           onSelect={(id) => setSelectedId(id)}
+          onRunEval={() => navigate('/commands?prefill=run-eval')}
           loading={trustLoading}
         />
 
