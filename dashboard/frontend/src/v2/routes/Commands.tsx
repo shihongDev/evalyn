@@ -390,6 +390,7 @@ function LeftRail({
                   key={cmd.id}
                   type="button"
                   onClick={() => onSelect(cmd.id)}
+                  aria-pressed={isActive}
                   title={cmd.id}
                   style={{
                     display: 'flex',
@@ -441,6 +442,7 @@ function LeftRail({
               key={group}
               type="button"
               onClick={() => onSelectGroup(group)}
+              aria-pressed={isActive}
               style={{
                 display: 'flex',
                 alignItems: 'center',
