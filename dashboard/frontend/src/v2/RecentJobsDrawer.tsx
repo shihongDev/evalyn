@@ -57,9 +57,29 @@ import { openCliRunner } from './cliRunnerBridge';
 interface RecentJobsDrawerProps {
   open: boolean;
   onClose: () => void;
+  /**
+   * When set, forces the failure-filter chip on whenever the drawer
+   * transitions from closed -> open. Used by deep-links like the
+   * SystemStatusCard's "Failures (24h)" row so the user lands
+   * directly in the failed-jobs view. The chip remains user-toggleable
+   * - this is a starting state, not a lock.
+   *
+   * Identity-changing on each request (the bridge bumps a nonce) so
+   * the drawer applies the filter even if the same value is "set"
+   * twice in a row.
+   */
+  initialFailureFilter?: boolean;
+  /** Bumped by the caller on each request so the effect re-fires
+   * even when the filter value is unchanged. */
+  initialFailureFilterNonce?: number;
 }
 
-export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): ReactElement | null {
+export function RecentJobsDrawer({
+  open,
+  onClose,
+  initialFailureFilter,
+  initialFailureFilterNonce,
+}: RecentJobsDrawerProps): ReactElement | null {
   const [entries, setEntries] = useState<JobHistoryEntry[]>(() => loadJobsHistory());
   const [cliCatalog, setCliCatalog] = useState<CliSchema[] | null>(null);
   const [catalogError, setCatalogError] = useState<string | null>(null);
@@ -102,6 +122,23 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
   useEffect(() => {
     return subscribeJobsHistory(() => setEntries(loadJobsHistory()));
   }, []);
+
+  // Apply initialFailureFilter on each open transition. We re-run
+  // when the nonce bumps (caller's signal that a fresh open request
+  // arrived) so a second click with the same filter value still
+  // re-applies. We don't depend on initialFailureFilter alone
+  // because the value can be the same across two distinct opens.
+  // Skipped entirely when the prop is undefined - that's the
+  // standard "open with no overrides" call from the keyboard
+  // shortcut and the topbar button.
+  useEffect(() => {
+    if (!open) return;
+    if (initialFailureFilter === undefined) return;
+    setFailureFilter(initialFailureFilter);
+    // Intentionally not depending on setFailureFilter (closure-stable)
+    // and explicitly using nonce to gate re-fires.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialFailureFilter, initialFailureFilterNonce]);
 
   // Acknowledge currently-known failures whenever the drawer opens.
   // The AppShell tab title's "!N" prefix counts only failures whose

@@ -27,6 +27,7 @@ import {
   vacuumPersistence,
   type SystemHealth,
 } from '../api/health';
+import { openJobsDrawer } from '../jobsDrawerBridge';
 import { settingsApi, type ProviderState, type SettingsState } from '../api/settings';
 import { TOUR_ENABLED_KEY, tourCompletedKey } from '../store/store';
 import { KNOWN_TOUR_IDS } from '../tour/useTour';
@@ -396,7 +397,20 @@ function SystemStatusCard() {
           // bare integer. Zero stays in the default text color so
           // the row reads as neutral when healthy.
           valueColor={health.recent_failures_24h > 0 ? E.fail : undefined}
-          tooltip="Jobs that ended in 'failed' state within the last 24 hours"
+          tooltip={
+            health.recent_failures_24h > 0
+              ? 'Jobs that ended in failed state in the last 24h. Click to open the Recent Jobs drawer with the failure filter on.'
+              : 'Jobs that ended in failed state in the last 24h'
+          }
+          // Click-through only when there's something to investigate.
+          // Opening an empty failure-filtered drawer would just
+          // confuse the user (no rows to look at). With zero
+          // failures the row stays a passive label.
+          onClick={
+            health.recent_failures_24h > 0
+              ? () => openJobsDrawer({ failureFilter: true })
+              : undefined
+          }
         />
       </div>
       <div
@@ -453,6 +467,7 @@ function StatusRow({
   value,
   tooltip,
   valueColor,
+  onClick,
 }: {
   label: string;
   value: string;
@@ -461,14 +476,71 @@ function StatusRow({
    * "Failures (24h)" row to flag non-zero counts in red without
    * forcing every consumer to thread through a color prop. */
   valueColor?: string;
+  /** When set, renders as a clickable button-styled div with a
+   * hover affordance. Used by deep-links like "Failures (24h)"
+   * -> open drawer. Standard semantic <button> would override
+   * inherited styles in awkward ways here; div + role="button"
+   * + keyboard handler is the path of least resistance and
+   * matches button accessibility expectations. */
+  onClick?: () => void;
 }) {
+  const isInteractive = onClick !== undefined;
   return (
     <div
       title={tooltip}
-      style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}
+      onClick={onClick}
+      onKeyDown={
+        isInteractive
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
+      role={isInteractive ? 'button' : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
+      style={{
+        display: 'flex',
+        alignItems: 'baseline',
+        gap: 8,
+        cursor: isInteractive ? 'pointer' : undefined,
+        // Subtle hover hint for the interactive case so the user
+        // notices the affordance. Underline only on hover (not
+        // always-on) so the row doesn't shout when no failures
+        // are present and the row is non-interactive.
+        ...(isInteractive
+          ? {
+              borderRadius: 3,
+              padding: '1px 4px',
+              margin: '-1px -4px',
+              transition: 'background 80ms',
+            }
+          : {}),
+      }}
+      onMouseEnter={
+        isInteractive
+          ? (e) => (e.currentTarget.style.background = E.panel2)
+          : undefined
+      }
+      onMouseLeave={
+        isInteractive
+          ? (e) => (e.currentTarget.style.background = 'transparent')
+          : undefined
+      }
     >
       <span style={{ color: E.text3, minWidth: 110 }}>{label}</span>
-      <span style={{ color: valueColor ?? E.text0 }}>{value}</span>
+      <span
+        style={{
+          color: valueColor ?? E.text0,
+          textDecoration: isInteractive ? 'underline' : undefined,
+          textDecorationStyle: 'dotted',
+          textUnderlineOffset: 2,
+        }}
+      >
+        {value}
+      </span>
     </div>
   );
 }

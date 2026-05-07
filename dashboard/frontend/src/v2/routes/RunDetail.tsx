@@ -94,7 +94,7 @@ function parseHeadlineNumber(s: string): number | null {
 
 export default function RunDetail() {
   const { runId } = useParams<{ runId: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const compareParam = searchParams.get('compare');
   // Sanity: ignore compare param when it's the same id as the primary run.
   const compareWith =
@@ -168,7 +168,29 @@ export default function RunDetail() {
     }
   }, [detail, compareActive, compareWith, runId]);
 
-  const [activeTab, setActiveTab] = useState(0);
+  // activeTab lives in the URL (?tab=items) so a shared run link
+  // lands the recipient on the same tab the sender was looking at,
+  // and reload / browser-back keep their place. Summary (0) is the
+  // default and stays unparameterised so /experiments/<id> remains
+  // a clean default URL. Failures (2) deep-links into a cluster on
+  // click, so it never becomes the activeTab; only Summary <-> Items
+  // is a real URL-persisted toggle.
+  const tabParam = searchParams.get('tab');
+  const activeTab = tabParam === 'items' ? 1 : 0;
+  const setActiveTab = useCallback(
+    (idx: number) => {
+      setSearchParams(
+        (prev) => {
+          const u = new URLSearchParams(prev);
+          if (idx === 1) u.set('tab', 'items');
+          else u.delete('tab');
+          return u;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
   // When the user clicks "View all N failures" from the Summary tab we
   // both switch to the Items tab and seed its filter to "failed". The
   // Items tab manages its own filter state internally so we re-mount it

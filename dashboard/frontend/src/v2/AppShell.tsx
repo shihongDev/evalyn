@@ -34,6 +34,7 @@ import { Btn, Eyebrow, Pill, StatusDot } from './ui';
 import { MOD_KEY } from './platform';
 import { useV2Store } from './store/store';
 import { CliRunner } from './CliRunner';
+import { subscribeJobsDrawer } from './jobsDrawerBridge';
 // Heavy overlays - lazy-loaded so the AppShell first paint doesn't pay
 // for code paths the user may never touch this session. The Suspense
 // boundaries below render null while the chunk fetches; the open
@@ -269,6 +270,30 @@ export function AppShell({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [jobsDrawerOpen, setJobsDrawerOpen] = useState(false);
+  // Programmatic-open state: the bridge lets non-AppShell surfaces
+  // (currently the SystemStatusCard's "Failures (24h)" row) request
+  // the drawer open with a starter filter pre-applied. We track the
+  // requested filter + nonce here and pass them into the drawer on
+  // mount; the drawer's useEffect handles re-applying when the
+  // nonce bumps.
+  const [drawerInitialFailureFilter, setDrawerInitialFailureFilter] =
+    useState<boolean | undefined>(undefined);
+  const [drawerInitialNonce, setDrawerInitialNonce] = useState<number>(0);
+  useEffect(() => {
+    return subscribeJobsDrawer((e) => {
+      if (e.open) {
+        setJobsDrawerOpen(true);
+        setDrawerInitialFailureFilter(e.failureFilter);
+        setDrawerInitialNonce(e.nonce);
+      }
+      // We deliberately don't react to e.open=false here - the
+      // bridge's closeJobsDrawer is for symmetry with openJobsDrawer
+      // but the drawer's own onClose path (X button, overlay click,
+      // Esc) already covers the close case via setJobsDrawerOpen.
+      // Subscribing to close events would create double-close paths
+      // that fight each other.
+    });
+  }, []);
   // Global keyboard-shortcut help overlay. Triggered by `?` from any
   // route except /annotate/:sessionId where the annotation page has
   // its own per-session cheat sheet for in-page hotkeys.
@@ -1010,6 +1035,8 @@ export function AppShell({
           <RecentJobsDrawer
             open={jobsDrawerOpen}
             onClose={() => setJobsDrawerOpen(false)}
+            initialFailureFilter={drawerInitialFailureFilter}
+            initialFailureFilterNonce={drawerInitialNonce}
           />
         </Suspense>
       )}
