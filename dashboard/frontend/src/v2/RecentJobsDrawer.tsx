@@ -906,57 +906,31 @@ function DrawerFooter({
    * each via /api/jobs/{id}/cancel. Wrapped in two-click confirm. */
   onCancelAll: () => void | Promise<void>;
 }) {
-  // Two independent two-click confirm states - one for clear, one for
-  // cancel-all. Both share the same 4s arm window pattern.
-  const [armed, setArmed] = useState(false);
-  const armedTimerRef = useRef<number | null>(null);
-  const [cancelArmed, setCancelArmed] = useState(false);
-  const cancelArmedTimerRef = useRef<number | null>(null);
+  // Two independent two-click confirm flows - one for clear, one for
+  // cancel-all. Both share the same 4s arm window. Migrated from a
+  // hand-rolled state pair + cleanup effect to the shared
+  // useArmedConfirm hook (the hook's docstring even named this site
+  // as a known caller, but the actual implementation hadn't migrated).
+  const clearArm = useArmedConfirm();
+  const cancelArm = useArmedConfirm();
   const [cancellingAll, setCancellingAll] = useState(false);
 
-  useEffect(() => {
-    return () => {
-      if (armedTimerRef.current != null) {
-        window.clearTimeout(armedTimerRef.current);
-      }
-      if (cancelArmedTimerRef.current != null) {
-        window.clearTimeout(cancelArmedTimerRef.current);
-      }
-    };
-  }, []);
-
   const handleClick = () => {
-    if (!armed) {
-      setArmed(true);
-      armedTimerRef.current = window.setTimeout(() => {
-        setArmed(false);
-        armedTimerRef.current = null;
-      }, 4000);
+    if (!clearArm.armed) {
+      clearArm.arm();
       return;
     }
-    if (armedTimerRef.current != null) {
-      window.clearTimeout(armedTimerRef.current);
-      armedTimerRef.current = null;
-    }
-    setArmed(false);
+    clearArm.reset();
     onClear();
   };
 
   const handleCancelAllClick = async () => {
     if (cancellingAll) return;
-    if (!cancelArmed) {
-      setCancelArmed(true);
-      cancelArmedTimerRef.current = window.setTimeout(() => {
-        setCancelArmed(false);
-        cancelArmedTimerRef.current = null;
-      }, 4000);
+    if (!cancelArm.armed) {
+      cancelArm.arm();
       return;
     }
-    if (cancelArmedTimerRef.current != null) {
-      window.clearTimeout(cancelArmedTimerRef.current);
-      cancelArmedTimerRef.current = null;
-    }
-    setCancelArmed(false);
+    cancelArm.reset();
     setCancellingAll(true);
     try {
       await onCancelAll();
@@ -994,37 +968,37 @@ function DrawerFooter({
       </span>
       {activeCount > 0 && (
         <Btn
-          kind={cancelArmed ? 'primary' : 'ghost'}
+          kind={cancelArm.armed ? 'primary' : 'ghost'}
           size="sm"
           onClick={() => void handleCancelAllClick()}
           disabled={cancellingAll}
           title={
-            cancelArmed
+            cancelArm.armed
               ? 'Click again to send SIGTERM to all active jobs'
               : `Cancel all ${activeCount} active job${activeCount === 1 ? '' : 's'}`
           }
         >
           {cancellingAll
             ? 'Cancelling...'
-            : cancelArmed
+            : cancelArm.armed
               ? 'Confirm cancel all?'
               : `Cancel ${activeCount}`}
         </Btn>
       )}
       <Btn
-        kind={armed ? 'primary' : 'ghost'}
+        kind={clearArm.armed ? 'primary' : 'ghost'}
         size="sm"
         onClick={handleClick}
         disabled={!hasEntries}
         title={
-          armed
+          clearArm.armed
             ? 'Click again to clear (auto-cancels in 4s)'
             : activeCount > 0
               ? `Clear ${activeCount} active + finished jobs from local history`
               : 'Clear all jobs from local history'
         }
       >
-        {armed ? 'Confirm clear?' : 'Clear history'}
+        {clearArm.armed ? 'Confirm clear?' : 'Clear history'}
       </Btn>
     </div>
   );
