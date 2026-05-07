@@ -371,42 +371,55 @@ export default function RunDetail() {
     </div>
   );
 
-  const passSeries: LineSeries[] = detail.pass_timeline.series.map((s) => ({
-    color: SERIES_COLOR[s.color_kind] ?? E.text2,
-    width: s.color_kind === 'ember' ? 2 : 1.5,
-    fill: s.color_kind === 'ember',
-    data: s.data,
-  }));
-
-  // When comparing, append the OTHER run's primary (ember-kind) series
-  // recolored steel so the timeline shows both lines on the same axes.
-  if (compareActive && compareDetail) {
-    const otherPrimary =
-      compareDetail.pass_timeline.series.find((s) => s.color_kind === 'ember') ??
-      compareDetail.pass_timeline.series[0];
-    if (otherPrimary && otherPrimary.data.length > 0) {
-      passSeries.push({
-        color: E.steel,
-        width: 1.75,
-        dashed: true,
-        data: otherPrimary.data,
-      });
+  // Memoize derived series/segments/clusters so unrelated parent state
+  // changes (tab clicks, Share button label, rerun status) don't
+  // recompute work that only depends on the loaded run details.
+  const passSeries = useMemo<LineSeries[]>(() => {
+    const series: LineSeries[] = detail.pass_timeline.series.map((s) => ({
+      color: SERIES_COLOR[s.color_kind] ?? E.text2,
+      width: s.color_kind === 'ember' ? 2 : 1.5,
+      fill: s.color_kind === 'ember',
+      data: s.data,
+    }));
+    // When comparing, append the OTHER run's primary (ember-kind) series
+    // recolored steel so the timeline shows both lines on the same axes.
+    if (compareActive && compareDetail) {
+      const otherPrimary =
+        compareDetail.pass_timeline.series.find((s) => s.color_kind === 'ember') ??
+        compareDetail.pass_timeline.series[0];
+      if (otherPrimary && otherPrimary.data.length > 0) {
+        series.push({
+          color: E.steel,
+          width: 1.75,
+          dashed: true,
+          data: otherPrimary.data,
+        });
+      }
     }
-  }
+    return series;
+  }, [detail, compareActive, compareDetail]);
 
-  const donutSegments = detail.failure_clusters.clusters.map((c) => ({
-    value: c.count,
-    color: CLUSTER_COLOR[c.color_kind] ?? E.text3,
-    label: c.label,
-  }));
-
-  const compareDonutSegments = compareDetail
-    ? compareDetail.failure_clusters.clusters.map((c) => ({
+  const donutSegments = useMemo(
+    () =>
+      detail.failure_clusters.clusters.map((c) => ({
         value: c.count,
         color: CLUSTER_COLOR[c.color_kind] ?? E.text3,
         label: c.label,
-      }))
-    : [];
+      })),
+    [detail],
+  );
+
+  const compareDonutSegments = useMemo(
+    () =>
+      compareDetail
+        ? compareDetail.failure_clusters.clusters.map((c) => ({
+            value: c.count,
+            color: CLUSTER_COLOR[c.color_kind] ?? E.text3,
+            label: c.label,
+          }))
+        : [],
+    [compareDetail],
+  );
 
   // Build a colour-coded view of clusters across both runs.
   // ember = appears in this run only (introduced/persisting here)
@@ -418,23 +431,25 @@ export default function RunDetail() {
     otherCount: number;
     color: string;
   };
-  const compareClusters: CompareCluster[] = (() => {
+  const compareClusters = useMemo<CompareCluster[]>(() => {
     if (!compareDetail) return [];
     const thisMap = new Map<string, number>();
     const otherMap = new Map<string, number>();
     for (const c of detail.failure_clusters.clusters) thisMap.set(c.label, c.count);
     for (const c of compareDetail.failure_clusters.clusters) otherMap.set(c.label, c.count);
     const keys = new Set<string>([...thisMap.keys(), ...otherMap.keys()]);
-    return Array.from(keys).map((label) => {
-      const thisCount = thisMap.get(label) ?? 0;
-      const otherCount = otherMap.get(label) ?? 0;
-      let color: string;
-      if (thisCount > 0 && otherCount === 0) color = E.ember;
-      else if (otherCount > 0 && thisCount === 0) color = E.pass;
-      else color = E.text3;
-      return { label, thisCount, otherCount, color };
-    }).sort((a, b) => b.thisCount + b.otherCount - (a.thisCount + a.otherCount));
-  })();
+    return Array.from(keys)
+      .map((label) => {
+        const thisCount = thisMap.get(label) ?? 0;
+        const otherCount = otherMap.get(label) ?? 0;
+        let color: string;
+        if (thisCount > 0 && otherCount === 0) color = E.ember;
+        else if (otherCount > 0 && thisCount === 0) color = E.pass;
+        else color = E.text3;
+        return { label, thisCount, otherCount, color };
+      })
+      .sort((a, b) => b.thisCount + b.otherCount - (a.thisCount + a.otherCount));
+  }, [detail, compareDetail]);
 
   return (
     <AppShell
@@ -1440,10 +1455,17 @@ function ItemsCompareTab({
     otherFetcher,
   );
 
-  // Aligned rows: one per item_id present in this run, sorted with
-  // regressed-first so the actionable cases jump to the top.
-  const allRows = useMemo<CompareRow[]>(() => {
-    if (!thisItems || !otherItems) return [];
+  // Aligned rows + summary counts. One pass computes the rows, sorts
+  // them regressed-first, and tallies the toolbar/footer chip counts in
+  // the same sweep so unrelated parent state (filter pill, search input)
+  // doesn't trigger three extra ``allRows.filter(...)`` walks per render.
+  const { rows: allRows, totals } = useMemo<{
+    rows: CompareRow[];
+    totals: { regressed: number; fixed: number; missing: number };
+  }>(() => {
+    if (!thisItems || !otherItems) {
+      return { rows: [], totals: { regressed: 0, fixed: 0, missing: 0 } };
+    }
     const otherById = new Map(otherItems.items.map((i) => [i.id, i]));
     const rows: CompareRow[] = thisItems.items.map((thisRow) => {
       const otherRow = otherById.get(thisRow.id) ?? null;
@@ -1456,7 +1478,15 @@ function ItemsCompareTab({
       if (b.diff.fixed !== a.diff.fixed) return b.diff.fixed - a.diff.fixed;
       return a.id.localeCompare(b.id);
     });
-    return rows;
+    let regressed = 0;
+    let fixed = 0;
+    let missing = 0;
+    for (const r of rows) {
+      if (r.diff.regressed > 0) regressed++;
+      if (r.diff.fixed > 0) fixed++;
+      if (r.otherRow === null) missing++;
+    }
+    return { rows, totals: { regressed, fixed, missing } };
   }, [thisItems, otherItems]);
 
   // Apply filter pill on top of the aligned rows.
@@ -1523,9 +1553,10 @@ function ItemsCompareTab({
     );
   }
 
-  // Aggregate counts for the summary chip in the toolbar.
-  const totalsRegressed = allRows.filter((r) => r.diff.regressed > 0).length;
-  const totalsFixed = allRows.filter((r) => r.diff.fixed > 0).length;
+  // Aggregate counts for the summary chip in the toolbar (computed in
+  // the allRows useMemo above to avoid extra walks per render).
+  const totalsRegressed = totals.regressed;
+  const totalsFixed = totals.fixed;
   const totalsUnchanged = allRows.length - totalsRegressed - totalsFixed;
   const reloading = thisReloading || otherReloading;
   const isInitialLoad = thisInitial || otherInitial;
@@ -1539,7 +1570,7 @@ function ItemsCompareTab({
 
   // Soft "missing on the other side" notice: rows where the other
   // run doesn't carry this item_id at all (e.g. dataset extended).
-  const missingOnOther = allRows.filter((r) => r.otherRow === null).length;
+  const missingOnOther = totals.missing;
 
   return (
     <div style={{ padding: '20px 36px' }}>
