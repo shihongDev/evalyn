@@ -24,6 +24,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -490,6 +491,10 @@ interface ParamInputProps {
   param: CliParam;
   value: unknown;
   onChange: (v: unknown) => void;
+  /** Optional element id so the parent ParamRow's <label htmlFor>
+   * binds to the actual interactive input. The bool branch wraps
+   * its own label so it ignores this. */
+  id?: string;
 }
 
 const INPUT_BASE: CSSProperties = {
@@ -503,7 +508,7 @@ const INPUT_BASE: CSSProperties = {
   outline: 'none',
 };
 
-function ParamInput({ param, value, onChange }: ParamInputProps) {
+function ParamInput({ param, value, onChange, id }: ParamInputProps) {
   const { kind, options } = param;
 
   if (kind === 'bool') {
@@ -532,6 +537,7 @@ function ParamInput({ param, value, onChange }: ParamInputProps) {
   if (kind === 'select') {
     return (
       <select
+        id={id}
         value={typeof value === 'string' ? value : ''}
         onChange={(e) => onChange(e.target.value)}
         style={{ ...INPUT_BASE, fontFamily: E.fSans }}
@@ -615,6 +621,7 @@ function ParamInput({ param, value, onChange }: ParamInputProps) {
   if (kind === 'long-text') {
     return (
       <textarea
+        id={id}
         value={typeof value === 'string' ? value : ''}
         onChange={(e) => onChange(e.target.value)}
         rows={3}
@@ -626,6 +633,7 @@ function ParamInput({ param, value, onChange }: ParamInputProps) {
   if (kind === 'number') {
     return (
       <input
+        id={id}
         type="text"
         inputMode="numeric"
         value={value == null ? '' : String(value)}
@@ -638,6 +646,7 @@ function ParamInput({ param, value, onChange }: ParamInputProps) {
   // string / path / fallback
   return (
     <input
+      id={id}
       type="text"
       value={typeof value === 'string' ? value : value == null ? '' : String(value)}
       onChange={(e) => onChange(e.target.value)}
@@ -1031,23 +1040,36 @@ interface ParamRowProps {
 
 function ParamRow({ param, value, onChange }: ParamRowProps) {
   const flag = `--${param.name.replace(/_/g, '-')}`;
+  // useId-prefixed so multiple ParamRows on the same command form
+  // can't collide on htmlFor/id. Same pattern as CliRunner's
+  // ParamField (61b16b9) - bind the visible flag label to the
+  // input via htmlFor so SR users tabbing in hear "--model" rather
+  // than bare "list box".
+  const fieldId = `${useId()}-${param.name}`;
   return (
     <>
-      <span
+      <label
+        htmlFor={fieldId}
         style={{
           color: E.text2,
           fontFamily: E.fMono,
           fontSize: 11,
           alignSelf: 'flex-start',
           paddingTop: 6,
+          cursor: 'default',
         }}
         title={param.help ?? undefined}
       >
         {flag}
-        {param.required ? <span style={{ color: E.fail }}> *</span> : null}
-      </span>
+        {param.required ? (
+          <span style={{ color: E.fail }} aria-label="Required">
+            {' '}
+            *
+          </span>
+        ) : null}
+      </label>
       <div style={{ minWidth: 0 }}>
-        <ParamInput param={param} value={value} onChange={onChange} />
+        <ParamInput param={param} value={value} onChange={onChange} id={fieldId} />
         {param.help && (
           <div style={{ fontSize: 10.5, color: E.text3, marginTop: 4 }}>{param.help}</div>
         )}
