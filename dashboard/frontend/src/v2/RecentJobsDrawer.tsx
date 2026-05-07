@@ -1305,6 +1305,25 @@ function JobRow({ entry, onClick, onRerun, onCancel, onTogglePin }: JobRowProps)
       entry.status === 'cancelled');
   const canCancel =
     onCancel != null && (entry.status === 'queued' || entry.status === 'running');
+  // Log-download affordance: visible only when there's likely to be
+  // output to download. queued has produced no output; unknown means
+  // the backend evicted the record (the URL would 404). Otherwise the
+  // canonical share URL works for terminal AND running jobs (a running
+  // job's download captures the in-memory tail, useful for "what's it
+  // doing right now" debugging without opening the runner).
+  const canDownloadLog =
+    entry.status === 'running' ||
+    entry.status === 'complete' ||
+    entry.status === 'failed' ||
+    entry.status === 'cancelled';
+  // Match the server's _output_url_for() format. We construct it
+  // client-side to avoid threading the server's output_url through
+  // the localStorage layer (which would mean a server roundtrip just
+  // to render a download icon). Future server-side format changes
+  // need to update this string in lockstep.
+  const logUrl = canDownloadLog
+    ? `/api/jobs/${encodeURIComponent(entry.job_id)}/output.txt?download=1&include_meta=1`
+    : null;
   // Live "running for Ns" counter for queued/running rows. We tick a
   // local state every second so the metadata visibly counts up, which
   // makes a long-running eval feel responsive even though no other UI
@@ -1493,6 +1512,33 @@ function JobRow({ entry, onClick, onRerun, onCancel, onTogglePin }: JobRowProps)
         >
           {entry.pinned ? '★' : '☆'}
         </button>
+      )}
+      {logUrl && (
+        <a
+          href={logUrl}
+          onClick={(e) => e.stopPropagation()}
+          aria-label={`Download log for ${entry.cli_id}`}
+          title="Download log (.log file with run metadata header)"
+          style={{
+            flexShrink: 0,
+            width: 32,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: E.text4,
+            fontSize: 12,
+            textDecoration: 'none',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLAnchorElement).style.color = E.text1;
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLAnchorElement).style.color = E.text4;
+          }}
+        >
+          ↓
+        </a>
       )}
       {canRerun && (
         <button
