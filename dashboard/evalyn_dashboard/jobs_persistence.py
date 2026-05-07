@@ -325,6 +325,7 @@ class JobPersistence:
         self,
         limit: int = 30,
         cli_id: str | None = None,
+        cli_ids: list[str] | None = None,
         status: str | None = None,
         since_iso: str | None = None,
         before_iso: str | None = None,
@@ -334,6 +335,10 @@ class JobPersistence:
         Filters (all pushed down to SQL ``WHERE`` clauses, AND-combined):
 
         - ``cli_id`` matches the catalog id passed at spawn time.
+        - ``cli_ids`` matches any of the listed catalog ids (SQL IN
+          clause). Mutually exclusive with ``cli_id`` in practice;
+          when both are set the more-general ``cli_ids`` wins because
+          a single id is just a one-element list of itself.
         - ``status`` matches one of the JobState values.
         - ``since_iso`` keeps only rows whose ``started_at_iso > since_iso``.
           Pass an ISO-8601 string; callers polling for "what's new"
@@ -350,7 +355,11 @@ class JobPersistence:
         # filters is supported.
         where_parts: list[str] = []
         params: list[object] = []
-        if cli_id is not None:
+        if cli_ids is not None and len(cli_ids) > 0:
+            placeholders = ", ".join("?" for _ in cli_ids)
+            where_parts.append(f"cli_id IN ({placeholders})")
+            params.extend(cli_ids)
+        elif cli_id is not None:
             where_parts.append("cli_id=?")
             params.append(cli_id)
         if status is not None:

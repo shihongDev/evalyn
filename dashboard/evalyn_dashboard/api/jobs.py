@@ -117,6 +117,18 @@ def _validate_recent_args(
         )
 
 
+def _parse_cli_ids(cli_ids_param: str | None) -> list[str] | None:
+    """Parse a comma-separated cli_ids query param into a list of
+    non-empty trimmed strings. Returns None when not provided so the
+    SQL builder skips the filter entirely. Empty/whitespace-only
+    inputs and trailing commas are tolerated."""
+    if cli_ids_param is None:
+        return None
+    parts = [p.strip() for p in cli_ids_param.split(",")]
+    parts = [p for p in parts if p]
+    return parts if parts else None
+
+
 def _collect_recent_rows(
     jm,
     limit: int,
@@ -124,13 +136,20 @@ def _collect_recent_rows(
     status: str | None,
     since: float | None,
     before: float | None = None,
+    cli_ids: list[str] | None = None,
 ) -> list[dict]:
     """Filter + merge in-memory and persisted jobs into a single list,
     sorted started_at-descending and capped at ``limit``. Shared by
     the JSON, CSV, and NDJSON variants of /api/jobs/recent.
     """
     in_memory_jobs = jm.recent(n=limit)
-    if cli_id is not None:
+    # cli_ids takes precedence over cli_id when both are set so a
+    # caller migrating between the two variants does not get an empty
+    # AND of "id == X AND id IN [Y, Z]".
+    if cli_ids is not None and len(cli_ids) > 0:
+        cli_ids_set = set(cli_ids)
+        in_memory_jobs = [j for j in in_memory_jobs if j.cli_id in cli_ids_set]
+    elif cli_id is not None:
         in_memory_jobs = [j for j in in_memory_jobs if j.cli_id == cli_id]
     if status is not None:
         in_memory_jobs = [j for j in in_memory_jobs if j.state == status]
@@ -162,6 +181,7 @@ def _collect_recent_rows(
         for row in persistence.list_recent(
             limit=limit,
             cli_id=cli_id,
+            cli_ids=cli_ids,
             status=status,
             since_iso=since_iso,
             before_iso=before_iso,
@@ -180,6 +200,7 @@ async def recent_jobs(
     request: Request,
     limit: int = 100,
     cli_id: str | None = None,
+    cli_ids: str | None = None,
     status: str | None = None,
     since: float | None = None,
     before: float | None = None,
@@ -205,8 +226,15 @@ async def recent_jobs(
     applied in-memory for the live set.
     """
     _validate_recent_args(limit, since, before)
+    parsed_cli_ids = _parse_cli_ids(cli_ids)
     rows = _collect_recent_rows(
-        request.app.state.job_manager, limit, cli_id, status, since, before
+        request.app.state.job_manager,
+        limit,
+        cli_id,
+        status,
+        since,
+        before,
+        cli_ids=parsed_cli_ids,
     )
     return JSONResponse(rows)
 
@@ -216,6 +244,7 @@ async def recent_jobs_csv(
     request: Request,
     limit: int = 100,
     cli_id: str | None = None,
+    cli_ids: str | None = None,
     status: str | None = None,
     since: float | None = None,
     before: float | None = None,
@@ -233,8 +262,15 @@ async def recent_jobs_csv(
     endpoint and convert client-side.
     """
     _validate_recent_args(limit, since, before)
+    parsed_cli_ids = _parse_cli_ids(cli_ids)
     rows = _collect_recent_rows(
-        request.app.state.job_manager, limit, cli_id, status, since, before
+        request.app.state.job_manager,
+        limit,
+        cli_id,
+        status,
+        since,
+        before,
+        cli_ids=parsed_cli_ids,
     )
 
     import csv
@@ -274,6 +310,7 @@ async def recent_jobs_ndjson(
     request: Request,
     limit: int = 100,
     cli_id: str | None = None,
+    cli_ids: str | None = None,
     status: str | None = None,
     since: float | None = None,
     before: float | None = None,
@@ -293,8 +330,15 @@ async def recent_jobs_ndjson(
     import json
 
     _validate_recent_args(limit, since, before)
+    parsed_cli_ids = _parse_cli_ids(cli_ids)
     rows = _collect_recent_rows(
-        request.app.state.job_manager, limit, cli_id, status, since, before
+        request.app.state.job_manager,
+        limit,
+        cli_id,
+        status,
+        since,
+        before,
+        cli_ids=parsed_cli_ids,
     )
     body = "\n".join(json.dumps(r, separators=(",", ":")) for r in rows)
     return PlainTextResponse(
