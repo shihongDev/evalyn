@@ -327,6 +327,7 @@ class JobPersistence:
         cli_id: str | None = None,
         status: str | None = None,
         since_iso: str | None = None,
+        before_iso: str | None = None,
     ) -> list[dict]:
         """Return up to ``limit`` rows in reverse-chronological order.
 
@@ -337,6 +338,11 @@ class JobPersistence:
         - ``since_iso`` keeps only rows whose ``started_at_iso > since_iso``.
           Pass an ISO-8601 string; callers polling for "what's new"
           should hand the previous response's max ``started_at`` back.
+        - ``before_iso`` keeps only rows whose ``started_at_iso < before_iso``.
+          Combine with ``since_iso`` to scope a windowed query
+          ("jobs between yesterday 9am and yesterday 5pm"). Strict
+          less-than so a paginating caller can pass the oldest row's
+          ``started_at`` from the previous page without re-receiving it.
         """
         if not self._readable():
             return []
@@ -353,6 +359,9 @@ class JobPersistence:
         if since_iso is not None:
             where_parts.append("started_at_iso>?")
             params.append(since_iso)
+        if before_iso is not None:
+            where_parts.append("started_at_iso<?")
+            params.append(before_iso)
         sql = "SELECT * FROM jobs"
         if where_parts:
             sql += " WHERE " + " AND ".join(where_parts)

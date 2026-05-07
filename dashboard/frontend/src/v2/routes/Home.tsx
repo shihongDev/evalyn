@@ -501,6 +501,10 @@ function QueueRow({ item, isLast, onNavigate }: QueueRowProps) {
     <div
       role="button"
       tabIndex={0}
+      // Compose a single SR-friendly summary so the row reads as one
+      // action ("Priority P0: <title>, <subtitle>, Open") rather than
+      // a sequence of orphan strings followed by a duplicate button.
+      aria-label={`Priority ${prio}: ${item.title}${item.subtitle ? `, ${item.subtitle}` : ''}, ${actionLabel}`}
       onClick={() => onNavigate(item.cta_target)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -556,9 +560,16 @@ function QueueRow({ item, isLast, onNavigate }: QueueRowProps) {
           {item.subtitle}
         </div>
       </div>
+      {/* The Btn is a visual affordance - the row is the actual click
+          target and is announced by AT via the aria-label above.
+          Mark the inner Btn tabIndex=-1 + aria-hidden so keyboard
+          users get one stop per row and SR users hear one summary
+          instead of a duplicate "Open button" right after. */}
       <Btn
         kind="secondary"
         size="sm"
+        tabIndex={-1}
+        aria-hidden
         onClick={(ev) => {
           ev.stopPropagation();
           onNavigate(item.cta_target);

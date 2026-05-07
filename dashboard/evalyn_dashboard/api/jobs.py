@@ -99,7 +99,7 @@ def _persistence_for(jm) -> Any:
 
 
 def _validate_recent_args(
-    limit: int, since: float | None
+    limit: int, since: float | None, before: float | None = None
 ) -> None:
     """Shared validation for /recent, /recent.csv, /recent.ndjson."""
     if limit < 1:
@@ -108,6 +108,13 @@ def _validate_recent_args(
         raise HTTPException(status_code=400, detail="limit must be <= 1000")
     if since is not None and since < 0:
         raise HTTPException(status_code=400, detail="since must be >= 0")
+    if before is not None and before < 0:
+        raise HTTPException(status_code=400, detail="before must be >= 0")
+    if since is not None and before is not None and before <= since:
+        raise HTTPException(
+            status_code=400,
+            detail="before must be > since (windowed queries are open intervals)",
+        )
 
 
 def _collect_recent_rows(
@@ -116,6 +123,7 @@ def _collect_recent_rows(
     cli_id: str | None,
     status: str | None,
     since: float | None,
+    before: float | None = None,
 ) -> list[dict]:
     """Filter + merge in-memory and persisted jobs into a single list,
     sorted started_at-descending and capped at ``limit``. Shared by
@@ -128,23 +136,35 @@ def _collect_recent_rows(
         in_memory_jobs = [j for j in in_memory_jobs if j.state == status]
     if since is not None:
         in_memory_jobs = [j for j in in_memory_jobs if j.started_at > since]
+    if before is not None:
+        in_memory_jobs = [j for j in in_memory_jobs if j.started_at < before]
     in_memory = [_job_to_dict(j) for j in in_memory_jobs]
     seen = {entry["id"] for entry in in_memory}
     merged = list(in_memory)
     persistence = _persistence_for(jm)
     if persistence is not None:
         # ISO-8601 with +00:00 has the property that lexicographic
-        # ordering matches chronological ordering, so the SQL >?
-        # comparison on the started_at_iso column is correct.
+        # ordering matches chronological ordering, so the SQL >? / <?
+        # comparisons on the started_at_iso column are correct.
         since_iso: str | None = None
-        if since is not None:
+        before_iso: str | None = None
+        if since is not None or before is not None:
             from datetime import datetime, timezone
 
-            since_iso = datetime.fromtimestamp(
-                since, tz=timezone.utc
-            ).isoformat()
+            if since is not None:
+                since_iso = datetime.fromtimestamp(
+                    since, tz=timezone.utc
+                ).isoformat()
+            if before is not None:
+                before_iso = datetime.fromtimestamp(
+                    before, tz=timezone.utc
+                ).isoformat()
         for row in persistence.list_recent(
-            limit=limit, cli_id=cli_id, status=status, since_iso=since_iso
+            limit=limit,
+            cli_id=cli_id,
+            status=status,
+            since_iso=since_iso,
+            before_iso=before_iso,
         ):
             entry = _persisted_to_dict(row)
             if entry["id"] in seen:
@@ -162,6 +182,7 @@ async def recent_jobs(
     cli_id: str | None = None,
     status: str | None = None,
     since: float | None = None,
+    before: float | None = None,
 ) -> JSONResponse:
     """Return up to ``limit`` recent jobs in reverse chronological order.
 
@@ -183,9 +204,9 @@ async def recent_jobs(
     All filters are pushed down to SQL on the persisted side and
     applied in-memory for the live set.
     """
-    _validate_recent_args(limit, since)
+    _validate_recent_args(limit, since, before)
     rows = _collect_recent_rows(
-        request.app.state.job_manager, limit, cli_id, status, since
+        request.app.state.job_manager, limit, cli_id, status, since, before
     )
     return JSONResponse(rows)
 
@@ -197,6 +218,7 @@ async def recent_jobs_csv(
     cli_id: str | None = None,
     status: str | None = None,
     since: float | None = None,
+    before: float | None = None,
 ) -> PlainTextResponse:
     """CSV variant of /api/jobs/recent with the same query semantics.
 
@@ -210,9 +232,9 @@ async def recent_jobs_csv(
     anyway). Caller wanting the full shape should use the JSON
     endpoint and convert client-side.
     """
-    _validate_recent_args(limit, since)
+    _validate_recent_args(limit, since, before)
     rows = _collect_recent_rows(
-        request.app.state.job_manager, limit, cli_id, status, since
+        request.app.state.job_manager, limit, cli_id, status, since, before
     )
 
     import csv
@@ -254,6 +276,7 @@ async def recent_jobs_ndjson(
     cli_id: str | None = None,
     status: str | None = None,
     since: float | None = None,
+    before: float | None = None,
 ) -> PlainTextResponse:
     """NDJSON variant of /api/jobs/recent: one full job dict per line.
 
@@ -269,9 +292,9 @@ async def recent_jobs_ndjson(
     """
     import json
 
-    _validate_recent_args(limit, since)
+    _validate_recent_args(limit, since, before)
     rows = _collect_recent_rows(
-        request.app.state.job_manager, limit, cli_id, status, since
+        request.app.state.job_manager, limit, cli_id, status, since, before
     )
     body = "\n".join(json.dumps(r, separators=(",", ":")) for r in rows)
     return PlainTextResponse(
