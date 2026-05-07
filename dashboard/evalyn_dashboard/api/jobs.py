@@ -411,11 +411,16 @@ async def jobs_stats(
 
     Useful for an at-a-glance dashboard health badge or for an admin
     answering "how many failed jobs in the last day?" without paging.
+
+    Sends ``Cache-Control: no-store`` because the drawer's capacity
+    chip polls this every 5s; a corporate proxy or CDN serving a
+    stale value would freeze the chip on a wrong saturation level.
     """
     if recent_window_s < 0:
         raise HTTPException(
             status_code=400, detail="recent_window_s must be >= 0"
         )
+    no_store = {"Cache-Control": "no-store"}
     jm = request.app.state.job_manager
     # Capacity surface is independent of persistence - always include
     # so a frontend can render a "X / Y running" chip without an extra
@@ -441,11 +446,12 @@ async def jobs_stats(
                     1 for j in in_mem if j.state == "failed"
                 ),
                 **capacity,
-            }
+            },
+            headers=no_store,
         )
     body = persistence.stats(recent_window_s)
     body.update(capacity)
-    return JSONResponse(body)
+    return JSONResponse(body, headers=no_store)
 
 
 @router.get("/{job_id}")

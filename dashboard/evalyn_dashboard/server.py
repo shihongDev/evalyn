@@ -348,7 +348,7 @@ def build_app(
     app.add_middleware(TimingMiddleware)
 
     @app.get("/api/health")
-    async def healthcheck() -> dict:
+    async def healthcheck(response: Response) -> dict:
         """Return basic process health + capacity snapshot.
 
         Shape:
@@ -380,7 +380,14 @@ def build_app(
         we report zeros rather than failing the healthcheck. The
         endpoint MUST stay reachable even when the job system is in
         a degraded state; that's its whole point.
+
+        Sends ``Cache-Control: no-store`` so corporate proxies, CDN
+        edge caches, and browsers don't serve stale fields. The
+        SystemStatusCard polls this every 15s and the values
+        (uptime, running, recent_failures) are inherently
+        time-varying - a cached response would freeze the card.
         """
+        response.headers["Cache-Control"] = "no-store"
         import time as _time
 
         started_at = float(getattr(app.state, "started_at", _time.time()))

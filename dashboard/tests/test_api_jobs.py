@@ -785,6 +785,20 @@ def test_output_txt_download_filename_includes_stream_and_tail():
         assert f"evalyn-job-{job_id[:8]}-stderr-tail3.log" in cd
 
 
+def test_jobs_stats_sends_no_store_cache_control():
+    """Drawer capacity chip polls this every 5s. A cached response
+    would freeze the chip on the wrong saturation tier - critical
+    for the "approaching cap" warning to actually warn."""
+    app = build_app()
+    with TestClient(app) as client:
+        r = client.get("/api/jobs/stats")
+        assert r.status_code == 200
+        cc = r.headers.get("cache-control", "")
+        assert "no-store" in cc.lower(), (
+            f"expected 'no-store' in Cache-Control, got: {cc!r}"
+        )
+
+
 # ---------------------------------------------------------------------------
 # POST /api/jobs/admin/vacuum (manual compaction trigger)
 # ---------------------------------------------------------------------------

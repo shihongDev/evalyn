@@ -90,6 +90,22 @@ def test_healthcheck_survives_missing_job_manager(monkeypatch) -> None:
     assert body["recent_failures_24h"] == 0
 
 
+def test_healthcheck_sends_no_store_cache_control() -> None:
+    """Polled health endpoint must not be cached. A corporate
+    proxy or CDN serving a stale response would freeze the
+    SystemStatusCard's uptime/running/recent_failures fields.
+    The header is checked explicitly because FastAPI/Starlette
+    does NOT add Cache-Control by default - it's the route's
+    responsibility."""
+    client = TestClient(build_app())
+    r = client.get("/api/health")
+    assert r.status_code == 200
+    cc = r.headers.get("cache-control", "")
+    assert "no-store" in cc.lower(), (
+        f"expected 'no-store' in Cache-Control, got: {cc!r}"
+    )
+
+
 def test_index_served() -> None:
     client = TestClient(build_app())
     r = client.get("/")
