@@ -229,6 +229,68 @@ def test_delete_running_job_returns_409():
             _wait(client, app, job_id)
 
 
+def test_recent_csv_returns_text_csv_with_header():
+    """GET /api/jobs/recent.csv returns a CSV with a header row, one
+    data row per matching job, and a Content-Disposition attachment
+    header for browser download UX."""
+    app = build_app()
+    with TestClient(app) as client:
+        ok_id = _spawn(client, app, [sys.executable, "-c", "print('ok')"])
+        _wait(client, app, ok_id)
+        fail_id = _spawn(
+            client,
+            app,
+            [
+                sys.executable,
+                "-c",
+                "import sys; sys.stderr.write('boom\\n'); sys.exit(2)",
+            ],
+        )
+        _wait(client, app, fail_id)
+
+        r = client.get("/api/jobs/recent.csv")
+        assert r.status_code == 200
+        assert "text/csv" in r.headers["content-type"]
+        assert "attachment" in r.headers.get("content-disposition", "")
+        body = r.text
+        # Header row.
+        first = body.splitlines()[0]
+        for col in (
+            "id",
+            "cli_id",
+            "state",
+            "started_at",
+            "ended_at",
+            "exit_code",
+            "duration",
+            "stderr_count",
+        ):
+            assert col in first
+        # Both jobs should appear in subsequent rows.
+        assert ok_id in body
+        assert fail_id in body
+
+
+def test_recent_csv_status_filter_narrows_rows():
+    """The same filter query params (cli_id, status, since) work on
+    the CSV endpoint."""
+    app = build_app()
+    with TestClient(app) as client:
+        ok_id = _spawn(client, app, [sys.executable, "-c", "print('ok')"])
+        _wait(client, app, ok_id)
+        fail_id = _spawn(
+            client, app, [sys.executable, "-c", "import sys; sys.exit(2)"]
+        )
+        _wait(client, app, fail_id)
+
+        r = client.get("/api/jobs/recent.csv?status=failed")
+        assert r.status_code == 200
+        body = r.text
+        # Only the failed row, not the ok one.
+        assert fail_id in body
+        assert ok_id not in body
+
+
 def test_stats_endpoint_aggregates_counts():
     """GET /api/jobs/stats returns counts by status, total stderr, and
     recent failures. Uses real spawned jobs so the persistence path

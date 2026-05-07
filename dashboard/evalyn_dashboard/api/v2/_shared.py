@@ -1102,9 +1102,18 @@ def _prewarm_blocking() -> None:
     so the first inbound request hits warm caches instead of paying the
     multi-second cold walk + JSON parse. On a workspace with persisted
     snapshots from a previous boot the FS walk itself is also skipped.
+
+    Also primes :data:`_reviews_dirs_cache` per root. The reviews-files
+    walk is itself ~800ms cold on workspaces with hundreds of dataset
+    placeholder dirs (one ``Path.glob`` per dir even when the
+    ``reviews/`` subdir is absent), and it sits on the hot path for
+    /home and /review first paint via :func:`calibration_suggestions`.
+    Priming it here moves that cost off the user's first click.
     """
     try:
         load_all_runs()
+        for root in dataset_roots():
+            _reviews_files_for_root(root)
     except Exception as exc:  # noqa: BLE001 - never block startup on a cache miss
         logger.warning("v2 prewarm aborted: %s", exc)
 
