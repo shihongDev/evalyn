@@ -551,7 +551,17 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         </div>
 
         {/* RESULTS */}
-        <div ref={resultsRef} style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        <div
+          ref={resultsRef}
+          // role=listbox + role=option on each row gives SR users a
+          // recognised "list of choices, one selected" semantic. The
+          // arrow-key-driven highlight (activeIndex) is mirrored to
+          // aria-selected on the matching row so screen readers
+          // announce the focused option as the user navigates.
+          role="listbox"
+          aria-label="Search results"
+          style={{ flex: 1, minHeight: 0, overflow: 'auto' }}
+        >
           {errs.length > 0 && (
             <div style={{ padding: 16, fontSize: 12, color: E.fail, fontFamily: E.fMono }}>
               {errs.join(' / ')}
@@ -594,6 +604,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                       <button
                         key={`${entry.kind}:${entry.id}`}
                         type="button"
+                        role="option"
+                        aria-selected={isActive}
                         data-palette-index={flatIdx}
                         onClick={() => entry.nav()}
                         onMouseEnter={() => setActiveIndex(flatIdx)}
