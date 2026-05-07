@@ -165,6 +165,27 @@ class CredentialStore:
             return None
         return dict(rec)
 
+    def remove_provider(self, name: str) -> bool:
+        """Drop a provider's stored credentials.
+
+        Returns True if a record was removed, False on miss. If the
+        removed provider was the active one, ``active`` is cleared
+        too so the dashboard does not point at a now-missing record
+        (which would surface as a 4xx on the next agent turn).
+        Idempotent: a second remove for the same name is a no-op +
+        False.
+        """
+        data = self._load()
+        if name not in data["providers"]:
+            return False
+        del data["providers"][name]
+        if data.get("active") == name:
+            # Clear active rather than picking a random replacement;
+            # the user will pick the next provider explicitly.
+            data["active"] = ""
+        self._atomic_write(data)
+        return True
+
     def set_active(self, name: str) -> None:
         """Mark ``name`` as the active provider. Must already be configured."""
         data = self._load()
