@@ -682,18 +682,11 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
           ) : visibleEntries.length === 0 && (failureFilter || searchQuery) ? (
             <FilterEmptyState />
           ) : (
-            visibleEntries.map((e) => (
-              <JobRow
-                key={e.job_id}
-                entry={e}
-                onClick={() => onRowClick(e)}
-                onRerun={() => onRerun(e)}
-                onCancel={() => onCancelRow(e)}
-                onTogglePin={() =>
-                  setJobPinned(e.job_id, !e.pinned)
-                }
-              />
-            ))
+            renderRowsWithDayHeaders(visibleEntries, {
+              onRowClick,
+              onRerun,
+              onCancelRow,
+            })
           )}
         </div>
         <DrawerFooter
@@ -1081,6 +1074,91 @@ function FilterEmptyState() {
       }}
     >
       No failed jobs match. Toggle the chip above to show all jobs.
+    </div>
+  );
+}
+
+/** Compute the group-header label for an entry. Pinned entries all
+ * share a single "Pinned" group regardless of when they ran; unpinned
+ * entries fall into "Today", "Yesterday", or a date label.
+ *
+ * The date formatting drops the year when it matches the current
+ * year so the common case is short. A run from a previous year shows
+ * "Mar 5, 2025" so cross-year ambiguity is impossible. */
+function dayHeaderLabel(entry: JobHistoryEntry, now: Date): string {
+  if (entry.pinned) return '★ Pinned';
+  const startedAt = new Date(entry.started_at_iso);
+  if (!Number.isFinite(startedAt.getTime())) return 'Earlier';
+  const startedDay = new Date(
+    startedAt.getFullYear(),
+    startedAt.getMonth(),
+    startedAt.getDate(),
+  );
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dayDiff = Math.round(
+    (today.getTime() - startedDay.getTime()) / 86_400_000,
+  );
+  if (dayDiff === 0) return 'Today';
+  if (dayDiff === 1) return 'Yesterday';
+  const sameYear = startedAt.getFullYear() === now.getFullYear();
+  return new Intl.DateTimeFormat(
+    'en',
+    sameYear
+      ? { month: 'short', day: 'numeric' }
+      : { month: 'short', day: 'numeric', year: 'numeric' },
+  ).format(startedAt);
+}
+
+/** Render the entry list with section dividers when the day-group
+ * label changes. Sections respect the existing pinned-first sort -
+ * "Pinned" is first when there are any pinned entries, then date
+ * groups in newest-first order. */
+function renderRowsWithDayHeaders(
+  entries: JobHistoryEntry[],
+  handlers: {
+    onRowClick: (e: JobHistoryEntry) => void;
+    onRerun: (e: JobHistoryEntry) => void;
+    onCancelRow: (e: JobHistoryEntry) => void | Promise<void>;
+  },
+): ReactElement[] {
+  const out: ReactElement[] = [];
+  const now = new Date();
+  let lastLabel: string | null = null;
+  for (const e of entries) {
+    const label = dayHeaderLabel(e, now);
+    if (label !== lastLabel) {
+      out.push(<DayHeader key={`h-${label}-${e.job_id}`} label={label} />);
+      lastLabel = label;
+    }
+    out.push(
+      <JobRow
+        key={e.job_id}
+        entry={e}
+        onClick={() => handlers.onRowClick(e)}
+        onRerun={() => handlers.onRerun(e)}
+        onCancel={() => handlers.onCancelRow(e)}
+        onTogglePin={() => setJobPinned(e.job_id, !e.pinned)}
+      />,
+    );
+  }
+  return out;
+}
+
+function DayHeader({ label }: { label: string }): ReactElement {
+  return (
+    <div
+      style={{
+        padding: '8px 18px 4px',
+        fontFamily: E.fMono,
+        fontSize: 10,
+        textTransform: 'uppercase',
+        letterSpacing: 0.4,
+        color: E.text3,
+        background: 'transparent',
+        borderTop: `1px solid ${E.hair}`,
+      }}
+    >
+      {label}
     </div>
   );
 }
