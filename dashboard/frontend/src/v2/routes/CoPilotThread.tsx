@@ -31,6 +31,11 @@ import {
   prependContextTag,
   type ContextKind,
 } from '../copilot/contextChips';
+import {
+  clearCoPilotDraft,
+  loadCoPilotDraft,
+  saveCoPilotDraft,
+} from '../copilot/copilotDrafts';
 
 const DISABLED_CHIP_TITLE =
   'Open this on a run/cluster/dataset page to attach as context';
@@ -149,9 +154,26 @@ export default function CoPilotThread() {
     reconnecting,
   } = useCoPilotThread({ initialThreadId: routeThreadId });
 
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState(() => loadCoPilotDraft(threadId));
   const [historyTick, setHistoryTick] = useState(0);
   const [index, setIndex] = useState<ThreadIndexEntry[]>(() => loadThreadIndex());
+
+  // When the active thread changes (sidebar click, URL nav), load
+  // that thread's draft so switching threads mid-compose doesn't
+  // erase the in-progress text on either side. Mirrors the dock.
+  useEffect(() => {
+    setDraft(loadCoPilotDraft(threadId));
+  }, [threadId]);
+
+  // Auto-save the draft on every change (debounced 250ms). Empty
+  // drafts are removed from storage rather than persisted as empty
+  // strings (the helper handles that).
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      saveCoPilotDraft(threadId, draft);
+    }, 250);
+    return () => window.clearTimeout(handle);
+  }, [threadId, draft]);
   const createdAtRef = useRef<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -255,6 +277,9 @@ export default function CoPilotThread() {
     const t = draft.trim();
     if (!t) return;
     setDraft('');
+    // Synchronous clear avoids a race between the debounced save
+    // above and the navigate-after-send that may flip threadId.
+    clearCoPilotDraft(threadId);
     void send(t);
   };
 
