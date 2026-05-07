@@ -28,7 +28,7 @@ import {
   StatusDot,
   UpdatingChip,
 } from '../ui';
-import { useV2Resource } from '../hooks/useV2Resource';
+import { useV2Resource, prefetchV2 } from '../hooks/useV2Resource';
 import { v2 } from '../api/client';
 import { annotationApi } from '../api/annotation';
 import { errorMessage } from '../api/errors';
@@ -529,8 +529,29 @@ function InProgressSessions({
               key={s.id}
               type="button"
               onClick={() => onResume(s.id)}
-              onMouseEnter={() => void preloadAnnotateSession()}
-              onFocus={() => void preloadAnnotateSession()}
+              onMouseEnter={() => {
+                void preloadAnnotateSession();
+                // Warm the session-detail JSON + items list (200
+                // items per page, the heavy fetch on the route)
+                // so resume click->paint is instant. Cache keys
+                // mirror what AnnotateSession's useV2Resource
+                // calls use, so prefetchV2 dedupes correctly.
+                prefetchV2(`annotation/session:${s.id}`, () =>
+                  annotationApi.getSession(s.id),
+                );
+                prefetchV2(`annotation/items:${s.id}`, () =>
+                  annotationApi.getItems(s.id, { limit: 200 }),
+                );
+              }}
+              onFocus={() => {
+                void preloadAnnotateSession();
+                prefetchV2(`annotation/session:${s.id}`, () =>
+                  annotationApi.getSession(s.id),
+                );
+                prefetchV2(`annotation/items:${s.id}`, () =>
+                  annotationApi.getItems(s.id, { limit: 200 }),
+                );
+              }}
               title={`Resume - ${pct}% complete`}
               aria-label={`Resume ${label}: ${s.items_done} of ${s.items_total} items annotated, ${pct}% complete`}
               style={{
