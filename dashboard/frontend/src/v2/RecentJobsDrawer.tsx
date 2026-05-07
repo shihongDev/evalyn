@@ -33,7 +33,7 @@ import {
   type JobHistoryEntry,
   type JobHistoryStatus,
 } from './jobsHistory';
-import { listCli, type CliSchema } from './api/cli';
+import { listCli, previewCommand, type CliSchema } from './api/cli';
 import { openCliRunner } from './cliRunnerBridge';
 
 interface RecentJobsDrawerProps {
@@ -573,6 +573,13 @@ function JobRow({ entry, onClick, onRerun, onCancel }: JobRowProps) {
   const dim = entry.status === 'unknown';
   const pill = statusPillFor(entry.status);
   const rel = useMemo(() => relativeTime(entry.started_at_iso), [entry.started_at_iso]);
+  // Build the full argv preview ("evalyn cli-id --flag value ...") for the
+  // row tooltip so users can disambiguate similar runs without opening
+  // them. Mirrors the preview command CliRunner shows in its header.
+  const argvPreview = useMemo(
+    () => previewCommand(entry.cli_id, entry.cli_args),
+    [entry.cli_id, entry.cli_args],
+  );
   // Re-run only makes sense for terminal rows the user can rerun. We
   // hide it for queued/running (live job already exists) and for
   // unknown (backend lost the record - the cli_args we cached should
@@ -632,7 +639,11 @@ function JobRow({ entry, onClick, onRerun, onCancel }: JobRowProps) {
           cursor: 'pointer',
           color: 'inherit',
         }}
-        title={dim ? 'Backend evicted this job (server restart?)' : entry.job_id}
+        title={
+          dim
+            ? 'Backend evicted this job (server restart?)'
+            : argvPreview
+        }
       >
         <div style={{ paddingTop: 4, flexShrink: 0 }}>
           <StatusDot
