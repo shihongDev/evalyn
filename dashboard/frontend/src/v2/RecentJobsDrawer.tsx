@@ -52,6 +52,7 @@ import { listCli, previewCommand, type CliSchema } from './api/cli';
 import { useArmedConfirm } from './hooks/useArmedConfirm';
 import { useLiveDuration } from './hooks/useLiveDuration';
 import { useSearchFilter } from './hooks/useSearchFilter';
+import { useVisibilityPoll } from './hooks/useVisibilityPoll';
 import { openCliRunner } from './cliRunnerBridge';
 
 interface RecentJobsDrawerProps {
@@ -88,7 +89,10 @@ export function RecentJobsDrawer({
   // closed (no point spending bandwidth on a UI nobody is looking at).
   // Null until the first fetch returns or if the fetch ever fails -
   // we never block the UI on a stats fetch.
-  const [capacity, setCapacity] = useState<JobsCapacity | null>(null);
+  // Replaced by useVisibilityPoll below; the hook's `value` IS
+  // the capacity snapshot. We assign it via const to keep the
+  // existing JSX `capacity={capacity}` consumer call sites
+  // unchanged. See the explanatory comment above the hook call.
   // "Show failed only" filter, toggled via a clickable badge in the
   // header. Lets a user spot recent regressions in a long history
   // (the local cap is 30 entries) without scanning each pill by eye.
@@ -236,54 +240,18 @@ export function RecentJobsDrawer({
     };
   }, [open, cliCatalog, catalogError]);
 
-  // Capacity poll: fetch /api/jobs/stats every 5s while the drawer is
-  // open AND the tab is visible. Fires immediately on open so the chip
-  // lights up without a visible delay; subsequent ticks pick up natural
-  // changes (a job finishing, a fresh spawn). Closed drawer = no
-  // polling. Backgrounded tab = no polling either - the chip is
-  // invisible, so the user gains nothing from the fetch and the
-  // dashboard burns network/CPU on always-open tabs. When the tab
-  // returns to visible we fire an immediate refetch so the chip
-  // reflects state-of-the-world without waiting up to 5s.
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    let interval: number | null = null;
-
-    const tick = async () => {
-      const cap = await fetchJobsCapacity();
-      if (!cancelled) setCapacity(cap);
-    };
-
-    const start = () => {
-      if (interval !== null) return;
-      void tick();
-      interval = window.setInterval(() => void tick(), 5000);
-    };
-    const stop = () => {
-      if (interval !== null) {
-        window.clearInterval(interval);
-        interval = null;
-      }
-    };
-
-    if (typeof document === 'undefined' || document.visibilityState === 'visible') {
-      start();
-    }
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        start();
-      } else {
-        stop();
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      cancelled = true;
-      stop();
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, [open]);
+  // Capacity poll via the shared useVisibilityPoll hook. The hook
+  // owns the start/stop visibility plumbing; we wire the `enabled`
+  // prop to `open` so polling pauses when the drawer is closed
+  // (no point burning network on a UI nobody is looking at) and
+  // when the tab is hidden (the chip is invisible, the dashboard
+  // gains nothing from the fetch). The hook's `value` IS the
+  // capacity snapshot we render in the chip; rename via destructure.
+  const { value: capacity } = useVisibilityPoll<JobsCapacity | null>({
+    fetcher: fetchJobsCapacity,
+    intervalMs: 5000,
+    enabled: open,
+  });
 
   // Ref so the visibility refresh below sees the latest entries
   // without a re-binding closure. We can't put `entries` in the
