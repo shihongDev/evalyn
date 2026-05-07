@@ -27,6 +27,14 @@ interface SkeletonProps {
 export function Skeleton({ w = '100%', h = 12, style }: SkeletonProps) {
   return (
     <span
+      // Skeletons are purely decorative shimmer placeholders. The
+      // actual "loading" announcement for AT comes from the route's
+      // Suspense fallback (initial load) or its UpdatingChip
+      // (background refresh) - both already aria-live. Without this
+      // hide, SR users would otherwise hear a series of empty spans
+      // as the skeleton grid iterates, with no indication of what
+      // they represent.
+      aria-hidden="true"
       style={{
         display: 'inline-block',
         width: w,
