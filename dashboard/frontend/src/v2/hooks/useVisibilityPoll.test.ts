@@ -184,6 +184,64 @@ describe('useVisibilityPoll', () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
+  it('lastFetchAt advances on every poll resolution', async () => {
+    // Anchor wall-clock at a known instant. advanceTimersByTime
+    // moves the fake clock too, so the test computes expected
+    // values relative to NOW + accumulated advance.
+    const NOW = new Date('2026-05-07T12:00:00Z').getTime();
+    vi.setSystemTime(new Date(NOW));
+
+    const fetcher = vi.fn().mockResolvedValue({ n: 1 });
+    const { result } = renderHook(() =>
+      useVisibilityPoll({ fetcher, intervalMs: 1000 }),
+    );
+
+    expect(result.current.lastFetchAt).toBeNull();
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    // First fetch resolved at NOW.
+    expect(result.current.lastFetchAt).toBe(NOW);
+
+    // advanceTimersByTime moves the fake clock by 1000ms AND fires
+    // the next interval tick, so the second poll resolves at NOW+1000.
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+    expect(result.current.lastFetchAt).toBe(NOW + 1000);
+  });
+
+  it('lastFetchAt updates even when value is identical (freshness, not change)', async () => {
+    // Critical: a freshness indicator must reset on every fetch,
+    // not just identity-changing ones. Without this, a polling
+    // surface returning the same JSON twice in a row would freeze
+    // its "Refreshed Xs ago" label and look stalled.
+    const NOW = new Date('2026-05-07T12:00:00Z').getTime();
+    vi.setSystemTime(new Date(NOW));
+
+    // Same object reference returned every call.
+    const FROZEN = { n: 1 };
+    const fetcher = vi.fn().mockResolvedValue(FROZEN);
+    const { result } = renderHook(() =>
+      useVisibilityPoll({ fetcher, intervalMs: 1000 }),
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const firstStamp = result.current.lastFetchAt;
+    expect(firstStamp).toBe(NOW);
+
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+    // Same value reference but lastFetchAt MUST have advanced.
+    expect(result.current.value).toBe(FROZEN);
+    expect(result.current.lastFetchAt).toBe(NOW + 1000);
+  });
+
   it('uses the latest fetcher reference across re-renders', async () => {
     const a = vi.fn().mockResolvedValue({ src: 'a' });
     const b = vi.fn().mockResolvedValue({ src: 'b' });
