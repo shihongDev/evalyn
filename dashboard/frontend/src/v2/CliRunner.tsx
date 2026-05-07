@@ -1519,6 +1519,24 @@ function OutputSection({
     }, 150);
     return () => window.clearTimeout(handle);
   }, [outputFilterInput]);
+  // Ref so the "/" hotkey can focus the input from anywhere in the
+  // runner (mirrors the drawer's pattern). Also lets the input's own
+  // Esc handler blur cleanly back to the runner body.
+  const outputFilterRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) {
+        return;
+      }
+      e.preventDefault();
+      outputFilterRef.current?.focus();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   async function handleCopy() {
     if (lines.length === 0) return;
@@ -1715,14 +1733,31 @@ function OutputSection({
           )}
           {lines.length > 0 && (
             <input
+              ref={outputFilterRef}
               type="search"
               value={outputFilterInput}
               onChange={(e) => setOutputFilterInput(e.target.value)}
-              placeholder="Filter output..."
+              onKeyDown={(e) => {
+                // Two-step Escape: first press clears the filter,
+                // second press blurs back to body (lets the parent's
+                // Escape-closes-runner handler take over). stopPropagation
+                // on the first press prevents the window listener from
+                // closing the runner mid-clear.
+                if (e.key === 'Escape') {
+                  if (outputFilterInput) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setOutputFilterInput('');
+                    return;
+                  }
+                  outputFilterRef.current?.blur();
+                }
+              }}
+              placeholder="Filter output... (/ to focus)"
               aria-label="Filter output by substring"
               style={{
                 flexShrink: 0,
-                width: 140,
+                width: 160,
                 padding: '2px 8px',
                 fontFamily: E.fMono,
                 fontSize: 10.5,

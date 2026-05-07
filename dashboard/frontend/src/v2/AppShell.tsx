@@ -544,12 +544,15 @@ export function AppShell({
         overflow: 'hidden',
       }}
     >
+      {/* Inline scrollbar + body background overrides only - the
+          keyframe definitions (eDotPulse, eFadeIn, eSlideInLeft/
+          Right, eSlideUp) were moved to styles.css so a single
+          `@media (prefers-reduced-motion: reduce)` override there
+          can freeze them for users who request it. The previous
+          inline definitions shadowed the global ones AND had no
+          reduced-motion handling, so reduced-motion users still
+          got full slide-in animations on the dock + drawer + modals. */}
       <style>{`
-        @keyframes eDotPulse { 0%,100% { opacity: 1 } 50% { opacity: 0.4 } }
-        @keyframes eFadeIn { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes eSlideInLeft { from { transform: translateX(-100%) } to { transform: translateX(0) } }
-        @keyframes eSlideInRight { from { transform: translateX(100%) } to { transform: translateX(0) } }
-        @keyframes eSlideUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
         ::-webkit-scrollbar { width: 10px; height: 10px; }
         ::-webkit-scrollbar-thumb { background: ${E.panel3}; border-radius: 6px; }
         ::-webkit-scrollbar-thumb:hover { background: ${E.panel4}; }
@@ -1102,7 +1105,7 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
     { keys: 'Esc', label: 'Close any open overlay' },
   ];
   const CONTEXT_SHORTCUTS: Array<{ keys: string; label: string }> = [
-    { keys: '/', label: 'Focus search (Recent Jobs drawer)' },
+    { keys: '/', label: 'Focus search (drawer or output filter)' },
     { keys: `${MOD_KEY} L`, label: 'Clear output (CliRunner)' },
     { keys: `${MOD_KEY} ↵`, label: 'Send message (Co-pilot composer)' },
     { keys: `${MOD_KEY} S`, label: 'Save annotations (Annotate session)' },
