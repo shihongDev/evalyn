@@ -632,6 +632,69 @@ def test_output_txt_download_adds_attachment_header():
         assert cd.endswith('.log"')
 
 
+def test_output_txt_include_meta_prepends_self_describing_header():
+    """?include_meta=1 prepends a # comment block with job_id, cli,
+    started_at, status, exit_code, scope - so a downloaded log
+    survives without external context. Body is unchanged after the
+    header. Meta is OFF by default - existing curl users see no
+    change."""
+    app = build_app()
+    with TestClient(app) as client:
+        job_id = _spawn(
+            client,
+            app,
+            [sys.executable, "-c", "print('hello'); print('world')"],
+        )
+        _wait(client, app, job_id)
+
+        # Default (no include_meta): no header lines.
+        r1 = client.get(f"/api/jobs/{job_id}/output.txt")
+        assert r1.status_code == 200
+        assert "evalyn job log" not in r1.text
+        # Body still ends with the expected lines.
+        assert "hello" in r1.text
+        assert "world" in r1.text
+
+        # With include_meta=1: header + body.
+        r2 = client.get(f"/api/jobs/{job_id}/output.txt?include_meta=1")
+        assert r2.status_code == 200
+        text = r2.text
+        # Header lines start with '#' so log tools treat them as comments.
+        assert text.startswith("# evalyn job log\n")
+        assert f"# job_id: {job_id}" in text
+        assert "# started_at: " in text
+        assert "# scope: all" in text
+        # Body still present after the header.
+        assert "hello" in text
+        assert "world" in text
+        # Header preceeds body in the rendered string.
+        assert text.index("# job_id") < text.index("hello")
+
+
+def test_output_txt_include_meta_reflects_stream_filter():
+    """``scope`` field of the meta header reflects ?stream= and ?tail=
+    so a downloaded ``stderr only, last 5`` slice is identifiable."""
+    app = build_app()
+    with TestClient(app) as client:
+        job_id = _spawn(
+            client,
+            app,
+            [
+                sys.executable,
+                "-c",
+                "import sys\nfor i in range(8):\n  sys.stderr.write(f'e{i}\\n')\n",
+            ],
+        )
+        _wait(client, app, job_id)
+
+        r = client.get(
+            f"/api/jobs/{job_id}/output.txt?include_meta=1&stream=stderr&tail=3"
+        )
+        assert r.status_code == 200
+        text = r.text
+        assert "# scope: stream=stderr, tail=3" in text
+
+
 def test_output_txt_download_filename_includes_stream_and_tail():
     """When ?stream and ?tail are also present, the filename suffix
     encodes them so multiple downloads of slices of the same job
