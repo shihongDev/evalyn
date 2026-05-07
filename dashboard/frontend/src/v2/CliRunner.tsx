@@ -37,6 +37,7 @@ import {
   type JobStatusKind,
 } from './api/jobs';
 import { CapacityError } from './api/errors';
+import { clearDraft, loadDraft, saveDraft } from './cliRunnerDrafts';
 import { closeCliRunner, subscribeRunner } from './cliRunnerBridge';
 import {
   loadJobsHistory,
@@ -189,7 +190,21 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
   // render whatever raw shape we hand them (string for selects, boolean
   // for checkboxes, array for multiselects). Callers building deep links
   // are responsible for handing in compatible types.
+  // Priority order when computing initial form values:
+  //   schema default -> persisted draft -> caller-provided seed -> user
+  // edits (state changes via setValues).
+  //
+  // The draft layer is a customer-cared addition: a partially-filled
+  // form survives a refresh / nav-away. We DON'T let the draft
+  // override the seed because seed is more specific intent (deep
+  // link, "Re-run with same args" prefill from the drawer) and a
+  // stale draft from a prior session shouldn't silently win over
+  // what the caller explicitly handed in.
+  //
+  // Only loaded for fresh form opens (no resumeJobId) - in resume
+  // mode the form isn't shown anyway.
   const initialValues = useMemo<Record<string, unknown>>(() => {
+    const draft = !resumeJobId && !seed ? loadDraft(cli.id) : null;
     const out: Record<string, unknown> = {};
     for (const p of cli.params) {
       let v: unknown;
@@ -202,13 +217,28 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
       } else {
         v = '';
       }
+      if (draft && draft[p.name] !== undefined) v = draft[p.name];
       const seeded = seed?.[p.name];
       if (seeded !== undefined) v = seeded;
       out[p.name] = v;
     }
     return out;
-  }, [cli, seed]);
+  }, [cli, seed, resumeJobId]);
   const [values, setValues] = useState<Record<string, unknown>>(initialValues);
+
+  // Auto-save the in-progress form to localStorage so a refresh /
+  // nav-away does NOT lose the user's typing. Debounced to 300ms so
+  // each keystroke isn't a JSON.stringify + setItem pair. Suppressed
+  // for resume mode (form not visible) and for seed-driven opens
+  // (the seed itself is the authoritative state - we don't want to
+  // shadow it with a draft mid-session).
+  useEffect(() => {
+    if (resumeJobId || seed) return;
+    const handle = window.setTimeout(() => {
+      saveDraft(cli.id, values);
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [cli.id, values, resumeJobId, seed]);
   const [previewOpen, setPreviewOpen] = useState(false);
 
   // --- job state ---
@@ -489,6 +519,11 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
         status: 'queued',
       };
       upsertJob(entry);
+      // Spawn succeeded: the user is done editing this command. Drop
+      // the draft so the next open of run-eval (or whichever cli) is
+      // a fresh form rather than restoring last-run's values into
+      // what the user might think is a clean slate.
+      clearDraft(cli.id);
       // Open the WS subscription. Lines flow through enqueueLine, which
       // batches by animation frame so chatty jobs (100s of lines/sec) cap
       // at one render per ~16ms instead of one per line.
