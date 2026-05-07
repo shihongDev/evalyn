@@ -243,6 +243,59 @@ def test_get_groups_sorted_by_count_desc():
 
 
 # ---------------------------------------------------------------------------
+# GET /api/cli?q=...&group=...
+# ---------------------------------------------------------------------------
+
+
+def test_get_catalog_q_filter_narrows_by_substring():
+    """?q=run should match list-runs at minimum (case-insensitive)."""
+    client, _ = _client_with_token()
+    full = client.get("/api/cli").json()
+    full_ids = {e["id"] for e in full}
+    assert "list-runs" in full_ids  # sanity
+
+    r = client.get("/api/cli?q=run")
+    assert r.status_code == 200
+    filtered = r.json()
+    filtered_ids = {e["id"] for e in filtered}
+    # list-runs and run-eval should match (substring "run" in both ids).
+    assert "list-runs" in filtered_ids
+    assert "run-eval" in filtered_ids
+    # Case-insensitive: ?q=RUN works the same.
+    r2 = client.get("/api/cli?q=RUN").json()
+    assert {e["id"] for e in r2} == filtered_ids
+    # Whitespace-only q -> no filter (full catalog).
+    r3 = client.get("/api/cli?q=%20%20").json()
+    assert {e["id"] for e in r3} == full_ids
+
+
+def test_get_catalog_group_filter():
+    """Combining ?group=X with the groups endpoint should give the
+    same count for that group."""
+    client, _ = _client_with_token()
+    groups = client.get("/api/cli/groups").json()
+    if not groups:
+        return  # no groups in fixture, skip
+    sample = groups[0]
+    r = client.get(f"/api/cli?group={sample['group']}")
+    assert r.status_code == 200
+    filtered = r.json()
+    assert len(filtered) == sample["count"]
+    for entry in filtered:
+        assert (entry.get("group") or "") == sample["group"]
+
+
+def test_get_catalog_q_and_group_combined():
+    """When both filters are set they AND-combine."""
+    client, _ = _client_with_token()
+    r = client.get("/api/cli?q=list&group=Eval")
+    assert r.status_code == 200
+    for entry in r.json():
+        assert "list" in entry["id"].lower()
+        assert (entry.get("group") or "") == "Eval"
+
+
+# ---------------------------------------------------------------------------
 # POST /api/cli/{cli_id}/validate
 # ---------------------------------------------------------------------------
 

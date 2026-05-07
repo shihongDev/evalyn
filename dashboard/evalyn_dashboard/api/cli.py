@@ -193,10 +193,48 @@ def args_to_argv(schema: CliSchema, args: dict[str, Any]) -> list[str]:
 
 
 @router.get("")
-async def get_catalog(request: Request) -> JSONResponse:
-    """Return the full CLI catalog cached on app state at startup."""
+async def get_catalog(
+    request: Request,
+    q: str | None = None,
+    group: str | None = None,
+) -> JSONResponse:
+    """Return the CLI catalog cached on app state at startup.
+
+    Optional filters:
+
+    - ``q``: case-insensitive substring match against ``id``, ``name``,
+      ``blurb``, and ``description``. Useful for command-palette /
+      keyword-based discovery. Whitespace-only ``q`` is treated as
+      no filter.
+    - ``group``: exact match against ``group``. Pairs naturally with
+      the ``GET /api/cli/groups`` overview - clicking a group chip
+      can directly fetch that group's commands.
+
+    Both filters AND-combine when supplied.
+    """
     catalog: list[CliSchema] = request.app.state.cli_catalog
-    return JSONResponse(catalog_to_payload(catalog))
+    filtered: list[CliSchema] = catalog
+    if group is not None:
+        filtered = [s for s in filtered if (s.group or "") == group]
+    if q is not None:
+        needle = q.strip().lower()
+        if needle:
+            def _matches(s: CliSchema) -> bool:
+                # description and blurb are documented optional fields
+                # on CliSchema; getattr keeps us robust to dataclasses
+                # that might not have them at runtime.
+                hay = " ".join(
+                    [
+                        s.id or "",
+                        s.name or "",
+                        getattr(s, "blurb", "") or "",
+                        getattr(s, "description", "") or "",
+                    ]
+                ).lower()
+                return needle in hay
+
+            filtered = [s for s in filtered if _matches(s)]
+    return JSONResponse(catalog_to_payload(filtered))
 
 
 @router.get("/groups")
