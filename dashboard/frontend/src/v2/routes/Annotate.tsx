@@ -31,6 +31,7 @@ import {
 import { useV2Resource } from '../hooks/useV2Resource';
 import { v2 } from '../api/client';
 import { annotationApi } from '../api/annotation';
+import { errorMessage } from '../api/errors';
 import type {
   AnnotationSessionList,
   AnnotationSessionMeta,
@@ -742,7 +743,7 @@ export default function Annotate() {
       void refetchSessions();
       return session.id;
     } catch (e) {
-      setStartErr(e instanceof Error ? e.message : String(e));
+      setStartErr(errorMessage(e));
       return null;
     }
   }

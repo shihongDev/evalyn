@@ -11,6 +11,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Btn, Card, Eyebrow } from './index';
 import { loadDemo } from '../api/demo';
+import { errorMessage } from '../api/errors';
 import { E } from '../tokens';
 
 export function Welcome() {
@@ -25,7 +26,7 @@ export function Welcome() {
       await loadDemo();
       window.location.reload();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      setErr(errorMessage(e));
       setLoading(false);
     }
   };

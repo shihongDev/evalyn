@@ -28,6 +28,7 @@ import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
 import { loadDemo } from '../api/demo';
+import { errorMessage } from '../api/errors';
 import { listCli, runCli } from '../api/cli';
 import type { CliSchema } from '../api/cli';
 import { openCliRunner } from '../cliRunnerBridge';
@@ -808,7 +809,7 @@ export default function Datasets() {
       await loadDemo();
       window.location.reload();
     } catch (e) {
-      setDemoErr(e instanceof Error ? e.message : String(e));
+      setDemoErr(errorMessage(e));
       setDemoLoading(false);
     }
   };

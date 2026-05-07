@@ -21,6 +21,7 @@ import { Btn, Card, Eyebrow, Pill, Skeleton, StatusDot } from '../ui';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { useArmedConfirm } from '../hooks/useArmedConfirm';
 import { annotationApi } from '../api/annotation';
+import { errorMessage } from '../api/errors';
 import type {
   AnnotationEvidence,
   AnnotationItemRow,
@@ -1623,7 +1624,7 @@ export default function AnnotateSession() {
         void refetchItems();
         return true;
       } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
+        const msg = errorMessage(e);
         setSubmitErr(msg);
         // Retrigger the shake keyframe on the Save button + announce
         // to screen readers via the existing aria-live region.
@@ -2239,7 +2240,7 @@ export default function AnnotateSession() {
       clearDraft(sessionId);
       navigate('/annotate');
     } catch (e) {
-      setFinalizeErr(e instanceof Error ? e.message : String(e));
+      setFinalizeErr(errorMessage(e));
     } finally {
       setFinalizing(false);
     }

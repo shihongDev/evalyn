@@ -37,7 +37,7 @@ import {
   type JobStatus,
   type JobStatusKind,
 } from './api/jobs';
-import { CapacityError } from './api/errors';
+import { CapacityError, errorMessage } from './api/errors';
 import { clearDraft, loadDraft, saveDraft } from './cliRunnerDrafts';
 import { notifyJobTerminal } from './notifications';
 import { closeCliRunner, subscribeRunner } from './cliRunnerBridge';
@@ -609,8 +609,7 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
         // was created.
         setStatus('queued');
       } else {
-        const msg = e instanceof Error ? e.message : String(e);
-        setError(msg);
+        setError(errorMessage(e));
         setStatus('failed');
       }
     } finally {
@@ -625,7 +624,7 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
       setStatus('cancelled');
       patchJob(jobId, { status: 'cancelled' });
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorMessage(e));
     }
   }, [jobId]);
 

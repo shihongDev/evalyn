@@ -28,7 +28,7 @@ import {
   restartJob,
   type JobsCapacity,
 } from './api/jobs';
-import { CapacityError } from './api/errors';
+import { CapacityError, errorMessage } from './api/errors';
 import {
   notificationPermission,
   requestNotificationPermission,
@@ -185,7 +185,7 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
         if (!cancelled) setCliCatalog(cat);
       } catch (e) {
         if (!cancelled) {
-          setCatalogError(e instanceof Error ? e.message : String(e));
+          setCatalogError(errorMessage(e));
         }
       }
     })();

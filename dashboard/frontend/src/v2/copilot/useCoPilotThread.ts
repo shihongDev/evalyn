@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, subscribeAgent } from '../../api';
+import { errorMessage } from '../api/errors';
 import { useV2Store } from '../store/store';
 import type { AgentWsEvent, ConvMessage, PendingConfirmation, ToolBlockEntry } from './types';
 
@@ -545,7 +546,7 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
         }
       } catch (err) {
         if (generationRef.current !== generationAtCall) return;
-        setError(err instanceof Error ? err.message : String(err));
+        setError(errorMessage(err));
         setStatus('error');
       }
     },
@@ -565,7 +566,7 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
         setPending(null);
         setStatus('streaming');
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(errorMessage(err));
         setStatus('error');
         // Without this, the awaiting-confirmation card stays mounted and
         // the composer (which guards on `pending != null`) is locked
