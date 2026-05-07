@@ -253,6 +253,21 @@ async def confirm(request: Request, thread_id: str) -> JSONResponse:
                 "tool_call_id does not match the currently pending confirmation"
             ),
         )
+    # Audit log: user-driven approve/reject decisions on
+    # destructive tool calls. Once-per-tool-confirmation so the
+    # volume is bounded by user pace, not turn rate. Useful for
+    # postmortems answering "what tool calls did the user approve
+    # during the incident window?" or "did anyone enable
+    # auto-approve in the affected session?". args_override is
+    # NOT logged - same privacy rationale as the chat endpoint
+    # (user-supplied content can carry secrets).
+    logger.info(
+        "agent confirm: thread_id=%s approved=%s%s%s",
+        thread_id,
+        approve,
+        f" tool_call_id={tool_call_id}" if tool_call_id else "",
+        " auto_approve_session=True" if auto_approve_session else "",
+    )
     return JSONResponse({"ok": True, "approved": approve})
 
 
