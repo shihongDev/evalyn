@@ -601,7 +601,15 @@ export function AppShell({
           <button
             type="button"
             onClick={() => setDrawerOpen((v) => !v)}
-            aria-label="Open navigation"
+            // aria-expanded + aria-controls let SR users hear the
+            // current open/closed state and jump to the drawer
+            // when it opens. Without these, the hamburger
+            // announces "open navigation" both before and after a
+            // click - the visible state changes but AT had no
+            // signal of which mode the toggle is in.
+            aria-label={drawerOpen ? 'Close navigation' : 'Open navigation'}
+            aria-expanded={drawerOpen}
+            aria-controls="appshell-mobile-drawer"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -618,7 +626,7 @@ export function AppShell({
               lineHeight: 1,
             }}
           >
-            ☰
+            <span aria-hidden="true">☰</span>
           </button>
         )}
         <button
@@ -979,7 +987,9 @@ export function AppShell({
               }}
             />
           )}
-          <div
+          <nav
+            id="appshell-mobile-drawer"
+            aria-label="Mobile navigation"
             aria-hidden={!drawerOpen}
             style={{
               position: 'fixed',
@@ -1005,7 +1015,7 @@ export function AppShell({
               setDockOpen={setDockOpen}
               onAfterNavigate={() => setDrawerOpen(false)}
             />
-          </div>
+          </nav>
         </>
       )}
 
