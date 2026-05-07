@@ -25,7 +25,7 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from ..jobs import Job
 
@@ -164,6 +164,92 @@ async def recent_jobs(
             seen.add(entry["id"])
     merged.sort(key=lambda e: (e.get("started_at") or 0.0), reverse=True)
     return JSONResponse(merged[:limit])
+
+
+@router.get("/recent.csv")
+async def recent_jobs_csv(
+    request: Request,
+    limit: int = 100,
+    cli_id: str | None = None,
+    status: str | None = None,
+    since: float | None = None,
+) -> PlainTextResponse:
+    """CSV variant of /api/jobs/recent with the same query semantics.
+
+    Useful for spreadsheet workflows ("download my last 30 failed
+    runs as a CSV"), archive tooling, and quick pipes to ``column -ts,``
+    on the command line. Columns: id, cli_id, state, started_at,
+    ended_at, exit_code, duration, stderr_count.
+
+    Body bypasses _job_to_dict to keep the row layout small + flat:
+    no nested cmd array, no pid (always None for persisted rows
+    anyway). Caller wanting the full shape should use the JSON
+    endpoint and convert client-side.
+    """
+    if limit < 1:
+        raise HTTPException(status_code=400, detail="limit must be >= 1")
+    if limit > 1000:
+        raise HTTPException(status_code=400, detail="limit must be <= 1000")
+    if since is not None and since < 0:
+        raise HTTPException(status_code=400, detail="since must be >= 0")
+    jm = request.app.state.job_manager
+    in_memory_jobs = jm.recent(n=limit)
+    if cli_id is not None:
+        in_memory_jobs = [j for j in in_memory_jobs if j.cli_id == cli_id]
+    if status is not None:
+        in_memory_jobs = [j for j in in_memory_jobs if j.state == status]
+    if since is not None:
+        in_memory_jobs = [j for j in in_memory_jobs if j.started_at > since]
+    rows: list[dict] = [_job_to_dict(j) for j in in_memory_jobs]
+    seen = {r["id"] for r in rows}
+    persistence = _persistence_for(jm)
+    if persistence is not None:
+        since_iso: str | None = None
+        if since is not None:
+            from datetime import datetime, timezone
+
+            since_iso = datetime.fromtimestamp(since, tz=timezone.utc).isoformat()
+        for raw in persistence.list_recent(
+            limit=limit, cli_id=cli_id, status=status, since_iso=since_iso
+        ):
+            entry = _persisted_to_dict(raw)
+            if entry["id"] in seen:
+                continue
+            rows.append(entry)
+            seen.add(entry["id"])
+    rows.sort(key=lambda e: (e.get("started_at") or 0.0), reverse=True)
+    rows = rows[:limit]
+
+    import csv
+    import io
+
+    columns = [
+        "id",
+        "cli_id",
+        "state",
+        "started_at",
+        "ended_at",
+        "exit_code",
+        "duration",
+        "stderr_count",
+    ]
+    buf = io.StringIO()
+    writer = csv.writer(buf, lineterminator="\n")
+    writer.writerow(columns)
+    for r in rows:
+        writer.writerow(
+            [
+                r.get(c) if r.get(c) is not None else ""
+                for c in columns
+            ]
+        )
+    return PlainTextResponse(
+        buf.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="evalyn-jobs-recent.csv"',
+        },
+    )
 
 
 @router.get("/stats")
