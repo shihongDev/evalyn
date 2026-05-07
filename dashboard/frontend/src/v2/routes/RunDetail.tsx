@@ -623,9 +623,11 @@ export default function RunDetail() {
             return (
               <button
                 key={t}
+                id={`rundetail-tab-${i}`}
                 type="button"
                 role="tab"
                 aria-selected={isActive}
+                aria-controls={i < 2 ? `rundetail-panel-${i}` : undefined}
                 tabIndex={isActive ? 0 : -1}
                 data-rundetail-tab={i}
                 disabled={disabled}
@@ -661,28 +663,30 @@ export default function RunDetail() {
       </div>
 
       {activeTab === 1 && (
-        compareWith ? (
-          <ItemsCompareTab
-            runId={detail.id}
-            otherId={compareWith}
-            onClearCompare={clearCompare}
-            onSwapCompare={swapCompare}
-          />
-        ) : (
-          <ItemsTab
-            // Remount on each cross-tab "View failures" click so the
-            // seeded filter applies even if the user already switched
-            // it inside ItemsTab on a prior visit. The nonce is what
-            // makes successive jumps work; otherwise React would keep
-            // the same instance and ignore the new initialFilter.
-            key={`items-${itemsSeed?.nonce ?? 0}`}
-            runId={detail.id}
-            initialFilter={itemsSeed?.filter}
-          />
-        )
+        <div id="rundetail-panel-1" role="tabpanel" aria-labelledby="rundetail-tab-1">
+          {compareWith ? (
+            <ItemsCompareTab
+              runId={detail.id}
+              otherId={compareWith}
+              onClearCompare={clearCompare}
+              onSwapCompare={swapCompare}
+            />
+          ) : (
+            <ItemsTab
+              // Remount on each cross-tab "View failures" click so the
+              // seeded filter applies even if the user already switched
+              // it inside ItemsTab on a prior visit. The nonce is what
+              // makes successive jumps work; otherwise React would keep
+              // the same instance and ignore the new initialFilter.
+              key={`items-${itemsSeed?.nonce ?? 0}`}
+              runId={detail.id}
+              initialFilter={itemsSeed?.filter}
+            />
+          )}
+        </div>
       )}
 
-      {activeTab === 0 && <div style={{ padding: '20px 36px' }}>
+      {activeTab === 0 && <div id="rundetail-panel-0" role="tabpanel" aria-labelledby="rundetail-tab-0" style={{ padding: '20px 36px' }}>
         {/* COMPARE BADGE BAR */}
         {compareWith && compareErr && !compareDetail && (
           <Card style={{ padding: 12, marginBottom: 14, borderColor: E.fail }}>
