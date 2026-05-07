@@ -63,7 +63,11 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
 interface NotifyOpts {
   jobId: string;
   cliId: string;
-  status: 'complete' | 'failed' | 'cancelled';
+  /** Only complete/failed warrant a notification. Cancellation is
+   * user-driven so a popup confirming "you cancelled it" would be
+   * spammy. The caller is responsible for that gate; this type
+   * documents the contract. */
+  status: 'complete' | 'failed';
   exitCode?: number | null;
   durationS?: number | null;
 }
@@ -86,12 +90,7 @@ export function notifyJobTerminal(opts: NotifyOpts): void {
     return;
   }
   try {
-    const verb =
-      opts.status === 'complete'
-        ? 'finished'
-        : opts.status === 'failed'
-          ? 'failed'
-          : 'was cancelled';
+    const verb = opts.status === 'complete' ? 'finished' : 'failed';
     const parts: string[] = [];
     if (opts.exitCode != null) parts.push(`exit ${opts.exitCode}`);
     if (opts.durationS != null) {
