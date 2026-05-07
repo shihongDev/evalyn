@@ -1235,53 +1235,130 @@ interface PreviewLineProps {
 }
 
 function PreviewLine({ preview, open, onToggle }: PreviewLineProps) {
+  // Local copy-state. The form-mode preview is rendered before any
+  // job is spawned, so we can't lean on the OutputSection toolbar's
+  // Copy button (it only mounts in the post-spawn view). This makes
+  // the affordance reachable from the moment the form is filled.
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>(
+    'idle',
+  );
+  const onCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!preview) return;
+    try {
+      await copyToClipboard(preview);
+      setCopyState('copied');
+      window.setTimeout(() => setCopyState('idle'), 2000);
+    } catch {
+      setCopyState('error');
+      window.setTimeout(() => setCopyState('idle'), 3000);
+    }
+  };
   return (
-    <button
-      type="button"
-      onClick={onToggle}
+    <div
       style={{
         background: E.ink,
         border: `1px solid ${E.hair2}`,
         borderRadius: 6,
-        padding: '6px 10px',
-        textAlign: 'left',
-        cursor: 'pointer',
         display: 'flex',
         alignItems: 'flex-start',
-        gap: 8,
+        gap: 0,
         width: '100%',
+        overflow: 'hidden',
       }}
     >
-      <span
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-label={
+          open ? 'Collapse the command preview' : 'Expand the command preview'
+        }
         style={{
-          fontFamily: E.fMono,
-          fontSize: 10,
-          color: E.text3,
-          flexShrink: 0,
-          marginTop: 2,
-        }}
-      >
-        {open ? '▾' : '▸'}
-      </span>
-      <span
-        style={{
-          fontFamily: E.fMono,
-          fontSize: 11,
-          color: E.text1,
           flex: 1,
+          padding: '6px 10px',
+          textAlign: 'left',
+          cursor: 'pointer',
+          background: 'transparent',
+          border: 'none',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 8,
           minWidth: 0,
-          ...(open
-            ? { whiteSpace: 'pre-wrap', wordBreak: 'break-all' }
-            : {
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }),
         }}
       >
-        {preview}
-      </span>
-    </button>
+        <span
+          style={{
+            fontFamily: E.fMono,
+            fontSize: 10,
+            color: E.text3,
+            flexShrink: 0,
+            marginTop: 2,
+          }}
+        >
+          {open ? '▾' : '▸'}
+        </span>
+        <span
+          style={{
+            fontFamily: E.fMono,
+            fontSize: 11,
+            color: E.text1,
+            flex: 1,
+            minWidth: 0,
+            ...(open
+              ? { whiteSpace: 'pre-wrap', wordBreak: 'break-all' }
+              : {
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }),
+          }}
+        >
+          {preview}
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={onCopy}
+        aria-label="Copy the shell command to clipboard"
+        title={
+          copyState === 'copied'
+            ? 'Copied!'
+            : copyState === 'error'
+              ? 'Browser blocked clipboard access'
+              : 'Copy command'
+        }
+        style={{
+          flexShrink: 0,
+          padding: '0 10px',
+          fontFamily: E.fMono,
+          fontSize: 10.5,
+          color:
+            copyState === 'copied'
+              ? E.pass
+              : copyState === 'error'
+                ? E.fail
+                : E.text3,
+          background: 'transparent',
+          border: 'none',
+          borderLeft: `1px solid ${E.hair2}`,
+          cursor: 'pointer',
+          alignSelf: 'stretch',
+          whiteSpace: 'nowrap',
+        }}
+        onMouseEnter={(e) => {
+          if (copyState === 'idle') {
+            e.currentTarget.style.color = E.text1;
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (copyState === 'idle') {
+            e.currentTarget.style.color = E.text3;
+          }
+        }}
+      >
+        {copyState === 'copied' ? '✓' : copyState === 'error' ? '✗' : 'copy'}
+      </button>
+    </div>
   );
 }
 
