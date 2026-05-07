@@ -27,6 +27,12 @@ import type { ExperimentRow, DatasetCard, RubricRow } from './api/types';
 import { openCliRunner } from './cliRunnerBridge';
 import { E } from './tokens';
 import { MOD_KEY } from './platform';
+import { prefetchV2 } from './hooks/useV2Resource';
+import {
+  preloadDatasetDetail,
+  preloadMetrics,
+  preloadRunDetail,
+} from './routePreloads';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -47,18 +53,26 @@ interface CommandEntry extends BaseEntry {
   kind: 'command';
   cli: CliSchema;
   nav: () => void;
+  /** Hover/active-index warmup. Optional - command entries open
+   * the CliRunner overlay (no chunk to load) so this is undefined
+   * for commands. Set for run/dataset/rubric kinds where the
+   * click navigates to a route that benefits from prefetch. */
+  warm?: () => void;
 }
 interface RunEntry extends BaseEntry {
   kind: 'run';
   nav: () => void;
+  warm?: () => void;
 }
 interface DatasetEntry extends BaseEntry {
   kind: 'dataset';
   nav: () => void;
+  warm?: () => void;
 }
 interface RubricEntry extends BaseEntry {
   kind: 'rubric';
   nav: () => void;
+  warm?: () => void;
 }
 
 type Entry = CommandEntry | RunEntry | DatasetEntry | RubricEntry;
@@ -235,6 +249,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     if (runs) {
       for (const r of runs) {
         const sublabel = `${r.id} - ${formatPass(r.pass)} - ${r.when_iso}`;
+        const runId = r.id;
         out.push({
           kind: 'run',
           kindOrder: KIND_ORDER.run,
@@ -245,6 +260,15 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             onClose();
             navigate(`/experiments/${encodeURIComponent(r.id)}`);
           },
+          // Active-index warmup: prefetch the experiment-detail
+          // JSON + RunDetail chunk so arrow-keying through runs
+          // and pressing Enter feels instant. prefetchV2 dedupes
+          // by cache key so re-warming on every key-press is
+          // free.
+          warm: () => {
+            void preloadRunDetail();
+            prefetchV2(`experiment:${runId}`, () => v2.experiment(runId));
+          },
         });
       }
     }
@@ -252,6 +276,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       for (const d of datasets) {
         const tagText = d.tags && d.tags.length ? d.tags.join(', ') : 'no tags';
         const sublabel = `${d.n} items - ${tagText}`;
+        const datasetName = d.name;
         out.push({
           kind: 'dataset',
           kindOrder: KIND_ORDER.dataset,
@@ -261,6 +286,11 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           nav: () => {
             onClose();
             navigate(`/datasets/${encodeURIComponent(d.name)}`);
+          },
+          // Warm the DatasetDetail chunk + the dataset's data.
+          warm: () => {
+            void preloadDatasetDetail();
+            prefetchV2(`dataset:${datasetName}`, () => v2.dataset(datasetName));
           },
         });
       }
@@ -277,6 +307,13 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           nav: () => {
             onClose();
             navigate('/metrics');
+          },
+          // Rubric click goes to /metrics (which lists all
+          // rubrics; no per-rubric route). Warm the Metrics
+          // chunk + rubrics list.
+          warm: () => {
+            void preloadMetrics();
+            prefetchV2('rubrics', v2.rubrics);
           },
         });
       }
@@ -411,6 +448,18 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   /** Flat index -> Entry, used for keyboard navigation across sections. */
   const flat = useMemo<Entry[]>(() => sections.flatMap((s) => s.entries), [sections]);
+
+  // Hover-style prefetch but driven by `activeIndex` instead of
+  // mouseenter so arrow-key navigation also warms each row's
+  // target. Walking from row 5 to row 8 with arrow keys warms
+  // rows 6, 7, 8 in turn; by the time the user presses Enter on
+  // row 8 the data + chunk are typically cached. command entries
+  // (which open the CliRunner overlay rather than navigating)
+  // have undefined `warm` and short-circuit cleanly.
+  useEffect(() => {
+    const entry = flat[activeIndex];
+    if (entry?.warm) entry.warm();
+  }, [activeIndex, flat]);
 
   /** Build a kind-specific co-pilot prompt for an entry. The co-pilot has
    * read access to all four datasources, so a question about any kind is
