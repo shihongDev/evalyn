@@ -49,6 +49,11 @@ def _job_to_dict(job: Job) -> dict:
         "exit_code": job.exit_code,
         "pid": job.pid,
         "duration": job.duration,
+        # Monotonic count of stderr lines emitted by the subprocess.
+        # Survives the events ring trim so this reflects the true total
+        # even on long jobs that overflow max_log. Frontend's Recent
+        # Jobs drawer surfaces it as "5 stderr" inline.
+        "stderr_count": job.stderr_count,
     }
 
 

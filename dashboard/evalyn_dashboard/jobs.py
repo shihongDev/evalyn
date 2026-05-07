@@ -130,6 +130,14 @@ class Job:
     # Capped at max_log via _enforce_log_cap() which prepends a truncated
     # marker when oldest entries are dropped.
     events: list[dict] = field(default_factory=list)
+    # Cumulative count of stderr lines observed for this job. Incremented
+    # by _emit() on every type=='stderr' event. Survives the events ring
+    # trim (the events list is bounded by max_log; the count is monotonic
+    # and unbounded - useful for "did this run produce errors?" questions
+    # without scanning the full event log). Exposed via /api/jobs/{id}
+    # so the Recent Jobs drawer can surface "5 stderr" inline even after
+    # a server restart.
+    stderr_count: int = 0
     # Set of _EventStream instances, one per active subscriber. Each stream
     # receives every new event after subscribe time. Replay of older events
     # is performed inside subscribe() before the stream joins fanout.
@@ -445,6 +453,12 @@ class JobManager:
         job._next_event_id += 1
         event["event_id"] = event_id
         job.events.append(event)
+        # Maintain a monotonic stderr counter independent of the bounded
+        # events ring. A subscriber asking "did this run produce errors?"
+        # via /api/jobs/{id} should get a true total even if the early
+        # stderr lines have already been evicted past max_log.
+        if event.get("type") == "stderr":
+            job.stderr_count += 1
         self._enforce_log_cap(job)
         # Fanout to all live subscribers. put_nowait is safe because the
         # underlying queues are unbounded.

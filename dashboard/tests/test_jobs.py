@@ -58,6 +58,56 @@ async def test_spawn_captures_stderr():
 
 
 @pytest.mark.asyncio
+async def test_job_stderr_count_increments():
+    """Job.stderr_count reflects the number of stderr LINES emitted, not
+    the size or rate. Independent of the events ring's max_log trim so
+    a long-running job that overflows the buffer still has an accurate
+    cumulative count."""
+    jm = JobManager()
+    job_id = await jm.spawn(
+        [
+            sys.executable,
+            "-c",
+            "import sys\n"
+            "for i in range(7):\n"
+            "    sys.stderr.write(f'err {i}\\n')\n"
+            "for j in range(3):\n"
+            "    print(f'ok {j}')\n",
+        ]
+    )
+    await jm.wait(job_id, timeout=5)
+    job = jm.get(job_id)
+    assert job is not None
+    assert job.stderr_count == 7, f"expected 7 stderr lines, got {job.stderr_count}"
+
+
+@pytest.mark.asyncio
+async def test_job_stderr_count_survives_log_trim():
+    """The events list is bounded by max_log (with a truncated marker
+    on overflow); stderr_count is monotonic and unbounded so it stays
+    accurate even when early stderr events have been evicted from the
+    ring."""
+    jm = JobManager(max_log=5)
+    job_id = await jm.spawn(
+        [
+            sys.executable,
+            "-c",
+            "import sys\n"
+            "for i in range(20):\n"
+            "    sys.stderr.write(f'err {i}\\n')\n",
+        ]
+    )
+    await jm.wait(job_id, timeout=5)
+    job = jm.get(job_id)
+    assert job is not None
+    # max_log=5 means events ring holds at most 5 entries; a truncated
+    # marker prepended on overflow. But stderr_count is unaffected by
+    # that ring's trim and counts every stderr emission.
+    assert job.stderr_count == 20, f"expected 20 stderr lines, got {job.stderr_count}"
+    assert len(job.events) <= 5
+
+
+@pytest.mark.asyncio
 async def test_spawn_failed_exit_marks_failed_state():
     jm = JobManager()
     job_id = await jm.spawn([sys.executable, "-c", "import sys; sys.exit(2)"])
