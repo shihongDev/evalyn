@@ -706,6 +706,18 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
             value={apiKey}
             placeholder={inputPlaceholder}
             onChange={(e) => setApiKey(e.target.value)}
+            // Enter-to-save: every form-style surface in the
+            // dashboard accepts Enter as "submit", but this card
+            // had no <form> and no onKeyDown, so the canonical
+            // submit gesture did nothing. The handleSave() guard
+            // re-checks dirty + saving so a held-down Enter
+            // doesn't fire the second save mid-network.
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && dirty && !saving) {
+                e.preventDefault();
+                void handleSave();
+              }
+            }}
             style={INPUT_STYLE}
             spellCheck={false}
             autoComplete="off"
