@@ -658,3 +658,71 @@ def test_vacuum_returns_false_on_unwritable_path(tmp_path: Path) -> None:
     # Without any writes the DB file isn't created; vacuum should
     # report false rather than create the file or raise.
     assert persistence.vacuum() is False
+
+
+# ---------------------------------------------------------------------------
+# Composite indexes for filtered list_recent queries
+# ---------------------------------------------------------------------------
+
+
+def test_init_creates_composite_indexes(tmp_path: Path) -> None:
+    """Init creates composite indexes covering the common filter
+    patterns (cli_id, started_at_iso) and (status, started_at_iso) so
+    a ?cli_id=X or ?status=Y filter can seek directly rather than
+    scan. Without these, large persistence tables would degrade
+    under filter+sort queries."""
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+    # Force schema init by writing a row.
+    persistence.upsert_job(
+        job_id="j1",
+        cli_id="run-eval",
+        args={},
+        cmd="x",
+        status="complete",
+        started_at_iso="2026-05-07T00:00:00.000000+00:00",
+    )
+
+    with sqlite3.connect(str(db)) as conn:
+        index_names = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='index'"
+            )
+        }
+    assert "idx_jobs_cli_id_started_at" in index_names
+    assert "idx_jobs_status_started_at" in index_names
+    # The original single-column index is still present.
+    assert "idx_jobs_started_at" in index_names
+
+
+def test_filtered_query_uses_composite_index(tmp_path: Path) -> None:
+    """EXPLAIN QUERY PLAN confirms a ?cli_id-filtered list_recent
+    SELECT uses the composite index rather than a full scan. SQLite's
+    plan output names the index it picked - asserting on substring
+    match is robust across SQLite minor versions."""
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+    persistence.upsert_job(
+        job_id="j1",
+        cli_id="run-eval",
+        args={},
+        cmd="x",
+        status="complete",
+        started_at_iso="2026-05-07T00:00:00.000000+00:00",
+    )
+
+    with sqlite3.connect(str(db)) as conn:
+        plan = conn.execute(
+            "EXPLAIN QUERY PLAN SELECT * FROM jobs "
+            "WHERE cli_id=? "
+            "ORDER BY started_at_iso DESC LIMIT 50",
+            ("run-eval",),
+        ).fetchall()
+    plan_text = " ".join(str(row) for row in plan).lower()
+    # Either the planner picks the cli_id composite index OR
+    # (degenerately, on a single-row table) it does a search using
+    # one of the indexes. Assert the composite is referenced.
+    assert "idx_jobs_cli_id_started_at" in plan_text, (
+        f"expected composite cli_id index in plan; got: {plan_text}"
+    )
