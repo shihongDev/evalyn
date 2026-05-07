@@ -477,11 +477,22 @@ function DimensionRow({
         </button>
         <input
           type="number"
+          // The visible label (dim.label) is two columns away with a
+          // progress bar between, so SR users tabbing here would
+          // otherwise hear "44, spin button" with no context. Anchor
+          // it to the dimension by name + the unit (% weight).
+          aria-label={`Weight % for ${dim.label || 'dimension'}`}
           value={Math.round(dim.weight)}
           min={0}
           max={100}
           step={1}
           onChange={(e) => {
+            // An empty input would coerce to 0 via Number(""), which
+            // means the field snaps to 0 the moment the user clears
+            // it to retype - they can't pause mid-edit. Treat empty
+            // as "no change" so the user can clear-and-retype freely;
+            // the onBlur path (or a step click) will commit.
+            if (e.target.value === '') return;
             const v = Number(e.target.value);
             if (!Number.isFinite(v)) return;
             onWeightChange(Math.max(0, Math.min(100, v)));
