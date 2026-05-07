@@ -179,12 +179,26 @@ class CredentialStore:
         Never includes plaintext ``api_key``. Each provider entry exposes:
         ``is_set`` (bool), ``model`` (str | None), ``added_at`` (str | None),
         and ``base_url`` (str | None) when set.
+
+        Ollama is a local provider with a sensible default base_url
+        (``DEFAULT_OLLAMA_BASE_URL``); we surface it as ``is_set=True``
+        even when no record has been saved so the FE Test connection
+        button can probe localhost without forcing the user to Save an
+        empty form first.
         """
         data = self._load()
+        providers = dict(data["providers"])
+        if "ollama" not in providers:
+            providers["ollama"] = {}
         out_providers: dict[str, dict[str, Any]] = {}
-        for name, rec in data["providers"].items():
+        for name, rec in providers.items():
+            is_set = (
+                bool(rec.get("api_key"))
+                or bool(rec.get("base_url"))
+                or name == "ollama"
+            )
             entry: dict[str, Any] = {
-                "is_set": bool(rec.get("api_key")) or bool(rec.get("base_url")),
+                "is_set": is_set,
                 "model": rec.get("model"),
                 "added_at": rec.get("added_at"),
             }
@@ -203,10 +217,18 @@ class CredentialStore:
         Returns ``{"ok": True}`` on success or ``{"ok": False, "error": str}``
         on any failure. Imports provider SDKs lazily so the dashboard works
         even if optional dependencies are missing.
+
+        Ollama with no saved record is allowed; ``_test_ollama`` falls
+        back to ``DEFAULT_OLLAMA_BASE_URL`` so a fresh install can probe
+        localhost without forcing a Save first. Cloud providers still
+        require a saved api_key.
         """
         rec = self.get_provider(name)
         if rec is None:
-            return {"ok": False, "error": f"provider {name!r} not configured"}
+            if name == "ollama":
+                rec = {}
+            else:
+                return {"ok": False, "error": f"provider {name!r} not configured"}
 
         try:
             if name == "openai":

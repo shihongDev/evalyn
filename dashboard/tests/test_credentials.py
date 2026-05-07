@@ -23,10 +23,20 @@ from evalyn_dashboard.credentials import CredentialStore
 # ---------------------------------------------------------------------------
 
 
-def test_fresh_path_public_view_is_empty(tmp_path: Path) -> None:
+def test_fresh_path_public_view_surfaces_ollama_only(tmp_path: Path) -> None:
+    """Fresh store still synthesizes an ollama entry as is_set=True.
+
+    Ollama is a local provider with a default base_url; we want the FE
+    Test connection button to be enabled even before the user clicks
+    Save, so public_view always surfaces ollama. Cloud providers stay
+    absent until set_provider records them.
+    """
     cs = CredentialStore(path=tmp_path / "cred.json")
     view = cs.public_view()
-    assert view == {"providers": {}, "active": None}
+    assert view["active"] is None
+    assert view["providers"] == {
+        "ollama": {"is_set": True, "model": None, "added_at": None},
+    }
 
 
 def test_fresh_path_get_provider_returns_none(tmp_path: Path) -> None:
@@ -81,6 +91,35 @@ def test_public_view_includes_active(tmp_path: Path) -> None:
     assert cs.public_view()["active"] == "openai"
 
 
+def test_test_provider_ollama_with_no_record_does_not_short_circuit(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Regression: Test connection used to fail with 'not configured'
+    for a fresh ollama install. The fix lets ``test_provider('ollama')``
+    fall through to ``_test_ollama({})`` so the localhost probe runs.
+    """
+    cs = CredentialStore(path=tmp_path / "cred.json")
+    called_with: dict[str, Any] = {}
+
+    def fake_test_ollama(rec: dict[str, Any]) -> dict[str, Any]:
+        called_with["rec"] = rec
+        return {"ok": True}
+
+    monkeypatch.setattr(cs, "_test_ollama", staticmethod(fake_test_ollama))
+    result = cs.test_provider("ollama")
+    assert result == {"ok": True}
+    assert called_with["rec"] == {}
+
+
+def test_test_provider_unknown_cloud_still_short_circuits(tmp_path: Path) -> None:
+    """OpenAI/Anthropic without a saved key still return the
+    'not configured' error - the ollama exception is local-only.
+    """
+    cs = CredentialStore(path=tmp_path / "cred.json")
+    result = cs.test_provider("openai")
+    assert result == {"ok": False, "error": "provider 'openai' not configured"}
+
+
 def test_set_active_persists_across_instances(tmp_path: Path) -> None:
     target = tmp_path / "cred.json"
     cs = CredentialStore(path=target)
@@ -120,7 +159,13 @@ def test_malformed_json_treated_as_empty(tmp_path: Path) -> None:
     target = tmp_path / "cred.json"
     target.write_text("{not json}")
     cs = CredentialStore(path=target)
-    assert cs.public_view() == {"providers": {}, "active": None}
+    # Malformed file falls back to an empty store; public_view still
+    # surfaces ollama as the always-testable local provider.
+    view = cs.public_view()
+    assert view["active"] is None
+    assert view["providers"] == {
+        "ollama": {"is_set": True, "model": None, "added_at": None},
+    }
     # Should be able to recover by writing
     cs.set_provider("openai", api_key="sk-1", model="gpt-5.1")
     assert cs.get_provider("openai") is not None

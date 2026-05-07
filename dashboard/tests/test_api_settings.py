@@ -33,13 +33,19 @@ def _make_client(tmp_path: Path) -> tuple[TestClient, Any, str]:
     return client, store, token
 
 
-def test_get_settings_returns_empty_initially(tmp_path: Path) -> None:
+def test_get_settings_surfaces_ollama_initially(tmp_path: Path) -> None:
+    """A fresh store still surfaces ollama as an always-testable local
+    provider so the FE Test connection button is enabled before the
+    user clicks Save. Cloud providers stay absent until set.
+    """
     client, _, _ = _make_client(tmp_path)
     r = client.get("/api/settings")
     assert r.status_code == 200
     body = r.json()
-    assert body["providers"] == {}
     assert body["active"] is None
+    assert body["providers"] == {
+        "ollama": {"is_set": True, "model": None, "added_at": None},
+    }
 
 
 def test_post_provider_persists_and_redacts(tmp_path: Path) -> None:
