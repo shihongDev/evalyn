@@ -25,6 +25,7 @@ import { E } from './tokens';
 import { Btn, Eyebrow, Pill, StatusDot } from './ui';
 import { useStickToBottom } from './hooks/useStickToBottom';
 import { useLiveDuration } from './hooks/useLiveDuration';
+import { useSearchFilter } from './hooks/useSearchFilter';
 import { copyToClipboard } from './clipboard';
 import type { CliParam, CliParamKind, CliSchema } from './api/cli';
 import { commandSummary, previewCommand } from './api/cli';
@@ -1506,23 +1507,21 @@ function OutputSection({
   const [stderrFilter, setStderrFilter] = useState(false);
   // Free-text output filter. Customer pain: 1000+ streamed lines and
   // browser Ctrl+F doesn't survive scroll/streaming additions cleanly.
-  // The raw input is captured immediately for responsive typing; the
-  // debounced query (150ms) is what the visibleLines memo actually
-  // matches against, so heavy-output runs don't refilter on every
-  // keystroke. Empty / whitespace-only treated as no-filter.
-  // AND-combines with the stderrFilter chip.
-  const [outputFilterInput, setOutputFilterInput] = useState('');
-  const [outputFilterQuery, setOutputFilterQuery] = useState('');
-  useEffect(() => {
-    const handle = window.setTimeout(() => {
-      setOutputFilterQuery(outputFilterInput.trim().toLowerCase());
-    }, 150);
-    return () => window.clearTimeout(handle);
-  }, [outputFilterInput]);
-  // Ref so the "/" hotkey can focus the input from anywhere in the
-  // runner (mirrors the drawer's pattern). Also lets the input's own
-  // Esc handler blur cleanly back to the runner body.
-  const outputFilterRef = useRef<HTMLInputElement | null>(null);
+  // No sessionStorage persistence here - each run produces a fresh
+  // output buffer so persisting a filter across runs would be wrong
+  // (the matching lines from the previous run aren't there). The
+  // hook's onKeyDown handles two-step Esc directly on the input;
+  // "/" hotkey at the window level lives below since it must work
+  // even when focus is outside the input. 150ms debounce (vs the
+  // hook's 120ms default) keeps the existing UX - heavy-output
+  // runs feel slightly less twitchy.
+  const {
+    input: outputFilterInput,
+    setInput: setOutputFilterInput,
+    query: outputFilterQuery,
+    inputRef: outputFilterRef,
+    onKeyDown: onOutputFilterKeyDown,
+  } = useSearchFilter({ debounceMs: 150 });
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -1536,7 +1535,7 @@ function OutputSection({
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [outputFilterRef]);
 
   async function handleCopy() {
     if (lines.length === 0) return;
@@ -1737,22 +1736,7 @@ function OutputSection({
               type="search"
               value={outputFilterInput}
               onChange={(e) => setOutputFilterInput(e.target.value)}
-              onKeyDown={(e) => {
-                // Two-step Escape: first press clears the filter,
-                // second press blurs back to body (lets the parent's
-                // Escape-closes-runner handler take over). stopPropagation
-                // on the first press prevents the window listener from
-                // closing the runner mid-clear.
-                if (e.key === 'Escape') {
-                  if (outputFilterInput) {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    setOutputFilterInput('');
-                    return;
-                  }
-                  outputFilterRef.current?.blur();
-                }
-              }}
+              onKeyDown={onOutputFilterKeyDown}
               placeholder="Filter output... (/ to focus)"
               aria-label="Filter output by substring"
               style={{
