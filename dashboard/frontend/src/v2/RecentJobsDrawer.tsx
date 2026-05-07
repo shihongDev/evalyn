@@ -327,6 +327,23 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
           onClear={() => {
             clearJobsHistory();
           }}
+          onCancelAll={async () => {
+            const active = entries.filter(
+              (e) => e.status === 'queued' || e.status === 'running',
+            );
+            // Fire all cancels in parallel; allSettled so one stale row's
+            // 404 does not abort cancelling the rest. patch only on
+            // fulfilled to avoid optimistic-cancelled-then-actually-failed
+            // states.
+            const results = await Promise.allSettled(
+              active.map((e) => cancelJob(e.job_id)),
+            );
+            results.forEach((r, i) => {
+              if (r.status === 'fulfilled') {
+                patchJob(active[i].job_id, { status: 'cancelled' });
+              }
+            });
+          }}
         />
       </div>
     </div>
@@ -441,6 +458,7 @@ function DrawerFooter({
   hasEntries,
   activeCount,
   onClear,
+  onCancelAll,
 }: {
   hasEntries: boolean;
   /** Count of rows whose status is still queued or running. We surface
@@ -449,17 +467,25 @@ function DrawerFooter({
    * user has to re-attach mid-stream. */
   activeCount: number;
   onClear: () => void;
+  /** Bulk cancel handler. Iterates active rows and sends SIGTERM to
+   * each via /api/jobs/{id}/cancel. Wrapped in two-click confirm. */
+  onCancelAll: () => void | Promise<void>;
 }) {
-  // Two-click confirm. First click flips to "Confirm" for 4s; second
-  // click within that window actually clears. Avoids a destructive
-  // single-click action while keeping the button compact (no modal).
+  // Two independent two-click confirm states - one for clear, one for
+  // cancel-all. Both share the same 4s arm window pattern.
   const [armed, setArmed] = useState(false);
   const armedTimerRef = useRef<number | null>(null);
+  const [cancelArmed, setCancelArmed] = useState(false);
+  const cancelArmedTimerRef = useRef<number | null>(null);
+  const [cancellingAll, setCancellingAll] = useState(false);
 
   useEffect(() => {
     return () => {
       if (armedTimerRef.current != null) {
         window.clearTimeout(armedTimerRef.current);
+      }
+      if (cancelArmedTimerRef.current != null) {
+        window.clearTimeout(cancelArmedTimerRef.current);
       }
     };
   }, []);
@@ -479,6 +505,29 @@ function DrawerFooter({
     }
     setArmed(false);
     onClear();
+  };
+
+  const handleCancelAllClick = async () => {
+    if (cancellingAll) return;
+    if (!cancelArmed) {
+      setCancelArmed(true);
+      cancelArmedTimerRef.current = window.setTimeout(() => {
+        setCancelArmed(false);
+        cancelArmedTimerRef.current = null;
+      }, 4000);
+      return;
+    }
+    if (cancelArmedTimerRef.current != null) {
+      window.clearTimeout(cancelArmedTimerRef.current);
+      cancelArmedTimerRef.current = null;
+    }
+    setCancelArmed(false);
+    setCancellingAll(true);
+    try {
+      await onCancelAll();
+    } finally {
+      setCancellingAll(false);
+    }
   };
 
   const footerText =
@@ -508,6 +557,25 @@ function DrawerFooter({
       >
         {footerText}
       </span>
+      {activeCount > 0 && (
+        <Btn
+          kind={cancelArmed ? 'primary' : 'ghost'}
+          size="sm"
+          onClick={() => void handleCancelAllClick()}
+          disabled={cancellingAll}
+          title={
+            cancelArmed
+              ? 'Click again to send SIGTERM to all active jobs'
+              : `Cancel all ${activeCount} active job${activeCount === 1 ? '' : 's'}`
+          }
+        >
+          {cancellingAll
+            ? 'Cancelling...'
+            : cancelArmed
+              ? 'Confirm cancel all?'
+              : `Cancel ${activeCount}`}
+        </Btn>
+      )}
       <Btn
         kind={armed ? 'primary' : 'ghost'}
         size="sm"
