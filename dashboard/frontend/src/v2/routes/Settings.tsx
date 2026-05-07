@@ -336,6 +336,19 @@ function SystemStatusCard() {
           value={formatBytes(health.jobs_db_bytes)}
           tooltip="Main + WAL + SHM file size; vacuumed on graceful shutdown"
         />
+        <StatusRow
+          label="Last vacuum"
+          value={
+            health.last_vacuum_at === null
+              ? 'never (this session)'
+              : `${formatRelativeAgo(health.last_vacuum_at * 1000)} ago`
+          }
+          tooltip={
+            health.last_vacuum_at === null
+              ? 'No VACUUM has run since the server started. Vacuum runs on graceful shutdown; restart the server to compact.'
+              : `Last VACUUM at ${new Date(health.last_vacuum_at * 1000).toLocaleString()}`
+          }
+        />
       </div>
       <p style={{ fontSize: 11, color: E.text3, margin: '14px 0 0' }}>
         Polled every 15s. Numbers are best-effort: a degraded
@@ -393,6 +406,29 @@ export function formatBytes(n: number): string {
  * "1h 12m", "47s". Operators want a glance-able scale, not
  * second-precision for a 9-day-old process.
  */
+/**
+ * "5m" / "2h" / "3d" relative-time formatter, expressed as a
+ * single largest unit. Used by the "Last vacuum" row where the
+ * caller appends " ago". For events more than 30 days old we
+ * fall back to "30d+" rather than computing months - in this
+ * app's normal lifecycle, a vacuum that hasn't run in 30 days
+ * means the process has been up for >30 days, which is itself
+ * worth flagging as "you should probably restart".
+ */
+export function formatRelativeAgo(eventAtMs: number): string {
+  if (!Number.isFinite(eventAtMs)) return '-';
+  const diffMs = Math.max(0, Date.now() - eventAtMs);
+  const sec = Math.floor(diffMs / 1000);
+  if (sec < 60) return `${sec}s`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const days = Math.floor(hr / 24);
+  if (days <= 30) return `${days}d`;
+  return '30d+';
+}
+
 export function formatUptime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '-';
   const s = Math.floor(seconds);

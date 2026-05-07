@@ -15,7 +15,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { CSSProperties } from 'react';
 import { AppShell } from '../AppShell';
 import {
@@ -1139,7 +1139,28 @@ export default function Metrics() {
     isInitialLoad: listInitial,
   } = useV2Resource<RubricRow[]>('rubrics', v2.rubrics);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Selection lives in the URL (?metric=quality) so links are shareable
+  // and a reload / browser-back keeps the user on the row they were
+  // looking at. The fallback init effect below picks the first trust
+  // row when no URL param is set, matching the prior default-to-top
+  // behaviour. setSearchParams uses replace so clicking through the
+  // scoreboard doesn't pollute browser history with one entry per row.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedId = searchParams.get('metric');
+  const setSelectedId = useCallback(
+    (id: string | null) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (id) next.set('metric', id);
+          else next.delete('metric');
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   const detailFetcher = useCallback(
     () => v2.rubric(selectedId ?? ''),

@@ -11,9 +11,9 @@
  * exercise the visual flash-pill timing.
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { GuidanceToggleCard, formatBytes, formatUptime } from './Settings';
+import { GuidanceToggleCard, formatBytes, formatRelativeAgo, formatUptime } from './Settings';
 import { TOUR_ENABLED_KEY, tourCompletedKey } from '../store/store';
 import { FIRST_RUN_TOUR_ID } from '../tour/scripts/firstRun';
 
@@ -97,5 +97,55 @@ describe('formatUptime', () => {
   it('days and hours past 1d', () => {
     expect(formatUptime(86400)).toBe('1d 0h');
     expect(formatUptime(3 * 86400 + 4 * 3600)).toBe('3d 4h');
+  });
+});
+
+describe('formatRelativeAgo', () => {
+  // Use fake timers anchored at a deterministic instant so we can
+  // express "events" as offsets from "now" without flakiness.
+  const NOW = new Date('2026-05-07T12:00:00Z').getTime();
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(NOW));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('returns dash for non-finite input', () => {
+    expect(formatRelativeAgo(NaN)).toBe('-');
+    expect(formatRelativeAgo(Infinity)).toBe('-');
+  });
+
+  it('seconds for events <60s ago', () => {
+    expect(formatRelativeAgo(NOW)).toBe('0s');
+    expect(formatRelativeAgo(NOW - 5_000)).toBe('5s');
+    expect(formatRelativeAgo(NOW - 59_000)).toBe('59s');
+  });
+
+  it('minutes for events <1h ago', () => {
+    expect(formatRelativeAgo(NOW - 60_000)).toBe('1m');
+    expect(formatRelativeAgo(NOW - 45 * 60_000)).toBe('45m');
+  });
+
+  it('hours for events <1d ago', () => {
+    expect(formatRelativeAgo(NOW - 60 * 60_000)).toBe('1h');
+    expect(formatRelativeAgo(NOW - 23 * 60 * 60_000)).toBe('23h');
+  });
+
+  it('days for events 1d-30d ago', () => {
+    expect(formatRelativeAgo(NOW - 24 * 60 * 60_000)).toBe('1d');
+    expect(formatRelativeAgo(NOW - 30 * 24 * 60 * 60_000)).toBe('30d');
+  });
+
+  it('clamps at 30d+ for events older than 30d', () => {
+    expect(formatRelativeAgo(NOW - 31 * 24 * 60 * 60_000)).toBe('30d+');
+    expect(formatRelativeAgo(NOW - 365 * 24 * 60 * 60_000)).toBe('30d+');
+  });
+
+  it('clamps future timestamps to 0s (no negative values)', () => {
+    expect(formatRelativeAgo(NOW + 5_000)).toBe('0s');
   });
 });

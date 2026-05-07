@@ -41,6 +41,11 @@ def test_healthcheck() -> None:
     assert body["jobs_persisted"] >= 0
     assert isinstance(body["jobs_db_bytes"], int)
     assert body["jobs_db_bytes"] >= 0
+    # last_vacuum_at: None until a vacuum has run in-process.
+    # On a freshly-built test app no vacuum has fired so it's None.
+    assert body["last_vacuum_at"] is None or isinstance(
+        body["last_vacuum_at"], (int, float)
+    )
 
 
 def test_healthcheck_capacity_zero_when_idle() -> None:
@@ -75,6 +80,8 @@ def test_healthcheck_survives_missing_job_manager(monkeypatch) -> None:
     # Persistence fields fall back to zero when JM is missing.
     assert body["jobs_persisted"] == 0
     assert body["jobs_db_bytes"] == 0
+    # last_vacuum_at falls back to None in the degraded path.
+    assert body["last_vacuum_at"] is None
 
 
 def test_index_served() -> None:

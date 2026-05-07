@@ -660,6 +660,55 @@ def test_vacuum_returns_false_on_unwritable_path(tmp_path: Path) -> None:
     assert persistence.vacuum() is False
 
 
+def test_last_vacuum_at_none_until_first_vacuum(tmp_path: Path) -> None:
+    """Fresh JobPersistence reports `None` for `last_vacuum_at` until
+    a VACUUM has actually succeeded. The /api/health endpoint relies
+    on this default to render 'never (this session)' rather than a
+    misleading zero or current-time value."""
+    persistence = JobPersistence(db_path=tmp_path / "jobs.sqlite")
+    assert persistence.last_vacuum_at() is None
+
+
+def test_last_vacuum_at_set_on_successful_vacuum(tmp_path: Path) -> None:
+    """A successful vacuum() advances the recorded timestamp to
+    approximately wall-clock now."""
+    import time as _t
+
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+    # Need at least one write so the file exists and vacuum can run.
+    persistence.upsert_job(
+        job_id="j1",
+        cli_id="x",
+        args={},
+        cmd="x",
+        status="complete",
+        started_at_iso="2026-01-01T00:00:00.000000+00:00",
+    )
+    before = _t.time()
+    assert persistence.vacuum() is True
+    after = _t.time()
+    ts = persistence.last_vacuum_at()
+    assert ts is not None
+    # Allow a small wall-clock window in case of CI clock skew.
+    assert before - 1.0 <= ts <= after + 1.0
+
+
+def test_last_vacuum_at_unchanged_on_failed_vacuum(tmp_path: Path) -> None:
+    """A failed vacuum (file missing, never written) must NOT advance
+    the timestamp - the metric should report the most recent
+    *successful* compaction, not 'attempted'."""
+    persistence = JobPersistence(db_path=tmp_path / "missing.sqlite")
+    # Pre-populate with a known timestamp so we can verify it
+    # survives a failed vacuum.
+    persistence._last_vacuum_at = 1234.5
+    # vacuum() returns False when the file doesn't exist (readable
+    # check fails), so this exercises the failure path without
+    # touching the filesystem.
+    assert persistence.vacuum() is False
+    assert persistence.last_vacuum_at() == 1234.5
+
+
 def test_db_size_bytes_zero_before_first_write(tmp_path: Path) -> None:
     """Before any write, the db file does not exist on disk. Health
     snapshots taken in this state must report 0 rather than raising
