@@ -1966,17 +1966,25 @@ export default function AnnotateSession() {
     confirmExit,
   ]);
 
-  // beforeunload: warn if there are unsaved verdicts (cursor points to an
-  // item whose UI state hasn't been submitted yet).
+  // beforeunload: warn whenever any item in the session has unsaved
+  // local edits. The previous check only fired when the cursor sat on
+  // an unannotated item, which missed two real loss cases:
+  //   1. The user re-judged an already-annotated item (verdict diff
+  //      exists, item.annotated is still true) and then closed the tab.
+  //   2. The user moved past an item whose edits hadn't been POST'd
+  //      yet - submitVerdict only runs on Save+Next, not on raw nav.
+  // unsavedItemsCount is the same signal that drives the header pill
+  // and the finalize-confirm dialog, so beforeunload now matches what
+  // the rest of the UI tells the user is at risk.
   useEffect(() => {
+    if (unsavedItemsCount === 0) return;
     function handler(e: BeforeUnloadEvent) {
-      if (!currentItem || currentItem.annotated) return;
       e.preventDefault();
       e.returnValue = 'You have unsaved verdicts.';
     }
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
-  }, [currentItem]);
+  }, [unsavedItemsCount]);
 
   // (progress was hoisted up to right after items/metricIds for the
   // keyboard handler closure - kept here as a marker for the original
