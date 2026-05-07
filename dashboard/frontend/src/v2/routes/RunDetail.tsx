@@ -7,7 +7,7 @@
  * side-by-side (headline, pass timeline legend, sub-metrics, failures donut).
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import {
@@ -123,6 +123,50 @@ export default function RunDetail() {
     { enabled: Boolean(compareWith) },
   );
   const compareActive = Boolean(compareWith && compareDetail && !compareErr);
+
+  // Prefetch the items list once detail lands so a click on the
+  // Items tab hits a warm cache. The Items tab does its own fetch on
+  // mount; without this, the user sees a loading spinner on the FIRST
+  // tab click. Established pattern from Datasets/ExperimentsList/
+  // Home/AppShell.
+  //
+  // Cache key + fetcher must match what the tab itself will use. The
+  // limits differ between the regular ItemsTab (PAGE_SIZE=50 per page)
+  // and ItemsCompareTab (ITEMS_COMPARE_LIMIT=200 per side); we
+  // dispatch on compareActive so the prefetch matches the user's path.
+  // Both tabs use the same cache key shape ``:0:all:item_id`` for the
+  // first page so this is a single warmup either way.
+  useEffect(() => {
+    if (!detail || !runId) return;
+    if (compareActive && compareWith) {
+      prefetchV2(`experimentItems:${runId}:0:all:item_id`, () =>
+        v2.experimentItems(runId, {
+          offset: 0,
+          limit: ITEMS_COMPARE_LIMIT,
+          filter: 'all',
+          sort: 'item_id',
+        }),
+      );
+      prefetchV2(`experimentItems:${compareWith}:0:all:item_id`, () =>
+        v2.experimentItems(compareWith, {
+          offset: 0,
+          limit: ITEMS_COMPARE_LIMIT,
+          filter: 'all',
+          sort: 'item_id',
+        }),
+      );
+    } else {
+      prefetchV2(`experimentItems:${runId}:0:all:item_id`, () =>
+        v2.experimentItems(runId, {
+          offset: 0,
+          limit: PAGE_SIZE,
+          filter: 'all',
+          sort: 'item_id',
+        }),
+      );
+    }
+  }, [detail, compareActive, compareWith, runId]);
+
   const [activeTab, setActiveTab] = useState(0);
   // When the user clicks "View all N failures" from the Summary tab we
   // both switch to the Items tab and seed its filter to "failed". The
