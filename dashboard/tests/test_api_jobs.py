@@ -271,6 +271,40 @@ def test_recent_csv_returns_text_csv_with_header():
         assert fail_id in body
 
 
+def test_recent_ndjson_returns_one_object_per_line():
+    """GET /api/jobs/recent.ndjson returns one JSON object per line,
+    parseable individually. application/x-ndjson media type.
+    Same filter semantics as the JSON endpoint."""
+    import json
+
+    app = build_app()
+    with TestClient(app) as client:
+        ok_id = _spawn(client, app, [sys.executable, "-c", "print('ok')"])
+        _wait(client, app, ok_id)
+        fail_id = _spawn(
+            client, app, [sys.executable, "-c", "import sys; sys.exit(2)"]
+        )
+        _wait(client, app, fail_id)
+
+        r = client.get("/api/jobs/recent.ndjson")
+        assert r.status_code == 200
+        assert "application/x-ndjson" in r.headers["content-type"]
+        # Each non-empty line parses as a JSON object.
+        lines = [ln for ln in r.text.split("\n") if ln]
+        assert len(lines) >= 2
+        objects = [json.loads(ln) for ln in lines]
+        ids = {o["id"] for o in objects}
+        assert ok_id in ids
+        assert fail_id in ids
+        # Filter narrows correctly.
+        r2 = client.get("/api/jobs/recent.ndjson?status=failed")
+        lines2 = [ln for ln in r2.text.split("\n") if ln]
+        objects2 = [json.loads(ln) for ln in lines2]
+        ids2 = {o["id"] for o in objects2}
+        assert fail_id in ids2
+        assert ok_id not in ids2
+
+
 def test_recent_csv_status_filter_narrows_rows():
     """The same filter query params (cli_id, status, since) work on
     the CSV endpoint."""

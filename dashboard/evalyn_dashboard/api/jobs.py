@@ -98,6 +98,63 @@ def _persistence_for(jm) -> Any:
     return getattr(jm, "_persistence", None)
 
 
+def _validate_recent_args(
+    limit: int, since: float | None
+) -> None:
+    """Shared validation for /recent, /recent.csv, /recent.ndjson."""
+    if limit < 1:
+        raise HTTPException(status_code=400, detail="limit must be >= 1")
+    if limit > 1000:
+        raise HTTPException(status_code=400, detail="limit must be <= 1000")
+    if since is not None and since < 0:
+        raise HTTPException(status_code=400, detail="since must be >= 0")
+
+
+def _collect_recent_rows(
+    jm,
+    limit: int,
+    cli_id: str | None,
+    status: str | None,
+    since: float | None,
+) -> list[dict]:
+    """Filter + merge in-memory and persisted jobs into a single list,
+    sorted started_at-descending and capped at ``limit``. Shared by
+    the JSON, CSV, and NDJSON variants of /api/jobs/recent.
+    """
+    in_memory_jobs = jm.recent(n=limit)
+    if cli_id is not None:
+        in_memory_jobs = [j for j in in_memory_jobs if j.cli_id == cli_id]
+    if status is not None:
+        in_memory_jobs = [j for j in in_memory_jobs if j.state == status]
+    if since is not None:
+        in_memory_jobs = [j for j in in_memory_jobs if j.started_at > since]
+    in_memory = [_job_to_dict(j) for j in in_memory_jobs]
+    seen = {entry["id"] for entry in in_memory}
+    merged = list(in_memory)
+    persistence = _persistence_for(jm)
+    if persistence is not None:
+        # ISO-8601 with +00:00 has the property that lexicographic
+        # ordering matches chronological ordering, so the SQL >?
+        # comparison on the started_at_iso column is correct.
+        since_iso: str | None = None
+        if since is not None:
+            from datetime import datetime, timezone
+
+            since_iso = datetime.fromtimestamp(
+                since, tz=timezone.utc
+            ).isoformat()
+        for row in persistence.list_recent(
+            limit=limit, cli_id=cli_id, status=status, since_iso=since_iso
+        ):
+            entry = _persisted_to_dict(row)
+            if entry["id"] in seen:
+                continue
+            merged.append(entry)
+            seen.add(entry["id"])
+    merged.sort(key=lambda e: (e.get("started_at") or 0.0), reverse=True)
+    return merged[:limit]
+
+
 @router.get("/recent")
 async def recent_jobs(
     request: Request,
@@ -126,44 +183,11 @@ async def recent_jobs(
     All filters are pushed down to SQL on the persisted side and
     applied in-memory for the live set.
     """
-    if limit < 1:
-        raise HTTPException(status_code=400, detail="limit must be >= 1")
-    if limit > 1000:
-        raise HTTPException(status_code=400, detail="limit must be <= 1000")
-    if since is not None and since < 0:
-        raise HTTPException(status_code=400, detail="since must be >= 0")
-    jm = request.app.state.job_manager
-    in_memory_jobs = jm.recent(n=limit)
-    if cli_id is not None:
-        in_memory_jobs = [j for j in in_memory_jobs if j.cli_id == cli_id]
-    if status is not None:
-        in_memory_jobs = [j for j in in_memory_jobs if j.state == status]
-    if since is not None:
-        in_memory_jobs = [j for j in in_memory_jobs if j.started_at > since]
-    in_memory = [_job_to_dict(j) for j in in_memory_jobs]
-    seen = {entry["id"] for entry in in_memory}
-    merged = list(in_memory)
-    persistence = _persistence_for(jm)
-    if persistence is not None:
-        # Convert epoch -> ISO so the SQL comparison stays string-based
-        # against the column. ISO-8601 lexicographic ordering matches
-        # chronological ordering when zone offsets are present (we use
-        # +00:00 throughout via _iso_utc), so this is correct.
-        since_iso: str | None = None
-        if since is not None:
-            from datetime import datetime, timezone
-
-            since_iso = datetime.fromtimestamp(since, tz=timezone.utc).isoformat()
-        for row in persistence.list_recent(
-            limit=limit, cli_id=cli_id, status=status, since_iso=since_iso
-        ):
-            entry = _persisted_to_dict(row)
-            if entry["id"] in seen:
-                continue
-            merged.append(entry)
-            seen.add(entry["id"])
-    merged.sort(key=lambda e: (e.get("started_at") or 0.0), reverse=True)
-    return JSONResponse(merged[:limit])
+    _validate_recent_args(limit, since)
+    rows = _collect_recent_rows(
+        request.app.state.job_manager, limit, cli_id, status, since
+    )
+    return JSONResponse(rows)
 
 
 @router.get("/recent.csv")
@@ -186,39 +210,10 @@ async def recent_jobs_csv(
     anyway). Caller wanting the full shape should use the JSON
     endpoint and convert client-side.
     """
-    if limit < 1:
-        raise HTTPException(status_code=400, detail="limit must be >= 1")
-    if limit > 1000:
-        raise HTTPException(status_code=400, detail="limit must be <= 1000")
-    if since is not None and since < 0:
-        raise HTTPException(status_code=400, detail="since must be >= 0")
-    jm = request.app.state.job_manager
-    in_memory_jobs = jm.recent(n=limit)
-    if cli_id is not None:
-        in_memory_jobs = [j for j in in_memory_jobs if j.cli_id == cli_id]
-    if status is not None:
-        in_memory_jobs = [j for j in in_memory_jobs if j.state == status]
-    if since is not None:
-        in_memory_jobs = [j for j in in_memory_jobs if j.started_at > since]
-    rows: list[dict] = [_job_to_dict(j) for j in in_memory_jobs]
-    seen = {r["id"] for r in rows}
-    persistence = _persistence_for(jm)
-    if persistence is not None:
-        since_iso: str | None = None
-        if since is not None:
-            from datetime import datetime, timezone
-
-            since_iso = datetime.fromtimestamp(since, tz=timezone.utc).isoformat()
-        for raw in persistence.list_recent(
-            limit=limit, cli_id=cli_id, status=status, since_iso=since_iso
-        ):
-            entry = _persisted_to_dict(raw)
-            if entry["id"] in seen:
-                continue
-            rows.append(entry)
-            seen.add(entry["id"])
-    rows.sort(key=lambda e: (e.get("started_at") or 0.0), reverse=True)
-    rows = rows[:limit]
+    _validate_recent_args(limit, since)
+    rows = _collect_recent_rows(
+        request.app.state.job_manager, limit, cli_id, status, since
+    )
 
     import csv
     import io
@@ -249,6 +244,39 @@ async def recent_jobs_csv(
         headers={
             "Content-Disposition": 'attachment; filename="evalyn-jobs-recent.csv"',
         },
+    )
+
+
+@router.get("/recent.ndjson")
+async def recent_jobs_ndjson(
+    request: Request,
+    limit: int = 100,
+    cli_id: str | None = None,
+    status: str | None = None,
+    since: float | None = None,
+) -> PlainTextResponse:
+    """NDJSON variant of /api/jobs/recent: one full job dict per line.
+
+    Same query semantics + filters as the JSON endpoint. Useful for
+    streaming consumers that read one record at a time without
+    parsing a top-level array - jq pipes (``curl ... | jq -c .``),
+    log aggregators (Vector / Filebeat input plugins), or any tool
+    that ingests JSON Lines.
+
+    Returns ``application/x-ndjson`` (the de-facto media type) with
+    Unix-style ``\\n`` line endings. No trailing newline so concatenating
+    multiple responses doesn't produce blank lines.
+    """
+    import json
+
+    _validate_recent_args(limit, since)
+    rows = _collect_recent_rows(
+        request.app.state.job_manager, limit, cli_id, status, since
+    )
+    body = "\n".join(json.dumps(r, separators=(",", ":")) for r in rows)
+    return PlainTextResponse(
+        body,
+        media_type="application/x-ndjson",
     )
 
 
