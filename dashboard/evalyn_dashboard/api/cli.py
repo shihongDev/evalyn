@@ -199,6 +199,31 @@ async def get_catalog(request: Request) -> JSONResponse:
     return JSONResponse(catalog_to_payload(catalog))
 
 
+@router.get("/groups")
+async def get_groups(request: Request) -> JSONResponse:
+    """Return distinct CLI groups with counts.
+
+    Shape: ``[{"group": "Eval", "count": 8}, {"group": "Tracing", ...}]``
+    sorted by count descending (most-populated first), with a
+    secondary alphabetical sort on the group name for ties so the
+    response is deterministic across builds.
+
+    Useful for the sidebar nav rendering "Groups (8)" / "Tracing (4)"
+    chips, and for at-a-glance "what categories of command exist"
+    overviews. Empty-string groups (commands without a group set)
+    are bucketed under ``""`` so the count totals match
+    ``len(catalog)``.
+    """
+    catalog: list[CliSchema] = request.app.state.cli_catalog
+    counts: dict[str, int] = {}
+    for s in catalog:
+        g = s.group or ""
+        counts[g] = counts.get(g, 0) + 1
+    rows = [{"group": g, "count": n} for g, n in counts.items()]
+    rows.sort(key=lambda r: (-r["count"], r["group"]))
+    return JSONResponse(rows)
+
+
 @router.post("/{cli_id}/validate")
 async def validate_cli_args(request: Request, cli_id: str) -> JSONResponse:
     """Validate args against a CLI's schema without spawning.

@@ -213,6 +213,36 @@ def test_get_cli_unknown_returns_404():
 
 
 # ---------------------------------------------------------------------------
+# GET /api/cli/groups
+# ---------------------------------------------------------------------------
+
+
+def test_get_groups_returns_counts_summing_to_catalog_size():
+    """The sum of counts in /api/cli/groups must equal the catalog size,
+    and each entry has the documented shape."""
+    client, _ = _client_with_token()
+    catalog = client.get("/api/cli").json()
+    r = client.get("/api/cli/groups")
+    assert r.status_code == 200
+    body = r.json()
+    assert isinstance(body, list)
+    total = 0
+    for entry in body:
+        assert isinstance(entry["group"], str)
+        assert isinstance(entry["count"], int) and entry["count"] >= 1
+        total += entry["count"]
+    assert total == len(catalog)
+
+
+def test_get_groups_sorted_by_count_desc():
+    """Most-populated group comes first."""
+    client, _ = _client_with_token()
+    body = client.get("/api/cli/groups").json()
+    counts = [e["count"] for e in body]
+    assert counts == sorted(counts, reverse=True)
+
+
+# ---------------------------------------------------------------------------
 # POST /api/cli/{cli_id}/validate
 # ---------------------------------------------------------------------------
 
