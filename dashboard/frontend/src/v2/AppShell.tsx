@@ -300,14 +300,18 @@ export function AppShell({
   const [helpOpen, setHelpOpen] = useState(false);
   // Scroll-to-top button. Appears when the page is scrolled past
   // ~600px so the user has a one-click escape from deep within long
-  // pages (RunDetail, AnnotateSession, Reports). Listens with
-  // passive: true so we don't fight the scroll thread.
+  // pages (RunDetail, AnnotateSession, Reports). Listens on the
+  // <main> region (#main-content) rather than window because
+  // overflow: auto on the region means scroll lives there, not on
+  // the document. Listening on window would silently never fire.
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 600);
-    window.addEventListener('scroll', onScroll, { passive: true });
+    const main = document.getElementById('main-content');
+    if (!main) return;
+    const onScroll = () => setScrolled(main.scrollTop > 600);
+    main.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
-    return () => window.removeEventListener('scroll', onScroll);
+    return () => main.removeEventListener('scroll', onScroll);
   }, []);
   // `runningCount` drives the badge on the floating + topbar Recent Jobs
   // buttons. We re-read once on mount and on every history mutation -
@@ -1106,9 +1110,10 @@ export function AppShell({
       {scrolled && (
         <button
           type="button"
-          onClick={() =>
-            window.scrollTo({ top: 0, behavior: 'smooth' })
-          }
+          onClick={() => {
+            const main = document.getElementById('main-content');
+            main?.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
           aria-label="Scroll to top"
           title="Scroll to top"
           style={{

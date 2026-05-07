@@ -94,7 +94,13 @@ function ScrollToTopOnNav() {
   const navType = useNavigationType();
   useEffect(() => {
     if (navType !== 'PUSH') return;
-    window.scrollTo({ top: 0, behavior: 'auto' });
+    // Scroll the <main id="main-content"> region rather than window:
+    // AppShell's main has overflow:auto so the document itself never
+    // scrolls. Falls back to window.scrollTo if the element is
+    // missing (e.g. an early route that mounts before AppShell).
+    const main = document.getElementById('main-content');
+    if (main) main.scrollTo({ top: 0, behavior: 'auto' });
+    else window.scrollTo({ top: 0, behavior: 'auto' });
   }, [pathname, navType]);
   return null;
 }
