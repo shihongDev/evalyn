@@ -144,3 +144,39 @@ def test_cancel_completed_job_is_idempotent():
         assert r.status_code == 200
         body = r.json()
         assert body["state"] in ("complete", "failed")
+
+
+def test_output_endpoint_returns_in_memory_tails():
+    """GET /api/jobs/{id}/output returns assembled stdout/stderr tails
+    for a finished in-memory job. Useful for clients that want the
+    final output without setting up a WebSocket."""
+    app = build_app()
+    with TestClient(app) as client:
+        job_id = _spawn(
+            client,
+            app,
+            [
+                sys.executable,
+                "-c",
+                "import sys\nprint('hello')\nsys.stderr.write('boom\\n')\n",
+            ],
+        )
+        _wait(client, app, job_id)
+        r = client.get(f"/api/jobs/{job_id}/output")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["id"] == job_id
+        assert body["state"] in ("complete", "failed")
+        assert "hello" in body["stdout_tail"]
+        assert "boom" in body["stderr_tail"]
+        assert body["stderr_count"] == 1
+        assert body["total_chars"] == len(body["stdout_tail"]) + len(
+            body["stderr_tail"]
+        )
+
+
+def test_output_endpoint_unknown_job_404():
+    app = build_app()
+    with TestClient(app) as client:
+        r = client.get("/api/jobs/does-not-exist/output")
+        assert r.status_code == 404

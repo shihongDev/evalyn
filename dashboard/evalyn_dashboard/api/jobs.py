@@ -158,6 +158,86 @@ async def get_job(request: Request, job_id: str) -> JSONResponse:
     raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
 
 
+@router.get("/{job_id}/output")
+async def get_job_output(request: Request, job_id: str) -> JSONResponse:
+    """Return the captured stdout/stderr tails for a finished job.
+
+    Read sources, in priority order:
+
+      1. In-memory job: assemble tails from ``job.events`` (capped at
+         ``MAX_PERSISTED_OUTPUT`` chars per stream so the payload stays
+         predictable for chatty runs).
+      2. Persisted sqlite row: return ``stdout_tail`` and ``stderr_tail``
+         as already capped by ``set_output_tails``.
+      3. Both miss -> 404.
+
+    Useful when a client wants the final output without setting up a
+    WebSocket - e.g. an agent fetching the result of a tool call, a
+    deep link to "show this completed run's logs", or a CLI tool
+    scripting around the dashboard. Live-tail consumers should still
+    use the ``/ws/jobs/{id}`` stream.
+
+    Response shape:
+      {
+        "id": "<job_id>",
+        "state": "<state>",
+        "stdout_tail": str,
+        "stderr_tail": str,
+        "stderr_count": int,
+        "total_chars": int,  # len(stdout_tail) + len(stderr_tail)
+      }
+    """
+    from ..jobs_persistence import MAX_PERSISTED_OUTPUT
+
+    jm = request.app.state.job_manager
+    job = jm.get(job_id)
+    if job is not None:
+        # Build tails from the in-memory event log. Each line is
+        # joined by '\n' to match the persisted shape, then capped.
+        stdout_buf: list[str] = []
+        stderr_buf: list[str] = []
+        for event in job.events:
+            t = event.get("type")
+            if t == "stdout":
+                stdout_buf.append(event.get("line", ""))
+            elif t == "stderr":
+                stderr_buf.append(event.get("line", ""))
+        stdout_tail = "\n".join(stdout_buf)
+        stderr_tail = "\n".join(stderr_buf)
+        if len(stdout_tail) > MAX_PERSISTED_OUTPUT:
+            stdout_tail = stdout_tail[-MAX_PERSISTED_OUTPUT:]
+        if len(stderr_tail) > MAX_PERSISTED_OUTPUT:
+            stderr_tail = stderr_tail[-MAX_PERSISTED_OUTPUT:]
+        return JSONResponse(
+            {
+                "id": job.id,
+                "state": job.state,
+                "stdout_tail": stdout_tail,
+                "stderr_tail": stderr_tail,
+                "stderr_count": job.stderr_count,
+                "total_chars": len(stdout_tail) + len(stderr_tail),
+            }
+        )
+
+    persistence = _persistence_for(jm)
+    if persistence is not None:
+        row = persistence.get(job_id)
+        if row is not None:
+            stdout_tail = row.get("stdout_tail") or ""
+            stderr_tail = row.get("stderr_tail") or ""
+            return JSONResponse(
+                {
+                    "id": row.get("job_id"),
+                    "state": row.get("status") or "unknown",
+                    "stdout_tail": stdout_tail,
+                    "stderr_tail": stderr_tail,
+                    "stderr_count": row.get("stderr_count") or 0,
+                    "total_chars": len(stdout_tail) + len(stderr_tail),
+                }
+            )
+    raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
+
+
 @router.post("/{job_id}/cancel")
 async def cancel_job(request: Request, job_id: str) -> JSONResponse:
     jm = request.app.state.job_manager
