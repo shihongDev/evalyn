@@ -944,6 +944,24 @@ class AgentRuntime:
         del self._threads[thread_id]
         return True
 
+    def _thread_to_dict(self, thread: "_Thread") -> dict[str, Any]:
+        """Project a ``_Thread`` to its JSON-friendly metadata shape.
+
+        Shared by ``list_threads`` and ``thread_metadata`` so the two
+        surfaces never drift. Bodies of messages and events are NOT
+        included - the listing should stay lightweight; full event
+        stream is reachable via ``/ws/agent/{thread_id}``.
+        """
+        return {
+            "id": thread.id,
+            "message_count": len(thread.messages),
+            "event_count": len(thread.events),
+            "closed": thread.closed,
+            "has_pending_confirmation": (
+                thread.pending_tool_call_id is not None
+            ),
+        }
+
     def list_threads(self) -> list[dict[str, Any]]:
         """Return a JSON-friendly snapshot of every active thread.
 
@@ -955,20 +973,13 @@ class AgentRuntime:
         confirmation flag tells the caller a turn is gated on user
         approval (a stuck thread).
         """
-        out: list[dict[str, Any]] = []
-        for tid, thread in self._threads.items():
-            out.append(
-                {
-                    "id": tid,
-                    "message_count": len(thread.messages),
-                    "event_count": len(thread.events),
-                    "closed": thread.closed,
-                    "has_pending_confirmation": (
-                        thread.pending_tool_call_id is not None
-                    ),
-                }
-            )
-        return out
+        return [self._thread_to_dict(t) for t in self._threads.values()]
+
+    def thread_metadata(self, thread_id: str) -> dict[str, Any] | None:
+        """Return the metadata dict for a single thread, or None on miss.
+        Same shape as one entry in ``list_threads``."""
+        thread = self._threads.get(thread_id)
+        return self._thread_to_dict(thread) if thread is not None else None
 
     def confirm(
         self,
