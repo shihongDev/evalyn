@@ -24,6 +24,10 @@ export interface SystemHealth {
   agent_open_threads: number;
   jobs_persisted: number;
   jobs_db_bytes: number;
+  /** Unix epoch float of the last successful VACUUM, or null when
+   * the server hasn't vacuumed yet in this process (vacuum is
+   * triggered by the shutdown hook, not steady-state). */
+  last_vacuum_at: number | null;
 }
 
 const NUMBER_FIELDS = [
@@ -45,6 +49,11 @@ function isSystemHealth(body: unknown): body is SystemHealth {
   for (const k of NUMBER_FIELDS) {
     if (typeof b[k] !== 'number') return false;
   }
+  // last_vacuum_at is `number | null`. Reject anything else (e.g.
+  // a stringified date) so a malformed body hides the card via
+  // `null` rather than rendering "-" through the formatter.
+  const lv = b.last_vacuum_at;
+  if (lv !== null && typeof lv !== 'number') return false;
   return true;
 }
 

@@ -361,6 +361,8 @@ def build_app(
             max_concurrent: <int>, # cap; 0 = disabled
             jobs_persisted: <int>, # rows in the sqlite mirror
             jobs_db_bytes: <int>,  # main + WAL + SHM file size
+            last_vacuum_at: <float|None>,  # epoch of last VACUUM, None if
+                                           # not yet vacuumed in this process
           }
 
         Useful for:
@@ -406,6 +408,7 @@ def build_app(
         # rather than failing the healthcheck.
         jobs_persisted = 0
         jobs_db_bytes = 0
+        last_vacuum_at: float | None = None
         persistence = getattr(jm, "_persistence", None) if jm is not None else None
         if persistence is not None:
             try:
@@ -414,6 +417,10 @@ def build_app(
                 pass
             try:
                 jobs_db_bytes = int(persistence.db_size_bytes())
+            except Exception:  # noqa: BLE001
+                pass
+            try:
+                last_vacuum_at = persistence.last_vacuum_at()
             except Exception:  # noqa: BLE001
                 pass
         return {
@@ -427,6 +434,7 @@ def build_app(
             "agent_open_threads": agent_open_threads,
             "jobs_persisted": jobs_persisted,
             "jobs_db_bytes": jobs_db_bytes,
+            "last_vacuum_at": last_vacuum_at,
         }
 
     _register_api_routers(app)

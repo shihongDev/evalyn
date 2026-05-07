@@ -39,6 +39,7 @@ import json
 import logging
 import os
 import sqlite3
+import time
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -115,6 +116,14 @@ class JobPersistence:
         # the filesystem and tests with monkeypatched cwd stay clean.
         self._disabled = False
         self._schema_ready = False
+        # Unix epoch float of the last successful VACUUM, or None when
+        # never vacuumed in this process. Operators want to know how
+        # long ago the file was compacted - if hours have passed and
+        # the DB has grown, a manual restart-vacuum may be worth doing.
+        # Process-local: a fresh process starts at None even if the
+        # previous run vacuumed at shutdown. That's the right default
+        # since the metric communicates "in this dashboard session".
+        self._last_vacuum_at: float | None = None
 
     # ------------------------------------------------------------------
     # Init
@@ -575,10 +584,22 @@ class JobPersistence:
                 # complete dataset.
                 conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
                 conn.execute("VACUUM")
+            # Record the timestamp ONLY on success so the
+            # last_vacuum_at metric reports the most recent
+            # compaction that actually happened. Failed vacuums
+            # leave the previous timestamp in place (or None if
+            # there's never been one).
+            self._last_vacuum_at = time.time()
             return True
         except (OSError, sqlite3.Error) as exc:
             logger.warning("JobPersistence vacuum failed: %s", exc)
             return False
+
+    def last_vacuum_at(self) -> float | None:
+        """Unix epoch float of the last successful VACUUM in this process,
+        or None when no vacuum has run yet. Process-local by design
+        (see __init__ commentary)."""
+        return self._last_vacuum_at
 
 
 def _row_to_dict(row: sqlite3.Row) -> dict:
