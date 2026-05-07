@@ -592,6 +592,13 @@ function JobRow({ entry, onClick, onRerun, onCancel }: JobRowProps) {
       entry.status === 'cancelled');
   const canCancel =
     onCancel != null && (entry.status === 'queued' || entry.status === 'running');
+  // Live "running for Ns" counter for queued/running rows. We tick a
+  // local state every second so the metadata visibly counts up, which
+  // makes a long-running eval feel responsive even though no other UI
+  // updates fire while the user is parked on the drawer. Hides on
+  // terminal status (the real duration field takes over).
+  const isLive = entry.status === 'queued' || entry.status === 'running';
+  const liveDuration = useLiveDuration(entry.started_at_iso, isLive);
   // Single-click cancel matches the CliRunner's own Cancel button for
   // consistency. Disable while in-flight so a double-click does not
   // fire two cancel HTTPs (the second would 404 once the first
@@ -681,6 +688,14 @@ function JobRow({ entry, onClick, onRerun, onCancel }: JobRowProps) {
                 <span style={{ color: E.text4 }}>·</span>
                 <span style={{ fontFamily: E.fMono }}>
                   {formatDuration(entry.duration)}
+                </span>
+              </>
+            )}
+            {liveDuration != null && (
+              <>
+                <span style={{ color: E.text4 }}>·</span>
+                <span style={{ fontFamily: E.fMono, color: E.ember }}>
+                  running {liveDuration}
                 </span>
               </>
             )}
@@ -846,4 +861,33 @@ function formatDuration(d: string): string {
     return `${m}m${s.toString().padStart(2, '0')}s`;
   }
   return d;
+}
+
+/** Whole-second live counter from a started_at_iso baseline. Re-renders
+ * the row once per second while ``live`` is true so a long-running eval
+ * visibly counts up. Returns null when not live or when the timestamp
+ * does not parse. Cleans up the interval on unmount or live -> false.
+ *
+ * Uses Date.now() at every tick rather than incrementing a count, so
+ * a tab that backgrounds for 60s doesn't end up 60s "behind" when it
+ * comes back into focus.
+ */
+function useLiveDuration(
+  startedAtIso: string,
+  live: boolean,
+): string | null {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!live) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [live]);
+  if (!live) return null;
+  const t = Date.parse(startedAtIso);
+  if (!Number.isFinite(t)) return null;
+  const elapsedSec = Math.max(0, Math.floor((now - t) / 1000));
+  if (elapsedSec < 60) return `${elapsedSec}s`;
+  const m = Math.floor(elapsedSec / 60);
+  const s = elapsedSec % 60;
+  return `${m}m${s.toString().padStart(2, '0')}s`;
 }
