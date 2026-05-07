@@ -658,7 +658,7 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
           <button
             type="button"
             onClick={onCloseClick}
-            aria-label="Close"
+            aria-label="Close command runner"
             title={
               status === 'running' || status === 'queued'
                 ? 'Close panel (job keeps running - re-attach from Recent Jobs)'
@@ -676,7 +676,7 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
               lineHeight: 1,
             }}
           >
-            ×
+            <span aria-hidden="true">×</span>
           </button>
         </div>
 

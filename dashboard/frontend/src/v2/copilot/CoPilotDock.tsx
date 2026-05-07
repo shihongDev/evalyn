@@ -270,6 +270,7 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
           type="button"
           onClick={handleExpand}
           title="Open full thread"
+          aria-label="Open full thread"
           style={{
             color: E.text3,
             fontSize: 13,
@@ -280,11 +281,13 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
             lineHeight: 1,
           }}
         >
-          ⛶
+          <span aria-hidden="true">⛶</span>
         </button>
         <button
           type="button"
           onClick={onClose}
+          title="Close co-pilot"
+          aria-label="Close co-pilot"
           style={{
             color: E.text3,
             fontSize: 16,
@@ -294,7 +297,7 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
             border: 'none',
           }}
         >
-          ×
+          <span aria-hidden="true">×</span>
         </button>
       </div>
 

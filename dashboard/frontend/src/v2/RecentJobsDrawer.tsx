@@ -417,7 +417,8 @@ function DrawerHeader({
       <button
         type="button"
         onClick={onClose}
-        aria-label="Close"
+        aria-label="Close recent jobs"
+        title="Close"
         style={{
           width: 28,
           height: 28,
@@ -430,7 +431,7 @@ function DrawerHeader({
           lineHeight: 1,
         }}
       >
-        ×
+        <span aria-hidden="true">×</span>
       </button>
     </div>
   );
