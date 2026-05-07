@@ -677,16 +677,61 @@ export default function ExperimentsList() {
     return { all: runs.length, week, gate };
   }, [data]);
 
-  // Apply the active saved view to the lineage list.
+  // Free-text search filter on top of the saved-view filter.
+  // Substring match (case-insensitive) against id, name, author, and
+  // tags so a user can grep for "fewshot-v2" or "@daisy" or a tag.
+  // Empty / whitespace treated as no filter. Persisted via
+  // sessionStorage so a tab switch doesn't lose the query - matches
+  // the drawer's recently-shipped pattern. Cleared on tab close.
+  const SEARCH_SESSION_KEY = 'evalyn:experiments:searchQuery';
+  const [searchInput, setSearchInput] = useState(() => {
+    try {
+      return window.sessionStorage.getItem(SEARCH_SESSION_KEY) ?? '';
+    } catch {
+      return '';
+    }
+  });
+  const [searchQuery, setSearchQuery] = useState(searchInput.trim().toLowerCase());
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setSearchQuery(searchInput.trim().toLowerCase());
+      try {
+        if (searchInput) {
+          window.sessionStorage.setItem(SEARCH_SESSION_KEY, searchInput);
+        } else {
+          window.sessionStorage.removeItem(SEARCH_SESSION_KEY);
+        }
+      } catch {
+        // Quota / private mode - persistence is best-effort.
+      }
+    }, 120);
+    return () => window.clearTimeout(handle);
+  }, [searchInput]);
+
+  // Apply the active saved view AND the search filter to the lineage
+  // list. AND-combined: the chip narrows the cohort, the search
+  // narrows further within it.
   const visible = useMemo(() => {
     const runs = data?.runs ?? [];
-    if (savedView === 'week')
-      return runs.filter((r) => daysSince(r.when_iso) <= 7);
-    if (savedView === 'gate')
-      return runs.filter((r) => r.pass != null && r.pass < 80);
-    if (savedView === 'cost') return runs; // legacy payload has no cost
-    return runs;
-  }, [data, savedView]);
+    let out = runs;
+    if (savedView === 'week') {
+      out = out.filter((r) => daysSince(r.when_iso) <= 7);
+    } else if (savedView === 'gate') {
+      out = out.filter((r) => r.pass != null && r.pass < 80);
+    }
+    // 'cost' and 'all' both pass everything through (legacy payload
+    // has no cost field).
+    if (searchQuery) {
+      out = out.filter((r) => {
+        if (r.id.toLowerCase().includes(searchQuery)) return true;
+        if (r.name.toLowerCase().includes(searchQuery)) return true;
+        if (r.author.toLowerCase().includes(searchQuery)) return true;
+        if (r.tags.some((t) => t.toLowerCase().includes(searchQuery))) return true;
+        return false;
+      });
+    }
+    return out;
+  }, [data, savedView, searchQuery]);
 
   const selectedRuns: LineageRun[] = useMemo(() => {
     const runs = data?.runs ?? [];
@@ -861,6 +906,39 @@ export default function ExperimentsList() {
             disabled
             title="Custom views are coming soon"
           />
+          <span style={{ flex: 1 }} />
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search runs..."
+            aria-label="Search runs by id, name, author, or tag"
+            style={{
+              minWidth: 200,
+              padding: '4px 10px',
+              fontFamily: E.fMono,
+              fontSize: 11.5,
+              color: E.text0,
+              background: E.panel2,
+              border: `1px solid ${E.hair2}`,
+              borderRadius: 4,
+              outline: 'none',
+            }}
+          />
+          {searchQuery && (
+            <span
+              aria-live="polite"
+              style={{
+                fontSize: 10.5,
+                fontFamily: E.fMono,
+                color: visible.length === 0 ? E.fail : E.text3,
+                alignSelf: 'center',
+              }}
+              title={`${visible.length} of ${data?.runs.length ?? 0} runs match`}
+            >
+              {visible.length}/{data?.runs.length ?? 0}
+            </span>
+          )}
         </div>
 
         {/* Inline error */}
