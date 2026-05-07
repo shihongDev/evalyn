@@ -23,6 +23,7 @@ import {
 import { E } from './tokens';
 import { Btn, Eyebrow, Pill, StatusDot } from './ui';
 import { useStickToBottom } from './hooks/useStickToBottom';
+import { useLiveDuration } from './hooks/useLiveDuration';
 import { copyToClipboard } from './clipboard';
 import type { CliParam, CliParamKind, CliSchema } from './api/cli';
 import { commandSummary, previewCommand } from './api/cli';
@@ -241,6 +242,13 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
       duration: resumeEntry.duration ? Number(resumeEntry.duration) : undefined,
     };
   });
+  // Wall-clock start of the active job, used by useLiveDuration to
+  // render "running 12s" in the output header. Seeded from resumeEntry
+  // for resume mode; reset to "now" on each fresh Run; cleared on
+  // Re-run before the next launch.
+  const [jobStartedAtIso, setJobStartedAtIso] = useState<string | null>(
+    () => resumeEntry?.started_at_iso ?? null,
+  );
 
   const subRef = useRef<{ close: () => void } | null>(null);
 
@@ -470,11 +478,13 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
       // Persist a `queued` entry to local history so the Recent Jobs drawer
       // can surface this run if the user navigates away. Status is patched
       // on every WS status event below.
+      const startedAtIso = new Date().toISOString();
+      setJobStartedAtIso(startedAtIso);
       const entry: JobHistoryEntry = {
         job_id,
         cli_id: cli.id,
         cli_args: submitArgs,
-        started_at_iso: new Date().toISOString(),
+        started_at_iso: startedAtIso,
         status: 'queued',
       };
       upsertJob(entry);
@@ -550,6 +560,7 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
     }
     setReconnecting(false);
     setJobId(null);
+    setJobStartedAtIso(null);
     setLines([]);
     setError(null);
     setExitInfo(null);
@@ -742,6 +753,7 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
               scrolledUp={outputScrolledUp}
               jumpToBottom={jumpToOutputBottom}
               reconnecting={reconnecting}
+              startedAtIso={jobStartedAtIso}
             />
           )}
         </div>
@@ -1120,6 +1132,10 @@ interface OutputSectionProps {
    * threshold (1.5s). Renders a small pill in the preview row so the
    * user knows the gap in output is recoverable, not a hung eval. */
   reconnecting?: boolean;
+  /** ISO timestamp of when the active job started. Drives the live
+   * "running 12s" counter via useLiveDuration. Null when no job is
+   * active (form mode) or after Re-run resets state. */
+  startedAtIso?: string | null;
 }
 
 function OutputSection({
@@ -1132,12 +1148,20 @@ function OutputSection({
   scrolledUp,
   jumpToBottom,
   reconnecting = false,
+  startedAtIso = null,
 }: OutputSectionProps) {
   // Inline clipboard state for the Copy button. Idle -> copied flips
   // the label briefly; idle -> error covers the rare browser-blocked
   // case (non-secure context with no clipboard API and execCommand
   // disabled).
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+
+  // Live "running 12s" counter for queued/running jobs. Hidden once a
+  // terminal status arrives (the existing exitInfo footer takes over
+  // duration display). Shares the useLiveDuration hook with the
+  // RecentJobsDrawer rows for consistent formatting.
+  const isLive = status === 'queued' || status === 'running';
+  const liveDuration = useLiveDuration(startedAtIso ?? '', isLive && !!startedAtIso);
 
   // Errors-only filter. When on, the output panel renders only stderr
   // (and system) lines so the user can find a buried failure in a
@@ -1249,6 +1273,29 @@ function OutputSection({
           }}
         >
           <span style={{ flex: 1, minWidth: 0 }}>$ {preview}</span>
+          {liveDuration && (
+            <span
+              role="status"
+              aria-live="off"
+              aria-label={`Running for ${liveDuration}`}
+              title="Elapsed time since job started"
+              style={{
+                flexShrink: 0,
+                padding: '0 8px',
+                fontFamily: E.fMono,
+                fontSize: 10.5,
+                color: E.ember,
+                background: 'rgba(217, 99, 49, 0.10)',
+                border: `1px solid rgba(217, 99, 49, 0.3)`,
+                borderRadius: 4,
+                lineHeight: 1.6,
+                whiteSpace: 'nowrap',
+                fontWeight: 500,
+              }}
+            >
+              running {liveDuration}
+            </span>
+          )}
           {reconnecting && (
             <span
               role="status"
