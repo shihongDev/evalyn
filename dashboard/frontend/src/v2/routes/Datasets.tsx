@@ -17,7 +17,9 @@
  */
 
 import {
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type ChangeEvent,
@@ -792,6 +794,27 @@ export default function Datasets() {
     updateParam('hideEmpty', next ? '1' : '0', next === true);
   const setTagFilter = (next: string) => updateParam('tag', next, next === 'any');
 
+  // "/" focuses the search box. Page-local listener (not via the
+  // shared useSearchFilter hook because Datasets persists query in
+  // the URL, not session storage; the hook doesn't model URL state).
+  // Skips when focus is already in an input/textarea/contentEditable
+  // surface so users typing elsewhere don't get "/" hijacked.
+  const searchRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) {
+        return;
+      }
+      e.preventDefault();
+      searchRef.current?.focus();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoErr, setDemoErr] = useState<string | null>(null);
   const handleLoadDemo = async () => {
@@ -1087,16 +1110,25 @@ export default function Datasets() {
               }}
             >
               <input
+                ref={searchRef}
                 aria-label="Search datasets by name or tag"
-                placeholder="Search datasets by name or tag..."
+                placeholder="Search datasets by name or tag... (/ to focus)"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
-                  // Esc clears the query - matches the rest of the
-                  // dashboard's search inputs (AnnotateSession etc.).
-                  if (e.key === 'Escape' && query) {
-                    e.preventDefault();
-                    setQuery('');
+                  // Two-step Esc: first press clears the query,
+                  // second press blurs (matches the runner-output /
+                  // items-tab pattern). The window-level "/" hotkey
+                  // above expects to be able to focus the box; if
+                  // Esc didn't blur on the second press, focus would
+                  // stay trapped after the user clears.
+                  if (e.key === 'Escape') {
+                    if (query) {
+                      e.preventDefault();
+                      setQuery('');
+                      return;
+                    }
+                    searchRef.current?.blur();
                   }
                 }}
                 style={{
