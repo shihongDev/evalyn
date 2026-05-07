@@ -183,10 +183,21 @@ export function StatusDot({
   status,
   size = 6,
   animated,
+  label,
 }: {
   status: DotStatus | string;
   size?: number;
   animated?: boolean;
+  /**
+   * Opt-in accessible label. When set, the dot is exposed to screen
+   * readers as an image with this name AND gets a sighted hover
+   * tooltip with the same text. When omitted, the dot stays
+   * decorative - which is correct for the majority of usages where
+   * adjacent text already conveys the status (e.g. "<dot> Quality").
+   * Use a label only when the dot's color is the SOLE indicator of
+   * status and there's no nearby text the user can read.
+   */
+  label?: string;
 }) {
   const c =
     status === 'pass' || status === 'completed'
@@ -202,6 +213,9 @@ export function StatusDot({
               : E.text3;
   return (
     <span
+      role={label ? 'img' : undefined}
+      aria-label={label}
+      title={label}
       style={{
         display: 'inline-block',
         width: size,

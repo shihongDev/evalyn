@@ -3534,7 +3534,11 @@ export default function AnnotateSession() {
                 gap: 8,
               }}
             >
-              <StatusDot status={currentItem.annotated ? 'pass' : 'idle'} size={6} />
+              <StatusDot
+                status={currentItem.annotated ? 'pass' : 'idle'}
+                size={6}
+                label={currentItem.annotated ? 'Annotated' : 'Not annotated yet'}
+              />
               <span style={{ fontSize: 12, color: E.text2, fontFamily: E.fMono }}>
                 Item {cursor + 1} of {items.length}
                 {hasUnsavedChanges && (
