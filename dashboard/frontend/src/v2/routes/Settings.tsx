@@ -16,13 +16,17 @@
  * for the standard skeleton/cache treatment used by the rest of v2.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, Spinner, StatusDot, UpdatingChip } from '../ui';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { E } from '../tokens';
 import { errorMessage } from '../api/errors';
-import { fetchSystemHealth, type SystemHealth } from '../api/health';
+import {
+  fetchSystemHealth,
+  vacuumPersistence,
+  type SystemHealth,
+} from '../api/health';
 import { settingsApi, type ProviderState, type SettingsState } from '../api/settings';
 import { TOUR_ENABLED_KEY, tourCompletedKey } from '../store/store';
 import { KNOWN_TOUR_IDS } from '../tour/useTour';
@@ -225,9 +229,21 @@ export default function Settings() {
  * for status surfaces). Hidden entirely on fetch failure -
  * health is a nice-to-have indicator, never load-bearing.
  */
+interface VacuumFeedback {
+  state: 'idle' | 'pending' | 'success' | 'error';
+  bytesSaved?: number;
+  error?: string;
+}
+
 function SystemStatusCard() {
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [vacuum, setVacuum] = useState<VacuumFeedback>({ state: 'idle' });
+  // We need a way to refetch health on demand (after a successful
+  // manual vacuum) without waiting for the next poll tick. Stash
+  // the refetch in a ref so the click handler can call it without
+  // depending on the polling effect's closure.
+  const refetchRef = useRef<(() => void) | null>(null);
 
   // Visibility-aware polling. When the tab is hidden the user
   // can't see the card so polling is pure waste; we pause on
@@ -264,6 +280,8 @@ function SystemStatusCard() {
       }
     }
 
+    refetchRef.current = () => void poll();
+
     if (typeof document === 'undefined' || document.visibilityState === 'visible') {
       start();
     }
@@ -279,8 +297,29 @@ function SystemStatusCard() {
       cancelled = true;
       stop();
       document.removeEventListener('visibilitychange', onVisibility);
+      refetchRef.current = null;
     };
   }, []);
+
+  // Manual vacuum handler. The button is the entry point; result
+  // feedback (success bytes saved, or error message) renders next
+  // to the button so the user sees the outcome of their click
+  // inline rather than via a toast that they could miss.
+  async function handleVacuum() {
+    setVacuum({ state: 'pending' });
+    try {
+      const res = await vacuumPersistence();
+      setVacuum({ state: 'success', bytesSaved: res.bytes_saved });
+      refetchRef.current?.();
+      // Auto-clear success feedback after a few seconds so the
+      // card returns to its passive status appearance.
+      window.setTimeout(() => {
+        setVacuum((cur) => (cur.state === 'success' ? { state: 'idle' } : cur));
+      }, 6000);
+    } catch (e) {
+      setVacuum({ state: 'error', error: errorMessage(e) });
+    }
+  }
 
   if (!loaded) return null;
   if (health === null) return null;
@@ -350,9 +389,50 @@ function SystemStatusCard() {
           }
         />
       </div>
-      <p style={{ fontSize: 11, color: E.text3, margin: '14px 0 0' }}>
+      <div
+        style={{
+          marginTop: 16,
+          paddingTop: 12,
+          borderTop: `1px solid ${E.hair}`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          flexWrap: 'wrap',
+        }}
+      >
+        <Btn
+          kind="secondary"
+          size="sm"
+          onClick={() => void handleVacuum()}
+          disabled={vacuum.state === 'pending'}
+          aria-label="Compact persistence database now"
+          title="Run VACUUM on the sqlite mirror to reclaim space without restarting the server"
+        >
+          {vacuum.state === 'pending' ? (
+            <>
+              <Spinner size={11} /> Compacting…
+            </>
+          ) : (
+            'Compact now'
+          )}
+        </Btn>
+        {vacuum.state === 'success' && (
+          <Pill mono color={E.pass} bg={E.passDim}>
+            {vacuum.bytesSaved && vacuum.bytesSaved > 0
+              ? `Saved ${formatBytes(vacuum.bytesSaved)}`
+              : 'Done (no change)'}
+          </Pill>
+        )}
+        {vacuum.state === 'error' && (
+          <span style={{ fontSize: 11, color: E.fail, fontFamily: E.fMono }}>
+            {vacuum.error ?? 'Vacuum failed'}
+          </span>
+        )}
+      </div>
+      <p style={{ fontSize: 11, color: E.text3, margin: '10px 0 0' }}>
         Polled every 15s. Numbers are best-effort: a degraded
-        persistence layer reports 0 rather than failing.
+        persistence layer reports 0 rather than failing. Compact
+        also runs automatically on graceful shutdown.
       </p>
     </Card>
   );
