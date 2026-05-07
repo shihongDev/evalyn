@@ -979,6 +979,7 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
   return (
     <div
       role="dialog"
+      aria-modal="true"
       aria-label="Keyboard shortcuts"
       onClick={onClose}
       style={{
@@ -1003,6 +1004,7 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
           minWidth: 320,
           maxWidth: 420,
           padding: 20,
+          position: 'relative',
         }}
       >
         <div
@@ -1023,6 +1025,32 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
           >
             global · works on any page
           </span>
+          <span style={{ flex: 1 }} />
+          {/* Visible close affordance. Esc + click-outside both work, but
+              users who don't know that get a clear, mouse-reachable exit.
+              The aria-label makes the bare × glyph readable to SR users. */}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close keyboard shortcuts"
+            title="Close (Esc)"
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: 4,
+              border: 'none',
+              background: 'transparent',
+              color: E.text3,
+              cursor: 'pointer',
+              fontSize: 16,
+              lineHeight: 1,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <span aria-hidden="true">×</span>
+          </button>
         </div>
         <div
           style={{
