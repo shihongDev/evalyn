@@ -1,8 +1,10 @@
 """``/api/v2/rubrics`` router.
 
 Endpoints:
-- ``GET /``                 -> ``RubricList``
-- ``GET /{id}/calibration`` -> ``RubricDetail``
+- ``GET /``                 -> ``RubricList`` (augmented with kappa/drift/etc.)
+- ``GET /trust``            -> ``TrustScoreboard``
+- ``GET /{id}/calibration`` -> ``RubricDetail`` (augmented with weights/dimensions)
+- ``POST /{id}``            -> save updated rubric (name, weights, dimensions)
 
 Rubric ids are derived from metric definitions seen across runs. Cohen's
 kappa is computed from the optional
@@ -16,17 +18,24 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from ._shared import dataset_roots, list_dataset_dirs, load_all_runs
+from ._shared import dataset_roots, list_dataset_dirs, load_all_runs, parse_iso
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Rubric files are saved here per dataset. The first existing dataset
+# directory under any root is used; falls back to the dashboard's demo
+# fixture path when nothing exists yet.
+_RUBRIC_FILE_DIR = "rubrics"
 
 # Mtime-keyed cache. The walk over ``data/prod/datasets/`` is ~1s on
 # WSL even when zero calibrations exist (cost is in the dataset_dir
@@ -147,6 +156,85 @@ def _load_calibration_from_paths(paths: list[Path]) -> tuple[float | None, int, 
     return _kappa_from_annotations(annotations)
 
 
+def _load_calibration_annotations(paths: list[Path]) -> list[dict]:
+    """Read every annotation across ``paths``; lossy invalid lines are skipped."""
+    annotations: list[dict] = []
+    for p in paths:
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("calibration.json read failed at %s: %s", p, exc)
+            continue
+        anns = data.get("annotations")
+        if isinstance(anns, list):
+            annotations.extend(a for a in anns if isinstance(a, dict))
+    return annotations
+
+
+def _ann_ts(ann: dict) -> datetime | None:
+    """Parse ``timestamp`` / ``created_at`` from an annotation, tolerantly."""
+    for key in ("timestamp", "created_at", "ts", "ts_iso"):
+        v = ann.get(key)
+        if isinstance(v, str):
+            dt = parse_iso(v)
+            if dt is not None:
+                return dt
+    return None
+
+
+def _kappa_window_drift(annotations: list[dict]) -> float:
+    """Δkappa over last 7d vs prior 7d.
+
+    Returns ``0.0`` when either window has too few annotations to form a
+    kappa. Annotations missing a timestamp are dropped (not silently
+    bucketed) so the signal stays trustworthy.
+    """
+    if not annotations:
+        return 0.0
+    now = datetime.now(timezone.utc)
+    week = now - timedelta(days=7)
+    prior_start = now - timedelta(days=14)
+    last7: list[dict] = []
+    prior7: list[dict] = []
+    for ann in annotations:
+        dt = _ann_ts(ann)
+        if dt is None:
+            continue
+        if dt >= week:
+            last7.append(ann)
+        elif dt >= prior_start:
+            prior7.append(ann)
+    if not last7 or not prior7:
+        return 0.0
+    k_last, n_last, _, _ = _kappa_from_annotations(last7)
+    k_prior, n_prior, _, _ = _kappa_from_annotations(prior7)
+    if k_last is None or k_prior is None or n_last < 5 or n_prior < 5:
+        return 0.0
+    return round(k_last - k_prior, 4)
+
+
+def _confusion_matrix(
+    annotations: list[dict],
+) -> tuple[int, int, int, int] | None:
+    """Return ``(tp, tn, fp, fn)`` or ``None`` when no usable pairs."""
+    pairs: list[tuple[bool, bool]] = []
+    for ann in annotations:
+        if not isinstance(ann, dict):
+            continue
+        jv = _bool_verdict(ann.get("judge_verdict"))
+        hv = _bool_verdict(ann.get("human_verdict"))
+        if jv is None or hv is None:
+            continue
+        pairs.append((jv, hv))
+    if not pairs:
+        return None
+    tp = sum(1 for j, h in pairs if j and h)
+    tn = sum(1 for j, h in pairs if (not j) and (not h))
+    fp = sum(1 for j, h in pairs if j and (not h))
+    fn = sum(1 for j, h in pairs if (not j) and h)
+    return tp, tn, fp, fn
+
+
 def _load_calibration(metric_id: str) -> tuple[float | None, int, int, int]:
     """Aggregate kappa across all calibration files for a metric."""
     return _load_calibration_from_paths(_calibration_index().get(metric_id, []))
@@ -195,54 +283,200 @@ def _metric_kinds_uses(runs: list[dict]) -> tuple[dict[str, str], dict[str, int]
     return kind, dict(uses), name
 
 
+def _saved_rubric_path(metric_id: str) -> Path | None:
+    """Return the on-disk path for a saved rubric, or ``None`` if no root.
+
+    Persists alongside the calibration files: ``<dataset_root>/<dataset>/
+    rubrics/<metric_id>.json``. We pick the first writable dataset that
+    has the metric in question. Falls back to the demo fixture root when
+    no dataset is on disk yet.
+    """
+    for root in dataset_roots():
+        for ds in list_dataset_dirs(root):
+            target = ds / _RUBRIC_FILE_DIR
+            try:
+                target.mkdir(parents=True, exist_ok=True)
+                return target / f"{metric_id}.json"
+            except OSError:
+                continue
+    fallback = Path.cwd() / ".evalyn" / "data" / "rubrics"
+    try:
+        fallback.mkdir(parents=True, exist_ok=True)
+        return fallback / f"{metric_id}.json"
+    except OSError:
+        return None
+
+
+def _load_saved_rubric(metric_id: str) -> dict | None:
+    """Read any persisted rubric override across roots. First match wins."""
+    for root in dataset_roots():
+        for ds in list_dataset_dirs(root):
+            p = ds / _RUBRIC_FILE_DIR / f"{metric_id}.json"
+            if p.is_file():
+                try:
+                    return json.loads(p.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError) as exc:
+                    logger.warning("rubric load failed at %s: %s", p, exc)
+                    return None
+    fallback = Path.cwd() / ".evalyn" / "data" / "rubrics" / f"{metric_id}.json"
+    if fallback.is_file():
+        try:
+            return json.loads(fallback.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("rubric load failed at %s: %s", fallback, exc)
+    return None
+
+
 @router.get("")
 async def list_rubrics() -> JSONResponse:
-    """Return one row per discovered metric id."""
+    """Return one row per discovered metric id (augmented).
+
+    Augmented v2 fields: ``kappa``, ``drift_per_week``, ``sample_size``,
+    ``weights``, ``dimensions`` (with FP/FN). Existing fields preserved.
+    """
     runs = load_all_runs()
     if not runs:
         return JSONResponse([])
     kind, uses, name = _metric_kinds_uses(runs)
-    # Build the calibration index once for all metrics. The previous
-    # implementation called ``_load_calibration`` per metric, which under
-    # the hood walked every dataset dir per metric (O(M*D)). One pass
-    # over the filesystem is enough.
     cal_index = _calibration_index()
     rows: list[dict] = []
     for mid in sorted(uses):
-        kappa, _, _, _ = _load_calibration_from_paths(cal_index.get(mid, []))
+        paths = cal_index.get(mid, [])
+        annotations = _load_calibration_annotations(paths)
+        kappa, sample_size, fp, fn = _kappa_from_annotations(annotations)
         label, label_kind = _calibration_label(kappa)
+        drift = _kappa_window_drift(annotations)
+        saved = _load_saved_rubric(mid) or {}
+        weights = saved.get("weights") if isinstance(saved.get("weights"), dict) else None
+        # Default to single-dim with overall FP/FN duplicated.
+        dimensions = saved.get("dimensions")
+        if not isinstance(dimensions, list) or not dimensions:
+            dimensions = [
+                {
+                    "label": name.get(mid, mid),
+                    "weight": 100,
+                    "fp": int(fp),
+                    "fn": int(fn),
+                }
+            ]
         rows.append(
             {
                 "id": mid,
                 "name": name.get(mid, mid),
                 "kind": kind.get(mid, "Programmatic"),
-                "dimensions": 1,
+                "dimensions": len(dimensions) if isinstance(dimensions, list) else 1,
                 "calibration_label": label,
                 "calibration_kind": label_kind,
                 "uses": uses[mid],
+                # Augmented fields:
+                "kappa": round(kappa, 4) if kappa is not None else None,
+                "drift_per_week": drift,
+                "sample_size": sample_size,
+                "weights": weights,
+                "dimensions_detail": dimensions,
             }
         )
     return JSONResponse(rows)
 
 
+@router.get("/trust")
+async def get_trust_scoreboard() -> JSONResponse:
+    """Return the trust scoreboard."""
+    runs = load_all_runs()
+    if not runs:
+        return JSONResponse({
+            "metrics": [],
+            "thresholds": {"annotation": 0.7, "ship": 0.8},
+        })
+    kind, uses, name = _metric_kinds_uses(runs)
+    cal_index = _calibration_index()
+    metrics_rows: list[dict] = []
+    for mid in sorted(uses):
+        is_llm = kind.get(mid) == "LLM judge"
+        paths = cal_index.get(mid, [])
+        annotations = _load_calibration_annotations(paths)
+        kappa, sample_size, _fp, _fn = _kappa_from_annotations(annotations)
+        drift = _kappa_window_drift(annotations)
+        # Score = kappa (clipped to 0..1) for LLM; deterministic 1.0 for prog.
+        if is_llm:
+            score = max(0.0, min(1.0, kappa)) if kappa is not None else 0.0
+            kappa_out = round(kappa, 4) if kappa is not None else None
+            sample_out: int | str = sample_size
+        else:
+            score = 1.0
+            kappa_out = None
+            sample_out = "-"
+        needs_work = bool(score < 0.7 or drift < -0.05)
+        metrics_rows.append(
+            {
+                "name": name.get(mid, mid),
+                "metric_type": "llm" if is_llm else "programmatic",
+                "score": round(score, 4),
+                "kappa": kappa_out,
+                "drift_per_week": drift,
+                "sample_size": sample_out,
+                "needs_work": needs_work,
+            }
+        )
+    return JSONResponse(
+        {
+            "metrics": metrics_rows,
+            "thresholds": {"annotation": 0.7, "ship": 0.8},
+        }
+    )
+
+
 @router.get("/{rubric_id}/calibration")
 async def get_rubric_calibration(rubric_id: str) -> JSONResponse:
-    """Return ``RubricDetail`` for ``rubric_id`` or 404."""
+    """Return ``RubricDetail`` for ``rubric_id`` or 404 (augmented v2)."""
     runs = load_all_runs()
     kind, _, name = _metric_kinds_uses(runs) if runs else ({}, {}, {})
-    # Always 404 unknown rubrics. Without the runs guard a fresh workspace
-    # would echo the URL slug back as a fabricated rubric (silent-failure
-    # hunter punch list, item 5).
     if rubric_id not in name:
         raise HTTPException(404, f"rubric {rubric_id} not found")
 
     kappa, sample_size, fp, fn = _load_calibration(rubric_id)
     label, label_kind = _calibration_label(kappa)
 
+    cal_index = _calibration_index()
+    annotations = _load_calibration_annotations(cal_index.get(rubric_id, []))
+    drift = _kappa_window_drift(annotations)
+    cm = _confusion_matrix(annotations)
+    saved = _load_saved_rubric(rubric_id) or {}
+    weights = saved.get("weights") if isinstance(saved.get("weights"), dict) else None
+    dimensions_raw = saved.get("dimensions")
+    if not isinstance(dimensions_raw, list) or not dimensions_raw:
+        dimensions_aug = [
+            {
+                "label": name.get(rubric_id, rubric_id),
+                "weight": 100,
+                "fp": int(fp),
+                "fn": int(fn),
+            }
+        ]
+    else:
+        dimensions_aug = []
+        for d in dimensions_raw:
+            if not isinstance(d, dict):
+                continue
+            dimensions_aug.append(
+                {
+                    "label": str(d.get("label", "")),
+                    "weight": float(d.get("weight", 0)),
+                    "fp": int(d.get("fp", fp)),
+                    "fn": int(d.get("fn", fn)),
+                }
+            )
+
+    confusion_matrix_payload = (
+        {"tp": cm[0], "tn": cm[1], "fp": cm[2], "fn": cm[3]}
+        if cm is not None
+        else None
+    )
+
     return JSONResponse(
         {
             "id": rubric_id,
-            "name": name.get(rubric_id, rubric_id),
+            "name": saved.get("name") or name.get(rubric_id, rubric_id),
             "calibration": {
                 "kappa": round(kappa, 4) if kappa is not None else None,
                 "label": label,
@@ -259,5 +493,74 @@ async def get_rubric_calibration(rubric_id: str) -> JSONResponse:
                     "kind": "judge" if kind.get(rubric_id) == "LLM judge" else "prog",
                 }
             ],
+            # Augmented fields:
+            "kappa": round(kappa, 4) if kappa is not None else None,
+            "drift_per_week": drift,
+            "sample_size": sample_size,
+            "weights": weights,
+            "dimensions_detail": dimensions_aug,
+            "confusion_matrix": confusion_matrix_payload,
         }
     )
+
+
+def _validate_weights(weights: dict[str, float]) -> None:
+    """Raise 422 if weights don't sum to 100 within +/- 1 percent."""
+    if not isinstance(weights, dict) or not weights:
+        raise HTTPException(422, "weights must be a non-empty object")
+    total = 0.0
+    for k, v in weights.items():
+        if not isinstance(k, str) or not isinstance(v, (int, float)):
+            raise HTTPException(422, "weights values must be numbers")
+        total += float(v)
+    if abs(total - 100.0) > 1.0:
+        raise HTTPException(422, f"weights must sum to 100 (+/-1), got {total}")
+
+
+@router.post("/{rubric_id}")
+async def save_rubric(rubric_id: str, request: Request) -> JSONResponse:
+    """Persist a rubric override (name, weights, dimensions)."""
+    try:
+        body = await request.json()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(400, f"invalid json: {exc}") from exc
+    if not isinstance(body, dict):
+        raise HTTPException(400, "body must be a json object")
+
+    name = body.get("name")
+    if name is not None and not isinstance(name, str):
+        raise HTTPException(422, "name must be a string")
+
+    weights = body.get("weights")
+    if weights is not None:
+        _validate_weights(weights)
+
+    dimensions = body.get("dimensions")
+    if dimensions is not None:
+        if not isinstance(dimensions, list):
+            raise HTTPException(422, "dimensions must be a list")
+        for d in dimensions:
+            if not isinstance(d, dict):
+                raise HTTPException(422, "each dimension must be an object")
+            if "label" not in d or "weight" not in d:
+                raise HTTPException(422, "dimension requires label and weight")
+
+    payload = {
+        "id": rubric_id,
+        "name": name,
+        "weights": weights,
+        "dimensions": dimensions,
+        "saved_at": datetime.now(timezone.utc).isoformat(),
+    }
+    p = _saved_rubric_path(rubric_id)
+    if p is None:
+        raise HTTPException(503, "no writable rubric path")
+    try:
+        tmp = p.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        os.replace(tmp, p)
+    except OSError as exc:
+        logger.warning("rubric save failed at %s: %s", p, exc)
+        raise HTTPException(503, f"rubric save failed: {exc}") from exc
+
+    return JSONResponse({"ok": True, "saved_at": payload["saved_at"]})

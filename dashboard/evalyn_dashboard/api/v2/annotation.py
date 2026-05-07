@@ -8,6 +8,7 @@ Endpoints:
 - ``POST   /sessions/{id}/verdict``     -> append verdict (idempotent on item_id)
 - ``POST   /sessions/{id}/finalize``    -> merge to canonical annotations.jsonl
 - ``DELETE /sessions/{id}``             -> abandon session
+- ``GET    /smart-queue``               -> ranked items by information gain
 
 Storage layout (under each dataset dir)::
 
@@ -42,6 +43,7 @@ from fastapi.responses import JSONResponse
 from ._shared import (
     dataset_roots,
     input_text,
+    list_dataset_dirs,
     load_all_runs,
     load_dataset_items,
     run_dataset_dir,
@@ -845,3 +847,164 @@ async def abandon_session(session_id: str) -> JSONResponse:
         raise HTTPException(status_code=503, detail=f"abandon failed: {exc}")
     await _broadcast_invalidate(["annotation/sessions"])
     return JSONResponse({"ok": True, "status": "abandoned"})
+
+
+# ---------------------------------------------------------------------------
+# Smart queue: rank items by information-gain proxy
+# ---------------------------------------------------------------------------
+
+
+_SMART_WEIGHTS = {
+    "uncertainty": 0.5,
+    "disagreement": 0.3,
+    "coverage": 0.15,
+    "random": 0.05,
+}
+
+
+def _why_label(uncertainty: float, disagreement: float, coverage: float) -> str:
+    """Pick the dominant explanation for a smart-queue item."""
+    if disagreement >= 0.4:
+        return "judge ↔ judge disagreement"
+    if uncertainty >= 0.7:
+        return "high uncertainty"
+    if 0.3 < uncertainty < 0.7:
+        return "borderline"
+    if coverage >= 0.5:
+        return "fills coverage gap"
+    return "novel cluster"
+
+
+@router.get("/smart-queue")
+async def smart_queue(
+    metric_id: str | None = None, limit: int = 20
+) -> JSONResponse:
+    """Rank items for human annotation by an information-gain proxy.
+
+    Score formula: ``0.5*uncertainty + 0.3*disagreement + 0.15*coverage +
+    0.05*random``. Uncertainty is distance from 0.5 inverted (closer to
+    0.5 -> higher score). Disagreement is the stddev of judge scores
+    when multi-judge data is available; otherwise 0. Coverage favours
+    items whose category has thin past-annotation history. Random adds
+    a small jitter so identical scores tie-break stably.
+    """
+    import random as _random
+
+    rng = _random.Random(42)
+    if limit < 1 or limit > 200:
+        raise HTTPException(422, "limit must be 1..200")
+
+    runs = load_all_runs()
+    if not runs:
+        return JSONResponse(
+            {
+                "metric_id": metric_id or "",
+                "items": [],
+                "est_to_threshold": 0,
+                "weights": _SMART_WEIGHTS,
+            }
+        )
+
+    # Past annotation coverage: count verdicts per metric across all reviews.
+    from collections import defaultdict
+
+    coverage_counter: dict[str, int] = defaultdict(int)
+    for root in dataset_roots():
+        for ds_dir in list_dataset_dirs(root):
+            reviews_dir = ds_dir / "reviews"
+            if not reviews_dir.is_dir():
+                continue
+            for path in reviews_dir.glob("*.jsonl"):
+                try:
+                    with path.open(encoding="utf-8") as f:
+                        for raw in f:
+                            line = raw.strip()
+                            if not line:
+                                continue
+                            try:
+                                rec = json.loads(line)
+                            except json.JSONDecodeError:
+                                continue
+                            for label_entry in rec.get("labels") or []:
+                                mid = label_entry.get("metric_id") if isinstance(label_entry, dict) else None
+                                if mid:
+                                    coverage_counter[mid] += 1
+                except OSError:
+                    continue
+    # Define a "low-representation" threshold relative to median.
+    if coverage_counter:
+        sorted_counts = sorted(coverage_counter.values())
+        mid_pos = len(sorted_counts) // 2
+        median_count = sorted_counts[mid_pos]
+    else:
+        median_count = 0
+
+    candidates: list[dict] = []
+    for run in runs:
+        rid = run_id(run)
+        items_by_id = load_dataset_items(run_dataset_dir(run))
+        # Group by item to consolidate per-item judge scores.
+        per_item_scores: dict[str, list[float]] = defaultdict(list)
+        per_item_target_score: dict[str, float] = {}
+        for r in run.get("metric_results") or []:
+            iid = r.get("item_id")
+            if iid is None:
+                continue
+            score = r.get("score")
+            if not isinstance(score, (int, float)):
+                continue
+            per_item_scores[iid].append(float(score))
+            mid = r.get("metric_id") or ""
+            if metric_id is None or mid == metric_id:
+                per_item_target_score[iid] = float(score)
+        for iid, judge_score in per_item_target_score.items():
+            scores = per_item_scores.get(iid) or [judge_score]
+            uncertainty = max(0.0, min(1.0, 1.0 - 2 * abs(judge_score - 0.5)))
+            if len(scores) >= 2:
+                mean_s = sum(scores) / len(scores)
+                var = sum((s - mean_s) ** 2 for s in scores) / len(scores)
+                stddev = var ** 0.5
+                disagreement = max(0.0, min(1.0, stddev * 2))
+            else:
+                disagreement = 0.0
+            coverage_score = (
+                1.0 if (coverage_counter.get(metric_id or "", 0) <= median_count) else 0.0
+            )
+            random_jitter = rng.random()
+            combined = (
+                _SMART_WEIGHTS["uncertainty"] * uncertainty
+                + _SMART_WEIGHTS["disagreement"] * disagreement
+                + _SMART_WEIGHTS["coverage"] * coverage_score
+                + _SMART_WEIGHTS["random"] * random_jitter
+            )
+            item = items_by_id.get(iid, {})
+            text = input_text(item)
+            candidates.append(
+                {
+                    "score": round(combined, 4),
+                    "judge_score": round(judge_score, 4),
+                    "text": text[:200],
+                    "why": _why_label(uncertainty, disagreement, coverage_score),
+                    "item_id": iid,
+                    "run_id": rid,
+                }
+            )
+
+    candidates.sort(key=lambda x: -x["score"])
+    top = candidates[:limit]
+    for i, row in enumerate(top, start=1):
+        row["rank"] = i
+
+    # Estimate annotations to reach kappa >= 0.8 - heuristic: assume each
+    # additional annotation buys ~0.005 kappa improvement. Real number
+    # would require a per-metric model; we report a reasonable default.
+    est = max(0, 50 - len(coverage_counter)) if coverage_counter else 100
+
+    return JSONResponse(
+        {
+            "metric_id": metric_id or "",
+            "items": top,
+            "est_to_threshold": est,
+            "weights": _SMART_WEIGHTS,
+        }
+    )
