@@ -341,6 +341,7 @@ export default function DatasetDetail() {
                     onClick={() => goRun(r.id)}
                     role="button"
                     tabIndex={0}
+                    aria-label={`Open run ${r.id}, ${r.status}${r.pass != null ? `, ${r.pass.toFixed(1)}% pass` : ''}`}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
