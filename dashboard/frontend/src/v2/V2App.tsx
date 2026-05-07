@@ -11,8 +11,14 @@
  * dir already serves whatever filenames Vite emits.
  */
 
-import { lazy, Suspense } from 'react';
-import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import {
+  BrowserRouter,
+  Route,
+  Routes,
+  useLocation,
+  useNavigationType,
+} from 'react-router-dom';
 import Home from './routes/Home';
 import { AppShell } from './AppShell';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -72,6 +78,27 @@ function RouteFallback() {
   );
 }
 
+/** Reset the document scroll to the top whenever a forward navigation
+ * lands on a new pathname. Without this, clicking a nav link from the
+ * middle of a long page (e.g. /experiments scrolled to the bottom)
+ * dropped the user mid-page on the next route, since BrowserRouter
+ * only swaps DOM and does not reset scroll.
+ *
+ * Only PUSH navigations scroll. POP (back/forward) defers to the
+ * browser's restoration. REPLACE is excluded because routes use it
+ * to sync URL state without a real navigation - e.g. AnnotateSession
+ * mirrors its cursor into ?item=, and yanking the page back to the
+ * top on every keystroke would fight that screen's own scroll logic. */
+function ScrollToTopOnNav() {
+  const { pathname } = useLocation();
+  const navType = useNavigationType();
+  useEffect(() => {
+    if (navType !== 'PUSH') return;
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [pathname, navType]);
+  return null;
+}
+
 /** Inner shell that lives below BrowserRouter so it can read useLocation
  * for the ErrorBoundary's resetKey. A render crash on route A doesn't
  * strand the user permanently - navigating to route B clears the
@@ -80,6 +107,7 @@ function RoutedShell() {
   const location = useLocation();
   return (
     <ErrorBoundary resetKey={location.pathname}>
+      <ScrollToTopOnNav />
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={<Home />} />
