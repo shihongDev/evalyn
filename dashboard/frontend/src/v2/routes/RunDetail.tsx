@@ -397,6 +397,7 @@ export default function RunDetail() {
         size="sm"
         onClick={handleRerun}
         onMouseEnter={() => prefetchV2('commands', listCli)}
+        onFocus={() => prefetchV2('commands', listCli)}
         disabled={rerunBusy}
         title={
           rerunBusy

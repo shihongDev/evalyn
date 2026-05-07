@@ -445,6 +445,7 @@ function SmartQueueCard({
           onClick={onStartSession}
           disabled={starting || metricId == null || itemCount === 0}
           onMouseEnter={() => void preloadAnnotateSession()}
+          onFocus={() => void preloadAnnotateSession()}
         >
           {starting ? 'Starting...' : 'Start session'}
         </Btn>
@@ -527,6 +528,7 @@ function InProgressSessions({
               type="button"
               onClick={() => onResume(s.id)}
               onMouseEnter={() => void preloadAnnotateSession()}
+              onFocus={() => void preloadAnnotateSession()}
               style={{
                 padding: 10,
                 background: E.panel2,

@@ -652,6 +652,12 @@ function LiveStreamingCard({ experiments, onNavigate }: LiveStreamingCardProps) 
             void preloadRunDetail();
             prefetchV2(`experiment:${live.id}`, () => v2.experiment(live.id));
           }}
+          // Same warmup on keyboard focus so Tab users get the
+          // same low-latency click->paint as mouse hover.
+          onFocus={() => {
+            void preloadRunDetail();
+            prefetchV2(`experiment:${live.id}`, () => v2.experiment(live.id));
+          }}
           title={`Open ${live.name}`}
           aria-label={`Open live run ${live.name}`}
           style={{

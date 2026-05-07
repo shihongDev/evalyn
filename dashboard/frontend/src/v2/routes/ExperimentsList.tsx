@@ -211,15 +211,19 @@ function LineageNode({ run, selected, onToggleSelect, onOpen }: NodeProps) {
     : [];
   const segTotal = segs.reduce((s, x) => s + x.value, 0);
 
+  // Warm both the RunDetail chunk and the per-run payload so a click
+  // landing on this row paints under the perception threshold. Hoisted
+  // out of onMouseEnter so onFocus can share it - keyboard users
+  // tabbing through the row deserve the same low-latency click->paint
+  // as mouse hover.
+  const warm = () => {
+    void preloadRunDetail();
+    prefetchV2(`experiment:${run.id}`, () => v2.experiment(run.id));
+  };
   return (
     <div
       style={{ position: 'relative', marginBottom: 12 }}
-      onMouseEnter={() => {
-        // Warm both the RunDetail chunk and the per-run payload so click
-        // -> paint stays under the perception threshold.
-        void preloadRunDetail();
-        prefetchV2(`experiment:${run.id}`, () => v2.experiment(run.id));
-      }}
+      onMouseEnter={warm}
     >
       {/* spine node */}
       <button
@@ -228,6 +232,7 @@ function LineageNode({ run, selected, onToggleSelect, onOpen }: NodeProps) {
           ev.stopPropagation();
           onToggleSelect();
         }}
+        onFocus={warm}
         title={selected ? 'Click to deselect' : 'Click to select for compare'}
         aria-pressed={selected}
         style={{
@@ -274,6 +279,7 @@ function LineageNode({ run, selected, onToggleSelect, onOpen }: NodeProps) {
           <button
             type="button"
             onClick={onOpen}
+            onFocus={warm}
             style={{
               background: 'transparent',
               border: 'none',

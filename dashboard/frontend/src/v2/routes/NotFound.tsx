@@ -139,6 +139,10 @@ export default function NotFound() {
                       e.currentTarget.style.borderColor = E.hair;
                       e.currentTarget.style.color = E.text2;
                     }}
+                    onFocus={() => {
+                      const fn = preloadByPath(s.path);
+                      if (fn) void fn();
+                    }}
                     style={{
                       fontFamily: E.fMono,
                       fontSize: 12,
