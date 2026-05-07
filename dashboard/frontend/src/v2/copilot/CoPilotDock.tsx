@@ -245,33 +245,24 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
             role="status"
             aria-live="polite"
             aria-label="Reconnecting to agent stream"
-            title="Agent WebSocket lost - retrying with backoff"
+            title="The agent WebSocket dropped. The dashboard is reconnecting; in-flight responses may be delayed."
             style={{
-              padding: '0 8px',
-              fontFamily: E.fMono,
-              fontSize: 10,
-              color: E.warn,
-              background: 'rgba(217, 161, 79, 0.15)',
-              border: `1px solid rgba(217, 161, 79, 0.4)`,
-              borderRadius: 4,
-              lineHeight: 1.6,
-              whiteSpace: 'nowrap',
-              fontWeight: 500,
               display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
+              padding: '3px 8px',
+              borderRadius: 999,
+              background: 'rgba(229, 161, 79, 0.12)',
+              border: `1px solid rgba(229, 161, 79, 0.3)`,
+              color: E.warn,
+              fontFamily: E.fMono,
+              fontSize: 10,
+              letterSpacing: '0.04em',
+              whiteSpace: 'nowrap',
             }}
           >
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: E.warn,
-                display: 'inline-block',
-              }}
-            />
-            Reconnecting…
+            <span aria-hidden style={{ lineHeight: 1, fontSize: 11 }}>◌</span>
+            Reconnecting
           </span>
         )}
         <span style={{ flex: 1 }} />
