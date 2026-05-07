@@ -739,6 +739,21 @@ export function AppShell({
                 // text ("you are here"). Backwards-compatible - existing
                 // string[] callers get this for free without API changes.
                 const path = isLast ? null : BREADCRUMB_ROUTE_FOR_LABEL[b] ?? null;
+                // Cap the last segment's visible width so a long
+                // entity name (e.g. "experiment-with-detailed-config-v3")
+                // doesn't push the header's Jobs / Search / Help
+                // buttons off-screen. Parent segments are short
+                // labels ("Experiments", "Datasets") and don't need
+                // capping. Hover title= shows the full text.
+                const tailStyle: CSSProperties = isLast
+                  ? {
+                      maxWidth: 280,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      display: 'inline-block',
+                    }
+                  : {};
                 return (
                   <span key={`${b}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     {path ? (
@@ -768,7 +783,11 @@ export function AppShell({
                     ) : (
                       <span
                         aria-current={isLast ? 'page' : undefined}
-                        style={{ color: isLast ? E.text1 : E.text2 }}
+                        title={isLast ? b : undefined}
+                        style={{
+                          color: isLast ? E.text1 : E.text2,
+                          ...tailStyle,
+                        }}
                       >
                         {b}
                       </span>

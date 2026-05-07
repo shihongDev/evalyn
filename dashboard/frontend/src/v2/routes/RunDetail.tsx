@@ -2346,8 +2346,13 @@ function ItemsTab({ runId, initialFilter }: ItemsTabProps) {
         >
           <input
             type="text"
-            aria-label="Search item by id"
-            placeholder="Search item id..."
+            aria-label="Filter items on this page by id"
+            placeholder="Filter this page by id..."
+            title={
+              search.trim()
+                ? `Filtering ${visibleItems.length} of ${data.items.length} items on this page (page-local; items on other pages aren't searched)`
+                : 'Filter visible items on this page by id (substring match). Items on other pages aren\'t searched - use Prev/Next to scan more.'
+            }
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => {
@@ -2469,13 +2474,50 @@ function ItemsTab({ runId, initialFilter }: ItemsTabProps) {
               }}
             >
               <div style={{ flex: 1, fontSize: 12.5, color: E.text3 }}>
-                No items match{' '}
-                <b style={{ color: E.ember, fontFamily: E.fMono }}>"{search}"</b>
-                {' '}on this page.
+                {search.trim() ? (
+                  // Search active + no matches: clarify scope
+                  // (page-local) AND offer the page-paging escape.
+                  <>
+                    No items match{' '}
+                    <b style={{ color: E.ember, fontFamily: E.fMono }}>"{search}"</b>
+                    {' '}on this page.
+                    {canNext || canPrev ? (
+                      <span style={{ color: E.text4 }}>
+                        {' '}Items on other pages aren&apos;t searched -
+                        use Prev/Next to scan more.
+                      </span>
+                    ) : null}
+                  </>
+                ) : data.total === 0 ? (
+                  // Truly empty result set (e.g. filter=failed but
+                  // no failures across the whole run).
+                  <>
+                    No items match the current filter
+                    {filter !== 'all' && (
+                      <>
+                        {' ('}
+                        <b style={{ color: E.ember, fontFamily: E.fMono }}>
+                          {filter}
+                        </b>
+                        {')'}
+                      </>
+                    )}
+                    .
+                  </>
+                ) : (
+                  // Empty page within a non-empty result set
+                  // (e.g. filter changed but offset wasn't reset
+                  // - shouldn't normally happen since changeFilter
+                  // resets offset, but defensive against future
+                  // refactors).
+                  <>This page is empty.</>
+                )}
               </div>
-              <Btn kind="secondary" size="sm" onClick={() => setSearch('')}>
-                Clear search
-              </Btn>
+              {search.trim() && (
+                <Btn kind="secondary" size="sm" onClick={() => setSearch('')}>
+                  Clear search
+                </Btn>
+              )}
             </div>
           ) : (
             visibleItems.map((it) => {
