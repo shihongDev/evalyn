@@ -707,7 +707,12 @@ function LiveStreamingCard({ experiments, onNavigate }: LiveStreamingCardProps) 
   const live = experiments.find((e) => e.status === 'running') ?? null;
   return (
     <Card style={{ padding: 14 }} data-coachmark="home-activity">
-      <Eyebrow>Live - streaming now</Eyebrow>
+      {/* Eyebrow flips when nothing is running so the label and the
+          body agree. The previous unconditional "streaming now"
+          claimed activity even when the empty branch said "No live
+          runs" right below - same lying-indicator pattern that
+          5924d27 fixed for the Brief's "fresh" pill. */}
+      <Eyebrow>{live ? 'Live - streaming now' : 'Live runs'}</Eyebrow>
       {live ? (
         <button
           type="button"
