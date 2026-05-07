@@ -641,6 +641,9 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
       {state.added_at && (
         <div style={{ marginTop: 12, fontSize: 11, color: E.text3, fontFamily: E.fMono }}>
           Last set: {relativeTime(state.added_at)}
+          {state.updated_at && state.updated_at !== state.added_at && (
+            <> {String.fromCharCode(183)} Rotated: {relativeTime(state.updated_at)}</>
+          )}
         </div>
       )}
 

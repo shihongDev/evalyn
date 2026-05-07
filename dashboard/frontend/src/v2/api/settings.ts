@@ -19,6 +19,7 @@ export interface ProviderState {
   is_set: boolean;
   model?: string | null;
   added_at?: string | null;
+  updated_at?: string | null;
   base_url?: string | null;
 }
 
