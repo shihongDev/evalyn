@@ -73,7 +73,10 @@ export function Welcome() {
         {[
           'Load demo data to explore.',
           <>
-            Or run <code style={{ fontFamily: E.fMono, fontSize: 12.5, color: E.text1 }}>evalyn run</code>{' '}
+            Or run{' '}
+            <code style={{ fontFamily: E.fMono, fontSize: 12.5, color: E.text1 }}>
+              evalyn run-eval
+            </code>{' '}
             from your terminal.
           </>,
           'The right-side co-pilot can answer questions about your runs.',
