@@ -643,4 +643,77 @@ async def cancel_job(request: Request, job_id: str) -> JSONResponse:
     return JSONResponse(_job_to_dict(jm.get(job_id) or job))
 
 
+@router.post("/{job_id}/restart")
+async def restart_job(request: Request, job_id: str) -> JSONResponse:
+    """Re-spawn a finished job using the same ``cli_id`` and ``args``
+    as the source. Returns ``{job_id: <new_id>}`` for the fresh run.
+
+    Source lookup: in-memory first, then persistence. Both miss -> 404.
+
+    The source must be terminal (complete / failed / cancelled). 409 if
+    the source is still queued/running - the user should wait for it
+    to finish or cancel first; restarting in parallel would land two
+    concurrent runs of the same command, which is rarely the intent.
+
+    The argv is rebuilt from the stored ``args`` dict via
+    ``args_to_argv`` rather than reusing the source's persisted ``cmd``
+    string (which is space-joined and lossy for args with whitespace).
+    The source's ``cli_id`` must still be in the catalog for the
+    rebuild; 404 with a clear message otherwise.
+    """
+    from .cli import args_to_argv
+
+    jm = request.app.state.job_manager
+
+    cli_id: str | None = None
+    args: dict | None = None
+    state: str | None = None
+
+    job = jm.get(job_id)
+    if job is not None:
+        cli_id = job.cli_id
+        args = dict(job.args)
+        state = job.state
+    else:
+        persistence = _persistence_for(jm)
+        if persistence is not None:
+            row = persistence.get(job_id)
+            if row is not None:
+                cli_id = row.get("cli_id") or ""
+                args = row.get("args") or {}
+                state = row.get("status")
+
+    if cli_id is None or args is None:
+        raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
+    if not cli_id:
+        raise HTTPException(
+            status_code=409,
+            detail=f"source job {job_id} has no cli_id; cannot restart",
+        )
+    if state in ("queued", "running"):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"source job {job_id} is {state}; wait for it to finish "
+                f"or cancel first"
+            ),
+        )
+
+    catalog = request.app.state.cli_catalog
+    schema = next((s for s in catalog if s.id == cli_id), None)
+    if schema is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"source job's cli_id {cli_id!r} is no longer in the catalog; "
+                f"restart cannot rebuild argv"
+            ),
+        )
+
+    argv_tail = args_to_argv(schema, args)
+    cmd = ["evalyn", cli_id, *argv_tail]
+    new_job_id = await jm.spawn(cmd, cli_id=cli_id, args=args)
+    return JSONResponse({"job_id": new_job_id})
+
+
 __all__ = ["router"]

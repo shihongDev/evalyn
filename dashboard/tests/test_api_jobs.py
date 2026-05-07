@@ -491,3 +491,107 @@ def test_delete_unknown_job_returns_404():
             "/api/jobs/does-not-exist", headers={CSRF_HEADER: token}
         )
         assert r.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# POST /api/jobs/{id}/restart
+# ---------------------------------------------------------------------------
+
+
+def _spawn_with_meta(client: TestClient, app, cmd, *, cli_id: str, args: dict) -> str:
+    """``_spawn`` plus ``cli_id`` / ``args`` metadata for restart tests.
+
+    Restart needs the source job to know its ``cli_id`` so it can find
+    the schema in the catalog and rebuild argv. The simple ``_spawn``
+    helper drops both, which is fine for cancel/get/output tests but
+    would otherwise force restart down its 409 "no cli_id" branch.
+    """
+    from functools import partial
+
+    fn = partial(app.state.job_manager.spawn, cmd, cli_id=cli_id, args=args)
+    return client.portal.call(fn)
+
+
+def test_restart_unknown_job_returns_404():
+    app = build_app()
+    with TestClient(app) as client:
+        token = _token_from(client)
+        r = client.post(
+            "/api/jobs/does-not-exist/restart", headers={CSRF_HEADER: token}
+        )
+        assert r.status_code == 404
+
+
+def test_restart_running_source_returns_409():
+    """Source still queued/running must not double-spawn."""
+    app = build_app()
+    with TestClient(app) as client:
+        token = _token_from(client)
+        # Long sleep so the job stays in "running" while we hit restart.
+        job_id = _spawn_with_meta(
+            client,
+            app,
+            [sys.executable, "-c", "import time; time.sleep(60)"],
+            cli_id="status",
+            args={},
+        )
+        try:
+            r = client.post(
+                f"/api/jobs/{job_id}/restart", headers={CSRF_HEADER: token}
+            )
+            assert r.status_code == 409
+            assert "running" in r.json()["detail"]
+        finally:
+            client.portal.call(app.state.job_manager.cancel, job_id)
+
+
+def test_restart_finished_source_spawns_fresh_job():
+    """Happy path: terminal source -> 200 with a new job_id."""
+    app = build_app()
+    with TestClient(app) as client:
+        token = _token_from(client)
+        # Use --help under the "status" cli_id so the schema lookup
+        # succeeds. The actual subprocess just exits fast.
+        job_id = _spawn_with_meta(
+            client,
+            app,
+            [sys.executable, "-c", "pass"],
+            cli_id="status",
+            args={},
+        )
+        _wait(client, app, job_id)
+
+        r = client.post(
+            f"/api/jobs/{job_id}/restart", headers={CSRF_HEADER: token}
+        )
+        assert r.status_code == 200, r.text
+        body = r.json()
+        new_id = body["job_id"]
+        assert isinstance(new_id, str) and new_id
+        assert new_id != job_id
+
+        # The new job is registered with the manager and carries the
+        # source's cli_id forward.
+        new_job = app.state.job_manager.get(new_id)
+        assert new_job is not None
+        assert new_job.cli_id == "status"
+
+        # Cleanup so the subprocess doesn't outlive the test.
+        client.portal.call(app.state.job_manager.cancel, new_id)
+
+
+def test_restart_source_without_cli_id_returns_409():
+    """A job spawned without cli_id (e.g. via /api/jobs internals or
+    legacy persistence) cannot be rebuilt - restart returns 409 with
+    a descriptive message rather than 500."""
+    app = build_app()
+    with TestClient(app) as client:
+        token = _token_from(client)
+        job_id = _spawn(client, app, [sys.executable, "-c", "pass"])
+        _wait(client, app, job_id)
+
+        r = client.post(
+            f"/api/jobs/{job_id}/restart", headers={CSRF_HEADER: token}
+        )
+        assert r.status_code == 409
+        assert "cli_id" in r.json()["detail"]
