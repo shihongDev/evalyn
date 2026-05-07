@@ -38,6 +38,7 @@ import {
 } from './api/jobs';
 import { CapacityError } from './api/errors';
 import { clearDraft, loadDraft, saveDraft } from './cliRunnerDrafts';
+import { notifyJobTerminal } from './notifications';
 import { closeCliRunner, subscribeRunner } from './cliRunnerBridge';
 import {
   loadJobsHistory,
@@ -567,6 +568,23 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
           });
           if (s.status === 'complete' || s.status === 'failed') {
             setExitInfo({ code: s.exit_code, duration: s.duration });
+          }
+          // Fire an OS notification when the user is on another tab
+          // and the job has reached a terminal state. notifyJobTerminal
+          // is internally a no-op without permission / when the tab is
+          // foreground, so this is safe to always call.
+          if (
+            s.status === 'complete' ||
+            s.status === 'failed' ||
+            s.status === 'cancelled'
+          ) {
+            notifyJobTerminal({
+              jobId: job_id,
+              cliId: cli.id,
+              status: s.status,
+              exitCode: s.exit_code,
+              durationS: s.duration ?? null,
+            });
           }
         },
         onError: () => {
