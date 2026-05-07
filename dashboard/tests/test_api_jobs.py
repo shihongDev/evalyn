@@ -905,6 +905,87 @@ def test_admin_prune_zero_keep_clears_all():
         assert body["kept"] == 0
 
 
+def test_cancel_emits_audit_log(caplog):
+    """User-initiated cancel via API should leave a server log
+    line with the resulting status, so postmortem queries like
+    "did the user kill this run, or had it already finished by
+    the time the click landed?" are answerable."""
+    import logging
+
+    app = build_app()
+    with TestClient(app) as client:
+        token = _token_from(client)
+        # Spawn a quick job and let it complete naturally so we
+        # exercise the "cancel after finished" forensic case
+        # (the cancel returns success but state is 'complete').
+        job_id = _spawn(client, app, [sys.executable, "-c", "pass"])
+        _wait(client, app, job_id)
+
+        with caplog.at_level(logging.INFO, logger="evalyn_dashboard.api.jobs"):
+            r = client.post(
+                f"/api/jobs/{job_id}/cancel", headers={CSRF_HEADER: token}
+            )
+            assert r.status_code == 200
+
+        matched = [
+            rec for rec in caplog.records
+            if rec.message.startswith("admin cancel: job_id=")
+        ]
+        assert len(matched) == 1
+        # The log captures the FINAL status (after the cancel
+        # attempt), not just the request. For an already-finished
+        # job that's "complete", not "cancelled".
+        assert "status=complete" in matched[0].message
+
+
+def test_delete_emits_audit_log(caplog):
+    """User-initiated delete is destructive (drops the row);
+    operators querying "where did job X go?" should find a
+    server log line."""
+    import logging
+
+    app = build_app()
+    with TestClient(app) as client:
+        token = _token_from(client)
+        job_id = _spawn(client, app, [sys.executable, "-c", "pass"])
+        _wait(client, app, job_id)
+
+        with caplog.at_level(logging.INFO, logger="evalyn_dashboard.api.jobs"):
+            r = client.delete(
+                f"/api/jobs/{job_id}", headers={CSRF_HEADER: token}
+            )
+            assert r.status_code == 200
+
+        matched = [
+            rec for rec in caplog.records
+            if rec.message.startswith("admin delete: job_id=")
+        ]
+        assert len(matched) == 1
+        assert job_id in matched[0].message
+
+
+def test_delete_404_does_not_emit_audit_log(caplog):
+    """A delete for an unknown id 404s before reaching the log
+    line. Otherwise we'd have phantom "admin delete" lines for
+    requests that didn't actually delete anything."""
+    import logging
+
+    app = build_app()
+    with TestClient(app) as client:
+        token = _token_from(client)
+        with caplog.at_level(logging.INFO, logger="evalyn_dashboard.api.jobs"):
+            r = client.delete(
+                "/api/jobs/does-not-exist", headers={CSRF_HEADER: token}
+            )
+            assert r.status_code == 404
+
+        matched = [
+            rec for rec in caplog.records
+            if rec.message.startswith("admin delete: job_id=")
+        ]
+        assert len(matched) == 0
+
+
 def test_admin_vacuum_emits_audit_log(caplog):
     """A manual vacuum is uncommon enough that each invocation
     should be discoverable in server logs (postmortem queries
