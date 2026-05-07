@@ -2202,8 +2202,18 @@ export default function AnnotateSession() {
             <div style={{ fontFamily: E.fMono, fontSize: 12, color: E.text2, marginTop: 6 }}>
               {sessionErr || itemsErr}
             </div>
-            <div style={{ marginTop: 10 }}>
-              <Btn kind="secondary" size="sm" onClick={() => navigate('/annotate')}>
+            <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+              <Btn
+                kind="secondary"
+                size="sm"
+                onClick={() => {
+                  void refetchSession();
+                  void refetchItems();
+                }}
+              >
+                Retry
+              </Btn>
+              <Btn kind="ghost" size="sm" onClick={() => navigate('/annotate')}>
                 ← Back to annotate
               </Btn>
             </div>

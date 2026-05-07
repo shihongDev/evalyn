@@ -747,6 +747,8 @@ interface RubricEditorProps {
   detail: RubricDetail | null;
   loading: boolean;
   err: string | null;
+  /** Re-fetch the rubric detail after a load failure. */
+  onRetry: () => void;
   draft: DimensionDraft[];
   setDraft: (next: DimensionDraft[]) => void;
   dirty: boolean;
@@ -762,6 +764,7 @@ function RubricEditor({
   detail,
   loading,
   err,
+  onRetry,
   draft,
   setDraft,
   dirty,
@@ -882,6 +885,11 @@ function RubricEditor({
             }}
           >
             {err}
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <Btn kind="secondary" size="sm" onClick={onRetry}>
+              Retry
+            </Btn>
           </div>
         </div>
       )}
@@ -1128,6 +1136,7 @@ export default function Metrics() {
   const {
     data: detail,
     err: detailErr,
+    refetch: detailRefetch,
   } = useV2Resource<RubricDetail>(
     `rubric:${selectedId ?? ''}`,
     detailFetcher,
@@ -1327,6 +1336,7 @@ export default function Metrics() {
             detail={detail ?? null}
             loading={!!selectedId && !detail && !detailErr}
             err={detailErr}
+            onRetry={() => void detailRefetch()}
             draft={draft}
             setDraft={setDraft}
             dirty={dirty}

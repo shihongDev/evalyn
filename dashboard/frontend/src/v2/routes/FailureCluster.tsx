@@ -122,6 +122,23 @@ export default function FailureCluster() {
             <div style={{ fontFamily: E.fMono, fontSize: 12, color: E.text2, marginTop: 6 }}>
               {err}
             </div>
+            <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+              <Btn
+                kind="secondary"
+                size="sm"
+                onClick={() => void refetch()}
+                disabled={reloading}
+              >
+                {reloading ? 'Retrying...' : 'Retry'}
+              </Btn>
+              <Btn
+                kind="ghost"
+                size="sm"
+                onClick={() => navigate(`/experiments/${encodeURIComponent(runId)}`)}
+              >
+                Back to run
+              </Btn>
+            </div>
           </Card>
         )}
         {!data && !err && (
