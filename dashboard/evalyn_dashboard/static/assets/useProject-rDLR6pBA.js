@@ -1,0 +1,1 @@
+import{g as e,h as t}from"./index-YkI3TYk3.js";function n(){let{data:n}=t(`home`,e.home);return n?n.project:null}export{n as t};
