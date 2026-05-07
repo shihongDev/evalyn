@@ -632,6 +632,32 @@ def test_output_txt_download_adds_attachment_header():
         assert cd.endswith('.log"')
 
 
+def test_recent_rejects_comma_in_cli_id_with_hint():
+    """cli_id with embedded commas almost always means the user meant
+    cli_ids (multi-value). 400 with a hint pointing to the right
+    parameter beats silently filtering for a literal string that
+    matches no row."""
+    app = build_app()
+    with TestClient(app) as client:
+        r = client.get("/api/jobs/recent?cli_id=foo,bar")
+        assert r.status_code == 400
+        body = r.json()
+        assert "cli_ids" in body["detail"]
+
+
+def test_recent_rejects_non_finite_since():
+    """``since=Infinity`` (or NaN) is parsed as a float by FastAPI but
+    is nonsense for a timestamp filter. 400 instead of attempting a
+    SQL comparison on inf."""
+    app = build_app()
+    with TestClient(app) as client:
+        r = client.get("/api/jobs/recent?since=Infinity")
+        # FastAPI's float coercion accepts "Infinity" -> our finite
+        # check rejects it.
+        assert r.status_code == 400
+        assert "finite" in r.json()["detail"]
+
+
 def test_recent_includes_output_url_per_row():
     """Each row in /api/jobs/recent now includes ``output_url``, the
     canonical download link with download+include_meta query params
