@@ -243,36 +243,80 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
     };
   }, [open]);
 
-  // One-shot per-open refresh of any row that LOOKS like it's still active.
-  // Avoids polling - if the user wants newer data, they re-open the drawer.
+  // Ref so the visibility refresh below sees the latest entries
+  // without a re-binding closure. We can't put `entries` in the
+  // useEffect deps - patching a row would re-run the effect, which
+  // would patch again, etc. The ref breaks that loop.
+  const entriesRef = useRef(entries);
   useEffect(() => {
-    if (!open) return;
-    const active = entries.filter(
+    entriesRef.current = entries;
+  }, [entries]);
+
+  // Extracted refresh: fetch the canonical status for any row that
+  // looks queued/running and patch the local mirror. Used by both
+  // the per-open one-shot AND the visibility-change refresh below.
+  // Cancellation flag is owned by the caller; we read it on every
+  // iteration so a fast tab-switch doesn't spam patches into a
+  // stale closure.
+  const refreshActiveRows = async (
+    isCancelled: () => boolean,
+  ): Promise<void> => {
+    const active = entriesRef.current.filter(
       (e) => e.status === 'queued' || e.status === 'running',
     );
-    if (active.length === 0) return;
-    let cancelled = false;
-    void (async () => {
-      for (const e of active) {
-        if (cancelled) return;
-        const snap = await fetchJobStatus(e.job_id);
-        if (cancelled) return;
-        if (snap.kind === 'notFound') {
-          patchJob(e.job_id, { status: 'unknown' });
-        } else if (snap.kind === 'found') {
-          patchJob(e.job_id, {
-            status: snap.status,
-            exit_code: snap.exit_code ?? undefined,
-            duration: snap.duration != null ? String(snap.duration) : undefined,
-          });
-        }
+    for (const e of active) {
+      if (isCancelled()) return;
+      const snap = await fetchJobStatus(e.job_id);
+      if (isCancelled()) return;
+      if (snap.kind === 'notFound') {
+        patchJob(e.job_id, { status: 'unknown' });
+      } else if (snap.kind === 'found') {
+        patchJob(e.job_id, {
+          status: snap.status,
+          exit_code: snap.exit_code ?? undefined,
+          duration: snap.duration != null ? String(snap.duration) : undefined,
+        });
       }
-    })();
+    }
+  };
+
+  // One-shot per-open refresh of any row that LOOKS like it's still active.
+  // Avoids polling - the visibility hook below picks up tab returns;
+  // for foreground browsing we trust the user to re-open the drawer.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void refreshActiveRows(() => cancelled);
     return () => {
       cancelled = true;
     };
-    // We intentionally re-run only when `open` flips. The entries list changes
-    // as we patch rows, but we don't want to re-poll on every patch.
+    // We intentionally re-run only when `open` flips. The entries list
+    // is read via entriesRef so the effect doesn't re-fire per patch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Visibility-aware refresh: when the user comes back to the tab
+  // after backgrounding it (e.g. for an hour while a long eval runs),
+  // refresh any rows still in queued/running so the drawer reflects
+  // reality. Without this, rows would stay stale until the user
+  // re-opens the drawer or clicks somewhere. Drawer-closed = no work
+  // (the per-open useEffect above will refresh on the next open).
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    const onVisibility = () => {
+      if (
+        typeof document !== 'undefined' &&
+        document.visibilityState === 'visible'
+      ) {
+        void refreshActiveRows(() => cancelled);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
