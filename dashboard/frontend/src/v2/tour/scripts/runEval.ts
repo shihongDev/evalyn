@@ -1,7 +1,8 @@
 /**
  * runEval.v1 - "how do I start an evaluation?"
  *
- * Auto-fires on first visit to /experiments. Anchors under `experiments-*`.
+ * Triggered when the user explicitly asks to be shown how to launch a run.
+ * Lives on the ExperimentsList route. Anchors under the `experiments-*` prefix.
  */
 
 import type { TourDef } from '../useTour';

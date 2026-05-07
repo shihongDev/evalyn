@@ -60,9 +60,10 @@ const TOUR_REGISTRY: Record<string, TourDef> = {
 };
 
 /**
- * Stable list of every tour id we know about. Used by Settings (reset
- * all flags) and TourMenu (manual trigger). Source of truth: TOUR_REGISTRY
- * keys, so adding a tour to the registry automatically picks it up.
+ * Stable list of every tour id we know about. Used by Settings to clear
+ * all per-tour completion flags via the "Reset first-visit flags" button,
+ * and as the source of truth when a future surface needs to enumerate
+ * tours (e.g. a co-pilot menu or telemetry export).
  */
 export const KNOWN_TOUR_IDS: readonly string[] = Object.keys(TOUR_REGISTRY);
 

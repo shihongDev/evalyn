@@ -1,7 +1,8 @@
 /**
  * readMetrics.v1 - "how do I read this metrics page?"
  *
- * Auto-fires on first visit to /metrics. Anchors under `metrics-*`.
+ * Triggered when the user explicitly asks for a walk-through of the metrics
+ * dashboard. Lives on the Metrics route. Anchors under the `metrics-*` prefix.
  */
 
 import type { TourDef } from '../useTour';

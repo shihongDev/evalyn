@@ -15,7 +15,7 @@
  */
 
 export const COACHMARKS = [
-  // Home (firstRun.home.v1)
+  // Home (firstRun.home.v1 - shipped in iteration 10)
   'home-quality',
   'home-submetrics',
   'home-experiments',
@@ -23,12 +23,12 @@ export const COACHMARKS = [
   'home-copilot-brief',
   // Datasets (datasetUpload.v1)
   'datasets-list',
-  'datasets-search',
   'datasets-new-button',
+  'datasets-search',
   // ExperimentsList (runEval.v1)
   'experiments-list',
-  'experiments-filters',
   'experiments-new-button',
+  'experiments-filters',
   // Review (reviewFailures.v1)
   'review-queue',
   'review-item',

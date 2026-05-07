@@ -1,7 +1,9 @@
 /**
  * useRouteTour hook tests.
  *
- * Each tabbed route uses this hook to fire its first-visit guidance:
+ * Each tabbed route uses this hook to fire its first-visit guidance. The
+ * three behaviors that matter:
+ *
  *   1. Does NOT fire while `ready` is false (data still loading or
  *      errored). Important so we don't anchor on a skeleton render.
  *   2. Fires exactly once after `ready` flips true and the 500ms
@@ -47,7 +49,9 @@ describe('useRouteTour', () => {
     expect(useV2Store.getState().tourActiveId).toBeNull();
 
     rerender({ ready: true });
+    // Dock collapses synchronously when the trigger arms.
     expect(useV2Store.getState().dockOpen).toBe(false);
+    // Tour itself fires after the 500ms delay.
     act(() => {
       vi.advanceTimersByTime(500);
     });

@@ -3,7 +3,7 @@
  *
  * Each tour has its own localStorage completion flag (see store.ts
  * `tourCompletedKey`). The gate consults two pieces of state:
- *   1. `evalyn.tour.enabled` - global on/off toggle (Settings + TourMenu).
+ *   1. `evalyn.tour.enabled` - global on/off toggle (Settings).
  *   2. `evalyn.tour.completed.<tourId>` - per-tour completion flag.
  *
  *   returns true  when the user has the toggle on AND has not yet

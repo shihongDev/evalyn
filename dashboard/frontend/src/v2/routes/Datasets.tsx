@@ -358,14 +358,7 @@ export default function Datasets() {
           >
             Import CSV
           </Btn>
-          <Btn
-            kind="primary"
-            size="md"
-            onClick={handleImportCsv}
-            disabled={!buildDatasetCmd}
-            title={buildDatasetCmd ? NEW_DATASET_HINT_READY : BUILD_DATASET_HINT_LOADING}
-            data-coachmark="datasets-new-button"
-          >
+          <Btn kind="primary" size="md" disabled title={NEW_DATASET_HINT} data-coachmark="datasets-new-button">
             + New dataset
           </Btn>
         </div>

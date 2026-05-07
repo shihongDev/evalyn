@@ -12,7 +12,6 @@ import type { CalibrationSuggestion, ReviewItem, ReviewQueue } from '../api/type
 import { listCli, type CliSchema } from '../api/cli';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { useRouteTour } from '../tour/useRouteTour';
-import { linkifyText, makeUrlCounter } from '../textRender';
 import { REVIEW_FAILURES_TOUR_ID } from '../tour/scripts/reviewFailures';
 import { useProject } from '../hooks/useProject';
 import { openCliRunner } from '../cliRunnerBridge';

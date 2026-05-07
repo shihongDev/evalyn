@@ -1,8 +1,8 @@
 /**
  * datasetUpload.v1 - "how do I add a dataset?"
  *
- * Auto-fires on first visit to /datasets, or can be triggered manually
- * via the TourMenu in the AppShell header. Anchors are declared in
+ * Triggered by the agent when the user explicitly asks to be shown how to
+ * upload a dataset. Lives on the Datasets route. Anchors are declared in
  * tour/anchors.ts under the `datasets-*` prefix.
  */
 

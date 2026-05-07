@@ -120,6 +120,8 @@ interface BtnProps {
   disabled?: boolean;
   type?: 'button' | 'submit' | 'reset';
   title?: string;
+  /** Optional coachmark id for the co-pilot UI guidance tour to anchor on. */
+  'data-coachmark'?: string;
 }
 
 const BTN_SIZES: Record<BtnSize, CSSProperties> = {
@@ -147,6 +149,7 @@ export function Btn({
   disabled,
   type = 'button',
   title,
+  'data-coachmark': dataCoachmark,
 }: BtnProps) {
   return (
     <button
@@ -156,6 +159,7 @@ export function Btn({
       onFocus={onFocus}
       disabled={disabled}
       title={title}
+      data-coachmark={dataCoachmark}
       style={{
         display: 'inline-flex',
         alignItems: 'center',

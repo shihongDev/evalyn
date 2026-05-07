@@ -1,7 +1,8 @@
 /**
  * reviewFailures.v1 - "how do I triage failures?"
  *
- * Auto-fires on first visit to /review. Anchors under `review-*`.
+ * Triggered when the user explicitly asks how to use the review queue. Lives
+ * on the Review route. Anchors under the `review-*` prefix.
  */
 
 import type { TourDef } from '../useTour';
@@ -21,7 +22,7 @@ export const reviewFailuresTour: TourDef = {
       anchor: 'review-item',
       title: 'Inspect an item',
       description:
-        "Each row shows the prompt, model output, and the judge's verdict. Click to expand and read the full trace.",
+        'Each row shows the prompt, model output, and the judge’s verdict. Click to expand and read the full trace.',
     },
     {
       anchor: 'review-verdict-buttons',

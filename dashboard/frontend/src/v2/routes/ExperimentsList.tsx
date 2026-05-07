@@ -18,10 +18,9 @@ import { Card, Eyebrow, Pill, Btn, StatusDot, Spark, Skeleton, UpdatingChip } fr
 // the Commands page (graceful fallback over a dead-end "Wizard" card).
 const NEW_EVAL_TARGET = '/commands?prefill=run-eval';
 import { v2 } from '../api/client';
-import { useV2Resource, prefetchV2 } from '../hooks/useV2Resource';
+import { useV2Resource } from '../hooks/useV2Resource';
 import { useRouteTour } from '../tour/useRouteTour';
 import { RUN_EVAL_TOUR_ID } from '../tour/scripts/runEval';
-import { preloadRunDetail } from '../routePreloads';
 import { E } from '../tokens';
 import type { ExperimentRow } from '../api/types';
 
