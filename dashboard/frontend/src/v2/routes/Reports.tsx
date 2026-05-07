@@ -672,6 +672,28 @@ export default function Reports() {
     window.setTimeout(() => setSendState('idle'), 2200);
   }
 
+  // Save the report's markdown as a .md file so a user can attach it
+  // to a wiki page, paste into a doc, or commit to a repo without
+  // going through the clipboard. Filename includes the report period
+  // (when available) so multiple weekly reports don't clobber each
+  // other in Downloads.
+  function handleDownloadMarkdown() {
+    if (!report) return;
+    const blob = new Blob([markdown], {
+      type: 'text/markdown;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `evalyn-weekly-${ts}.md`;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
   // Tone of the week pill: derive from the first big number's delta_kind
   // (typically Quality). Falls back to a neutral "weekly report" label.
   const tonePill = useMemo<{ label: string; color: string; bg: string }>(() => {
@@ -790,6 +812,14 @@ export default function Reports() {
                   <span style={{ flex: 1 }} />
                   <Btn kind="primary" size="sm" onClick={() => void handleCopyMarkdown()}>
                     {copyState === 'copied' ? 'Copied' : 'Copy'}
+                  </Btn>
+                  <Btn
+                    kind="ghost"
+                    size="sm"
+                    onClick={handleDownloadMarkdown}
+                    title="Save the report as a .md file"
+                  >
+                    Download .md
                   </Btn>
                   {copyState === 'copied' && (
                     <Pill mono color={E.pass} bg={E.passDim}>
