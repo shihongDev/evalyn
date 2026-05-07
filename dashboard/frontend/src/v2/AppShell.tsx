@@ -18,7 +18,7 @@
  * this shell is responsible for chrome only.
  */
 
-import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useLocation, useNavigate, NavLink } from 'react-router-dom';
 import { E } from './tokens';
 import { Btn, Eyebrow, Pill, StatusDot } from './ui';
@@ -985,11 +985,17 @@ export function AppShell({
  * cheat sheets in routes like AnnotateSession cover their own
  * in-page hotkeys. */
 function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
-  // Capture and restore focus on close so keyboard users return to the
-  // element that triggered the overlay (the visible "?" header button
-  // or the source of the ? hotkey) instead of <body>.
+  // Move focus into the dialog on open and restore it on close.
+  // aria-modal alone doesn't move focus - keyboard users were left
+  // with focus on the trigger button behind the overlay, so a Tab
+  // press would walk them into the underlying page instead of the
+  // dialog's controls. Park focus on the close button: pressing
+  // Enter immediately dismisses, which is the most likely intent
+  // after a quick "did I get the right shortcut?" glance.
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
     const prevFocus = document.activeElement as HTMLElement | null;
+    closeBtnRef.current?.focus();
     return () => {
       if (
         prevFocus &&
@@ -1061,6 +1067,7 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
               users who don't know that get a clear, mouse-reachable exit.
               The aria-label makes the bare × glyph readable to SR users. */}
           <button
+            ref={closeBtnRef}
             type="button"
             onClick={onClose}
             aria-label="Close keyboard shortcuts"
