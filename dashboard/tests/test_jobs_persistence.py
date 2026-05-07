@@ -580,3 +580,81 @@ def test_persistence_migrates_stderr_count_into_existing_db(tmp_path: Path) -> N
     row2 = persistence.get("legacy-1")
     assert row2 is not None
     assert row2.get("stderr_count") == 7
+
+
+# ---------------------------------------------------------------------------
+# vacuum: reclaims space after delete_old
+# ---------------------------------------------------------------------------
+
+
+def test_vacuum_shrinks_file_after_delete_old(tmp_path: Path) -> None:
+    """``vacuum()`` rewrites the sqlite file as a tightly-packed copy
+    so the on-disk size shrinks after a large ``delete_old`` purge.
+    Without VACUUM the deleted pages are reused but the file never
+    shrinks - this is the customer-visible reliability win for
+    long-running dashboards."""
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+
+    # Insert enough rows with non-trivial output tails to make the
+    # file size meaningful (a near-empty sqlite file won't shrink
+    # measurably even after vacuum because the page count is already
+    # at the minimum).
+    big_tail = "x" * 4_000  # 4KB stdout tail per row
+    for i in range(200):
+        job_id = f"job-{i:03d}"
+        persistence.upsert_job(
+            job_id=job_id,
+            cli_id="x",
+            args={},
+            cmd="x",
+            status="complete",
+            started_at_iso=f"2026-01-01T{(i // 60):02d}:{(i % 60):02d}:00.000000+00:00",
+        )
+        persistence.set_output_tails(
+            job_id=job_id, stdout_tail=big_tail, stderr_tail="",
+        )
+
+    # Measure total disk footprint across all sqlite files (.sqlite,
+    # .sqlite-wal, .sqlite-shm). In WAL mode most writes land in the
+    # -wal file, so the main file alone wouldn't show the savings.
+    def total_disk_bytes() -> int:
+        return sum(
+            f.stat().st_size for f in db.parent.iterdir()
+            if f.name.startswith("jobs.sqlite")
+        )
+
+    size_before = total_disk_bytes()
+    deleted = persistence.delete_old(keep=10)
+    assert deleted >= 100  # we wiped most of them
+
+    # Total footprint may have grown slightly (DELETE writes tombstones
+    # to WAL) - the point is vacuum reclaims it.
+    size_after_delete = total_disk_bytes()
+
+    # Vacuum should reclaim the freed pages AND checkpoint+truncate
+    # the WAL.
+    assert persistence.vacuum() is True
+    size_after_vacuum = total_disk_bytes()
+    assert size_after_vacuum < size_after_delete, (
+        f"vacuum should shrink total disk usage: "
+        f"before_delete={size_before}, after_delete={size_after_delete}, "
+        f"after_vacuum={size_after_vacuum}"
+    )
+
+    # And the surviving 10 rows should still be queryable.
+    rows = persistence.list_recent(limit=20)
+    assert len(rows) == 10
+
+
+def test_vacuum_returns_false_on_unwritable_path(tmp_path: Path) -> None:
+    """``vacuum()`` must not raise if the DB file is missing or the
+    underlying connection cannot open. The shutdown hook calls this
+    best-effort and a misconfigured environment must not block exit."""
+    # _readable() returns False when the file doesn't exist yet (no
+    # writes have happened). Newly-constructed JobPersistence with no
+    # ops issued falls into this branch.
+    persistence = JobPersistence(db_path=tmp_path / "nonexistent.sqlite")
+    # Without any writes the DB file isn't created; vacuum should
+    # report false rather than create the file or raise.
+    assert persistence.vacuum() is False

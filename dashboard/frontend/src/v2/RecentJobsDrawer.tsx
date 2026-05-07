@@ -257,12 +257,22 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Close on Escape. Also restore focus to whatever element opened the
-  // drawer so keyboard users land back on the trigger button instead
-  // of <body>.
+  // Close on Escape. Move focus into the drawer on open and restore
+  // it on close. aria-modal alone doesn't move focus - keyboard
+  // users were left with focus still on the trigger button behind
+  // the drawer, so Tab walked them into the underlying page rather
+  // than the drawer's own controls. The search input is the most
+  // likely first action (matches CommandPalette's pattern of
+  // focusing its query field on open).
   useEffect(() => {
     if (!open) return;
     const prevFocus = document.activeElement as HTMLElement | null;
+    // Defer one tick so the drawer is mounted before we focus into
+    // it; without this, browsers occasionally skip the focus call
+    // when the element hasn't been laid out yet.
+    const focusTimer = window.setTimeout(() => {
+      searchRef.current?.focus();
+    }, 0);
     function onKey(ev: KeyboardEvent) {
       if (ev.key === 'Escape') {
         // Two-step Escape: clear search first, close drawer second.
@@ -293,6 +303,7 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
     }
     window.addEventListener('keydown', onKey);
     return () => {
+      window.clearTimeout(focusTimer);
       window.removeEventListener('keydown', onKey);
       if (
         prevFocus &&

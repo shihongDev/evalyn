@@ -485,6 +485,44 @@ class JobPersistence:
             logger.warning("JobPersistence delete_old failed: %s", exc)
             return 0
 
+    def vacuum(self) -> bool:
+        """Reclaim disk space from previously-deleted rows.
+
+        SQLite's ``DELETE`` only marks pages as free for reuse; the
+        file itself never shrinks. After hours/days of running, the
+        ``.evalyn/data/jobs.sqlite`` file accumulates fragmentation
+        and grows beyond the working-set size implied by ``keep``.
+        Periodic ``VACUUM`` rewrites the file as a tightly-packed
+        copy, plus runs an implicit WAL checkpoint as a side effect.
+
+        Best-effort: any I/O or sqlite error is logged at WARN and
+        swallowed - callers (typically the FastAPI shutdown hook) MUST
+        NOT block process exit on this. Returns True on success.
+
+        VACUUM is heavy (rewrites the whole file) so this is intended
+        for shutdown only, not for the steady-state delete_old loop.
+        """
+        if not self._readable():
+            return False
+        try:
+            with self._connect() as conn:
+                # In WAL mode, writes accumulate in jobs.sqlite-wal until
+                # a checkpoint folds them back into the main DB file. A
+                # plain VACUUM without this would rewrite a stale main
+                # file and the freed pages would not actually be reclaimed
+                # on disk - we'd end up with a vacuum_ok=True log line and
+                # zero size delta, which is the worst kind of "succeed
+                # silently" footgun. TRUNCATE checkpoints all uncommitted
+                # WAL pages back to the main file AND truncates the WAL
+                # file itself, so the subsequent VACUUM operates on the
+                # complete dataset.
+                conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                conn.execute("VACUUM")
+            return True
+        except (OSError, sqlite3.Error) as exc:
+            logger.warning("JobPersistence vacuum failed: %s", exc)
+            return False
+
 
 def _row_to_dict(row: sqlite3.Row) -> dict:
     """Project a sqlite row to a plain dict (decode args_json)."""

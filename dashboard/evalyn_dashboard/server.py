@@ -261,6 +261,27 @@ def _register_v2_routers(app: FastAPI) -> None:
     async def _v2_stop_watcher() -> None:
         await stop_watcher()
 
+    @app.on_event("shutdown")
+    async def _vacuum_jobs_persistence() -> None:
+        """Compact the jobs sqlite mirror on clean shutdown.
+
+        ``DELETE``-based GC (``delete_old`` in JobManager) only marks
+        pages as free; the ``.evalyn/data/jobs.sqlite`` file itself
+        never shrinks. Over hours/days of running, the file grows
+        beyond the working-set size implied by ``persistence_keep``.
+        Running ``VACUUM`` here rewrites the file as a tightly-packed
+        copy and triggers an implicit WAL checkpoint.
+
+        Best-effort: VACUUM is heavy (rewrites the whole file) but
+        fast for the dashboard's small jobs table; an unhealthy
+        process should still exit promptly. Errors are logged inside
+        ``JobPersistence.vacuum()`` and never bubble.
+        """
+        jm = getattr(app.state, "job_manager", None)
+        persistence = getattr(jm, "_persistence", None) if jm else None
+        if persistence is not None and hasattr(persistence, "vacuum"):
+            persistence.vacuum()
+
 
 def build_app(
     token: Optional[str] = None,
