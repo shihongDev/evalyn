@@ -326,18 +326,22 @@ class JobPersistence:
         limit: int = 30,
         cli_id: str | None = None,
         status: str | None = None,
+        since_iso: str | None = None,
     ) -> list[dict]:
         """Return up to ``limit`` rows in reverse-chronological order.
 
-        When ``cli_id`` and/or ``status`` are set, the filters are
-        pushed down to SQL ``WHERE`` clauses so we never project the
-        full set into Python just to drop most of it. Saves work on
-        installations with a large persisted history.
+        Filters (all pushed down to SQL ``WHERE`` clauses, AND-combined):
+
+        - ``cli_id`` matches the catalog id passed at spawn time.
+        - ``status`` matches one of the JobState values.
+        - ``since_iso`` keeps only rows whose ``started_at_iso > since_iso``.
+          Pass an ISO-8601 string; callers polling for "what's new"
+          should hand the previous response's max ``started_at`` back.
         """
         if not self._readable():
             return []
         # Build the WHERE clause incrementally so any combination of
-        # filters is supported (cli_id only, status only, both, neither).
+        # filters is supported.
         where_parts: list[str] = []
         params: list[object] = []
         if cli_id is not None:
@@ -346,6 +350,9 @@ class JobPersistence:
         if status is not None:
             where_parts.append("status=?")
             params.append(status)
+        if since_iso is not None:
+            where_parts.append("started_at_iso>?")
+            params.append(since_iso)
         sql = "SELECT * FROM jobs"
         if where_parts:
             sql += " WHERE " + " AND ".join(where_parts)

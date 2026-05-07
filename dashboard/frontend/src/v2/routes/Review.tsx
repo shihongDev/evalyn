@@ -1509,29 +1509,52 @@ function TracePane({
           type="button"
           disabled={submitting}
           onClick={() => onSingle('pass')}
+          title="Pass this item (P)"
           style={singleBtnStyle('pass', submitting)}
         >
           <span>Pass</span>
-          <span style={{ fontSize: 10, fontFamily: E.fMono, opacity: 0.6 }}>P</span>
+          <span aria-hidden="true" style={{ fontSize: 10, fontFamily: E.fMono, opacity: 0.6 }}>P</span>
         </button>
         <button
           type="button"
           disabled={submitting}
           onClick={() => onSingle('fail')}
+          title="Fail this item (F)"
           style={singleBtnStyle('fail', submitting)}
         >
           <span>Fail</span>
-          <span style={{ fontSize: 10, fontFamily: E.fMono, opacity: 0.6 }}>F</span>
+          <span aria-hidden="true" style={{ fontSize: 10, fontFamily: E.fMono, opacity: 0.6 }}>F</span>
         </button>
         <button
           type="button"
           disabled={submitting}
           onClick={() => onSingle('skip')}
+          title="Skip this item (S)"
           style={singleBtnStyle('skip', submitting)}
         >
           <span>Skip</span>
-          <span style={{ fontSize: 10, fontFamily: E.fMono, opacity: 0.6 }}>S</span>
+          <span aria-hidden="true" style={{ fontSize: 10, fontFamily: E.fMono, opacity: 0.6 }}>S</span>
         </button>
+      </div>
+
+      {/* Workflow hotkeys that don't fit on a button label. P/F/S
+          are visible inside the verdict buttons themselves; this
+          line surfaces the navigation/undo keys that previously
+          had no on-screen documentation. */}
+      <div
+        style={{
+          marginTop: 8,
+          fontSize: 10.5,
+          fontFamily: E.fMono,
+          color: E.text3,
+          display: 'flex',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
+        <span>↵ / N next item</span>
+        <span>⌫ undo last verdict</span>
+        <span>esc back to home</span>
       </div>
 
       <div style={{ marginTop: 10 }}>
