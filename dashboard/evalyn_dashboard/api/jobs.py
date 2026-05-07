@@ -819,6 +819,10 @@ async def delete_job(request: Request, job_id: str) -> JSONResponse:
         raise HTTPException(status_code=409, detail=str(exc))
     if not removed:
         raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
+    # Audit log: the row is gone. Postmortem queries like "where
+    # did job X go?" can grep this line. Logged AFTER the 404 path
+    # so we don't pollute the log with phantom-id deletes.
+    logger.info("admin delete: job_id=%s", job_id)
     return JSONResponse({"ok": True, "id": job_id}, status_code=200)
 
 
@@ -829,9 +833,20 @@ async def cancel_job(request: Request, job_id: str) -> JSONResponse:
     if job is None:
         raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
     await jm.cancel(job_id)
+    # Audit log: capture the resulting state (cancelled vs already
+    # complete vs already failed). Useful for "did the user
+    # actually kill this run, or had it already finished by the
+    # time the click landed?" forensic questions.
     # The manager runs the SIGTERM/grace/SIGKILL dance synchronously; by the
     # time we reach this line, ``state`` is "cancelled" or already terminal.
-    return JSONResponse(_job_to_dict(jm.get(job_id) or job))
+    final = jm.get(job_id) or job
+    logger.info(
+        "admin cancel: job_id=%s status=%s exit_code=%s",
+        job_id,
+        final.state,
+        final.exit_code,
+    )
+    return JSONResponse(_job_to_dict(final))
 
 
 @router.post("/{job_id}/restart")
