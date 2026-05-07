@@ -276,6 +276,13 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
   // until the user returns. Cleanup on unmount cancels any pending frame.
   const linesBufferRef = useRef<JobLine[]>([]);
   const flushScheduledRef = useRef<number | null>(null);
+  // Cumulative stderr counter for the active job. Persisted to the
+  // JobHistoryEntry on terminal status so the Recent Jobs drawer can
+  // surface "5 stderr" inline next to the exit code - useful for
+  // spotting noisy jobs even when exit code is 0. Counted from the
+  // raw stream rather than `lines` state because the visible buffer
+  // ring-trims at MAX_OUTPUT_LINES; we want the TRUE total.
+  const stderrCountRef = useRef(0);
 
   const flushLineBuffer = useCallback(() => {
     flushScheduledRef.current = null;
@@ -293,6 +300,9 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
 
   const enqueueLine = useCallback(
     (line: JobLine) => {
+      if (line.kind === 'stderr') {
+        stderrCountRef.current += 1;
+      }
       const buf = linesBufferRef.current;
       buf.push(line);
       // When the tab is backgrounded rAF pauses; the buffer would otherwise
@@ -357,10 +367,17 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
         onLine: enqueueLine,
         onStatus: (s: JobStatus) => {
           setStatus(s.status);
+          const isTerminal =
+            s.status === 'complete' ||
+            s.status === 'failed' ||
+            s.status === 'cancelled';
           patchJob(resumeJobId, {
             status: s.status,
             exit_code: s.exit_code ?? undefined,
             duration: s.duration != null ? String(s.duration) : undefined,
+            // Persist the cumulative stderr count once the job finishes
+            // so the drawer row can show "N stderr" without rerunning.
+            ...(isTerminal ? { stderr_count: stderrCountRef.current } : {}),
           });
           if (s.status === 'complete' || s.status === 'failed') {
             setExitInfo({ code: s.exit_code, duration: s.duration });
@@ -471,10 +488,15 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
         onReconnected: handleReconnected,
         onStatus: (s: JobStatus) => {
           setStatus(s.status);
+          const isTerminal =
+            s.status === 'complete' ||
+            s.status === 'failed' ||
+            s.status === 'cancelled';
           patchJob(job_id, {
             status: s.status,
             exit_code: s.exit_code ?? undefined,
             duration: s.duration != null ? String(s.duration) : undefined,
+            ...(isTerminal ? { stderr_count: stderrCountRef.current } : {}),
           });
           if (s.status === 'complete' || s.status === 'failed') {
             setExitInfo({ code: s.exit_code, duration: s.duration });
@@ -520,6 +542,7 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
       flushScheduledRef.current = null;
     }
     linesBufferRef.current = [];
+    stderrCountRef.current = 0;
     // Drop any lingering "Reconnecting" indicator from the previous run.
     if (reconnectArmTimerRef.current != null) {
       window.clearTimeout(reconnectArmTimerRef.current);

@@ -692,6 +692,14 @@ function JobRow({ entry, onClick, onRerun, onCancel }: JobRowProps) {
                   <span style={{ fontFamily: E.fMono }}>exit {entry.exit_code}</span>
                 </>
               )}
+            {entry.stderr_count != null && entry.stderr_count > 0 && (
+              <>
+                <span style={{ color: E.text4 }}>·</span>
+                <span style={{ fontFamily: E.fMono, color: '#c47766' }}>
+                  {entry.stderr_count} stderr
+                </span>
+              </>
+            )}
           </div>
         </div>
         <Pill mono color={pill.color} bg={pill.bg}>

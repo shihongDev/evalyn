@@ -45,6 +45,11 @@ export interface JobHistoryEntry {
    * last opened the drawer can still produce a failure AFTER that ack.
    * Stamped automatically by patchJob. */
   failed_at_iso?: string;
+  /** Cumulative count of stderr lines observed for this job by the
+   * client. Updated by CliRunner as it streams output. Persisted so
+   * the Recent Jobs drawer can surface "5 stderr" inline next to the
+   * exit code - useful for spotting noisy jobs even when exit code 0. */
+  stderr_count?: number;
 }
 
 function safeStorage(): Storage | null {
