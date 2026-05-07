@@ -19,8 +19,8 @@
  * so this view stays usable in either state.
  */
 
-import { useMemo, useState } from 'react';
-import type { CSSProperties, ReactNode } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
@@ -524,14 +524,45 @@ function AudienceTabs({
   active: Audience;
   onChange: (a: Audience) => void;
 }) {
+  // Refs per tab so arrow-key navigation can move focus to the
+  // newly-activated tab. Roving tabindex (active = 0, others = -1)
+  // keeps the tab strip a single Tab stop, which is the standard
+  // ARIA pattern for tablists.
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const activeIdx = AUDIENCES.indexOf(active);
+  const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    let nextIdx: number | null = null;
+    if (e.key === 'ArrowRight') nextIdx = (activeIdx + 1) % AUDIENCES.length;
+    else if (e.key === 'ArrowLeft')
+      nextIdx = (activeIdx - 1 + AUDIENCES.length) % AUDIENCES.length;
+    else if (e.key === 'Home') nextIdx = 0;
+    else if (e.key === 'End') nextIdx = AUDIENCES.length - 1;
+    if (nextIdx === null) return;
+    e.preventDefault();
+    onChange(AUDIENCES[nextIdx]);
+    // Defer focus so React commits the new aria-selected first; without
+    // this the wrong button briefly carries focus during the transition.
+    window.setTimeout(() => tabRefs.current[nextIdx!]?.focus(), 0);
+  };
   return (
-    <div style={{ display: 'flex', gap: 4, marginBottom: 14, flexWrap: 'wrap' }}>
-      {AUDIENCES.map((t) => {
+    <div
+      role="tablist"
+      aria-label="Report audience"
+      onKeyDown={onKeyDown}
+      style={{ display: 'flex', gap: 4, marginBottom: 14, flexWrap: 'wrap' }}
+    >
+      {AUDIENCES.map((t, i) => {
         const isActive = t === active;
         return (
           <button
             key={t}
+            ref={(el) => {
+              tabRefs.current[i] = el;
+            }}
             type="button"
+            role="tab"
+            aria-selected={isActive}
+            tabIndex={isActive ? 0 : -1}
             onClick={() => onChange(t)}
             style={{
               padding: '6px 12px',
