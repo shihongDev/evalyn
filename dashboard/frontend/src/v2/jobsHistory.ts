@@ -50,6 +50,12 @@ export interface JobHistoryEntry {
    * the Recent Jobs drawer can surface "5 stderr" inline next to the
    * exit code - useful for spotting noisy jobs even when exit code 0. */
   stderr_count?: number;
+  /** Pinned entries are preserved when the history cap evicts old
+   * rows. Useful for "I want to keep this reference run around even
+   * after I do dozens of new ones". Pinned entries also sort to the
+   * top of the drawer so they're always one click away. Optional: a
+   * fresh entry is unpinned by default. */
+  pinned?: boolean;
 }
 
 function safeStorage(): Storage | null {
@@ -81,13 +87,29 @@ export function loadJobsHistory(): JobHistoryEntry[] {
   }
 }
 
-/** Persist `entries` to localStorage. Caps at MAX_ENTRIES (drop oldest). */
+/** Persist `entries` to localStorage. Caps at MAX_ENTRIES (drop oldest
+ * UNPINNED), preserving pinned entries even when the cap is exceeded.
+ *
+ * Sort within the persisted list: pinned entries first (newest-first
+ * within pinned), then unpinned (newest-first). The drawer reads this
+ * ordering directly so the natural top-of-list position is "pinned
+ * recent" - matches the user's mental model of "stuff I starred is
+ * always at the top". */
 export function saveJobsHistory(entries: JobHistoryEntry[]): void {
   const ls = safeStorage();
   if (!ls) return;
   try {
-    const sorted = sortNewestFirst(entries).slice(0, MAX_ENTRIES);
-    ls.setItem(STORAGE_KEY, JSON.stringify(sorted));
+    const sorted = sortNewestFirst(entries);
+    const pinned = sorted.filter((e) => e.pinned);
+    const unpinned = sorted.filter((e) => !e.pinned);
+    // Cap: total fits in MAX_ENTRIES. If pins alone exceed the cap
+    // (degenerate case: a user pinned 30+ jobs), keep all pins and
+    // drop unpinned entirely. The total slot count grows beyond
+    // MAX_ENTRIES in that case, but the user explicitly opted in to
+    // each pin, so respecting them is the least-surprise behavior.
+    const slotsForUnpinned = Math.max(0, MAX_ENTRIES - pinned.length);
+    const kept = [...pinned, ...unpinned.slice(0, slotsForUnpinned)];
+    ls.setItem(STORAGE_KEY, JSON.stringify(kept));
     notify();
   } catch {
     // Quota exceeded or storage disabled - silently drop.
@@ -137,6 +159,21 @@ export function removeJob(jobId: string): void {
   saveJobsHistory(list);
 }
 
+/** Toggle (or set explicitly) the pinned state on a single entry.
+ *
+ * Pinned entries survive the history cap and sort to the top of the
+ * drawer. No-op if the job isn't in history (we don't synthesize a
+ * stub - pinning a job we have no record of would surface as an
+ * empty row). */
+export function setJobPinned(jobId: string, pinned: boolean): void {
+  const list = loadJobsHistory();
+  const idx = list.findIndex((e) => e.job_id === jobId);
+  if (idx < 0) return;
+  if (Boolean(list[idx].pinned) === pinned) return;
+  list[idx] = { ...list[idx], pinned };
+  saveJobsHistory(list);
+}
+
 /** Drop entries whose status is 'unknown' (backend evicted the record,
  * usually a server restart) and whose started_at_iso is older than the
  * given cutoff in milliseconds. Returns the count removed. Used by the
@@ -158,13 +195,22 @@ export function pruneStaleUnknown(maxAgeMs: number): number {
   return list.length - kept.length;
 }
 
-/** Drop every entry. Does NOT cancel any actually-running jobs. */
+/** Drop every UNPINNED entry. Pinned entries survive (the user
+ * explicitly opted in to keeping them; "Clear" silently wiping them
+ * would be a nasty surprise). To remove a pinned entry the user has
+ * to unpin it first or use removeJob. Does NOT cancel any
+ * actually-running jobs. */
 export function clearJobsHistory(): void {
   const ls = safeStorage();
   if (!ls) return;
   try {
-    ls.removeItem(STORAGE_KEY);
-    notify();
+    const remaining = loadJobsHistory().filter((e) => e.pinned);
+    if (remaining.length === 0) {
+      ls.removeItem(STORAGE_KEY);
+      notify();
+      return;
+    }
+    saveJobsHistory(remaining);
   } catch {
     // ignore
   }
@@ -227,9 +273,20 @@ function isJobHistoryEntry(v: unknown): v is JobHistoryEntry {
 }
 
 function sortNewestFirst(entries: JobHistoryEntry[]): JobHistoryEntry[] {
-  return [...entries].sort((a, b) =>
-    a.started_at_iso < b.started_at_iso ? 1 : a.started_at_iso > b.started_at_iso ? -1 : 0,
-  );
+  // Pinned entries always sort above unpinned, regardless of age.
+  // Within each group: newest started_at_iso first. This matches the
+  // user's "stuff I starred is at the top" expectation while still
+  // letting recent activity rise within each section.
+  return [...entries].sort((a, b) => {
+    const ap = a.pinned ? 1 : 0;
+    const bp = b.pinned ? 1 : 0;
+    if (ap !== bp) return bp - ap;
+    return a.started_at_iso < b.started_at_iso
+      ? 1
+      : a.started_at_iso > b.started_at_iso
+        ? -1
+        : 0;
+  });
 }
 
 /** Convenience: count entries that are still queued/running. */
