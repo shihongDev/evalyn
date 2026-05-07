@@ -28,6 +28,11 @@ export interface SystemHealth {
    * the server hasn't vacuumed yet in this process (vacuum is
    * triggered by the shutdown hook, not steady-state). */
   last_vacuum_at: number | null;
+  /** Failed jobs in the last 24h. Read from the persistence
+   * `stats()` call (cheap due to the TTL cache shared with the
+   * `jobs_persisted` count). Useful as an "are things going
+   * wrong?" glance metric on the SystemStatusCard. */
+  recent_failures_24h: number;
 }
 
 const NUMBER_FIELDS = [
@@ -39,6 +44,7 @@ const NUMBER_FIELDS = [
   'agent_open_threads',
   'jobs_persisted',
   'jobs_db_bytes',
+  'recent_failures_24h',
 ] as const;
 
 function isSystemHealth(body: unknown): body is SystemHealth {

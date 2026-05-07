@@ -363,6 +363,8 @@ def build_app(
             jobs_db_bytes: <int>,  # main + WAL + SHM file size
             last_vacuum_at: <float|None>,  # epoch of last VACUUM, None if
                                            # not yet vacuumed in this process
+            recent_failures_24h: <int>,  # COUNT(jobs WHERE status='failed'
+                                         # AND started_at > now - 24h)
           }
 
         Useful for:
@@ -409,10 +411,18 @@ def build_app(
         jobs_persisted = 0
         jobs_db_bytes = 0
         last_vacuum_at: float | None = None
+        recent_failures_24h = 0
         persistence = getattr(jm, "_persistence", None) if jm is not None else None
         if persistence is not None:
+            # Pull both totals from a single stats() call. The TTL
+            # cache means a second stats() call within the window
+            # is free; calling once and reading two fields is
+            # still cleaner and removes a dependency on the cache
+            # for correctness.
             try:
-                jobs_persisted = int(persistence.stats().get("total", 0))
+                stats = persistence.stats()
+                jobs_persisted = int(stats.get("total", 0))
+                recent_failures_24h = int(stats.get("recent_failures", 0))
             except Exception:  # noqa: BLE001
                 pass
             try:
@@ -435,6 +445,7 @@ def build_app(
             "jobs_persisted": jobs_persisted,
             "jobs_db_bytes": jobs_db_bytes,
             "last_vacuum_at": last_vacuum_at,
+            "recent_failures_24h": recent_failures_24h,
         }
 
     _register_api_routers(app)

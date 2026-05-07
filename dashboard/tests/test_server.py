@@ -46,6 +46,10 @@ def test_healthcheck() -> None:
     assert body["last_vacuum_at"] is None or isinstance(
         body["last_vacuum_at"], (int, float)
     )
+    # recent_failures_24h: from the cached stats() call. >= 0
+    # always; on a fresh app with no jobs it's exactly 0.
+    assert isinstance(body["recent_failures_24h"], int)
+    assert body["recent_failures_24h"] >= 0
 
 
 def test_healthcheck_capacity_zero_when_idle() -> None:
@@ -82,6 +86,8 @@ def test_healthcheck_survives_missing_job_manager(monkeypatch) -> None:
     assert body["jobs_db_bytes"] == 0
     # last_vacuum_at falls back to None in the degraded path.
     assert body["last_vacuum_at"] is None
+    # recent_failures_24h falls through to 0 in the degraded path.
+    assert body["recent_failures_24h"] == 0
 
 
 def test_index_served() -> None:
