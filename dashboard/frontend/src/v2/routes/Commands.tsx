@@ -306,6 +306,27 @@ function LeftRail({
     [recentIds, byId],
   );
 
+  // "/" focuses the filter input. Mirrors the convention on Datasets,
+  // RecentJobsDrawer, ExperimentsList, etc. - the help overlay
+  // already advertises "/" as the global "focus search" shortcut.
+  // Skip when focus is already in an input/textarea/contentEditable
+  // surface so users typing elsewhere don't get "/" hijacked.
+  const searchRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) {
+        return;
+      }
+      e.preventDefault();
+      searchRef.current?.focus();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
     <div
       style={{
@@ -329,8 +350,9 @@ function LeftRail({
         }}
       >
         <input
+          ref={searchRef}
           aria-label="Filter commands"
-          placeholder="Filter commands"
+          placeholder="Filter commands  (/)"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
