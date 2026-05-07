@@ -39,10 +39,20 @@ export type ConnectionStatus = 'open' | 'reconnecting';
 type Listener = (evt: V2Event) => void;
 type StatusListener = (status: ConnectionStatus) => void;
 
-const RECONNECT_DELAY_MS = 2000;
+// Reconnect uses exponential backoff with jitter, capped. The
+// previous fixed 2s was fine when the server is briefly down
+// (dev restart) but wasted bandwidth when the server is gone for
+// real (deploy hiccup, network partition). 2s -> 4s -> 8s -> 16s
+// -> 30s (capped). Reset to RECONNECT_BASE_MS on every successful
+// open. Jitter prevents N tabs from thundering on the server the
+// instant it comes back.
+const RECONNECT_BASE_MS = 2000;
+const RECONNECT_MAX_MS = 30000;
+const RECONNECT_JITTER_MS = 500;
 
 let _ws: WebSocket | null = null;
 let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let _reconnectAttempt = 0;
 let _status: ConnectionStatus = 'reconnecting';
 const _listeners = new Set<Listener>();
 const _statusListeners = new Set<StatusListener>();
@@ -71,12 +81,26 @@ function clearReconnectTimer(): void {
   }
 }
 
+/** Compute the next backoff delay. Doubled each attempt, capped
+ * at RECONNECT_MAX_MS, plus a random jitter of [0, RECONNECT_JITTER_MS)
+ * so concurrent dashboards don't reconnect in lockstep after a
+ * server restart (thundering herd). Exported for tests. */
+export function _computeBackoffMs(attempt: number): number {
+  const exp = Math.min(
+    RECONNECT_BASE_MS * Math.pow(2, attempt),
+    RECONNECT_MAX_MS,
+  );
+  return exp + Math.random() * RECONNECT_JITTER_MS;
+}
+
 function scheduleReconnect(): void {
   clearReconnectTimer();
+  const delay = _computeBackoffMs(_reconnectAttempt);
+  _reconnectAttempt += 1;
   _reconnectTimer = setTimeout(() => {
     _reconnectTimer = null;
     startV2EventStream();
-  }, RECONNECT_DELAY_MS);
+  }, delay);
 }
 
 function isV2Event(value: unknown): value is V2Event {
@@ -106,6 +130,9 @@ export function startV2EventStream(): void {
 
   ws.addEventListener('open', () => {
     setStatus('open');
+    // Reset the backoff so a future flake re-starts at
+    // RECONNECT_BASE_MS rather than the last attempt's tier.
+    _reconnectAttempt = 0;
   });
 
   ws.addEventListener('message', (e) => {
@@ -174,4 +201,5 @@ export function _resetV2EventStream(): void {
   _listeners.clear();
   _statusListeners.clear();
   _status = 'reconnecting';
+  _reconnectAttempt = 0;
 }
