@@ -951,7 +951,20 @@ class AgentRuntime:
         surfaces never drift. Bodies of messages and events are NOT
         included - the listing should stay lightweight; full event
         stream is reachable via ``/ws/agent/{thread_id}``.
+
+        ``last_event_at`` is the wall-clock timestamp (unix epoch
+        seconds) of the most recent event, or None when the thread
+        has none yet. Useful for "is this thread stuck?" detection:
+        a thread with ``has_pending_confirmation=True`` AND a stale
+        ``last_event_at`` is awaiting user action; one with a fresh
+        timestamp is mid-turn. Without this field, a client polling
+        the listing has no way to tell live activity from idle.
         """
+        last_event_at: float | None = None
+        if thread.events:
+            ts = thread.events[-1].get("ts")
+            if isinstance(ts, (int, float)):
+                last_event_at = float(ts)
         return {
             "id": thread.id,
             "message_count": len(thread.messages),
@@ -960,6 +973,7 @@ class AgentRuntime:
             "has_pending_confirmation": (
                 thread.pending_tool_call_id is not None
             ),
+            "last_event_at": last_event_at,
         }
 
     def list_threads(self) -> list[dict[str, Any]]:

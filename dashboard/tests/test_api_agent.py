@@ -649,6 +649,55 @@ def test_list_threads_503_when_runtime_missing(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+def test_thread_metadata_includes_last_event_at(tmp_path: Path) -> None:
+    """Thread metadata exposes last_event_at (unix-epoch float) so a
+    client polling the thread listing can tell idle threads from
+    active ones. None when the thread has no events yet."""
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider(
+            [
+                [
+                    ProviderEvent(kind="text_delta", text="x"),
+                    ProviderEvent(kind="finish"),
+                ]
+            ]
+        ),
+        catalog=_sample_catalog(),
+        tool_runner=_unused_runner,
+    )
+    client, token = _make_client(tmp_path, runtime)
+
+    # Pre-create a thread without any events. last_event_at = None.
+    empty_id = runtime.create_thread()
+    r0 = client.get(f"/api/agent/threads/{empty_id}")
+    assert r0.status_code == 200
+    body0 = r0.json()
+    assert "last_event_at" in body0
+    assert body0["last_event_at"] is None
+
+    # Drive a turn. last_event_at should now be a recent unix timestamp.
+    r = client.post(
+        "/api/agent/chat",
+        json={"message": "hi"},
+        headers={CSRF_HEADER: token},
+    )
+    thread_id = r.json()["thread_id"]
+    deadline = time.time() + 5.0
+    while time.time() < deadline:
+        evts = runtime._threads[thread_id].events
+        if any(e["type"] == "final" for e in evts):
+            break
+        time.sleep(0.02)
+
+    r2 = client.get(f"/api/agent/threads/{thread_id}")
+    assert r2.status_code == 200
+    body2 = r2.json()
+    assert body2["last_event_at"] is not None
+    assert isinstance(body2["last_event_at"], float)
+    # Within a few seconds of "now".
+    assert abs(time.time() - body2["last_event_at"]) < 30
+
+
 def test_thread_messages_returns_user_and_assistant(tmp_path: Path) -> None:
     """GET /api/agent/threads/{id}/messages returns user + assistant
     bodies in conversation order. System prompt is filtered out so a
