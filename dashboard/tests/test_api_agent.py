@@ -642,3 +642,49 @@ def test_list_threads_503_when_runtime_missing(tmp_path: Path) -> None:
     client = TestClient(app)
     r = client.get("/api/agent/threads")
     assert r.status_code == 503
+
+
+# ---------------------------------------------------------------------------
+# WS heartbeat: idle agent thread keeps connection alive via ping frames
+# ---------------------------------------------------------------------------
+
+
+def test_ws_agent_sends_periodic_ping_on_idle(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Heartbeat: an idle agent thread (no active turn) still emits
+    ``{"type":"ping"}`` frames so NATs/proxies don't kill the long-
+    running connection. Mirrors the jobs WS heartbeat test in
+    test_ws_jobs.py - same shared helper, separate WS handler."""
+    from evalyn_dashboard.api import _ws_heartbeat
+
+    # Patch the cadence to 50ms so we don't have to wait for the real
+    # 25s interval. The shared module is the one both jobs_ws and
+    # agent_ws import from.
+    monkeypatch.setattr(_ws_heartbeat, "WS_PING_INTERVAL_S", 0.05)
+
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider([]),
+        catalog=_sample_catalog(),
+        tool_runner=_unused_runner,
+    )
+    client, _ = _make_client(tmp_path, runtime)
+
+    # Pre-create a thread but DO NOT post any chat - the thread sits
+    # idle. Without the heartbeat, the WS subscription would never
+    # receive any frame; with it, ping frames arrive at 50ms intervals.
+    thread_id = runtime.create_thread()
+    with client.websocket_connect(f"/ws/agent/{thread_id}") as ws:
+        # Drain a bounded number of frames; we expect at least one
+        # ping within the first ~200ms.
+        pings = 0
+        for _ in range(10):
+            text = ws.receive_text()
+            evt = json.loads(text)
+            if evt.get("type") == "ping":
+                pings += 1
+                # Wire spec contract: ping carries a "ts" wall-clock
+                # field for client-side latency observability.
+                assert isinstance(evt.get("ts"), (int, float))
+                break
+        assert pings >= 1, "expected at least one ping frame on idle agent WS"
