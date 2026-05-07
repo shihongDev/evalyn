@@ -149,6 +149,50 @@ async def recent_jobs(
     return JSONResponse(merged[:limit])
 
 
+@router.get("/stats")
+async def jobs_stats(
+    request: Request,
+    recent_window_s: int = 86400,
+) -> JSONResponse:
+    """Aggregate counts over the job history.
+
+    Returns ``{total, by_status, total_stderr, recent_failures}``.
+    ``recent_window_s`` controls the age threshold for the
+    ``recent_failures`` count (default 24h). The persisted side does
+    the heavy lifting via ``JobPersistence.stats``; in-memory queued
+    or running jobs that haven't yet hit ``_persist_job_terminal``
+    are merged in by adjusting the ``by_status`` counts so a fresh
+    "running" job is not undercounted.
+
+    Useful for an at-a-glance dashboard health badge or for an admin
+    answering "how many failed jobs in the last day?" without paging.
+    """
+    if recent_window_s < 0:
+        raise HTTPException(
+            status_code=400, detail="recent_window_s must be >= 0"
+        )
+    jm = request.app.state.job_manager
+    persistence = _persistence_for(jm)
+    if persistence is None:
+        # Test setups without persistence: build the same shape from
+        # in-memory only.
+        in_mem = list(jm.recent(n=10_000))
+        by_status: dict[str, int] = {}
+        for j in in_mem:
+            by_status[j.state] = by_status.get(j.state, 0) + 1
+        return JSONResponse(
+            {
+                "total": len(in_mem),
+                "by_status": by_status,
+                "total_stderr": sum(j.stderr_count for j in in_mem),
+                "recent_failures": sum(
+                    1 for j in in_mem if j.state == "failed"
+                ),
+            }
+        )
+    return JSONResponse(persistence.stats(recent_window_s))
+
+
 @router.get("/{job_id}")
 async def get_job(request: Request, job_id: str) -> JSONResponse:
     jm = request.app.state.job_manager

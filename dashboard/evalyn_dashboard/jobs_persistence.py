@@ -363,6 +363,64 @@ class JobPersistence:
     # GC
     # ------------------------------------------------------------------
 
+    def stats(self, recent_failure_window_seconds: int = 86400) -> dict:
+        """Aggregate counts over the persisted jobs table.
+
+        Returns a dict shaped::
+
+            {
+              total: int,                 # all rows
+              by_status: dict[str, int],  # COUNT(*) GROUP BY status
+              total_stderr: int,          # SUM(stderr_count)
+              recent_failures: int,       # failed jobs in the last
+                                          # ``recent_failure_window_seconds``
+            }
+
+        Empty dict shape on read failure (logged at WARN). Each query
+        is a single aggregate so this is cheap even with many rows.
+        """
+        empty = {
+            "total": 0,
+            "by_status": {},
+            "total_stderr": 0,
+            "recent_failures": 0,
+        }
+        if not self._readable():
+            return empty
+        try:
+            from datetime import datetime, timedelta, timezone
+
+            cutoff = datetime.now(timezone.utc) - timedelta(
+                seconds=recent_failure_window_seconds
+            )
+            cutoff_iso = cutoff.isoformat()
+            with self._connect() as conn:
+                total = conn.execute(
+                    "SELECT COUNT(*) FROM jobs"
+                ).fetchone()[0] or 0
+                by_status: dict[str, int] = {}
+                for row in conn.execute(
+                    "SELECT status, COUNT(*) FROM jobs GROUP BY status"
+                ).fetchall():
+                    by_status[row[0]] = row[1]
+                total_stderr = conn.execute(
+                    "SELECT COALESCE(SUM(stderr_count), 0) FROM jobs"
+                ).fetchone()[0] or 0
+                recent_failures = conn.execute(
+                    "SELECT COUNT(*) FROM jobs "
+                    "WHERE status=? AND started_at_iso > ?",
+                    ("failed", cutoff_iso),
+                ).fetchone()[0] or 0
+            return {
+                "total": int(total),
+                "by_status": by_status,
+                "total_stderr": int(total_stderr),
+                "recent_failures": int(recent_failures),
+            }
+        except (OSError, sqlite3.Error) as exc:
+            logger.warning("JobPersistence stats failed: %s", exc)
+            return empty
+
     def delete(self, job_id: str) -> bool:
         """Delete a single row by job_id. Returns True if a row was
         removed, False otherwise (unknown id, or persistence

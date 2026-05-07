@@ -229,6 +229,52 @@ def test_delete_running_job_returns_409():
             _wait(client, app, job_id)
 
 
+def test_stats_endpoint_aggregates_counts():
+    """GET /api/jobs/stats returns counts by status, total stderr, and
+    recent failures. Uses real spawned jobs so the persistence path
+    runs end-to-end."""
+    app = build_app()
+    with TestClient(app) as client:
+        # Spawn one ok job and one failing job with stderr output.
+        ok_id = _spawn(client, app, [sys.executable, "-c", "print('ok')"])
+        _wait(client, app, ok_id)
+        fail_id = _spawn(
+            client,
+            app,
+            [
+                sys.executable,
+                "-c",
+                "import sys; sys.stderr.write('boom\\n'); sys.exit(2)",
+            ],
+        )
+        _wait(client, app, fail_id)
+
+        r = client.get("/api/jobs/stats")
+        assert r.status_code == 200, r.text
+        body = r.json()
+        # Shape contract.
+        assert "total" in body
+        assert "by_status" in body
+        assert "total_stderr" in body
+        assert "recent_failures" in body
+        # Both jobs counted.
+        assert body["total"] >= 2
+        # Status breakdown.
+        assert body["by_status"].get("complete", 0) >= 1
+        assert body["by_status"].get("failed", 0) >= 1
+        # Stderr total >= 1 from the failing job.
+        assert body["total_stderr"] >= 1
+        # The fail just happened so it falls inside the 24h window.
+        assert body["recent_failures"] >= 1
+
+
+def test_stats_endpoint_rejects_negative_window():
+    app = build_app()
+    with TestClient(app) as client:
+        r = client.get("/api/jobs/stats?recent_window_s=-1")
+        assert r.status_code == 400
+
+
 def test_delete_unknown_job_returns_404():
     app = build_app()
     with TestClient(app) as client:

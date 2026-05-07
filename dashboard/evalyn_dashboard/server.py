@@ -241,7 +241,7 @@ def _register_v2_routers(app: FastAPI) -> None:
     # is useful even if some routers failed to import).
     try:
         from .api.v2.v2_ws import register_v2_ws_routes
-        from .api.v2._shared import start_watcher, stop_watcher
+        from .api.v2._shared import prewarm, start_watcher, stop_watcher
     except ImportError as exc:
         logger.warning("v2 ws wiring failed; /ws/v2/events will 404: %s", exc)
         return
@@ -250,6 +250,11 @@ def _register_v2_routers(app: FastAPI) -> None:
 
     @app.on_event("startup")
     async def _v2_start_watcher() -> None:
+        # Pre-warm the run cache in a background thread so the first
+        # request after launch hits memory instead of the cold FS walk +
+        # JSON parse. Fire-and-forget: a slow walk on a fresh workspace
+        # must not delay the first HTTP/WS handshake.
+        prewarm()
         start_watcher()
 
     @app.on_event("shutdown")

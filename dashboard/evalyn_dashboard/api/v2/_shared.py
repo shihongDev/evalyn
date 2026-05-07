@@ -21,9 +21,11 @@ read short-circuits when the env var is set).
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
+import tempfile
 from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -112,6 +114,7 @@ def _clear_caches_for_tests() -> None:
     _response_snapshot_cache.clear()
     _verdicts_file_cache.clear()
     _reviews_dirs_cache.clear()
+    _clear_run_dirs_snapshots()
     try:
         from . import datasets as _datasets_mod  # noqa: WPS433 - intentional
         _datasets_mod._coverage_cache.clear()
@@ -239,6 +242,110 @@ def list_dataset_dirs(root: Path) -> list[Path]:
     return out
 
 
+def _run_dirs_snapshot_dir() -> Path:
+    """Directory holding on-disk run-dir snapshots, one file per root."""
+    return Path.cwd() / ".evalyn" / "cache" / "run_dirs"
+
+
+def _run_dirs_snapshot_path(root: Path) -> Path:
+    """Snapshot file for ``root``, named by a stable hash of its absolute path.
+
+    Hashing the path keeps file names short and filesystem-safe across
+    Windows/Linux while still being unique per root (we walk both prod
+    and demo roots). The snapshot itself records the absolute path so a
+    cross-checkout collision would self-detect.
+    """
+    digest = hashlib.sha256(str(root).encode("utf-8")).hexdigest()[:16]
+    return _run_dirs_snapshot_dir() / f"{digest}.json"
+
+
+def _load_run_dirs_snapshot(root: Path, mtime: float) -> list[Path] | None:
+    """Read the persisted run-dir list for ``root`` if it matches ``mtime``.
+
+    Returns ``None`` on miss, mismatch, or any I/O / parse error - callers
+    fall back to the live filesystem walk and rewrite the snapshot.
+    """
+    path = _run_dirs_snapshot_path(root)
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        logger.warning("run_dirs snapshot parse failed at %s: %s", path, exc)
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("root") != str(root):
+        return None
+    if payload.get("mtime") != mtime:
+        return None
+    paths = payload.get("paths")
+    if not isinstance(paths, list):
+        return None
+    out: list[Path] = []
+    for p in paths:
+        if not isinstance(p, str):
+            return None
+        candidate = Path(p)
+        # If a dir vanished since the snapshot was written, skip it
+        # silently rather than poison the cache; the next mtime bump
+        # rebuilds from scratch.
+        if candidate.is_dir():
+            out.append(candidate)
+    return out
+
+
+def _save_run_dirs_snapshot(root: Path, mtime: float, paths: list[Path]) -> None:
+    """Atomically persist the run-dir list for ``root`` keyed on ``mtime``.
+
+    Best-effort: any I/O error is logged at WARN and swallowed - the
+    in-memory cache is still valid, we just take the slow path next boot.
+    Atomic via ``NamedTemporaryFile`` + ``os.replace`` so a partial
+    write can't corrupt a future read.
+    """
+    snap_dir = _run_dirs_snapshot_dir()
+    try:
+        snap_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        logger.warning("run_dirs snapshot mkdir failed at %s: %s", snap_dir, exc)
+        return
+    payload = {
+        "root": str(root),
+        "mtime": mtime,
+        "paths": [str(p) for p in paths],
+    }
+    final = _run_dirs_snapshot_path(root)
+    try:
+        # NamedTemporaryFile writes to the same dir so os.replace is atomic.
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            delete=False,
+            dir=str(snap_dir),
+            prefix=".tmp-",
+            suffix=".json",
+        ) as f:
+            json.dump(payload, f)
+            tmp_name = f.name
+        os.replace(tmp_name, final)
+    except OSError as exc:
+        logger.warning("run_dirs snapshot write failed at %s: %s", final, exc)
+
+
+def _clear_run_dirs_snapshots() -> None:
+    """Remove every persisted run-dir snapshot. Test-only seam."""
+    snap_dir = _run_dirs_snapshot_dir()
+    if not snap_dir.is_dir():
+        return
+    for entry in snap_dir.iterdir():
+        try:
+            entry.unlink()
+        except OSError:
+            pass
+
+
 def _list_run_dirs_for_root(root: Path) -> list[Path]:
     """Return cached list of run dirs under ``root``, mtime-invalidated.
 
@@ -248,6 +355,14 @@ def _list_run_dirs_for_root(root: Path) -> list[Path]:
     the root mtime but a new dataset typically arrives before its first
     run anyway, so the cache reaches steady state quickly. Callers that
     need stronger freshness can invalidate via ``_clear_caches_for_tests``.
+
+    Cache layers (cheapest first):
+      1. Process memory (``_run_dirs_cache``).
+      2. On-disk snapshot under ``.evalyn/cache/run_dirs/`` keyed on the
+         root's mtime - survives process restarts so the first request
+         after a fresh dashboard launch skips the multi-second WSL/NTFS
+         iterdir walk over potentially hundreds of empty dataset dirs.
+      3. Live filesystem walk via :func:`_walk_run_dirs`.
     """
     if not root.is_dir():
         return []
@@ -260,8 +375,13 @@ def _list_run_dirs_for_root(root: Path) -> list[Path]:
     cached = _run_dirs_cache.get(root)
     if cached and cached[0] == mtime:
         return cached[1]
+    snapshot = _load_run_dirs_snapshot(root, mtime)
+    if snapshot is not None:
+        _run_dirs_cache[root] = (mtime, snapshot)
+        return snapshot
     out = _walk_run_dirs(root)
     _run_dirs_cache[root] = (mtime, out)
+    _save_run_dirs_snapshot(root, mtime, out)
     return out
 
 
@@ -968,4 +1088,59 @@ async def stop_watcher() -> None:
     try:
         await task
     except (asyncio.CancelledError, Exception):  # noqa: BLE001
+        pass
+
+
+_PREWARM_TASK: asyncio.Task | None = None
+
+
+def _prewarm_blocking() -> None:
+    """Synchronous worker that fills the run cache. Called via ``to_thread``.
+
+    Walks every dataset root once via :func:`load_all_runs`, populating
+    :data:`_run_dirs_cache`, :data:`_run_cache`, and :data:`_all_runs_cache`
+    so the first inbound request hits warm caches instead of paying the
+    multi-second cold walk + JSON parse. On a workspace with persisted
+    snapshots from a previous boot the FS walk itself is also skipped.
+    """
+    try:
+        load_all_runs()
+    except Exception as exc:  # noqa: BLE001 - never block startup on a cache miss
+        logger.warning("v2 prewarm aborted: %s", exc)
+
+
+def prewarm() -> None:
+    """Start the background prewarm task on the current event loop.
+
+    Idempotent: a second call while a task is alive is a no-op. Called
+    from the FastAPI ``startup`` hook alongside :func:`start_watcher`;
+    the work happens in a thread so we don't block the event loop the
+    WS handler uses. If no loop is running yet (e.g. called outside
+    startup) the call is a quiet no-op so the caller can ship later.
+    """
+    global _PREWARM_TASK
+    if _PREWARM_TASK is not None and not _PREWARM_TASK.done():
+        return
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        logger.debug("prewarm called with no running loop; skipping")
+        return
+    _PREWARM_TASK = loop.create_task(asyncio.to_thread(_prewarm_blocking))
+
+
+async def await_prewarm() -> None:
+    """Wait for the prewarm task to finish if one is running. Test seam.
+
+    Production code never awaits prewarm - it's deliberately fire-and-
+    forget so a slow walk on a fresh workspace doesn't delay the first
+    HTTP/WS handshake. Tests that want deterministic cache state after
+    startup can ``await await_prewarm()`` to block until done.
+    """
+    task = _PREWARM_TASK
+    if task is None:
+        return
+    try:
+        await task
+    except Exception:  # noqa: BLE001
         pass
