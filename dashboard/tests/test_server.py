@@ -15,7 +15,15 @@ def test_healthcheck() -> None:
     client = TestClient(build_app())
     r = client.get("/api/health")
     assert r.status_code == 200
-    assert r.json() == {"ok": True}
+    body = r.json()
+    # Backwards-compatible: ok field still present.
+    assert body["ok"] is True
+    # Newer fields useful for monitors and build-tagging.
+    assert isinstance(body["version"], str) and len(body["version"]) > 0
+    assert isinstance(body["started_at"], (int, float))
+    assert body["started_at"] > 0
+    assert isinstance(body["uptime_seconds"], int)
+    assert body["uptime_seconds"] >= 0
 
 
 def test_index_served() -> None:

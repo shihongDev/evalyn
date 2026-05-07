@@ -291,6 +291,12 @@ def build_app(
     csrf_token = token or secrets.token_urlsafe(32)
     app = FastAPI(title="evalyn-dashboard", version="0.1.0")
     app.state.workbench_token = csrf_token
+    # Wall-clock at startup, used by /api/health to expose uptime so a
+    # monitor can verify the process started recently. Stored as a unix
+    # epoch float (UTC) for cheap subtraction.
+    import time as _time
+
+    app.state.started_at = _time.time()
 
     # Lazily imported to avoid making ``server.build_app`` pay the cost
     # of catalog walking on every test that only touches healthcheck.
@@ -322,7 +328,29 @@ def build_app(
 
     @app.get("/api/health")
     async def healthcheck() -> dict:
-        return {"ok": True}
+        """Return basic process health.
+
+        Shape:
+          {
+            ok: True,
+            version: "<semver>",
+            started_at: <unix epoch float>,
+            uptime_seconds: <int>,
+          }
+
+        Useful for external monitors (curl-based liveness checks,
+        process supervisors, dev-server "is it up yet?" loops) and
+        for tagging UI responses to a specific build at debug time.
+        """
+        import time as _time
+
+        started_at = float(getattr(app.state, "started_at", _time.time()))
+        return {
+            "ok": True,
+            "version": app.version,
+            "started_at": started_at,
+            "uptime_seconds": int(_time.time() - started_at),
+        }
 
     _register_api_routers(app)
 
