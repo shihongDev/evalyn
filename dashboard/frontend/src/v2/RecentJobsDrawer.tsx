@@ -36,6 +36,7 @@ import {
   patchJob,
   pruneStaleUnknown,
   setFailureAckTime,
+  setJobPinned,
   setJobsDrawerFailureFilter,
   subscribeJobsHistory,
   upsertJob,
@@ -582,6 +583,9 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
                 onClick={() => onRowClick(e)}
                 onRerun={() => onRerun(e)}
                 onCancel={() => onCancelRow(e)}
+                onTogglePin={() =>
+                  setJobPinned(e.job_id, !e.pinned)
+                }
               />
             ))
           )}
@@ -985,9 +989,13 @@ interface JobRowProps {
    * endpoint and optimistically patch the local entry. Hidden for
    * terminal rows (no live job to kill). */
   onCancel?: () => void | Promise<void>;
+  /** Toggle the pinned state. Pinned entries survive the history cap
+   * and sort to the top of the drawer. Always available (unlike
+   * rerun/cancel which are status-gated). */
+  onTogglePin?: () => void;
 }
 
-function JobRow({ entry, onClick, onRerun, onCancel }: JobRowProps) {
+function JobRow({ entry, onClick, onRerun, onCancel, onTogglePin }: JobRowProps) {
   const dim = entry.status === 'unknown';
   const pill = statusPillFor(entry.status);
   const rel = useMemo(() => relativeTime(entry.started_at_iso), [entry.started_at_iso]);
@@ -1168,6 +1176,50 @@ function JobRow({ entry, onClick, onRerun, onCancel }: JobRowProps) {
           {pill.label}
         </Pill>
       </button>
+      {onTogglePin && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onTogglePin();
+          }}
+          aria-label={
+            entry.pinned
+              ? `Unpin ${entry.cli_id} from history`
+              : `Pin ${entry.cli_id} to keep it in history`
+          }
+          aria-pressed={Boolean(entry.pinned)}
+          title={
+            entry.pinned
+              ? 'Pinned: kept in history. Click to unpin.'
+              : 'Pin to history (survives the cap)'
+          }
+          style={{
+            flexShrink: 0,
+            width: 32,
+            border: 'none',
+            background: 'transparent',
+            // Filled star = pinned; dim outline = unpinned. We use the
+            // SAME glyph slot in both states (different unicode chars)
+            // so the row layout never shifts when the user toggles.
+            color: entry.pinned ? E.ember : E.text4,
+            cursor: 'pointer',
+            fontSize: 13,
+            lineHeight: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = entry.pinned ? E.ember : E.text1;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = entry.pinned ? E.ember : E.text4;
+          }}
+        >
+          {entry.pinned ? '★' : '☆'}
+        </button>
+      )}
       {canRerun && (
         <button
           type="button"
