@@ -567,3 +567,24 @@ async def test_max_concurrent_zero_disables_cap():
         ids.append(await jm.spawn([sys.executable, "-c", "pass"]))
     for jid in ids:
         await jm.wait(jid, timeout=5)
+
+
+def test_persistence_property_returns_none_when_not_wired(tmp_path):
+    """Default JobManager construction has no persistence layer.
+    The public ``persistence`` property must return None rather
+    than raising AttributeError - external callers (api/health,
+    api/jobs) check for None to fall back to in-memory shapes."""
+    jm = JobManager()
+    assert jm.persistence is None
+
+
+def test_persistence_property_returns_attached_layer(tmp_path):
+    """When constructed with a JobPersistence, the property
+    returns the EXACT same instance. Pinning the contract that
+    api/jobs._persistence_for relies on - getting back a
+    different object would break stats() cache identity."""
+    from evalyn_dashboard.jobs_persistence import JobPersistence
+
+    persistence = JobPersistence(db_path=tmp_path / "jobs.sqlite")
+    jm = JobManager(persistence=persistence)
+    assert jm.persistence is persistence

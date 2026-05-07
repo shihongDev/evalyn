@@ -278,7 +278,7 @@ def _register_v2_routers(app: FastAPI) -> None:
         ``JobPersistence.vacuum()`` and never bubble.
         """
         jm = getattr(app.state, "job_manager", None)
-        persistence = getattr(jm, "_persistence", None) if jm else None
+        persistence = jm.persistence if jm is not None else None
         if persistence is not None and hasattr(persistence, "vacuum"):
             persistence.vacuum()
 
@@ -419,7 +419,7 @@ def build_app(
         jobs_db_bytes = 0
         last_vacuum_at: float | None = None
         recent_failures_24h = 0
-        persistence = getattr(jm, "_persistence", None) if jm is not None else None
+        persistence = jm.persistence if jm is not None else None
         if persistence is not None:
             # Pull both totals from a single stats() call. The TTL
             # cache means a second stats() call within the window

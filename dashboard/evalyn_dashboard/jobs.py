@@ -226,6 +226,24 @@ class JobManager:
     # Public API
     # ------------------------------------------------------------------
 
+    @property
+    def persistence(self) -> JobPersistence | None:
+        """Public accessor for the optional sqlite mirror.
+
+        External callers (api/health, api/jobs, api/cli) used to reach
+        into ``_persistence`` via ``getattr(jm, "_persistence", None)``,
+        which silently returned None if the attribute were ever
+        renamed - a refactor footgun. Going through this property
+        makes the contract explicit AND keeps the underscore field
+        as a hint that the storage SHAPE is private (callers
+        shouldn't construct a JobPersistence themselves; they read
+        what the JM was wired with).
+
+        Returns ``None`` when persistence is disabled (test default
+        or unwired test rigs).
+        """
+        return self._persistence
+
     async def spawn(
         self,
         cmd: list[str],

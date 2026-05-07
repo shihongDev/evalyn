@@ -114,8 +114,17 @@ def _persisted_to_dict(row: dict) -> dict:
 
 
 def _persistence_for(jm) -> Any:
-    """Return the JobPersistence attached to the manager, or None."""
-    return getattr(jm, "_persistence", None)
+    """Return the JobPersistence attached to the manager, or None.
+
+    Centralizes the access pattern across this module's many endpoints
+    so a future change to how persistence attaches lands in one place.
+    Goes through the public ``persistence`` property on JobManager
+    (introduced to avoid the silent-None footgun a private
+    ``_persistence`` attribute access had via getattr).
+    """
+    if jm is None:
+        return None
+    return jm.persistence
 
 
 def _validate_recent_args(
