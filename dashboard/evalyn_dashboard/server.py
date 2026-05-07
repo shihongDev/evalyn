@@ -387,6 +387,16 @@ def build_app(
                 max_concurrent = jm.max_concurrent
             except Exception:  # noqa: BLE001 - never fail healthcheck on JM
                 pass
+        agent = getattr(app.state, "agent_runtime", None)
+        agent_threads = 0
+        agent_open_threads = 0
+        if agent is not None and hasattr(agent, "thread_counts"):
+            try:
+                tc = agent.thread_counts()
+                agent_threads = int(tc.get("total", 0))
+                agent_open_threads = int(tc.get("open", 0))
+            except Exception:  # noqa: BLE001 - never fail healthcheck on agent
+                pass
         return {
             "ok": True,
             "version": app.version,
@@ -394,6 +404,8 @@ def build_app(
             "uptime_seconds": int(_time.time() - started_at),
             "running": running,
             "max_concurrent": max_concurrent,
+            "agent_threads": agent_threads,
+            "agent_open_threads": agent_open_threads,
         }
 
     _register_api_routers(app)

@@ -975,6 +975,20 @@ class AgentRuntime:
         """
         return [self._thread_to_dict(t) for t in self._threads.values()]
 
+    def thread_counts(self) -> dict[str, int]:
+        """Return ``{total, open}`` thread counts.
+
+        Cheap aggregate for the healthcheck and any future capacity
+        surfaces. ``open`` excludes threads whose ``final`` has fired
+        (which would otherwise distort "are agents stuck?" alerting).
+        Implemented as a public helper so callers don't have to reach
+        into ``_threads`` directly - that would couple server.py to
+        a private attribute and break under future restructuring.
+        """
+        total = len(self._threads)
+        open_count = sum(1 for t in self._threads.values() if not t.closed)
+        return {"total": total, "open": open_count}
+
     def thread_metadata(self, thread_id: str) -> dict[str, Any] | None:
         """Return the metadata dict for a single thread, or None on miss.
         Same shape as one entry in ``list_threads``."""
