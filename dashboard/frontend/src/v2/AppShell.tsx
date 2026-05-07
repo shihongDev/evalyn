@@ -584,6 +584,15 @@ export function AppShell({
         body { background: ${E.ink}; }
       `}</style>
 
+      {/* Skip-to-main-content link. First tabstop on every page,
+          visually hidden until focused. Lets keyboard users
+          bypass the nav rail (8 nav items + dock controls + jobs
+          drawer + palette + help, ~12 tab stops) and land
+          directly on the page body. */}
+      <a href="#main-content" className="eSkipLink">
+        Skip to main content
+      </a>
+
       {/* TOP BAR */}
       <div
         style={{
@@ -889,8 +898,16 @@ export function AppShell({
           />
         )}
 
-        {/* MAIN CONTENT */}
-        <div style={{ overflow: 'auto', background: E.ink }}>{children}</div>
+        {/* MAIN CONTENT - <main> landmark + tabIndex={-1} so the
+            skip-to-main link can drop focus here and AT users
+            recognise it as the page's primary region. */}
+        <main
+          id="main-content"
+          tabIndex={-1}
+          style={{ overflow: 'auto', background: E.ink, outline: 'none' }}
+        >
+          {children}
+        </main>
 
         {/* CO-PILOT DOCK - rendered only when open + not hidden by route.
             Mode varies with viewport (docked column vs overlay vs sheet). */}

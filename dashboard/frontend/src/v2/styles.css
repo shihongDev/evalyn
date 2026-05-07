@@ -89,6 +89,44 @@ textarea:focus-visible {
   }
 }
 
+/*
+ * Skip-to-main-content link. Visually hidden by default but
+ * receives focus as the first tabstop on every page; on focus
+ * it becomes a visible button at the top-left so keyboard
+ * users can bypass the long nav rail. Standard pattern from
+ * accessible web docs (W3C TR/WCAG21/#bypass-blocks).
+ */
+.eSkipLink {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2000;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #d96a2c;
+  color: #fff8f1;
+  font-family: 'Geist', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+  /* Off-screen until focused; clip-path keeps it out of the
+     paint flow without breaking screen-reader access. */
+  clip-path: inset(50%);
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.eSkipLink:focus,
+.eSkipLink:focus-visible {
+  clip-path: none;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  outline: 2px solid #fff8f1;
+  outline-offset: 2px;
+}
+
 @keyframes eDotPulse {
   0%,
   100% {
