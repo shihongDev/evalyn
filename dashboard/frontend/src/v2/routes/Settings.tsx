@@ -559,24 +559,14 @@ function SystemStatusCard() {
             </>
           )}
         </span>
-        <button
-          type="button"
+        <Btn
+          kind="ghost"
+          size="sm"
           onClick={() => refetchHealth()}
-          aria-label="Refresh system status now"
           title="Refresh now (bypass the 15s poll interval)"
-          style={{
-            fontSize: 11,
-            color: E.text2,
-            background: 'transparent',
-            border: `1px solid ${E.hair}`,
-            borderRadius: 4,
-            padding: '2px 8px',
-            fontFamily: E.fMono,
-            cursor: 'pointer',
-          }}
         >
           Refresh
-        </button>
+        </Btn>
         <span style={{ color: E.text4 }}>
           Numbers are best-effort: a degraded persistence layer
           reports 0 rather than failing. Compact also runs
