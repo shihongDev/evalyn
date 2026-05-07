@@ -80,6 +80,13 @@ def _persisted_to_dict(row: dict) -> dict:
         "exit_code": row.get("exit_code"),
         "pid": None,
         "duration": row.get("duration_s"),
+        # The sqlite mirror does not yet persist stderr_count, so we
+        # report the row's value if it has one (forward-compatible
+        # with a future schema migration) and 0 otherwise. Normalising
+        # the shape here means /api/jobs/recent always returns the
+        # field whether the row came from in-memory or sqlite, so the
+        # frontend never has to special-case `undefined`.
+        "stderr_count": row.get("stderr_count") or 0,
     }
 
 
