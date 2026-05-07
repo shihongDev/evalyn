@@ -660,6 +660,12 @@ class JobPersistence:
             # doesn't return a value held over from before the
             # compaction that's misleading in any way.
             self._invalidate_stats_cache()
+            # Success log at INFO so that shutdown-hook vacuums
+            # (which don't go through the audit-logged admin
+            # endpoint) still leave a server-log trail. Operators
+            # querying "did vacuum run on the last clean shutdown?"
+            # can grep for this line.
+            logger.info("JobPersistence vacuum succeeded at %s", self.db_path)
             return True
         except (OSError, sqlite3.Error) as exc:
             logger.warning("JobPersistence vacuum failed: %s", exc)
