@@ -105,8 +105,10 @@ const MAX_AGENT_RECONNECT_ATTEMPTS = 5;
  * that tears the socket down. Auto-reconnects on unexpected close: if the WS
  * drops WITHOUT having delivered a ``final`` event and the caller has not
  * invoked ``close()``, retries with exponential backoff (1s → 2s → 4s → 8s
- * → 8s, max 5 attempts) and forwards ``?since=lastSeenEventId`` so the
- * backend skips events the consumer already saw.
+ * → 8s, max 5 attempts) plus [0, 500ms) jitter so concurrent agent threads
+ * across tabs don't reconnect in lockstep on server recovery. Each
+ * reconnect forwards ``?since=lastSeenEventId`` so the backend skips
+ * events the consumer already saw.
  *
  * onOpen fires on first connect only - reconnects do not double-fire it,
  * mirroring subscribeJob's "running" pill suppression.
@@ -152,7 +154,11 @@ export function subscribeAgent<T>(
       );
       return;
     }
-    const backoffMs = Math.min(8000, 1000 * 2 ** attempts);
+    // Exponential backoff with [0, 500ms) jitter so concurrent
+    // agent threads + tabs don't reconnect in lockstep on server
+    // recovery (matches the subscribeJob and v2ws patterns).
+    const exp = Math.min(8000, 1000 * 2 ** attempts);
+    const backoffMs = exp + Math.random() * 500;
     attempts += 1;
     // Notify consumers that we are about to retry. attempt is 1-indexed.
     // Inline try/catch so a consumer throw cannot kill the reconnect path.
