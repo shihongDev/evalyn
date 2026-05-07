@@ -490,6 +490,7 @@ async def get_job_output_txt(
     request: Request,
     job_id: str,
     stream: str | None = None,
+    tail: int | None = None,
 ) -> PlainTextResponse:
     """Plain-text variant of ``/output`` with stdout and stderr
     interleaved in chronological emit order (the order they hit the
@@ -521,6 +522,27 @@ async def get_job_output_txt(
             status_code=400,
             detail="stream must be 'stdout' or 'stderr' if provided",
         )
+    if tail is not None and tail < 1:
+        raise HTTPException(
+            status_code=400, detail="tail must be >= 1 if provided"
+        )
+
+    def _maybe_tail(text: str) -> str:
+        """Trim ``text`` to the last ``tail`` lines if ``tail`` is set.
+        Stable on input that does/doesn't end with a newline. Strips
+        trailing empty splits so we count actual lines, not separators.
+        """
+        if tail is None:
+            return text
+        if not text:
+            return text
+        # Split lines and re-join. splitlines() handles "\n" and "\r\n"
+        # uniformly. We re-add the trailing newline so the response
+        # remains a well-formed text file regardless of input.
+        lines = text.splitlines()
+        if len(lines) <= tail:
+            return text
+        return "\n".join(lines[-tail:]) + "\n"
 
     jm = request.app.state.job_manager
     job = jm.get(job_id)
@@ -542,7 +564,7 @@ async def get_job_output_txt(
         if text and not text.endswith("\n"):
             text = text + "\n"
         return PlainTextResponse(
-            text,
+            _maybe_tail(text),
             media_type="text/plain; charset=utf-8",
         )
 
@@ -557,14 +579,14 @@ async def get_job_output_txt(
                 if body and not body.endswith("\n"):
                     body = body + "\n"
                 return PlainTextResponse(
-                    body, media_type="text/plain; charset=utf-8"
+                    _maybe_tail(body), media_type="text/plain; charset=utf-8"
                 )
             if stream == "stderr":
                 body = stderr_tail
                 if body and not body.endswith("\n"):
                     body = body + "\n"
                 return PlainTextResponse(
-                    body, media_type="text/plain; charset=utf-8"
+                    _maybe_tail(body), media_type="text/plain; charset=utf-8"
                 )
             parts: list[str] = []
             if stdout_tail:
@@ -580,7 +602,7 @@ async def get_job_output_txt(
                 if not stderr_tail.endswith("\n"):
                     parts.append("\n")
             return PlainTextResponse(
-                "".join(parts),
+                _maybe_tail("".join(parts)),
                 media_type="text/plain; charset=utf-8",
             )
     raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")

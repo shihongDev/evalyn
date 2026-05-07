@@ -330,13 +330,17 @@ function TrustScoreboardCard({
         <span>0.7 = annotation threshold</span>
         <span>0.8 = ship-ready</span>
         <span style={{ flex: 1 }} />
+        {/* Placeholder for the future "re-run kappa & drift across all
+            metrics" action - not wired yet. Render as plain muted
+            text rather than a fake button so AT does not announce a
+            non-functional control and sighted users do not expect
+            anything to happen on click. */}
         <span
-          role="button"
-          tabIndex={0}
-          style={{ color: E.ember, cursor: 'pointer' }}
-          title="Re-run kappa & drift across all metrics (placeholder)"
+          aria-disabled="true"
+          title="Trust audit endpoint is not wired yet"
+          style={{ color: E.text3, fontStyle: 'italic', cursor: 'default' }}
         >
-          Run trust audit -&gt;
+          Trust audit (soon)
         </span>
       </div>
     </Card>

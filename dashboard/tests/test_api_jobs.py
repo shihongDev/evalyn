@@ -221,6 +221,44 @@ def test_output_txt_unknown_job_404():
         assert r.status_code == 404
 
 
+def test_output_txt_tail_filter():
+    """?tail=N returns only the last N lines. tail=0 or negative is
+    rejected as a 400."""
+    app = build_app()
+    with TestClient(app) as client:
+        # Print 10 distinct lines so the tail trim is observable.
+        job_id = _spawn(
+            client,
+            app,
+            [
+                sys.executable,
+                "-c",
+                "for i in range(10):\n    print(f'line-{i}')\n",
+            ],
+        )
+        _wait(client, app, job_id)
+
+        # tail=3 -> last 3 lines (line-7, line-8, line-9).
+        r = client.get(f"/api/jobs/{job_id}/output.txt?tail=3")
+        assert r.status_code == 200
+        body = r.text
+        # The tail trim keeps line-9, drops line-0.
+        assert "line-9" in body
+        assert "line-0" not in body
+        # Exactly 3 non-empty lines.
+        non_empty = [ln for ln in body.split("\n") if ln]
+        assert len(non_empty) == 3
+
+        # tail=20 (more than emitted) returns everything.
+        r2 = client.get(f"/api/jobs/{job_id}/output.txt?tail=20")
+        assert "line-0" in r2.text
+        assert "line-9" in r2.text
+
+        # tail=0 rejected.
+        r3 = client.get(f"/api/jobs/{job_id}/output.txt?tail=0")
+        assert r3.status_code == 400
+
+
 def test_output_txt_stream_filter():
     """?stream=stdout returns only stdout lines; ?stream=stderr returns
     only stderr lines. Default returns both interleaved. Invalid value
