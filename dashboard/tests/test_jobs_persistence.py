@@ -347,6 +347,38 @@ async def test_persistence_stores_stderr_count(tmp_path: Path) -> None:
     assert row.get("stderr_count") == 4
 
 
+def test_list_recent_filters_by_cli_id(tmp_path: Path) -> None:
+    """list_recent(cli_id=X) pushes the filter to SQL so installations
+    with thousands of persisted rows do not pay a fetch+filter cost in
+    Python."""
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+    # Pre-populate three CLIs with three rows each, distinct timestamps.
+    for cli in ("alpha", "beta", "gamma"):
+        for i in range(3):
+            persistence.upsert_job(
+                job_id=f"{cli}-{i:02d}",
+                cli_id=cli,
+                args={},
+                cmd=cli,
+                status="complete",
+                started_at_iso=f"2026-01-01T00:{i:02d}:00.000000+00:00",
+            )
+
+    # Filter to "beta": exactly 3 rows, all cli_id == 'beta'.
+    rows = persistence.list_recent(limit=100, cli_id="beta")
+    assert len(rows) == 3
+    assert all(r["cli_id"] == "beta" for r in rows)
+
+    # No filter: all 9 rows surface.
+    rows_all = persistence.list_recent(limit=100)
+    assert len(rows_all) == 9
+
+    # Filter for an unknown cli_id: empty list, not error.
+    rows_none = persistence.list_recent(limit=100, cli_id="zeta")
+    assert rows_none == []
+
+
 def test_persistence_migrates_stderr_count_into_existing_db(tmp_path: Path) -> None:
     """Older installations have a jobs.sqlite that predates the
     stderr_count column. The forward-migration ALTER must run cleanly
