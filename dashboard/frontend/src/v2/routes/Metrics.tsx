@@ -190,7 +190,7 @@ function TrustScoreboardCard({
                 type="button"
                 onClick={() => onSelect(t.id)}
                 aria-pressed={isActive}
-                aria-label={`${t.name}${isActive ? ', selected' : ''} - trust score ${Math.round(t.score * 100)} of 100${t.needs_work ? ', needs work' : ''}`}
+                aria-label={`${t.name} - trust score ${Math.round(t.score * 100)} of 100${t.needs_work ? ', needs work' : ''}`}
                 onMouseEnter={(e) => {
                   if (!isActive) e.currentTarget.style.background = E.panel2;
                 }}

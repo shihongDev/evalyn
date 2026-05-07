@@ -4275,13 +4275,20 @@ export default function AnnotateSession() {
       {/* SCRUBBER HOVER PREVIEW - lightweight tooltip with the item's
           input preview + status. Only shown after a 400ms hover dwell
           so a quick pass over the strip doesn't flash a tooltip per
-          dot. Position is fixed to viewport (above the dot). */}
+          dot. Position is fixed to viewport (above the dot). The
+          left coord is clamped so the 320px-max-wide tooltip stays
+          fully on-screen even when a dot near either edge is hovered
+          - without this, the rightmost ~30 dots in a typical session
+          rendered the tooltip half off the viewport. */}
       {scrubberHover && items[scrubberHover.idx] && (
         <div
           role="tooltip"
           style={{
             position: 'fixed',
-            left: scrubberHover.x,
+            left: Math.min(
+              Math.max(scrubberHover.x, 172),
+              (typeof window !== 'undefined' ? window.innerWidth : 1024) - 172,
+            ),
             top: scrubberHover.y,
             transform: 'translateX(-50%) translateY(-100%)',
             zIndex: 60,
