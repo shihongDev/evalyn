@@ -998,6 +998,19 @@ function JobRow({ entry, onClick, onRerun, onCancel }: JobRowProps) {
     () => previewCommand(entry.cli_id, entry.cli_args),
     [entry.cli_id, entry.cli_args],
   );
+  // Args-only summary for the row's secondary line. Strips the
+  // "evalyn <cli_id> " prefix the preview command always emits, so a
+  // row already showing the cli_id as its primary line doesn't repeat
+  // it. Empty when the user ran the command with no flags - we just
+  // hide the line in that case rather than render a useless empty
+  // placeholder. This closes the visibility gap where 5 "compare" or
+  // "run-eval" rows looked identical without hovering each.
+  const argsLine = useMemo(() => {
+    const prefix = `evalyn ${entry.cli_id} `;
+    return argvPreview.startsWith(prefix)
+      ? argvPreview.slice(prefix.length).trim()
+      : '';
+  }, [argvPreview, entry.cli_id]);
   // Re-run only makes sense for terminal rows the user can rerun. We
   // hide it for queued/running (live job already exists) and for
   // unknown (backend lost the record - the cli_args we cached should
@@ -1091,6 +1104,21 @@ function JobRow({ entry, onClick, onRerun, onCancel }: JobRowProps) {
           >
             {entry.cli_id}
           </div>
+          {argsLine && (
+            <div
+              style={{
+                fontFamily: E.fMono,
+                fontSize: 11,
+                color: E.text3,
+                marginTop: 2,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {argsLine}
+            </div>
+          )}
           <div
             style={{
               display: 'flex',
