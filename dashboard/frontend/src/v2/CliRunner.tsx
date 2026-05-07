@@ -1189,6 +1189,30 @@ function OutputSection({
     }
   }
 
+  function handleDownload() {
+    if (lines.length === 0) return;
+    // Save the same flat-text shape Copy uses, plus a trailing newline
+    // so the file ends correctly. Tools (less, tail, grep) expect this.
+    const text = lines.map((l) => l.text).join('\n') + '\n';
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    // Derive the cli-id from the preview command ("evalyn <cli-id> ...")
+    // for a recognisable filename. ISO timestamp keeps multiple downloads
+    // from clobbering each other in the user's Downloads folder.
+    const cliId = preview.split(/\s+/)[1] ?? 'output';
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const fname = `evalyn-${cliId}-${ts}.log`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fname;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // Defer revoke to next tick so Safari has time to start the download.
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
   // At-a-glance error count. We surface this even mid-stream so the user
   // knows the run is producing errors before it finishes - a 30s eval
   // failing on item 3 shouldn't have to wait until exit code to be
@@ -1425,6 +1449,33 @@ function OutputSection({
               : copyState === 'error'
                 ? '✗ Failed'
                 : 'Copy output'}
+          </button>
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={lines.length === 0}
+            aria-label="Download output as .log file"
+            title={
+              lines.length === 0
+                ? 'Nothing to download yet'
+                : `Save ${lines.length} line${lines.length === 1 ? '' : 's'} as .log file`
+            }
+            style={{
+              flexShrink: 0,
+              padding: '0 8px',
+              fontFamily: E.fMono,
+              fontSize: 10.5,
+              color: E.text2,
+              background: 'transparent',
+              border: `1px solid ${E.hair2}`,
+              borderRadius: 4,
+              cursor: lines.length === 0 ? 'not-allowed' : 'pointer',
+              opacity: lines.length === 0 ? 0.5 : 1,
+              lineHeight: 1.6,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            ↓ .log
           </button>
         </div>
         <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex' }}>
