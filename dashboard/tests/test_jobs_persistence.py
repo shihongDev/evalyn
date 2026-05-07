@@ -660,6 +660,124 @@ def test_vacuum_returns_false_on_unwritable_path(tmp_path: Path) -> None:
     assert persistence.vacuum() is False
 
 
+def test_stats_caches_within_ttl(tmp_path: Path, monkeypatch) -> None:
+    """Within the TTL window, stats() returns the cached dict object
+    (same identity) without re-querying. /api/health is polled every
+    15s by every dashboard tab; without this cache, multi-tab sessions
+    pay 4 SQL aggregates per tab per poll."""
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+    persistence.upsert_job(
+        job_id="j1",
+        cli_id="x",
+        args={},
+        cmd="x",
+        status="complete",
+        started_at_iso="2026-01-01T00:00:00.000000+00:00",
+    )
+    first = persistence.stats()
+    second = persistence.stats()
+    # Same object identity = cache hit (we only cache the dict
+    # reference, so a recompute would produce a different object).
+    assert first is second
+
+
+def test_stats_recomputes_after_ttl(tmp_path: Path, monkeypatch) -> None:
+    """Past the TTL, stats() refreshes from disk. We exercise the
+    expiry path by walking the cached timestamp backward instead of
+    actually waiting 5s."""
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+    persistence.upsert_job(
+        job_id="j1",
+        cli_id="x",
+        args={},
+        cmd="x",
+        status="complete",
+        started_at_iso="2026-01-01T00:00:00.000000+00:00",
+    )
+    persistence.stats()  # prime the cache
+    cached_at, cached_value = persistence._stats_cache[86400]
+    # Force the entry to look 10 seconds old (well past 5s TTL).
+    persistence._stats_cache[86400] = (cached_at - 10.0, cached_value)
+    refreshed = persistence.stats()
+    # Different identity than the manually-aged cached value -
+    # confirms a fresh recompute path was taken.
+    assert refreshed is not cached_value
+    # And the refreshed result remains correct.
+    assert refreshed["total"] == 1
+
+
+def test_stats_cache_invalidates_on_upsert(tmp_path: Path) -> None:
+    """A new row written via upsert_job must be visible on the next
+    stats() call without waiting for the TTL. Without invalidation,
+    a user spawning a new run wouldn't see the count tick up for up
+    to 5s."""
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+    persistence.upsert_job(
+        job_id="j1",
+        cli_id="x",
+        args={},
+        cmd="x",
+        status="complete",
+        started_at_iso="2026-01-01T00:00:00.000000+00:00",
+    )
+    assert persistence.stats()["total"] == 1
+    persistence.upsert_job(
+        job_id="j2",
+        cli_id="x",
+        args={},
+        cmd="x",
+        status="running",
+        started_at_iso="2026-01-01T00:01:00.000000+00:00",
+    )
+    # Without invalidation the second call would still report 1
+    # because the first call cached the result.
+    assert persistence.stats()["total"] == 2
+
+
+def test_stats_cache_invalidates_on_delete(tmp_path: Path) -> None:
+    """delete() with a row hit must invalidate so the next stats()
+    sees the lower count."""
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+    persistence.upsert_job(
+        job_id="j1",
+        cli_id="x",
+        args={},
+        cmd="x",
+        status="complete",
+        started_at_iso="2026-01-01T00:00:00.000000+00:00",
+    )
+    assert persistence.stats()["total"] == 1
+    persistence.delete("j1")
+    assert persistence.stats()["total"] == 0
+
+
+def test_stats_cache_keyed_by_window(tmp_path: Path) -> None:
+    """Different `recent_failure_window_seconds` values must NOT
+    share a cache slot - the recent_failures count depends on the
+    window. Passing 60 (last minute) and 86400 (last day) should
+    produce two independent cache entries."""
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+    persistence.upsert_job(
+        job_id="j1",
+        cli_id="x",
+        args={},
+        cmd="x",
+        status="complete",
+        started_at_iso="2026-01-01T00:00:00.000000+00:00",
+    )
+    a = persistence.stats(recent_failure_window_seconds=60)
+    b = persistence.stats(recent_failure_window_seconds=86400)
+    # Two distinct cache slots, neither a wrongly-shared object.
+    assert a is not b
+    assert 60 in persistence._stats_cache
+    assert 86400 in persistence._stats_cache
+
+
 def test_last_vacuum_at_none_until_first_vacuum(tmp_path: Path) -> None:
     """Fresh JobPersistence reports `None` for `last_vacuum_at` until
     a VACUUM has actually succeeded. The /api/health endpoint relies
