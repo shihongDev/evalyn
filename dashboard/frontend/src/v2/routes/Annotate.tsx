@@ -531,6 +531,8 @@ function InProgressSessions({
               onClick={() => onResume(s.id)}
               onMouseEnter={() => void preloadAnnotateSession()}
               onFocus={() => void preloadAnnotateSession()}
+              title={`Resume - ${pct}% complete`}
+              aria-label={`Resume ${label}: ${s.items_done} of ${s.items_total} items annotated, ${pct}% complete`}
               style={{
                 padding: 10,
                 background: E.panel2,
