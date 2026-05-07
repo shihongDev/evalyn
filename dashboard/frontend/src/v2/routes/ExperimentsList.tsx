@@ -20,7 +20,7 @@
  * pulse spark is the recent pass-rate sequence.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import {
@@ -36,6 +36,7 @@ import {
 } from '../ui';
 import { v2 } from '../api/client';
 import { useV2Resource, prefetchV2 } from '../hooks/useV2Resource';
+import { useSearchFilter } from '../hooks/useSearchFilter';
 import { listCli, type CliSchema } from '../api/cli';
 import { openCliRunner } from '../cliRunnerBridge';
 import { preloadRunDetail } from '../routePreloads';
@@ -677,44 +678,21 @@ export default function ExperimentsList() {
     return { all: runs.length, week, gate };
   }, [data]);
 
-  // Ref + "/" hotkey focus, mirroring the drawer / runner-output
-  // patterns. Press "/" outside any input/textarea and the cursor
-  // lands in the search box. Esc inside the box clears the filter
-  // first; second Esc blurs back to body.
-  const searchRef = useRef<HTMLInputElement | null>(null);
   // Free-text search filter on top of the saved-view filter.
   // Substring match (case-insensitive) against id, name, author, and
   // tags so a user can grep for "fewshot-v2" or "@daisy" or a tag.
-  // Empty / whitespace treated as no filter. Persisted via
-  // sessionStorage so a tab switch doesn't lose the query - matches
-  // the drawer's recently-shipped pattern. Cleared on tab close.
-  const SEARCH_SESSION_KEY = 'evalyn:experiments:searchQuery';
-  const [searchInput, setSearchInput] = useState(() => {
-    try {
-      return window.sessionStorage.getItem(SEARCH_SESSION_KEY) ?? '';
-    } catch {
-      return '';
-    }
-  });
-  const [searchQuery, setSearchQuery] = useState(searchInput.trim().toLowerCase());
-  useEffect(() => {
-    const handle = window.setTimeout(() => {
-      setSearchQuery(searchInput.trim().toLowerCase());
-      try {
-        if (searchInput) {
-          window.sessionStorage.setItem(SEARCH_SESSION_KEY, searchInput);
-        } else {
-          window.sessionStorage.removeItem(SEARCH_SESSION_KEY);
-        }
-      } catch {
-        // Quota / private mode - persistence is best-effort.
-      }
-    }, 120);
-    return () => window.clearTimeout(handle);
-  }, [searchInput]);
-  // "/" hotkey to focus the search input (drawer / output-filter
-  // pattern). Skip when the user is already typing in another
-  // input/textarea so we don't intercept normal characters.
+  // Persistence + "/" focus + Esc clear/blur live in the shared
+  // useSearchFilter hook so all search surfaces stay consistent.
+  const {
+    input: searchInput,
+    setInput: setSearchInput,
+    query: searchQuery,
+    inputRef: searchRef,
+    onKeyDown: onSearchKeyDown,
+  } = useSearchFilter({ sessionKey: 'evalyn:experiments:searchQuery' });
+  // "/" hotkey to focus the search input. Skip when the user is
+  // already typing in another input/textarea so we don't intercept
+  // normal characters.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -728,7 +706,7 @@ export default function ExperimentsList() {
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [searchRef]);
 
   // Apply the active saved view AND the search filter to the lineage
   // list. AND-combined: the chip narrows the cohort, the search
@@ -934,18 +912,7 @@ export default function ExperimentsList() {
             type="search"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={(e) => {
-              // Esc inside the box: clear first, then blur.
-              if (e.key === 'Escape') {
-                if (searchInput) {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  setSearchInput('');
-                  return;
-                }
-                searchRef.current?.blur();
-              }
-            }}
+            onKeyDown={onSearchKeyDown}
             placeholder="Search runs... (/ to focus)"
             aria-label="Search runs by id, name, author, or tag"
             style={{

@@ -564,12 +564,14 @@ function AudienceTabs({
         return (
           <button
             key={t}
+            id={`reports-audience-tab-${t}`}
             ref={(el) => {
               tabRefs.current[i] = el;
             }}
             type="button"
             role="tab"
             aria-selected={isActive}
+            aria-controls={`reports-audience-panel-${t}`}
             tabIndex={isActive ? 0 : -1}
             onClick={() => onChange(t)}
             style={{
@@ -798,6 +800,11 @@ export default function Reports() {
             {/* 4. Audience tabs */}
             <AudienceTabs active={audience} onChange={setAudience} />
 
+            <div
+              id={`reports-audience-panel-${audience}`}
+              role="tabpanel"
+              aria-labelledby={`reports-audience-tab-${audience}`}
+            >
             {audience === 'Raw markdown' ? (
               <Card style={{ padding: 16 }}>
                 <div
@@ -1080,6 +1087,7 @@ export default function Reports() {
                 </div>
               </>
             )}
+            </div>
           </>
         )}
 
