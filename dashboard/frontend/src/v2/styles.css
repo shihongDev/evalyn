@@ -91,6 +91,76 @@ textarea:focus-visible {
 }
 
 /*
+ * AppShell-level chrome animations. Used by the co-pilot dock
+ * (slide-in from the right or up on tablet/mobile), the modal
+ * fade-ins, and the mobile nav drawer (slide-in from the left).
+ * Previously defined inline in AppShell's <style> block, where
+ * reduced-motion users couldn't suppress them.
+ */
+@keyframes eFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes eSlideInLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes eSlideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes eSlideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Hold all chrome animations at the final frame so the surface
+     still appears, but without the motion the user has opted out
+     of. eFadeIn already starts at opacity 1 in this branch (no
+     fade), eSlide* skip the translate. */
+  @keyframes eFadeIn {
+    from,
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes eSlideInLeft {
+    from,
+    to {
+      transform: none;
+    }
+  }
+  @keyframes eSlideInRight {
+    from,
+    to {
+      transform: none;
+    }
+  }
+  @keyframes eSlideUp {
+    from,
+    to {
+      transform: none;
+    }
+  }
+}
+
+/*
  * Card hover lift. Opt-in via the Card component's `hover` prop, which
  * adds .eCardHover. Box-shadow + translate is chosen over a border-
  * color change so the caller's inline border (e.g. selected-state
