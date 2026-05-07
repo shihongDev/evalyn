@@ -243,6 +243,29 @@ async def get_job_output(request: Request, job_id: str) -> JSONResponse:
     raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
 
 
+@router.delete("/{job_id}")
+async def delete_job(request: Request, job_id: str) -> JSONResponse:
+    """Remove a finished job from in-memory + persistence.
+
+    Status codes:
+      - 204: deleted (or was already absent and the call was idempotent)
+      - 404: not found in either store
+      - 409: still queued/running; client must POST /cancel first
+
+    The 409 path is the load-bearing safety: we never purge a job whose
+    subprocess is alive because that would orphan the reaper task and
+    the captured streams. Cancel synchronously, then DELETE.
+    """
+    jm = request.app.state.job_manager
+    try:
+        removed = jm.purge(job_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    if not removed:
+        raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
+    return JSONResponse({"ok": True, "id": job_id}, status_code=200)
+
+
 @router.post("/{job_id}/cancel")
 async def cancel_job(request: Request, job_id: str) -> JSONResponse:
     jm = request.app.state.job_manager

@@ -308,6 +308,36 @@ class JobManager:
         """Return the Job for ``job_id`` or None if unknown."""
         return self._jobs.get(job_id)
 
+    def purge(self, job_id: str) -> bool:
+        """Drop a finished job from in-memory + persistence by id.
+
+        Returns True if anything was removed (matched in either store),
+        False on miss in both. Raises ``ValueError`` if the job is
+        still queued/running - the caller must cancel first so we
+        never purge a job whose subprocess is alive (would orphan
+        the reaper task and the captured streams).
+
+        Idempotent: a second purge for the same id is a no-op + False.
+        """
+        job = self._jobs.get(job_id)
+        if job is not None and not job.is_done:
+            raise ValueError(
+                f"job {job_id} is {job.state}; cancel before purge"
+            )
+        removed = False
+        if job is not None:
+            del self._jobs[job_id]
+            removed = True
+        if self._persistence is not None:
+            try:
+                if self._persistence.delete(job_id):
+                    removed = True
+            except Exception as exc:  # noqa: BLE001 - never crash the caller
+                logger.warning(
+                    "JobPersistence delete(%s) raised: %s", job_id, exc
+                )
+        return removed
+
     def recent(self, n: int = 100) -> list[Job]:
         """Return the most recent jobs in reverse chronological order."""
         jobs = list(self._jobs.values())
