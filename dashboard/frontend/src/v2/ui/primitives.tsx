@@ -1,6 +1,49 @@
 /**
  * v2 UI primitives - Card, Eyebrow, Pill, Btn, StatusDot.
  * Ported 1:1 from /tmp/evalyn-v2/design-system.jsx.
+ *
+ * ## Conventions for callers (enforce in PRs - none of this is
+ *    enforced by tooling yet)
+ *
+ * 1. `isActive`-style highlighting must ship a matching ARIA
+ *    attribute. The visual highlight is half the signal; SR users
+ *    need the other half. Pick by intent:
+ *      - tab strip            -> role=tablist + role=tab + aria-selected
+ *      - list of options      -> role=listbox + role=option + aria-selected
+ *      - "current page" link  -> aria-current="page"
+ *      - toggle (one of N)    -> aria-pressed
+ *    Whenever you write `isActive ?` in a `style` prop, add the
+ *    ARIA attr in the same JSX block, with the same source of
+ *    truth (not a parallel computation).
+ *
+ * 2. Clickable parent + inner CTA Btn = single tab stop. If a row
+ *    is `role="button"` AND visually contains an "Open ->"-style
+ *    Btn that fires the same nav, mark the Btn `tabIndex={-1}`
+ *    and `aria-hidden`. Otherwise keyboard users tab through two
+ *    stops per row going to one place. The Btn primitive accepts
+ *    both props for exactly this use.
+ *
+ * 3. Truncated dynamic text needs a `title=` mirror. Any
+ *    `textOverflow: 'ellipsis'` over `{interpolation}` content
+ *    must have a `title=` on the same tag (or a parent button)
+ *    so sighted users can read the full string on hover. SR users
+ *    are usually covered by the parent's aria-label, but title=
+ *    serves a different audience.
+ *
+ * 4. Clipboard writes must surface error states. A bare
+ *    `navigator.clipboard.writeText().then(ok)` swallows
+ *    permission/insecure-context rejections silently. Every copy
+ *    button in v2 uses a `'idle' | 'copied' | 'error'` state and
+ *    flashes "Copy failed" in red on rejection (see Pane Copy in
+ *    AnnotateSession, Reports markdown copy, etc.).
+ *
+ * 5. `aria-modal="true"` requires explicit focus management.
+ *    aria-modal is a *claim*; the on-open focus move and focus
+ *    restoration on close are still the caller's responsibility.
+ *    All four current modals (CommandPalette, ShortcutHelpOverlay,
+ *    RecentJobsDrawer, CliRunner) follow the same pattern: capture
+ *    prevFocus on open, focus a meaningful element inside, restore
+ *    prevFocus on unmount.
  */
 
 import type {
