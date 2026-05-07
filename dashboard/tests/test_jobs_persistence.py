@@ -347,6 +347,41 @@ async def test_persistence_stores_stderr_count(tmp_path: Path) -> None:
     assert row.get("stderr_count") == 4
 
 
+def test_list_recent_filters_by_cli_ids_in_list(tmp_path: Path) -> None:
+    """list_recent(cli_ids=[a, b]) returns rows whose cli_id IN that
+    list. Empty list is treated as 'no filter' so callers do not need
+    to special-case."""
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+    for i, cli in enumerate(["alpha", "beta", "gamma", "delta"]):
+        persistence.upsert_job(
+            job_id=f"j-{cli}",
+            cli_id=cli,
+            args={},
+            cmd=cli,
+            status="complete",
+            started_at_iso=f"2026-01-01T00:{i:02d}:00.000000+00:00",
+        )
+
+    # Two-id list.
+    rows = persistence.list_recent(limit=100, cli_ids=["alpha", "gamma"])
+    assert {r["cli_id"] for r in rows} == {"alpha", "gamma"}
+
+    # Single-id list (acts like cli_id=).
+    rows_single = persistence.list_recent(limit=100, cli_ids=["beta"])
+    assert {r["cli_id"] for r in rows_single} == {"beta"}
+
+    # Empty list short-circuits to no filter.
+    rows_empty = persistence.list_recent(limit=100, cli_ids=[])
+    assert len(rows_empty) == 4
+
+    # cli_ids takes precedence over cli_id when both set.
+    rows_both = persistence.list_recent(
+        limit=100, cli_id="alpha", cli_ids=["beta", "gamma"]
+    )
+    assert {r["cli_id"] for r in rows_both} == {"beta", "gamma"}
+
+
 def test_list_recent_filters_by_before_and_window(tmp_path: Path) -> None:
     """list_recent(before_iso=X) keeps only rows whose started_at_iso < X.
     Combined with since_iso, both clauses give a windowed query."""
