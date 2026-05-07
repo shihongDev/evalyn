@@ -964,4 +964,54 @@ async def vacuum_persistence(request: Request) -> JSONResponse:
     )
 
 
+@router.post("/admin/prune")
+async def prune_old_jobs(request: Request, keep: int = 100) -> JSONResponse:
+    """Delete persisted job rows older than the ``keep`` most recent.
+
+    Customer scenario: operator looks at SystemStatusCard, sees
+    jobs_persisted in the thousands, and wants to enforce a
+    retention policy without restarting the server. The
+    `delete_old(keep=N)` helper has existed for a while; this
+    endpoint exposes it.
+
+    Response: ``{ok: True, deleted: int, kept: int}`` where
+    ``kept`` is the post-prune `total` from `stats()` (sanity
+    check: kept should equal min(prior_total, keep)).
+
+    Validation: ``keep`` must be a non-negative integer. Negative
+    values would result in unbounded deletion and are rejected
+    with 400. Zero is allowed (delete everything).
+
+    CSRF-protected (matches vacuum endpoint pattern).
+
+    Destructive and irreversible. The FE wraps the trigger in a
+    two-click `useArmedConfirm` so accidental clicks don't wipe
+    history. Returns 503 if the persistence layer is degraded.
+    """
+    if keep < 0:
+        raise HTTPException(
+            status_code=400,
+            detail="keep must be >= 0",
+        )
+    jm = request.app.state.job_manager
+    persistence = _persistence_for(jm)
+    if persistence is None:
+        raise HTTPException(
+            status_code=503,
+            detail="persistence_unavailable",
+        )
+    deleted = persistence.delete_old(keep=keep)
+    # Read the post-prune total via the cached stats() call. If
+    # the cache was just invalidated by delete_old, this is a
+    # fresh read; if delete_old returned 0, the cache may still
+    # be warm, which is fine - the value is still correct.
+    try:
+        kept = int(persistence.stats().get("total", 0))
+    except Exception:  # noqa: BLE001
+        kept = 0
+    return JSONResponse(
+        {"ok": True, "deleted": int(deleted), "kept": kept},
+    )
+
+
 __all__ = ["router"]

@@ -25,9 +25,11 @@ import { E } from '../tokens';
 import { errorMessage } from '../api/errors';
 import {
   fetchSystemHealth,
+  pruneOldJobs,
   vacuumPersistence,
   type SystemHealth,
 } from '../api/health';
+import { useArmedConfirm } from '../hooks/useArmedConfirm';
 import { openJobsDrawer } from '../jobsDrawerBridge';
 import { settingsApi, type ProviderState, type SettingsState } from '../api/settings';
 import { TOUR_ENABLED_KEY, tourCompletedKey } from '../store/store';
@@ -237,6 +239,13 @@ interface VacuumFeedback {
   error?: string;
 }
 
+interface PruneFeedback {
+  state: 'idle' | 'pending' | 'success' | 'error';
+  deleted?: number;
+  kept?: number;
+  error?: string;
+}
+
 function SystemStatusCard() {
   const [vacuum, setVacuum] = useState<VacuumFeedback>({ state: 'idle' });
   // Visibility-aware polling lives in the shared hook so this
@@ -271,6 +280,37 @@ function SystemStatusCard() {
       }, 6000);
     } catch (e) {
       setVacuum({ state: 'error', error: errorMessage(e) });
+    }
+  }
+
+  // Prune (delete-old) state machine. Mirrors vacuum's idle/
+  // pending/success/error pattern. Destructive (no undo on the
+  // sqlite mirror), so the trigger is wrapped in useArmedConfirm
+  // - first click arms ("Click again to prune"), second click
+  // fires. The arm auto-resets after 4s if the user walks away.
+  const [prune, setPrune] = useState<PruneFeedback>({ state: 'idle' });
+  const pruneArm = useArmedConfirm();
+  // We default to keeping the 100 most recent rows, matching the
+  // delete_old() helper's default. Operators wanting tighter
+  // retention can re-click after editing the input.
+  const [pruneKeep, setPruneKeep] = useState<number>(100);
+
+  async function handlePrune() {
+    if (!pruneArm.armed) {
+      pruneArm.arm();
+      return;
+    }
+    pruneArm.reset();
+    setPrune({ state: 'pending' });
+    try {
+      const res = await pruneOldJobs(pruneKeep);
+      setPrune({ state: 'success', deleted: res.deleted, kept: res.kept });
+      refetchHealth();
+      window.setTimeout(() => {
+        setPrune((cur) => (cur.state === 'success' ? { state: 'idle' } : cur));
+      }, 6000);
+    } catch (e) {
+      setPrune({ state: 'error', error: errorMessage(e) });
     }
   }
 
@@ -404,6 +444,86 @@ function SystemStatusCard() {
             {vacuum.error ?? 'Vacuum failed'}
           </span>
         )}
+        {/* Prune control - destructive, gated by armed-confirm.
+            Spaced from Compact via gap on the parent flex; the
+            input + button live in their own group so they can
+            wrap together on narrow viewports. */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            marginLeft: 'auto',
+          }}
+        >
+          <label
+            htmlFor="system-prune-keep"
+            style={{ fontSize: 11, color: E.text3, fontFamily: E.fMono }}
+          >
+            keep
+          </label>
+          <input
+            id="system-prune-keep"
+            type="number"
+            min={0}
+            value={pruneKeep}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              setPruneKeep(Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0);
+            }}
+            disabled={prune.state === 'pending'}
+            style={{
+              width: 64,
+              padding: '4px 6px',
+              fontSize: 11.5,
+              fontFamily: E.fMono,
+              color: E.text0,
+              background: E.panel2,
+              border: `1px solid ${E.hair}`,
+              borderRadius: 4,
+              outline: 'none',
+            }}
+            aria-label="Number of most-recent rows to keep"
+          />
+          <Btn
+            kind={pruneArm.armed ? 'danger' : 'secondary'}
+            size="sm"
+            onClick={() => void handlePrune()}
+            disabled={prune.state === 'pending'}
+            aria-label={
+              pruneArm.armed
+                ? `Click again to delete persisted jobs older than the last ${pruneKeep}`
+                : 'Prune persisted jobs older than the kept count'
+            }
+            title={
+              pruneArm.armed
+                ? 'Click again within 4 seconds to confirm. This deletes job rows from the sqlite mirror and cannot be undone.'
+                : 'Delete persisted job rows older than the most recent N. Requires confirmation; cannot be undone.'
+            }
+          >
+            {prune.state === 'pending' ? (
+              <>
+                <Spinner size={11} /> Pruning…
+              </>
+            ) : pruneArm.armed ? (
+              'Confirm prune?'
+            ) : (
+              'Prune old'
+            )}
+          </Btn>
+          {prune.state === 'success' && (
+            <Pill mono color={E.pass} bg={E.passDim}>
+              {prune.deleted && prune.deleted > 0
+                ? `Deleted ${prune.deleted.toLocaleString()}`
+                : 'Done (nothing to prune)'}
+            </Pill>
+          )}
+          {prune.state === 'error' && (
+            <span style={{ fontSize: 11, color: E.fail, fontFamily: E.fMono }}>
+              {prune.error ?? 'Prune failed'}
+            </span>
+          )}
+        </div>
       </div>
       <p style={{ fontSize: 11, color: E.text3, margin: '10px 0 0' }}>
         Polled every 15s. Numbers are best-effort: a degraded

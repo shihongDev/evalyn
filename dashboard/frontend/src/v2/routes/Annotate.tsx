@@ -14,8 +14,8 @@
  *   3. "Why this changed" footer note.
  */
 
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import {
   Bar,
@@ -681,7 +681,27 @@ export default function Annotate() {
 
   const rings = useMemo(() => buildJudgeRings(rubrics ?? []), [rubrics]);
 
-  const [activeMetricId, setActiveMetricId] = useState<string | null>(null);
+  // Selection lives in URL (?metric=quality) for shareable links.
+  // Pattern matches Metrics' ?metric=, Reports ?audience=, RunDetail
+  // ?tab=, Commands ?cmd=. The default-pick effect below writes
+  // ?metric=<lowest-kappa> on mount when no URL param is set, so
+  // /annotate is always shareable from arrival forward.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeMetricId = searchParams.get('metric');
+  const setActiveMetricId = useCallback(
+    (id: string | null) => {
+      setSearchParams(
+        (prev) => {
+          const u = new URLSearchParams(prev);
+          if (id) u.set('metric', id);
+          else u.delete('metric');
+          return u;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   // Default the active metric to the lowest-kappa ring once rubrics
   // land. Keep an explicit user pick across rubric refetches by only
@@ -695,7 +715,7 @@ export default function Annotate() {
     if (!stillExists) {
       setActiveMetricId(pickDefaultMetric(rings));
     }
-  }, [rings, activeMetricId]);
+  }, [rings, activeMetricId, setActiveMetricId]);
 
   // Smart queue, parameterized by the active metric. Cache key includes
   // the metric so switching metrics doesn't flash old data.
