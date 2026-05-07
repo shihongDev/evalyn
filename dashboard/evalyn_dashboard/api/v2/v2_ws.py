@@ -28,6 +28,13 @@ Event protocol (forward-compatible)
   key prefixes the FE should mark stale.
 * ``{"type": "pong"}`` - reply to a client ``ping`` text frame (kept
   so reconnect-quality probes from the FE don't fail silently).
+* ``{"type": "ping", "ts": <unix>}`` - server-pushed heartbeat every
+  WS_PING_INTERVAL_S seconds (currently 25s). Defeats NAT idle
+  reaping on corporate proxies and cloud LBs. The FE accepts the
+  frame in its V2Event union but doesn't react - the frame's job
+  is to keep TCP/proxy state warm. Matches the heartbeat used by
+  ``api/jobs_ws.py`` and ``api/agent_ws.py`` via the shared
+  ``api/_ws_heartbeat.py`` helper.
 """
 
 from __future__ import annotations
