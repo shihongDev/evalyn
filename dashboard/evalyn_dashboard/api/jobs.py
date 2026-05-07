@@ -103,6 +103,7 @@ async def recent_jobs(
     request: Request,
     limit: int = 100,
     cli_id: str | None = None,
+    status: str | None = None,
 ) -> JSONResponse:
     """Return up to ``limit`` recent jobs in reverse chronological order.
 
@@ -110,10 +111,16 @@ async def recent_jobs(
     collision so the freshest state surfaces). Sort key is ``started_at``
     descending across both sources.
 
-    When ``cli_id`` is provided, results are filtered to rows whose
-    ``cli_id`` matches exactly. Saves clients from fetching all rows
-    and filtering client-side when they only care about a single
-    command's history (e.g. "show me my last 10 run-eval invocations").
+    Optional filters:
+
+    - ``cli_id`` matches the catalog id passed at spawn time. Lets a
+      caller fetch "my last 10 run-eval invocations" without paging.
+    - ``status`` matches one of ``queued`` / ``running`` / ``complete`` /
+      ``failed`` / ``cancelled``. Lets a caller list "only failed jobs"
+      for a regression scan.
+
+    Both filters are pushed down to SQL on the persisted side and
+    applied in-memory for the live set.
     """
     if limit < 1:
         raise HTTPException(status_code=400, detail="limit must be >= 1")
@@ -123,15 +130,16 @@ async def recent_jobs(
     in_memory_jobs = jm.recent(n=limit)
     if cli_id is not None:
         in_memory_jobs = [j for j in in_memory_jobs if j.cli_id == cli_id]
+    if status is not None:
+        in_memory_jobs = [j for j in in_memory_jobs if j.state == status]
     in_memory = [_job_to_dict(j) for j in in_memory_jobs]
     seen = {entry["id"] for entry in in_memory}
     merged = list(in_memory)
     persistence = _persistence_for(jm)
     if persistence is not None:
-        # Push the cli_id filter down to SQL so we never project the
-        # full set just to drop most of it. ``cli_id=None`` returns the
-        # unfiltered query as before.
-        for row in persistence.list_recent(limit=limit, cli_id=cli_id):
+        for row in persistence.list_recent(
+            limit=limit, cli_id=cli_id, status=status
+        ):
             entry = _persisted_to_dict(row)
             if entry["id"] in seen:
                 continue

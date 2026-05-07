@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`/api/jobs/recent?status=X` filter.** Mirrors `cli_id`. Filter to one of `queued` / `running` / `complete` / `failed` / `cancelled` to fetch e.g. only failed jobs for a regression scan. Both filters compose: `?cli_id=run-eval&status=failed`. Pushed down to SQL on the persisted side via `JobPersistence.list_recent(status=...)`; in-memory jobs are filtered at the API layer. Regression test covers status-only, status+cli_id combined, and unknown-status empty result.
+
 ### Performance
 
 - **`JobPersistence.list_recent` pushes `cli_id` filter down to SQL.** The previous tick added the filter at the API layer (post-projection in Python). Now the filter is a `WHERE cli_id=?` clause so installations with thousands of persisted rows do not pay a fetch-and-filter cost. `/api/jobs/recent?cli_id=X` calls the new parameter; `cli_id=None` returns the unfiltered query as before. Added a regression test verifying filter results, no-match returns empty, and unfiltered returns all rows.

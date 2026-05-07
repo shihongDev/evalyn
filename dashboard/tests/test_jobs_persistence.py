@@ -347,6 +347,47 @@ async def test_persistence_stores_stderr_count(tmp_path: Path) -> None:
     assert row.get("stderr_count") == 4
 
 
+def test_list_recent_filters_by_status(tmp_path: Path) -> None:
+    """list_recent(status=X) pushes the filter to SQL. Combined with
+    cli_id, both clauses AND together."""
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+    rows_seed = [
+        ("alpha-ok-1", "alpha", "complete"),
+        ("alpha-ok-2", "alpha", "complete"),
+        ("alpha-fail-1", "alpha", "failed"),
+        ("beta-ok-1", "beta", "complete"),
+        ("beta-fail-1", "beta", "failed"),
+        ("beta-fail-2", "beta", "failed"),
+    ]
+    for i, (jid, cli, status) in enumerate(rows_seed):
+        persistence.upsert_job(
+            job_id=jid,
+            cli_id=cli,
+            args={},
+            cmd=cli,
+            status=status,
+            started_at_iso=f"2026-01-01T00:{i:02d}:00.000000+00:00",
+        )
+
+    # Status filter alone.
+    failed_only = persistence.list_recent(limit=100, status="failed")
+    assert len(failed_only) == 3
+    assert all(r["status"] == "failed" for r in failed_only)
+
+    # Combined status + cli_id.
+    beta_failures = persistence.list_recent(
+        limit=100, cli_id="beta", status="failed"
+    )
+    assert len(beta_failures) == 2
+    assert all(
+        r["cli_id"] == "beta" and r["status"] == "failed" for r in beta_failures
+    )
+
+    # Unknown status returns empty.
+    assert persistence.list_recent(limit=100, status="zeta") == []
+
+
 def test_list_recent_filters_by_cli_id(tmp_path: Path) -> None:
     """list_recent(cli_id=X) pushes the filter to SQL so installations
     with thousands of persisted rows do not pay a fetch+filter cost in

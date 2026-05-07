@@ -322,30 +322,38 @@ class JobPersistence:
         return _row_to_dict(row)
 
     def list_recent(
-        self, limit: int = 30, cli_id: str | None = None
+        self,
+        limit: int = 30,
+        cli_id: str | None = None,
+        status: str | None = None,
     ) -> list[dict]:
         """Return up to ``limit`` rows in reverse-chronological order.
 
-        When ``cli_id`` is set, the filter is pushed down to a SQL
-        ``WHERE cli_id=?`` so we never project the full set into Python
-        just to drop most of it. Saves work on installations with a
-        large persisted history.
+        When ``cli_id`` and/or ``status`` are set, the filters are
+        pushed down to SQL ``WHERE`` clauses so we never project the
+        full set into Python just to drop most of it. Saves work on
+        installations with a large persisted history.
         """
         if not self._readable():
             return []
+        # Build the WHERE clause incrementally so any combination of
+        # filters is supported (cli_id only, status only, both, neither).
+        where_parts: list[str] = []
+        params: list[object] = []
+        if cli_id is not None:
+            where_parts.append("cli_id=?")
+            params.append(cli_id)
+        if status is not None:
+            where_parts.append("status=?")
+            params.append(status)
+        sql = "SELECT * FROM jobs"
+        if where_parts:
+            sql += " WHERE " + " AND ".join(where_parts)
+        sql += " ORDER BY started_at_iso DESC LIMIT ?"
+        params.append(int(limit))
         try:
             with self._connect() as conn:
-                if cli_id is None:
-                    rows = conn.execute(
-                        "SELECT * FROM jobs ORDER BY started_at_iso DESC LIMIT ?",
-                        (int(limit),),
-                    ).fetchall()
-                else:
-                    rows = conn.execute(
-                        "SELECT * FROM jobs WHERE cli_id=? "
-                        "ORDER BY started_at_iso DESC LIMIT ?",
-                        (cli_id, int(limit)),
-                    ).fetchall()
+                rows = conn.execute(sql, tuple(params)).fetchall()
         except (OSError, sqlite3.Error) as exc:
             logger.warning("JobPersistence list_recent failed: %s", exc)
             return []
