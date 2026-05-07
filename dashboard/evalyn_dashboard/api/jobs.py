@@ -128,15 +128,12 @@ async def recent_jobs(
     merged = list(in_memory)
     persistence = _persistence_for(jm)
     if persistence is not None:
-        # Over-fetch on the persisted side because some rows will be
-        # filtered out and we still want up to `limit` results post-merge.
-        # The list_recent helper does not accept a cli_id filter; we
-        # apply it post-projection rather than push it down for now.
-        for row in persistence.list_recent(limit=limit):
+        # Push the cli_id filter down to SQL so we never project the
+        # full set just to drop most of it. ``cli_id=None`` returns the
+        # unfiltered query as before.
+        for row in persistence.list_recent(limit=limit, cli_id=cli_id):
             entry = _persisted_to_dict(row)
             if entry["id"] in seen:
-                continue
-            if cli_id is not None and entry["cli_id"] != cli_id:
                 continue
             merged.append(entry)
             seen.add(entry["id"])

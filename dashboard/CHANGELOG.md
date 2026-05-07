@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+
+- **`JobPersistence.list_recent` pushes `cli_id` filter down to SQL.** The previous tick added the filter at the API layer (post-projection in Python). Now the filter is a `WHERE cli_id=?` clause so installations with thousands of persisted rows do not pay a fetch-and-filter cost. `/api/jobs/recent?cli_id=X` calls the new parameter; `cli_id=None` returns the unfiltered query as before. Added a regression test verifying filter results, no-match returns empty, and unfiltered returns all rows.
+
 ### Added
 
 - **`GET /api/jobs/{id}/output` endpoint** returning the captured stdout/stderr tails as JSON. Shape: `{id, state, stdout_tail, stderr_tail, stderr_count, total_chars}`. In-memory jobs build tails from the event log (capped at `MAX_PERSISTED_OUTPUT` per stream); persisted-only jobs read the already-capped tails from sqlite; both miss → 404. Useful for clients wanting the final output without setting up a WebSocket — agents fetching tool-call results, deep links to "show this completed run's logs", external tooling. Two regression tests cover the in-memory tail assembly and the unknown-job 404.
