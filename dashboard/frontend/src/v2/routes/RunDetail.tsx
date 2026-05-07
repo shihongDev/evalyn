@@ -38,6 +38,7 @@ import type {
 import { useV2Resource, prefetchV2 } from '../hooks/useV2Resource';
 import { useProject } from '../hooks/useProject';
 import { useSearchFilter } from '../hooks/useSearchFilter';
+import { preloadFailureCluster } from '../routePreloads';
 import { openCliRunner } from '../cliRunnerBridge';
 import { copyToClipboard } from '../clipboard';
 import { E } from '../tokens';
@@ -707,6 +708,21 @@ export default function RunDetail() {
               : isFailures
                 ? `Open the first failure cluster (${firstCluster?.label ?? ''})`
                 : undefined;
+            // Hover/focus warmup for the Failures tab: prefetches
+            // the FailureCluster chunk + the first cluster's
+            // detail JSON so the cross-route navigation feels
+            // instant. No-op when disabled (no cluster) or when
+            // i !== 2 (Summary/Items render in-place; their data
+            // is already prefetched by the page-level effect).
+            const warmFailuresTab = isFailures && firstCluster
+              ? () => {
+                  void preloadFailureCluster();
+                  prefetchV2(
+                    `cluster:${detail.id}:${firstCluster.id}`,
+                    () => v2.cluster(detail.id, firstCluster.id),
+                  );
+                }
+              : undefined;
             return (
               <button
                 key={t}
@@ -719,6 +735,8 @@ export default function RunDetail() {
                 data-rundetail-tab={i}
                 disabled={disabled}
                 title={title}
+                onMouseEnter={warmFailuresTab}
+                onFocus={warmFailuresTab}
                 onClick={() => {
                   if (disabled) return;
                   if (isFailures && firstCluster) {
