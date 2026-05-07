@@ -211,6 +211,14 @@ export default function RunDetail() {
   // jarred against the v2 design. shareState toggles the "Share" button
   // label, rerunErr surfaces failures from the run-eval form-open path.
   const [shareState, setShareState] = useState<'idle' | 'copied' | 'error'>('idle');
+  // Independent state for the inline-id copy affordance below the
+  // status-dot row. Tracking separately from `shareState` so the
+  // Share button (URL) and the id click (id only) report their own
+  // success/failure without one button's click affecting the other's
+  // visual feedback.
+  const [idCopyState, setIdCopyState] = useState<'idle' | 'copied' | 'error'>(
+    'idle',
+  );
   const [rerunErr, setRerunErr] = useState<string | null>(null);
 
   function clearCompare(): void {
@@ -353,6 +361,22 @@ export default function RunDetail() {
     } catch {
       setShareState('error');
       window.setTimeout(() => setShareState('idle'), 3000);
+    }
+  }
+
+  async function handleCopyId() {
+    // Copy just the run id - useful when pasting into a CLI like
+    // `evalyn run-detail <id>` or referencing in chat. The Share
+    // button copies the full URL; this is for the id-only case
+    // operators routinely need.
+    if (!detail) return;
+    try {
+      await copyToClipboard(detail.id);
+      setIdCopyState('copied');
+      window.setTimeout(() => setIdCopyState('idle'), 2000);
+    } catch {
+      setIdCopyState('error');
+      window.setTimeout(() => setIdCopyState('idle'), 3000);
     }
   }
 
@@ -532,7 +556,47 @@ export default function RunDetail() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
               <StatusDot status={detail.status} animated={detail.status === 'running'} />
               <span style={{ fontFamily: E.fMono, fontSize: 11, color: E.text3 }}>
-                {detail.id} - {detail.status} {detail.finished_at_iso} - {detail.duration} - {detail.cost}
+                <button
+                  type="button"
+                  onClick={() => void handleCopyId()}
+                  aria-label={
+                    idCopyState === 'copied'
+                      ? 'Run id copied to clipboard'
+                      : `Copy run id ${detail.id} to clipboard`
+                  }
+                  title={
+                    idCopyState === 'copied'
+                      ? 'Copied to clipboard'
+                      : idCopyState === 'error'
+                        ? 'Browser blocked clipboard access'
+                        : 'Click to copy just the run id (without the URL)'
+                  }
+                  style={{
+                    fontFamily: 'inherit',
+                    fontSize: 'inherit',
+                    color:
+                      idCopyState === 'copied'
+                        ? E.pass
+                        : idCopyState === 'error'
+                          ? E.fail
+                          : 'inherit',
+                    background: 'transparent',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    // Subtle dotted underline so it reads as
+                    // interactive without shouting. Mirrors the
+                    // pattern on the SystemStatusCard "Failures
+                    // (24h)" click-through row.
+                    textDecoration: 'underline',
+                    textDecorationStyle: 'dotted',
+                    textUnderlineOffset: 2,
+                  }}
+                >
+                  {idCopyState === 'copied' ? `✓ ${detail.id}` : detail.id}
+                </button>
+                {' - '}
+                {detail.status} {detail.finished_at_iso} - {detail.duration} - {detail.cost}
               </span>
               <UpdatingChip
                 visible={reloading && !isInitialLoad}
