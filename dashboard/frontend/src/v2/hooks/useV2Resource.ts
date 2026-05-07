@@ -18,7 +18,11 @@
  * Limits:
  * - Cache lives in module scope -> cleared on full page reload (acceptable
  *   for the v2 first cut; the route still loads fresh on refresh).
- * - No cache eviction strategy yet; the working set is small (~7 endpoints).
+ * - LRU eviction: capped at MAX_CACHE_ENTRIES. The paginated key shape
+ *   ``experimentItems:${runId}:${offset}:${filter}:${sort}`` can produce
+ *   hundreds of distinct keys for users who page through many runs;
+ *   without a cap the cache could grow into MB-of-payload territory in
+ *   long-lived sessions.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -27,6 +31,43 @@ import { subscribeV2Events, type V2Event } from '../api/v2ws';
 const _cache = new Map<string, { data: unknown; ts: number }>();
 const _inflight = new Map<string, Promise<unknown>>();
 const STALE_AFTER_MS = 30_000;
+// Soft cap on cached entries. Each entry holds whatever the route's
+// fetcher returned (a few KB to a few hundred KB for paginated items
+// lists). 200 was chosen so the worst-case footprint stays well under
+// a typical browser tab budget while still covering the realistic
+// working set of one user navigating through 30+ runs.
+const MAX_CACHE_ENTRIES = 200;
+
+/**
+ * Move ``key`` to the most-recently-used position so the next eviction
+ * picks the truly oldest entry. ``Map`` preserves insertion order, so
+ * delete-then-set is the standard Map-LRU dance.
+ *
+ * No-op when the key is absent (used as a "touch on read" helper).
+ */
+function _touch(key: string): void {
+  const entry = _cache.get(key);
+  if (entry === undefined) return;
+  _cache.delete(key);
+  _cache.set(key, entry);
+}
+
+/** Set ``key`` -> ``entry``, evicting the least-recently-used entries if
+ * the cache is over the cap. Always restores the cap exactly: if the
+ * incoming key already exists we treat the new value as a fresh insert
+ * (move-to-end semantics) so a write counts as recency. */
+function _setEntry(
+  key: string,
+  entry: { data: unknown; ts: number },
+): void {
+  if (_cache.has(key)) _cache.delete(key);
+  _cache.set(key, entry);
+  while (_cache.size > MAX_CACHE_ENTRIES) {
+    const oldestKey = _cache.keys().next().value;
+    if (oldestKey === undefined) break;
+    _cache.delete(oldestKey);
+  }
+}
 
 /**
  * Match a resource ``key`` against the invalidation ``keys`` set from
@@ -71,6 +112,7 @@ export function useV2Resource<T>(
 ): ResourceState<T> {
   const enabled = options.enabled ?? true;
   const cached = _cache.get(key) as { data: T; ts: number } | undefined;
+  if (cached !== undefined) _touch(key);
   const isStale = cached ? Date.now() - cached.ts > STALE_AFTER_MS : true;
   const [data, setData] = useState<T | null>(cached?.data ?? null);
   const [err, setErr] = useState<string | null>(null);
@@ -87,7 +129,7 @@ export function useV2Resource<T>(
     }
     try {
       const d = await p;
-      _cache.set(key, { data: d, ts: Date.now() });
+      _setEntry(key, { data: d, ts: Date.now() });
       setData(d);
       setErr(null);
     } catch (e) {
@@ -127,13 +169,14 @@ export function useV2Resource<T>(
  */
 export function prefetchV2<T>(key: string, fetcher: () => Promise<T>): void {
   const cached = _cache.get(key);
+  if (cached !== undefined) _touch(key);
   const isStale = cached ? Date.now() - cached.ts > STALE_AFTER_MS : true;
   if (!isStale || _inflight.has(key)) return;
   const p = fetcher();
   _inflight.set(key, p);
   void p
     .then((d) => {
-      _cache.set(key, { data: d, ts: Date.now() });
+      _setEntry(key, { data: d, ts: Date.now() });
     })
     .catch(() => {
       /* swallow - the visiting route will surface the error on its real fetch */
