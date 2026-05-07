@@ -19,6 +19,11 @@ import { MOD_KEY } from '../platform';
 import { useCoPilotThread } from './useCoPilotThread';
 import { useStickToBottom } from '../hooks/useStickToBottom';
 import { deriveContextChips, prependContextTag, type ContextKind } from './contextChips';
+import {
+  clearCoPilotDraft,
+  loadCoPilotDraft,
+  saveCoPilotDraft,
+} from './copilotDrafts';
 
 export type CoPilotDockMode = 'docked' | 'overlay' | 'sheet';
 
@@ -92,7 +97,10 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
     clearError,
     reconnecting,
   } = useCoPilotThread();
-  const [draft, setDraft] = useState('');
+  // Initialize draft from localStorage so a refresh / dock-reopen
+  // doesn't lose half-typed work. Per-thread keying so a draft on
+  // thread A doesn't leak into thread B if the user switches.
+  const [draft, setDraft] = useState(() => loadCoPilotDraft(threadId));
   const navigate = useNavigate();
   const location = useLocation();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -104,6 +112,24 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
   useEffect(() => {
     requestAnimationFrame(() => textareaRef.current?.focus());
   }, []);
+
+  // When the active thread changes (navigation, new thread creation),
+  // load that thread's draft. Lets users switch between threads
+  // mid-compose without losing either draft.
+  useEffect(() => {
+    setDraft(loadCoPilotDraft(threadId));
+  }, [threadId]);
+
+  // Auto-save the draft on every change, debounced 250ms so each
+  // keystroke isn't a JSON.stringify + setItem pair. Empty drafts
+  // are removed from storage rather than persisted as empty
+  // (cleaner localStorage for users who type and then delete).
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      saveCoPilotDraft(threadId, draft);
+    }, 250);
+    return () => window.clearTimeout(handle);
+  }, [threadId, draft]);
 
   const useSuggestion = (prompt: string) => {
     setDraft(prompt);
@@ -132,6 +158,10 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
     const t = draft.trim();
     if (!t) return;
     setDraft('');
+    // Clear synchronously: the debounced save effect would otherwise
+    // race with the navigate-after-send and persist a stale draft
+    // back into storage if the threadId changes mid-flight.
+    clearCoPilotDraft(threadId);
     void send(t);
   };
 
