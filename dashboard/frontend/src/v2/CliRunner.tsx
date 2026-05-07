@@ -1333,6 +1333,10 @@ function OutputSection({
   const [copyIdState, setCopyIdState] = useState<'idle' | 'copied' | 'error'>(
     'idle',
   );
+  // Independent state for the "Copy command" action.
+  const [copyCmdState, setCopyCmdState] = useState<
+    'idle' | 'copied' | 'error'
+  >('idle');
 
   async function handleCopyJobId() {
     if (!jobId) return;
@@ -1343,6 +1347,22 @@ function OutputSection({
     } catch {
       setCopyIdState('error');
       window.setTimeout(() => setCopyIdState('idle'), 3000);
+    }
+  }
+
+  async function handleCopyCommand() {
+    // Copy the preview line WITHOUT the leading "$ " sigil so it's
+    // ready to paste into a real terminal. The sigil exists only to
+    // signal "this is a shell command" visually; including it would
+    // make the paste fail.
+    if (!preview) return;
+    try {
+      await copyToClipboard(preview);
+      setCopyCmdState('copied');
+      window.setTimeout(() => setCopyCmdState('idle'), 2000);
+    } catch {
+      setCopyCmdState('error');
+      window.setTimeout(() => setCopyCmdState('idle'), 3000);
     }
   }
 
@@ -1603,6 +1623,44 @@ function OutputSection({
               }}
             >
               ↥ first
+            </button>
+          )}
+          {preview && (
+            <button
+              type="button"
+              onClick={() => void handleCopyCommand()}
+              aria-label="Copy the shell command to clipboard"
+              title={
+                copyCmdState === 'copied'
+                  ? `Copied: ${preview}`
+                  : copyCmdState === 'error'
+                    ? 'Browser blocked clipboard access'
+                    : 'Copy the shell command (paste into your terminal)'
+              }
+              style={{
+                flexShrink: 0,
+                padding: '0 8px',
+                fontFamily: E.fMono,
+                fontSize: 10.5,
+                color:
+                  copyCmdState === 'copied'
+                    ? E.pass
+                    : copyCmdState === 'error'
+                      ? E.fail
+                      : E.text2,
+                background: 'transparent',
+                border: `1px solid ${E.hair2}`,
+                borderRadius: 4,
+                cursor: 'pointer',
+                lineHeight: 1.6,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {copyCmdState === 'copied'
+                ? '✓ Cmd copied'
+                : copyCmdState === 'error'
+                  ? '✗ Failed'
+                  : 'Copy command'}
             </button>
           )}
           {jobId && (
