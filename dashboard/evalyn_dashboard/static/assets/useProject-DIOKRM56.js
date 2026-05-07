@@ -1,1 +1,0 @@
-import{h as e,m as t}from"./index-CacnZW0U.js";function n(){let{data:n}=t(`home`,e.home);return n?n.project:null}export{n as t};

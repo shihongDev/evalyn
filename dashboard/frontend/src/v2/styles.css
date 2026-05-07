@@ -62,6 +62,33 @@ textarea:focus-visible {
   outline-offset: 0 !important;
 }
 
+/*
+ * Global reduced-motion baseline. Many components ship inline
+ * `transition: 'background 140ms'` (hovers), `transition: 'left
+ * 120ms'` (toggle switches), `transition: 'all 160ms'` (verdict
+ * buttons), etc. - written ad-hoc per-component, so the
+ * existing per-keyframe @media overrides don't catch any of
+ * them. This block flattens all motion to an effectively
+ * instant duration without removing the transition entirely,
+ * so any code listening for transitionend still fires (the
+ * pattern recommended by W3C for prefers-reduced-motion).
+ *
+ * Scoped via `*` to cover inline styles too. Intentionally
+ * loud (!important) because most of the transition declarations
+ * we want to defeat live in inline `style={{}}` props that
+ * normally win over stylesheet rules.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @keyframes eDotPulse {
   0%,
   100% {
