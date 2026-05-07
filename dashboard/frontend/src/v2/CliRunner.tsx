@@ -471,6 +471,27 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
   ]);
   const formValid = missing.length === 0;
 
+  // "Has the user touched the form since opening?" - drives the Reset
+  // button visibility. JSON-equality is fine for the small per-command
+  // forms we have (~10 fields max); the alternative (deep-compare per
+  // field) would be more code with no real win here. Reset only shows
+  // when there's something to reset, so a fresh-opened pristine form
+  // doesn't carry visual noise.
+  const isDirty = useMemo(
+    () => JSON.stringify(values) !== JSON.stringify(initialValues),
+    [values, initialValues],
+  );
+
+  // Reset = "back to where I opened the form" (which includes the
+  // schema default + any draft + any seed - the same priority chain
+  // captured in initialValues). Also clears the persisted draft so
+  // the next open is a clean state rather than an immediate restore
+  // of the values the user just discarded.
+  const onReset = useCallback(() => {
+    setValues(initialValues);
+    if (cli.id) clearDraft(cli.id);
+  }, [initialValues, cli.id]);
+
   // Build the args dict actually sent to the backend (drop empties, coerce).
   const submitArgs = useMemo<Record<string, unknown>>(() => {
     const out: Record<string, unknown> = {};
@@ -871,6 +892,16 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
             <span style={{ flex: 1 }} />
             {!hasJob && (
               <>
+                {isDirty && (
+                  <Btn
+                    kind="ghost"
+                    size="md"
+                    onClick={onReset}
+                    title="Reset to the form's opening values"
+                  >
+                    Reset
+                  </Btn>
+                )}
                 <Btn kind="ghost" size="md" onClick={onCloseClick}>
                   Cancel
                 </Btn>
