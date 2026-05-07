@@ -4254,7 +4254,11 @@ export default function AnnotateSession() {
                     : undefined
                 }
               >
-                {submitting ? 'Saving...' : 'N · Save & next →'}
+                {submitting
+                  ? 'Saving...'
+                  : findInFilter(cursor, 1) < 0
+                    ? 'N · Save (last item) ✓'
+                    : 'N · Save & next →'}
               </Btn>
             </div>
           </Card>
