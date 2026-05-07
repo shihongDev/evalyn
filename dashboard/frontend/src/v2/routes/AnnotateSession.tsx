@@ -1567,6 +1567,14 @@ export default function AnnotateSession() {
   const submitVerdict = useCallback(
     async (override?: Record<string, AnnotationLabel>): Promise<boolean> => {
       if (!currentItem || !sessionId) return false;
+      // Guard re-entrant submits: holding Enter (which is bound to
+      // Save+Next) repeatedly fires submitVerdict, and even
+      // single-key auto-repeat can dispatch faster than the network
+      // round-trip. Without this, the same labels payload could be
+      // POSTed two or three times for one key press. The Save+Next
+      // button is also disabled={submitting} but the keyboard path
+      // bypasses that visual guard.
+      if (submitting) return false;
       const labels: AnnotationLabelEntry[] = [];
       const skipped: string[] = [];
       const ai = aiVerdictMap(currentItem);
