@@ -632,6 +632,44 @@ def test_output_txt_download_adds_attachment_header():
         assert cd.endswith('.log"')
 
 
+def test_recent_includes_output_url_per_row():
+    """Each row in /api/jobs/recent now includes ``output_url``, the
+    canonical download link with download+include_meta query params
+    pre-applied. Lets the FE render per-row download buttons without
+    reconstructing the URL convention."""
+    app = build_app()
+    with TestClient(app) as client:
+        job_id = _spawn(client, app, [sys.executable, "-c", "pass"])
+        _wait(client, app, job_id)
+        r = client.get("/api/jobs/recent")
+        assert r.status_code == 200
+        rows = r.json()
+        assert isinstance(rows, list) and len(rows) >= 1
+        row = next((j for j in rows if j["id"] == job_id), None)
+        assert row is not None
+        # Shape contract.
+        assert "output_url" in row
+        assert row["output_url"].startswith(f"/api/jobs/{job_id}/output.txt")
+        assert "download=1" in row["output_url"]
+        assert "include_meta=1" in row["output_url"]
+
+
+def test_get_job_includes_output_url():
+    """GET /api/jobs/{id} also surfaces output_url for symmetry with
+    /recent. Drilling into a single job from a deep link doesn't lose
+    the affordance."""
+    app = build_app()
+    with TestClient(app) as client:
+        job_id = _spawn(client, app, [sys.executable, "-c", "pass"])
+        _wait(client, app, job_id)
+        r = client.get(f"/api/jobs/{job_id}")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["output_url"] == (
+            f"/api/jobs/{job_id}/output.txt?download=1&include_meta=1"
+        )
+
+
 def test_output_txt_include_meta_prepends_self_describing_header():
     """?include_meta=1 prepends a # comment block with job_id, cli,
     started_at, status, exit_code, scope - so a downloaded log
