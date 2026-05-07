@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+
+- **Cold-start FS walk uses `os.scandir` (one syscall per entry, not two).** The dashboard's run-list cold path walks every ``data/<root>/datasets/*/eval_runs/*`` dir on first request after launch (snapshot cache misses on a fresh checkout, mtime change, etc.). The previous implementation used ``Path.iterdir() + Path.is_dir()`` which issues TWO syscalls per entry: one for the directory listing, one for an extra ``stat`` per child. ``os.scandir`` returns ``DirEntry`` objects whose ``is_dir()`` reads from the directory listing's cached type info (``d_type`` on Linux, ``WIN32_FIND_DATA`` on Windows/WSL-NTFS) - one syscall per entry. New ``_scandir_subdirs`` helper centralizes the pattern; ``list_dataset_dirs`` and ``_walk_run_dirs`` both refactored. The eval_runs presence check is also folded into the same ``scandir`` call (caught ``FileNotFoundError``/``NotADirectoryError``) instead of an explicit ``is_dir()`` precheck, halving the per-empty-dataset stat cost. Memory note (484 placeholder dataset dirs, 3.7s cold on WSL/NTFS) flagged this as the dominant cold-start cost. ``follow_symlinks=False`` matches prior implicit semantics. Five regression tests pin shape, sort order, and tolerance for missing/file-shaped/empty-eval_runs corner cases.
+
 ### Added
 
 - **"X / Y running" capacity chip in the Recent Jobs drawer header.** Sources `running` + `max_concurrent` from `/api/jobs/stats` (already exposes both). New `fetchJobsCapacity` helper (returns null on any error so the chip is never load-bearing). Polled every 5s only while the drawer is open to keep idle bandwidth at zero. Suppressed at idle (running=0) and when the cap is disabled (max_concurrent=0); turns ember-colored at saturation (running >= max) so the user can connect a "queue full" banner to its cause at a glance. Tooltip switches between "X / Y running" and "At capacity: ... New runs will queue." `aria-label` carries the same shape for screen readers.

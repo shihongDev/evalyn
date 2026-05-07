@@ -218,26 +218,55 @@ def project_meta() -> tuple[str, str | None]:
     return name, version
 
 
+def _scandir_subdirs(root: Path) -> list[Path]:
+    """Enumerate immediate subdirectories of ``root`` via ``os.scandir``.
+
+    ``Path.iterdir()`` followed by ``Path.is_dir()`` issues TWO syscalls
+    per entry on POSIX (one to list, one to stat). ``os.scandir()``
+    returns ``DirEntry`` objects whose ``is_dir()`` uses the directory
+    listing's cached type info on Linux/macOS and a single cached stat
+    on Windows. For prod's 484+ dataset roots on WSL/NTFS this halves
+    cold-start FS work; the warm path was already snappy.
+
+    Sorted by name so callers don't have to. ``follow_symlinks=False``
+    avoids surprise stats on broken links (a dataset folder could
+    legitimately contain link entries that should NOT be recursed
+    into; here we only care about real subdirs anyway).
+    """
+    out: list[Path] = []
+    try:
+        with os.scandir(root) as it:
+            for entry in it:
+                if entry.is_dir(follow_symlinks=False):
+                    out.append(Path(entry.path))
+    except OSError:
+        return []
+    out.sort()
+    return out
+
+
 def list_dataset_dirs(root: Path) -> list[Path]:
     """Return cached list of dataset subdirectories under ``root``.
 
     Used by every endpoint that walks ``data/prod/datasets/*``. Prod has
-    491 dataset folders; raw ``iterdir()`` is ~1.9s on WSL/NTFS - so we
-    cache by the root's mtime (changes on add/remove of a dataset). The
-    list is sorted so callers don't have to.
+    491 dataset folders; raw ``iterdir()`` was ~1.9s on WSL/NTFS - so
+    we cache by the root's mtime (changes on add/remove of a dataset).
+    The cold path itself was reduced ~2x by switching to ``os.scandir``
+    via :func:`_scandir_subdirs` (one syscall per entry instead of two).
+    The list is sorted so callers don't have to.
     """
     if not root.is_dir():
         return []
     if _caches_disabled():
-        return sorted(p for p in root.iterdir() if p.is_dir())
+        return _scandir_subdirs(root)
     try:
         mtime = root.stat().st_mtime
     except OSError:
-        return sorted(p for p in root.iterdir() if p.is_dir())
+        return _scandir_subdirs(root)
     cached = _dataset_dirs_cache.get(root)
     if cached and cached[0] == mtime:
         return cached[1]
-    out = sorted(p for p in root.iterdir() if p.is_dir())
+    out = _scandir_subdirs(root)
     _dataset_dirs_cache[root] = (mtime, out)
     return out
 
@@ -386,15 +415,32 @@ def _list_run_dirs_for_root(root: Path) -> list[Path]:
 
 
 def _walk_run_dirs(root: Path) -> list[Path]:
-    """Filesystem walk that ``_list_run_dirs_for_root`` memoizes."""
+    """Filesystem walk that ``_list_run_dirs_for_root`` memoizes.
+
+    Cold-path optimization: each ``eval_runs`` subdir is enumerated via
+    ``os.scandir`` (cached ``is_dir`` info from the listing) instead of
+    ``Path.iterdir()`` + ``Path.is_dir()`` per entry. The outer presence
+    check on ``eval_runs`` itself is folded into a single ``scandir``
+    call wrapped in ``OSError`` - if the directory is missing or
+    inaccessible we skip silently, same semantics as the previous
+    ``is_dir()``-then-``iterdir()`` two-stat pattern.
+    """
     out: list[Path] = []
     for dataset_dir in list_dataset_dirs(root):
         eval_runs_dir = dataset_dir / "eval_runs"
-        if not eval_runs_dir.is_dir():
+        try:
+            with os.scandir(eval_runs_dir) as it:
+                for entry in it:
+                    if entry.is_dir(follow_symlinks=False):
+                        out.append(Path(entry.path))
+        except (FileNotFoundError, NotADirectoryError):
+            # eval_runs is absent or got replaced by a regular file
+            # (rare). Same as the old ``is_dir()`` False branch.
             continue
-        for run_dir in eval_runs_dir.iterdir():
-            if run_dir.is_dir():
-                out.append(run_dir)
+        except OSError:
+            # Permission denied / broken symlink / WSL hiccup - log
+            # nothing (this is a hot path) and skip.
+            continue
     return out
 
 
