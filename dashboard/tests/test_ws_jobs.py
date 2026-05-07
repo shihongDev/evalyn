@@ -117,3 +117,42 @@ def test_ws_since_with_invalid_value_falls_back_to_full_replay():
             events = _drain_until_exit(ws)
 
     assert any("full" in e.get("line", "") for e in events if e["type"] == "stdout")
+
+
+def test_ws_sends_periodic_ping_on_idle(monkeypatch):
+    """Heartbeat: a long-idle WS connection still receives ``{"type":"ping"}``
+    frames so NATs / proxies don't silently kill it. We patch the
+    interval to 50ms and connect to a long-running job (no output);
+    within a short window we must see at least one ping frame."""
+    from evalyn_dashboard.api import jobs_ws as jobs_ws_mod
+
+    monkeypatch.setattr(jobs_ws_mod, "WS_PING_INTERVAL_S", 0.05)
+
+    app = build_app()
+    with TestClient(app) as client:
+        # 60s sleeper so the WS stays open long enough to emit pings
+        # but the test cleans up quickly via the cancel below.
+        job_id = _spawn(
+            client,
+            app,
+            [sys.executable, "-c", "import time; time.sleep(60)"],
+        )
+        try:
+            with client.websocket_connect(f"/ws/jobs/{job_id}") as ws:
+                # Drain a handful of frames. With a 50ms ping interval
+                # we should see ping frames within ~200ms; cap the
+                # collection at 10 frames to keep the test bounded.
+                pings = 0
+                for _ in range(10):
+                    text = ws.receive_text()
+                    evt = json.loads(text)
+                    if evt.get("type") == "ping":
+                        pings += 1
+                        # Wire spec: ping frame has a "ts" wall-clock
+                        # field for client-side latency observability.
+                        assert isinstance(evt.get("ts"), (int, float))
+                        break
+                assert pings >= 1, "expected at least one ping frame on idle WS"
+        finally:
+            client.portal.call(app.state.job_manager.cancel, job_id)
+            client.portal.call(app.state.job_manager.wait, job_id, 5.0)
