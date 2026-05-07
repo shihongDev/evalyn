@@ -785,14 +785,57 @@ function DrawerHeader({
           )}
           {capacity &&
             capacity.max_concurrent > 0 &&
-            capacity.running > 0 && (
+            capacity.running > 0 &&
+            (() => {
+              // Three-tier capacity visibility:
+              //   - normal: running < 75% of max (muted slate)
+              //   - warn:   running >= 75% (yellow, "approaching cap")
+              //   - saturated: running >= max (ember, "spawn will 503")
+              // Math.ceil so e.g. 4/5 (80%) AND 3/4 (75%) both warn.
+              // The warn tier matters for SREs/ops watching for
+              // saturation BEFORE it bites; without it the chip is
+              // silent until the cap is hit, which is too late to
+              // prevent a 503 cluster.
+              const isSaturated =
+                capacity.running >= capacity.max_concurrent;
+              const warnThreshold = Math.ceil(
+                capacity.max_concurrent * 0.75,
+              );
+              const isWarn =
+                !isSaturated && capacity.running >= warnThreshold;
+              const tier: 'normal' | 'warn' | 'saturated' = isSaturated
+                ? 'saturated'
+                : isWarn
+                  ? 'warn'
+                  : 'normal';
+              const titleText =
+                tier === 'saturated'
+                  ? `At capacity: ${capacity.running} / ${capacity.max_concurrent} running. New runs will queue.`
+                  : tier === 'warn'
+                    ? `Approaching cap: ${capacity.running} / ${capacity.max_concurrent} running`
+                    : `${capacity.running} / ${capacity.max_concurrent} running`;
+              const color =
+                tier === 'saturated'
+                  ? E.ember
+                  : tier === 'warn'
+                    ? E.warn
+                    : E.text2;
+              const background =
+                tier === 'saturated'
+                  ? 'rgba(217, 132, 51, 0.16)'
+                  : tier === 'warn'
+                    ? 'rgba(255, 196, 0, 0.12)'
+                    : 'rgba(255, 255, 255, 0.04)';
+              const borderColor =
+                tier === 'saturated'
+                  ? 'rgba(217, 132, 51, 0.45)'
+                  : tier === 'warn'
+                    ? 'rgba(255, 196, 0, 0.35)'
+                    : E.hair;
+              return (
               <span
                 aria-label={`${capacity.running} of ${capacity.max_concurrent} concurrent slots in use`}
-                title={
-                  capacity.running >= capacity.max_concurrent
-                    ? `At capacity: ${capacity.running} / ${capacity.max_concurrent} running. New runs will queue.`
-                    : `${capacity.running} / ${capacity.max_concurrent} running`
-                }
+                title={titleText}
                 style={{
                   fontSize: 10.5,
                   fontFamily: E.fMono,
@@ -800,27 +843,15 @@ function DrawerHeader({
                   borderRadius: 4,
                   lineHeight: 1.6,
                   whiteSpace: 'nowrap',
-                  // Highlight when at the cap so the user notices the
-                  // throttling reason for any "queue full" banner that
-                  // surfaces in this drawer.
-                  color:
-                    capacity.running >= capacity.max_concurrent
-                      ? E.ember
-                      : E.text2,
-                  background:
-                    capacity.running >= capacity.max_concurrent
-                      ? 'rgba(217, 132, 51, 0.16)'
-                      : 'rgba(255, 255, 255, 0.04)',
-                  border: `1px solid ${
-                    capacity.running >= capacity.max_concurrent
-                      ? 'rgba(217, 132, 51, 0.45)'
-                      : E.hair
-                  }`,
+                  color,
+                  background,
+                  border: `1px solid ${borderColor}`,
                 }}
               >
                 {capacity.running} / {capacity.max_concurrent} running
               </span>
-            )}
+              );
+            })()}
           {failedCount > 0 && (
             <button
               type="button"
