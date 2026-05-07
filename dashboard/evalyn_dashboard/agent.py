@@ -981,6 +981,52 @@ class AgentRuntime:
         thread = self._threads.get(thread_id)
         return self._thread_to_dict(thread) if thread is not None else None
 
+    def purge_old_threads(
+        self,
+        max_age_seconds: float,
+        now: float | None = None,
+    ) -> int:
+        """Drop closed threads whose newest event is older than the
+        cutoff. Returns the number of threads removed.
+
+        Without this helper, ``self._threads`` accumulates indefinitely
+        on a long-running daemon - every chat thread sticks around in
+        memory after its ``final`` event, even though no consumer can
+        meaningfully reattach (the WS subscriber would just get the
+        replay-then-close cycle on every reconnect).
+
+        Only ``closed`` threads are eligible: an open thread (mid-turn
+        or awaiting confirmation) must not be purged out from under
+        its own loop. Pre-final threads with no events also stay -
+        they may have been just-created and not yet had ``start_turn``
+        called.
+
+        ``now`` is overridable for tests. Reads each thread's newest
+        event ts via ``max(events)`` so a long-running closed thread
+        with continuing emits would also stay (defensive; today
+        ``closed`` is set only by ``final`` and emits stop after).
+        """
+        import time as _time
+
+        if max_age_seconds < 0:
+            raise ValueError("max_age_seconds must be >= 0")
+        cutoff = (_time.time() if now is None else now) - max_age_seconds
+        to_remove: list[str] = []
+        for tid, thread in self._threads.items():
+            if not thread.closed:
+                continue
+            if not thread.events:
+                # Closed but no events should not happen given current
+                # _emit semantics, but skip defensively rather than
+                # purging on a missing-data signal.
+                continue
+            last_ts = max(e.get("ts", 0.0) for e in thread.events)
+            if last_ts < cutoff:
+                to_remove.append(tid)
+        for tid in to_remove:
+            self.remove_thread(tid)
+        return len(to_remove)
+
     def confirm(
         self,
         thread_id: str,

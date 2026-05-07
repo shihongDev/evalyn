@@ -32,6 +32,29 @@ async def _json_object_body(request: Request) -> dict:
     return body
 
 
+@router.post("/threads/purge-old")
+async def purge_old_threads(
+    request: Request, max_age_s: int = 86400
+) -> JSONResponse:
+    """Drop closed threads whose newest event is older than
+    ``max_age_s`` (default 24h).
+
+    Returns ``{removed: N}``. Only closed threads are eligible - an
+    open thread (mid-turn or awaiting confirmation) is never purged.
+    Useful as a periodic cleanup on long-running daemons; can be
+    wired to a cron-like task or invoked manually from an admin tool.
+    """
+    if max_age_s < 0:
+        raise HTTPException(
+            status_code=400, detail="max_age_s must be >= 0"
+        )
+    runtime = getattr(request.app.state, "agent_runtime", None)
+    if runtime is None:
+        raise HTTPException(status_code=503, detail="agent runtime not configured")
+    removed = runtime.purge_old_threads(max_age_s)
+    return JSONResponse({"removed": removed})
+
+
 @router.get("/threads/{thread_id}")
 async def get_thread(request: Request, thread_id: str) -> JSONResponse:
     """Return one thread's metadata. Same shape as a single entry in
