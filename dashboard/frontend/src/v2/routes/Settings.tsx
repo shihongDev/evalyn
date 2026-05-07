@@ -388,6 +388,16 @@ function SystemStatusCard() {
               : `Last VACUUM at ${new Date(health.last_vacuum_at * 1000).toLocaleString()}`
           }
         />
+        <StatusRow
+          label="Failures (24h)"
+          value={health.recent_failures_24h.toLocaleString()}
+          // Red text when > 0 so a glance flags "things are going
+          // wrong" without forcing the operator to interpret a
+          // bare integer. Zero stays in the default text color so
+          // the row reads as neutral when healthy.
+          valueColor={health.recent_failures_24h > 0 ? E.fail : undefined}
+          tooltip="Jobs that ended in 'failed' state within the last 24 hours"
+        />
       </div>
       <div
         style={{
@@ -442,10 +452,15 @@ function StatusRow({
   label,
   value,
   tooltip,
+  valueColor,
 }: {
   label: string;
   value: string;
   tooltip?: string;
+  /** Optional override for the value column color. Used by the
+   * "Failures (24h)" row to flag non-zero counts in red without
+   * forcing every consumer to thread through a color prop. */
+  valueColor?: string;
 }) {
   return (
     <div
@@ -453,7 +468,7 @@ function StatusRow({
       style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}
     >
       <span style={{ color: E.text3, minWidth: 110 }}>{label}</span>
-      <span style={{ color: E.text0 }}>{value}</span>
+      <span style={{ color: valueColor ?? E.text0 }}>{value}</span>
     </div>
   );
 }
