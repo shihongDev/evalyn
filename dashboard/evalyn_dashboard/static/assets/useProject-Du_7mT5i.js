@@ -1,0 +1,1 @@
+import{A as e,w as t}from"./AppShell-ml_W84gj.js";function n(){let{data:n}=t(`home`,e.home);return n?n.project:null}export{n as t};
