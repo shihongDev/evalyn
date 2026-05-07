@@ -281,3 +281,35 @@ def test_delete_provider_unknown_returns_404(tmp_path: Path) -> None:
         "/api/settings/never-existed", headers={CSRF_HEADER: token}
     )
     assert r.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# GET /api/settings/{provider}
+# ---------------------------------------------------------------------------
+
+
+def test_get_provider_returns_redacted_record(tmp_path: Path) -> None:
+    """GET /api/settings/{provider} returns the same redacted shape
+    that public_view's `providers[name]` entry has. Plaintext keys
+    must never surface."""
+    client, _store, token = _make_client(tmp_path)
+    client.post(
+        "/api/settings/openai",
+        json={"api_key": "sk-secret", "model": "gpt-5.1"},
+        headers={CSRF_HEADER: token},
+    )
+
+    r = client.get("/api/settings/openai")
+    assert r.status_code == 200
+    body = r.json()
+    # Same as the corresponding entry in public_view's providers dict.
+    public = client.get("/api/settings").json()
+    assert body == public["providers"]["openai"]
+    # Never contains the plaintext key.
+    assert "sk-secret" not in r.text
+
+
+def test_get_provider_unknown_returns_404(tmp_path: Path) -> None:
+    client, _store, _token = _make_client(tmp_path)
+    r = client.get("/api/settings/never-existed")
+    assert r.status_code == 404

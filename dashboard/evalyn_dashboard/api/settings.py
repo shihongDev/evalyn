@@ -120,6 +120,29 @@ async def test_provider(request: Request, provider: str) -> JSONResponse:
     return JSONResponse(result, status_code=status)
 
 
+@router.get("/{provider}")
+async def get_provider(request: Request, provider: str) -> JSONResponse:
+    """Return the redacted view for one provider. Mirrors single-fetch
+    endpoints from jobs/agent/cli.
+
+    Reuses the existing ``public_view`` projection (which never
+    includes plaintext keys); pulls the provider entry out and
+    returns it directly. 404 if the provider has no stored record.
+
+    Useful for deep-link clients that already know the provider name
+    and don't need the full settings shape (active + every provider).
+    """
+    store = _get_store(request)
+    public = store.public_view()
+    providers = public.get("providers", {})
+    record = providers.get(provider)
+    if record is None:
+        raise HTTPException(
+            status_code=404, detail=f"unknown provider: {provider}"
+        )
+    return JSONResponse(record)
+
+
 @router.delete("/{provider}")
 async def delete_provider(request: Request, provider: str) -> JSONResponse:
     """Remove a provider's stored credentials.
