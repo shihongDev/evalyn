@@ -1006,12 +1006,24 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
       }
     };
   }, []);
-  const SHORTCUTS: Array<{ keys: string; label: string }> = [
+  // Two groups: globals fire from anywhere; contextuals only fire on
+  // a specific surface. We keep them in one overlay so a user
+  // discovering shortcuts via "?" sees the full set without having to
+  // hunt across screens. Each row's label includes the context in
+  // parens so the binding's scope is obvious without a section header
+  // per group.
+  const GLOBAL_SHORTCUTS: Array<{ keys: string; label: string }> = [
     { keys: `${MOD_KEY} K`, label: 'Open command palette' },
     { keys: `${MOD_KEY} J`, label: 'Toggle co-pilot dock' },
     { keys: `${MOD_KEY} ,`, label: 'Open Settings' },
     { keys: '?', label: 'Toggle this help' },
     { keys: 'Esc', label: 'Close any open overlay' },
+  ];
+  const CONTEXT_SHORTCUTS: Array<{ keys: string; label: string }> = [
+    { keys: '/', label: 'Focus search (Recent Jobs drawer)' },
+    { keys: `${MOD_KEY} L`, label: 'Clear output (CliRunner)' },
+    { keys: `${MOD_KEY} ↵`, label: 'Send message (Co-pilot composer)' },
+    { keys: `${MOD_KEY} S`, label: 'Save annotations (Annotate session)' },
   ];
   return (
     <div
@@ -1098,7 +1110,44 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
             rowGap: 8,
           }}
         >
-          {SHORTCUTS.map(({ keys, label }) => (
+          {GLOBAL_SHORTCUTS.map(({ keys, label }) => (
+            <Fragment key={keys}>
+              <kbd
+                style={{
+                  fontFamily: E.fMono,
+                  fontSize: 11,
+                  color: E.text1,
+                  background: E.panel2,
+                  border: `1px solid ${E.hair2}`,
+                  borderRadius: 4,
+                  padding: '2px 8px',
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap',
+                  alignSelf: 'center',
+                }}
+              >
+                {keys}
+              </kbd>
+              <span
+                style={{ fontSize: 12, color: E.text2, alignSelf: 'center' }}
+              >
+                {label}
+              </span>
+            </Fragment>
+          ))}
+        </div>
+        <div
+          style={{
+            marginTop: 14,
+            paddingTop: 12,
+            borderTop: `1px solid ${E.hair}`,
+            display: 'grid',
+            gridTemplateColumns: 'auto 1fr',
+            columnGap: 14,
+            rowGap: 8,
+          }}
+        >
+          {CONTEXT_SHORTCUTS.map(({ keys, label }) => (
             <Fragment key={keys}>
               <kbd
                 style={{
