@@ -4238,6 +4238,7 @@ export default function AnnotateSession() {
                 size="sm"
                 onClick={goNext}
                 disabled={submitting}
+                aria-busy={submitting}
                 style={
                   shakeTick > 0
                     ? { animation: 'eShake 320ms ease-in-out' }

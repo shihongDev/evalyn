@@ -249,6 +249,13 @@ interface BtnProps {
    * exposes the same action - prevents AT from announcing the
    * button as a duplicate. */
   'aria-hidden'?: boolean;
+  /** Signal an in-flight async operation to AT. Pair with
+   * `disabled` so the button is unreachable to mouse and
+   * keyboard, and a label change (e.g. "Save" -> "Saving...")
+   * for sighted users. Without aria-busy, SR users hear "Save
+   * button, dimmed" with no indication that the action is
+   * actually running rather than just unavailable. */
+  'aria-busy'?: boolean;
   /** Optional coachmark id for the co-pilot UI guidance tour to anchor on. */
   'data-coachmark'?: string;
 }
@@ -280,6 +287,7 @@ export function Btn({
   title,
   tabIndex,
   'aria-hidden': ariaHidden,
+  'aria-busy': ariaBusy,
   'data-coachmark': dataCoachmark,
 }: BtnProps) {
   return (
@@ -292,6 +300,7 @@ export function Btn({
       title={title}
       tabIndex={tabIndex}
       aria-hidden={ariaHidden}
+      aria-busy={ariaBusy}
       data-coachmark={dataCoachmark}
       style={{
         display: 'inline-flex',

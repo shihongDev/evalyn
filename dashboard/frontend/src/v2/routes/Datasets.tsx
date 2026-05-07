@@ -1243,7 +1243,13 @@ export default function Datasets() {
               No datasets yet. Load the demo to explore, or build one with build-dataset.
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-              <Btn kind="primary" size="md" onClick={handleLoadDemo} disabled={demoLoading}>
+              <Btn
+                kind="primary"
+                size="md"
+                onClick={handleLoadDemo}
+                disabled={demoLoading}
+                aria-busy={demoLoading}
+              >
                 {demoLoading ? 'Loading...' : 'Load demo'}
               </Btn>
               <Btn

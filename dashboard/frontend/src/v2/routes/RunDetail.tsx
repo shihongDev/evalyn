@@ -2191,6 +2191,7 @@ function ItemsTab({ runId, initialFilter }: ItemsTabProps) {
           <select
             value={sort}
             onChange={(e) => changeSort(e.target.value as ExperimentItemsSort)}
+            aria-label="Sort items"
             style={{
               fontSize: 12,
               padding: '4px 8px',

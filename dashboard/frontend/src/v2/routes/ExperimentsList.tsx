@@ -767,6 +767,7 @@ export default function ExperimentsList() {
             size="sm"
             onClick={handleNewEvaluation}
             disabled={newEvalBusy}
+            aria-busy={newEvalBusy}
             data-coachmark="experiments-new-button"
           >
             {newEvalBusy ? 'Loading...' : '+ New evaluation'}
