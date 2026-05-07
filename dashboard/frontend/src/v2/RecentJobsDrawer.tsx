@@ -22,6 +22,7 @@ import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { E } from './tokens';
 import { Btn, Eyebrow, Pill, StatusDot } from './ui';
 import { cancelJob, fetchJobStatus, restartJob } from './api/jobs';
+import { CapacityError } from './api/errors';
 import {
   clearJobsHistory,
   getJobsDrawerFailureFilter,
@@ -235,6 +236,15 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
       });
       onClose();
     } catch (err) {
+      // Capacity 503: the right action is to retry, not to fall back
+      // to the prefill form. Surface a clear banner with the cap and
+      // the server's Retry-After hint.
+      if (err instanceof CapacityError) {
+        setActionMessage(
+          `Job queue full (${err.running} / ${err.maxConcurrent} running). Try again in a few seconds.`,
+        );
+        return;
+      }
       console.warn('restartJob failed; falling back to prefill', err);
       const cli = cliCatalog?.find((c) => c.id === entry.cli_id);
       if (!cli) {
@@ -263,12 +273,26 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
   // skipped; the loop continues so a partial success is better than
   // an all-or-nothing cliff.
   const [bulkRerunPending, setBulkRerunPending] = useState(false);
+  // Transient banner for action feedback - currently only set when a
+  // restart/bulk action hits the server's capacity cap (HTTP 503). We
+  // don't fall back to the "open prefill form" branch in that case
+  // because the user should retry the SAME action in a few seconds,
+  // not edit args.
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  // Auto-clear the banner after a few seconds so it doesn't linger.
+  useEffect(() => {
+    if (!actionMessage) return;
+    const t = window.setTimeout(() => setActionMessage(null), 6000);
+    return () => window.clearTimeout(t);
+  }, [actionMessage]);
   const onBulkRerunFailures = async () => {
     if (bulkRerunPending) return;
     const targets = visibleEntries.filter((e) => e.status === 'failed');
     if (targets.length === 0) return;
     setBulkRerunPending(true);
     let succeeded = 0;
+    let hitCap = false;
+    let capInfo: { running: number; max: number } | null = null;
     try {
       for (const entry of targets) {
         try {
@@ -282,11 +306,29 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
           });
           succeeded += 1;
         } catch (err) {
+          // Sequential bulk: if we hit the capacity cap, the remaining
+          // entries will hit the same 503. Stop early and surface the
+          // partial-success count rather than spamming N identical
+          // errors and burning the cap's Retry-After window.
+          if (err instanceof CapacityError) {
+            hitCap = true;
+            capInfo = {
+              running: err.running,
+              max: err.maxConcurrent,
+            };
+            break;
+          }
           console.warn('bulk restartJob failed for', entry.job_id, err);
         }
       }
     } finally {
       setBulkRerunPending(false);
+    }
+    if (hitCap && capInfo) {
+      const remaining = targets.length - succeeded;
+      setActionMessage(
+        `Re-ran ${succeeded} / ${targets.length}; queue full (${capInfo.running} / ${capInfo.max} running). Retry the remaining ${remaining} in a few seconds.`,
+      );
     }
     // After a successful bulk run, drop the failure filter so the
     // user lands back on the unfiltered view and can watch the new
@@ -368,6 +410,22 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
           onBulkRerunFailures={onBulkRerunFailures}
           bulkRerunPending={bulkRerunPending}
         />
+        {actionMessage && (
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              padding: '8px 18px',
+              fontSize: 12,
+              fontFamily: E.fMono,
+              color: E.text1,
+              background: 'rgba(217, 132, 51, 0.10)',
+              borderBottom: `1px solid rgba(217, 132, 51, 0.3)`,
+            }}
+          >
+            {actionMessage}
+          </div>
+        )}
         <div
           style={{
             flex: 1,
