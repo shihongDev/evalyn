@@ -81,6 +81,11 @@ interface PulseCellData {
   kind: PulseKind;
   spark: number[];
   onClick?: () => void;
+  /** Hover tooltip + aria-label suffix describing what activating
+   * the cell does. Only meaningful when `onClick` is set - without
+   * this, users see a pointer cursor on the cell but have no idea
+   * which route the click leads to. */
+  tooltip?: string;
 }
 
 interface BriefHighlights {
@@ -474,6 +479,12 @@ function PulseCell({ cell, hasDivider }: { cell: PulseCellData; hasDivider: bool
     <div
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}
+      title={interactive ? cell.tooltip : undefined}
+      aria-label={
+        interactive
+          ? `${cell.label}: ${cell.value}, ${cell.delta}. ${cell.tooltip ?? 'Open details.'}`
+          : undefined
+      }
       onClick={cell.onClick}
       onKeyDown={onKey}
       style={{
@@ -1123,6 +1134,7 @@ function buildPulseCells(snap: HomeSnapshot, navigate: (p: string) => void): Pul
     kind: qKind,
     spark: qSpark,
     onClick: () => navigate('/experiments'),
+    tooltip: 'Open Experiments',
   };
 
   // Calibration: count drift entries from sub_metrics. Heuristic - "drift"
@@ -1149,6 +1161,7 @@ function buildPulseCells(snap: HomeSnapshot, navigate: (p: string) => void): Pul
           )
         : [],
     onClick: () => navigate('/metrics'),
+    tooltip: 'Open Metrics',
   };
 
   // Review backlog: count attention items with cta_target starting /review.
@@ -1169,6 +1182,7 @@ function buildPulseCells(snap: HomeSnapshot, navigate: (p: string) => void): Pul
     kind: backlogKind,
     spark: backlog > 0 ? [0, 1, 1, 2, 3, Math.min(backlog, 5)] : [],
     onClick: () => navigate('/review'),
+    tooltip: 'Open Review queue',
   };
 
   // Spend MTD
