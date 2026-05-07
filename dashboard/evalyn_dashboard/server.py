@@ -359,6 +359,8 @@ def build_app(
             uptime_seconds: <int>,
             running: <int>,        # currently-running jobs
             max_concurrent: <int>, # cap; 0 = disabled
+            jobs_persisted: <int>, # rows in the sqlite mirror
+            jobs_db_bytes: <int>,  # main + WAL + SHM file size
           }
 
         Useful for:
@@ -397,6 +399,23 @@ def build_app(
                 agent_open_threads = int(tc.get("open", 0))
             except Exception:  # noqa: BLE001 - never fail healthcheck on agent
                 pass
+        # Persistence visibility: row count + on-disk footprint
+        # (main + WAL + SHM). SREs watching long-running dashboards
+        # can spot bloat trending toward a vacuum before it pages.
+        # Both are best-effort; degraded persistence reports zeros
+        # rather than failing the healthcheck.
+        jobs_persisted = 0
+        jobs_db_bytes = 0
+        persistence = getattr(jm, "_persistence", None) if jm is not None else None
+        if persistence is not None:
+            try:
+                jobs_persisted = int(persistence.stats().get("total", 0))
+            except Exception:  # noqa: BLE001
+                pass
+            try:
+                jobs_db_bytes = int(persistence.db_size_bytes())
+            except Exception:  # noqa: BLE001
+                pass
         return {
             "ok": True,
             "version": app.version,
@@ -406,6 +425,8 @@ def build_app(
             "max_concurrent": max_concurrent,
             "agent_threads": agent_threads,
             "agent_open_threads": agent_open_threads,
+            "jobs_persisted": jobs_persisted,
+            "jobs_db_bytes": jobs_db_bytes,
         }
 
     _register_api_routers(app)

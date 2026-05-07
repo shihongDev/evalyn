@@ -36,6 +36,11 @@ def test_healthcheck() -> None:
     assert body["agent_open_threads"] >= 0
     # Open threads cannot exceed total.
     assert body["agent_open_threads"] <= body["agent_threads"]
+    # Persistence visibility.
+    assert isinstance(body["jobs_persisted"], int)
+    assert body["jobs_persisted"] >= 0
+    assert isinstance(body["jobs_db_bytes"], int)
+    assert body["jobs_db_bytes"] >= 0
 
 
 def test_healthcheck_capacity_zero_when_idle() -> None:
@@ -67,6 +72,9 @@ def test_healthcheck_survives_missing_job_manager(monkeypatch) -> None:
     # Agent fields are also defensive.
     assert body["agent_threads"] == 0
     assert body["agent_open_threads"] == 0
+    # Persistence fields fall back to zero when JM is missing.
+    assert body["jobs_persisted"] == 0
+    assert body["jobs_db_bytes"] == 0
 
 
 def test_index_served() -> None:
