@@ -248,6 +248,55 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
     }
   };
 
+  // Bulk Re-run path: visible only when the failure filter is on AND
+  // there is at least one failed entry to act on. Iterates the
+  // currently-visible failures sequentially (NOT parallel) for two
+  // reasons:
+  //   1. The server's max_concurrent cap will 503 once we saturate;
+  //      sequential keeps each request inside the previous one's
+  //      capacity slot and lets the cap throttle naturally rather
+  //      than firing N parallel 503s.
+  //   2. The drawer history is a localStorage list - rapid parallel
+  //      upserts can race on the SAME tab if React batches them in
+  //      one tick. Sequential awaits sidestep that.
+  // Any single failure (catalog drift, 409, network) is logged and
+  // skipped; the loop continues so a partial success is better than
+  // an all-or-nothing cliff.
+  const [bulkRerunPending, setBulkRerunPending] = useState(false);
+  const onBulkRerunFailures = async () => {
+    if (bulkRerunPending) return;
+    const targets = visibleEntries.filter((e) => e.status === 'failed');
+    if (targets.length === 0) return;
+    setBulkRerunPending(true);
+    let succeeded = 0;
+    try {
+      for (const entry of targets) {
+        try {
+          const { job_id: newId } = await restartJob(entry.job_id);
+          upsertJob({
+            job_id: newId,
+            cli_id: entry.cli_id,
+            cli_args: entry.cli_args,
+            started_at_iso: new Date().toISOString(),
+            status: 'running',
+          });
+          succeeded += 1;
+        } catch (err) {
+          console.warn('bulk restartJob failed for', entry.job_id, err);
+        }
+      }
+    } finally {
+      setBulkRerunPending(false);
+    }
+    // After a successful bulk run, drop the failure filter so the
+    // user lands back on the unfiltered view and can watch the new
+    // running entries appear at the top. If nothing succeeded we
+    // keep the filter so they can retry with full context.
+    if (succeeded > 0) {
+      setFailureFilter(false);
+    }
+  };
+
   // Cancel path: send SIGTERM via the existing /api/jobs/{id}/cancel
   // endpoint (with grace + SIGKILL escalation server-side) and
   // optimistically patch the local entry to 'cancelled'. If the CliRunner
@@ -316,6 +365,8 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
           failedCount={failedCount}
           failureFilter={failureFilter}
           onToggleFailureFilter={() => setFailureFilter((v) => !v)}
+          onBulkRerunFailures={onBulkRerunFailures}
+          bulkRerunPending={bulkRerunPending}
         />
         <div
           style={{
@@ -378,12 +429,16 @@ function DrawerHeader({
   failedCount,
   failureFilter,
   onToggleFailureFilter,
+  onBulkRerunFailures,
+  bulkRerunPending,
 }: {
   onClose: () => void;
   count: number;
   failedCount: number;
   failureFilter: boolean;
   onToggleFailureFilter: () => void;
+  onBulkRerunFailures: () => void;
+  bulkRerunPending: boolean;
 }) {
   return (
     <div
@@ -449,6 +504,36 @@ function DrawerHeader({
             >
               {failureFilter ? '✓ ' : ''}
               {failedCount} failed
+            </button>
+          )}
+          {failureFilter && failedCount > 0 && (
+            <button
+              type="button"
+              onClick={onBulkRerunFailures}
+              disabled={bulkRerunPending}
+              aria-label={`Re-run all ${failedCount} visible failed job${failedCount === 1 ? '' : 's'}`}
+              title={
+                bulkRerunPending
+                  ? 'Re-running'
+                  : `Re-run all ${failedCount} visible failures`
+              }
+              style={{
+                padding: '0 8px',
+                fontFamily: E.fMono,
+                fontSize: 10.5,
+                color: bulkRerunPending ? E.text3 : E.ember,
+                background: 'transparent',
+                border: `1px solid ${bulkRerunPending ? E.hair : 'rgba(217, 132, 51, 0.4)'}`,
+                borderRadius: 4,
+                lineHeight: 1.6,
+                whiteSpace: 'nowrap',
+                fontWeight: 500,
+                cursor: bulkRerunPending ? 'progress' : 'pointer',
+              }}
+            >
+              {bulkRerunPending
+                ? `Re-running ${failedCount}...`
+                : `Re-run all ${failedCount}`}
             </button>
           )}
         </div>
