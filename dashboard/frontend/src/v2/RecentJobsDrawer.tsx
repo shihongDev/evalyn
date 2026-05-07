@@ -51,6 +51,7 @@ import {
 import { listCli, previewCommand, type CliSchema } from './api/cli';
 import { useArmedConfirm } from './hooks/useArmedConfirm';
 import { useLiveDuration } from './hooks/useLiveDuration';
+import { useSearchFilter } from './hooks/useSearchFilter';
 import { openCliRunner } from './cliRunnerBridge';
 
 interface RecentJobsDrawerProps {
@@ -129,51 +130,19 @@ export function RecentJobsDrawer({ open, onClose }: RecentJobsDrawerProps): Reac
   // Substring match (case-insensitive) against cli_id + a JSON dump of
   // cli_args so "model=gpt-4o" and "compare" both find what you'd
   // expect. Empty / whitespace-only query treated as no filter.
-  // Search query persists in sessionStorage so reopening the drawer
-  // in the same tab session restores the last query - useful for
-  // "I was filtering to find compare jobs, switched tabs, came back"
-  // without reaching across persistent localStorage (which would
-  // carry stale filters between sessions weeks apart). sessionStorage
-  // clears on tab close, which is the right TTL for transient search.
-  const [searchInput, setSearchInput] = useState(() => {
-    try {
-      return window.sessionStorage.getItem('evalyn:v2:jobsDrawer:searchQuery') ?? '';
-    } catch {
-      return '';
-    }
-  });
-  const [searchQuery, setSearchQuery] = useState(() => {
-    try {
-      return (
-        window.sessionStorage.getItem('evalyn:v2:jobsDrawer:searchQuery') ?? ''
-      ).trim().toLowerCase();
-    } catch {
-      return '';
-    }
-  });
-  useEffect(() => {
-    const handle = window.setTimeout(() => {
-      setSearchQuery(searchInput.trim().toLowerCase());
-      // Mirror to sessionStorage so re-open in the same tab session
-      // lands the previous filter. Empty input removes the entry
-      // (cleaner storage; load returns '' anyway).
-      try {
-        if (searchInput) {
-          window.sessionStorage.setItem(
-            'evalyn:v2:jobsDrawer:searchQuery', searchInput,
-          );
-        } else {
-          window.sessionStorage.removeItem(
-            'evalyn:v2:jobsDrawer:searchQuery',
-          );
-        }
-      } catch {
-        // Quota / private mode - persistence is best-effort.
-      }
-    }, 120);
-    return () => window.clearTimeout(handle);
-  }, [searchInput]);
-  const searchRef = useRef<HTMLInputElement | null>(null);
+  // Persisted via the shared useSearchFilter hook (sessionStorage
+  // key picks up where ExperimentsList already retrofitted; the
+  // hook's debounce + private-mode tolerance match the previous
+  // hand-rolled behavior). The drawer's Esc handler is on window
+  // (not the input) because Esc-on-empty must close the drawer
+  // entirely, so the hook's built-in onKeyDown is intentionally
+  // not wired here - we keep the window listener below.
+  const {
+    input: searchInput,
+    setInput: setSearchInput,
+    query: searchQuery,
+    inputRef: searchRef,
+  } = useSearchFilter({ sessionKey: 'evalyn:v2:jobsDrawer:searchQuery' });
 
   // Filtered view used by the row list. Failure filter and search
   // filter AND-combine. We deliberately exclude cancelled and unknown
