@@ -15,8 +15,12 @@ The companion WebSocket route ``/ws/agent/{thread_id}`` lives in
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -52,6 +56,15 @@ async def purge_old_threads(
     if runtime is None:
         raise HTTPException(status_code=503, detail="agent runtime not configured")
     removed = runtime.purge_old_threads(max_age_s)
+    # Audit log: like the jobs admin endpoints, capture intent
+    # (max_age_s) AND outcome (removed). Useful for "did the
+    # cleanup cron actually do anything during the incident
+    # window?" forensics.
+    logger.info(
+        "agent purge_old_threads: max_age_s=%s removed=%s",
+        max_age_s,
+        removed,
+    )
     return JSONResponse({"removed": removed})
 
 
@@ -133,6 +146,9 @@ async def delete_thread(request: Request, thread_id: str) -> JSONResponse:
         raise HTTPException(status_code=503, detail="agent runtime not configured")
     if not runtime.remove_thread(thread_id):
         raise HTTPException(status_code=404, detail=f"unknown thread: {thread_id}")
+    # Audit log AFTER the 404 path so phantom-id deletes don't
+    # pollute the log (matches the jobs delete pattern).
+    logger.info("agent delete_thread: thread_id=%s", thread_id)
     return JSONResponse({"ok": True, "id": thread_id})
 
 

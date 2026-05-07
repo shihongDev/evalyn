@@ -807,3 +807,77 @@ def test_ws_agent_sends_periodic_ping_on_idle(
                 assert isinstance(evt.get("ts"), (int, float))
                 break
         assert pings >= 1, "expected at least one ping frame on idle agent WS"
+
+
+def test_purge_old_threads_emits_audit_log(tmp_path: Path, caplog) -> None:
+    """Mirror the jobs-endpoint audit pattern: capture intent
+    (max_age_s) AND outcome (removed). Useful for "did the
+    cleanup cron actually do anything during the incident?"
+    forensics."""
+    import logging
+
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider(
+            [[ProviderEvent(kind="text_delta", text="x"), ProviderEvent(kind="finish")]]
+        ),
+        catalog=_sample_catalog(),
+    )
+    client, token = _make_client(tmp_path, runtime)
+
+    with caplog.at_level(logging.INFO, logger="evalyn_dashboard.api.agent"):
+        r = client.post(
+            "/api/agent/threads/purge-old?max_age_s=60",
+            headers={CSRF_HEADER: token},
+        )
+        assert r.status_code == 200
+
+    matched = [
+        rec for rec in caplog.records
+        if rec.message.startswith("agent purge_old_threads:")
+    ]
+    assert len(matched) == 1
+    assert "max_age_s=60" in matched[0].message
+
+
+def test_delete_thread_emits_audit_log_only_on_success(tmp_path: Path, caplog) -> None:
+    """Audit log fires AFTER the 404 path so phantom-id deletes
+    don't pollute the log (matches the jobs-delete pattern).
+    Pinned by an explicit success-then-404 pair."""
+    import logging
+
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider(
+            [[ProviderEvent(kind="text_delta", text="x"), ProviderEvent(kind="finish")]]
+        ),
+        catalog=_sample_catalog(),
+    )
+    client, token = _make_client(tmp_path, runtime)
+
+    # Create then delete a real thread.
+    r = client.post(
+        "/api/agent/chat", json={"message": "hi"}, headers={CSRF_HEADER: token}
+    )
+    assert r.status_code == 200
+    thread_id = r.json()["thread_id"]
+
+    with caplog.at_level(logging.INFO, logger="evalyn_dashboard.api.agent"):
+        # Success path -> one log line.
+        r1 = client.delete(
+            f"/api/agent/threads/{thread_id}", headers={CSRF_HEADER: token}
+        )
+        assert r1.status_code == 200
+        # 404 path -> no additional log line.
+        r2 = client.delete(
+            "/api/agent/threads/does-not-exist", headers={CSRF_HEADER: token}
+        )
+        assert r2.status_code == 404
+
+    matched = [
+        rec for rec in caplog.records
+        if rec.message.startswith("agent delete_thread:")
+    ]
+    assert len(matched) == 1, (
+        f"expected exactly one delete log line, got {len(matched)}: "
+        f"{[r.message for r in caplog.records]}"
+    )
+    assert thread_id in matched[0].message
