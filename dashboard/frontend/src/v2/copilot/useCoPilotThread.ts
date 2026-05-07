@@ -9,14 +9,14 @@
  *   - confirm: approve / reject a pending tool call
  *   - resetTo: switch the hook to a different (existing) thread id
  *   - threadId: current thread id (stable across resets)
- *   - status: idle | streaming | awaiting_confirmation | error
+ *   - status: idle | streaming | awaiting_confirmation | reconnecting | error
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, subscribeAgent } from '../../api';
 import type { AgentWsEvent, ConvMessage, PendingConfirmation, ToolBlockEntry } from './types';
 
-type Status = 'idle' | 'streaming' | 'awaiting_confirmation' | 'error';
+type Status = 'idle' | 'streaming' | 'awaiting_confirmation' | 'reconnecting' | 'error';
 
 interface UseCoPilotOptions {
   /** When provided, the hook attaches to this existing thread instead of creating one on first send. */
@@ -84,6 +84,26 @@ function ensureAgentBubble(messages: ConvMessage[]): {
   return { next: [...messages, bubble], bubble };
 }
 
+/**
+ * Locate the bubble that owns a given tool_call_id by scanning every
+ * message's tools array. Used by tool_call_running / tool_call_complete:
+ * when these events arrive AFTER the bubble has been closed (e.g. agent
+ * already emitted `final` and a new bubble was opened), `ensureAgentBubble`
+ * would otherwise return the wrong (empty) bubble and the patch would
+ * silently no-op, leaving the tool stuck in `running`.
+ */
+function findBubbleByToolCallId(
+  messages: ConvMessage[],
+  toolCallId: string,
+): ConvMessage | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role !== 'agent') continue;
+    if (m.tools.some((t) => t.tool_call_id === toolCallId)) return m;
+  }
+  return null;
+}
+
 export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
   const [threadId, setThreadId] = useState<string | null>(opts.initialThreadId ?? null);
   const [messages, setMessages] = useState<ConvMessage[]>([]);
@@ -100,6 +120,13 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
   const wsRef = useRef<{ close: () => void } | null>(null);
   const threadIdRef = useRef<string | null>(threadId);
   threadIdRef.current = threadId;
+  /**
+   * Generation counter for `resetTo`. Captured at the start of `send` and
+   * compared after the await: if it advanced, the response belongs to a
+   * thread the user has since switched away from and must be discarded
+   * so we don't stomp the new thread's id (F4).
+   */
+  const generationRef = useRef(0);
 
   const handleReconnecting = useCallback(() => {
     if (reconnectArmTimerRef.current != null) return;
@@ -215,31 +242,39 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
 
     if (evt.type === 'tool_call_running') {
       setMessages((prev) => {
+        // Patch the bubble that already owns this tool_call_id (the one
+        // emitted by tool_call_proposal). Falling back to ensureAgentBubble
+        // would create a fresh bubble if `final` already closed the last
+        // one, leaving the proposal entry stuck in `proposed` forever.
+        const owning = findBubbleByToolCallId(prev, evt.tool_call_id);
+        if (owning) {
+          return patchAgentBubble(prev, owning.id, (b) => ({
+            ...b,
+            tools: b.tools.map((t) =>
+              t.tool_call_id === evt.tool_call_id
+                ? { ...t, status: 'running', ts_started: evt.ts }
+                : t,
+            ),
+          }));
+        }
         const { next, bubble } = ensureAgentBubble(prev);
-        const existing = bubble.tools.find((t) => t.tool_call_id === evt.tool_call_id);
-        const newTool: ToolBlockEntry = existing
-          ? {
-              ...existing,
-              status: 'running',
-              ts_started: evt.ts,
-            }
-          : {
-              tool_call_id: evt.tool_call_id,
-              tool: evt.tool,
-              cmd: evt.tool,
-              args: {},
-              status: 'running',
-              duration_s: null,
-              output_preview: '',
-              output_full: '',
-              exit_code: null,
-              ts_started: evt.ts,
-              ts_completed: null,
-            };
-        const tools = existing
-          ? bubble.tools.map((t) => (t.tool_call_id === evt.tool_call_id ? newTool : t))
-          : [...bubble.tools, newTool];
-        return patchAgentBubble(next, bubble.id, (b) => ({ ...b, tools }));
+        const newTool: ToolBlockEntry = {
+          tool_call_id: evt.tool_call_id,
+          tool: evt.tool,
+          cmd: evt.tool,
+          args: {},
+          status: 'running',
+          duration_s: null,
+          output_preview: '',
+          output_full: '',
+          exit_code: null,
+          ts_started: evt.ts,
+          ts_completed: null,
+        };
+        return patchAgentBubble(next, bubble.id, (b) => ({
+          ...b,
+          tools: [...b.tools, newTool],
+        }));
       });
       return;
     }
@@ -247,22 +282,35 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
     if (evt.type === 'tool_call_complete') {
       const out = evt.output ?? evt.stdout ?? '';
       setMessages((prev) => {
-        const { next, bubble } = ensureAgentBubble(prev);
-        const tools = bubble.tools.map((t) => {
-          if (t.tool_call_id !== evt.tool_call_id) return t;
-          const startTs = t.ts_started;
-          const duration = startTs != null ? Math.max(0, evt.ts - startTs) : null;
-          return {
-            ...t,
-            status: evt.ok ? 'complete' : 'error',
-            duration_s: duration,
-            output_preview: out.slice(0, MAX_OUTPUT_PREVIEW),
-            output_full: out.slice(0, MAX_OUTPUT_FULL),
-            exit_code: evt.exit_code ?? null,
-            ts_completed: evt.ts,
-          };
-        }) as ToolBlockEntry[];
-        return patchAgentBubble(next, bubble.id, (b) => ({ ...b, tools }));
+        // Locate the bubble whose tools array already contains this
+        // tool_call_id. Without this, a complete event arriving after
+        // `final` (which sets the bubble to streaming=false) would land in
+        // a freshly-spawned empty bubble and the tool entry would stay
+        // `running` forever.
+        const owning = findBubbleByToolCallId(prev, evt.tool_call_id);
+        const targetId = owning?.id;
+        if (!targetId) {
+          // No bubble owns this id - nothing to patch. Drop silently
+          // rather than spawn a stray bubble.
+          return prev;
+        }
+        return patchAgentBubble(prev, targetId, (b) => ({
+          ...b,
+          tools: b.tools.map((t) => {
+            if (t.tool_call_id !== evt.tool_call_id) return t;
+            const startTs = t.ts_started;
+            const duration = startTs != null ? Math.max(0, evt.ts - startTs) : null;
+            return {
+              ...t,
+              status: evt.ok ? 'complete' : 'error',
+              duration_s: duration,
+              output_preview: out.slice(0, MAX_OUTPUT_PREVIEW),
+              output_full: out.slice(0, MAX_OUTPUT_FULL),
+              exit_code: evt.exit_code ?? null,
+              ts_completed: evt.ts,
+            };
+          }) as ToolBlockEntry[],
+        }));
       });
       return;
     }
@@ -340,27 +388,70 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
     }
   }, [enqueueTextDelta, flushTextBuffer]);
 
-  // Open / re-open the WS whenever threadId changes.
+  // Open / re-open the WS whenever threadId changes. Includes exponential
+  // backoff reconnect (1s, 2s, 4s, 8s, 16s, capped at 30s) for up to 5
+  // consecutive unclean closes. Cancelled on unmount or threadId change.
   useEffect(() => {
     if (!threadId) return;
-    const sub = subscribeAgent<AgentWsEvent>(threadId, {
-      onMessage: handleEvent,
-      onError: (evt) => {
-        console.error('agent ws error', evt);
-        setError(`WebSocket error on /ws/agent/${threadId}`);
-      },
-      onClose: (evt) => {
-        if (!evt.wasClean) {
-          console.error('agent ws closed unexpectedly', { code: evt.code, reason: evt.reason });
-          setError(`WebSocket closed (code ${evt.code}${evt.reason ? `: ${evt.reason}` : ''})`);
-        }
-      },
-      onReconnecting: handleReconnecting,
-      onReconnected: handleReconnected,
-    });
-    wsRef.current = sub;
+
+    let cancelled = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let attempt = 0;
+    const MAX_ATTEMPTS = 5;
+    const MAX_DELAY_MS = 30_000;
+
+    const open = () => {
+      if (cancelled) return;
+      const sub = subscribeAgent<AgentWsEvent>(threadId, {
+        onMessage: (evt) => {
+          // Successful traffic resets backoff so a later transient blip
+          // gets a fresh 5-attempt budget.
+          attempt = 0;
+          handleEvent(evt);
+        },
+        onOpen: () => {
+          attempt = 0;
+          setStatus((s) => (s === 'reconnecting' ? 'idle' : s));
+        },
+        onError: (evt) => {
+          console.error('agent ws error', evt);
+          setError(`WebSocket error on /ws/agent/${threadId}`);
+        },
+        onClose: (evt) => {
+          if (cancelled) return;
+          if (evt.wasClean) {
+            wsRef.current = null;
+            return;
+          }
+          console.error('agent ws closed unexpectedly', {
+            code: evt.code,
+            reason: evt.reason,
+          });
+          if (attempt >= MAX_ATTEMPTS) {
+            setError(
+              `WebSocket closed (code ${evt.code}${evt.reason ? `: ${evt.reason}` : ''}) - giving up after ${MAX_ATTEMPTS} reconnect attempts`,
+            );
+            setStatus('error');
+            return;
+          }
+          const delay = Math.min(1000 * 2 ** attempt, MAX_DELAY_MS);
+          attempt += 1;
+          setStatus('reconnecting');
+          reconnectTimer = setTimeout(open, delay);
+        },
+      });
+      wsRef.current = sub;
+    };
+
+    open();
+
     return () => {
-      sub.close();
+      cancelled = true;
+      if (reconnectTimer != null) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      wsRef.current?.close();
       wsRef.current = null;
       // Cancel any pending text-delta flush so we do not setMessages
       // after the hook has detached from this thread (or unmounted).
@@ -400,15 +491,25 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
       // If THIS turn fails, the catch below sets a new error.
       setError(null);
       setStatus('streaming');
+      // Capture the generation BEFORE the await so we can detect a
+      // resetTo() that landed mid-flight (F4).
+      const generationAtCall = generationRef.current;
       try {
         const tid = threadIdRef.current;
         const res = tid
           ? await api.sendAgentMessage(tid, message)
           : await api.startAgentThread(message);
+        if (generationRef.current !== generationAtCall) {
+          // The user switched threads while this request was in flight.
+          // Drop the response - applying setThreadId here would swap the
+          // hook back to a stale thread.
+          return;
+        }
         if (res.thread_id !== threadIdRef.current) {
           setThreadId(res.thread_id);
         }
       } catch (err) {
+        if (generationRef.current !== generationAtCall) return;
         setError(err instanceof Error ? err.message : String(err));
         setStatus('error');
       }
@@ -431,29 +532,19 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
         setStatus('error');
+        // Without this, the awaiting-confirmation card stays mounted and
+        // the composer (which guards on `pending != null`) is locked
+        // forever (F2). Clearing pending lets the user retry or send.
+        setPending(null);
       }
     },
     [pending],
   );
 
   const resetTo = useCallback((newThreadId: string | null) => {
-    // Drop any pending text deltas from the previous thread so they do not
-    // bleed into the new conversation when the next rAF fires.
-    if (flushScheduledRef.current != null) {
-      if (typeof cancelAnimationFrame === 'function') {
-        cancelAnimationFrame(flushScheduledRef.current);
-      } else {
-        window.clearTimeout(flushScheduledRef.current);
-      }
-      flushScheduledRef.current = null;
-    }
-    textBufferRef.current.clear();
-    // Drop any reconnecting indicator from the previous thread.
-    if (reconnectArmTimerRef.current != null) {
-      window.clearTimeout(reconnectArmTimerRef.current);
-      reconnectArmTimerRef.current = null;
-    }
-    setReconnecting(false);
+    // Bump the generation so any in-flight `send` resolves into a no-op
+    // instead of stomping the new thread id (F4).
+    generationRef.current += 1;
     setMessages([]);
     setPending(null);
     setStatus('idle');

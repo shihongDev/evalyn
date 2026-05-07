@@ -233,17 +233,29 @@ def test_test_provider_ollama_ok(tmp_path: Path) -> None:
     cs = CredentialStore(path=tmp_path / "cred.json")
     cs.set_provider("ollama", model="llama3", base_url="http://localhost:11434")
 
-    fake_response = MagicMock()
-    fake_response.status_code = 200
-    fake_response.raise_for_status.return_value = None
+    fake_get = MagicMock()
+    fake_get.status_code = 200
+    fake_get.raise_for_status.return_value = None
+    # Tool-probe response: 200 with tool_calls -> tool-capable.
+    fake_post = MagicMock()
+    fake_post.status_code = 200
+    fake_post.json.return_value = {
+        "message": {"tool_calls": [{"function": {"name": "echo"}}]}
+    }
 
-    with patch("httpx.get", return_value=fake_response) as mock_get:
+    with patch("httpx.get", return_value=fake_get) as mock_get, patch(
+        "httpx.post", return_value=fake_post
+    ) as mock_post:
         result = cs.test_provider("ollama")
 
     assert result["ok"] is True
     mock_get.assert_called_once()
     args, kwargs = mock_get.call_args
     assert args[0] == "http://localhost:11434/api/tags"
+    # Tool-probe should hit /api/chat exactly once.
+    mock_post.assert_called_once()
+    post_args, post_kwargs = mock_post.call_args
+    assert post_args[0] == "http://localhost:11434/api/chat"
 
 
 def test_test_provider_ollama_failure(tmp_path: Path) -> None:
@@ -264,8 +276,15 @@ def test_test_provider_ollama_default_base_url(tmp_path: Path) -> None:
 
     fake_response = MagicMock()
     fake_response.raise_for_status.return_value = None
+    fake_post = MagicMock()
+    fake_post.status_code = 200
+    fake_post.json.return_value = {
+        "message": {"tool_calls": [{"function": {"name": "echo"}}]}
+    }
 
-    with patch("httpx.get", return_value=fake_response) as mock_get:
+    with patch("httpx.get", return_value=fake_response) as mock_get, patch(
+        "httpx.post", return_value=fake_post
+    ):
         result = cs.test_provider("ollama")
 
     assert result["ok"] is True
@@ -279,3 +298,99 @@ def test_test_provider_unknown_provider_name(tmp_path: Path) -> None:
     result = cs.test_provider("mystery")
     assert result["ok"] is False
     assert "error" in result
+
+
+# ---------------------------------------------------------------------------
+# O3: Ollama tool-support detection in _test_ollama
+# ---------------------------------------------------------------------------
+
+
+def test_ollama_probe_rejects_text_only_model(tmp_path: Path) -> None:
+    """O3: when the configured Ollama model returns text without
+    `tool_calls` on the probe, _test_ollama must report the model is not
+    tool-capable so the user is not silently misled."""
+    cs = CredentialStore(path=tmp_path / "cred.json")
+    cs.set_provider("ollama", model="phi3", base_url="http://localhost:11434")
+
+    fake_get = MagicMock()
+    fake_get.raise_for_status.return_value = None
+    # Probe response: 200 with text only, no tool_calls -> NOT tool-capable.
+    fake_post = MagicMock()
+    fake_post.status_code = 200
+    fake_post.json.return_value = {"message": {"content": "hello"}}
+
+    with patch("httpx.get", return_value=fake_get), patch(
+        "httpx.post", return_value=fake_post
+    ) as mock_post:
+        result = cs.test_provider("ollama")
+
+    assert result["ok"] is False
+    assert "tool calling" in result["error"].lower()
+    assert "phi3" in result["error"]
+    mock_post.assert_called_once()
+    post_args, _ = mock_post.call_args
+    assert post_args[0] == "http://localhost:11434/api/chat"
+
+
+def test_ollama_probe_rejects_model_that_4xx_on_tools(tmp_path: Path) -> None:
+    """O3 (refined after live testing): when Ollama returns HTTP 4xx
+    because the model does not accept the `tools` payload (the actual
+    failure mode for llama3 and other pre-3.1 models), the probe must
+    surface this as ok=False rather than swallowing it via best-effort."""
+    cs = CredentialStore(path=tmp_path / "cred.json")
+    cs.set_provider("ollama", model="llama3", base_url="http://localhost:11434")
+
+    fake_get = MagicMock()
+    fake_get.raise_for_status.return_value = None
+    fake_post = MagicMock()
+    fake_post.status_code = 400
+
+    with patch("httpx.get", return_value=fake_get), patch(
+        "httpx.post", return_value=fake_post
+    ):
+        result = cs.test_provider("ollama")
+
+    assert result["ok"] is False
+    assert "HTTP 400" in result["error"]
+    assert "llama3" in result["error"]
+
+
+def test_ollama_probe_network_error_degrades_to_ok(tmp_path: Path) -> None:
+    """When the probe POST hits a transport-level error (timeout,
+    connection drop), don't mask the (already successful) reachability
+    check - the user should still be able to save credentials and the
+    tool-support check is best-effort."""
+    import httpx
+
+    cs = CredentialStore(path=tmp_path / "cred.json")
+    cs.set_provider("ollama", model="llama3", base_url="http://localhost:11434")
+
+    fake_get = MagicMock()
+    fake_get.raise_for_status.return_value = None
+
+    with patch("httpx.get", return_value=fake_get), patch(
+        "httpx.post", side_effect=httpx.ConnectError("network down")
+    ):
+        result = cs.test_provider("ollama")
+
+    assert result["ok"] is True
+
+
+def test_ollama_probe_skipped_when_no_model_configured(tmp_path: Path) -> None:
+    """O3: when no model is configured, the probe is skipped and the
+    reachability check alone determines ok=True. Setup mid-flow must not
+    fail just because the model picker has not been used yet."""
+    cs = CredentialStore(path=tmp_path / "cred.json")
+    # Provision ollama with no model.
+    cs.set_provider("ollama", model="", base_url="http://localhost:11434")
+
+    fake_get = MagicMock()
+    fake_get.raise_for_status.return_value = None
+
+    with patch("httpx.get", return_value=fake_get), patch(
+        "httpx.post"
+    ) as mock_post:
+        result = cs.test_provider("ollama")
+
+    assert result["ok"] is True
+    mock_post.assert_not_called()

@@ -255,8 +255,103 @@ class CredentialStore:
     def _test_ollama(rec: dict[str, Any]) -> dict[str, Any]:
         import httpx
 
-        base_url = rec.get("base_url") or DEFAULT_OLLAMA_BASE_URL
-        url = base_url.rstrip("/") + "/api/tags"
-        response = httpx.get(url, timeout=5.0)
+        base_url = (rec.get("base_url") or DEFAULT_OLLAMA_BASE_URL).rstrip("/")
+        # Step 1: server reachability via /api/tags.
+        response = httpx.get(base_url + "/api/tags", timeout=5.0)
         response.raise_for_status()
+
+        # O3 fix (part 1): if a model is configured, probe whether it
+        # actually supports tool calling. Many Ollama models silently
+        # ignore the `tools` payload and reply with free text; the user
+        # would otherwise believe the agent is wired up while no tool
+        # ever runs. We send a short /api/chat call with a clear,
+        # tool-motivated prompt and check whether the response surfaces
+        # a `tool_calls` field. If no model is configured yet, skip this
+        # step: the user is mid-setup and "no model" is not a failure.
+        #
+        # Probe design notes (refined after live testing against
+        # llama3 / gpt-oss:20b):
+        #   - prompt must clearly motivate tool use, otherwise even
+        #     tool-capable models reply with text only.
+        #   - num_predict must be large enough to emit a tool_call shape;
+        #     1 token is not enough.
+        #   - parameters: required arg + clear description so the model
+        #     has a reason to invoke the tool.
+        model = rec.get("model")
+        if not model:
+            return {"ok": True}
+
+        probe_payload = {
+            "model": model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": (
+                        "Call the echo tool with text=hello to verify tool calling works."
+                    ),
+                }
+            ],
+            "stream": False,
+            "options": {"num_predict": 64},
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "echo",
+                        "description": "Echo the provided text back to the caller.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "text": {
+                                    "type": "string",
+                                    "description": "The text to echo.",
+                                }
+                            },
+                            "required": ["text"],
+                        },
+                    },
+                }
+            ],
+        }
+        # Distinguish between network-level failures (treat as best-effort
+        # ok=True so users can still save credentials when the daemon is
+        # flaky) and protocol-level rejections (4xx/5xx, treat as evidence
+        # the model does not support tools - this is THE failure mode O3
+        # is meant to catch). Live testing showed Ollama returns HTTP 400
+        # for models that do not accept the `tools` field, which the old
+        # blanket-catch was masking as ok=True.
+        try:
+            probe = httpx.post(
+                base_url + "/api/chat", json=probe_payload, timeout=15.0
+            )
+        except httpx.RequestError as exc:
+            logger.debug("ollama tool-probe network failure: %s", exc)
+            return {"ok": True}
+
+        if probe.status_code >= 400:
+            return {
+                "ok": False,
+                "error": (
+                    f"Model {model} does not appear to support tool calling "
+                    f"(Ollama returned HTTP {probe.status_code}). "
+                    "Try qwen2.5, llama3.1:8b, or mistral."
+                ),
+            }
+
+        try:
+            body = probe.json()
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("ollama tool-probe response not JSON: %s", exc)
+            return {"ok": True}
+
+        message = (body.get("message") or {}) if isinstance(body, dict) else {}
+        tool_calls = message.get("tool_calls") if isinstance(message, dict) else None
+        if not tool_calls:
+            return {
+                "ok": False,
+                "error": (
+                    f"Model {model} does not appear to support tool calling. "
+                    "Try qwen2.5, llama3.1:8b, or mistral."
+                ),
+            }
         return {"ok": True}

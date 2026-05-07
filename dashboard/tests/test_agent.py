@@ -1184,6 +1184,188 @@ async def test_args_override_with_rejection_does_nothing() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Bug-fix regression tests (B1, O1, O2)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_b1_tool_call_complete_emits_both_output_and_stdout() -> None:
+    """B1: tool_call_complete payload must include BOTH `output` and `stdout`
+    keys with the same value. The frontend prefers `output` but falls back to
+    `stdout`; emitting both keeps old subscribers working while the new
+    contract takes effect."""
+    tc = ProviderToolCall(id="tc-1", name="list-runs", arguments={"limit": 5})
+    provider = MockProvider(
+        [
+            [ProviderEvent(kind="tool_call", tool_call=tc), ProviderEvent(kind="finish")],
+            [ProviderEvent(kind="text_delta", text="done"), ProviderEvent(kind="finish")],
+        ]
+    )
+
+    async def runner(argv: list[str]) -> tuple[str, int]:
+        return "row1\nrow2", 0
+
+    runtime = AgentRuntime(
+        provider_factory=lambda: provider,
+        catalog=_sample_catalog(),
+        tool_runner=runner,
+    )
+    thread_id = runtime.create_thread()
+    await runtime.start_turn(thread_id, "list runs")
+
+    complete = next(
+        e
+        for e in runtime._threads[thread_id].events
+        if e["type"] == "tool_call_complete"
+    )
+    assert "output" in complete, "tool_call_complete must include `output` key"
+    assert "stdout" in complete, "tool_call_complete must include `stdout` key"
+    assert complete["output"] == complete["stdout"] == "row1\nrow2"
+
+
+@pytest.mark.asyncio
+async def test_o1_ollama_httpx_error_yields_final_event() -> None:
+    """O1: when the OllamaProvider raises an httpx exception, the runtime
+    must still emit a `final` event so WS subscribers see a terminal event.
+    Verifies the `evt.kind == "error"` branch of `_run_loop` correctly
+    routes provider errors to error+final."""
+    import httpx
+
+    class _RaisingClient:
+        def stream(self, method: str, url: str, **kwargs: Any) -> Any:
+            raise httpx.ConnectError("connection refused")
+
+    provider = OllamaProvider(
+        model="llama3", base_url="http://localhost:11434", client=_RaisingClient()
+    )
+    runtime = AgentRuntime(
+        provider_factory=lambda: provider,
+        catalog=_sample_catalog(),
+        tool_runner=_unused_runner,
+    )
+    thread_id = runtime.create_thread()
+
+    received: list[dict[str, Any]] = []
+
+    async def collect() -> None:
+        async with runtime.subscribe(thread_id) as stream:
+            async for evt in stream:
+                received.append(evt)
+                if evt["type"] == "final":
+                    return
+
+    consumer = asyncio.create_task(collect())
+    await runtime.start_turn(thread_id, "hi")
+    await asyncio.wait_for(consumer, timeout=3.0)
+
+    types = [e["type"] for e in received]
+    assert "error" in types
+    assert types[-1] == "final"
+    final = next(e for e in received if e["type"] == "final")
+    assert final["reason"] == "provider_error"
+
+
+@pytest.mark.asyncio
+async def test_o2_ollama_does_not_reinject_synthetic_tool_call_id() -> None:
+    """O2: for the Ollama provider, the next-turn message_history must NOT
+    include the synthetic tool_call_id that the runtime fabricated when
+    Ollama omitted `tool_calls[].id`. The synthetic UUID is kept for
+    internal correlation (frontend matching) but never echoed back to the
+    model. Tool results are injected as `user` turns instead of role:tool."""
+    synthetic_id = "synthetic-uuid-1234"
+    tc = ProviderToolCall(id=synthetic_id, name="list-runs", arguments={"limit": 3})
+
+    class _OllamaShape(MockProvider):
+        name = "ollama"
+
+    provider = _OllamaShape(
+        [
+            [ProviderEvent(kind="tool_call", tool_call=tc), ProviderEvent(kind="finish")],
+            [ProviderEvent(kind="text_delta", text="done"), ProviderEvent(kind="finish")],
+        ]
+    )
+
+    async def runner(argv: list[str]) -> tuple[str, int]:
+        return "row1", 0
+
+    runtime = AgentRuntime(
+        provider_factory=lambda: provider,
+        catalog=_sample_catalog(),
+        tool_runner=runner,
+    )
+    thread_id = runtime.create_thread()
+    await runtime.start_turn(thread_id, "list runs")
+
+    # Inspect the messages the provider received on its SECOND call (the
+    # post-tool turn). The synthetic UUID must not appear anywhere in the
+    # serialized message history.
+    assert len(provider.calls) >= 2, "provider should be called twice (pre + post tool)"
+    second_messages = provider.calls[1]["messages"]
+    serialized = json.dumps(second_messages)
+    assert synthetic_id not in serialized, (
+        f"Ollama re-injection leaked synthetic tool_call_id: {serialized}"
+    )
+
+    # Assistant message should NOT carry tool_calls for Ollama.
+    assistant_msgs = [m for m in second_messages if m.get("role") == "assistant"]
+    assert assistant_msgs, "expected an assistant message in history"
+    assert all("tool_calls" not in m for m in assistant_msgs), (
+        "Ollama assistant message must not include synthetic tool_calls"
+    )
+
+    # Tool result should be injected as a user turn (no role:"tool"), and
+    # must NOT include a tool_call_id field.
+    user_msgs = [m for m in second_messages if m.get("role") == "user"]
+    assert any("row1" in (m.get("content") or "") for m in user_msgs), (
+        "tool result should be injected as a user turn"
+    )
+    tool_role_msgs = [m for m in second_messages if m.get("role") == "tool"]
+    assert not tool_role_msgs, (
+        "Ollama path must not emit role:'tool' messages"
+    )
+    for m in second_messages:
+        assert "tool_call_id" not in m, (
+            f"no message in Ollama history should carry tool_call_id: {m}"
+        )
+
+
+@pytest.mark.asyncio
+async def test_o2_openai_path_still_uses_canonical_tool_call_shape() -> None:
+    """O2 regression guard: non-Ollama providers MUST still use the
+    canonical OpenAI-style tool_calls + role:'tool' shape so the existing
+    contract with OpenAI/Anthropic SDKs is preserved."""
+    tc = ProviderToolCall(id="tc-real", name="list-runs", arguments={"limit": 3})
+
+    class _OpenAIShape(MockProvider):
+        name = "openai"
+
+    provider = _OpenAIShape(
+        [
+            [ProviderEvent(kind="tool_call", tool_call=tc), ProviderEvent(kind="finish")],
+            [ProviderEvent(kind="text_delta", text="done"), ProviderEvent(kind="finish")],
+        ]
+    )
+
+    async def runner(argv: list[str]) -> tuple[str, int]:
+        return "row1", 0
+
+    runtime = AgentRuntime(
+        provider_factory=lambda: provider,
+        catalog=_sample_catalog(),
+        tool_runner=runner,
+    )
+    thread_id = runtime.create_thread()
+    await runtime.start_turn(thread_id, "list runs")
+
+    second_messages = provider.calls[1]["messages"]
+    assistant = next(m for m in second_messages if m.get("role") == "assistant")
+    assert "tool_calls" in assistant
+    assert assistant["tool_calls"][0]["id"] == "tc-real"
+    tool_msg = next(m for m in second_messages if m.get("role") == "tool")
+    assert tool_msg["tool_call_id"] == "tc-real"
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 

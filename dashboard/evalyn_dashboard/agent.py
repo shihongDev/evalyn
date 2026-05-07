@@ -577,6 +577,16 @@ class OllamaProvider(BaseProvider):
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
     ) -> AsyncIterator[ProviderEvent]:
+        # O3 note: runtime tool-support detection is intentionally NOT
+        # implemented here. Many Ollama models silently ignore the `tools`
+        # payload and reply with free text, which would look indistinguishable
+        # from a normal text-only turn. The gate for tool-capability is the
+        # test-connection probe in `credentials.CredentialStore._test_ollama`,
+        # which sends a 1-token /api/chat probe with a trivial tool and
+        # rejects the credential if the model does not return a `tool_calls`
+        # field. Adding a runtime check here would either break legitimate
+        # text-only turns from a tool-capable model or duplicate the probe
+        # cost on every chat call without a reliable signal.
         ollama_tools = _to_ollama_tools(tools) if tools else None
         payload: dict[str, Any] = {
             "model": self.model,
@@ -969,6 +979,17 @@ class AgentRuntime:
             self._emit(thread, {"type": "final", "reason": "no_provider"})
             return
 
+        # O2 fix: Ollama models can reject conversations that contain
+        # tool_call ids they did not themselves emit (we synthesize a UUID
+        # at agent.py:618 when Ollama omits `id`). For Ollama, omit the
+        # `tool_calls` array from the re-injected assistant message and
+        # inject tool results as `user` turns. The synthetic UUID is still
+        # used for internal correlation (frontend event matching) but
+        # never sent back to the model. OpenAI and Anthropic require the
+        # canonical assistant.tool_calls + role:"tool" shape.
+        provider_name = getattr(provider, "name", "") or ""
+        is_ollama = provider_name == "ollama"
+
         canonical_tools = catalog_to_tools(self._catalog) if self._catalog else []
         tool_calls_used = 0
 
@@ -988,6 +1009,13 @@ class AgentRuntime:
                 elif evt.kind == "tool_call" and evt.tool_call is not None:
                     pending_tool_calls.append(evt.tool_call)
                 elif evt.kind == "error":
+                    # O1 fix: any provider error MUST emit a `final` so WS
+                    # subscribers always get a terminal event and the UI can
+                    # release its "thinking" state. This path covers httpx
+                    # exceptions in OllamaProvider, SDK errors in OpenAI/
+                    # Anthropic, and any future provider that yields a
+                    # ProviderEvent(kind="error"). Verified: all providers
+                    # in this file route their failures through this branch.
                     self._emit(
                         thread,
                         {"type": "error", "message": evt.message or "provider error"},
@@ -1003,7 +1031,11 @@ class AgentRuntime:
                     "role": "assistant",
                     "content": full_text,
                 }
-                if pending_tool_calls:
+                # O2 fix: skip tool_calls re-injection for Ollama (see
+                # _run_loop preamble). Other providers need the canonical
+                # OpenAI-style `tool_calls` block to correlate tool results
+                # in the next turn.
+                if pending_tool_calls and not is_ollama:
                     assistant_msg["tool_calls"] = [
                         {
                             "id": tc.id,
@@ -1037,17 +1069,32 @@ class AgentRuntime:
                 tool_calls_used += 1
 
                 ok, stdout, exit_code = await self._execute_tool_call(thread, tc)
-                # Feed the tool result back into the message log. Both the
-                # OpenAI and Anthropic message shapes accept this generic
-                # role:"tool" form for the next iteration's input.
-                thread.messages.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tc.id,
-                        "name": tc.name,
-                        "content": stdout,
-                    }
-                )
+                # O2 fix: Ollama gets the tool result as a `user` turn
+                # WITHOUT the synthetic tool_call_id (see _run_loop
+                # preamble). OpenAI and Anthropic require the canonical
+                # role:"tool" + tool_call_id form to correlate the result.
+                if is_ollama:
+                    thread.messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                f"Tool `{tc.name}` result:\n{stdout}"
+                            ),
+                        }
+                    )
+                else:
+                    thread.messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tc.id,
+                            "name": tc.name,
+                            "content": stdout,
+                        }
+                    )
+                # B1 fix: emit both `output` and `stdout` keys with the same
+                # value. The frontend prefers `output` but falls back to
+                # `stdout`; emitting both is the cleanest backward-compatible
+                # contract for any subscriber still on the old shape.
                 self._emit(
                     thread,
                     {
@@ -1055,6 +1102,7 @@ class AgentRuntime:
                         "tool_call_id": tc.id,
                         "tool": tc.name,
                         "ok": ok,
+                        "output": stdout,
                         "stdout": stdout,
                         "exit_code": exit_code,
                     },
