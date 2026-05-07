@@ -32,6 +32,24 @@ async def _json_object_body(request: Request) -> dict:
     return body
 
 
+@router.get("/threads/{thread_id}")
+async def get_thread(request: Request, thread_id: str) -> JSONResponse:
+    """Return one thread's metadata. Same shape as a single entry in
+    GET /api/agent/threads. 404 if the thread is unknown.
+
+    Useful when a client only knows the id (e.g. a deep link) and
+    wants to confirm the thread still exists before opening a WS
+    subscription.
+    """
+    runtime = getattr(request.app.state, "agent_runtime", None)
+    if runtime is None:
+        raise HTTPException(status_code=503, detail="agent runtime not configured")
+    meta = runtime.thread_metadata(thread_id)
+    if meta is None:
+        raise HTTPException(status_code=404, detail=f"unknown thread: {thread_id}")
+    return JSONResponse(meta)
+
+
 @router.delete("/threads/{thread_id}")
 async def delete_thread(request: Request, thread_id: str) -> JSONResponse:
     """Remove an agent thread from the runtime.

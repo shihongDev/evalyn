@@ -469,6 +469,52 @@ def test_list_threads_returns_metadata_for_each_thread(tmp_path: Path) -> None:
         assert isinstance(t["has_pending_confirmation"], bool)
 
 
+def test_get_single_thread_returns_metadata(tmp_path: Path) -> None:
+    """GET /api/agent/threads/{id} returns the same shape as one entry
+    in the list endpoint. 404 on unknown."""
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider(
+            [[ProviderEvent(kind="text_delta", text="hi"), ProviderEvent(kind="finish")]]
+        ),
+        catalog=_sample_catalog(),
+        tool_runner=_unused_runner,
+    )
+    client, token = _make_client(tmp_path, runtime)
+
+    r1 = client.post(
+        "/api/agent/chat",
+        json={"message": "hello"},
+        headers={CSRF_HEADER: token},
+    )
+    tid = r1.json()["thread_id"]
+
+    r = client.get(f"/api/agent/threads/{tid}")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["id"] == tid
+    assert isinstance(body["message_count"], int)
+    assert isinstance(body["event_count"], int)
+    assert isinstance(body["closed"], bool)
+    assert isinstance(body["has_pending_confirmation"], bool)
+
+    # Same shape as entries in the list endpoint.
+    listed = client.get("/api/agent/threads").json()
+    matching = [t for t in listed if t["id"] == tid]
+    assert len(matching) == 1
+    assert matching[0] == body
+
+
+def test_get_single_thread_unknown_returns_404(tmp_path: Path) -> None:
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider([]),
+        catalog=_sample_catalog(),
+        tool_runner=_unused_runner,
+    )
+    client, _token = _make_client(tmp_path, runtime)
+    r = client.get("/api/agent/threads/never-existed")
+    assert r.status_code == 404
+
+
 def test_delete_thread_removes_from_runtime(tmp_path: Path) -> None:
     """DELETE /api/agent/threads/{id} drops the thread from the runtime
     so a subsequent GET /threads no longer lists it. 404 on unknown."""
