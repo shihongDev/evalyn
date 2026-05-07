@@ -469,6 +469,68 @@ def test_list_threads_returns_metadata_for_each_thread(tmp_path: Path) -> None:
         assert isinstance(t["has_pending_confirmation"], bool)
 
 
+def test_purge_old_threads_drops_closed_old_threads() -> None:
+    """purge_old_threads(N) drops every thread whose newest event ts is
+    older than now - N seconds AND whose `closed` flag is set. Open
+    threads are immune even if they look ancient."""
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider([]),
+        catalog=_sample_catalog(),
+        tool_runner=_unused_runner,
+    )
+    # Build three threads in three states with hand-crafted events.
+    # 1. Closed and old (eligible for purge).
+    tid_old = runtime.create_thread()
+    runtime._threads[tid_old].events.append(
+        {"type": "final", "ts": 100.0, "event_id": 1}
+    )
+    runtime._threads[tid_old].closed = True
+
+    # 2. Closed but recent (not eligible).
+    tid_recent = runtime.create_thread()
+    runtime._threads[tid_recent].events.append(
+        {"type": "final", "ts": 990.0, "event_id": 1}
+    )
+    runtime._threads[tid_recent].closed = True
+
+    # 3. Open (not eligible regardless of age).
+    tid_open = runtime.create_thread()
+    runtime._threads[tid_open].events.append(
+        {"type": "text_delta", "ts": 50.0, "event_id": 1}
+    )
+
+    # now=1000, max_age=100 -> cutoff=900. Only tid_old (ts=100) drops.
+    removed = runtime.purge_old_threads(max_age_seconds=100, now=1000.0)
+    assert removed == 1
+    assert tid_old not in runtime._threads
+    assert tid_recent in runtime._threads
+    assert tid_open in runtime._threads
+
+
+def test_purge_old_threads_admin_endpoint(tmp_path: Path) -> None:
+    runtime = AgentRuntime(
+        provider_factory=lambda: MockProvider([]),
+        catalog=_sample_catalog(),
+        tool_runner=_unused_runner,
+    )
+    client, token = _make_client(tmp_path, runtime)
+
+    # Empty runtime: removed=0.
+    r = client.post(
+        "/api/agent/threads/purge-old?max_age_s=60",
+        headers={CSRF_HEADER: token},
+    )
+    assert r.status_code == 200
+    assert r.json() == {"removed": 0}
+
+    # Negative max_age_s: 400.
+    r2 = client.post(
+        "/api/agent/threads/purge-old?max_age_s=-1",
+        headers={CSRF_HEADER: token},
+    )
+    assert r2.status_code == 400
+
+
 def test_get_single_thread_returns_metadata(tmp_path: Path) -> None:
     """GET /api/agent/threads/{id} returns the same shape as one entry
     in the list endpoint. 404 on unknown."""
