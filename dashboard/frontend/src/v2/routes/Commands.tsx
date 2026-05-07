@@ -1430,8 +1430,29 @@ export default function Commands() {
   }, [cmds]);
 
   // --- active command --------------------------------------------------
-  const [activeId, setActiveId] = useState<string | null>(null);
+  // Selection lives in the URL (?cmd=eval) so a shared link lands the
+  // recipient on the same command form the sender was discussing.
+  // Reload / browser back keep the selection. Pattern matches Metrics
+  // ?metric= (fc0c7cb), Reports ?audience= (db4fd04), and RunDetail
+  // ?tab= (06f0d05). The existing one-shot ?prefill= deep link is
+  // separate - it fires the CliRunner; ?cmd= is the persistent
+  // selection state.
+  const activeId = searchParams.get('cmd');
   const activeCmd = activeId ? cmdsById.get(activeId) ?? null : null;
+  const setActiveId = useCallback(
+    (id: string | null) => {
+      setSearchParams(
+        (prev) => {
+          const u = new URLSearchParams(prev);
+          if (id) u.set('cmd', id);
+          else u.delete('cmd');
+          return u;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   // First mount: pick a default command. Prefer ?prefill=, then first
   // recent in catalog, then first command in first group.
