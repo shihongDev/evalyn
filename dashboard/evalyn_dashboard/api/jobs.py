@@ -903,4 +903,65 @@ async def restart_job(request: Request, job_id: str) -> JSONResponse:
     return JSONResponse({"job_id": new_job_id})
 
 
+@router.post("/admin/vacuum")
+async def vacuum_persistence(request: Request) -> JSONResponse:
+    """Manually trigger a VACUUM on the sqlite mirror.
+
+    Customer scenario: dashboard has been up for weeks and the
+    persistence file has grown beyond the user's comfort. Until
+    now the only way to compact mid-session was to restart the
+    server (which fires the shutdown vacuum hook). This endpoint
+    runs the same vacuum() call without requiring a restart.
+
+    Response:
+      ``{ok: True, bytes_saved: int, before: int, after: int}``
+      on success. ``bytes_saved`` is the difference between
+      pre-vacuum and post-vacuum on-disk footprint (main + WAL +
+      SHM). Negative or zero is normal on a freshly-vacuumed db.
+
+      ``{ok: False, reason: str}`` on best-effort failure (404
+      with reason='persistence_unavailable' when the JM has no
+      persistence; 500 with reason='vacuum_failed' when the
+      vacuum() call returned False).
+
+    The endpoint is CSRF-protected via the app-level middleware.
+    Same protection model as cancel / restart / settings writes.
+    """
+    jm = request.app.state.job_manager
+    persistence = _persistence_for(jm)
+    if persistence is None:
+        raise HTTPException(
+            status_code=404,
+            detail="persistence_unavailable",
+        )
+    # Capture before/after sizes so the FE can show the win.
+    # Both reads are best-effort; on failure they fall through
+    # to 0 and the bytes_saved field is still reportable
+    # (just less informative).
+    try:
+        before = int(persistence.db_size_bytes())
+    except Exception:  # noqa: BLE001
+        before = 0
+    ok = persistence.vacuum()
+    if not ok:
+        raise HTTPException(
+            status_code=500,
+            detail="vacuum_failed",
+        )
+    try:
+        after = int(persistence.db_size_bytes())
+    except Exception:  # noqa: BLE001
+        after = 0
+    return JSONResponse(
+        {
+            "ok": True,
+            "before": before,
+            "after": after,
+            # Negative/zero is fine; FE renders "(no change)" in
+            # that case rather than showing a misleading positive.
+            "bytes_saved": before - after,
+        }
+    )
+
+
 __all__ = ["router"]

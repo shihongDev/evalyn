@@ -69,3 +69,39 @@ export async function fetchSystemHealth(): Promise<SystemHealth | null> {
     return null;
   }
 }
+
+/** Result of POST /api/jobs/admin/vacuum. ``bytes_saved`` is
+ * before - after; can be 0 or negative when nothing was reclaimed
+ * (already-vacuumed db). The FE renders "(no change)" for <=0
+ * rather than showing a misleading positive. */
+export interface VacuumResult {
+  ok: boolean;
+  before: number;
+  after: number;
+  bytes_saved: number;
+}
+
+/** Trigger a manual VACUUM on the persistence db. Throws on
+ * non-2xx. Self-heals stale CSRF tokens after a server restart
+ * (matches the cancelJob retry pattern in api/jobs.ts). */
+export async function vacuumPersistence(): Promise<VacuumResult> {
+  const { readCsrfToken, refreshCsrfToken } = await import('./csrf');
+  const send = async (token: string | null): Promise<Response> =>
+    fetch('/api/jobs/admin/vacuum', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        ...(token ? { 'X-CSRF-Token': token } : {}),
+      },
+    });
+  let res = await send(readCsrfToken());
+  if (res.status === 403) {
+    const fresh = await refreshCsrfToken();
+    if (fresh) res = await send(fresh);
+  }
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`POST /api/jobs/admin/vacuum ${res.status}: ${text}`);
+  }
+  return (await res.json()) as VacuumResult;
+}

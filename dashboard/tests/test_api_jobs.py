@@ -783,3 +783,65 @@ def test_output_txt_download_filename_includes_stream_and_tail():
         cd = r.headers.get("content-disposition", "")
         assert "attachment" in cd
         assert f"evalyn-job-{job_id[:8]}-stderr-tail3.log" in cd
+
+
+# ---------------------------------------------------------------------------
+# POST /api/jobs/admin/vacuum (manual compaction trigger)
+# ---------------------------------------------------------------------------
+
+
+def test_admin_vacuum_requires_csrf():
+    """The endpoint mutates persistence; missing token must 403 like
+    cancel/restart/settings writes do."""
+    app = build_app()
+    with TestClient(app) as client:
+        r = client.post("/api/jobs/admin/vacuum")
+        assert r.status_code == 403
+
+
+def test_admin_vacuum_returns_before_after_and_bytes_saved():
+    """Happy path: endpoint runs vacuum() and reports before/after
+    sizes plus the difference. On a fresh test app no rows have been
+    written, so the file may not exist (returning 0/0) - the contract
+    only requires the keys are present and the math is consistent."""
+    app = build_app()
+    with TestClient(app) as client:
+        # Seed at least one row so the persistence file exists and
+        # vacuum() can run. _spawn flows through the JM which writes
+        # to the mirror.
+        job_id = _spawn(client, app, [sys.executable, "-c", "pass"])
+        _wait(client, app, job_id)
+
+        token = _token_from(client)
+        r = client.post("/api/jobs/admin/vacuum", headers={CSRF_HEADER: token})
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["ok"] is True
+        # Shape: ints, math holds.
+        assert isinstance(body["before"], int)
+        assert isinstance(body["after"], int)
+        assert isinstance(body["bytes_saved"], int)
+        assert body["bytes_saved"] == body["before"] - body["after"]
+
+
+def test_admin_vacuum_advances_last_vacuum_at_field_on_health():
+    """A successful manual vacuum must propagate to /api/health's
+    last_vacuum_at field. Closes the loop between the manual button
+    and the visibility surface that operators read - if the button
+    didn't update the metric, users couldn't tell it actually ran."""
+    app = build_app()
+    with TestClient(app) as client:
+        # Pre-vacuum state: no vacuums yet -> last_vacuum_at is None.
+        before_health = client.get("/api/health").json()
+        assert before_health["last_vacuum_at"] is None
+
+        # Seed a row so the file exists, then manually vacuum.
+        job_id = _spawn(client, app, [sys.executable, "-c", "pass"])
+        _wait(client, app, job_id)
+        token = _token_from(client)
+        r = client.post("/api/jobs/admin/vacuum", headers={CSRF_HEADER: token})
+        assert r.status_code == 200
+
+        after_health = client.get("/api/health").json()
+        assert after_health["last_vacuum_at"] is not None
+        assert isinstance(after_health["last_vacuum_at"], (int, float))
