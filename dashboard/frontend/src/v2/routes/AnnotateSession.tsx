@@ -483,7 +483,17 @@ const Pane = function Pane({
  * sheet open via the `?` hotkey - useful for new users discovering
  * keys without holding the mouse over the chip.
  */
-function KeyHints({ forceOpen = false }: { forceOpen?: boolean }) {
+function KeyHints({
+  forceOpen = false,
+  onTogglePin,
+}: {
+  forceOpen?: boolean;
+  /** When provided, the badge becomes a clickable disclosure that
+   * toggles the parent's pinned state - so mouse users can keep the
+   * key sheet open without keeping the cursor on the badge. Already-
+   * existing `?` hotkey still works in parallel. */
+  onTogglePin?: () => void;
+}) {
   const [hovered, setHovered] = useState(false);
   const open = hovered || forceOpen;
   // Grouped by activity so users can scan to the right section
@@ -537,23 +547,34 @@ function KeyHints({ forceOpen = false }: { forceOpen?: boolean }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <span
+      <button
+        type="button"
+        onClick={onTogglePin}
+        aria-expanded={open}
+        aria-controls="annotate-keyhints-sheet"
+        aria-haspopup="true"
+        title={
+          forceOpen
+            ? 'Pinned. Click or press ? to unpin'
+            : 'Hover to peek, click to pin (or press ?)'
+        }
         style={{
           fontFamily: E.fMono,
           fontSize: 11,
-          color: E.text3,
+          color: forceOpen ? E.ember : E.text3,
           padding: '4px 8px',
           borderRadius: 4,
-          border: `1px solid ${E.hair}`,
-          background: E.panel2,
-          cursor: 'help',
+          border: `1px solid ${forceOpen ? E.emberRim : E.hair}`,
+          background: forceOpen ? E.emberDim : E.panel2,
+          cursor: onTogglePin ? 'pointer' : 'help',
           userSelect: 'none',
         }}
       >
         ⌨ keys
-      </span>
+      </button>
       {open && (
         <div
+          id="annotate-keyhints-sheet"
           role="tooltip"
           style={{
             position: 'absolute',
@@ -4249,7 +4270,7 @@ export default function AnnotateSession() {
               {submitErr && (
                 <span style={{ fontSize: 11, color: E.fail, fontFamily: E.fMono }}>{submitErr}</span>
               )}
-              <KeyHints forceOpen={pinKeys} />
+              <KeyHints forceOpen={pinKeys} onTogglePin={() => setPinKeys((v) => !v)} />
               <Btn
                 // key={shakeTick} forces a remount on each save failure
                 // so the eShake keyframe re-runs. No animation on
