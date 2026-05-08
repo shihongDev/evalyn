@@ -1065,6 +1065,14 @@ function BulkTestCard({ data }: BulkTestCardProps) {
   if (configured.length === 0) return null;
 
   const onRunAll = async () => {
+    // Same-frame double-click guard. The button is
+    // `disabled={running !== null}` but two same-frame onClick
+    // events would both enter and both kick off a sequential
+    // sweep across all configured providers - doubling token
+    // spend across N LLMs and possibly tripping rate limits.
+    // Match the handleTest / handleVacuum / handleSave guard
+    // pattern.
+    if (running !== null) return;
     setResults({});
     for (const id of configured) {
       setRunning(id);
@@ -1332,6 +1340,15 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
   }
 
   async function handleTest() {
+    // Same-frame double-click guard. The button is
+    // `disabled={testing || !state.is_set}` but two onClick events
+    // landing in the same React frame would both enter the
+    // handler and both fire settingsApi.test(). The /test
+    // endpoint hits the LLM provider for a 1-token completion -
+    // doubling the token spend and possibly tripping rate limits
+    // for no benefit. Same canonical guard as handleVacuum /
+    // handleSave / handleChange.
+    if (testing) return;
     setTesting(true);
     setTestResult(null);
     try {
