@@ -936,6 +936,16 @@ def test_chat_reuse_thread_does_not_emit_audit_log(tmp_path: Path, caplog) -> No
     )
     thread_id = r1.json()["thread_id"]
 
+    # Clear records from the first call so the assertion below
+    # scopes to the second call only. caplog accumulates across
+    # the whole test by default; without the clear, the first
+    # chat's "thread created" log would be matched by the assert
+    # below, producing a false failure that's actually a test bug
+    # not a code bug. (This test passed previously only because
+    # the package logger had no handler / level set, so INFO
+    # records were silently filtered before reaching caplog.)
+    caplog.clear()
+
     # Second chat with the SAME thread_id: should NOT log.
     with caplog.at_level(logging.INFO, logger="evalyn_dashboard.api.agent"):
         r2 = client.post(

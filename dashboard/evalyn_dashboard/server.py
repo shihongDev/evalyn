@@ -93,6 +93,41 @@ def _build_timing_logger() -> logging.Logger:
 _timing_logger = _build_timing_logger()
 
 
+def _ensure_app_logger() -> logging.Logger:
+    """Attach a stdout handler to the ``evalyn_dashboard`` package logger.
+
+    The audit logs added across api/* (settings, demo, promote,
+    annotation, threads, rubrics, jobs admin, agent confirm, cli
+    spawn) flow through ``logging.getLogger(__name__)`` which resolves
+    to ``evalyn_dashboard.api.<module>``. Those propagate up to
+    ``evalyn_dashboard``, then to root - and root has no handler in
+    bare uvicorn (it only configures its own ``uvicorn.*`` loggers).
+    Without this function, every audit ``logger.info(...)`` call
+    silently goes nowhere because Python's ``lastResort`` only
+    surfaces WARNING+.
+
+    Idempotent: a second call (e.g. tests building app multiple times)
+    is a no-op once the handler is attached. Propagation stays on so
+    the timing logger remains usable; we set our own handler at the
+    package level which is more specific than root.
+    """
+    log = logging.getLogger("evalyn_dashboard")
+    if not log.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            logging.Formatter(
+                "%(asctime)s %(levelname)s %(name)s: %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
+        )
+        log.addHandler(handler)
+        log.setLevel(logging.INFO)
+    return log
+
+
+_ensure_app_logger()
+
+
 class TimingMiddleware(BaseHTTPMiddleware):
     """Log ``method path -> status (Xms)`` for every ``/api/*`` request.
 
