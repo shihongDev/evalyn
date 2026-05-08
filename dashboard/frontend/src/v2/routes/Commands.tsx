@@ -983,10 +983,10 @@ function CommandForm({
             disabled
             title="Cluster runs are not wired up yet"
           >
-            Run on cluster
+            Run on cluster (soon)
           </Btn>
           <Btn kind="ghost" size="md" disabled title="Scheduled runs are not wired up yet">
-            Schedule
+            Schedule (soon)
           </Btn>
           <span style={{ flex: 1 }} />
           <Btn
