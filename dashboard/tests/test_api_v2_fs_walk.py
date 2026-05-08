@@ -78,3 +78,25 @@ def test_walk_run_dirs_includes_only_subdirectories_inside_eval_runs(
     (ds / "eval_runs" / "stray.json").write_text("{}")
     out = _walk_run_dirs(tmp_path)
     assert [p.name for p in out] == ["run_x"]
+
+
+def test_prewarm_blocking_logs_completion_duration(monkeypatch, caplog) -> None:
+    """``_prewarm_blocking`` logs an INFO line with elapsed ms on
+    successful completion. Operators tuning cold-start use this to
+    distinguish warm-cache-hit (low ms) from cold-FS-walk (high ms)
+    and budget per workspace size.
+    """
+    import logging
+
+    from evalyn_dashboard.api.v2._shared import (
+        _clear_caches_for_tests,
+        _prewarm_blocking,
+    )
+
+    _clear_caches_for_tests()
+    with caplog.at_level(logging.INFO, logger="evalyn_dashboard.api.v2._shared"):
+        _prewarm_blocking()
+    info_records = [r for r in caplog.records if r.levelname == "INFO"]
+    assert any(
+        "prewarm completed" in r.message for r in info_records
+    ), f"expected prewarm completion log; got {[r.message for r in info_records]}"
