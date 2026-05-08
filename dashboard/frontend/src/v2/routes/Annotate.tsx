@@ -14,9 +14,10 @@
  *   3. "Why this changed" footer note.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
+import { useFlashState } from '../hooks/useFlashState';
 import {
   Bar,
   Btn,
@@ -776,22 +777,10 @@ export default function Annotate() {
 
   const [starting, setStarting] = useState(false);
   const [startErr, setStartErr] = useState<string | null>(null);
-  const [showRankingHint, setShowRankingHint] = useState(false);
-  // Track the auto-dismiss timer in a ref so a rapid second click
-  // re-arms cleanly (was: each click stacked a fresh setTimeout that
-  // could fire on an unmounted component if the user navigated away
-  // within 1800 ms, triggering a React state-update warning). The
-  // unmount cleanup also kills any in-flight timer.
-  const rankingHintTimerRef = useRef<number | null>(null);
-  useEffect(
-    () => () => {
-      if (rankingHintTimerRef.current !== null) {
-        window.clearTimeout(rankingHintTimerRef.current);
-        rankingHintTimerRef.current = null;
-      }
-    },
-    [],
-  );
+  // useFlashState handles re-arming on rapid clicks + unmount cleanup
+  // (the manual ref pattern this replaced regressed once already - see
+  // commit 511253fc).
+  const [showRankingHint, flashRankingHint] = useFlashState<boolean>(false);
 
   // Find or create a session for the active metric; return its id.
   // Reusing an in-progress session keeps the user on a single thread
@@ -840,14 +829,7 @@ export default function Annotate() {
   }
 
   function handleCustomizeRanking() {
-    if (rankingHintTimerRef.current !== null) {
-      window.clearTimeout(rankingHintTimerRef.current);
-    }
-    setShowRankingHint(true);
-    rankingHintTimerRef.current = window.setTimeout(() => {
-      setShowRankingHint(false);
-      rankingHintTimerRef.current = null;
-    }, 1800);
+    flashRankingHint(true, 1800);
   }
 
   const showInitialSkeleton = rubricsInitial && !rubrics;

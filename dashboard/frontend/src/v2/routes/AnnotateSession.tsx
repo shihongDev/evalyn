@@ -20,6 +20,7 @@ import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, StatusDot } from '../ui';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { useArmedConfirm } from '../hooks/useArmedConfirm';
+import { useFlashState } from '../hooks/useFlashState';
 import { annotationApi } from '../api/annotation';
 import { errorMessage } from '../api/errors';
 import type {
@@ -321,19 +322,14 @@ const Pane = function Pane({
   // context, focus lost), so the user clicked Copy and saw nothing.
   // Three-state lets us flash a "failed" pill in red so the click
   // never feels like a no-op.
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
-  useEffect(() => {
-    if (copyState === 'idle') return;
-    const t = setTimeout(() => setCopyState('idle'), copyState === 'copied' ? 1500 : 2500);
-    return () => clearTimeout(t);
-  }, [copyState]);
+  const [copyState, flashCopyState] = useFlashState<'idle' | 'copied' | 'error'>('idle');
   const copyToClipboard = useCallback(() => {
     if (!navigator.clipboard?.writeText || !text) return;
     navigator.clipboard.writeText(text).then(
-      () => setCopyState('copied'),
-      () => setCopyState('error'),
+      () => flashCopyState('copied', 1500),
+      () => flashCopyState('error', 2500),
     );
-  }, [text]);
+  }, [text, flashCopyState]);
 
   const length = text.length;
   // Content at exactly the backend cap is almost certainly truncated.
@@ -1304,19 +1300,17 @@ export default function AnnotateSession() {
   // unmounts the badge after 1.4s so the flash auto-clears even when
   // prefers-reduced-motion suppresses the fade-out keyframe.
   const [savedTick, setSavedTick] = useState(0);
-  const [savedFlash, setSavedFlash] = useState(false);
-  useEffect(() => {
-    if (savedTick === 0) return;
-    setSavedFlash(true);
-    const t = setTimeout(() => setSavedFlash(false), 1400);
-    return () => clearTimeout(t);
-  }, [savedTick]);
+  // savedTick is a counter that re-keys the badge for keyframe replay;
+  // savedFlash is the mount/unmount toggle so the badge auto-clears
+  // even when prefers-reduced-motion suppresses the fade-out keyframe.
+  // The flash is kicked off at every save site alongside setSavedTick.
+  const [savedFlash, flashSavedFlash] = useFlashState<boolean>(false);
 
   // The id of the most-recently-saved item. Drives a brief ember ring
   // pulse on the matching scrubber dot so the save action is visible
   // in two places at once (header badge + scrubber position). Auto-
   // clears after the keyframe runs so a re-render doesn't replay it.
-  const [lastSavedItemId, setLastSavedItemId] = useState<string | null>(null);
+  const [lastSavedItemId, flashLastSavedItemId] = useFlashState<string | null>(null);
   // Bumped on save failure to retrigger a brief shake animation on
   // the Save & Next button. The submitErr text in the footer is easy
   // to miss if focus is elsewhere; the shake draws the eye.
@@ -1329,11 +1323,6 @@ export default function AnnotateSession() {
   // Updated only for high-signal events: save, bulk save complete,
   // filter change. Skips noisy events (hover, cycle, nav).
   const [ariaStatus, setAriaStatus] = useState('');
-  useEffect(() => {
-    if (!lastSavedItemId) return;
-    const t = setTimeout(() => setLastSavedItemId(null), 1200);
-    return () => clearTimeout(t);
-  }, [lastSavedItemId]);
 
   // Persist verdicts + notes + evidence to localStorage on every change.
   // We keep it simple - every change writes synchronously. For typical
@@ -1657,9 +1646,10 @@ export default function AnnotateSession() {
           evidence: evidenceForItem,
         });
         setSavedTick((t) => t + 1);
+        flashSavedFlash(true, 1400);
         // Pulse the matching scrubber dot for visual confirmation
         // tied to position-in-session, not just the header badge.
-        setLastSavedItemId(currentItem.item_id);
+        flashLastSavedItemId(currentItem.item_id, 1200);
         setAriaStatus(`Saved item ${cursor + 1} of ${items.length}`);
         // Capture per-item wall-clock for the avg/ETA header chip.
         const now = Date.now();
@@ -1728,7 +1718,7 @@ export default function AnnotateSession() {
         // Same pulse signal as submitVerdict - the bulk save flow
         // benefits from per-item visual confirmation as the loop
         // progresses (each saved dot pulses in turn).
-        setLastSavedItemId(item.item_id);
+        flashLastSavedItemId(item.item_id, 1200);
         return true;
       } catch {
         return false;
@@ -1764,6 +1754,7 @@ export default function AnnotateSession() {
     void refetchSession();
     void refetchItems();
     setSavedTick((t) => t + 1);
+    flashSavedFlash(true, 1400);
     if (savedCount === toSave.length) {
       setAriaStatus(
         `Saved ${savedCount} item${savedCount === 1 ? '' : 's'} in bulk`,
