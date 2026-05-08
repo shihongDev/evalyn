@@ -1235,7 +1235,25 @@ function ClusterItemList({
         return (
           <div
             key={it.item_id}
+            // Whole-row click selects the active item for review.
+            // role="button" + tabIndex=0 + onKeyDown make the row
+            // keyboard-accessible (was mouse-only - tab skipped past
+            // it and Enter/Space did nothing). aria-pressed marks the
+            // active item for AT users. The nested checkbox stays
+            // independently focusable; e.stopPropagation on its click
+            // handler prevents both the row and checkbox firing on a
+            // single click.
+            role="button"
+            tabIndex={0}
+            aria-pressed={isActive}
+            aria-label={`Select item ${it.item_id} for review`}
             onClick={() => onSelectItem(it.item_id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onSelectItem(it.item_id);
+              }
+            }}
             style={{
               display: 'flex',
               alignItems: 'flex-start',
