@@ -498,8 +498,37 @@ function LeftRail({
       </div>
 
       {groups.length === 0 && (
-        <div style={{ fontSize: 11, color: E.text3, marginTop: 8 }}>
-          No commands match "{query}".
+        <div
+          style={{
+            fontSize: 11,
+            color: E.text3,
+            marginTop: 8,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            flexWrap: 'wrap',
+          }}
+        >
+          <span>No commands match &quot;{query}&quot;.</span>
+          <button
+            type="button"
+            onClick={() => setQuery('')}
+            aria-label="Clear filter"
+            title="Clear filter (Esc)"
+            style={{
+              fontFamily: E.fMono,
+              fontSize: 11,
+              color: E.ember,
+              background: 'transparent',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              textUnderlineOffset: 2,
+            }}
+          >
+            Clear filter
+          </button>
         </div>
       )}
     </div>
