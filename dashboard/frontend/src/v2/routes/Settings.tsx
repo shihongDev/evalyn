@@ -1012,6 +1012,11 @@ function ActiveProviderCard({ data, onChanged }: ActiveProviderCardProps) {
           value={data.active ?? ''}
           onChange={(e) => void handleChange(e.target.value)}
           disabled={pending || options.length === 0}
+          // aria-busy lets SRs distinguish "disabled because saving"
+          // from "disabled because nothing's configured" - both cases
+          // hit the disabled prop above but mean very different things
+          // to the user.
+          aria-busy={pending}
           style={{ ...SELECT_STYLE, minWidth: 280 }}
           aria-label="Active provider"
         >
@@ -1026,12 +1031,27 @@ function ActiveProviderCard({ data, onChanged }: ActiveProviderCardProps) {
             </option>
           ))}
         </select>
-        {pending && <Spinner size={12} />}
+        {/* Spinner is visual-only; aria-busy on the select above
+            communicates the pending state to AT. Without aria-hidden
+            the Spinner's role="img"+aria-label="loading" would be
+            announced separately, doubling the saving signal. */}
+        {pending && (
+          <span aria-hidden="true">
+            <Spinner size={12} />
+          </span>
+        )}
         {success && (
           <Pill mono color={E.pass} bg={E.passDim}>
             Saved
           </Pill>
         )}
+        {/* SR-only live region announces the success transition.
+            Sighted users get the visible "Saved" Pill above; SR
+            users had no audible signal until now - same canonical
+            pattern as the ProviderCard / BulkTestCard fixes. */}
+        <span role="status" aria-live="polite" aria-atomic="true" className="eSr">
+          {success ? 'Active provider saved.' : ''}
+        </span>
       </div>
       <p style={{ fontSize: 12, color: E.text2, margin: '8px 0 0' }}>
         This provider is used by the co-pilot and any LLM-judge metric in your runs.
