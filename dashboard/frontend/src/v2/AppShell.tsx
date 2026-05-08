@@ -1277,19 +1277,24 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
   // discovering shortcuts via "?" sees the full set without having to
   // hunt across screens. Each row's label includes the context in
   // parens so the binding's scope is obvious without a section header
-  // per group.
-  const GLOBAL_SHORTCUTS: Array<{ keys: string; label: string }> = [
-    { keys: `${MOD_KEY} K`, label: 'Open command palette' },
-    { keys: `${MOD_KEY} J`, label: 'Toggle co-pilot dock' },
-    { keys: `${MOD_KEY} ,`, label: 'Open Settings' },
-    { keys: '?', label: 'Toggle this help' },
-    { keys: 'Esc', label: 'Close any open overlay' },
+  // per group. srKeys is the spoken-word equivalent for SR users -
+  // raw glyphs like ⌘ and ↵ get pronounced as Unicode codepoints
+  // ("place of interest sign" / "downwards arrow with corner") on
+  // many engines, which is unusable for a learning aid. Spelling
+  // them out makes the help readable to everyone.
+  const MOD_WORD = MOD_KEY === '⌘' ? 'Cmd' : 'Ctrl';
+  const GLOBAL_SHORTCUTS: Array<{ keys: string; srKeys: string; label: string }> = [
+    { keys: `${MOD_KEY} K`, srKeys: `${MOD_WORD} K`, label: 'Open command palette' },
+    { keys: `${MOD_KEY} J`, srKeys: `${MOD_WORD} J`, label: 'Toggle co-pilot dock' },
+    { keys: `${MOD_KEY} ,`, srKeys: `${MOD_WORD} comma`, label: 'Open Settings' },
+    { keys: '?', srKeys: 'Question mark', label: 'Toggle this help' },
+    { keys: 'Esc', srKeys: 'Escape', label: 'Close any open overlay' },
   ];
-  const CONTEXT_SHORTCUTS: Array<{ keys: string; label: string }> = [
-    { keys: '/', label: 'Focus search (drawer / output / experiments / items / datasets / commands)' },
-    { keys: `${MOD_KEY} L`, label: 'Clear output (CliRunner)' },
-    { keys: `${MOD_KEY} ↵`, label: 'Send message (Co-pilot composer)' },
-    { keys: `${MOD_KEY} S`, label: 'Save annotations (Annotate session)' },
+  const CONTEXT_SHORTCUTS: Array<{ keys: string; srKeys: string; label: string }> = [
+    { keys: '/', srKeys: 'Slash', label: 'Focus search (drawer / output / experiments / items / datasets / commands)' },
+    { keys: `${MOD_KEY} L`, srKeys: `${MOD_WORD} L`, label: 'Clear output (CliRunner)' },
+    { keys: `${MOD_KEY} ↵`, srKeys: `${MOD_WORD} Enter`, label: 'Send message (Co-pilot composer)' },
+    { keys: `${MOD_KEY} S`, srKeys: `${MOD_WORD} S`, label: 'Save annotations (Annotate session)' },
   ];
   return (
     <div
@@ -1376,9 +1381,10 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
             rowGap: 8,
           }}
         >
-          {GLOBAL_SHORTCUTS.map(({ keys, label }) => (
+          {GLOBAL_SHORTCUTS.map(({ keys, srKeys, label }) => (
             <Fragment key={keys}>
               <kbd
+                aria-label={srKeys}
                 style={{
                   fontFamily: E.fMono,
                   fontSize: 11,
@@ -1413,9 +1419,10 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
             rowGap: 8,
           }}
         >
-          {CONTEXT_SHORTCUTS.map(({ keys, label }) => (
+          {CONTEXT_SHORTCUTS.map(({ keys, srKeys, label }) => (
             <Fragment key={keys}>
               <kbd
+                aria-label={srKeys}
                 style={{
                   fontFamily: E.fMono,
                   fontSize: 11,
