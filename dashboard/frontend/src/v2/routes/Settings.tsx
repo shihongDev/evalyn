@@ -1225,6 +1225,15 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
   const [modelsLoading, setModelsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  // Synchronous in-flight ref for handleTest. The React-state
+  // `testing` flag drives the visible disabled / spinner state,
+  // but `setTesting(true)` is queued and not committed until the
+  // next render - so two same-frame onClick events both see
+  // `testing=false` (closure) and both fire settingsApi.test(),
+  // doubling the LLM provider token spend per click. Mutating
+  // this ref synchronously inside the handler closes that race;
+  // see ticks for the parallel fix in copilot useCoPilotThread.send.
+  const testInFlightRef = useRef(false);
   const [testResult, setTestResult] = useState<{
     ok: boolean;
     message: string;
@@ -1340,15 +1349,17 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
   }
 
   async function handleTest() {
-    // Same-frame double-click guard. The button is
-    // `disabled={testing || !state.is_set}` but two onClick events
-    // landing in the same React frame would both enter the
-    // handler and both fire settingsApi.test(). The /test
-    // endpoint hits the LLM provider for a 1-token completion -
-    // doubling the token spend and possibly tripping rate limits
-    // for no benefit. Same canonical guard as handleVacuum /
-    // handleSave / handleChange.
-    if (testing) return;
+    // Same-frame double-click guard via synchronous ref.
+    // The React-state `testing` check (which the previous
+    // version used) does NOT protect against same-frame
+    // double-fire - both closures see testing=false because the
+    // setTesting(true) commit is queued. Mutating
+    // testInFlightRef synchronously below blocks the second
+    // call before any setState queues. Each test() call hits the
+    // LLM provider for a 1-token completion - doubling the spend
+    // is a real cost, not just dev-console noise.
+    if (testInFlightRef.current) return;
+    testInFlightRef.current = true;
     setTesting(true);
     setTestResult(null);
     try {
@@ -1376,6 +1387,7 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
       setNowMs(now);
     } finally {
       setTesting(false);
+      testInFlightRef.current = false;
     }
   }
 
