@@ -237,6 +237,15 @@ function LineageNode({ run, selected, onToggleSelect, onOpen }: NodeProps) {
         }}
         onFocus={warm}
         title={selected ? 'Click to deselect' : 'Click to select for compare'}
+        // Empty <button> with no children means no accessible name -
+        // SR users heard "button, pressed/not pressed" with no run
+        // identity. Name it after the run + the action so users can
+        // tell apart 30 selectable runs in a long lineage.
+        aria-label={
+          selected
+            ? `Deselect ${run.id} from compare`
+            : `Select ${run.id} for compare`
+        }
         aria-pressed={selected}
         style={{
           position: 'absolute',
