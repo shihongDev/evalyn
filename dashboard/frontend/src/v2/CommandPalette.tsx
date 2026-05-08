@@ -23,6 +23,7 @@ import { useNavigate } from 'react-router-dom';
 import { listCli, commandGroup, commandSummary } from './api/cli';
 import type { CliSchema } from './api/cli';
 import { v2 } from './api/client';
+import { errorMessage } from './api/errors';
 import type { ExperimentRow, DatasetCard, RubricRow } from './api/types';
 import { openCliRunner } from './cliRunnerBridge';
 import { E } from './tokens';
@@ -143,7 +144,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             setCmds(d);
           })
           .catch((e) => {
-            errors.push(`commands: ${String(e)}`);
+            errors.push(`commands: ${errorMessage(e)}`);
           }),
       );
     }
@@ -156,7 +157,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             setRuns(d);
           })
           .catch((e) => {
-            errors.push(`runs: ${String(e)}`);
+            errors.push(`runs: ${errorMessage(e)}`);
           }),
       );
     }
@@ -169,7 +170,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             setDatasets(d);
           })
           .catch((e) => {
-            errors.push(`datasets: ${String(e)}`);
+            errors.push(`datasets: ${errorMessage(e)}`);
           }),
       );
     }
@@ -182,7 +183,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             setRubrics(d);
           })
           .catch((e) => {
-            errors.push(`rubrics: ${String(e)}`);
+            errors.push(`rubrics: ${errorMessage(e)}`);
           }),
       );
     }

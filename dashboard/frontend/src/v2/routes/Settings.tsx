@@ -1027,9 +1027,14 @@ function BulkTestCard({ data }: BulkTestCardProps) {
           },
         }));
       } catch (e) {
+        // Route through errorMessage so a network failure renders
+        // "Network unreachable..." instead of the raw browser
+        // "Failed to fetch" / "Load failed" / "NetworkError..." text,
+        // and a regular Error doesn't double-prefix as
+        // "Error: <message>" the way String(e) would.
         setResults((prev) => ({
           ...prev,
-          [id]: { ok: false, message: String(e) },
+          [id]: { ok: false, message: errorMessage(e) },
         }));
       }
     }
@@ -1246,7 +1251,10 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
       const now = Date.now();
       setTestResult({
         ok: false,
-        message: String(e),
+        // errorMessage rewrites raw browser TypeErrors to the
+        // friendly "Network unreachable..." text and avoids the
+        // "Error: <msg>" double-prefix that String(e) produces.
+        message: errorMessage(e),
         testedAtMs: now,
       });
       setNowMs(now);
