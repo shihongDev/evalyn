@@ -503,10 +503,22 @@ def build_app(
     app.state.job_manager = JobManager(persistence=JobPersistence())
     app.state.credential_store = credential_store or CredentialStore()
     if agent_runtime is None:
+        # Confirmation timeout is overridable via env so operators can
+        # tune for slow tools (LLM-judge runs that take minutes -
+        # bump higher) or unattended CI / smoke tests (drop to e.g.
+        # 30s so abandoned confirmations don't stall the suite).
+        # Default 300s = 5 min matches AgentRuntime's
+        # DEFAULT_CONFIRM_TIMEOUT.
+        from .agent import DEFAULT_CONFIRM_TIMEOUT
+
+        confirm_timeout_s = _resolve_positive_float_env(
+            "EVALYN_AGENT_CONFIRM_TIMEOUT_S", DEFAULT_CONFIRM_TIMEOUT
+        )
         agent_runtime = AgentRuntime(
             provider_factory=make_provider_factory(app.state.credential_store),
             catalog=app.state.cli_catalog,
             job_manager=app.state.job_manager,
+            confirm_timeout=confirm_timeout_s,
         )
     app.state.agent_runtime = agent_runtime
 

@@ -293,6 +293,44 @@ def test_resolve_positive_float_env_falls_back_safely(monkeypatch) -> None:
         assert actual == expected, f"raw={raw!r} expected={expected} got={actual}"
 
 
+def test_agent_confirm_timeout_honors_env_var(monkeypatch) -> None:
+    """``EVALYN_AGENT_CONFIRM_TIMEOUT_S`` overrides the default 5-minute
+    confirmation timeout for the AgentRuntime built by build_app.
+
+    Customer scenarios:
+      - Long-running tool (LLM judge): bump higher
+      - Unattended CI / smoke tests: drop to e.g. 30s
+
+    Bad / non-positive values fall through to the default
+    DEFAULT_CONFIRM_TIMEOUT (300s) via _resolve_positive_float_env.
+    """
+    from evalyn_dashboard.agent import DEFAULT_CONFIRM_TIMEOUT
+
+    # Sanity: default is 300s.
+    assert DEFAULT_CONFIRM_TIMEOUT == 300.0
+
+    # Custom value honored.
+    monkeypatch.setenv("EVALYN_AGENT_CONFIRM_TIMEOUT_S", "120")
+    app = build_app()
+    assert app.state.agent_runtime.confirm_timeout == 120.0
+
+    # Bad value falls through to default.
+    monkeypatch.setenv("EVALYN_AGENT_CONFIRM_TIMEOUT_S", "garbage")
+    app2 = build_app()
+    assert app2.state.agent_runtime.confirm_timeout == DEFAULT_CONFIRM_TIMEOUT
+
+    # Zero rejected -> default (would cause asyncio.wait_for to raise
+    # immediately on every confirmation, breaking the agent flow).
+    monkeypatch.setenv("EVALYN_AGENT_CONFIRM_TIMEOUT_S", "0")
+    app3 = build_app()
+    assert app3.state.agent_runtime.confirm_timeout == DEFAULT_CONFIRM_TIMEOUT
+
+    # Unset uses default.
+    monkeypatch.delenv("EVALYN_AGENT_CONFIRM_TIMEOUT_S", raising=False)
+    app4 = build_app()
+    assert app4.state.agent_runtime.confirm_timeout == DEFAULT_CONFIRM_TIMEOUT
+
+
 @pytest.mark.parametrize(
     "raw,expected",
     [
