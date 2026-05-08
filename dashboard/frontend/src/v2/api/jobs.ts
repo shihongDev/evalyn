@@ -25,6 +25,16 @@
 import { runCli } from './cli';
 import { readCsrfToken, refreshCsrfToken } from './csrf';
 import { maybeParseCapacityError } from './errors';
+import { fetchWithTimeout } from './_fetchWithTimeout';
+
+// Hard timeout for cancel + restart POSTs. Cancel runs a SIGTERM /
+// grace / SIGKILL dance server-side which is bounded at ~5s; 30s
+// is generous slack. Restart is a spawn (same envelope as runCli).
+// Exported for tests.
+export const JOB_MUTATION_TIMEOUT_MS = 30_000;
+const JOB_MUTATION_TIMEOUT_MSG =
+  `Server didn't respond within ${JOB_MUTATION_TIMEOUT_MS / 1000}s. ` +
+  `The dashboard may be wedged - try reloading.`;
 
 export type JobStatusKind =
   | 'queued'
@@ -96,7 +106,12 @@ export async function cancelJob(id: string): Promise<{ ok: boolean }> {
   const send = async (token: string | null): Promise<Response> => {
     const headers: Record<string, string> = {};
     if (token) headers['X-Workbench-Token'] = token;
-    return fetch(url, { method: 'POST', headers });
+    return fetchWithTimeout(
+      url,
+      { method: 'POST', headers },
+      JOB_MUTATION_TIMEOUT_MS,
+      JOB_MUTATION_TIMEOUT_MSG,
+    );
   };
   let res = await send(readCsrfToken());
   if (res.status === 403) {
@@ -159,7 +174,12 @@ export async function restartJob(id: string): Promise<{ job_id: string }> {
   const send = async (token: string | null): Promise<Response> => {
     const headers: Record<string, string> = {};
     if (token) headers['X-Workbench-Token'] = token;
-    return fetch(url, { method: 'POST', headers });
+    return fetchWithTimeout(
+      url,
+      { method: 'POST', headers },
+      JOB_MUTATION_TIMEOUT_MS,
+      JOB_MUTATION_TIMEOUT_MSG,
+    );
   };
   let res = await send(readCsrfToken());
   if (res.status === 403) {
