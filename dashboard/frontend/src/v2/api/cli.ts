@@ -113,6 +113,15 @@ export function previewCommand(
  * Self-heals stale CSRF tokens after a server restart (refetch index,
  * scrape new token, retry once) via the shared csrf.ts helpers.
  */
+/** Hard timeout for the spawn POST so a wedged server (TCP accepted
+ * but never responds) doesn't park the user with a forever-disabled
+ * Run button. The endpoint typically responds in <100ms because it
+ * just enqueues + returns the job_id; 30s is generous slack for any
+ * realistic server hiccup while still bounding the worst case.
+ *
+ * Exposed for tests; production code should use the default. */
+export const RUN_CLI_TIMEOUT_MS = 30_000;
+
 export async function runCli(
   cliId: string,
   args: Record<string, unknown>,
@@ -120,11 +129,36 @@ export async function runCli(
   const send = async (token: string | null): Promise<Response> => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['X-Workbench-Token'] = token;
-    return fetch('/api/cli/run', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ cli_id: cliId, args }),
-    });
+    // AbortController + setTimeout: a wedged server with no
+    // response after RUN_CLI_TIMEOUT_MS aborts the fetch; the
+    // catch below maps the AbortError into a clearer message
+    // for the runner banner. The timer is cleared on success or
+    // any other error to avoid late-firing aborts on already-
+    // resolved fetches.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), RUN_CLI_TIMEOUT_MS);
+    try {
+      return await fetch('/api/cli/run', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ cli_id: cliId, args }),
+        signal: controller.signal,
+      });
+    } catch (e) {
+      // AbortError from our timeout -> rewrite to something the
+      // user can act on. Other errors (network failure, etc.)
+      // pass through unchanged so the existing errorMessage()
+      // network-rewriter handles them.
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        throw new Error(
+          `Server didn't respond within ${RUN_CLI_TIMEOUT_MS / 1000}s. ` +
+            `The dashboard may be wedged - try reloading.`,
+        );
+      }
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
   };
   let res = await send(readCsrfToken());
   if (res.status === 403) {
