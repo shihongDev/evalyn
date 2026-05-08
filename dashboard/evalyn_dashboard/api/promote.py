@@ -49,6 +49,7 @@ promotes can't race on the directory creation / jsonl write.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import shutil
 import threading
@@ -58,6 +59,8 @@ from typing import Any, Iterable
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
 from pydantic import BaseModel, Field
 
 router = APIRouter()
@@ -351,6 +354,23 @@ async def promote_run_failures(req: PromoteRequest) -> JSONResponse:
         # would have made an iterdir-based cleanup impossible.
         shutil.rmtree(target_dir, ignore_errors=True)
         raise HTTPException(500, f"failed to write dataset: {exc}") from exc
+
+    # Audit log: dataset creation is a state-changing infrastructure
+    # action (writes a new dataset directory + items.jsonl + meta.json).
+    # Operators tracking "where did this regression-checkpoint dataset
+    # come from?" need the source run + parent dataset on record.
+    # Counts (rows requested, rows promoted, rows skipped) help detect
+    # silent skips that would otherwise need a meta.json fetch.
+    logger.info(
+        "promote dataset created: dataset_name=%s parent=%s "
+        "source_run=%s requested=%d promoted=%d skipped=%d",
+        dataset_name,
+        source_dataset_name,
+        run_id,
+        len(row_hashes),
+        len(promoted),
+        len(skipped),
+    )
 
     return JSONResponse(
         {
