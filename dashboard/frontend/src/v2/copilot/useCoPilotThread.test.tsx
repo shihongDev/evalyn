@@ -194,32 +194,43 @@ describe('useCoPilotThread', () => {
 
   it('F3: unclean WS close schedules a reconnect with backoff', async () => {
     vi.useFakeTimers();
+    // Force the production jitter to 0 so the reconnect schedules at
+    // exactly the base backoff (1000ms) rather than 1000 + [0, 500)ms.
+    // Without this stub, vi.advanceTimersByTime(1000) below misses
+    // the timer when the random jitter pushes it past 1000ms,
+    // causing intermittent test failures. Restored at the end.
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
 
-    renderHook(() => useCoPilotThread({ initialThreadId: 'tid-3' }));
-    // initial subscribe call fires synchronously inside the effect.
-    expect(subscribeAgentMock).toHaveBeenCalledTimes(1);
-    const handlers = getHandlers();
+    try {
+      renderHook(() => useCoPilotThread({ initialThreadId: 'tid-3' }));
+      // initial subscribe call fires synchronously inside the effect.
+      expect(subscribeAgentMock).toHaveBeenCalledTimes(1);
+      const handlers = getHandlers();
 
-    // Simulate an unclean close.
-    act(() => {
-      handlers.onClose?.({
-        wasClean: false,
-        code: 1006,
-        reason: 'lost',
-      } as CloseEvent);
-    });
+      // Simulate an unclean close.
+      act(() => {
+        handlers.onClose?.({
+          wasClean: false,
+          code: 1006,
+          reason: 'lost',
+        } as CloseEvent);
+      });
 
-    // No immediate reconnect - it's scheduled via setTimeout.
-    expect(subscribeAgentMock).toHaveBeenCalledTimes(1);
+      // No immediate reconnect - it's scheduled via setTimeout.
+      expect(subscribeAgentMock).toHaveBeenCalledTimes(1);
 
-    // Advance past the 1s first-attempt backoff.
-    await act(async () => {
-      vi.advanceTimersByTime(1000);
-    });
+      // Advance past the 1s first-attempt backoff. With Math.random
+      // stubbed to 0 the delay is exactly 1000ms, so this fires the
+      // timer deterministically.
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
 
-    expect(subscribeAgentMock).toHaveBeenCalledTimes(2);
-
-    vi.useRealTimers();
+      expect(subscribeAgentMock).toHaveBeenCalledTimes(2);
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
   });
 
   it('F4: send() resolving after resetTo() does not stomp the new thread', async () => {

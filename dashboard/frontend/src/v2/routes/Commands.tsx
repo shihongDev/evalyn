@@ -723,6 +723,7 @@ function FreeAddPill({ onAdd }: { onAdd: (v: string) => void }) {
         setDraft('');
         setEditing(false);
       }}
+      aria-label="Add value (Enter to confirm, Esc to cancel)"
       placeholder="value"
       style={{
         padding: '2px 8px',
@@ -1154,6 +1155,7 @@ function CoPilotSlot({ activeCmd }: CoPilotSlotProps) {
       </div>
       <input
         placeholder="What do you want to do?"
+        aria-label="Describe what you want to do, co-pilot will suggest a command"
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         onKeyDown={(e) => {
