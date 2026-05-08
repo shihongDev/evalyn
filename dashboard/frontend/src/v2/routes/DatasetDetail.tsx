@@ -233,6 +233,14 @@ export default function DatasetDetail() {
                     ? 'Browser blocked clipboard access'
                     : 'Copy this dataset (tags, coverage, observed metrics, recent runs) as markdown'
               }
+              // Stable accessible name across state - the inline
+              // text-flip ("Copy summary" -> "✓ Copied") changes
+              // synthesized child text but SR users don't refocus
+              // mid-flash, so they'd never hear the success without
+              // a separate live region (added below). Keeping the
+              // SR name stable also avoids a confusing "button name
+              // changed mid-keystroke" announcement on some engines.
+              aria-label="Copy dataset summary as markdown"
             >
               {exportState === 'copied'
                 ? '✓ Copied'
@@ -240,8 +248,18 @@ export default function DatasetDetail() {
                   ? '✗ Failed'
                   : 'Copy summary'}
             </Btn>
+            {exportState === 'copied' && (
+              <span role="status" aria-live="polite" className="eSr">
+                Dataset summary copied to clipboard
+              </span>
+            )}
+            {exportState === 'error' && (
+              <span role="alert" className="eSr">
+                Copy failed
+              </span>
+            )}
             <Btn kind="primary" size="md" onClick={goRunNewEval}>
-              Run new evaluation →
+              Run new evaluation <span aria-hidden="true">→</span>
             </Btn>
           </div>
         </div>

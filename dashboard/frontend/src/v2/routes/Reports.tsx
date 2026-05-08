@@ -901,15 +901,23 @@ export default function Reports() {
                   >
                     Download .md
                   </Btn>
+                  {/* Transient feedback pills - role=status makes them
+                      announce to SR users when they appear. Without it,
+                      the Pill is just a styled span that flashes for
+                      ~2s and SR users miss the success/failure cue. */}
                   {copyState === 'copied' && (
-                    <Pill mono color={E.pass} bg={E.passDim}>
-                      Markdown on clipboard
-                    </Pill>
+                    <span role="status" aria-live="polite">
+                      <Pill mono color={E.pass} bg={E.passDim}>
+                        Markdown on clipboard
+                      </Pill>
+                    </span>
                   )}
                   {copyState === 'error' && (
-                    <Pill mono color={E.fail} bg={E.failDim}>
-                      Copy failed
-                    </Pill>
+                    <span role="alert">
+                      <Pill mono color={E.fail} bg={E.failDim}>
+                        Copy failed
+                      </Pill>
+                    </span>
                   )}
                 </div>
                 <pre
