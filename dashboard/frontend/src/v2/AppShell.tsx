@@ -1697,6 +1697,21 @@ function Sidebar({ mode, active, navigate, dockOpen, setDockOpen, onAfterNavigat
         type="button"
         onClick={() => setDockOpen(!dockOpen)}
         title={dockOpen ? 'Hide co-pilot' : 'Show co-pilot'}
+        // Disclosure semantics: aria-expanded matches the pattern
+        // used by every other show/hide-section trigger in this
+        // shell (drawer, palette, help overlay). The co-pilot dock
+        // is a side panel - a disclosure - not a two-state toggle
+        // like Bold/Italic, so aria-expanded is the right ARIA
+        // attribute (aria-pressed would be appropriate for a
+        // text-formatting toggle).
+        aria-expanded={dockOpen}
+        // aria-label load-bearing in the icon-only state: when the
+        // sidebar collapses, the visible text disappears and only
+        // ◑ remains. Without aria-label SR users hear "button" with
+        // no useful name. Setting it unconditionally also works in
+        // the expanded state (browsers prefer aria-label over visible
+        // text content).
+        aria-label={dockOpen ? 'Hide co-pilot' : 'Show co-pilot'}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -1712,7 +1727,7 @@ function Sidebar({ mode, active, navigate, dockOpen, setDockOpen, onAfterNavigat
           textAlign: 'left',
         }}
       >
-        <span>◑</span>
+        <span aria-hidden="true">◑</span>
         {!isIcon && ` ${dockOpen ? 'Hide' : 'Show'} co-pilot`}
       </button>
       {!isIcon && (
