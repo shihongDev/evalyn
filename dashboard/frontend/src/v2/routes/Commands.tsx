@@ -550,6 +550,14 @@ function ParamInput({ param, value, onChange, id }: ParamInputProps) {
           type="checkbox"
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
+          // The wrapping <label> uses "enabled"/"disabled" as its
+          // visible text, which would otherwise become the SR
+          // accessible name. That's noise - the SR already
+          // announces "checked"/"not checked" from the input
+          // state. Override with the actual param name so users
+          // hear "--verbose checkbox, checked" instead of
+          // "enabled checkbox, checked".
+          aria-label={param.name}
         />
         {checked ? 'enabled' : 'disabled'}
       </label>

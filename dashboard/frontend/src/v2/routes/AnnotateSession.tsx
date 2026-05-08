@@ -4521,6 +4521,7 @@ function EvidencePopover({
         type="text"
         value={note}
         onChange={(e) => setNote(e.target.value)}
+        aria-label="Evidence note (optional)"
         placeholder="Optional note (why?)"
         style={{
           fontFamily: E.fMono,
