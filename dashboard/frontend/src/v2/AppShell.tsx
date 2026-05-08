@@ -1353,6 +1353,21 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        // Focus trap: aria-modal="true" promises AT users that
+        // focus stays inside the dialog. The help overlay has
+        // exactly one focusable element (the close × button at
+        // line ~1389) - all the kbd elements that fill the dialog
+        // body are non-focusable by default. Without a trap, Tab
+        // from the close button leaks focus into the underlying
+        // page, exactly the bug aria-modal exists to prevent.
+        // Same pattern as CommandPalette's trap (commit 252cfcf8)
+        // but simpler because there's only one stop to wrap to.
+        onKeyDown={(e) => {
+          if (e.key === 'Tab') {
+            e.preventDefault();
+            closeBtnRef.current?.focus();
+          }
+        }}
         style={{
           background: '#fbf7ee',
           border: `1px solid ${E.hair2}`,
