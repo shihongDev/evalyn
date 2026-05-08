@@ -1034,7 +1034,11 @@ export function AppShell({
           <button
             type="button"
             onClick={() => setDockOpen(true)}
-            aria-label="Open co-pilot"
+            // Spell out the modifier (Cmd/Ctrl) instead of using the
+            // raw glyph so SR engines pronounce it as a key combo
+            // rather than U+2318 codepoints. Same treatment as the
+            // Search shortcut Btn earlier.
+            aria-label={`Open co-pilot (${MOD_KEY === '⌘' ? 'Cmd J' : 'Ctrl J'})`}
             title={`Open co-pilot (${MOD_KEY} J)`}
             style={{
               position: 'fixed',

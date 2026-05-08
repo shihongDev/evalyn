@@ -542,10 +542,13 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
               onClick={submit}
               disabled={!draft.trim() || status === 'streaming' || pending != null}
               aria-busy={status === 'streaming' || pending != null}
+              // Spell out the keys for SR (Cmd Enter / Ctrl Enter) -
+              // raw ⌘ / ⏎ glyphs are inconsistent across engines.
+              aria-label={`Send message (${MOD_KEY === '⌘' ? 'Cmd Enter' : 'Ctrl Enter'})`}
               title={`Send (${MOD_KEY} ⏎)`}
               style={{ width: 26, height: 26, padding: 0, justifyContent: 'center' }}
             >
-              ↑
+              <span aria-hidden="true">↑</span>
             </Btn>
           </div>
         </div>
