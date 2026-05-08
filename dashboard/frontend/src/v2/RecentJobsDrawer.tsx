@@ -698,7 +698,10 @@ export function RecentJobsDrawer({
           {entries.length === 0 ? (
             <EmptyState />
           ) : visibleEntries.length === 0 && (failureFilter || searchQuery) ? (
-            <FilterEmptyState />
+            <FilterEmptyState
+              failureFilter={failureFilter}
+              searchQuery={searchQuery}
+            />
           ) : (
             renderRowsWithDayHeaders(visibleEntries, {
               onRowClick,
@@ -1187,12 +1190,28 @@ function EmptyState() {
   );
 }
 
-function FilterEmptyState() {
-  // Reachable only transiently: the auto-clear effect resets the filter
-  // when failedCount drops to 0. This state is shown briefly during the
-  // render between the toggle and the effect firing if the user races
-  // ahead of React. Kept defensive so we never render an empty list
-  // beneath an active filter chip.
+function FilterEmptyState({
+  failureFilter,
+  searchQuery,
+}: {
+  failureFilter: boolean;
+  searchQuery: string;
+}) {
+  // Branch the suggested action based on which filter is empty-ing
+  // the list. Previously the message hardcoded "Toggle the chip
+  // above" which was correct for the failure-filter case but
+  // misleading when the user had typed a search query: the right
+  // action is to clear the search, not toggle a chip the user
+  // didn't engage with.
+  let message: string;
+  if (failureFilter && searchQuery) {
+    message = `No jobs match "${searchQuery}" with the failed-only filter on. Try clearing the search or the chip above.`;
+  } else if (searchQuery) {
+    message = `No jobs match "${searchQuery}". Press Esc to clear the search.`;
+  } else {
+    // failureFilter only - the original case.
+    message = 'No failed jobs match. Toggle the chip above to show all jobs.';
+  }
   return (
     <div
       style={{
@@ -1203,7 +1222,7 @@ function FilterEmptyState() {
         lineHeight: 1.5,
       }}
     >
-      No failed jobs match. Toggle the chip above to show all jobs.
+      {message}
     </div>
   );
 }
