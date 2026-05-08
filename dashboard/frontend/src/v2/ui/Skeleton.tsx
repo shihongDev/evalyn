@@ -50,10 +50,18 @@ export function Skeleton({ w = '100%', h = 12, style }: SkeletonProps) {
   );
 }
 
-/** Inline spinning glyph used by refresh/regenerate buttons. */
+/** Inline spinning glyph used by refresh/regenerate buttons.
+ *
+ * `role="img"` makes the aria-label authoritative (without a role,
+ * many SR engines silently drop aria-label on a bare span). The ◐
+ * glyph becomes the image's visual content - SR users hear
+ * "loading" once instead of either "circle with vertical fill" or
+ * the literal Unicode codepoint.
+ */
 export function Spinner({ size = 12 }: { size?: number }) {
   return (
     <span
+      role="img"
       aria-label="loading"
       style={{
         display: 'inline-block',
