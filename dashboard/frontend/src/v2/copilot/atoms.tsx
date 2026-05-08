@@ -15,6 +15,13 @@ export function Bubble({ who, children }: { who: 'you' | 'agent'; children: Reac
   return (
     <div style={{ display: 'flex', gap: 12, marginBottom: 22 }}>
       <div
+        // Avatar reads as "YOU" or "e" - the second is meaningless to
+        // SR users who don't see the brand. Hide the visible text from
+        // AT and inject a structured role label via aria-label so the
+        // bubble announces as "You said:" or "Co-pilot said:" before
+        // the content.
+        aria-label={isYou ? 'You said' : 'Co-pilot said'}
+        role="img"
         style={{
           width: 28,
           height: 28,
@@ -31,7 +38,7 @@ export function Bubble({ who, children }: { who: 'you' | 'agent'; children: Reac
           justifyContent: 'center',
         }}
       >
-        {isYou ? 'YOU' : 'e'}
+        <span aria-hidden="true">{isYou ? 'YOU' : 'e'}</span>
       </div>
       <div
         style={{
