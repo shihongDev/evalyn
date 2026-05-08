@@ -63,6 +63,30 @@ describe('useV2Resource - error formatting', () => {
     expect(result.current.data).toEqual({ ok: true });
   });
 
+  it('dedupes concurrent mounts of the same key (one fetcher call)', async () => {
+    // Customer scenario: two components on the same page both
+    // call useV2Resource('home', fetcher). The hook's _inflight
+    // map ensures the fetcher fires once - both components await
+    // the same promise and receive the same result. Without the
+    // dedup, the server would see N parallel GETs for one logical
+    // page load.
+    const fetcher = vi.fn().mockResolvedValue({ v: 'shared' });
+    const { result: r1 } = renderHook(() =>
+      useV2Resource('shared-key', fetcher),
+    );
+    const { result: r2 } = renderHook(() =>
+      useV2Resource('shared-key', fetcher),
+    );
+    await waitFor(() => {
+      expect(r1.current.data).toEqual({ v: 'shared' });
+      expect(r2.current.data).toEqual({ v: 'shared' });
+    });
+    // The fetcher should have been called once, NOT twice -
+    // _inflight dedup means the second mount reuses the first
+    // mount's in-flight promise.
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
   it('cache_invalidate keeps isInitialLoad=false during the refresh', async () => {
     // Pin: a refetch (the path cache_invalidate uses) must NOT
     // regress isInitialLoad to true mid-session. Otherwise the
