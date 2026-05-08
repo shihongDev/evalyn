@@ -3149,6 +3149,18 @@ export default function AnnotateSession() {
                       onMouseEnter={(e) => onScrubberDotEnter(i, e.currentTarget)}
                       onMouseLeave={onScrubberDotLeave}
                       title={`Item ${i + 1}${it.annotated ? ' · annotated' : ''}${isBookmarked ? ' · bookmarked' : ''}`}
+                      // SR users got nothing from these dots beyond
+                      // "button" - title= isn't reliably read. The
+                      // scrubber is the primary nav between items, so
+                      // each dot needs a real accessible name. Naming
+                      // current item with "(current)" gives keyboard-
+                      // tabbing users an audible cue of where they are.
+                      aria-label={`Item ${i + 1}${
+                        isCurrent ? ' (current)' : ''
+                      }${it.annotated ? ', annotated' : ', not annotated'}${
+                        isBookmarked ? ', bookmarked' : ''
+                      }`}
+                      aria-current={isCurrent ? 'true' : undefined}
                       style={{
                         width: isCurrent ? 12 : 8,
                         height: isCurrent ? 12 : 8,
