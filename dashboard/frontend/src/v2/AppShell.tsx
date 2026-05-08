@@ -830,11 +830,20 @@ export function AppShell({
                         onMouseLeave={(e) => {
                           e.currentTarget.style.color = E.text2;
                         }}
-                        onFocus={() => {
+                        onFocus={(e) => {
                           // Keyboard parity: Tab users get the same
-                          // warmup as mouse hovers.
+                          // warmup AND the ember color change as
+                          // mouse hovers. Earlier version warmed but
+                          // didn't recolor - keyboard users got only
+                          // the global :focus-visible outline ring,
+                          // missing the visible "this segment is
+                          // navigable" cue.
+                          e.currentTarget.style.color = E.ember;
                           const warm = NAV_PREFETCH_BY_PATH[path] ?? preloadByPath(path);
                           warm?.();
+                        }}
+                        onBlur={(e) => {
+                          e.currentTarget.style.color = E.text2;
                         }}
                       >
                         {b}
