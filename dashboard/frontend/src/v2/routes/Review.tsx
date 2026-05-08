@@ -1495,8 +1495,13 @@ function TracePane({
           onClick={() => onBatch('fail')}
           disabled={submitting || selectedCount === 0}
           aria-busy={submitting}
+          aria-label={`Fail all ${selectedCount} selected items (Shift F)`}
+          title="Apply Fail verdict to every selected item (Shift+F)"
         >
-          Shift+F Fail all {selectedCount}
+          <span aria-hidden="true" style={{ opacity: 0.7, fontFamily: E.fMono, marginRight: 4 }}>
+            Shift+F
+          </span>
+          Fail all {selectedCount}
         </Btn>
         <Btn
           kind="primary"
@@ -1504,8 +1509,13 @@ function TracePane({
           onClick={() => onBatch('pass')}
           disabled={submitting || selectedCount === 0}
           aria-busy={submitting}
+          aria-label={`Pass all ${selectedCount} selected items (Shift P)`}
+          title="Apply Pass verdict to every selected item (Shift+P)"
         >
-          Shift+P Pass all {selectedCount}
+          <span aria-hidden="true" style={{ opacity: 0.7, fontFamily: E.fMono, marginRight: 4 }}>
+            Shift+P
+          </span>
+          Pass all {selectedCount}
         </Btn>
         <Btn kind="ghost" size="sm" onClick={onReviewIndividually}>
           Review individually
