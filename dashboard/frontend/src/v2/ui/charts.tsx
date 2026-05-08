@@ -281,6 +281,13 @@ interface LineChartProps {
   padX?: number;
   padY?: number;
   xLabels?: string[];
+  /** Accessible title describing what the chart depicts. Rendered as
+   * an SVG <title> child + role="img" + aria-label so SR users get a
+   * spoken summary instead of "graphic" or coordinate noise. Without
+   * a title the chart falls back to aria-hidden="true" - same default
+   * as the smaller chart primitives in this file. Pass a sentence
+   * like "Cumulative pass rate over time" not just a noun. */
+  title?: string;
 }
 
 export function LineChart({
@@ -293,6 +300,7 @@ export function LineChart({
   padX = 36,
   padY = 14,
   xLabels,
+  title,
 }: LineChartProps) {
   const numW = typeof w === 'number' ? w : 540;
   const innerW = numW - padX - 12;
@@ -303,7 +311,15 @@ export function LineChart({
     padY + innerH - ((v - yMin) / Math.max(1e-9, yMax - yMin)) * innerH;
   const ticks = [yMin, yMin + (yMax - yMin) / 2, yMax];
   return (
-    <svg width={w} height={h} style={{ display: 'block', overflow: 'visible' }}>
+    <svg
+      width={w}
+      height={h}
+      role={title ? 'img' : undefined}
+      aria-label={title}
+      aria-hidden={title ? undefined : true}
+      style={{ display: 'block', overflow: 'visible' }}
+    >
+      {title && <title>{title}</title>}
       {ticks.map((t, i) => (
         <g key={i}>
           <line

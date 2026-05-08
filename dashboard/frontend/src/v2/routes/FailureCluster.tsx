@@ -301,6 +301,7 @@ export default function FailureCluster() {
                       yMax={trendMax}
                       xLabels={data.trend.x_labels}
                       series={[{ color: E.fail, fill: true, width: 2, data: data.trend.data }]}
+                      title={`Cluster size across the last ${data.trend.data.length} runs, peaking at ${Math.max(...data.trend.data)} failures.`}
                     />
                   ) : (
                     <div
