@@ -206,6 +206,7 @@ export function TourMenu() {
           {/* Take a tour of this page */}
           <button
             type="button"
+            role="menuitem"
             onClick={startCurrentTour}
             disabled={!currentTourId}
             title={
@@ -236,13 +237,14 @@ export function TourMenu() {
               e.currentTarget.style.background = 'transparent';
             }}
           >
-            <span style={{ fontSize: 14 }}>▶</span>
+            <span aria-hidden="true" style={{ fontSize: 14 }}>▶</span>
             Take a tour of this page
           </button>
 
           {/* Reset */}
           <button
             type="button"
+            role="menuitem"
             onClick={resetAll}
             title="Clear every tour's completion flag so they fire again on next visit"
             style={{
@@ -267,12 +269,14 @@ export function TourMenu() {
               e.currentTarget.style.background = 'transparent';
             }}
           >
-            <span style={{ fontSize: 13 }}>↺</span>
+            <span aria-hidden="true" style={{ fontSize: 13 }}>↺</span>
             Reset all tour flags
           </button>
 
           {flash && (
             <div
+              role="status"
+              aria-live="polite"
               style={{
                 marginTop: 8,
                 padding: '6px 8px',
