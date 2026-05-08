@@ -1066,7 +1066,17 @@ export function AppShell({
         <button
           type="button"
           onClick={() => setJobsDrawerOpen(true)}
-          aria-label="Open recent jobs"
+          // Static "Open recent jobs" replaced the BadgeCount inner
+          // labels for SR (a button's aria-label wins over child text).
+          // Compose the count info into the parent label so SR users
+          // hear "Open recent jobs, 2 running, 1 failed" on a single
+          // tab stop instead of an empty status promise.
+          aria-label={(() => {
+            const parts = ['Open recent jobs'];
+            if (runningCount > 0) parts.push(`${runningCount} running`);
+            if (unackedFailureCount > 0) parts.push(`${unackedFailureCount} failed`);
+            return parts.join(', ');
+          })()}
           style={{
             position: 'fixed',
             left: vp === 'desktop' ? 248 : vp === 'tablet' ? 74 : 18,
@@ -1086,7 +1096,7 @@ export function AppShell({
             boxShadow: '0 8px 24px rgba(26,24,18,0.18)',
           }}
         >
-          <span style={{ fontSize: 14, lineHeight: 1 }}>⟳</span>
+          <span aria-hidden="true" style={{ fontSize: 14, lineHeight: 1 }}>⟳</span>
           Recent jobs
           {runningCount > 0 && <BadgeCount n={runningCount} />}
           {unackedFailureCount > 0 && (
