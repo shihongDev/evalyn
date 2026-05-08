@@ -916,9 +916,12 @@ export function AppShell({
             onClick={() => setPaletteOpen(true)}
             aria-expanded={paletteOpen}
             aria-haspopup="dialog"
+            aria-label={`Open command palette (${MOD_KEY === '⌘' ? 'Cmd K' : 'Ctrl K'})`}
+            title={`Open command palette (${MOD_KEY}K)`}
             style={{ fontFamily: E.fMono, gap: 4 }}
           >
-            {MOD_KEY}K Search
+            <span aria-hidden="true" style={{ opacity: 0.7 }}>{MOD_KEY}K</span>
+            Search
           </Btn>
         )}
         {vp === 'desktop' && (
