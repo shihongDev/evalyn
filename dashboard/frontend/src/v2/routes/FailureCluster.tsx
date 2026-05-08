@@ -348,6 +348,10 @@ export default function FailureCluster() {
                   kind="ghost"
                   size="sm"
                   onClick={() => void handleCopyBundle()}
+                  // Stable accessible name; the visible-text flip
+                  // is sighted-only feedback. SR users get the
+                  // transient cue from the .eSr live region below.
+                  aria-label="Copy cluster bundle as markdown"
                   title={
                     bundleCopy === 'copied'
                       ? 'Cluster bundle on clipboard'
@@ -362,6 +366,16 @@ export default function FailureCluster() {
                       ? '✗ Failed'
                       : 'Copy as markdown'}
                 </Btn>
+                {bundleCopy === 'copied' && (
+                  <span role="status" aria-live="polite" className="eSr">
+                    Cluster bundle copied to clipboard
+                  </span>
+                )}
+                {bundleCopy === 'error' && (
+                  <span role="alert" className="eSr">
+                    Copy failed
+                  </span>
+                )}
               </div>
               <div
                 style={{
@@ -494,6 +508,7 @@ export default function FailureCluster() {
                     kind="primary"
                     size="md"
                     onClick={() => void handleCopyFix()}
+                    aria-label="Copy suggested fix to clipboard"
                     title={
                       fixCopy === 'copied'
                         ? 'Fix on clipboard'
@@ -508,6 +523,16 @@ export default function FailureCluster() {
                         ? '✗ Failed'
                         : 'Copy fix'}
                   </Btn>
+                  {fixCopy === 'copied' && (
+                    <span role="status" aria-live="polite" className="eSr">
+                      Suggested fix copied to clipboard
+                    </span>
+                  )}
+                  {fixCopy === 'error' && (
+                    <span role="alert" className="eSr">
+                      Copy failed
+                    </span>
+                  )}
                   <span
                     style={{
                       fontSize: 11.5,
