@@ -24,6 +24,7 @@ import { listCli, commandGroup, commandSummary } from './api/cli';
 import type { CliSchema } from './api/cli';
 import { v2 } from './api/client';
 import { errorMessage } from './api/errors';
+import { subscribeV2Events, type V2Event } from './api/v2ws';
 import type { ExperimentRow, DatasetCard, RubricRow } from './api/types';
 import { openCliRunner } from './cliRunnerBridge';
 import { E } from './tokens';
@@ -110,6 +111,36 @@ const _paletteCache: {
   datasets: DatasetCard[] | null;
   rubrics: RubricRow[] | null;
 } = { cmds: null, runs: null, datasets: null, rubrics: null };
+
+// Wire the palette cache to the backend's cache_invalidate broadcast.
+// useV2Resource already listens for these events to refetch its
+// keyed entries; the palette had its own parallel cache that wasn't
+// subscribed, so a freshly-finished `evalyn run-eval` wouldn't show
+// up in Cmd+K results until the user reloaded the page.
+//
+// On any matching key we just null the slot - the next palette open
+// re-runs the lazy-load path, which will see _paletteCache.runs ===
+// null and refetch. Keeps the "second Cmd+K is instant" property
+// while making the cache self-heal on backend changes.
+//
+// cmds is the static CLI catalog (build-time), so we don't clear it
+// even on a generic invalidate. The other three correspond to the
+// V2_CACHE_KEYS tuple defined in api/v2/_shared.py.
+function _paletteInvalidationListener(evt: V2Event): void {
+  if (evt.type !== 'cache_invalidate') return;
+  for (const key of evt.keys) {
+    if (key === 'experiments' || key === 'experiment') _paletteCache.runs = null;
+    if (key === 'datasets' || key === 'dataset') _paletteCache.datasets = null;
+    if (key === 'rubrics' || key === 'rubric') _paletteCache.rubrics = null;
+  }
+}
+
+// Subscribe at module load. The shared v2 WS client is started by
+// AppShell on mount; this listener stays alive for the page session
+// alongside the cache it guards.
+if (typeof window !== 'undefined') {
+  subscribeV2Events(_paletteInvalidationListener);
+}
 
 function formatPass(pass: number | null): string {
   if (pass == null) return '-';
