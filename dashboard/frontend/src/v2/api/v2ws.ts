@@ -69,6 +69,14 @@ let _status: ConnectionStatus = 'reconnecting';
 const _listeners = new Set<Listener>();
 const _statusListeners = new Set<StatusListener>();
 
+// Tracks whether we've already console.warn'd about an outage in
+// the current reconnect window. Without this, every failed retry
+// during a dev-server restart spams the console once per attempt
+// (5+ warns for a typical 2s -> 4s -> 8s -> 16s -> 30s ladder),
+// which buries real errors. Reset to false on every successful
+// open so a future flake produces one new warn.
+let _haveLoggedCurrentOutage = false;
+
 function setStatus(next: ConnectionStatus): void {
   if (_status === next) return;
   _status = next;
@@ -139,7 +147,15 @@ export function startV2EventStream(): void {
   try {
     ws = new WebSocket(wsUrl());
   } catch (err) {
-    console.warn('v2 ws connect failed', err);
+    // Throttle: same rationale as the 'error' handler below. The
+    // WebSocket constructor synchronously throws on some
+    // browsers when the URL is invalid or the protocol's
+    // disabled; we don't want a permanent block to spam every
+    // reconnect attempt.
+    if (!_haveLoggedCurrentOutage) {
+      _haveLoggedCurrentOutage = true;
+      console.warn('v2 ws connect failed', err);
+    }
     scheduleReconnect();
     return;
   }
@@ -150,6 +166,10 @@ export function startV2EventStream(): void {
     // Reset the backoff so a future flake re-starts at
     // RECONNECT_BASE_MS rather than the last attempt's tier.
     _reconnectAttempt = 0;
+    // Reset the log-throttle so a future outage produces a
+    // fresh log line. Without this, after one warn-then-recovery
+    // cycle, all subsequent outages would be silent.
+    _haveLoggedCurrentOutage = false;
   });
 
   ws.addEventListener('message', (e) => {
@@ -181,7 +201,14 @@ export function startV2EventStream(): void {
   ws.addEventListener('error', (e) => {
     // ``error`` always precedes ``close`` for failed connects; we
     // schedule the reconnect from ``close`` so we don't double-up.
-    console.warn('v2 ws error', e);
+    // Throttle: log once per outage window (cleared by a successful
+    // open). Without throttle, a 5-attempt reconnect ladder during
+    // a dev-server restart spams 5 console.warns - useful info
+    // becomes noise, real errors get buried.
+    if (!_haveLoggedCurrentOutage) {
+      _haveLoggedCurrentOutage = true;
+      console.warn('v2 ws error', e);
+    }
   });
 }
 
@@ -219,4 +246,5 @@ export function _resetV2EventStream(): void {
   _statusListeners.clear();
   _status = 'reconnecting';
   _reconnectAttempt = 0;
+  _haveLoggedCurrentOutage = false;
 }
