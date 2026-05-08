@@ -267,6 +267,57 @@ describe('useCoPilotThread', () => {
     expect(result.current.threadId).toBe('tid-NEW');
   });
 
+  it('F6: same-frame double send creates one thread, not two', async () => {
+    // Customer scenario: user types and Cmd+Enters fast at the
+    // start of a fresh thread. Without the in-flight guard, two
+    // parallel api.startAgentThread() calls fire and the backend
+    // creates two threads. The FE only tracks one (whichever
+    // setThreadId call lands last), so the user effectively
+    // loses one of the conversations they started.
+    //
+    // Pin: the second send call inside the same paint frame
+    // (before the first await yields back to setState commits)
+    // must early-out and NOT trigger startAgentThreadMock.
+    let resolveStart: ((v: { thread_id: string }) => void) | null = null;
+    startAgentThreadMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveStart = resolve;
+        }),
+    );
+
+    const { result } = renderHook(() => useCoPilotThread());
+
+    // First send: enters, marks in-flight, awaits.
+    let firstPromise: Promise<void> | undefined;
+    act(() => {
+      firstPromise = result.current.send('hello');
+    });
+    expect(startAgentThreadMock).toHaveBeenCalledTimes(1);
+
+    // Second send IN THE SAME act() context (before the first
+    // resolves). The synchronous in-flight ref is true; this
+    // should early-out without spawning a second mock call.
+    let secondPromise: Promise<void> | undefined;
+    act(() => {
+      secondPromise = result.current.send('hello again');
+    });
+    expect(startAgentThreadMock).toHaveBeenCalledTimes(1);
+
+    // Resolve the first send. The in-flight ref clears in the
+    // finally block.
+    await act(async () => {
+      resolveStart?.({ thread_id: 'tid-1' });
+      await firstPromise;
+      await secondPromise;
+    });
+
+    // Still only ONE start call, even though two sends were
+    // attempted. The user gets one thread.
+    expect(startAgentThreadMock).toHaveBeenCalledTimes(1);
+    expect(result.current.threadId).toBe('tid-1');
+  });
+
   it('start_tour: tool_call_proposal with tool=start_tour calls setTour on the store', async () => {
     // Reset the tour state so we can detect the interception cleanly.
     useV2Store.setState({ tourActiveId: null, tourStep: 0 });

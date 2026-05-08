@@ -143,6 +143,16 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
   const wsRef = useRef<{ close: () => void } | null>(null);
   const threadIdRef = useRef<string | null>(threadId);
   threadIdRef.current = threadId;
+  // Synchronous in-flight flag for same-frame double-fire
+  // protection. React state (`status`) flips to 'streaming' via
+  // setStatus, but that's queued - the second click in the same
+  // paint frame still sees status='idle' (closure or ref) and
+  // sails past the React-state guard. Mutating this ref
+  // synchronously inside `send` blocks that race. The
+  // CoPilotDock + CoPilotThread submit wrappers gate on the
+  // React-state status for the visible-disabled UX; this ref
+  // defends against the sub-frame race regardless of caller.
+  const sendInFlightRef = useRef(false);
   /**
    * Generation counter for `resetTo`. Captured at the start of `send` and
    * compared after the await: if it advanced, the response belongs to a
@@ -530,42 +540,54 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
 
   const send = useCallback(
     async (message: string) => {
-      const userMsg: ConvMessage = {
-        id: newMsgId('u'),
-        role: 'you',
-        text: message,
-        streaming: false,
-        tools: [],
-        pending_confirm: null,
-        ts: Date.now() / 1000,
-      };
-      setMessages((prev) => [...prev, userMsg]);
-      // Clear any stale error from a previous failed turn so the user
-      // doesn't see the old fail banner alongside their fresh message.
-      // If THIS turn fails, the catch below sets a new error.
-      setError(null);
-      setStatus('streaming');
-      // Capture the generation BEFORE the await so we can detect a
-      // resetTo() that landed mid-flight (F4).
-      const generationAtCall = generationRef.current;
+      // Same-frame double-fire guard. Synchronous ref mutation
+      // makes a second call entered before this one's first await
+      // see in-flight=true and bail. Without this, two parallel
+      // api.startAgentThread() calls at the start of a fresh
+      // thread would create two backend threads, the FE losing
+      // one to the setState ordering.
+      if (sendInFlightRef.current) return;
+      sendInFlightRef.current = true;
       try {
-        const tid = threadIdRef.current;
-        const res = tid
-          ? await api.sendAgentMessage(tid, message)
-          : await api.startAgentThread(message);
-        if (generationRef.current !== generationAtCall) {
-          // The user switched threads while this request was in flight.
-          // Drop the response - applying setThreadId here would swap the
-          // hook back to a stale thread.
-          return;
+        const userMsg: ConvMessage = {
+          id: newMsgId('u'),
+          role: 'you',
+          text: message,
+          streaming: false,
+          tools: [],
+          pending_confirm: null,
+          ts: Date.now() / 1000,
+        };
+        setMessages((prev) => [...prev, userMsg]);
+        // Clear any stale error from a previous failed turn so the user
+        // doesn't see the old fail banner alongside their fresh message.
+        // If THIS turn fails, the catch below sets a new error.
+        setError(null);
+        setStatus('streaming');
+        // Capture the generation BEFORE the await so we can detect a
+        // resetTo() that landed mid-flight (F4).
+        const generationAtCall = generationRef.current;
+        try {
+          const tid = threadIdRef.current;
+          const res = tid
+            ? await api.sendAgentMessage(tid, message)
+            : await api.startAgentThread(message);
+          if (generationRef.current !== generationAtCall) {
+            // The user switched threads while this request was in flight.
+            // Drop the response - applying setThreadId here would swap the
+            // hook back to a stale thread.
+            return;
+          }
+          if (res.thread_id !== threadIdRef.current) {
+            setThreadId(res.thread_id);
+          }
+        } catch (err) {
+          if (generationRef.current !== generationAtCall) return;
+          setError(errorMessage(err));
+          setStatus('error');
         }
-        if (res.thread_id !== threadIdRef.current) {
-          setThreadId(res.thread_id);
-        }
-      } catch (err) {
-        if (generationRef.current !== generationAtCall) return;
-        setError(errorMessage(err));
-        setStatus('error');
+      } finally {
+        sendInFlightRef.current = false;
       }
     },
     [],
