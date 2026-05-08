@@ -335,6 +335,62 @@ def _register_v2_routers(app: FastAPI) -> None:
     async def _v2_stop_watcher() -> None:
         await stop_watcher()
 
+    # Periodic agent-thread purge so a long-running daemon doesn't
+    # accumulate closed threads forever. The /api/agent/threads/
+    # purge-old endpoint is callable manually but unattended
+    # deployments would never trigger it - threads pile up in
+    # _threads (~10KB each: events log + metadata) and slowly
+    # grow memory across days. Sweep every hour; drop threads
+    # whose newest event is older than 7 days. Best-effort: any
+    # error logs at WARN and the loop continues to the next tick.
+    @app.on_event("startup")
+    async def _agent_thread_purge_loop() -> None:
+        runtime = getattr(app.state, "agent_runtime", None)
+        if runtime is None or not hasattr(runtime, "purge_old_threads"):
+            return
+        import asyncio as _asyncio
+
+        async def _purge_loop() -> None:
+            # Cadence: every hour. The TTL itself (7 days) is the
+            # actual retention; the cadence is just "how often do
+            # we check." Hourly keeps the per-call cost negligible
+            # (linear scan over self._threads).
+            interval_s = 3600.0
+            ttl_s = 7 * 24 * 3600.0
+            try:
+                while True:
+                    try:
+                        await _asyncio.sleep(interval_s)
+                        removed = runtime.purge_old_threads(ttl_s)
+                        if removed:
+                            logger.info(
+                                "agent thread auto-purge: ttl=%ss removed=%s",
+                                int(ttl_s),
+                                removed,
+                            )
+                    except _asyncio.CancelledError:
+                        return
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(
+                            "agent thread auto-purge tick failed: %s", exc
+                        )
+            except _asyncio.CancelledError:
+                return
+
+        task = _asyncio.create_task(_purge_loop())
+        app.state.agent_thread_purge_task = task
+
+    @app.on_event("shutdown")
+    async def _agent_thread_purge_stop() -> None:
+        task = getattr(app.state, "agent_thread_purge_task", None)
+        if task is None:
+            return
+        task.cancel()
+        try:
+            await task
+        except Exception:  # noqa: BLE001
+            pass
+
     @app.on_event("shutdown")
     async def _vacuum_jobs_persistence() -> None:
         """Compact the jobs sqlite mirror on clean shutdown.

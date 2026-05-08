@@ -378,6 +378,14 @@ export function Btn({
 }: BtnProps) {
   return (
     <button
+      // .eBtn drives the universal hover/focus depth + subtle
+      // brightness shift defined in styles.css. The Btn primitive
+      // previously had no hover feedback at all - every primary,
+      // secondary, ghost button across the dashboard relied solely
+      // on cursor:pointer to signal interactivity. The class lets
+      // a single CSS rule add hover/focus parity to every Btn
+      // simultaneously without touching call sites.
+      className="eBtn"
       type={type}
       onClick={onClick}
       onMouseEnter={onMouseEnter}
