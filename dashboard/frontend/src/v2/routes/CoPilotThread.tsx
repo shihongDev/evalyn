@@ -889,9 +889,24 @@ export default function CoPilotThread() {
                   size="sm"
                   onClick={submit}
                   disabled={sendDisabled}
+                  // Mirror the CoPilotDock Send-button pattern at
+                  // line 581-588 - the dock got proper a11y polish
+                  // (aria-busy / spelled-out keys / aria-hidden
+                  // glyph) and the full thread route was missed.
+                  aria-busy={status === 'streaming' || pending != null}
+                  aria-label={`Send message (${MOD_KEY === '⌘' ? 'Cmd Enter' : 'Ctrl Enter'})`}
+                  title={
+                    status === 'streaming'
+                      ? 'Co-pilot is responding - wait for it to finish'
+                      : pending != null
+                        ? 'A tool action is pending - resolve it above'
+                        : !draft.trim()
+                          ? 'Type a message to enable Send'
+                          : `Send (${MOD_KEY} ⏎)`
+                  }
                   style={{ width: 30, height: 30, padding: 0, justifyContent: 'center' }}
                 >
-                  ↑
+                  <span aria-hidden="true">↑</span>
                 </Btn>
               </div>
             </div>
