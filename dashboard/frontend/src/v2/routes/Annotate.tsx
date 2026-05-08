@@ -364,6 +364,7 @@ function SmartQueueCard({
       {!loading && err && (
         <div style={{ padding: 18 }}>
           <div
+            role="alert"
             style={{
               padding: 12,
               border: `1px solid ${E.fail}33`,
@@ -974,6 +975,7 @@ export default function Annotate() {
         {startErr && (
           <Card style={{ marginTop: 14, padding: 12, borderColor: E.fail }}>
             <div
+              role="alert"
               style={{
                 fontFamily: E.fMono,
                 fontSize: 12,
