@@ -159,6 +159,10 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   // Scrollable results container; we steer it via scrollIntoView when
   // the active row leaves the viewport during arrow-key navigation.
   const resultsRef = useRef<HTMLDivElement | null>(null);
+  // Footer "Open Commands page" button - the second (and last) tab
+  // stop in the dialog. Held in a ref so the focus-trap logic in
+  // onKeyDown can wrap focus between it and the input.
+  const footerBtnRef = useRef<HTMLButtonElement | null>(null);
   const navigate = useNavigate();
 
   // Lazy-load all four catalogs in parallel the first time the palette opens.
@@ -552,6 +556,25 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         return;
       }
       entry.nav();
+    } else if (e.key === 'Tab') {
+      // Focus trap: aria-modal="true" promises AT users that focus
+      // stays inside the dialog. With result options at tabIndex={-1}
+      // (commit ef6e9e65 - ARIA listbox pattern), the dialog has only
+      // two real tab stops: the search input and the footer's "Open
+      // Commands page" button. Without a trap, Tab from the footer
+      // would leak focus into content beneath the modal overlay -
+      // obscured visually but keyboard-reachable, which is exactly
+      // the bug aria-modal exists to prevent.
+      const active = document.activeElement;
+      if (e.shiftKey && active === inputRef.current && footerBtnRef.current) {
+        e.preventDefault();
+        footerBtnRef.current.focus();
+      } else if (!e.shiftKey && active === footerBtnRef.current && inputRef.current) {
+        e.preventDefault();
+        inputRef.current.focus();
+      }
+      // Other Tab cases (focus on something unexpected inside the
+      // dialog, e.g. clicked text) pass through unchanged.
     }
   }
 
@@ -798,6 +821,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           <span aria-hidden="true">esc close</span>
           <span style={{ flex: 1 }} />
           <button
+            ref={footerBtnRef}
             type="button"
             onClick={openCommandsPage}
             style={{
