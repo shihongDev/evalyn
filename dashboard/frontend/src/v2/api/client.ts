@@ -8,6 +8,7 @@
  */
 
 import { readCsrfToken, refreshCsrfToken } from './csrf';
+import { fetchWithTimeout } from './_fetchWithTimeout';
 import type {
   HomeSnapshot,
   ExperimentList,
@@ -36,6 +37,18 @@ import { loadDemo as demoLoadHelper } from './demo';
 const BASE = '/api/v2';
 const CLI_BASE = '/api/cli';
 
+// Hard timeout for all v2 mutations (saveRubric, submitVerdict). A
+// wedged server (TCP accepts but never responds) would otherwise
+// leave the user with a forever-spinner: the verdict button stays
+// disabled, no Cancel affordance, no recovery without reload. 30s
+// matches the other mutating modules (cli, jobs, settings, demo,
+// annotation) so the surface error message is consistent across
+// the dashboard.
+const V2_POST_TIMEOUT_MS = 30_000;
+const V2_POST_TIMEOUT_MSG =
+  `Server didn't respond within ${V2_POST_TIMEOUT_MS / 1000}s. ` +
+  `The dashboard may be wedged - try reloading.`;
+
 async function jget<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { headers: { Accept: 'application/json' } });
   if (!res.ok) {
@@ -59,7 +72,12 @@ async function jpost<T>(path: string, body: unknown): Promise<T> {
   const send = async (token: string | null): Promise<Response> => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['X-Workbench-Token'] = token;
-    return fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+    return fetchWithTimeout(
+      url,
+      { method: 'POST', headers, body: JSON.stringify(body) },
+      V2_POST_TIMEOUT_MS,
+      V2_POST_TIMEOUT_MSG,
+    );
   };
   let res = await send(readCsrfToken());
   // Stale-token self-heal: server rotated its CSRF token (typically
