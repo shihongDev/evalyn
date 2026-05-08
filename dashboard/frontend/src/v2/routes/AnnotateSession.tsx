@@ -2560,6 +2560,10 @@ export default function AnnotateSession() {
             size="sm"
             onClick={() => setShowStats((v) => !v)}
             title="Toggle the per-metric verdict distribution panel"
+            // Disclosure: this button shows/hides the stats panel.
+            // SR users hear "Stats, expanded" / "not expanded" as
+            // they would for any disclosure trigger.
+            aria-expanded={showStats}
           >
             Stats {showStats ? '▴' : '▾'}
           </Btn>
@@ -2571,6 +2575,13 @@ export default function AnnotateSession() {
               size="sm"
               onClick={() => setShowSettings((v) => !v)}
               title="Session settings - reset bookmarks, clear draft"
+              // Menu-button ARIA pattern: the disclosed element has
+              // role="menu", so the trigger needs aria-haspopup +
+              // aria-expanded + an explicit aria-label (the visible
+              // "⋯" gives AT users nothing useful).
+              aria-label="Session settings"
+              aria-haspopup="menu"
+              aria-expanded={showSettings}
             >
               ⋯
             </Btn>
@@ -3804,6 +3815,13 @@ export default function AnnotateSession() {
                               ? 'Show the raw output text'
                               : 'Show a word-level diff against the expected output'
                           }
+                          // Two-state filter toggle (changes the rendering
+                          // of the same pane rather than disclosing a new
+                          // section), so aria-pressed is the right ARIA -
+                          // SR users hear "Diff vs expected, pressed" /
+                          // "not pressed". The visible ✓ glyph alone
+                          // doesn't tell AT what state we're in.
+                          aria-pressed={showDiff}
                           style={{
                             fontFamily: E.fMono,
                             fontSize: 10,
