@@ -26,6 +26,7 @@ import { Btn, Eyebrow, Pill, Spinner, StatusDot } from './ui';
 import { useStickToBottom } from './hooks/useStickToBottom';
 import { useLiveDuration } from './hooks/useLiveDuration';
 import { useSearchFilter } from './hooks/useSearchFilter';
+import { useFlashState } from './hooks/useFlashState';
 import { copyToClipboard } from './clipboard';
 import type { CliParam, CliParamKind, CliSchema } from './api/cli';
 import { commandSummary, previewCommand } from './api/cli';
@@ -1346,19 +1347,19 @@ function PreviewLine({ preview, open, onToggle }: PreviewLineProps) {
   // job is spawned, so we can't lean on the OutputSection toolbar's
   // Copy button (it only mounts in the post-spawn view). This makes
   // the affordance reachable from the moment the form is filled.
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>(
-    'idle',
-  );
+  // useFlashState ensures the auto-revert to 'idle' is cancelled
+  // on unmount + re-arms cleanly on rapid double-clicks (the bare
+  // setTimeout pattern it replaces stacked timers and warned on
+  // unmount-during-window navigation).
+  const [copyState, flashCopyState] = useFlashState<'idle' | 'copied' | 'error'>('idle');
   const onCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!preview) return;
     try {
       await copyToClipboard(preview);
-      setCopyState('copied');
-      window.setTimeout(() => setCopyState('idle'), 2000);
+      flashCopyState('copied', 2000);
     } catch {
-      setCopyState('error');
-      window.setTimeout(() => setCopyState('idle'), 3000);
+      flashCopyState('error', 3000);
     }
   };
   return (
