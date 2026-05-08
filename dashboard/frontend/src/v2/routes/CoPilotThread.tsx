@@ -159,6 +159,27 @@ export default function CoPilotThread() {
   const [historyTick, setHistoryTick] = useState(0);
   const [index, setIndex] = useState<ThreadIndexEntry[]>(() => loadThreadIndex());
 
+  // Sparse SR live announcements for status transitions. The
+  // conversation log itself is aria-live="off" (per-chunk streaming
+  // would spam) so without this, blind users would have no idea
+  // when a response started or finished. Two events:
+  //   idle -> streaming: ThinkingBubble's own role="status" label
+  //                      already covers this, so we skip here.
+  //   streaming -> idle: agent finished. Announce so users know
+  //                      to start reading the message.
+  // The error path is covered by the role="alert" block below.
+  const [ariaStatus, setAriaStatus] = useState('');
+  const prevStatusRef = useRef(status);
+  useEffect(() => {
+    if (prevStatusRef.current === 'streaming' && status === 'idle') {
+      setAriaStatus('Co-pilot finished responding');
+      const t = window.setTimeout(() => setAriaStatus(''), 1200);
+      prevStatusRef.current = status;
+      return () => window.clearTimeout(t);
+    }
+    prevStatusRef.current = status;
+  }, [status]);
+
   // When the active thread changes (sidebar click, URL nav), load
   // that thread's draft so switching threads mid-compose doesn't
   // erase the in-progress text on either side. Mirrors the dock.
@@ -329,6 +350,17 @@ export default function CoPilotThread() {
 
   return (
     <AppShell hideCoPilot breadcrumb={['Co-pilot', activeTitle]}>
+      {/* Sparse status live region for streaming transitions. The
+          conversation log is aria-live="off" so this carries the
+          "started / finished" beats without per-chunk spam. */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="eSr"
+      >
+        {ariaStatus}
+      </div>
       <div
         style={{
           display: 'grid',

@@ -99,17 +99,31 @@ export function useVisibilityPoll<T>(
     if (!enabled) return;
     let cancelled = false;
     let intervalId: number | null = null;
+    // In-flight dedup. A user mashing the Refresh button (or rapid
+    // visibilitychange flips) would otherwise fire N concurrent
+    // fetcher() calls for no benefit - the server gets pummeled and
+    // the state effects race over the same logical slot. Hold the
+    // current promise here; concurrent callers reuse it.
+    let pending: Promise<void> | null = null;
 
     async function poll() {
-      const next = await fetcherRef.current();
-      if (cancelled) return;
-      setValue(next);
-      setLoaded(true);
-      // Stamp the timestamp regardless of value identity. Two
-      // consecutive identical responses still mean "the data is
-      // current"; the freshness indicator should not freeze on
-      // an unchanged value.
-      setLastFetchAt(Date.now());
+      if (pending) return pending;
+      pending = (async () => {
+        try {
+          const next = await fetcherRef.current();
+          if (cancelled) return;
+          setValue(next);
+          setLoaded(true);
+          // Stamp the timestamp regardless of value identity. Two
+          // consecutive identical responses still mean "the data is
+          // current"; the freshness indicator should not freeze on
+          // an unchanged value.
+          setLastFetchAt(Date.now());
+        } finally {
+          pending = null;
+        }
+      })();
+      return pending;
     }
 
     function start() {
