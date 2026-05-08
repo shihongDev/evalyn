@@ -145,9 +145,11 @@ export default function Settings() {
 
         {err && (
           <Card style={{ padding: 16, marginTop: 22, borderColor: E.fail }}>
-            <Eyebrow style={{ color: E.fail }}>Error loading settings</Eyebrow>
-            <div style={{ fontFamily: E.fMono, fontSize: 12, color: E.text2, marginTop: 6 }}>
-              {err}
+            <div role="alert">
+              <Eyebrow style={{ color: E.fail }}>Error loading settings</Eyebrow>
+              <div style={{ fontFamily: E.fMono, fontSize: 12, color: E.text2, marginTop: 6 }}>
+                {err}
+              </div>
             </div>
             <div style={{ marginTop: 10 }}>
               <Btn kind="secondary" size="sm" onClick={() => void refetch()} disabled={reloading}>
