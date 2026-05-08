@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Settings tour-reset pill: migrated to `useFlashState`.** The "Co-pilot UI guidance" reset button flashed a "Reset done" pill for 2 s via a bare `window.setTimeout(setResetFlash(false), 2000)` - the same unmount-leak class the hook was made for. If the user clicked Reset and navigated away within 2 s, the timer fired `setResetFlash(false)` on an unmounted component (React warning). Migrated to `useFlashState(false)` + `flashResetFlash(true, 2000)`. The two parallel patterns in Settings.tsx (`success` and `saveSuccess`) are intentionally NOT migrated this tick because they have a load-bearing pre-API reset (`setX(false)` BEFORE the await) that the hook doesn't directly support without API expansion - keeping their bare-setTimeout pattern documented for a future tick when the hook gains an imperative reset method.
+
 ### Fixed
 
 - **CRITICAL: vacuum + prune admin buttons were 403-broken.** `health.ts:vacuumPersistence` and `health.ts:pruneOldJobs` were sending `X-CSRF-Token` while the server's CSRF middleware (server.py:CSRF_HEADER) only accepts `X-Workbench-Token`. So every Compact / Prune click in Settings hit a 403 in production - the user saw "POST /api/jobs/admin/vacuum 403: ..." and the destructive operations they intended never reached the backend. Existing `test_admin_vacuum_requires_csrf` only verified that a MISSING header returns 403; it never exercised a request with a wrong-name header, so the bug shipped silently. Fixed by using the correct header name in both functions, plus a new vitest spec (`health.test.ts`) that pins `X-Workbench-Token` is sent and `X-CSRF-Token` is NOT - so this regression class can't return.
