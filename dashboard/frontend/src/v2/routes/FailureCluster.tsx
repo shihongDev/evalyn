@@ -381,9 +381,12 @@ export default function FailureCluster() {
                 <span>METRIC</span>
                 <span style={{ textAlign: 'right' }}>SCORE</span>
               </div>
+              <div role="list" aria-label={`All ${data.items.length} items in this cluster`}>
               {data.items.map((s, i) => (
                 <div
                   key={s.id}
+                  role="listitem"
+                  aria-label={`Item ${s.id}: user said "${s.user}", model output "${s.hallucinated}", tier ${s.tier}, score ${s.score.toFixed(2)}`}
                   style={{
                     display: 'grid',
                     gridTemplateColumns: '50px 1fr 1fr 90px 70px',
@@ -432,6 +435,7 @@ export default function FailureCluster() {
                   </span>
                 </div>
               ))}
+              </div>
             </Card>
 
             {data.suggested_fix && (
