@@ -881,7 +881,9 @@ export default function CoPilotThread() {
                     fontFamily: E.fMono,
                   }}
                 >
-                  {MOD_KEY}+Enter to send
+                  <span aria-hidden="true">{MOD_KEY}+Enter</span>
+                  <span className="eSr">{MOD_KEY === '⌘' ? 'Cmd Enter' : 'Ctrl Enter'}</span>
+                  {' to send'}
                 </span>
                 <span style={{ flex: 1 }} />
                 <Btn

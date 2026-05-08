@@ -598,7 +598,15 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
             textAlign: 'center',
           }}
         >
-          {MOD_KEY} ⏎ to send · read-only commands run automatically · writes ask first
+          {/* Raw ⌘ / ⏎ glyphs read inconsistently across SR
+              engines ("place of interest sign" / "downwards arrow
+              with corner" / silence). Visible glyphs go in an
+              aria-hidden span; the .eSr companion spells out
+              the keys for SR users. Same pattern as the
+              AppShell palette button (line 920-924). */}
+          <span aria-hidden="true">{MOD_KEY} ⏎</span>
+          <span className="eSr">{MOD_KEY === '⌘' ? 'Cmd Enter' : 'Ctrl Enter'}</span>
+          {' to send · read-only commands run automatically · writes ask first'}
         </div>
       </div>
       </div>
