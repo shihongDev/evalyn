@@ -1281,13 +1281,24 @@ def _prewarm_blocking() -> None:
     ``reviews/`` subdir is absent), and it sits on the hot path for
     /home and /review first paint via :func:`calibration_suggestions`.
     Priming it here moves that cost off the user's first click.
+    Logs the elapsed time on success so operators tuning cold-start
+    have a metric: "v2 prewarm completed in 50ms" vs "...3500ms"
+    distinguishes warm-cache-hit from cold-FS-walk; correlate with
+    workspace size to budget appropriately.
     """
+    import time as _time
+
+    start = _time.monotonic()
     try:
         load_all_runs()
         for root in dataset_roots():
             _reviews_files_for_root(root)
     except Exception as exc:  # noqa: BLE001 - never block startup on a cache miss
-        logger.warning("v2 prewarm aborted: %s", exc)
+        elapsed_ms = (_time.monotonic() - start) * 1000
+        logger.warning("v2 prewarm aborted after %.0f ms: %s", elapsed_ms, exc)
+        return
+    elapsed_ms = (_time.monotonic() - start) * 1000
+    logger.info("v2 prewarm completed in %.0f ms", elapsed_ms)
 
 
 def prewarm() -> None:
