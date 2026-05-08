@@ -497,47 +497,55 @@ function KeyHints({
   const [hovered, setHovered] = useState(false);
   const open = hovered || forceOpen;
   // Grouped by activity so users can scan to the right section
-  // instead of reading 14 keys top-to-bottom.
-  const SECTIONS: Array<{ title: string; items: Array<[string, string]> }> = [
+  // instead of reading 14 keys top-to-bottom. srKeys is the spoken-
+  // word equivalent of keys - raw glyphs (⌫ ⏎ ⇧ ← →) get pronounced
+  // as Unicode codepoints on SR engines, which makes a learning aid
+  // unusable for blind users. Same pattern as the AppShell help
+  // overlay's GLOBAL_SHORTCUTS / CONTEXT_SHORTCUTS.
+  const MOD_WORD = MOD_KEY_LABEL === '⌘' ? 'Cmd' : 'Ctrl';
+  const SECTIONS: Array<{
+    title: string;
+    items: Array<{ keys: string; srKeys: string; desc: string }>;
+  }> = [
     {
       title: 'Verdict',
       items: [
-        ['1-9', 'cycle metric'],
-        ['A', 'accept all AI'],
-        ['U / ⌫', 'undo'],
+        { keys: '1-9', srKeys: '1 through 9', desc: 'cycle metric' },
+        { keys: 'A', srKeys: 'A', desc: 'accept all AI' },
+        { keys: 'U / ⌫', srKeys: 'U or Backspace', desc: 'undo' },
       ],
     },
     {
       title: 'Save',
       items: [
-        ['N / ⏎', 'save + next'],
-        [`${MOD_KEY_LABEL} S`, 'save in place'],
-        ['S', 'skip all + next'],
-        [`${MOD_KEY_LABEL} ⏎`, 'finalize session'],
+        { keys: 'N / ⏎', srKeys: 'N or Enter', desc: 'save + next' },
+        { keys: `${MOD_KEY_LABEL} S`, srKeys: `${MOD_WORD} S`, desc: 'save in place' },
+        { keys: 'S', srKeys: 'S', desc: 'skip all + next' },
+        { keys: `${MOD_KEY_LABEL} ⏎`, srKeys: `${MOD_WORD} Enter`, desc: 'finalize session' },
       ],
     },
     {
       title: 'Navigate',
       items: [
-        ['← / →', 'prev / next'],
-        ['T / ⇧T', 'next/prev todo'],
-        ['D / ⇧D', 'next/prev override'],
-        ['G', 'focus search'],
+        { keys: '← / →', srKeys: 'Left or Right arrow', desc: 'prev / next' },
+        { keys: 'T / ⇧T', srKeys: 'T or Shift T', desc: 'next/prev todo' },
+        { keys: 'D / ⇧D', srKeys: 'D or Shift D', desc: 'next/prev override' },
+        { keys: 'G', srKeys: 'G', desc: 'focus search' },
       ],
     },
     {
       title: 'Item',
       items: [
-        ['B', 'bookmark item'],
-        ['/', 'focus note'],
+        { keys: 'B', srKeys: 'B', desc: 'bookmark item' },
+        { keys: '/', srKeys: 'Slash', desc: 'focus note' },
       ],
     },
     {
       title: 'Display',
       items: [
-        ['?', 'toggle this sheet'],
-        [`${MOD_KEY_LABEL} ,`, 'settings menu'],
-        ['Esc', 'exit / close'],
+        { keys: '?', srKeys: 'Question mark', desc: 'toggle this sheet' },
+        { keys: `${MOD_KEY_LABEL} ,`, srKeys: `${MOD_WORD} comma`, desc: 'settings menu' },
+        { keys: 'Esc', srKeys: 'Escape', desc: 'exit / close' },
       ],
     },
   ];
@@ -614,9 +622,10 @@ function KeyHints({
                   rowGap: 3,
                 }}
               >
-                {section.items.map(([k, d]) => (
-                  <Fragment key={k}>
+                {section.items.map(({ keys, srKeys, desc }) => (
+                  <Fragment key={keys}>
                     <kbd
+                      aria-label={srKeys}
                       style={{
                         fontFamily: E.fMono,
                         fontSize: 11,
@@ -629,9 +638,9 @@ function KeyHints({
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {k}
+                      {keys}
                     </kbd>
-                    <span style={{ fontSize: 11, color: E.text2 }}>{d}</span>
+                    <span style={{ fontSize: 11, color: E.text2 }}>{desc}</span>
                   </Fragment>
                 ))}
               </div>
