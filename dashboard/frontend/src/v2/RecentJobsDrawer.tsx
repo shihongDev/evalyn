@@ -487,10 +487,20 @@ export function RecentJobsDrawer({
   // because the user should retry the SAME action in a few seconds,
   // not edit args.
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  // Auto-clear the banner after a few seconds so it doesn't linger.
+  // Auto-clear the banner so it doesn't linger. Dwell scales with
+  // message length so a long capacity message (e.g. "Re-ran 3 / 5;
+  // queue full (8 / 8 running). Try again in 30s for the remaining 2.")
+  // gets enough reading time. Floor at 6s for short messages,
+  // ceiling at 14s so even pathologically long messages eventually
+  // clear without user action. ~50ms/char is a comfortable read
+  // pace; the bounds keep edge cases sane.
   useEffect(() => {
     if (!actionMessage) return;
-    const t = window.setTimeout(() => setActionMessage(null), 6000);
+    const dwellMs = Math.max(
+      6000,
+      Math.min(14000, actionMessage.length * 50),
+    );
+    const t = window.setTimeout(() => setActionMessage(null), dwellMs);
     return () => window.clearTimeout(t);
   }, [actionMessage]);
   const onBulkRerunFailures = async () => {
@@ -683,9 +693,36 @@ export function RecentJobsDrawer({
               color: E.text1,
               background: 'rgba(217, 132, 51, 0.10)',
               borderBottom: `1px solid rgba(217, 132, 51, 0.3)`,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10,
             }}
           >
-            {actionMessage}
+            <span style={{ flex: 1, minWidth: 0 }}>{actionMessage}</span>
+            <button
+              type="button"
+              onClick={() => setActionMessage(null)}
+              aria-label="Dismiss message"
+              title="Dismiss"
+              style={{
+                width: 18,
+                height: 18,
+                flexShrink: 0,
+                borderRadius: 3,
+                border: 'none',
+                background: 'transparent',
+                color: E.text3,
+                cursor: 'pointer',
+                fontSize: 14,
+                lineHeight: 1,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+              }}
+            >
+              <span aria-hidden="true">×</span>
+            </button>
           </div>
         )}
         <div
