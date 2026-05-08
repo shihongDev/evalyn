@@ -41,4 +41,46 @@ describe('errorMessage', () => {
     expect(errorMessage('plain string')).toBe('plain string');
     expect(errorMessage(42)).toBe('42');
   });
+
+  it('rewrites Chrome fetch network failures to a friendly message', () => {
+    const e = new TypeError('Failed to fetch');
+    expect(errorMessage(e)).toBe(
+      'Network unreachable - check your connection and try again.',
+    );
+  });
+
+  it('rewrites Safari Load-failed network failures to a friendly message', () => {
+    const e = new TypeError('Load failed');
+    expect(errorMessage(e)).toBe(
+      'Network unreachable - check your connection and try again.',
+    );
+  });
+
+  it('rewrites Firefox NetworkError fetch failures to a friendly message', () => {
+    const e = new TypeError(
+      'NetworkError when attempting to fetch resource.',
+    );
+    expect(errorMessage(e)).toBe(
+      'Network unreachable - check your connection and try again.',
+    );
+  });
+
+  it('does NOT rewrite TypeErrors with unrelated messages', () => {
+    // A TypeError from e.g. "x.toLowerCase is not a function" should
+    // NOT be hijacked - that would mask programmer bugs as network
+    // problems. Only known-network-shaped messages get the rewrite.
+    const e = new TypeError("Cannot read properties of undefined (reading 'foo')");
+    expect(errorMessage(e)).toBe(
+      "Cannot read properties of undefined (reading 'foo')",
+    );
+  });
+
+  it('does NOT rewrite plain Errors that happen to mention "network"', () => {
+    // A server returning {error: "Network error from upstream API"}
+    // would be wrapped in a regular Error by jsonFetch. We don't
+    // want the heuristic to kick in - the server's message is more
+    // precise than ours.
+    const e = new Error('Network error from upstream API');
+    expect(errorMessage(e)).toBe('Network error from upstream API');
+  });
 });
