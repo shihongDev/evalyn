@@ -1610,7 +1610,7 @@ function JobRow({ entry, onClick, onRerun, onCancel, onTogglePin }: JobRowProps)
             e.currentTarget.style.color = entry.pinned ? E.ember : E.text4;
           }}
         >
-          {entry.pinned ? '★' : '☆'}
+          <span aria-hidden="true">{entry.pinned ? '★' : '☆'}</span>
         </button>
       )}
       {logUrl && (
@@ -1637,7 +1637,7 @@ function JobRow({ entry, onClick, onRerun, onCancel, onTogglePin }: JobRowProps)
             (e.currentTarget as HTMLAnchorElement).style.color = E.text4;
           }}
         >
-          ↓
+          <span aria-hidden="true">↓</span>
         </a>
       )}
       {canRerun && (
@@ -1671,7 +1671,7 @@ function JobRow({ entry, onClick, onRerun, onCancel, onTogglePin }: JobRowProps)
             e.currentTarget.style.color = E.text3;
           }}
         >
-          ↻
+          <span aria-hidden="true">↻</span>
         </button>
       )}
       {canCancel && (
@@ -1706,7 +1706,7 @@ function JobRow({ entry, onClick, onRerun, onCancel, onTogglePin }: JobRowProps)
             if (!cancelling) e.currentTarget.style.opacity = '1';
           }}
         >
-          ✕
+          <span aria-hidden="true">✕</span>
         </button>
       )}
     </div>
