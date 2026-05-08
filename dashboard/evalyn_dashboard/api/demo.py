@@ -25,11 +25,14 @@ copy never leaves us in a "loaded but actually broken" state.
 
 from __future__ import annotations
 
+import logging
 import shutil
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -116,5 +119,12 @@ async def load_demo() -> JSONResponse:
         )
     except OSError as exc:
         raise HTTPException(500, f"failed to write demo sentinel: {exc}") from exc
+
+    # Audit log: demo load is destructive (copies fixture into the
+    # workspace, overwriting any existing demo content). Operators
+    # tracking "who loaded the demo into this server's workspace"
+    # need a trail. Logged after the sentinel is written so a
+    # partial copy never claims success in the audit record.
+    logger.info("demo loaded: project=%s into=%s", DEMO_DATASET_NAME, target)
 
     return JSONResponse({"loaded": True, "project": DEMO_DATASET_NAME})
