@@ -7,6 +7,14 @@
  *
  * Returns null when not live or when the timestamp does not parse so
  * the caller can render a falsy guard rather than "0s" placeholder.
+ *
+ * Backgrounded-tab refresh: setInterval throttling means the
+ * displayed value can be up to ~60s stale on a backgrounded tab.
+ * Without intervention the user sees the frozen value for one tick
+ * after returning to the tab. We listen for ``visibilitychange``
+ * and force an immediate ``setNow`` on hidden -> visible so the
+ * counter snaps to the correct elapsed the instant the tab is
+ * looked at again.
  */
 
 import { useEffect, useState } from 'react';
@@ -19,7 +27,24 @@ export function useLiveDuration(
   useEffect(() => {
     if (!live) return;
     const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
+    const onVisibility = () => {
+      // On tab return, immediately refresh `now` so the displayed
+      // counter doesn't show a stale value waiting for the next
+      // (possibly throttled) interval tick. SSR/jsdom guard via the
+      // typeof check so the hook stays safe outside the browser.
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        setNow(Date.now());
+      }
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisibility);
+    }
+    return () => {
+      window.clearInterval(id);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisibility);
+      }
+    };
   }, [live]);
   if (!live) return null;
   const t = Date.parse(startedAtIso);
