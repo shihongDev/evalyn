@@ -223,6 +223,53 @@ def test_settings_get_returns_redacted_view() -> None:
     assert "providers" in body and "active" in body
 
 
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("", 20),  # INFO default when unset
+        ("DEBUG", 10),
+        ("debug", 10),  # case-insensitive
+        ("INFO", 20),
+        ("WARNING", 30),
+        ("warning", 30),
+        ("ERROR", 40),
+        ("CRITICAL", 50),
+        ("  WARNING  ", 30),  # whitespace tolerant
+        ("BOGUS", 20),  # unknown -> INFO (no crash)
+        ("123", 20),  # numeric strings not honored (would be misleading)
+        ("WARN", 30),  # stdlib alias for WARNING
+        ("FATAL", 50),  # stdlib alias for CRITICAL
+    ],
+)
+def test_resolve_app_log_level(monkeypatch, raw: str, expected: int) -> None:
+    """``EVALYN_LOG_LEVEL`` resolves to logging level ints. Unknown
+    or unset values fall back to INFO so the audit-log trail stays
+    visible by default.
+
+    Why this matters for operators:
+      - Production daemons can flip to ``WARNING`` to suppress the
+        per-mutation audit-log INFO chatter without losing real
+        warnings/errors.
+      - A typo in the env var must NOT silently switch the logger
+        to a useless level (e.g. CRITICAL-only) - the resolver
+        defends with a hardcoded INFO fallback.
+    """
+    import logging
+    from evalyn_dashboard.server import _resolve_app_log_level
+
+    if raw:
+        monkeypatch.setenv("EVALYN_LOG_LEVEL", raw)
+    else:
+        monkeypatch.delenv("EVALYN_LOG_LEVEL", raising=False)
+    assert _resolve_app_log_level() == expected
+    # Sanity: the resolver never returns a string (the bug we
+    # defended against - logging.getLevelName returns a string for
+    # unknown names instead of an int).
+    assert isinstance(_resolve_app_log_level(), int)
+    # And the value must match a real level for the logger.
+    logging.getLogger("test").setLevel(_resolve_app_log_level())
+
+
 def test_shutdown_hook_calls_persistence_vacuum() -> None:
     """The shutdown lifespan hook fires JobPersistence.vacuum() so the
     on-disk sqlite mirror gets compacted on clean exit. Without this,
