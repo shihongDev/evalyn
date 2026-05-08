@@ -886,7 +886,7 @@ function RubricEditor({
         </>
       )}
       {!loading && err && (
-        <div>
+        <div role="alert">
           <Eyebrow style={{ color: E.fail }}>Error loading rubric</Eyebrow>
           <div
             style={{
@@ -1348,16 +1348,18 @@ export default function Metrics() {
 
         {listErr && !list && (
           <Card style={{ padding: 16, marginBottom: 14, borderColor: E.fail }}>
-            <Eyebrow style={{ color: E.fail }}>Error loading metrics</Eyebrow>
-            <div
-              style={{
-                fontFamily: E.fMono,
-                fontSize: 12,
-                color: E.text2,
-                marginTop: 6,
-              }}
-            >
-              {listErr}
+            <div role="alert">
+              <Eyebrow style={{ color: E.fail }}>Error loading metrics</Eyebrow>
+              <div
+                style={{
+                  fontFamily: E.fMono,
+                  fontSize: 12,
+                  color: E.text2,
+                  marginTop: 6,
+                }}
+              >
+                {listErr}
+              </div>
             </div>
             <div style={{ marginTop: 10 }}>
               <Btn kind="secondary" size="sm" onClick={() => void listRefetch()}>

@@ -871,6 +871,7 @@ export default function Review() {
         {submitErr && queue && (
           <Card style={{ padding: 12, marginBottom: 14, borderColor: E.fail }}>
             <div
+              role="alert"
               style={{
                 fontFamily: E.fMono,
                 fontSize: 12,

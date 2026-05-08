@@ -808,7 +808,7 @@ export default function RunDetail() {
         {/* COMPARE BADGE BAR */}
         {compareWith && compareErr && !compareDetail && (
           <Card style={{ padding: 12, marginBottom: 14, borderColor: E.fail }}>
-            <div style={{ fontSize: 12, color: E.fail, fontFamily: E.fMono }}>
+            <div role="alert" style={{ fontSize: 12, color: E.fail, fontFamily: E.fMono }}>
               Could not load compare run {compareWith}: not found
             </div>
             <div style={{ marginTop: 8 }}>
