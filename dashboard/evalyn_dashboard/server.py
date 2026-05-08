@@ -500,7 +500,26 @@ def build_app(
     # fresh tmp_path don't get a stray .evalyn/ directory.
     from .jobs_persistence import JobPersistence
 
-    app.state.job_manager = JobManager(persistence=JobPersistence())
+    # max_concurrent is overridable via env so operators can tune for
+    # their hardware: drop to 4 on a small VM (avoid OOM under many
+    # parallel evals), bump to 32 on a beefy box, drop to 2 for
+    # single-user dev. Default is JobManager's DEFAULT_MAX_CONCURRENT
+    # (16). _resolve_positive_float_env's defensive parsing means a
+    # bad config value (zero, negative, garbage) falls through to the
+    # default rather than disabling the cap entirely - which the
+    # JobManager constructor would otherwise interpret as
+    # "unlimited concurrency" and let a runaway client melt the box.
+    from .jobs import DEFAULT_MAX_CONCURRENT
+
+    max_concurrent = int(
+        _resolve_positive_float_env(
+            "EVALYN_MAX_CONCURRENT_JOBS", float(DEFAULT_MAX_CONCURRENT)
+        )
+    )
+    app.state.job_manager = JobManager(
+        persistence=JobPersistence(),
+        max_concurrent=max_concurrent,
+    )
     app.state.credential_store = credential_store or CredentialStore()
     if agent_runtime is None:
         # Confirmation timeout is overridable via env so operators can

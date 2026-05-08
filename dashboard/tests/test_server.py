@@ -293,6 +293,50 @@ def test_resolve_positive_float_env_falls_back_safely(monkeypatch) -> None:
         assert actual == expected, f"raw={raw!r} expected={expected} got={actual}"
 
 
+def test_max_concurrent_jobs_honors_env_var(monkeypatch) -> None:
+    """``EVALYN_MAX_CONCURRENT_JOBS`` overrides JobManager's
+    DEFAULT_MAX_CONCURRENT.
+
+    Customer scenarios:
+      - Small VM: drop to 4 to avoid OOM under many parallel evals
+      - Beefy box: bump to 32 or 64 for throughput
+      - Single-user dev: drop to 2 for predictable behavior
+
+    Bad / non-positive values fall through to the default rather
+    than disabling the cap entirely (which the constructor would
+    interpret as "unlimited concurrency").
+    """
+    from evalyn_dashboard.jobs import DEFAULT_MAX_CONCURRENT
+
+    # Sanity: default is 16.
+    assert DEFAULT_MAX_CONCURRENT == 16
+
+    # Custom value honored, cast to int.
+    monkeypatch.setenv("EVALYN_MAX_CONCURRENT_JOBS", "8")
+    app = build_app()
+    assert app.state.job_manager.max_concurrent == 8
+
+    # Float string also accepted (cast to int).
+    monkeypatch.setenv("EVALYN_MAX_CONCURRENT_JOBS", "32.0")
+    app2 = build_app()
+    assert app2.state.job_manager.max_concurrent == 32
+
+    # Bad value falls through to default.
+    monkeypatch.setenv("EVALYN_MAX_CONCURRENT_JOBS", "garbage")
+    app3 = build_app()
+    assert app3.state.job_manager.max_concurrent == DEFAULT_MAX_CONCURRENT
+
+    # Zero rejected -> default (would mean "unlimited" in JobManager).
+    monkeypatch.setenv("EVALYN_MAX_CONCURRENT_JOBS", "0")
+    app4 = build_app()
+    assert app4.state.job_manager.max_concurrent == DEFAULT_MAX_CONCURRENT
+
+    # Unset uses default.
+    monkeypatch.delenv("EVALYN_MAX_CONCURRENT_JOBS", raising=False)
+    app5 = build_app()
+    assert app5.state.job_manager.max_concurrent == DEFAULT_MAX_CONCURRENT
+
+
 def test_agent_confirm_timeout_honors_env_var(monkeypatch) -> None:
     """``EVALYN_AGENT_CONFIRM_TIMEOUT_S`` overrides the default 5-minute
     confirmation timeout for the AgentRuntime built by build_app.
