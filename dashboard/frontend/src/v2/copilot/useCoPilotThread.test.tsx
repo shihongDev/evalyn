@@ -319,4 +319,69 @@ describe('useCoPilotThread', () => {
 
     expect(useV2Store.getState().tourActiveId).toBeNull();
   });
+
+  it('F5: error / unclean-close logs are throttled to one per outage', async () => {
+    // Pin the throttle introduced two ticks ago. Without it, a
+    // 5-attempt reconnect ladder spammed 10+ identical
+    // "agent ws error" / "agent ws closed unexpectedly" lines
+    // per outage. Throttle reuses the existing `attempt` counter:
+    // log only when attempt === 0.
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      renderHook(() => useCoPilotThread({ initialThreadId: 'tid-throttle' }));
+      await waitFor(() => {
+        expect(subscribeAgentMock).toHaveBeenCalled();
+      });
+      const handlers = getHandlers();
+
+      // First error in the outage window: logs once.
+      act(() => {
+        handlers.onError?.(new Event('error'));
+      });
+      const firstCount = errorSpy.mock.calls.filter((c) =>
+        typeof c[0] === 'string' && c[0].includes('agent ws error'),
+      ).length;
+      expect(firstCount).toBe(1);
+
+      // First unclean close fires onClose with attempt still 0
+      // (incremented inside the handler AFTER the log check).
+      // After this onClose returns, attempt is 1, so subsequent
+      // errors/closes are throttled.
+      act(() => {
+        handlers.onClose?.({
+          wasClean: false,
+          code: 1006,
+          reason: 'lost',
+        } as CloseEvent);
+      });
+      const closeCount = errorSpy.mock.calls.filter((c) =>
+        typeof c[0] === 'string' && c[0].includes('agent ws closed'),
+      ).length;
+      expect(closeCount).toBe(1);
+
+      // Subsequent errors within the same outage: throttled silent.
+      // (Note: subscribeAgentMock would have re-fired the open path
+      // via the reconnect setTimeout, but jsdom's fake timers aren't
+      // engaged here so the outer reconnect doesn't fire. The inner
+      // attempt counter stays at 1+ and throttles.)
+      act(() => {
+        handlers.onError?.(new Event('error'));
+        handlers.onClose?.({
+          wasClean: false,
+          code: 1006,
+          reason: 'lost',
+        } as CloseEvent);
+      });
+      const errorCount = errorSpy.mock.calls.filter((c) =>
+        typeof c[0] === 'string' && c[0].includes('agent ws error'),
+      ).length;
+      const closeCount2 = errorSpy.mock.calls.filter((c) =>
+        typeof c[0] === 'string' && c[0].includes('agent ws closed'),
+      ).length;
+      expect(errorCount).toBe(1); // still 1 - throttled
+      expect(closeCount2).toBe(1); // still 1 - throttled
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
 });
