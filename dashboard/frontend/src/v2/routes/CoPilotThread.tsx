@@ -491,6 +491,20 @@ export default function CoPilotThread() {
                         e.currentTarget.style.background = 'transparent';
                       }
                     }}
+                    // Focus parity for keyboard users tabbing the
+                    // thread sidebar. Active-item guard mirrors the
+                    // hover handler - the active thread already has
+                    // its own panel3 bg.
+                    onFocus={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = E.panel2;
+                      }
+                    }}
+                    onBlur={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = 'transparent';
+                      }
+                    }}
                     title={t.title}
                     style={{
                       width: '100%',
@@ -549,6 +563,16 @@ export default function CoPilotThread() {
                       }
                     }}
                     onMouseLeave={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = 'transparent';
+                      }
+                    }}
+                    onFocus={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = E.panel2;
+                      }
+                    }}
+                    onBlur={(e) => {
                       if (!isActive) {
                         e.currentTarget.style.background = 'transparent';
                       }
