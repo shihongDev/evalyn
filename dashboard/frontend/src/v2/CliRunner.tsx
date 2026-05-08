@@ -1508,38 +1508,24 @@ function OutputSection({
   startedAtIso = null,
   jobId = null,
 }: OutputSectionProps) {
-  // Inline clipboard state for the Copy button. Idle -> copied flips
-  // the label briefly; idle -> error covers the rare browser-blocked
-  // case (non-secure context with no clipboard API and execCommand
-  // disabled).
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
-  // Independent state for the "Copy ID" action so a successful output
-  // copy doesn't tint the ID button (and vice versa).
-  const [copyIdState, setCopyIdState] = useState<'idle' | 'copied' | 'error'>(
-    'idle',
-  );
-  // Independent state for the "Copy command" action.
-  const [copyCmdState, setCopyCmdState] = useState<
-    'idle' | 'copied' | 'error'
-  >('idle');
+  // Four independent copy-state slots so a successful action on
+  // one button doesn't tint the others (output / job ID / log URL
+  // / command). useFlashState handles the auto-revert to 'idle' +
+  // unmount cleanup + rapid re-arm semantics in one place.
+  const [copyState, flashCopyState] = useFlashState<'idle' | 'copied' | 'error'>('idle');
+  const [copyIdState, flashCopyIdState] = useFlashState<'idle' | 'copied' | 'error'>('idle');
+  const [copyCmdState, flashCopyCmdState] = useFlashState<'idle' | 'copied' | 'error'>('idle');
+  const [copyUrlState, flashCopyUrlState] = useFlashState<'idle' | 'copied' | 'error'>('idle');
 
   async function handleCopyJobId() {
     if (!jobId) return;
     try {
       await copyToClipboard(jobId);
-      setCopyIdState('copied');
-      window.setTimeout(() => setCopyIdState('idle'), 2000);
+      flashCopyIdState('copied', 2000);
     } catch {
-      setCopyIdState('error');
-      window.setTimeout(() => setCopyIdState('idle'), 3000);
+      flashCopyIdState('error', 3000);
     }
   }
-
-  // Independent state for the "Copy log URL" action so it doesn't
-  // tint the other copy buttons (and vice versa).
-  const [copyUrlState, setCopyUrlState] = useState<
-    'idle' | 'copied' | 'error'
-  >('idle');
 
   async function handleCopyLogUrl() {
     if (!jobId || typeof window === 'undefined') return;
@@ -1556,11 +1542,9 @@ function OutputSection({
     const url = `${window.location.origin}/api/jobs/${encodeURIComponent(jobId)}/output.txt?download=1&include_meta=1`;
     try {
       await copyToClipboard(url);
-      setCopyUrlState('copied');
-      window.setTimeout(() => setCopyUrlState('idle'), 2000);
+      flashCopyUrlState('copied', 2000);
     } catch {
-      setCopyUrlState('error');
-      window.setTimeout(() => setCopyUrlState('idle'), 3000);
+      flashCopyUrlState('error', 3000);
     }
   }
 
@@ -1572,11 +1556,9 @@ function OutputSection({
     if (!preview) return;
     try {
       await copyToClipboard(preview);
-      setCopyCmdState('copied');
-      window.setTimeout(() => setCopyCmdState('idle'), 2000);
+      flashCopyCmdState('copied', 2000);
     } catch {
-      setCopyCmdState('error');
-      window.setTimeout(() => setCopyCmdState('idle'), 3000);
+      flashCopyCmdState('error', 3000);
     }
   }
 
@@ -1636,11 +1618,9 @@ function OutputSection({
     const text = lines.map((l) => l.text).join('\n');
     try {
       await copyToClipboard(text);
-      setCopyState('copied');
-      window.setTimeout(() => setCopyState('idle'), 2000);
+      flashCopyState('copied', 2000);
     } catch {
-      setCopyState('error');
-      window.setTimeout(() => setCopyState('idle'), 3000);
+      flashCopyState('error', 3000);
     }
   }
 
