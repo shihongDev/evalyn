@@ -33,9 +33,11 @@ import {
 import { v2 } from '../api/client';
 import type { RubricDetail, RubricRow } from '../api/types';
 import { useV2Resource } from '../hooks/useV2Resource';
+import { useFlashState } from '../hooks/useFlashState';
 import { useRouteTour } from '../tour/useRouteTour';
 import { READ_METRICS_TOUR_ID } from '../tour/scripts/readMetrics';
 import { useProject } from '../hooks/useProject';
+import { copyToClipboard } from '../clipboard';
 import { E } from '../tokens';
 
 /* ------------------------------ shared types --------------------------- */
@@ -783,6 +785,11 @@ function RubricEditor({
 }: RubricEditorProps) {
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dropIdx, setDropIdx] = useState<number | null>(null);
+  // Preview Copy state. Stable aria-label + sibling .eSr live region
+  // matches the canonical pattern used by CliRunner / RunDetail /
+  // FailureCluster - avoids the "name changed mid-press" announcement
+  // some SR engines emit when a button's accessible name flips.
+  const [copyState, flashCopyState] = useFlashState<'idle' | 'copied' | 'error'>('idle');
 
   const totalWeight = useMemo(
     () =>
@@ -1034,22 +1041,113 @@ function RubricEditor({
           <div
             style={{
               marginTop: 14,
-              padding: 12,
-              background: E.text0,
               borderRadius: 6,
-              fontFamily: E.fMono,
-              fontSize: 11,
-              color: E.ink,
-              lineHeight: 1.7,
-              whiteSpace: 'pre',
-              overflowX: 'auto',
+              background: E.text0,
+              border: `1px solid ${E.text0}`,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 0,
+              overflow: 'hidden',
             }}
           >
-            <span style={{ color: E.text4 }}>
-              # preview - evalyn select-metrics
+            <div
+              style={{
+                flex: 1,
+                padding: 12,
+                fontFamily: E.fMono,
+                fontSize: 11,
+                color: E.ink,
+                lineHeight: 1.7,
+                whiteSpace: 'pre',
+                overflowX: 'auto',
+                minWidth: 0,
+              }}
+            >
+              <span style={{ color: E.text4 }}>
+                # preview - evalyn select-metrics
+              </span>
+              {'\n'}
+              {previewCmd}
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await copyToClipboard(previewCmd);
+                  flashCopyState('copied', 2000);
+                } catch {
+                  flashCopyState('error', 3000);
+                }
+              }}
+              aria-label="Copy the shell command to clipboard"
+              title={
+                copyState === 'copied'
+                  ? 'Copied!'
+                  : copyState === 'error'
+                    ? 'Browser blocked clipboard access'
+                    : 'Copy command'
+              }
+              style={{
+                flexShrink: 0,
+                padding: '0 12px',
+                fontFamily: E.fMono,
+                fontSize: 10.5,
+                color:
+                  copyState === 'copied'
+                    ? E.pass
+                    : copyState === 'error'
+                      ? E.fail
+                      : E.text4,
+                background: 'transparent',
+                border: 'none',
+                borderLeft: `1px solid ${E.panel4}`,
+                cursor: 'pointer',
+                alignSelf: 'stretch',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={(e) => {
+                if (copyState === 'idle') {
+                  e.currentTarget.style.color = E.panel;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (copyState === 'idle') {
+                  e.currentTarget.style.color = E.text4;
+                }
+              }}
+              onFocus={(e) => {
+                if (copyState === 'idle') {
+                  e.currentTarget.style.color = E.panel;
+                }
+              }}
+              onBlur={(e) => {
+                if (copyState === 'idle') {
+                  e.currentTarget.style.color = E.text4;
+                }
+              }}
+            >
+              {copyState === 'copied'
+                ? '✓'
+                : copyState === 'error'
+                  ? '✗'
+                  : 'copy'}
+            </button>
+            {/* SR live region - announces success/error transitions
+                without changing the button's accessible name. Polite
+                so it doesn't interrupt other speech; atomic so the
+                full message reads at once. */}
+            <span
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              className="eSr"
+            >
+              {copyState === 'copied'
+                ? 'Command copied to clipboard.'
+                : copyState === 'error'
+                  ? 'Could not copy command. Browser blocked clipboard access.'
+                  : ''}
             </span>
-            {'\n'}
-            {previewCmd}
           </div>
 
           <div
