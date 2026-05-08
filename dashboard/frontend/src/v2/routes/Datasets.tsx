@@ -668,6 +668,7 @@ function ComposeStrip({
       <span style={{ flex: 1 }} />
       {err && (
         <span
+          role="alert"
           style={{
             fontFamily: E.fMono,
             fontSize: 11,
@@ -1312,6 +1313,7 @@ export default function Datasets() {
             </div>
             {demoErr && (
               <div
+                role="alert"
                 style={{
                   marginTop: 14,
                   padding: '8px 12px',
