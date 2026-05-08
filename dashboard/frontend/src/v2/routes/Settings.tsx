@@ -1061,43 +1061,55 @@ function BulkTestCard({ data }: BulkTestCardProps) {
   const [results, setResults] = useState<
     Record<string, { ok: boolean; message: string }>
   >({});
+  // Synchronous in-flight flag for true same-frame double-fire
+  // protection. The React-state `running` flag drives the
+  // visible disabled / spinner state, but `setRunning(id)` is
+  // queued - two same-frame onClick events both see
+  // running=null (closure) and BOTH start a full sweep across
+  // configured providers, doubling the LLM token spend across N
+  // providers (1 token per test * 2 sweeps * N LLMs = 2N
+  // wasted tokens). Mirrors the handleTest sync-ref upgrade and
+  // the copilot send fix.
+  const runAllInFlightRef = useRef(false);
 
   if (configured.length === 0) return null;
 
   const onRunAll = async () => {
-    // Same-frame double-click guard. The button is
-    // `disabled={running !== null}` but two same-frame onClick
-    // events would both enter and both kick off a sequential
-    // sweep across all configured providers - doubling token
-    // spend across N LLMs and possibly tripping rate limits.
-    // Match the handleTest / handleVacuum / handleSave guard
-    // pattern.
-    if (running !== null) return;
-    setResults({});
-    for (const id of configured) {
-      setRunning(id);
-      try {
-        const r = await settingsApi.test(id);
-        setResults((prev) => ({
-          ...prev,
-          [id]: {
-            ok: r.ok,
-            message: r.ok ? 'Connection ok' : r.error ?? 'Test failed',
-          },
-        }));
-      } catch (e) {
-        // Route through errorMessage so a network failure renders
-        // "Network unreachable..." instead of the raw browser
-        // "Failed to fetch" / "Load failed" / "NetworkError..." text,
-        // and a regular Error doesn't double-prefix as
-        // "Error: <message>" the way String(e) would.
-        setResults((prev) => ({
-          ...prev,
-          [id]: { ok: false, message: errorMessage(e) },
-        }));
+    if (runAllInFlightRef.current) return;
+    runAllInFlightRef.current = true;
+    try {
+      setResults({});
+      for (const id of configured) {
+        setRunning(id);
+        try {
+          const r = await settingsApi.test(id);
+          setResults((prev) => ({
+            ...prev,
+            [id]: {
+              ok: r.ok,
+              message: r.ok ? 'Connection ok' : r.error ?? 'Test failed',
+            },
+          }));
+        } catch (e) {
+          // Route through errorMessage so a network failure renders
+          // "Network unreachable..." instead of the raw browser
+          // "Failed to fetch" / "Load failed" / "NetworkError..." text,
+          // and a regular Error doesn't double-prefix as
+          // "Error: <message>" the way String(e) would.
+          setResults((prev) => ({
+            ...prev,
+            [id]: { ok: false, message: errorMessage(e) },
+          }));
+        }
       }
+    } finally {
+      // setRunning(null) belongs in finally so the spinner
+      // clears even if the outer for-loop throws unexpectedly
+      // (the inner try/catch handles per-iteration network
+      // errors but not, say, a setResults call after unmount).
+      setRunning(null);
+      runAllInFlightRef.current = false;
     }
-    setRunning(null);
   };
 
   return (
