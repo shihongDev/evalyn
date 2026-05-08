@@ -353,6 +353,19 @@ export function PlanCard({
   onApprove: () => void;
   onReject: () => void;
 }) {
+  // Internal busy state. Once the user clicks Approve or Reject we
+  // disable both buttons until the parent flips `pending` away (on
+  // resolve OR error), at which point this whole card unmounts so
+  // the local state goes with it. Without this, a slow network +
+  // double-click would fire confirmAgentTool twice; the second
+  // call 4xxs because the tool_call_id is already consumed but
+  // wastes a round trip and surfaces a confusing error.
+  //
+  // The parent's `confirm()` is fire-and-forgotten from the click
+  // handler so we can't await it here - that's why we track the
+  // click locally rather than reading an `inFlight` prop.
+  const [clicked, setClicked] = useState<'approve' | 'reject' | null>(null);
+  const busy = clicked !== null;
   return (
     <Card style={{ marginTop: 10, padding: 0, overflow: 'hidden', background: E.panel2 }}>
       <div
@@ -411,11 +424,31 @@ export function PlanCard({
           gap: 6,
         }}
       >
-        <Btn kind="primary" size="sm" onClick={onApprove}>
-          Approve & run →
+        <Btn
+          kind="primary"
+          size="sm"
+          disabled={busy}
+          aria-busy={clicked === 'approve'}
+          onClick={() => {
+            if (busy) return;
+            setClicked('approve');
+            onApprove();
+          }}
+        >
+          {clicked === 'approve' ? 'Approving...' : 'Approve & run →'}
         </Btn>
-        <Btn kind="secondary" size="sm" onClick={onReject}>
-          Reject
+        <Btn
+          kind="secondary"
+          size="sm"
+          disabled={busy}
+          aria-busy={clicked === 'reject'}
+          onClick={() => {
+            if (busy) return;
+            setClicked('reject');
+            onReject();
+          }}
+        >
+          {clicked === 'reject' ? 'Rejecting...' : 'Reject'}
         </Btn>
       </div>
     </Card>
