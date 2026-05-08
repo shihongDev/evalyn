@@ -629,11 +629,19 @@ function QueueRow({ item, isLast, onNavigate }: QueueRowProps) {
       onMouseLeave={(ev) => {
         ev.currentTarget.style.background = 'transparent';
       }}
-      // Mirror the warmup on keyboard focus so Tab users get the
-      // same instant click->paint as mouse hover (the
-      // LiveStreamingCard does the same).
-      onFocus={() => {
+      // Mirror BOTH the warmup AND the visual highlight on
+      // keyboard focus. The previous version warmed but didn't
+      // light the row - keyboard users tabbing onto a queue row
+      // got only the global :focus-visible outline (a thin ring)
+      // while mouse users got a full panel2 background. The
+      // global outline is easy to miss next to a high-contrast
+      // severity Pill on the left edge of the row.
+      onFocus={(ev) => {
+        ev.currentTarget.style.background = E.panel2;
         warmupCtaTarget(item.cta_target);
+      }}
+      onBlur={(ev) => {
+        ev.currentTarget.style.background = 'transparent';
       }}
       style={{
         display: 'grid',
