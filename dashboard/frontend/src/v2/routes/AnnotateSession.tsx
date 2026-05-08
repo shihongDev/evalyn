@@ -2438,17 +2438,12 @@ export default function AnnotateSession() {
         role="status"
         aria-live="polite"
         aria-atomic="true"
-        style={{
-          position: 'absolute',
-          width: 1,
-          height: 1,
-          padding: 0,
-          margin: -1,
-          overflow: 'hidden',
-          clip: 'rect(0,0,0,0)',
-          whiteSpace: 'nowrap',
-          border: 0,
-        }}
+        // .eSr is the shared SR-only utility (clip-path inset W3C
+        // pattern). Was inline `clip: 'rect(0,0,0,0)'` - the older
+        // technique that's deprecated and worked around layout bugs
+        // in 2010s WebKit. Modern clip-path is the right primitive
+        // and matches the rest of the dashboard's SR-only sites.
+        className="eSr"
       >
         {ariaStatus}
       </div>
