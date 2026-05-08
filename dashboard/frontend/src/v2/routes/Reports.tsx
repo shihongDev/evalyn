@@ -729,10 +729,21 @@ export default function Reports() {
       type: 'text/markdown;charset=utf-8',
     });
     const url = URL.createObjectURL(blob);
-    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    // Slug-ify week_label ("Week of May 7, 2026") into a filesystem-
+    // friendly stem. Lowercase, non-alphanumerics -> hyphens, collapse
+    // repeats, trim ends. Falls back to the download timestamp only
+    // when week_label is missing so reports without a label still
+    // produce unique filenames.
+    const labelSlug = report.week_label
+      ? report.week_label
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+      : '';
+    const stem = labelSlug || new Date().toISOString().replace(/[:.]/g, '-');
     const a = document.createElement('a');
     a.href = url;
-    a.download = `evalyn-weekly-${ts}.md`;
+    a.download = `evalyn-weekly-${stem}.md`;
     a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
