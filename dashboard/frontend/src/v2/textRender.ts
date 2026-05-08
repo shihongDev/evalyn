@@ -47,6 +47,18 @@ const LINK_STYLE: React.CSSProperties = {
 const LINK_HOVER_BG = '#f9dcc1';
 const LINK_REST_BG = '#fcefe2';
 
+/** Best-effort hostname extraction. Falls back to the raw URL if the
+ * URL constructor throws (which it can for inputs that pass our regex
+ * but aren't standards-compliant URLs - e.g. with trailing punctuation
+ * stripped mid-token). */
+function urlHostname(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
 export function linkifyText(text: string, counter: UrlCounter): React.ReactNode[] {
   if (!text) return [text];
   const parts: React.ReactNode[] = [];
@@ -75,6 +87,10 @@ export function linkifyText(text: string, counter: UrlCounter): React.ReactNode[
           target: '_blank',
           rel: 'noopener noreferrer',
           title: url,
+          // Visible "[N]" is too terse for SR users - they'd just hear
+          // "link 1" with no clue what they're being asked to follow.
+          // Replace the accessible name with hostname + new-tab hint.
+          'aria-label': `Citation ${n}, ${urlHostname(url)}, opens in new tab`,
           style: LINK_STYLE,
           onMouseEnter: (e: React.MouseEvent<HTMLAnchorElement>) => {
             (e.currentTarget as HTMLAnchorElement).style.background = LINK_HOVER_BG;
