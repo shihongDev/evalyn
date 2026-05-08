@@ -437,6 +437,7 @@ function CoverageCard({
   const cardBg = selected ? E.emberDim : E.panel;
   return (
     <div
+      role="listitem"
       onMouseEnter={() => onPrefetch(row.name)}
       onFocus={() => onPrefetch(row.name)}
       style={{ position: 'relative' }}
@@ -1351,6 +1352,8 @@ export default function Datasets() {
         {filteredViews && filteredViews.length > 0 && (
           <div
             data-coachmark="datasets-list"
+            role="list"
+            aria-label={`${filteredViews.length} dataset${filteredViews.length === 1 ? '' : 's'}`}
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(2, 1fr)',
