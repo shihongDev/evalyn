@@ -1062,6 +1062,7 @@ function DrawerFooter({
           size="sm"
           onClick={() => void handleCancelAllClick()}
           disabled={cancellingAll}
+          aria-busy={cancellingAll}
           title={
             cancelArm.armed
               ? 'Click again to send SIGTERM to all active jobs'
@@ -1623,6 +1624,7 @@ function JobRow({ entry, onClick, onRerun, onCancel, onTogglePin }: JobRowProps)
             void handleCancel();
           }}
           disabled={cancelling}
+          aria-busy={cancelling}
           aria-label={`Cancel ${entry.cli_id}`}
           title={cancelling ? 'Cancelling...' : 'Cancel this job (SIGTERM)'}
           style={{
