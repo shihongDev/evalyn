@@ -982,6 +982,7 @@ export default function RunDetail() {
                 baseline={detail.pass_timeline.ship_gate}
                 xLabels={detail.pass_timeline.x_labels}
                 series={passSeries}
+                title={`Cumulative pass rate as items were graded (ship gate ${detail.pass_timeline.ship_gate}%, ending at ${passSeries[0].data.at(-1)?.toFixed(1) ?? '?'}%).`}
               />
             )}
             <div style={{ fontSize: 11, color: E.text3, marginTop: 8 }}>
