@@ -926,7 +926,12 @@ interface ActiveProviderCardProps {
 function ActiveProviderCard({ data, onChanged }: ActiveProviderCardProps) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  // useFlashState owns the auto-revert + unmount cleanup. The
+  // imperative reset() is needed because the call site clears the
+  // stale "Saved" pill BEFORE the new API await begins (see
+  // handleChange below) - flashSuccess(true, 2000) only handles
+  // the post-success flash, not the pre-call clear.
+  const [success, flashSuccess, resetSuccess] = useFlashState(false);
 
   // Only providers that are actually configured can be activated. The
   // backend rejects activating an unconfigured provider with a 400, so we
@@ -944,11 +949,10 @@ function ActiveProviderCard({ data, onChanged }: ActiveProviderCardProps) {
     if (next === data.active) return;
     setPending(true);
     setError(null);
-    setSuccess(false);
+    resetSuccess();
     try {
       await settingsApi.setActive(next);
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 2000);
+      flashSuccess(true, 2000);
       onChanged();
     } catch (e) {
       setError(errorMessage(e));
@@ -1198,7 +1202,11 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
     };
   }, [testResult]);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  // useFlashState owns the auto-revert + unmount cleanup. The
+  // imperative reset() is needed for the pre-API clear in
+  // handleSave (drop the stale "Saved" pill before the new save
+  // resolves).
+  const [saveSuccess, flashSaveSuccess, resetSaveSuccess] = useFlashState(false);
 
   // Reset local edit state if the upstream snapshot changes (e.g. after a
   // successful save kicks a refetch). We compare just the bits the form
@@ -1251,7 +1259,7 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
     if (saving || !dirty) return;
     setSaving(true);
     setSaveError(null);
-    setSaveSuccess(false);
+    resetSaveSuccess();
     const body: { api_key?: string; model?: string } = {};
     // Always submit the trimmed value - secret managers and password
     // managers commonly paste with a trailing newline or stray space
@@ -1260,10 +1268,9 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
     if (model !== (state.model ?? '')) body.model = model;
     try {
       await settingsApi.save(id, body);
-      setSaveSuccess(true);
+      flashSaveSuccess(true, 2000);
       setApiKey('');
       setRevealKey(false);
-      setTimeout(() => setSaveSuccess(false), 2000);
       onSaved();
     } catch (e) {
       setSaveError(errorMessage(e));

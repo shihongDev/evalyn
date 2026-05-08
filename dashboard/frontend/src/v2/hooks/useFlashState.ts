@@ -18,16 +18,19 @@
  * earlier than expected because the first click's reset is
  * still in flight).
  *
- * This hook returns ``[state, flashTo]`` where ``flashTo`` cancels
- * any in-flight reset before scheduling a fresh one, and the
- * unmount cleanup clears any pending reset so the callback never
- * fires on an unmounted component.
+ * This hook returns ``[state, flashTo, reset]``:
+ *   - ``flashTo(transient, durationMs)`` flips state to ``transient``,
+ *     cancels any in-flight reset, and schedules a fresh reset to
+ *     the initial value after ``durationMs``.
+ *   - ``reset()`` immediately drops state back to the initial value
+ *     and cancels any in-flight reset timer. Used by the
+ *     "pre-API-call clear" pattern (e.g. clear a stale "Saved"
+ *     pill before kicking off a new save) where the auto-revert
+ *     timer would be wrong because the call site wants an
+ *     immediate, no-auto-undo clear.
  *
- * Callers that need an immediate reset (e.g. a parent prop
- * changes and we want to drop the flash early) can call
- * ``flashTo(initial, 0)`` - the new timer fires on the next
- * macrotask which is functionally an immediate reset, and the
- * prior in-flight timer is cancelled.
+ * Unmount cleanup clears any pending reset so the timer callback
+ * never fires on an unmounted component.
  *
  * Same defensive pattern as ``useArmedConfirm``; the duplication
  * across copy/save/sent buttons is what motivated factoring this
@@ -38,7 +41,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 export function useFlashState<T>(
   initial: T,
-): [T, (transient: T, durationMs: number) => void] {
+): [T, (transient: T, durationMs: number) => void, () => void] {
   const [state, setState] = useState<T>(initial);
   // Keep the latest ``initial`` in a ref so the reset callback
   // honors a changed initial without recreating ``flashTo`` (which
@@ -70,5 +73,18 @@ export function useFlashState<T>(
     [],
   );
 
-  return [state, flashTo];
+  // Imperative reset: clear any in-flight timer + drop state to
+  // initial. Useful for the "pre-API-call clear" pattern (e.g.
+  // clear stale "Saved" pill before a fresh save). flashTo's
+  // implicit revert wouldn't fit that case because the call site
+  // wants the clear to happen NOW, not after a duration.
+  const reset = useCallback(() => {
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    setState(initialRef.current);
+  }, []);
+
+  return [state, flashTo, reset];
 }
