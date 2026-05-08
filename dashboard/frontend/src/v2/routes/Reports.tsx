@@ -335,6 +335,13 @@ function BigNumbersStrip({
               )}
             </div>
             <div
+              // X-axis labels for the spark above. Sparks are
+              // already aria-hidden (chart primitive convention),
+              // so these endpoint labels are pure visual chart
+              // chrome - no value to SR users without the chart
+              // itself. Hiding them avoids "6w ago now" noise
+              // appended to every label/value/delta announcement.
+              aria-hidden="true"
               style={{
                 marginTop: 4,
                 fontFamily: E.fMono,
@@ -410,12 +417,11 @@ function StorySection({ eyebrow, pill, borderColor, children, style }: StorySect
 }
 
 interface DistributionRailProps {
-  onSendNow: () => void;
   compareMode: CompareMode;
   setCompareMode: (m: CompareMode) => void;
 }
 
-function DistributionRail({ onSendNow, compareMode, setCompareMode }: DistributionRailProps) {
+function DistributionRail({ compareMode, setCompareMode }: DistributionRailProps) {
   const destinations: { glyph: string; title: string; cadence: string }[] = [
     { glyph: '#', title: 'Slack #ml-quality', cadence: 'sent every Mon 9am' },
     { glyph: '@', title: 'leadership@', cadence: 'manual send' },
@@ -466,12 +472,22 @@ function DistributionRail({ onSendNow, compareMode, setCompareMode }: Distributi
               </div>
             </div>
           ))}
-          <Btn kind="primary" size="sm" style={{ marginTop: 4 }} onClick={onSendNow}>
-            Send now <span aria-hidden="true">{'▸'}</span>
+          {/* Honestly disabled, same rationale as "+ Add destination"
+              below: the distribution channels are placeholders, so
+              "Send now" had no API to call. The previous version
+              flashed "Sent ✓" via setState but no network request
+              fired - actively misleading. Until distributions wire
+              up, surfacing the unwired state is more truthful than
+              the green-flash lie. */}
+          <Btn
+            kind="primary"
+            size="sm"
+            style={{ marginTop: 4 }}
+            disabled
+            title="Distribution channels are not wired up yet"
+          >
+            Send now (soon) <span aria-hidden="true">{'▸'}</span>
           </Btn>
-          {/* Honestly disabled - distribution destinations are
-              placeholders. Previously this rendered as an active
-              ghost button and clicking it did nothing. */}
           <Btn
             kind="ghost"
             size="sm"
@@ -697,7 +713,6 @@ export default function Reports() {
     [setSearchParams],
   );
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
-  const [sendState, setSendState] = useState<'idle' | 'sent'>('idle');
 
   const markdown = useMemo(() => (report ? reportToMarkdown(report) : ''), [report]);
 
@@ -711,11 +726,6 @@ export default function Reports() {
       setCopyState('error');
       window.setTimeout(() => setCopyState('idle'), 3000);
     }
-  }
-
-  function handleSendNow() {
-    setSendState('sent');
-    window.setTimeout(() => setSendState('idle'), 2200);
   }
 
   // Save the report's markdown as a .md file so a user can attach it
@@ -1100,26 +1110,10 @@ export default function Reports() {
 
                   {/* Right rail */}
                   <DistributionRail
-                    onSendNow={handleSendNow}
                     compareMode={compareMode}
                     setCompareMode={setCompareMode}
                   />
                 </div>
-
-                {sendState === 'sent' && (
-                  <div
-                    style={{
-                      marginTop: 12,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 8,
-                    }}
-                  >
-                    <Pill mono color={E.pass} bg={E.passDim}>
-                      Sent to Slack #ml-quality (placeholder)
-                    </Pill>
-                  </div>
-                )}
 
                 {/* 7. why this changed footer */}
                 <div
