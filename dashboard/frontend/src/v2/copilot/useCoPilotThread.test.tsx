@@ -302,8 +302,21 @@ describe('useCoPilotThread', () => {
     });
     const handlers = getHandlers();
 
-    // Drive a confirmation_required event so `pending` is set.
+    // Drive a tool_call_proposal + confirmation_required pair so
+    // BOTH mirrors of pending state get set (top-level `pending`
+    // and `bubble.pending_confirm`). The proposal seeds the
+    // bubble; the confirmation_required event sets pending_confirm
+    // on that bubble.
     act(() => {
+      handlers.onMessage({
+        type: 'tool_call_proposal',
+        thread_id: 'tid-2',
+        tool_call_id: 'tc-9',
+        tool: 'run-eval',
+        args: {},
+        preview_cmd: 'run-eval --dataset x',
+        ts: 1,
+      });
       handlers.onMessage({
         type: 'confirmation_required',
         thread_id: 'tid-2',
@@ -315,6 +328,12 @@ describe('useCoPilotThread', () => {
       });
     });
     expect(result.current.pending).not.toBeNull();
+    // Sanity: bubble's pending_confirm is also set so the inline
+    // Approve/Reject card would render.
+    const bubblePendingPre = result.current.messages
+      .map((m) => m.pending_confirm)
+      .find((p) => p?.tool_call_id === 'tc-9');
+    expect(bubblePendingPre).toBeDefined();
 
     confirmAgentToolMock.mockRejectedValueOnce(new Error('network down'));
 
@@ -324,6 +343,14 @@ describe('useCoPilotThread', () => {
 
     expect(result.current.pending).toBeNull();
     expect(result.current.status).toBe('error');
+    // The bubble's pending_confirm must ALSO be cleared - otherwise
+    // CoPilotDock's inline Approve/Reject card stays mounted as a
+    // stale clickable overlay even though confirm() failed and the
+    // composer has unlocked.
+    const bubblePendingPost = result.current.messages
+      .map((m) => m.pending_confirm)
+      .filter((p) => p !== null && p !== undefined);
+    expect(bubblePendingPost).toHaveLength(0);
   });
 
   it('F7: same-frame double confirm fires confirmAgentTool only once', async () => {

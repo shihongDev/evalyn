@@ -639,9 +639,31 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
       // dismiss.
       if (confirmInFlightRef.current) return;
       confirmInFlightRef.current = true;
-      try {
-        await api.confirmAgentTool(tid, approve, pending.tool_call_id);
+      const pendingTcId = pending.tool_call_id;
+      // Helper: clear BOTH mirrors of pending state for this
+      // tool_call_id. Top-level `pending` gates the composer; the
+      // bubble's `pending_confirm` drives the inline Approve/Reject
+      // card. After last tick's F8 fix on tool_call_complete the
+      // bubble version is also cleared on the matching complete
+      // event - but on the catch branch (network error, 409) the
+      // backend may not emit a clean complete, so we clear here
+      // too. On the try branch we clear pre-emptively for the
+      // ~hundreds-of-ms gap before tool_call_complete lands;
+      // without this the inline card lingers as a stale clickable
+      // overlay even though confirm() has already completed.
+      function clearPendingMirrors() {
         setPending(null);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.pending_confirm?.tool_call_id === pendingTcId
+              ? { ...m, pending_confirm: null }
+              : m,
+          ),
+        );
+      }
+      try {
+        await api.confirmAgentTool(tid, approve, pendingTcId);
+        clearPendingMirrors();
         setStatus('streaming');
       } catch (err) {
         setError(errorMessage(err));
@@ -649,7 +671,7 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
         // Without this, the awaiting-confirmation card stays mounted and
         // the composer (which guards on `pending != null`) is locked
         // forever (F2). Clearing pending lets the user retry or send.
-        setPending(null);
+        clearPendingMirrors();
       } finally {
         confirmInFlightRef.current = false;
       }
