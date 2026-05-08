@@ -488,6 +488,42 @@ function PulseCell({ cell, hasDivider }: { cell: PulseCellData; hasDivider: bool
       }
       onClick={cell.onClick}
       onKeyDown={onKey}
+      // Interactive cells previously had ONLY cursor:pointer to
+      // signal clickability - no hover or focus visual feedback.
+      // Mouse users could hover for seconds without realising the
+      // tile reacts; keyboard users tabbing onto it got only the
+      // global :focus-visible outline (a thin ring on the cell's
+      // bounding box, easy to miss next to other tiles). Pairs
+      // mouse + focus handlers since onMouseEnter/Leave don't
+      // bubble - we want both interaction modes to highlight.
+      onMouseEnter={
+        interactive
+          ? (e) => {
+              e.currentTarget.style.background = E.panel2;
+            }
+          : undefined
+      }
+      onMouseLeave={
+        interactive
+          ? (e) => {
+              e.currentTarget.style.background = 'transparent';
+            }
+          : undefined
+      }
+      onFocus={
+        interactive
+          ? (e) => {
+              e.currentTarget.style.background = E.panel2;
+            }
+          : undefined
+      }
+      onBlur={
+        interactive
+          ? (e) => {
+              e.currentTarget.style.background = 'transparent';
+            }
+          : undefined
+      }
       style={{
         padding: '0 18px',
         borderRight: hasDivider ? `1px solid ${E.hair}` : 'none',
@@ -495,6 +531,7 @@ function PulseCell({ cell, hasDivider }: { cell: PulseCellData; hasDivider: bool
         flexDirection: 'column',
         gap: 6,
         cursor: interactive ? 'pointer' : 'default',
+        transition: interactive ? 'background 140ms' : undefined,
       }}
     >
       <Eyebrow>{cell.label}</Eyebrow>

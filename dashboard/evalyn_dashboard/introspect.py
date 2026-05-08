@@ -22,9 +22,12 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import logging
 import re
 from dataclasses import asdict, dataclass, field, is_dataclass
 from typing import Any, Iterable
+
+logger = logging.getLogger(__name__)
 
 PATH_NAME_RE = re.compile(r"\b(path|file|dir|output|out)\b", re.IGNORECASE)
 LONG_TEXT_NAMES = {
@@ -365,8 +368,18 @@ def build_catalog() -> list[CliSchema]:
     for module_path in _collect_command_modules():
         try:
             mod = importlib.import_module(module_path)
-        except Exception:
-            # A broken plugin should never bring down the dashboard catalog.
+        except Exception as exc:
+            # A broken plugin should never bring down the dashboard
+            # catalog, but the operator deserves a breadcrumb -
+            # otherwise a third-party plugin silently vanishing from
+            # the command list is a debugging dead end. WARN level
+            # so the EVALYN_LOG_LEVEL=INFO default surfaces it.
+            logger.warning(
+                "CLI plugin import failed: %s: %s: %s",
+                module_path,
+                type(exc).__name__,
+                exc,
+            )
             continue
         if not hasattr(mod, "register_commands"):
             continue
@@ -386,7 +399,16 @@ def build_catalog() -> list[CliSchema]:
         subs = root.add_subparsers()
         try:
             mod.register_commands(subs)
-        except Exception:
+        except Exception as exc:
+            # Same rationale as the import-failure case above: log
+            # a breadcrumb so a broken plugin's commands don't
+            # vanish silently from the catalog.
+            logger.warning(
+                "CLI plugin register_commands failed: %s: %s: %s",
+                module_path,
+                type(exc).__name__,
+                exc,
+            )
             continue
 
         for sub_name, sub_parser in subs.choices.items():

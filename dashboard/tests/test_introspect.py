@@ -267,3 +267,50 @@ def test_build_catalog_essential_payload_round_trip() -> None:
     list_calls = next(c for c in payload if c["id"] == "list-calls")
     limit_param = next(p for p in list_calls["params"] if p["name"] == "limit")
     assert limit_param["essential"] is True
+
+
+def test_build_catalog_logs_when_plugin_import_fails(monkeypatch, caplog) -> None:
+    """A broken plugin should not crash the catalog walk - the existing
+    swallow-and-continue behavior is correct - but a WARN-level log
+    line should give operators a breadcrumb when the plugin's
+    commands silently vanish.
+    """
+    import importlib as _importlib
+    from evalyn_dashboard import introspect as _introspect
+
+    real_import = _importlib.import_module
+
+    def boom(name, *args, **kwargs):
+        # Synthesize a fake "broken plugin" module path. Re-raise
+        # ImportError so the existing except-clause path is hit.
+        if name == "evalyn.commands.synthesized_broken_plugin":
+            raise ImportError("synthetic plugin import failure")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(_importlib, "import_module", boom)
+
+    # Inject our synthetic plugin into the discovered list so the
+    # walker will try to import it. _collect_command_modules is
+    # the seam the catalog walker iterates over.
+    real_collect = _introspect._collect_command_modules
+
+    def collect_with_synthetic():
+        return list(real_collect()) + ["evalyn.commands.synthesized_broken_plugin"]
+
+    monkeypatch.setattr(
+        _introspect, "_collect_command_modules", collect_with_synthetic
+    )
+
+    with caplog.at_level("WARNING", logger="evalyn_dashboard.introspect"):
+        # Should not raise; the broken plugin is skipped.
+        catalog = build_catalog()
+        # Real plugins still loaded.
+        assert len(catalog) > 0
+        # The breadcrumb is in the log: module path + exc type +
+        # message, so postmortems can find the culprit.
+        warn_records = [
+            r for r in caplog.records if r.levelname == "WARNING"
+        ]
+        assert any(
+            "synthesized_broken_plugin" in r.message for r in warn_records
+        ), f"expected a WARN log mentioning the broken plugin; got {[r.message for r in warn_records]}"
