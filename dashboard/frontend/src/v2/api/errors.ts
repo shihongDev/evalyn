@@ -58,8 +58,20 @@ export async function maybeParseCapacityError(
   if (typeof b.running !== 'number' || typeof b.max_concurrent !== 'number') {
     return null;
   }
+  // Retry-After: a numeric seconds value or an HTTP-date. We only
+  // handle the numeric form here. `parseInt('0', 10) || 5`
+  // collapses a legitimate zero-second hint to 5 (because
+  // `0 || 5 === 5` in JS), so an LB returning "retry immediately"
+  // would force a synthetic wait. Use Number.isFinite to keep 0
+  // as the parsed value while still falling back on NaN.
   const retryHeader = res.headers.get('Retry-After');
-  const retryAfterSeconds = retryHeader ? parseInt(retryHeader, 10) || 5 : 5;
+  let retryAfterSeconds = 5;
+  if (retryHeader) {
+    const parsed = parseInt(retryHeader, 10);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      retryAfterSeconds = parsed;
+    }
+  }
   return new CapacityError({
     message: typeof b.error === 'string' ? b.error : 'job manager at capacity',
     running: b.running,

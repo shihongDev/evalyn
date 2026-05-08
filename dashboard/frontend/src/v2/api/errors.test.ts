@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { formatCapacityRetryHint, errorMessage, CapacityError } from './errors';
+import {
+  formatCapacityRetryHint,
+  errorMessage,
+  CapacityError,
+  maybeParseCapacityError,
+} from './errors';
 
 describe('formatCapacityRetryHint', () => {
   it('says "now" when the server hint is 0 or 1 second', () => {
@@ -82,5 +87,72 @@ describe('errorMessage', () => {
     // precise than ours.
     const e = new Error('Network error from upstream API');
     expect(errorMessage(e)).toBe('Network error from upstream API');
+  });
+});
+
+describe('maybeParseCapacityError', () => {
+  function build503(
+    body: Record<string, unknown>,
+    headers: Record<string, string> = {},
+  ): Response {
+    return new Response(JSON.stringify(body), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json', ...headers },
+    });
+  }
+
+  it('returns null for non-503 responses', async () => {
+    const res = new Response('{}', { status: 500 });
+    expect(await maybeParseCapacityError(res)).toBeNull();
+  });
+
+  it('parses a well-formed capacity error', async () => {
+    const res = build503(
+      { running: 8, max_concurrent: 8, error: 'queue full' },
+      { 'Retry-After': '7' },
+    );
+    const e = await maybeParseCapacityError(res);
+    expect(e).toBeInstanceOf(CapacityError);
+    expect(e?.running).toBe(8);
+    expect(e?.maxConcurrent).toBe(8);
+    expect(e?.retryAfterSeconds).toBe(7);
+    expect(e?.message).toBe('queue full');
+  });
+
+  it('preserves Retry-After: 0 (was collapsed to 5 by `|| 5`)', async () => {
+    // Customer scenario: a load balancer or future server returning
+    // "retry immediately" via Retry-After: 0. Pre-fix the FE used
+    // parseInt('0') || 5 which evaluated to 5, forcing a synthetic
+    // 5s wait the user shouldn't have. Pin the zero-second hint.
+    const res = build503(
+      { running: 8, max_concurrent: 8 },
+      { 'Retry-After': '0' },
+    );
+    const e = await maybeParseCapacityError(res);
+    expect(e?.retryAfterSeconds).toBe(0);
+  });
+
+  it('falls back to 5 on missing Retry-After header', async () => {
+    const res = build503({ running: 8, max_concurrent: 8 });
+    const e = await maybeParseCapacityError(res);
+    expect(e?.retryAfterSeconds).toBe(5);
+  });
+
+  it('falls back to 5 on unparseable Retry-After header', async () => {
+    const res = build503(
+      { running: 8, max_concurrent: 8 },
+      { 'Retry-After': 'tomorrow' },
+    );
+    const e = await maybeParseCapacityError(res);
+    expect(e?.retryAfterSeconds).toBe(5);
+  });
+
+  it('falls back to 5 on negative Retry-After (defensive)', async () => {
+    const res = build503(
+      { running: 8, max_concurrent: 8 },
+      { 'Retry-After': '-1' },
+    );
+    const e = await maybeParseCapacityError(res);
+    expect(e?.retryAfterSeconds).toBe(5);
   });
 });
