@@ -369,7 +369,8 @@ function StoryBullet({ text }: { text: string }) {
         key={`l-${key++}`}
         href={m[2]}
         target="_blank"
-        rel="noreferrer"
+        rel="noopener noreferrer"
+        aria-label={`${m[1]}, opens in new tab`}
         style={{
           color: E.ember,
           fontFamily: E.fMono,
@@ -377,7 +378,7 @@ function StoryBullet({ text }: { text: string }) {
           textDecoration: 'none',
         }}
       >
-        {m[1]} {'▸'}
+        {m[1]} <span aria-hidden="true">{'▸'}</span>
       </a>,
     );
     last = m.index + m[0].length;

@@ -1463,9 +1463,10 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
                 href={PROVIDER_KEY_HELP[id]}
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label="Ollama setup, opens in new tab"
                 style={{ color: E.ember, textDecoration: 'none' }}
               >
-                ollama.com {String.fromCharCode(8599)}
+                ollama.com <span aria-hidden="true">{String.fromCharCode(8599)}</span>
               </a>
               {' '}for setup.
             </>
@@ -1476,10 +1477,11 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
                 href={PROVIDER_KEY_HELP[id]}
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label={`${new URL(PROVIDER_KEY_HELP[id]).hostname.replace(/^www\./, '')}, opens in new tab`}
                 style={{ color: E.ember, textDecoration: 'none' }}
               >
                 {new URL(PROVIDER_KEY_HELP[id]).hostname.replace(/^www\./, '')}{' '}
-                {String.fromCharCode(8599)}
+                <span aria-hidden="true">{String.fromCharCode(8599)}</span>
               </a>
               .
             </>
