@@ -1096,6 +1096,12 @@ function BulkTestCard({ data }: BulkTestCardProps) {
           size="md"
           onClick={() => void onRunAll()}
           disabled={running !== null}
+          aria-busy={running !== null}
+          title={
+            running !== null
+              ? `Testing ${running}...`
+              : `Run a tiny credential check against each of the ${configured.length} configured provider${configured.length === 1 ? '' : 's'}`
+          }
         >
           {running ? (
             <>
@@ -1107,7 +1113,16 @@ function BulkTestCard({ data }: BulkTestCardProps) {
         </Btn>
       </div>
       {Object.keys(results).length > 0 && (
+        // role=status + aria-live=polite makes the SR pick up each
+        // result as it streams in (sequential test loop appends
+        // entries one at a time). Without this, SR users have to
+        // re-navigate to the list to discover the outcome of each
+        // probe. Same pattern as SystemStatusCard's stale banner
+        // and the Settings provider Save success live region.
         <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="false"
           style={{
             marginTop: 12,
             display: 'flex',
@@ -1130,9 +1145,21 @@ function BulkTestCard({ data }: BulkTestCardProps) {
                     fontFamily: E.fMono,
                   }}
                 >
-                  <span style={{ color: r.ok ? E.pass : E.fail, width: 14 }}>
+                  {/* Visible glyph for sighted users; aria-hidden so
+                      SR engines don't pronounce it as "check mark" /
+                      "ballot x" on top of the explicit Pass/Fail
+                      prefix below. */}
+                  <span
+                    aria-hidden="true"
+                    style={{ color: r.ok ? E.pass : E.fail, width: 14 }}
+                  >
                     {r.ok ? '✓' : '✗'}
                   </span>
+                  {/* SR-only outcome label so the live-region
+                      announcement starts with a clear semantic
+                      keyword: "Pass: openai Connection ok" /
+                      "Fail: anthropic Network unreachable...". */}
+                  <span className="eSr">{r.ok ? 'Pass: ' : 'Fail: '}</span>
                   <span style={{ color: E.text1, minWidth: 80 }}>{id}</span>
                   <span style={{ color: r.ok ? E.text2 : E.fail, flex: 1 }}>
                     {r.message}
