@@ -563,4 +563,23 @@ async def save_rubric(rubric_id: str, request: Request) -> JSONResponse:
         logger.warning("rubric save failed at %s: %s", p, exc)
         raise HTTPException(503, f"rubric save failed: {exc}") from exc
 
+    # Audit log: rubric persistence is a configuration change that
+    # affects every future eval run (judge weights, dimensions).
+    # Operators tracking "why did the trust score shift today?"
+    # need to know when rubrics were edited. Log which fields the
+    # user actually touched (None means "kept previous value")
+    # so the trail captures intent precisely.
+    fields_changed = [
+        f for f, v in (
+            ("name", name),
+            ("weights", weights),
+            ("dimensions", dimensions),
+        ) if v is not None
+    ]
+    logger.info(
+        "rubric saved: rubric_id=%s fields=%s",
+        rubric_id,
+        ",".join(fields_changed) or "<none>",
+    )
+
     return JSONResponse({"ok": True, "saved_at": payload["saved_at"]})
