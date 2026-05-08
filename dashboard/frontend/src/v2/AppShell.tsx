@@ -901,7 +901,7 @@ export function AppShell({
             }
             style={{ gap: 6, position: 'relative' }}
           >
-            <span style={{ fontSize: 13, lineHeight: 1 }}>⟳</span>
+            <span aria-hidden="true" style={{ fontSize: 13, lineHeight: 1 }}>⟳</span>
             Jobs
             {runningCount > 0 && <BadgeCount n={runningCount} inline />}
             {unackedFailureCount > 0 && (
@@ -1461,6 +1461,13 @@ function BadgeCount({ n, inline, tone = 'running' }: BadgeCountProps) {
   const text = tone === 'failed' ? `!${numText}` : numText;
   const bg = tone === 'failed' ? E.fail : E.ember;
   const color = tone === 'failed' ? '#fff' : E.emberInk;
+  // SR users hearing "exclamation 2" alongside "2" is pure noise -
+  // it's a visual prefix only. The visible "!2" is hidden from AT
+  // and a sibling .eSr span carries the readable form so SR users
+  // hear "2 failed" / "2 running". Deliberately NOT a live region
+  // - the count updates whenever jobs finish, and a live region
+  // would re-announce on every tick during a busy session.
+  const srLabel = tone === 'failed' ? `${numText} failed` : `${numText} running`;
   return (
     <span
       style={{
@@ -1480,7 +1487,8 @@ function BadgeCount({ n, inline, tone = 'running' }: BadgeCountProps) {
         lineHeight: 1,
       }}
     >
-      {text}
+      <span aria-hidden="true">{text}</span>
+      <span className="eSr">{srLabel}</span>
     </span>
   );
 }

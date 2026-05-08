@@ -1,0 +1,1 @@
+import{_ as e,g as t}from"./index-C7EJ37_4.js";function n(){let{data:n}=t(`home`,e.home);return n?n.project:null}export{n as t};
