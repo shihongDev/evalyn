@@ -105,6 +105,24 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
   const location = useLocation();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
+  // Sparse SR live announcement on streaming -> idle transition.
+  // Mirrors the CoPilotThread fix - the conversation log is
+  // aria-live="off" (per-chunk streaming would spam), and
+  // ThinkingBubble's role="status" already covers idle->streaming,
+  // so this side fills in the "agent done" beat. 1.2s self-clear
+  // prevents stale-message replay on tangential re-renders.
+  const [ariaStatus, setAriaStatus] = useState('');
+  const prevStatusRef = useRef(status);
+  useEffect(() => {
+    if (prevStatusRef.current === 'streaming' && status === 'idle') {
+      setAriaStatus('Co-pilot finished responding');
+      const t = window.setTimeout(() => setAriaStatus(''), 1200);
+      prevStatusRef.current = status;
+      return () => window.clearTimeout(t);
+    }
+    prevStatusRef.current = status;
+  }, [status]);
+
   // Auto-focus the composer when the dock first opens. The dock is
   // conditionally mounted (AppShell renders it only when dockOpen is
   // true) so first-mount = first-open, which is exactly when the user
@@ -247,6 +265,19 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
   return (
     <>
       {backdrop}
+      {/* Sparse status live region for streaming transitions.
+          The conversation log below is aria-live="off" so this
+          carries the "started / finished" beats without per-chunk
+          spam. Sibling of the dock wrapper - keeping live regions
+          flat avoids nested-region weirdness. */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="eSr"
+      >
+        {ariaStatus}
+      </div>
       <div style={wrapperStyle}>
       <div
         style={{
