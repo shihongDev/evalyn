@@ -480,7 +480,7 @@ function SystemStatusCard() {
           </Pill>
         )}
         {vacuum.state === 'error' && (
-          <span style={{ fontSize: 11, color: E.fail, fontFamily: E.fMono }}>
+          <span role="alert" style={{ fontSize: 11, color: E.fail, fontFamily: E.fMono }}>
             {vacuum.error ?? 'Vacuum failed'}
           </span>
         )}
@@ -560,7 +560,7 @@ function SystemStatusCard() {
             </Pill>
           )}
           {prune.state === 'error' && (
-            <span style={{ fontSize: 11, color: E.fail, fontFamily: E.fMono }}>
+            <span role="alert" style={{ fontSize: 11, color: E.fail, fontFamily: E.fMono }}>
               {prune.error ?? 'Prune failed'}
             </span>
           )}
@@ -927,7 +927,7 @@ function ActiveProviderCard({ data, onChanged }: ActiveProviderCardProps) {
         This provider is used by the co-pilot and any LLM-judge metric in your runs.
       </p>
       {error && (
-        <div style={{ marginTop: 8, fontSize: 12, color: E.fail, fontFamily: E.fMono }}>
+        <div role="alert" style={{ marginTop: 8, fontSize: 12, color: E.fail, fontFamily: E.fMono }}>
           {error}
         </div>
       )}
@@ -1340,7 +1340,7 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
           ))}
         </select>
         {modelsErr && (
-          <div style={{ marginTop: 6, fontSize: 11.5, color: E.fail, fontFamily: E.fMono }}>
+          <div role="alert" style={{ marginTop: 6, fontSize: 11.5, color: E.fail, fontFamily: E.fMono }}>
             {modelsErr}
           </div>
         )}
@@ -1392,6 +1392,7 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
 
       {testResult && !testResult.ok && (
         <div
+          role="alert"
           style={{
             marginTop: 8,
             fontSize: 12,
@@ -1405,7 +1406,7 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
       )}
 
       {saveError && (
-        <div style={{ marginTop: 8, fontSize: 12, color: E.fail, fontFamily: E.fMono }}>
+        <div role="alert" style={{ marginTop: 8, fontSize: 12, color: E.fail, fontFamily: E.fMono }}>
           {saveError}
         </div>
       )}
