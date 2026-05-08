@@ -3167,6 +3167,16 @@ export default function AnnotateSession() {
                       }}
                       onMouseEnter={(e) => onScrubberDotEnter(i, e.currentTarget)}
                       onMouseLeave={onScrubberDotLeave}
+                      // Focus parity for the hover preview popover.
+                      // Keyboard users tabbing through scrubber dots
+                      // need the same item-context peek that mouse
+                      // users get on hover - the preview is the
+                      // primary "what's at item N?" affordance for
+                      // navigating across a long session, and
+                      // mouse-only handlers shut keyboard users out
+                      // of that scan path entirely.
+                      onFocus={(e) => onScrubberDotEnter(i, e.currentTarget)}
+                      onBlur={onScrubberDotLeave}
                       title={`Item ${i + 1}${it.annotated ? ' · annotated' : ''}${isBookmarked ? ' · bookmarked' : ''}`}
                       // SR users got nothing from these dots beyond
                       // "button" - title= isn't reliably read. The
