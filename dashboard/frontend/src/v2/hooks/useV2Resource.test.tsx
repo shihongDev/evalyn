@@ -62,4 +62,29 @@ describe('useV2Resource - error formatting', () => {
     expect(result.current.err).toBeNull();
     expect(result.current.data).toEqual({ ok: true });
   });
+
+  it('cache_invalidate keeps isInitialLoad=false during the refresh', async () => {
+    // Pin: a refetch (the path cache_invalidate uses) must NOT
+    // regress isInitialLoad to true mid-session. Otherwise the
+    // UpdatingChip (visible={reloading && !isInitialLoad}) hides
+    // during exactly the background refresh it's meant to indicate.
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce({ v: 1 })
+      .mockResolvedValueOnce({ v: 2 });
+    const { result } = renderHook(() => useV2Resource('k5', fetcher));
+    await waitFor(() => {
+      expect(result.current.data).toEqual({ v: 1 });
+    });
+    expect(result.current.isInitialLoad).toBe(false);
+
+    await act(async () => {
+      await result.current.refetch();
+    });
+    // Pre-fix: deleting the cache entry up-front made isInitialLoad
+    // flip to true mid-refresh. After the fix the entry stays in
+    // place so isInitialLoad stays false throughout.
+    expect(result.current.isInitialLoad).toBe(false);
+    expect(result.current.data).toEqual({ v: 2 });
+  });
 });

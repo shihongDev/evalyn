@@ -164,13 +164,21 @@ export function useV2Resource<T>(
 
   // Subscribe once per mounted resource. The backend emits coarse
   // ``cache_invalidate`` frames for any dataset-root mtime change; we
-  // drop our cache entry and refetch only when the keys overlap.
+  // refetch when the keys overlap.
+  //
+  // We do NOT delete the existing cache entry first - refetch's
+  // _setEntry overwrites it on success. Deleting up-front would
+  // make `cached` undefined for one render, which flips
+  // `isInitialLoad: !cached` to true mid-session. The UpdatingChip
+  // (visible={reloading && !isInitialLoad}) would then HIDE during
+  // exactly the cache_invalidate-triggered background refresh it's
+  // meant to indicate. Keeping the entry in place during the
+  // refetch preserves the "background refresh" semantics correctly.
   useEffect(() => {
     if (!enabled) return;
     const off = subscribeV2Events((evt: V2Event) => {
       if (evt.type !== 'cache_invalidate') return;
       if (!keyMatchesInvalidation(key, evt.keys)) return;
-      _cache.delete(key);
       void refetch();
     });
     return off;
