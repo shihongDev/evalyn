@@ -1533,6 +1533,23 @@ function JobRow({ entry, onClick, onRerun, onCancel, onTogglePin }: JobRowProps)
       onMouseLeave={(e) => {
         e.currentTarget.style.background = 'transparent';
       }}
+      // React's onFocus/onBlur bubble (unlike mouseenter/leave),
+      // so this picks up focus on ANY of the row's 4+ buttons
+      // (open / pin / log download / rerun / cancel) and lights
+      // the whole row - matching the mouse-hover behaviour for
+      // keyboard users tabbing through the drawer. The
+      // relatedTarget guard skips the de-highlight when focus
+      // is moving between siblings inside the same row, which
+      // would otherwise produce a brief unlit flicker between
+      // the blur and the next focus.
+      onFocus={(e) => {
+        e.currentTarget.style.background = E.panel2;
+      }}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+          e.currentTarget.style.background = 'transparent';
+        }
+      }}
     >
       <button
         type="button"
