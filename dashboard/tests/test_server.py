@@ -305,6 +305,39 @@ def test_resolve_app_log_level(monkeypatch, raw: str, expected: int) -> None:
     logging.getLogger("test").setLevel(_resolve_app_log_level())
 
 
+def test_agent_thread_auto_purge_task_starts_and_cancels() -> None:
+    """Periodic agent-thread purge background task is started on
+    app startup and cancelled cleanly on shutdown. Without this
+    sweep, an unattended long-running dashboard accumulates closed
+    threads in memory (~10KB each) because the
+    /api/agent/threads/purge-old endpoint has to be triggered
+    manually.
+
+    Pin: app.state carries a non-None task on startup, and after
+    the lifespan shutdown completes the task is done (cancelled
+    cleanly). The test does NOT advance time enough to actually
+    trigger a purge tick - that's covered by
+    test_purge_old_threads_drops_closed_old_threads.
+    """
+    import asyncio
+
+    app = build_app()
+    with TestClient(app):
+        task = getattr(app.state, "agent_thread_purge_task", None)
+        # The task is created if an agent runtime is attached.
+        # In the build_app default an agent runtime IS attached so
+        # the task should exist.
+        assert task is not None, (
+            "agent_thread_purge_task should be created on startup"
+        )
+        assert isinstance(task, asyncio.Task)
+        # Mid-lifespan: task is running its sleep loop.
+        assert not task.done()
+
+    # After lifespan shutdown: task should be cancelled.
+    assert task.done(), "purge task should be cancelled on shutdown"
+
+
 def test_shutdown_hook_calls_persistence_vacuum() -> None:
     """The shutdown lifespan hook fires JobPersistence.vacuum() so the
     on-disk sqlite mirror gets compacted on clean exit. Without this,

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Agent threads: periodic background auto-purge.** Closed agent threads currently stick around in `AgentRuntime._threads` indefinitely - each carries an events log + metadata (~10KB). The `/api/agent/threads/purge-old` endpoint exists for manual cleanup, but unattended long-running daemons would never trigger it. Without this fix, memory grows ~10KB per chat thread × N threads/day. Slow leak across weeks. Now a background task starts on app startup that calls `runtime.purge_old_threads(7 days)` every hour. Best-effort: WARN-logs and continues on tick failure. Cancelled cleanly on shutdown. Both startup task creation and shutdown cancellation are pinned via a new `test_server.py` test (32 tests, was 31 + 1 new); 460 backend tests pass.
+
 ### Fixed
 
 - **Co-pilot `confirm()`: same-frame double-tap on Approve no longer surfaces a spurious error.** Customer scenario: user mashes Approve on the tool-confirm card. Pre-fix, two `api.confirmAgentTool()` POSTs fire; backend 409s the second; the FE's catch sets a "Conflict" or "already confirmed" error banner that the user has to dismiss before continuing. Same root cause as the F6 send fix (closures stale, setState queued). Added `confirmInFlightRef` mutated synchronously inside `confirm` to block the second call before any setState. New F7 vitest pin: same-frame double `confirm(true)` triggers `confirmAgentTool` exactly ONCE; verified by reverting the guard and watching the test crash on the file becoming structurally inconsistent (a stronger-than-expected canary). 219 vitest tests pass (was 218 + 1 new).
