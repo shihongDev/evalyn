@@ -17,6 +17,7 @@
 
 import { readCsrfToken, refreshCsrfToken } from './csrf';
 import { maybeParseCapacityError } from './errors';
+import { fetchWithTimeout } from './_fetchWithTimeout';
 
 export type CliParamKind =
   | 'string'
@@ -122,6 +123,10 @@ export function previewCommand(
  * Exposed for tests; production code should use the default. */
 export const RUN_CLI_TIMEOUT_MS = 30_000;
 
+const RUN_CLI_TIMEOUT_MSG =
+  `Server didn't respond within ${RUN_CLI_TIMEOUT_MS / 1000}s. ` +
+  `The dashboard may be wedged - try reloading.`;
+
 export async function runCli(
   cliId: string,
   args: Record<string, unknown>,
@@ -129,36 +134,16 @@ export async function runCli(
   const send = async (token: string | null): Promise<Response> => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['X-Workbench-Token'] = token;
-    // AbortController + setTimeout: a wedged server with no
-    // response after RUN_CLI_TIMEOUT_MS aborts the fetch; the
-    // catch below maps the AbortError into a clearer message
-    // for the runner banner. The timer is cleared on success or
-    // any other error to avoid late-firing aborts on already-
-    // resolved fetches.
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), RUN_CLI_TIMEOUT_MS);
-    try {
-      return await fetch('/api/cli/run', {
+    return fetchWithTimeout(
+      '/api/cli/run',
+      {
         method: 'POST',
         headers,
         body: JSON.stringify({ cli_id: cliId, args }),
-        signal: controller.signal,
-      });
-    } catch (e) {
-      // AbortError from our timeout -> rewrite to something the
-      // user can act on. Other errors (network failure, etc.)
-      // pass through unchanged so the existing errorMessage()
-      // network-rewriter handles them.
-      if (e instanceof DOMException && e.name === 'AbortError') {
-        throw new Error(
-          `Server didn't respond within ${RUN_CLI_TIMEOUT_MS / 1000}s. ` +
-            `The dashboard may be wedged - try reloading.`,
-        );
-      }
-      throw e;
-    } finally {
-      clearTimeout(timer);
-    }
+      },
+      RUN_CLI_TIMEOUT_MS,
+      RUN_CLI_TIMEOUT_MSG,
+    );
   };
   let res = await send(readCsrfToken());
   if (res.status === 403) {
