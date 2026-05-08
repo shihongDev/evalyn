@@ -237,6 +237,26 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
     [flushTextBuffer],
   );
 
+  // Hook-level helper: clear BOTH mirrors of pending state for a
+  // tool_call_id. Top-level `pending` gates the composer; the
+  // bubble's `pending_confirm` drives the inline Approve/Reject
+  // card rendered by CoPilotDock.tsx:440. Every "this confirmation
+  // is over" path calls this so the two mirrors stay in sync; F2
+  // (confirm() catch + success), F8 (tool_call_complete) all
+  // funnel through here. Without the helper, each callsite has to
+  // remember the dual-clear and the codebase has drifted before
+  // (F8 originally only cleared top-level; bubble lingered).
+  const clearPendingMirrors = useCallback((toolCallId: string) => {
+    setPending((cur) => (cur?.tool_call_id === toolCallId ? null : cur));
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.pending_confirm?.tool_call_id === toolCallId
+          ? { ...m, pending_confirm: null }
+          : m,
+      ),
+    );
+  }, []);
+
   const handleEvent = useCallback((evt: AgentWsEvent) => {
     if (evt.type === 'text_delta') {
       enqueueTextDelta(evt.message_id, evt.text);
@@ -335,18 +355,19 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
 
     if (evt.type === 'tool_call_complete') {
       const out = evt.output ?? evt.stdout ?? '';
-      // Clear stale pending confirmation if the tool that just
-      // completed is the one the user was being asked to confirm.
-      // Customer scenario: backend's 5-minute confirmation timeout
-      // fires; agent emits tool_call_complete with ok=false +
+      // Clear stale pending confirmation (both top-level and
+      // bubble mirror) if the tool that just completed is the
+      // one the user was being asked to confirm. Customer
+      // scenario: backend's 5-minute confirmation timeout fires;
+      // agent emits tool_call_complete with ok=false +
       // output="user did not confirm (timeout)" and clears
-      // pending_tool_call_id. Pre-fix the FE left the Approve /
-      // Reject card mounted, and a delayed click would 409 with
+      // pending_tool_call_id server-side. Pre-fix the FE left the
+      // Approve/Reject cards mounted (both composer-locking and
+      // bubble inline), and a delayed click would 409 with
       // "tool_call_id does not match the currently pending
-      // confirmation" - confusing because the user sees a card
-      // that visibly says "approve me" but the backend has moved
-      // on. Clear pending so the UI reflects the truth.
-      setPending((cur) => (cur?.tool_call_id === evt.tool_call_id ? null : cur));
+      // confirmation". The shared helper keeps both mirrors in
+      // sync.
+      clearPendingMirrors(evt.tool_call_id);
       setMessages((prev) => {
         // Locate the bubble whose tools array already contains this
         // tool_call_id. Without this, a complete event arriving after
@@ -362,17 +383,6 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
         }
         return patchAgentBubble(prev, targetId, (b) => ({
           ...b,
-          // Bubble-level pending_confirm mirror: if the bubble was
-          // showing an inline confirmation card for THIS
-          // tool_call_id, drop it. Top-level `pending` is already
-          // cleared above; this clears the per-bubble version
-          // that CoPilotDock.tsx:440 renders inline. Without this,
-          // the user sees the bubble's "Approve / Reject" card
-          // sticking around even though the backend has moved on.
-          pending_confirm:
-            b.pending_confirm?.tool_call_id === evt.tool_call_id
-              ? null
-              : b.pending_confirm,
           tools: b.tools.map((t) => {
             if (t.tool_call_id !== evt.tool_call_id) return t;
             const startTs = t.ts_started;
@@ -640,43 +650,29 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
       if (confirmInFlightRef.current) return;
       confirmInFlightRef.current = true;
       const pendingTcId = pending.tool_call_id;
-      // Helper: clear BOTH mirrors of pending state for this
-      // tool_call_id. Top-level `pending` gates the composer; the
-      // bubble's `pending_confirm` drives the inline Approve/Reject
-      // card. After last tick's F8 fix on tool_call_complete the
-      // bubble version is also cleared on the matching complete
-      // event - but on the catch branch (network error, 409) the
-      // backend may not emit a clean complete, so we clear here
-      // too. On the try branch we clear pre-emptively for the
-      // ~hundreds-of-ms gap before tool_call_complete lands;
-      // without this the inline card lingers as a stale clickable
-      // overlay even though confirm() has already completed.
-      function clearPendingMirrors() {
-        setPending(null);
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.pending_confirm?.tool_call_id === pendingTcId
-              ? { ...m, pending_confirm: null }
-              : m,
-          ),
-        );
-      }
       try {
         await api.confirmAgentTool(tid, approve, pendingTcId);
-        clearPendingMirrors();
+        // Clear both mirrors pre-emptively for the ~hundreds of ms
+        // gap before tool_call_complete arrives (during which the
+        // bubble's inline Approve/Reject card would otherwise
+        // linger as a stale clickable overlay).
+        clearPendingMirrors(pendingTcId);
         setStatus('streaming');
       } catch (err) {
         setError(errorMessage(err));
         setStatus('error');
-        // Without this, the awaiting-confirmation card stays mounted and
-        // the composer (which guards on `pending != null`) is locked
-        // forever (F2). Clearing pending lets the user retry or send.
-        clearPendingMirrors();
+        // Without this, the awaiting-confirmation card stays
+        // mounted and the composer (which guards on
+        // `pending != null`) is locked forever (F2). On the
+        // catch branch the backend may not emit a clean
+        // tool_call_complete (network error, 409 stale-id), so
+        // we clear here too.
+        clearPendingMirrors(pendingTcId);
       } finally {
         confirmInFlightRef.current = false;
       }
     },
-    [pending],
+    [pending, clearPendingMirrors],
   );
 
   const resetTo = useCallback((newThreadId: string | null) => {

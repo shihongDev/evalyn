@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Refactor: extracted `clearPendingMirrors(toolCallId)` helper at the hook level.** The "two mirrors of pending state" bug class spanned 3 ticks of fixes (F8 + F8b + F2 follow-ups). Each fix added a parallel implementation of the dual-clear logic at a different callsite. This refactor lifts `clearPendingMirrors` to a hook-level `useCallback` so all three "this confirmation is over" paths funnel through one definition: F2 success, F2 catch, F8 tool_call_complete. The codebase has drifted before (the original F8 only cleared top-level; bubble lingered until last tick's follow-up), so concentrating the dual-clear in one place makes future drift impossible — a future fixer who adds a 4th clear site has a named helper to reach for. No behavior change; the same callsites now share one implementation.
+
 ### Fixed
 
 - **Co-pilot `confirm()`: success AND catch paths now clear bubble pending_confirm too.** Same audit lens as last tick's F8 follow-up. The `confirm()` callback's success branch (line 644) and catch branch (line 652) both did `setPending(null)` on the top-level state but neither touched the bubble's `pending_confirm`. Last tick's F8 fix in `tool_call_complete` clears the bubble after the agent emits the matching complete event - but on the catch branch the backend may not emit a clean complete (network failure, 409 stale-id, etc.), so the bubble's inline Approve/Reject card lingered as a stale clickable overlay. On the success branch, the gap between `setPending(null)` and `tool_call_complete` arriving (~hundreds of ms) was a smaller version of the same UX inconsistency. Extracted a `clearPendingMirrors()` helper and called it in both branches. F2 test extended to assert no bubble has non-null `pending_confirm` after the catch path; verified the regression catches.
