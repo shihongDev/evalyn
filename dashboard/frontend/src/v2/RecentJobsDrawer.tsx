@@ -586,8 +586,29 @@ export function RecentJobsDrawer({
           exit_code: snap.exit_code ?? undefined,
           duration: snap.duration != null ? String(snap.duration) : undefined,
         });
+        // If the snapshot recovers a non-terminal status (still
+        // running / queued), surface the failure - otherwise the
+        // user just watched their click do nothing visible. A
+        // terminal status (complete / failed / cancelled by some
+        // other path) IS its own feedback that the job ended, so
+        // we skip the banner there to avoid noise.
+        if (snap.status === 'running' || snap.status === 'queued') {
+          setActionMessage(
+            `Cancel didn't reach the server: ${errorMessage(err)}. The job is still ${snap.status}.`,
+          );
+        }
       } else if (snap.kind === 'notFound') {
         patchJob(entry.job_id, { status: 'unknown' });
+        setActionMessage(
+          `Cancel didn't reach the server: ${errorMessage(err)}. The job's current state is unknown.`,
+        );
+      } else {
+        // snap also failed - we have no info to show. Surface the
+        // original cancel error so the user knows their click was
+        // attempted but didn't take effect.
+        setActionMessage(
+          `Cancel failed: ${errorMessage(err)}. Reload to refresh job state.`,
+        );
       }
     }
   };
