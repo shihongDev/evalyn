@@ -1458,6 +1458,13 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
           onClick={() => void handleSave()}
           disabled={!dirty || saving}
           aria-busy={saving}
+          title={
+            saving
+              ? 'Saving...'
+              : !dirty
+                ? 'Make a change to the API key or model to enable Save'
+                : 'Save your edits'
+          }
         >
           {saving ? <><Spinner size={11} /> Saving</> : 'Save'}
         </Btn>
@@ -1467,6 +1474,13 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
           onClick={() => void handleTest()}
           disabled={testing || !state.is_set}
           aria-busy={testing}
+          title={
+            testing
+              ? 'Testing...'
+              : !state.is_set
+                ? 'Save an API key first to enable Test connection'
+                : 'Send a tiny request to verify the credentials work'
+          }
         >
           {testing ? <><Spinner size={11} /> Testing</> : 'Test connection'}
         </Btn>
@@ -1496,6 +1510,14 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
             Saved
           </Pill>
         )}
+        {/* SR-only announcement for the Save flash. The visible Pill
+            is mute to SRs (no role/aria-live). The pattern matches
+            the Copy-button live regions in RunDetail / FailureCluster
+            / Metrics: a stable, always-mounted .eSr span whose text
+            content drives the polite announcement. */}
+        <span role="status" aria-live="polite" aria-atomic="true" className="eSr">
+          {saveSuccess ? `${label} settings saved.` : ''}
+        </span>
       </div>
 
       {testResult && !testResult.ok && (
