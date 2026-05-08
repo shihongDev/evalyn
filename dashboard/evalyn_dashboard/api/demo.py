@@ -101,6 +101,9 @@ async def load_demo() -> JSONResponse:
             ".evalyn/ already contains non-demo content; refusing to overwrite",
         )
 
+    import time as _time
+
+    copy_start = _time.monotonic()
     try:
         target.mkdir(parents=True, exist_ok=True)
         # ``dirs_exist_ok=True`` makes the copy idempotent: re-running
@@ -120,11 +123,20 @@ async def load_demo() -> JSONResponse:
     except OSError as exc:
         raise HTTPException(500, f"failed to write demo sentinel: {exc}") from exc
 
+    elapsed_ms = int((_time.monotonic() - copy_start) * 1000)
     # Audit log: demo load is destructive (copies fixture into the
     # workspace, overwriting any existing demo content). Operators
     # tracking "who loaded the demo into this server's workspace"
     # need a trail. Logged after the sentinel is written so a
     # partial copy never claims success in the audit record.
-    logger.info("demo loaded: project=%s into=%s", DEMO_DATASET_NAME, target)
+    # elapsed_ms matches the vacuum/prune/purge audit-log shape;
+    # demo's copytree can be slow on fixtures with many files
+    # (per-file fsync round-trips on WSL/NTFS).
+    logger.info(
+        "demo loaded: project=%s into=%s elapsed_ms=%s",
+        DEMO_DATASET_NAME,
+        target,
+        elapsed_ms,
+    )
 
     return JSONResponse({"loaded": True, "project": DEMO_DATASET_NAME})

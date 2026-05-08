@@ -740,6 +740,13 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
   // but pressing Enter immediately bails out of the runner if
   // that's what the user actually wants.
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+  // Dialog content ref for the focus trap below - the trap
+  // querySelectors first/last focusables on every Tab event so it
+  // tolerates the runner's dynamic inventory (param fields appear
+  // per command, buttons get enabled/disabled across the form ->
+  // running -> finished states, output filter shows only when
+  // there are lines).
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const prevFocus = document.activeElement as HTMLElement | null;
     const t = window.setTimeout(() => closeBtnRef.current?.focus(), 0);
@@ -829,7 +836,38 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
       }}
     >
       <div
+        ref={dialogRef}
         onClick={(e) => e.stopPropagation()}
+        // Focus trap: aria-modal="true" promises AT users that focus
+        // stays inside the dialog until it closes. Without this,
+        // Tab from the last focusable (typically the Run button or
+        // the output filter input depending on mode) leaks focus
+        // into content underneath the overlay - the bug aria-modal
+        // exists to prevent. Same dynamic-enumeration pattern as
+        // RecentJobsDrawer (commit d30636ad); the runner's
+        // focusable inventory shifts with form/running/finished
+        // mode and per-command param fields, so we querySelector
+        // for first/last on every Tab event rather than holding
+        // refs.
+        onKeyDown={(e) => {
+          if (e.key !== 'Tab') return;
+          const root = dialogRef.current;
+          if (!root) return;
+          const focusables = root.querySelectorAll<HTMLElement>(
+            'button:not([disabled]):not([tabindex="-1"]), [href]:not([tabindex="-1"]), input:not([disabled]):not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])',
+          );
+          if (focusables.length === 0) return;
+          const first = focusables[0];
+          const last = focusables[focusables.length - 1];
+          const active = document.activeElement;
+          if (e.shiftKey && active === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && active === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }}
         style={{
           width: 560,
           maxWidth: 'calc(100vw - 24px)',
