@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Datasets "Recent" sort: unparseable timestamps now sink last instead of sorting as 1970-epoch.** The recent-sort path used `Date.parse(iso) || 0` for non-null timestamps - any string `Date.parse` couldn't read returned NaN, and `NaN || 0` collapses to 0, which sorts the row ABOVE the null-last sentinel of -1 (treats malformed as "older than any real run" but still real). Customer impact: a row with a corrupted timestamp would surface in the middle of the list instead of sinking to the bottom where "no date" rows live - confusing because the row's listed timestamp was unreadable. Now wraps the parse in a `recentTs` helper that returns -1 for both `null` AND unparseable inputs, unifying the two "no usable date" cases. The existing -1 sentinel + ascending null-handling now treats them identically.
+
 ### Changed
 
 - **Standardized backend error response shape on `{"detail": ...}`.** Two of the dashboard's error response sites (CSRFMiddleware's 403 + spa_fallback's API 404) returned `{"error": "..."}` while every HTTPException across the api/* modules used `{"detail": "..."}` (FastAPI's default). FE error parsers mostly `res.text()` and surface the body verbatim - keying off two JSON shapes made debug logs noisier and forced one shim (`settings.ts:95: detail = j.error ?? j.detail ?? ${res.status}`) to handle both. Now both backend sites use `detail` to match the rest. The settings.ts shim still works because the `?? j.detail` fallback hits the new key. 2 new pytest cases pin both shapes (`test_unknown_api_route_returns_detail_shape`, `test_csrf_rejection_uses_detail_shape`); verified the test catches the regression by reverting `detail` -> `error` and watching it fail. 456 backend tests pass (was 454 + 2 new).
