@@ -218,9 +218,16 @@ describe('useCoPilotThread', () => {
       });
     });
 
-    // Pending should be cleared. UI no longer shows the stale
-    // Approve / Reject card.
+    // Pending should be cleared - both at the top level (gates
+    // the composer) AND on the bubble (renders the inline card
+    // via CoPilotDock.tsx:440). Without clearing the bubble copy
+    // the inline Approve/Reject card stays visible inside the
+    // bubble even after the top-level pending is cleared.
     expect(result.current.pending).toBeNull();
+    const bubblePending = result.current.messages
+      .map((m) => m.pending_confirm)
+      .filter((p) => p !== null && p !== undefined);
+    expect(bubblePending).toHaveLength(0);
   });
 
   it('F8b: tool_call_complete for an unrelated tool does NOT clear pending', async () => {

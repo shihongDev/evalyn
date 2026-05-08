@@ -362,6 +362,17 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
         }
         return patchAgentBubble(prev, targetId, (b) => ({
           ...b,
+          // Bubble-level pending_confirm mirror: if the bubble was
+          // showing an inline confirmation card for THIS
+          // tool_call_id, drop it. Top-level `pending` is already
+          // cleared above; this clears the per-bubble version
+          // that CoPilotDock.tsx:440 renders inline. Without this,
+          // the user sees the bubble's "Approve / Reject" card
+          // sticking around even though the backend has moved on.
+          pending_confirm:
+            b.pending_confirm?.tool_call_id === evt.tool_call_id
+              ? null
+              : b.pending_confirm,
           tools: b.tools.map((t) => {
             if (t.tool_call_id !== evt.tool_call_id) return t;
             const startTs = t.ts_started;
