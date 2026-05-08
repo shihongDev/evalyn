@@ -856,6 +856,8 @@ function PinnedDimensions({ subMetrics }: { subMetrics: HomeSnapshot['sub_metric
         </div>
       ) : (
         <div
+          role="list"
+          aria-label="Pinned sub-metrics"
           style={{
             marginTop: 10,
             display: 'flex',
@@ -871,9 +873,25 @@ function PinnedDimensions({ subMetrics }: { subMetrics: HomeSnapshot['sub_metric
             const start = Math.max(0, Math.min(100, m.value - m.delta));
             const end = Math.max(0, Math.min(100, m.value));
             const spark = [start, start, (start + end) / 2, end, end, end];
+            // Spell out trend direction so SR users get the same
+            // signal sighted users get from the spark line shape.
+            // m.delta sign convention: positive = improvement for
+            // pass-style metrics; m.inverse flips for "FN%" etc
+            // where lower is better. Stays neutral when delta is
+            // ~0 to avoid false motion claims (matches the same
+            // heuristic in buildPulseCells.qDelta).
+            const goodDir = m.inverse ? m.delta < 0 : m.delta > 0;
+            const trend =
+              Math.abs(m.delta) < 0.5
+                ? 'flat'
+                : goodDir
+                  ? `up ${Math.abs(m.delta).toFixed(1)} points`
+                  : `down ${Math.abs(m.delta).toFixed(1)} points`;
             return (
               <div
                 key={m.label}
+                role="listitem"
+                aria-label={`${m.label}: ${Math.round(m.value)}, ${trend}`}
                 style={{
                   display: 'grid',
                   gridTemplateColumns: '1fr 50px 50px',
