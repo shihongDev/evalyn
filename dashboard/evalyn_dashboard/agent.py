@@ -1117,9 +1117,11 @@ class AgentRuntime:
             pending = thread.pending_tool_call_id
             if pending is None or pending != tool_call_id:
                 logger.warning(
-                    "agent.confirm: stale tool_call_id %s (pending %s); refusing",
+                    "agent.confirm: stale tool_call_id %s (pending %s) "
+                    "on thread %s; refusing",
                     tool_call_id,
                     pending,
+                    thread_id,
                 )
                 return False
         if approve:
@@ -1139,8 +1141,9 @@ class AgentRuntime:
                 if extra:
                     logger.warning(
                         "agent.confirm: args_override adds keys the model "
-                        "did not propose: %s; refusing",
+                        "did not propose: %s on thread %s; refusing",
                         sorted(extra),
+                        thread_id,
                     )
                     return False
                 pending_tc.arguments = {

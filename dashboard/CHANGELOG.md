@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Agent confirm WARN logs now include thread_id.** Two refusal paths in `AgentRuntime.confirm` (stale tool_call_id, args_override-adds-keys) logged at WARN but didn't include the thread_id. With multiple concurrent threads this leaves a postmortem reader squinting at "which thread had the stale id?" Now both log lines append "on thread %s" - one tiny operability win for the next time someone reads server logs after a chat session got into a weird state. Other audit-log lines in agent.py already include the thread_id; this brings the two warn-and-refuse paths in line with the rest.
 - **Refactor: extracted `clearPendingMirrors(toolCallId)` helper at the hook level.** The "two mirrors of pending state" bug class spanned 3 ticks of fixes (F8 + F8b + F2 follow-ups). Each fix added a parallel implementation of the dual-clear logic at a different callsite. This refactor lifts `clearPendingMirrors` to a hook-level `useCallback` so all three "this confirmation is over" paths funnel through one definition: F2 success, F2 catch, F8 tool_call_complete. The codebase has drifted before (the original F8 only cleared top-level; bubble lingered until last tick's follow-up), so concentrating the dual-clear in one place makes future drift impossible — a future fixer who adds a 4th clear site has a named helper to reach for. No behavior change; the same callsites now share one implementation.
 
 ### Fixed
