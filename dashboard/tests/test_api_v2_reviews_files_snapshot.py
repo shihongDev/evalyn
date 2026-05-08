@@ -83,9 +83,16 @@ def test_reviews_files_snapshot_invalidated_on_mtime_change(
 
         # Bump the root: add a second dataset with reviews.
         _seed_dataset_with_reviews(root, "ds2", ["b.jsonl"])
-        # Touch the root explicitly (mkdir-of-child should bump it on
-        # most FSes; force it for determinism).
-        os.utime(root, None)
+        # Touch the root explicitly to invalidate the mtime cache.
+        # ``os.utime(root, None)`` sets mtime to "now", but WSL/NTFS
+        # filesystem mtime resolution can be 1s or worse - if the
+        # test runs fast enough, "now" equals the prior mtime within
+        # the same tick, the cache thinks nothing changed, and the
+        # walk is skipped (flake when run in parallel under xdist).
+        # Set mtime to an explicitly-later value so the change is
+        # guaranteed to be detected regardless of FS resolution.
+        old_mtime = root.stat().st_mtime
+        os.utime(root, (old_mtime + 2, old_mtime + 2))
 
         # Drop in-memory cache so the next call is forced through the
         # snapshot/walk decision.
