@@ -574,11 +574,13 @@ export default function RunDetail() {
                 <button
                   type="button"
                   onClick={() => void handleCopyId()}
-                  aria-label={
-                    idCopyState === 'copied'
-                      ? 'Run id copied to clipboard'
-                      : `Copy run id ${detail.id} to clipboard`
-                  }
+                  // Stable aria-label - the previous version flipped
+                  // to "Run id copied to clipboard" on success, which
+                  // caused "name changed mid-focus" announcements on
+                  // some SR engines. Now the success cue lives in a
+                  // sibling .eSr live region (below) and the button
+                  // name stays consistent across press cycles.
+                  aria-label={`Copy run id ${detail.id} to clipboard`}
                   title={
                     idCopyState === 'copied'
                       ? 'Copied to clipboard'
@@ -608,8 +610,24 @@ export default function RunDetail() {
                     textUnderlineOffset: 2,
                   }}
                 >
-                  {idCopyState === 'copied' ? `✓ ${detail.id}` : detail.id}
+                  {idCopyState === 'copied' ? (
+                    <>
+                      <span aria-hidden="true">✓ </span>{detail.id}
+                    </>
+                  ) : (
+                    detail.id
+                  )}
                 </button>
+                {idCopyState === 'copied' && (
+                  <span role="status" aria-live="polite" className="eSr">
+                    Run id copied to clipboard
+                  </span>
+                )}
+                {idCopyState === 'error' && (
+                  <span role="alert" className="eSr">
+                    Copy failed
+                  </span>
+                )}
                 {' - '}
                 {detail.status} {detail.finished_at_iso} - {detail.duration} - {detail.cost}
               </span>
