@@ -8,12 +8,28 @@
  */
 
 import { readCsrfToken, refreshCsrfToken } from './csrf';
+import { fetchWithTimeout } from './_fetchWithTimeout';
+
+// Hard timeout for the demo-load POST. The endpoint copies the
+// bundled fixture into the workspace - a few file writes, normally
+// <1s. 30s bounds a wedged-server hang. The Welcome card has the
+// only Run button for this; on hang the user sees a spinner with
+// no recovery without the timeout.
+const DEMO_TIMEOUT_MS = 30_000;
+const DEMO_TIMEOUT_MSG =
+  `Server didn't respond within ${DEMO_TIMEOUT_MS / 1000}s. ` +
+  `The dashboard may be wedged - try reloading.`;
 
 export async function loadDemo(): Promise<{ loaded: boolean; project: string }> {
   const send = async (token: string | null): Promise<Response> => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['X-Workbench-Token'] = token;
-    return fetch('/api/demo/load', { method: 'POST', headers, body: '{}' });
+    return fetchWithTimeout(
+      '/api/demo/load',
+      { method: 'POST', headers, body: '{}' },
+      DEMO_TIMEOUT_MS,
+      DEMO_TIMEOUT_MSG,
+    );
   };
   let res = await send(readCsrfToken());
   if (res.status === 403) {

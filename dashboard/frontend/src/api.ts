@@ -13,8 +13,20 @@
  */
 
 import { readCsrfToken, refreshCsrfToken } from './v2/api/csrf';
+import { fetchWithTimeout } from './v2/api/_fetchWithTimeout';
 
 const API_BASE = '/api';
+
+// Hard timeout for agent mutation POSTs (startThread, sendMessage,
+// confirmTool). The confirm path is the highest-stakes - the user
+// has already engaged a write tool and is waiting on the dashboard
+// to relay their decision; a wedged server here leaves the
+// PlanCard's "Approving..." state pinned forever. 30s gives slack
+// for slow LLM-backed start/send paths while bounding hangs.
+const AGENT_MUTATION_TIMEOUT_MS = 30_000;
+const AGENT_TIMEOUT_MSG =
+  `Server didn't respond within ${AGENT_MUTATION_TIMEOUT_MS / 1000}s. ` +
+  `The dashboard may be wedged - try reloading.`;
 
 function wsUrl(path: string): string {
   const proto =
@@ -31,6 +43,17 @@ async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
       ...((init?.headers as Record<string, string> | undefined) ?? {}),
     };
     if (isMutation && token) headers['X-Workbench-Token'] = token;
+    // Apply timeout only on mutations - GETs are typically used for
+    // load-on-mount which has its own retry / skeleton paths and
+    // doesn't lock up a UI button on hang.
+    if (isMutation) {
+      return fetchWithTimeout(
+        `${API_BASE}${path}`,
+        { ...init, headers },
+        AGENT_MUTATION_TIMEOUT_MS,
+        AGENT_TIMEOUT_MSG,
+      );
+    }
     return fetch(`${API_BASE}${path}`, { ...init, headers });
   };
   let res = await send(readCsrfToken());

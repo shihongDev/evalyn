@@ -14,6 +14,17 @@ import type {
   AnnotationVerdictPayload,
   AnnotationVerdictResponse,
 } from './types';
+import { fetchWithTimeout } from './_fetchWithTimeout';
+
+// Hard timeout for annotation mutations (create/verdict/finalize/
+// abandon). Verdict is the high-frequency path - one POST per
+// item per click - so a hung server here would block the user
+// mid-session. 30s gives slack for finalize (jsonl merge across
+// many items) while bounding hangs.
+const ANNOTATION_TIMEOUT_MS = 30_000;
+const ANNOTATION_TIMEOUT_MSG =
+  `Server didn't respond within ${ANNOTATION_TIMEOUT_MS / 1000}s. ` +
+  `The dashboard may be wedged - try reloading.`;
 
 const BASE = '/api/v2/annotation';
 
@@ -61,11 +72,16 @@ async function mutating<T>(method: 'POST' | 'DELETE', path: string, body?: unkno
     const headers: Record<string, string> = {};
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (token) headers['X-Workbench-Token'] = token;
-    return fetch(url, {
-      method,
-      headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    return fetchWithTimeout(
+      url,
+      {
+        method,
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
+      },
+      ANNOTATION_TIMEOUT_MS,
+      ANNOTATION_TIMEOUT_MSG,
+    );
   };
   let res = await send(readCsrfToken());
   // CSRF rejection: server token rotated since the page loaded. Refetch
