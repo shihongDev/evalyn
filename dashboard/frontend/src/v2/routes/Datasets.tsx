@@ -1194,6 +1194,7 @@ export default function Datasets() {
               }}
             >
               <span
+                aria-hidden="true"
                 style={{
                   width: 7,
                   height: 7,

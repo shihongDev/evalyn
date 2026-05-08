@@ -214,6 +214,7 @@ function BriefHeader({ snap, reloading, onRegenerate, onNavigate }: BriefHeaderP
       >
         e
         <span
+          aria-hidden="true"
           style={{
             position: 'absolute',
             right: -2,
@@ -756,6 +757,7 @@ function LiveStreamingCard({ experiments, onNavigate }: LiveStreamingCardProps) 
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span
+              aria-hidden="true"
               style={{
                 width: 8,
                 height: 8,
