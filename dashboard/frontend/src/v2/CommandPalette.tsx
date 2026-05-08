@@ -693,6 +693,19 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                         role="option"
                         aria-selected={isActive}
                         data-palette-index={flatIdx}
+                        // ARIA listbox pattern: options should NOT be
+                        // in the tab sequence. Focus stays on the
+                        // input and arrow keys move activeIndex via
+                        // the input's onKeyDown. Without tabIndex={-1}
+                        // each option was a default tab stop, so
+                        // pressing Tab from the input dropped focus
+                        // onto row 0 (visible global :focus-visible
+                        // outline) while activeIndex was independent
+                        // (panel2 highlight) - dual-cursor state.
+                        // Now Tab skips past the whole result list
+                        // to the "Open Commands page" footer button.
+                        // Mouse click + programmatic focus still work.
+                        tabIndex={-1}
                         onClick={() => entry.nav()}
                         onMouseEnter={() => setActiveIndex(flatIdx)}
                         title={`${entry.label}${entry.sublabel ? ` - ${entry.sublabel}` : ''}`}
