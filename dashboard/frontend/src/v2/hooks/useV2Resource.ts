@@ -27,6 +27,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { subscribeV2Events, type V2Event } from '../api/v2ws';
+import { errorMessage } from '../api/errors';
 
 const _cache = new Map<string, { data: unknown; ts: number }>();
 const _inflight = new Map<string, Promise<unknown>>();
@@ -125,7 +126,15 @@ export function useV2Resource<T>(
     if (!p) {
       p = fetcher();
       _inflight.set(key, p);
-      void p.finally(() => _inflight.delete(key));
+      // Side chain just for the inflight-map cleanup. We MUST catch
+      // the rejection here even though the await below will catch
+      // the same promise: .finally returns a new promise whose
+      // rejection mirrors p's, and without .catch on this side
+      // chain the runtime reports an unhandled rejection (browser
+      // console + Vitest "Unhandled Rejection" warnings) every
+      // time a fetcher rejects, even though the visible UI is
+      // already showing the error correctly.
+      p.finally(() => _inflight.delete(key)).catch(() => undefined);
     }
     try {
       const d = await p;
@@ -133,7 +142,14 @@ export function useV2Resource<T>(
       setData(d);
       setErr(null);
     } catch (e) {
-      setErr(String(e));
+      // Route through the shared errorMessage helper so we get
+      // consistent text everywhere: a "Failed to fetch" TypeError
+      // is rewritten to the friendly "Network unreachable..."
+      // message, and a plain Error doesn't double-prefix as
+      // "Error: <message>" the way String(e) would. Matches the
+      // ~20 other v2 callsites that surface fetch errors via the
+      // same helper.
+      setErr(errorMessage(e));
     } finally {
       setReloading(false);
     }
