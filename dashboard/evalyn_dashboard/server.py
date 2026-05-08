@@ -100,6 +100,30 @@ def _build_timing_logger() -> logging.Logger:
 _timing_logger = _build_timing_logger()
 
 
+def _resolve_positive_float_env(name: str, default: float) -> float:
+    """Read a positive-float env var with safe fallback.
+
+    Accepts integers and floats. Unset / empty / unparseable / non-
+    positive values fall through to ``default`` rather than crashing
+    or silently using a confusing 0/negative value. Same defensive
+    pattern as :func:`_resolve_app_log_level`. Used for the agent-
+    thread auto-purge knobs but kept generic so future env-var
+    knobs can reuse it.
+    """
+    import os
+
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        v = float(raw)
+    except ValueError:
+        return default
+    if not (v > 0) or v != v:  # rejects 0, negative, NaN
+        return default
+    return v
+
+
 def _resolve_app_log_level() -> int:
     """Read ``EVALYN_LOG_LEVEL`` from the env, fall back to INFO.
 
@@ -351,12 +375,24 @@ def _register_v2_routers(app: FastAPI) -> None:
         import asyncio as _asyncio
 
         async def _purge_loop() -> None:
-            # Cadence: every hour. The TTL itself (7 days) is the
-            # actual retention; the cadence is just "how often do
-            # we check." Hourly keeps the per-call cost negligible
-            # (linear scan over self._threads).
-            interval_s = 3600.0
-            ttl_s = 7 * 24 * 3600.0
+            # Cadence: every hour by default. TTL: 7 days by
+            # default. Both overridable via env vars so operators
+            # can tune for resource-constrained or specialized
+            # workloads:
+            #   - EVALYN_AGENT_PURGE_INTERVAL_S
+            #     (default 3600 = 1 hour)
+            #   - EVALYN_AGENT_THREAD_TTL_S
+            #     (default 604800 = 7 days)
+            # Bad / non-positive values fall through to the
+            # defaults via _resolve_positive_float_env. Hourly
+            # tick keeps per-call cost negligible (linear scan
+            # over self._threads).
+            interval_s = _resolve_positive_float_env(
+                "EVALYN_AGENT_PURGE_INTERVAL_S", 3600.0
+            )
+            ttl_s = _resolve_positive_float_env(
+                "EVALYN_AGENT_THREAD_TTL_S", 7 * 24 * 3600.0
+            )
             try:
                 while True:
                     try:
