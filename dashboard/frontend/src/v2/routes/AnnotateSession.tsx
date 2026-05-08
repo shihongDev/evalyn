@@ -4244,7 +4244,13 @@ export default function AnnotateSession() {
                 }}
               >
                 <Eyebrow>Note (optional)</Eyebrow>
-                <span style={{ fontSize: 10, color: E.text3, fontFamily: E.fMono }}>
+                {/* Sighted-only hint - SR users get the same key
+                    via the KeyHints sheet (which spells "Slash"
+                    for them). "press / to focus" pronounces as
+                    "press slash to focus" on most engines, but
+                    surfacing it here would be redundant noise
+                    next to the textarea's own aria-label. */}
+                <span aria-hidden="true" style={{ fontSize: 10, color: E.text3, fontFamily: E.fMono }}>
                   press / to focus
                 </span>
                 <span style={{ flex: 1 }} />

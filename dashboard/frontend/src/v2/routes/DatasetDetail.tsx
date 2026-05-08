@@ -268,6 +268,8 @@ export default function DatasetDetail() {
               <Eyebrow style={{ marginTop: 16, marginBottom: 8 }}>Coverage</Eyebrow>
               <StackBar segments={segments} w="100%" h={8} />
               <div
+                role="list"
+                aria-label="Coverage breakdown by category"
                 style={{
                   display: 'flex',
                   flexWrap: 'wrap',
@@ -281,9 +283,12 @@ export default function DatasetDetail() {
                 {data.coverage.map((c, i) => (
                   <span
                     key={c.label}
+                    role="listitem"
+                    aria-label={`${c.label}: ${c.value}`}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
                   >
                     <span
+                      aria-hidden="true"
                       style={{
                         width: 7,
                         height: 7,
