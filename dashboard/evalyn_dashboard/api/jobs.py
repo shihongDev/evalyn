@@ -1012,6 +1012,9 @@ async def vacuum_persistence(request: Request) -> JSONResponse:
     # Both reads are best-effort; on failure they fall through
     # to 0 and the bytes_saved field is still reportable
     # (just less informative).
+    import time as _time
+
+    vacuum_start = _time.monotonic()
     try:
         before = int(persistence.db_size_bytes())
     except Exception:  # noqa: BLE001
@@ -1027,15 +1030,22 @@ async def vacuum_persistence(request: Request) -> JSONResponse:
     except Exception:  # noqa: BLE001
         after = 0
     saved = before - after
+    elapsed_ms = int((_time.monotonic() - vacuum_start) * 1000)
     # Audit log for operators: a manual vacuum is uncommon enough
     # that recording each invocation is useful for postmortems
     # ("did anyone vacuum during the incident window?"). INFO
     # rather than DEBUG so default log levels capture it.
+    # Including elapsed_ms gives operators a "is the dashboard
+    # restart-faster than vacuum?" decision metric: SQLite VACUUM
+    # is O(db_size) so a 50ms vacuum on a small db is fine, while
+    # a 5000ms vacuum on a large db is a signal to consider
+    # tighter persistence_keep retention.
     logger.info(
-        "admin vacuum: before=%s after=%s saved=%s",
+        "admin vacuum: before=%s after=%s saved=%s elapsed_ms=%s",
         before,
         after,
         saved,
+        elapsed_ms,
     )
     return JSONResponse(
         {
@@ -1085,7 +1095,11 @@ async def prune_old_jobs(request: Request, keep: int = 100) -> JSONResponse:
             status_code=503,
             detail="persistence_unavailable",
         )
+    import time as _time
+
+    prune_start = _time.monotonic()
     deleted = persistence.delete_old(keep=keep)
+    elapsed_ms = int((_time.monotonic() - prune_start) * 1000)
     # Read the post-prune total via the cached stats() call. If
     # the cache was just invalidated by delete_old, this is a
     # fresh read; if delete_old returned 0, the cache may still
@@ -1099,10 +1113,11 @@ async def prune_old_jobs(request: Request, keep: int = 100) -> JSONResponse:
     # value alongside the rowcount actually deleted (which may
     # be smaller if the table was already at or below `keep`).
     logger.info(
-        "admin prune: keep=%s deleted=%s kept=%s",
+        "admin prune: keep=%s deleted=%s kept=%s elapsed_ms=%s",
         keep,
         int(deleted),
         kept,
+        elapsed_ms,
     )
     return JSONResponse(
         {"ok": True, "deleted": int(deleted), "kept": kept},
