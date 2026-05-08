@@ -14,6 +14,16 @@
  */
 
 import { readCsrfToken, refreshCsrfToken } from './csrf';
+import { fetchWithTimeout } from './_fetchWithTimeout';
+
+// Hard timeout for admin POSTs. VACUUM is bounded by SQLite's
+// page-level rewrite (fast even on large DBs); prune is a single
+// DELETE statement. 30s is generous slack while still bounding
+// a wedged-server hang. Exported for tests.
+export const ADMIN_MUTATION_TIMEOUT_MS = 30_000;
+const ADMIN_TIMEOUT_MSG =
+  `Server didn't respond within ${ADMIN_MUTATION_TIMEOUT_MS / 1000}s. ` +
+  `The dashboard may be wedged - try reloading.`;
 
 export interface SystemHealth {
   ok: boolean;
@@ -94,13 +104,18 @@ export interface VacuumResult {
  * (matches the cancelJob retry pattern in api/jobs.ts). */
 export async function vacuumPersistence(): Promise<VacuumResult> {
   const send = async (token: string | null): Promise<Response> =>
-    fetch('/api/jobs/admin/vacuum', {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        ...(token ? { 'X-CSRF-Token': token } : {}),
+    fetchWithTimeout(
+      '/api/jobs/admin/vacuum',
+      {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          ...(token ? { 'X-CSRF-Token': token } : {}),
+        },
       },
-    });
+      ADMIN_MUTATION_TIMEOUT_MS,
+      ADMIN_TIMEOUT_MSG,
+    );
   let res = await send(readCsrfToken());
   if (res.status === 403) {
     const fresh = await refreshCsrfToken();
@@ -129,13 +144,18 @@ export interface PruneResult {
 export async function pruneOldJobs(keep: number): Promise<PruneResult> {
   const url = `/api/jobs/admin/prune?keep=${encodeURIComponent(String(keep))}`;
   const send = async (token: string | null): Promise<Response> =>
-    fetch(url, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        ...(token ? { 'X-CSRF-Token': token } : {}),
+    fetchWithTimeout(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          ...(token ? { 'X-CSRF-Token': token } : {}),
+        },
       },
-    });
+      ADMIN_MUTATION_TIMEOUT_MS,
+      ADMIN_TIMEOUT_MSG,
+    );
   let res = await send(readCsrfToken());
   if (res.status === 403) {
     const fresh = await refreshCsrfToken();

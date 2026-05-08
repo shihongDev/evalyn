@@ -12,6 +12,17 @@
  */
 
 import { readCsrfToken, refreshCsrfToken } from './csrf';
+import { fetchWithTimeout } from './_fetchWithTimeout';
+
+// Hard timeout for settings POSTs. The /test/{provider} endpoint
+// can legitimately take a few seconds (1-token probe against the
+// LLM provider, network latency varies); 30s is still generous
+// while bounding a wedged-server hang. Save/active/delete are
+// fast file writes. Exported for tests.
+export const SETTINGS_MUTATION_TIMEOUT_MS = 30_000;
+const SETTINGS_TIMEOUT_MSG =
+  `Server didn't respond within ${SETTINGS_MUTATION_TIMEOUT_MS / 1000}s. ` +
+  `The dashboard may be wedged - try reloading.`;
 
 const BASE = '/api/settings';
 
@@ -57,7 +68,12 @@ async function jpost<T>(path: string, body: unknown): Promise<T> {
   const send = async (token: string | null): Promise<Response> => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['X-Workbench-Token'] = token;
-    return fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+    return fetchWithTimeout(
+      url,
+      { method: 'POST', headers, body: JSON.stringify(body) },
+      SETTINGS_MUTATION_TIMEOUT_MS,
+      SETTINGS_TIMEOUT_MSG,
+    );
   };
   let res = await send(readCsrfToken());
   // Stale-token self-heal: server rotated its CSRF token (typically
