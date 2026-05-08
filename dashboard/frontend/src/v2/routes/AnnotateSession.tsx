@@ -4099,6 +4099,7 @@ export default function AnnotateSession() {
                                 }
                               }}
                               onBlur={commitEvidenceNoteEdit}
+                              aria-label="Edit evidence note"
                               placeholder="Add a note (Enter to save, Esc to cancel)"
                               style={{
                                 display: 'block',

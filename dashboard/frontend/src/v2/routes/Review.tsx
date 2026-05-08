@@ -1255,6 +1255,7 @@ function ClusterItemList({
                 onToggleSelected(it.item_id);
               }}
               onClick={(e) => e.stopPropagation()}
+              aria-label={`Select ${it.item_id} for batch verdict`}
               style={{ marginTop: 3, accentColor: E.ember, cursor: 'pointer' }}
             />
             <div style={{ flex: 1, minWidth: 0 }}>
