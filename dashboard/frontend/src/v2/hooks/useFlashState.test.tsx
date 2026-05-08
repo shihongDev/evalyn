@@ -135,6 +135,48 @@ describe('useFlashState', () => {
     expect(result.current[0]).toBe('idle');
   });
 
+  it('reset() clears state immediately and cancels pending timer', () => {
+    // Customer scenario: user clicks Save (which flashes "Saved"
+    // for 2 s), then within that window clicks Save again. The
+    // call site wants to clear the stale "Saved" pill BEFORE
+    // the new API call resolves. flashTo(initial, 0) would
+    // schedule a 0 ms timer (works but adds a microtask noise);
+    // reset() does it synchronously without any timer.
+    const { result } = renderHook(() =>
+      useFlashState<'idle' | 'saved'>('idle'),
+    );
+    act(() => {
+      result.current[1]('saved', 2000);
+    });
+    expect(result.current[0]).toBe('saved');
+    act(() => {
+      result.current[2](); // reset()
+    });
+    expect(result.current[0]).toBe('idle');
+    // The 2 s revert timer should have been cancelled - advancing
+    // past the original window must not fire any state update.
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    expect(result.current[0]).toBe('idle');
+  });
+
+  it('reset() is safe when no timer is in flight (no-op)', () => {
+    // The hook should be safe to call reset() at any time, even
+    // when no flash is active (e.g. on mount, or after a prior
+    // reset). No throw, no double-clear.
+    const { result } = renderHook(() =>
+      useFlashState<'idle' | 'saved'>('idle'),
+    );
+    expect(() => {
+      act(() => {
+        result.current[2](); // reset() with no timer
+        result.current[2](); // reset() again
+      });
+    }).not.toThrow();
+    expect(result.current[0]).toBe('idle');
+  });
+
   it('reverts to the latest initial when initial changes mid-flash', () => {
     // Defensive: if a parent re-renders with a different initial
     // (rare but possible), the in-flight reset should land on the
