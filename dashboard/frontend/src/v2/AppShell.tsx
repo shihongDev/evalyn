@@ -80,6 +80,7 @@ import {
   preloadMetrics,
   preloadReports,
   preloadReview,
+  preloadSettings,
 } from './routePreloads';
 
 interface AppShellProps {
@@ -1689,7 +1690,19 @@ function Sidebar({ mode, active, navigate, dockOpen, setDockOpen, onAfterNavigat
             navigate('/settings');
             onAfterNavigate?.();
           }}
+          // Warm the chunk on hover/focus so a click-through paints
+          // instantly instead of waiting for the lazy-import to
+          // resolve. Other NAV_ITEMS already prefetch this way; the
+          // Settings button was the holdout.
+          onMouseEnter={() => void preloadSettings()}
+          onFocus={() => void preloadSettings()}
           title="Configure LLM providers and API keys"
+          // aria-label load-bearing for SR users: title attribute
+          // isn't reliably announced, and the visible "Settings &
+          // keys" content is fine but adding the descriptive label
+          // makes the button's intent unambiguous.
+          aria-label="Open Settings: configure LLM providers and API keys"
+          aria-current={active === 'settings' ? 'page' : undefined}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -1704,7 +1717,7 @@ function Sidebar({ mode, active, navigate, dockOpen, setDockOpen, onAfterNavigat
             textAlign: 'left',
           }}
         >
-          <span>⚙</span> Settings & keys
+          <span aria-hidden="true">⚙</span> Settings & keys
         </button>
       )}
       <button
