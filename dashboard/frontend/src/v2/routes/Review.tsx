@@ -1493,6 +1493,7 @@ function TracePane({
           size="sm"
           onClick={() => onBatch('fail')}
           disabled={submitting || selectedCount === 0}
+          aria-busy={submitting}
         >
           Shift+F Fail all {selectedCount}
         </Btn>
@@ -1501,6 +1502,7 @@ function TracePane({
           size="sm"
           onClick={() => onBatch('pass')}
           disabled={submitting || selectedCount === 0}
+          aria-busy={submitting}
         >
           Shift+P Pass all {selectedCount}
         </Btn>

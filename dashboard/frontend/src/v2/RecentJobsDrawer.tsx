@@ -905,6 +905,7 @@ function DrawerHeader({
               type="button"
               onClick={onBulkRerunFailures}
               disabled={bulkRerunPending}
+              aria-busy={bulkRerunPending}
               aria-label={`Re-run all ${failedCount} visible failed job${failedCount === 1 ? '' : 's'}`}
               title={
                 bulkRerunPending

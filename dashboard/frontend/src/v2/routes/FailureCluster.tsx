@@ -130,6 +130,7 @@ export default function FailureCluster() {
                 size="sm"
                 onClick={() => void refetch()}
                 disabled={reloading}
+                aria-busy={reloading}
               >
                 {reloading ? 'Retrying...' : 'Retry'}
               </Btn>

@@ -478,6 +478,7 @@ function DimensionRow({
         </button>
         <input
           type="number"
+          inputMode="numeric"
           // The visible label (dim.label) is two columns away with a
           // progress bar between, so SR users tabbing here would
           // otherwise hear "44, spin button" with no context. Anchor
@@ -1081,6 +1082,7 @@ function RubricEditor({
               size="sm"
               onClick={() => void onSave()}
               disabled={!dirty || saving || !sumOk}
+              aria-busy={saving}
               title={
                 !sumOk
                   ? 'Weights must sum to 100% before saving'

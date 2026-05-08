@@ -3365,6 +3365,7 @@ export default function AnnotateSession() {
                   setConfirmFinalize(false);
                 }}
                 disabled={finalizing}
+                aria-busy={finalizing}
               >
                 {finalizing ? 'Finalizing...' : 'Yes, finalize now'}
               </Btn>
@@ -3373,6 +3374,7 @@ export default function AnnotateSession() {
                 size="sm"
                 onClick={() => setConfirmFinalize(false)}
                 disabled={finalizing}
+                aria-busy={finalizing}
               >
                 Cancel
               </Btn>
@@ -3610,6 +3612,7 @@ export default function AnnotateSession() {
                     void finalizeSession();
                   }}
                   disabled={finalizing}
+                  aria-busy={finalizing}
                 >
                   {finalizing ? 'Finalizing...' : 'Finish & save →'}
                 </Btn>
