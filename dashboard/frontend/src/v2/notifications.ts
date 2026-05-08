@@ -103,6 +103,14 @@ export function notifyJobTerminal(opts: NotifyOpts): void {
       // silent on success to be polite; failures should beep so the
       // user notices them.
       silent: opts.status === 'complete',
+      // Failures persist until the user dismisses them. The OS auto-
+      // dismiss (~5s) is fine for "your eval finished cleanly" but
+      // dangerous for "your eval crashed" - if the user is in another
+      // window for the wrong few seconds, they miss the alert and
+      // think the run is still going. requireInteraction keeps the
+      // toast pinned until they actively close it. Successful jobs
+      // keep the default auto-dismiss to stay polite.
+      requireInteraction: opts.status === 'failed',
     });
     // Click on the notification focuses our tab so the user lands
     // back where they left off.

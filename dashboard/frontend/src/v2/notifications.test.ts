@@ -143,13 +143,17 @@ describe('notifyJobTerminal gating', () => {
       tag: 'evalyn-job-j1',
       // failed jobs are NOT silent so the user notices them.
       silent: false,
+      // Failed jobs persist until dismissed - the OS auto-dismiss
+      // (~5s) is too short for a "your eval crashed" alert when
+      // the user is in another window.
+      requireInteraction: true,
     });
     // Body includes exit code + duration.
     expect(options.body).toContain('exit 2');
     expect(options.body).toContain('12.3s');
   });
 
-  it('uses silent=true on success (less intrusive)', () => {
+  it('uses silent=true and requireInteraction=false on success (less intrusive)', () => {
     const { ctorSpy } = installMockNotification('granted');
     Object.defineProperty(document, 'visibilityState', {
       value: 'hidden',
@@ -163,6 +167,8 @@ describe('notifyJobTerminal gating', () => {
     });
     const [, options] = ctorSpy.mock.calls[0];
     expect(options.silent).toBe(true);
+    // Successful jobs auto-dismiss; only failures pin until acked.
+    expect(options.requireInteraction).toBe(false);
   });
 
   it('per-job_id tag means a queued -> failed sequence replaces (not stacks)', () => {
