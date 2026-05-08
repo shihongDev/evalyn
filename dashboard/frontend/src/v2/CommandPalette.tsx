@@ -601,7 +601,11 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             gap: 10,
           }}
         >
-          <span style={{ fontFamily: E.fMono, fontSize: 12, color: E.text3 }}>{MOD_KEY}K</span>
+          {/* Sighted-only branding glyph - SR users already get
+              "Search commands, runs, datasets, and rubrics" from
+              the input's aria-label. Showing them ⌘K announced as
+              U+2318 K would be redundant noise. */}
+          <span aria-hidden="true" style={{ fontFamily: E.fMono, fontSize: 12, color: E.text3 }}>{MOD_KEY}K</span>
           <input
             ref={inputRef}
             value={query}
@@ -769,10 +773,16 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             fontFamily: E.fMono,
           }}
         >
-          <span>↑↓ navigate</span>
-          <span>↵ open</span>
-          <span>{MOD_KEY}↵ ask co-pilot</span>
-          <span>esc close</span>
+          {/* Sighted-only keyboard hints. The listbox role on the
+              results above already gives SR users the arrow-key /
+              enter / escape semantics implicitly, and the raw glyphs
+              here pronounce as Unicode codepoints ("U+2191 U+2193"
+              etc) which would just be noise. aria-hidden the whole
+              row so blind users skip past it. */}
+          <span aria-hidden="true">↑↓ navigate</span>
+          <span aria-hidden="true">↵ open</span>
+          <span aria-hidden="true">{MOD_KEY}↵ ask co-pilot</span>
+          <span aria-hidden="true">esc close</span>
           <span style={{ flex: 1 }} />
           <button
             type="button"
