@@ -1140,13 +1140,32 @@ export default function RunDetail() {
                   }
                 />
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
-                  {detail.failure_clusters.clusters.map((c) => (
+                  {detail.failure_clusters.clusters.map((c) => {
+                    // Warm the FailureCluster chunk + this cluster's
+                    // payload on hover/focus. Same pattern as the
+                    // tab-strip's warmFailuresTab at line 743 - the
+                    // tab warms the FIRST cluster, this list warms
+                    // each one as the user hovers over it. prefetchV2
+                    // dedupes by cache key so re-warming a cluster is
+                    // free, and clicking a pre-warmed row paints the
+                    // cluster page below the perception threshold.
+                    const warm = () => {
+                      void preloadFailureCluster();
+                      prefetchV2(
+                        `cluster:${detail.id}:${c.id}`,
+                        () => v2.cluster(detail.id, c.id),
+                      );
+                    };
+                    return (
                     <button
                       key={c.id}
                       type="button"
                       onClick={() =>
                         navigate(`/experiments/${encodeURIComponent(detail.id)}/cluster/${encodeURIComponent(c.id)}`)
                       }
+                      onMouseEnter={warm}
+                      onFocus={warm}
+                      aria-label={`Open cluster ${c.label}: ${c.count} failure${c.count === 1 ? '' : 's'}${c.regression ? ', regressed from baseline' : ''}`}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -1197,7 +1216,8 @@ export default function RunDetail() {
                         {c.count}
                       </span>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
