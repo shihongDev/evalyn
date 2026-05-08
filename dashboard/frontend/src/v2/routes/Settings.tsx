@@ -460,6 +460,7 @@ function SystemStatusCard() {
           size="sm"
           onClick={() => void handleVacuum()}
           disabled={vacuum.state === 'pending'}
+          aria-busy={vacuum.state === 'pending'}
           aria-label="Compact persistence database now"
           title="Run VACUUM on the sqlite mirror to reclaim space without restarting the server"
         >
@@ -529,6 +530,7 @@ function SystemStatusCard() {
             size="sm"
             onClick={() => void handlePrune()}
             disabled={prune.state === 'pending'}
+            aria-busy={prune.state === 'pending'}
             aria-label={
               pruneArm.armed
                 ? `Click again to delete persisted jobs older than the last ${pruneKeep}`
