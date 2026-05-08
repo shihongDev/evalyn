@@ -7,7 +7,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { E } from '../tokens';
-import { Btn, Card, Eyebrow, Pill } from '../ui';
+import { Btn, Card, Eyebrow, Pill, Spinner } from '../ui';
 import type { PendingConfirmation, ToolBlockEntry } from './types';
 
 export function Bubble({ who, children }: { who: 'you' | 'agent'; children: ReactNode }) {
@@ -435,7 +435,13 @@ export function PlanCard({
             onApprove();
           }}
         >
-          {clicked === 'approve' ? 'Approving...' : 'Approve & run →'}
+          {clicked === 'approve' ? (
+            <>
+              <Spinner size={11} /> Approving
+            </>
+          ) : (
+            'Approve & run →'
+          )}
         </Btn>
         <Btn
           kind="secondary"
@@ -448,7 +454,13 @@ export function PlanCard({
             onReject();
           }}
         >
-          {clicked === 'reject' ? 'Rejecting...' : 'Reject'}
+          {clicked === 'reject' ? (
+            <>
+              <Spinner size={11} /> Rejecting
+            </>
+          ) : (
+            'Reject'
+          )}
         </Btn>
       </div>
     </Card>
