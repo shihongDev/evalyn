@@ -1537,6 +1537,18 @@ function JobRow({ entry, onClick, onRerun, onCancel, onTogglePin }: JobRowProps)
       <button
         type="button"
         onClick={onClick}
+        // The synthesized child text already covers cli_id + args
+        // + status, but it lacks the verb context "open this job
+        // in the runner." aria-label puts the action first so SR
+        // users hear "Open run-eval, queued, args ... " not just
+        // "Job status queued, run-eval, args ..."
+        aria-label={
+          dim
+            ? `${entry.cli_id} (no longer available - server restart?)`
+            : `Open ${entry.cli_id}, ${entry.status}${
+                isLive && liveDuration ? `, running for ${liveDuration}` : ''
+              }`
+        }
         style={{
           display: 'flex',
           alignItems: 'flex-start',
