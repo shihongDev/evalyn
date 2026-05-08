@@ -3,7 +3,7 @@
  * Wires v2.cluster(runId, clusterId) into the design from screens-4.jsx.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Bar, Btn, Card, Eyebrow, Glossary, LineChart, Pill, Skeleton, Spinner, UpdatingChip } from '../ui';
@@ -14,6 +14,7 @@ import { useProject } from '../hooks/useProject';
 import { preloadCoPilotThread } from '../routePreloads';
 import { linkifyText, makeUrlCounter } from '../textRender';
 import { copyToClipboard } from '../clipboard';
+import { useFlashState } from '../hooks/useFlashState';
 import { E } from '../tokens';
 
 /** Render the cluster as portable markdown - label, prose pattern,
@@ -78,20 +79,20 @@ export default function FailureCluster() {
   );
 
   // Per-button copy state. Two buttons share the pattern: bundle-as-md
-  // for the whole cluster, and copy the suggested fix prose alone. Each
-  // flips its own label briefly so the user gets affordance feedback.
-  const [bundleCopy, setBundleCopy] = useState<'idle' | 'copied' | 'error'>('idle');
-  const [fixCopy, setFixCopy] = useState<'idle' | 'copied' | 'error'>('idle');
+  // for the whole cluster, and copy the suggested fix prose alone.
+  // useFlashState handles auto-revert + unmount cleanup so a fast
+  // navigation away mid-flash doesn't trigger a React state-update
+  // warning, and rapid double-clicks re-arm cleanly.
+  const [bundleCopy, flashBundleCopy] = useFlashState<'idle' | 'copied' | 'error'>('idle');
+  const [fixCopy, flashFixCopy] = useFlashState<'idle' | 'copied' | 'error'>('idle');
 
   async function handleCopyBundle() {
     if (!data) return;
     try {
       await copyToClipboard(clusterToMarkdown(data, runId));
-      setBundleCopy('copied');
-      window.setTimeout(() => setBundleCopy('idle'), 2000);
+      flashBundleCopy('copied', 2000);
     } catch {
-      setBundleCopy('error');
-      window.setTimeout(() => setBundleCopy('idle'), 3000);
+      flashBundleCopy('error', 3000);
     }
   }
 
@@ -99,11 +100,9 @@ export default function FailureCluster() {
     if (!data?.suggested_fix) return;
     try {
       await copyToClipboard(data.suggested_fix.body_md.trim());
-      setFixCopy('copied');
-      window.setTimeout(() => setFixCopy('idle'), 2000);
+      flashFixCopy('copied', 2000);
     } catch {
-      setFixCopy('error');
-      window.setTimeout(() => setFixCopy('idle'), 3000);
+      flashFixCopy('error', 3000);
     }
   }
 

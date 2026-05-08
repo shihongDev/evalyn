@@ -12,13 +12,14 @@
  * back -> same card is instant (useV2Resource module-level cache).
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, StackBar, StatusDot, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
 import type { DatasetDetail as DatasetDetailT } from '../api/types';
 import { useV2Resource } from '../hooks/useV2Resource';
+import { useFlashState } from '../hooks/useFlashState';
 import { useProject } from '../hooks/useProject';
 import { copyToClipboard } from '../clipboard';
 import { E } from '../tokens';
@@ -92,17 +93,15 @@ export default function DatasetDetail() {
     `dataset:${name}`,
     fetcher,
   );
-  const [exportState, setExportState] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [exportState, flashExportState] = useFlashState<'idle' | 'copied' | 'error'>('idle');
 
   async function handleExport() {
     if (!data) return;
     try {
       await copyToClipboard(datasetToMarkdown(data));
-      setExportState('copied');
-      window.setTimeout(() => setExportState('idle'), 2000);
+      flashExportState('copied', 2000);
     } catch {
-      setExportState('error');
-      window.setTimeout(() => setExportState('idle'), 3000);
+      flashExportState('error', 3000);
     }
   }
 

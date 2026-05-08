@@ -42,6 +42,7 @@ import {
   type CliSchema,
 } from '../api/cli';
 import { useV2Resource } from '../hooks/useV2Resource';
+import { useFlashState } from '../hooks/useFlashState';
 import { openCliRunner } from '../cliRunnerBridge';
 import {
   loadJobsHistory,
@@ -768,19 +769,17 @@ function ShellPreview({ cliId, values }: ShellPreviewProps) {
   const trimmed = useMemo(() => nonEmpty(values), [values]);
   const fullLine = useMemo(() => previewCommand(cliId, trimmed), [cliId, trimmed]);
 
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [copyState, flashCopyState] = useFlashState<'idle' | 'copied' | 'error'>('idle');
   const onCopy = useCallback(async () => {
     try {
       await copyToClipboard(fullLine);
-      setCopyState('copied');
-      window.setTimeout(() => setCopyState('idle'), 1100);
+      flashCopyState('copied', 1100);
     } catch {
       // Surface clipboard permission failures - silently swallowing
       // them left users tapping a "copy" button that did nothing.
-      setCopyState('error');
-      window.setTimeout(() => setCopyState('idle'), 2500);
+      flashCopyState('error', 2500);
     }
-  }, [fullLine]);
+  }, [fullLine, flashCopyState]);
 
   // Build display tokens: prompt, "evalyn <cmd>", then per-flag chunks.
   // Each chunk = "--flag value(s)" rendered on its own continuation line
@@ -889,8 +888,8 @@ function CommandForm({
   // Footer "Copy command" feedback. The button used to claim a Cmd+C
   // shortcut that was never wired and gave no on-click feedback;
   // shows whether the clipboard write actually landed.
-  const [footerCopyState, setFooterCopyState] =
-    useState<'idle' | 'copied' | 'error'>('idle');
+  const [footerCopyState, flashFooterCopyState] =
+    useFlashState<'idle' | 'copied' | 'error'>('idle');
 
   function setField(name: string, v: unknown) {
     setValues({ ...values, [name]: v });
@@ -899,11 +898,9 @@ function CommandForm({
   async function handleCopyCommand() {
     try {
       await copyToClipboard(previewCommand(cli.id, nonEmpty(values)));
-      setFooterCopyState('copied');
-      window.setTimeout(() => setFooterCopyState('idle'), 1500);
+      flashFooterCopyState('copied', 1500);
     } catch {
-      setFooterCopyState('error');
-      window.setTimeout(() => setFooterCopyState('idle'), 2500);
+      flashFooterCopyState('error', 2500);
     }
   }
 

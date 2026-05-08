@@ -36,6 +36,7 @@ import type {
   ExperimentItemsSort,
 } from '../api/types';
 import { useV2Resource, prefetchV2 } from '../hooks/useV2Resource';
+import { useFlashState } from '../hooks/useFlashState';
 import { useProject } from '../hooks/useProject';
 import { useSearchFilter } from '../hooks/useSearchFilter';
 import { preloadFailureCluster } from '../routePreloads';
@@ -212,15 +213,13 @@ export default function RunDetail() {
   // Inline status for header actions - replaces window.alert dialogs that
   // jarred against the v2 design. shareState toggles the "Share" button
   // label, rerunErr surfaces failures from the run-eval form-open path.
-  const [shareState, setShareState] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [shareState, flashShareState] = useFlashState<'idle' | 'copied' | 'error'>('idle');
   // Independent state for the inline-id copy affordance below the
   // status-dot row. Tracking separately from `shareState` so the
   // Share button (URL) and the id click (id only) report their own
   // success/failure without one button's click affecting the other's
   // visual feedback.
-  const [idCopyState, setIdCopyState] = useState<'idle' | 'copied' | 'error'>(
-    'idle',
-  );
+  const [idCopyState, flashIdCopyState] = useFlashState<'idle' | 'copied' | 'error'>('idle');
   const [rerunErr, setRerunErr] = useState<string | null>(null);
 
   function clearCompare(): void {
@@ -358,11 +357,9 @@ export default function RunDetail() {
     // can paste straight into Slack/email/etc.
     try {
       await copyToClipboard(window.location.href);
-      setShareState('copied');
-      window.setTimeout(() => setShareState('idle'), 2000);
+      flashShareState('copied', 2000);
     } catch {
-      setShareState('error');
-      window.setTimeout(() => setShareState('idle'), 3000);
+      flashShareState('error', 3000);
     }
   }
 
@@ -374,11 +371,9 @@ export default function RunDetail() {
     if (!detail) return;
     try {
       await copyToClipboard(detail.id);
-      setIdCopyState('copied');
-      window.setTimeout(() => setIdCopyState('idle'), 2000);
+      flashIdCopyState('copied', 2000);
     } catch {
-      setIdCopyState('error');
-      window.setTimeout(() => setIdCopyState('idle'), 3000);
+      flashIdCopyState('error', 3000);
     }
   }
 
