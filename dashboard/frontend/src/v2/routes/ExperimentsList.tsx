@@ -818,11 +818,19 @@ export default function ExperimentsList() {
             kind="ghost"
             size="sm"
             onClick={openCompare}
-            disabled={selected.length === 0}
+            // Disabled unless EXACTLY 2 are selected. The earlier
+            // condition `=== 0` left the button enabled with 1 or 3+
+            // selected - clicks just set a hint banner, which is
+            // noisier feedback than communicating actionability via
+            // affordance state. The defensive check inside openCompare
+            // stays as a programmatic-call safety net.
+            disabled={selected.length !== 2}
             title={
               selected.length === 2
                 ? 'Open both runs side-by-side'
-                : 'Click any 2 nodes to enable compare'
+                : selected.length === 1
+                  ? 'Select 1 more run to enable compare'
+                  : 'Click any 2 nodes to enable compare'
             }
           >
             ⇄ Compare 2
