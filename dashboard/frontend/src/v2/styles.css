@@ -256,12 +256,19 @@ textarea:focus-visible {
     box-shadow 140ms ease,
     transform 140ms ease;
 }
-.eCardHover:hover {
+.eCardHover:hover,
+.eCardHover:focus-within {
   box-shadow: 0 6px 20px rgba(20, 18, 14, 0.08);
   transform: translateY(-1px);
 }
+/* :focus-within catches keyboard focus on the card itself AND on
+   any focusable descendant (e.g. the checkbox inside Datasets'
+   CoverageCard). The previous rule was hover-only, so tabbing onto
+   any clickable Card got just the global outline ring without the
+   lift - mouse and keyboard users got asymmetric feedback. */
 @media (prefers-reduced-motion: reduce) {
-  .eCardHover:hover {
+  .eCardHover:hover,
+  .eCardHover:focus-within {
     transform: none;
   }
 }

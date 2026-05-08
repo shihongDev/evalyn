@@ -153,6 +153,14 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
   // React-state status for the visible-disabled UX; this ref
   // defends against the sub-frame race regardless of caller.
   const sendInFlightRef = useRef(false);
+  // Same protection for confirm(). Approve/Reject buttons
+  // disable while pending !== null, but a same-frame double-
+  // tap on Approve sees `pending` in the closure on both calls
+  // and fires two POSTs. The backend 409s the second (already-
+  // confirmed), and the FE's catch sets an error - so a fast
+  // double-click on the Approve card surfaces a spurious error
+  // banner. The ref blocks the second call before any setState.
+  const confirmInFlightRef = useRef(false);
   /**
    * Generation counter for `resetTo`. Captured at the start of `send` and
    * compared after the await: if it advanced, the response belongs to a
@@ -601,6 +609,13 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
     async (approve: boolean) => {
       const tid = threadIdRef.current;
       if (!tid || !pending) return;
+      // Synchronous in-flight guard. Without this, a fast
+      // double-tap on Approve fires two confirmAgentTool POSTs:
+      // backend 409s the second, FE's catch sets a spurious
+      // "already confirmed" error banner that the user has to
+      // dismiss.
+      if (confirmInFlightRef.current) return;
+      confirmInFlightRef.current = true;
       try {
         await api.confirmAgentTool(tid, approve, pending.tool_call_id);
         setPending(null);
@@ -612,6 +627,8 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
         // the composer (which guards on `pending != null`) is locked
         // forever (F2). Clearing pending lets the user retry or send.
         setPending(null);
+      } finally {
+        confirmInFlightRef.current = false;
       }
     },
     [pending],
