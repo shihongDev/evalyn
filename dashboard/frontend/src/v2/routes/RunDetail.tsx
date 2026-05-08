@@ -1486,12 +1486,15 @@ export default function RunDetail() {
                 onClick={jumpToFailedItems}
                 title="Open the Items tab pre-filtered to failed items - filter and sort options live there"
               >
-                Filter & sort →
+                Filter &amp; sort <span aria-hidden="true">→</span>
               </Btn>
             </div>
+            <div role="list" aria-label={`Top ${detail.failed_items_preview.length} failed items in this run`}>
             {detail.failed_items_preview.map((s, i) => (
               <div
                 key={s.id}
+                role="listitem"
+                aria-label={`Item ${s.id}, cluster ${s.cluster}, score ${s.score}: user said "${s.user}", expected "${s.expected}", got "${s.got}"`}
                 style={{
                   padding: '14px 18px',
                   borderTop: i ? `1px solid ${E.hair}` : 'none',
@@ -1524,6 +1527,7 @@ export default function RunDetail() {
                 <div style={{ textAlign: 'right', fontFamily: E.fSerif, fontSize: 16, color: E.fail }}>{s.score}</div>
               </div>
             ))}
+            </div>
             <div
               style={{
                 padding: '11px 18px',
@@ -1539,7 +1543,7 @@ export default function RunDetail() {
                 onClick={jumpToFailedItems}
                 title="Open the Items tab filtered to failed items"
               >
-                View all {detail.failure_clusters.total_failures} failures →
+                View all {detail.failure_clusters.total_failures} failures <span aria-hidden="true">→</span>
               </Btn>
             </div>
           </Card>
