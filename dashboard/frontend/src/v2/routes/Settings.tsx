@@ -152,7 +152,13 @@ export default function Settings() {
               </div>
             </div>
             <div style={{ marginTop: 10 }}>
-              <Btn kind="secondary" size="sm" onClick={() => void refetch()} disabled={reloading}>
+              <Btn
+                kind="secondary"
+                size="sm"
+                onClick={() => void refetch()}
+                disabled={reloading}
+                aria-busy={reloading}
+              >
                 {reloading ? <><Spinner size={11} /> Retrying</> : 'Retry'}
               </Btn>
             </div>
@@ -539,6 +545,7 @@ function SystemStatusCard() {
           <input
             id="system-prune-keep"
             type="number"
+            inputMode="numeric"
             min={0}
             value={pruneKeep}
             onChange={(e) => {
@@ -1390,10 +1397,22 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
           flexWrap: 'wrap',
         }}
       >
-        <Btn kind="primary" size="md" onClick={() => void handleSave()} disabled={!dirty || saving}>
+        <Btn
+          kind="primary"
+          size="md"
+          onClick={() => void handleSave()}
+          disabled={!dirty || saving}
+          aria-busy={saving}
+        >
           {saving ? <><Spinner size={11} /> Saving</> : 'Save'}
         </Btn>
-        <Btn kind="secondary" size="md" onClick={() => void handleTest()} disabled={testing || !state.is_set}>
+        <Btn
+          kind="secondary"
+          size="md"
+          onClick={() => void handleTest()}
+          disabled={testing || !state.is_set}
+          aria-busy={testing}
+        >
           {testing ? <><Spinner size={11} /> Testing</> : 'Test connection'}
         </Btn>
         {testResult && (
