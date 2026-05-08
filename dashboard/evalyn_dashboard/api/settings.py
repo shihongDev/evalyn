@@ -15,10 +15,13 @@ Routes:
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -77,6 +80,7 @@ async def set_active(request: Request) -> JSONResponse:
         store.set_active(provider)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    logger.info("settings active provider set: provider=%s", provider)
     return JSONResponse({"ok": True, "active": provider})
 
 
@@ -117,6 +121,14 @@ async def test_provider(request: Request, provider: str) -> JSONResponse:
     store = _get_store(request)
     result = store.test_provider(provider)
     status = 200 if result.get("ok") else 400
+    # Audit log: capture intent + outcome but never the api_key value.
+    # ok=False is interesting in its own right (key rotated, network
+    # down, model removed) so we always log.
+    logger.info(
+        "settings provider tested: provider=%s ok=%s",
+        provider,
+        bool(result.get("ok")),
+    )
     return JSONResponse(result, status_code=status)
 
 
@@ -160,6 +172,7 @@ async def delete_provider(request: Request, provider: str) -> JSONResponse:
         raise HTTPException(
             status_code=404, detail=f"unknown provider: {provider}"
         )
+    logger.info("settings provider removed: provider=%s", provider)
     return JSONResponse({"ok": True, "provider": provider})
 
 
@@ -187,6 +200,24 @@ async def set_provider(request: Request, provider: str) -> JSONResponse:
         )
 
     store.set_provider(provider, api_key=api_key, model=model, base_url=base_url)
+    # Audit log: record WHICH fields were touched but never the
+    # values. api_key is the privacy-sensitive one - we MUST NOT log
+    # it. model + base_url are also kept off-record for symmetry +
+    # to avoid leaking a private deployment URL into operator logs.
+    fields_changed = [
+        name
+        for name, value in (
+            ("api_key", api_key),
+            ("model", model),
+            ("base_url", base_url),
+        )
+        if value is not None
+    ]
+    logger.info(
+        "settings provider upserted: provider=%s fields=%s",
+        provider,
+        ",".join(fields_changed) or "<none>",
+    )
     return JSONResponse({"ok": True, "provider": provider})
 
 
