@@ -990,6 +990,10 @@ def test_purge_old_threads_emits_audit_log(tmp_path: Path, caplog) -> None:
     ]
     assert len(matched) == 1
     assert "max_age_s=60" in matched[0].message
+    # Duration captured so operators can spot slow purges on
+    # workspaces with many threads (purge is O(N) scan over
+    # _threads). Matches vacuum/prune audit-log shape.
+    assert "elapsed_ms=" in matched[0].message
 
 
 def test_delete_thread_emits_audit_log_only_on_success(tmp_path: Path, caplog) -> None:
