@@ -512,6 +512,8 @@ export function RecentJobsDrawer({
     let succeeded = 0;
     let hitCap = false;
     let capInfo: { running: number; max: number; retryAfterSeconds: number } | null = null;
+    let otherFailures = 0;
+    let firstOtherReason: unknown = null;
     try {
       for (const entry of targets) {
         try {
@@ -541,7 +543,14 @@ export function RecentJobsDrawer({
             };
             break;
           }
+          // Non-capacity failure (network, server error, validation).
+          // Keep going so a single bad row doesn't block N-1 retries,
+          // but track the count + first reason so we can surface a
+          // banner at the end. Without this the user can click
+          // "Re-run all 5" and see nothing happen.
           console.warn('bulk restartJob failed for', entry.job_id, err);
+          otherFailures += 1;
+          if (firstOtherReason === null) firstOtherReason = err;
         }
       }
     } finally {
@@ -551,6 +560,17 @@ export function RecentJobsDrawer({
       const remaining = targets.length - succeeded;
       setActionMessage(
         `Re-ran ${succeeded} / ${targets.length}; queue full (${capInfo.running} / ${capInfo.max} running). ${formatCapacityRetryHint(capInfo.retryAfterSeconds)} for the remaining ${remaining}.`,
+      );
+    } else if (otherFailures > 0) {
+      // Non-capacity failures fell through the cap branch. Surface
+      // them so the user knows their click was attempted but didn't
+      // fully take effect. All-failed gets a starker phrasing than
+      // partial because the user has nothing to celebrate.
+      const reason = errorMessage(firstOtherReason);
+      setActionMessage(
+        succeeded === 0
+          ? `Bulk Re-run failed for all ${targets.length} job${targets.length === 1 ? '' : 's'}: ${reason}.`
+          : `Re-ran ${succeeded} of ${targets.length}; ${otherFailures} failed: ${reason}.`,
       );
     }
     // After a successful bulk run, drop the failure filter so the
