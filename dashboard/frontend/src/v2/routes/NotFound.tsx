@@ -75,7 +75,20 @@ export default function NotFound() {
           >
             ◌
           </span>
-          <Eyebrow>Page not found</Eyebrow>
+          <Eyebrow>404</Eyebrow>
+          <h1
+            style={{
+              fontFamily: E.fSerif,
+              fontSize: 28,
+              fontWeight: 400,
+              color: E.text0,
+              letterSpacing: '-0.012em',
+              lineHeight: 1.1,
+              margin: '6px 0 0',
+            }}
+          >
+            Page not found
+          </h1>
           <div
             style={{
               marginTop: 10,
@@ -120,44 +133,57 @@ export default function NotFound() {
                   flexWrap: 'wrap',
                 }}
               >
-                {suggestions.map((s) => (
-                  <button
-                    key={s.path}
-                    type="button"
-                    onClick={() => navigate(s.path)}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = E.ember;
-                      e.currentTarget.style.color = E.ember;
-                      // Warm the route chunk while the user is still
-                      // hovering so the click->paint path is in cache.
-                      // Same pattern as the AppShell nav rail and
-                      // every in-page list link.
-                      const fn = preloadByPath(s.path);
-                      if (fn) void fn();
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = E.hair;
-                      e.currentTarget.style.color = E.text2;
-                    }}
-                    onFocus={() => {
-                      const fn = preloadByPath(s.path);
-                      if (fn) void fn();
-                    }}
-                    style={{
-                      fontFamily: E.fMono,
-                      fontSize: 12,
-                      color: E.text2,
-                      background: 'transparent',
-                      border: `1px solid ${E.hair}`,
-                      borderRadius: 999,
-                      padding: '5px 12px',
-                      cursor: 'pointer',
-                      transition: 'all 140ms',
-                    }}
-                  >
-                    {s.label} <span style={{ color: E.text3 }}>({s.path})</span>
-                  </button>
-                ))}
+                {suggestions.map((s) => {
+                  // Mirror hover styles on focus so keyboard users
+                  // tabbing to a suggestion get the same ember
+                  // highlight that mouse users get on hover. The
+                  // earlier version only fired on mouse events,
+                  // leaving Tab-focused buttons visually flat.
+                  const hi = (el: HTMLButtonElement) => {
+                    el.style.borderColor = E.ember;
+                    el.style.color = E.ember;
+                  };
+                  const lo = (el: HTMLButtonElement) => {
+                    el.style.borderColor = E.hair;
+                    el.style.color = E.text2;
+                  };
+                  return (
+                    <button
+                      key={s.path}
+                      type="button"
+                      onClick={() => navigate(s.path)}
+                      onMouseEnter={(e) => {
+                        hi(e.currentTarget);
+                        // Warm the route chunk while the user is
+                        // still hovering so click->paint stays in
+                        // cache. Same pattern as the AppShell nav
+                        // rail and every in-page list link.
+                        const fn = preloadByPath(s.path);
+                        if (fn) void fn();
+                      }}
+                      onMouseLeave={(e) => lo(e.currentTarget)}
+                      onFocus={(e) => {
+                        hi(e.currentTarget);
+                        const fn = preloadByPath(s.path);
+                        if (fn) void fn();
+                      }}
+                      onBlur={(e) => lo(e.currentTarget)}
+                      style={{
+                        fontFamily: E.fMono,
+                        fontSize: 12,
+                        color: E.text2,
+                        background: 'transparent',
+                        border: `1px solid ${E.hair}`,
+                        borderRadius: 999,
+                        padding: '5px 12px',
+                        cursor: 'pointer',
+                        transition: 'border-color 140ms, color 140ms',
+                      }}
+                    >
+                      {s.label} <span style={{ color: E.text3 }}>({s.path})</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
