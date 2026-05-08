@@ -55,15 +55,22 @@ async def purge_old_threads(
     runtime = getattr(request.app.state, "agent_runtime", None)
     if runtime is None:
         raise HTTPException(status_code=503, detail="agent runtime not configured")
+    import time as _time
+
+    purge_start = _time.monotonic()
     removed = runtime.purge_old_threads(max_age_s)
+    elapsed_ms = int((_time.monotonic() - purge_start) * 1000)
     # Audit log: like the jobs admin endpoints, capture intent
-    # (max_age_s) AND outcome (removed). Useful for "did the
-    # cleanup cron actually do anything during the incident
-    # window?" forensics.
+    # (max_age_s) AND outcome (removed) AND duration. Duration
+    # matters because purge_old_threads scans every thread O(N) -
+    # on a workspace with many threads (e.g. heavy chat session
+    # archive) it could be slow enough that operators want to
+    # see the cost. Matches vacuum/prune audit log shape.
     logger.info(
-        "agent purge_old_threads: max_age_s=%s removed=%s",
+        "agent purge_old_threads: max_age_s=%s removed=%s elapsed_ms=%s",
         max_age_s,
         removed,
+        elapsed_ms,
     )
     return JSONResponse({"removed": removed})
 
