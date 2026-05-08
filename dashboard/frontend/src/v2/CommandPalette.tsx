@@ -613,7 +613,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           style={{ flex: 1, minHeight: 0, overflow: 'auto' }}
         >
           {errs.length > 0 && (
-            <div style={{ padding: 16, fontSize: 12, color: E.fail, fontFamily: E.fMono }}>
+            <div role="alert" style={{ padding: 16, fontSize: 12, color: E.fail, fontFamily: E.fMono }}>
               {errs.join(' / ')}
             </div>
           )}

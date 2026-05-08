@@ -84,6 +84,60 @@ const READ_ONLY_ALLOWLIST: ReadonlySet<string> = new Set([
 
 const MAX_OUTPUT_LINES = 1000;
 
+/** Marker prefix for the client-side overflow indicator. Tested as
+ * a startsWith check so the marker line can include a count that
+ * grows over time without breaking detection. Kept narrow so we
+ * don't accidentally classify a server-dropped marker (different
+ * prefix) as a client one. */
+const CLIENT_OVERFLOW_PREFIX = '[client buffer rolled over';
+
+function isClientOverflowMarker(line: { kind: string; text: string }): boolean {
+  return line.kind === 'system' && line.text.startsWith(CLIENT_OVERFLOW_PREFIX);
+}
+
+/** Pure helper: merge a previous lines buffer with newly arrived
+ * lines, applying client-side overflow handling. Extracted so the
+ * logic is unit-testable without rendering the runner.
+ *
+ * If `prev` starts with our own overflow marker it is stripped
+ * before measuring overflow (otherwise we'd double-count it as a
+ * real line). Server "[server dropped ...]" markers ARE real lines
+ * and stay in the buffer.
+ *
+ * Returns the new lines array AND the cumulative dropped count so
+ * the caller can persist the count across calls. */
+export function mergeLinesWithOverflow(
+  prev: JobLine[],
+  buf: JobLine[],
+  prevDropped: number,
+  maxLines: number,
+  now: number = Date.now() / 1000,
+): { lines: JobLine[]; dropped: number } {
+  const stripped =
+    prev.length > 0 && isClientOverflowMarker(prev[0]) ? prev.slice(1) : prev;
+  const merged = stripped.concat(buf);
+  const trimmed =
+    merged.length > maxLines
+      ? merged.slice(merged.length - maxLines)
+      : merged;
+  const overflow = merged.length - trimmed.length;
+  const dropped = prevDropped + overflow;
+  if (dropped > 0) {
+    return {
+      lines: [
+        {
+          kind: 'system',
+          text: `[client buffer rolled over: ${dropped.toLocaleString()} earlier lines hidden]`,
+          ts: now,
+        },
+        ...trimmed,
+      ],
+      dropped,
+    };
+  }
+  return { lines: trimmed, dropped };
+}
+
 /** Coerce a CliParam value through its kind. Empty strings -> undefined. */
 function coerce(kind: CliParamKind, raw: unknown): unknown {
   if (raw === undefined || raw === null) return undefined;
@@ -325,6 +379,12 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
   // raw stream rather than `lines` state because the visible buffer
   // ring-trims at MAX_OUTPUT_LINES; we want the TRUE total.
   const stderrCountRef = useRef(0);
+  // Cumulative count of lines the CLIENT buffer dropped on rollover.
+  // Mirrors the server's "[server dropped N earlier lines]" marker.
+  // Without this, a user running a chatty eval (>1000 lines) sees the
+  // tail and has no clue earlier output was hidden - they could miss
+  // the stack-trace start. Reset on every fresh Run / Re-run.
+  const clientDroppedRef = useRef(0);
 
   const flushLineBuffer = useCallback(() => {
     flushScheduledRef.current = null;
@@ -332,11 +392,14 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
     if (buf.length === 0) return;
     linesBufferRef.current = [];
     setLines((prev) => {
-      const merged = prev.concat(buf);
-      if (merged.length > MAX_OUTPUT_LINES) {
-        return merged.slice(merged.length - MAX_OUTPUT_LINES);
-      }
-      return merged;
+      const result = mergeLinesWithOverflow(
+        prev,
+        buf,
+        clientDroppedRef.current,
+        MAX_OUTPUT_LINES,
+      );
+      clientDroppedRef.current = result.dropped;
+      return result.lines;
     });
   }, []);
 
@@ -646,6 +709,7 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
     }
     linesBufferRef.current = [];
     stderrCountRef.current = 0;
+    clientDroppedRef.current = 0;
     // Drop any lingering "Reconnecting" indicator from the previous run.
     if (reconnectArmTimerRef.current != null) {
       window.clearTimeout(reconnectArmTimerRef.current);
@@ -877,6 +941,7 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
 
           {error && (
             <div
+              role="alert"
               style={{
                 background: E.failDim,
                 border: `1px solid ${E.fail}33`,
