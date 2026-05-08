@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`/api/jobs/{id}/output.txt?tail=N`: added upper bound (100000).** Symmetric with `/recent`'s existing `limit <= 1000` cap. Pre-fix only validated `tail >= 1`; an absurd value like `?tail=999999999` would be accepted (the slice is bounded by data, but the validation should fail fast on obviously-wrong inputs rather than rely on data-bounded behavior). 100000 chosen well above any realistic manual-review number while still rejecting accidental `Number.MAX_SAFE_INTEGER`. Two new test assertions: `tail=100001` returns 400 with detail mentioning the cap, `tail=100000` is allowed (boundary check). Verified by reverting the upper-bound block and watching the test fail.
+
 ### Fixed
 
 - **Co-pilot pending confirmation card cleared on tool_call_complete.** Customer scenario: backend's 5-minute confirmation timeout fires; agent emits `tool_call_complete` with `ok=false` + output `"user did not confirm (timeout)"` and clears `pending_tool_call_id` server-side. Pre-fix the FE left the Approve / Reject card mounted - user comes back to a stale card, clicks Approve, and gets a 409 from the backend ("tool_call_id does not match the currently pending confirmation"). Confusing because the visible UI card said "approve me" but the backend had already moved on. Now the FE's tool_call_complete handler clears `pending` if its `tool_call_id` matches the currently-pending confirmation. Defense: F8b pin verifies that `tool_call_complete` for an UNRELATED tool (e.g. agent ran a read-only auto-approve tool while waiting for confirm on a different one) does NOT clobber the user's pending card. F8 + F8b add 2 new vitest cases (221 total, was 219 + 2 new).

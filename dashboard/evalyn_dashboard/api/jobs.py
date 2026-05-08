@@ -613,10 +613,24 @@ async def get_job_output_txt(
             status_code=400,
             detail="stream must be 'stdout' or 'stderr' if provided",
         )
-    if tail is not None and tail < 1:
-        raise HTTPException(
-            status_code=400, detail="tail must be >= 1 if provided"
-        )
+    if tail is not None:
+        if tail < 1:
+            raise HTTPException(
+                status_code=400, detail="tail must be >= 1 if provided"
+            )
+        # Symmetric upper bound with /recent's `limit <= 1000` cap
+        # plus headroom for log-tail use cases where 1000 is too
+        # tight. 100_000 is well above any realistic manual-review
+        # number while still rejecting accidental Number.MAX_SAFE_INTEGER.
+        # Defends against a buggy client URL like ``?tail=999999999``
+        # forcing the server to walk a needlessly large slice of
+        # job.events even when the underlying log is shorter (the
+        # slice is cheap but the validation should fail fast on
+        # absurd inputs rather than rely on data-bounded behavior).
+        if tail > 100_000:
+            raise HTTPException(
+                status_code=400, detail="tail must be <= 100000"
+            )
 
     def _meta_prefix() -> str:
         """Return the ``# ...`` header lines for ``?include_meta=1``,

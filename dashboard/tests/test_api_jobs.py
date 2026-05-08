@@ -258,6 +258,18 @@ def test_output_txt_tail_filter():
         r3 = client.get(f"/api/jobs/{job_id}/output.txt?tail=0")
         assert r3.status_code == 400
 
+        # tail above the upper bound rejected. Symmetric with
+        # /recent's `limit <= 1000` cap; defends against a buggy
+        # client URL like ?tail=999999999. 100000 chosen as well
+        # above any realistic manual-review number.
+        r4 = client.get(f"/api/jobs/{job_id}/output.txt?tail=100001")
+        assert r4.status_code == 400
+        assert "100000" in r4.json()["detail"]
+
+        # Boundary: tail=100000 is allowed.
+        r5 = client.get(f"/api/jobs/{job_id}/output.txt?tail=100000")
+        assert r5.status_code == 200
+
 
 def test_output_txt_stream_filter():
     """?stream=stdout returns only stdout lines; ?stream=stderr returns
