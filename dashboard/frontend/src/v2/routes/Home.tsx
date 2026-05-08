@@ -740,7 +740,18 @@ function LiveStreamingCard({ experiments, onNavigate }: LiveStreamingCardProps) 
             prefetchV2(`experiment:${live.id}`, () => v2.experiment(live.id));
           }}
           title={`Open ${live.name}`}
-          aria-label={`Open live run ${live.name}`}
+          // Fold progress into the label so SR users hear the
+          // same "X of Y" they see in the visible /Bar pair.
+          // Without this, blind users got the run name and a
+          // silent decorative bar - no way to gauge progress.
+          aria-label={(() => {
+            const base = `Open live run ${live.name}`;
+            if (live.progress && live.progress.total > 0) {
+              const pct = Math.round((live.progress.done / live.progress.total) * 100);
+              return `${base}, ${live.progress.done} of ${live.progress.total} items, ${pct} percent complete`;
+            }
+            return base;
+          })()}
           style={{
             display: 'block',
             textAlign: 'left',
