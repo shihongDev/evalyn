@@ -65,8 +65,15 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if method in MUTATING_METHODS and path.startswith("/api/"):
             sent = request.headers.get(CSRF_HEADER)
             if not sent or not secrets.compare_digest(sent, self.token):
+                # Use the same `{"detail": ...}` shape FastAPI's
+                # HTTPException emits, so FE error parsers (most
+                # of which `res.text()` and surface the body
+                # verbatim) get a consistent JSON key across all
+                # error sources. The settings.ts shim that read
+                # both `j.error ?? j.detail` continues to work
+                # because the fallback is now hit first.
                 return JSONResponse(
-                    {"error": "missing or invalid workbench token"},
+                    {"detail": "missing or invalid workbench token"},
                     status_code=403,
                 )
         return await call_next(request)
@@ -538,7 +545,10 @@ def build_app(
     @app.get("/{full_path:path}", response_class=HTMLResponse)
     async def spa_fallback(full_path: str) -> Response:
         if full_path.startswith("api/"):
-            return JSONResponse({"error": "not found"}, status_code=404)
+            # `detail` (not `error`) keeps the response shape
+            # aligned with FastAPI's HTTPException convention -
+            # see CSRFMiddleware above for the same rationale.
+            return JSONResponse({"detail": "not found"}, status_code=404)
         return HTMLResponse(_read_index_html(csrf_token))
 
     return app

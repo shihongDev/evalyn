@@ -132,6 +132,41 @@ def test_unknown_api_route_does_not_fall_back_to_index() -> None:
     assert r.status_code == 404
 
 
+def test_unknown_api_route_returns_detail_shape() -> None:
+    """The SPA fallback's API 404 response uses the `{"detail": ...}`
+    shape, matching FastAPI's HTTPException convention. Previously
+    used `{"error": ...}` which broke the FE error parser
+    consistency (settings.ts handled both via `j.error ?? j.detail`
+    but other modules just `res.text()` and surfaced the body
+    verbatim - keying off the JSON shape made debug logs noisier).
+    Pin so this can't drift back to the `error` key.
+    """
+    client = TestClient(build_app())
+    r = client.get("/api/does-not-exist")
+    assert r.status_code == 404
+    body = r.json()
+    assert "detail" in body
+    assert body["detail"] == "not found"
+    # Defensive: the old key must NOT also be present.
+    assert "error" not in body
+
+
+def test_csrf_rejection_uses_detail_shape() -> None:
+    """The CSRF middleware's 403 response uses the `{"detail": ...}`
+    shape, matching FastAPI's HTTPException convention. Same
+    rationale as the SPA fallback test above.
+    """
+    client = TestClient(build_app())
+    # POST without the X-Workbench-Token header trips the CSRF
+    # middleware before any route handler runs.
+    r = client.post("/api/jobs/admin/vacuum")
+    assert r.status_code == 403
+    body = r.json()
+    assert "detail" in body
+    assert "workbench token" in body["detail"].lower()
+    assert "error" not in body
+
+
 # ---- A1.4: browser auto-open scheduling -----------------------------------
 
 
