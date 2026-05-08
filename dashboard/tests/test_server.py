@@ -258,6 +258,41 @@ def test_settings_get_returns_redacted_view() -> None:
     assert "providers" in body and "active" in body
 
 
+def test_resolve_positive_float_env_falls_back_safely(monkeypatch) -> None:
+    """``_resolve_positive_float_env`` must accept positive numerics
+    (int or float), fall back to ``default`` on unset/empty/garbage/
+    zero/negative/NaN. Used by the agent-thread auto-purge knobs
+    (EVALYN_AGENT_PURGE_INTERVAL_S, EVALYN_AGENT_THREAD_TTL_S) so
+    a typo in operator config can't silently convert "purge every
+    hour" into "purge every second" or "never purge."
+    """
+    from evalyn_dashboard.server import _resolve_positive_float_env
+
+    cases: list[tuple[str | None, float, float]] = [
+        # (env value, default, expected)
+        (None, 60.0, 60.0),  # unset -> default
+        ("", 60.0, 60.0),  # empty -> default
+        ("  ", 60.0, 60.0),  # whitespace -> default
+        ("3600", 60.0, 3600.0),  # int string
+        ("3600.5", 60.0, 3600.5),  # float string
+        ("  3600  ", 60.0, 3600.0),  # whitespace tolerant
+        ("garbage", 60.0, 60.0),  # unparseable -> default
+        ("0", 60.0, 60.0),  # zero rejected -> default
+        ("-1", 60.0, 60.0),  # negative rejected -> default
+        ("nan", 60.0, 60.0),  # NaN rejected -> default
+        ("inf", 60.0, float("inf")),  # +inf is positive, accepted
+        # Note: -inf is negative, rejected.
+        ("-inf", 60.0, 60.0),
+    ]
+    for raw, default, expected in cases:
+        if raw is None:
+            monkeypatch.delenv("EVALYN_TEST_FLOAT_VAR", raising=False)
+        else:
+            monkeypatch.setenv("EVALYN_TEST_FLOAT_VAR", raw)
+        actual = _resolve_positive_float_env("EVALYN_TEST_FLOAT_VAR", default)
+        assert actual == expected, f"raw={raw!r} expected={expected} got={actual}"
+
+
 @pytest.mark.parametrize(
     "raw,expected",
     [
