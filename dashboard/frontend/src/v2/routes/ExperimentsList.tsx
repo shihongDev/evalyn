@@ -224,6 +224,7 @@ function LineageNode({ run, selected, onToggleSelect, onOpen }: NodeProps) {
   };
   return (
     <div
+      role="listitem"
       style={{ position: 'relative', marginBottom: 12 }}
       onMouseEnter={warm}
     >
@@ -1091,17 +1092,22 @@ export default function ExperimentsList() {
                   </Btn>
                 </Card>
               ) : (
-                visible.map((run) => (
-                  <LineageNode
-                    key={run.id}
-                    run={run}
-                    selected={selected.includes(run.id)}
-                    onToggleSelect={() => toggleSelected(run.id)}
-                    onOpen={() =>
-                      navigate(`/experiments/${encodeURIComponent(run.id)}`)
-                    }
-                  />
-                ))
+                <div
+                  role="list"
+                  aria-label={`${visible.length} experiment run${visible.length === 1 ? '' : 's'}`}
+                >
+                  {visible.map((run) => (
+                    <LineageNode
+                      key={run.id}
+                      run={run}
+                      selected={selected.includes(run.id)}
+                      onToggleSelect={() => toggleSelected(run.id)}
+                      onOpen={() =>
+                        navigate(`/experiments/${encodeURIComponent(run.id)}`)
+                      }
+                    />
+                  ))}
+                </div>
               )}
             </div>
 
