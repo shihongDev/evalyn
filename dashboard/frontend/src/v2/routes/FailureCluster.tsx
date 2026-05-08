@@ -261,9 +261,12 @@ export default function FailureCluster() {
                   }}
                 >
                   <Eyebrow style={{ marginBottom: 6 }}>Common 3-word fragments</Eyebrow>
+                  <div role="list" aria-label="Common 3-word fragments by frequency">
                   {data.triggers.map((r) => (
                     <div
                       key={r.phrase}
+                      role="listitem"
+                      aria-label={`"${r.phrase}" appears ${r.count} time${r.count === 1 ? '' : 's'}`}
                       style={{
                         display: 'grid',
                         gridTemplateColumns: '160px 1fr 30px',
@@ -288,6 +291,7 @@ export default function FailureCluster() {
                       </span>
                     </div>
                   ))}
+                  </div>
                 </div>
               </Card>
 
