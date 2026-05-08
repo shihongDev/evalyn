@@ -453,16 +453,17 @@ export function RecentJobsDrawer({
         );
         return;
       }
-      console.warn('restartJob failed; falling back to prefill', err);
-      const cli = cliCatalog?.find((c) => c.id === entry.cli_id);
-      if (!cli) {
-        onRowClick(entry);
-        return;
-      }
-      openCliRunner(cli, {
-        initialValues: entry.cli_args,
-      });
-      onClose();
+      console.warn('restartJob failed', err);
+      // Surface the failure in-drawer so the user knows their
+      // Re-run click was attempted but didn't take effect. Don't
+      // auto-fallback to opening the runner: that hides the
+      // failure (the drawer closes before the user can read why)
+      // and is one extra UI shift away from where they clicked.
+      // The drawer banner gives them the reason; they can click
+      // Re-run again to retry or click the row to open details.
+      setActionMessage(
+        `Re-run failed: ${errorMessage(err)}. Click Re-run again to retry, or open the row for details.`,
+      );
     }
   };
 
