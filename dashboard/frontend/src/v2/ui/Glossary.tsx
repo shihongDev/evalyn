@@ -25,7 +25,13 @@ export function Glossary({ term, children }: GlossaryProps) {
       {children}
       <span
         title={term}
-        aria-label="Definition"
+        // Sighted users see "?" and hover for the definition; SR
+        // users never see the title attribute reliably across
+        // engines, so they previously got "Definition, image" with
+        // no payload. Putting the actual term in the accessible
+        // name means an SR pass over a sentence reads naturally:
+        // "Pass rate. Definition: The percent of items that..."
+        aria-label={`Definition: ${term}`}
         role="img"
         style={{
           fontSize: '0.7em',

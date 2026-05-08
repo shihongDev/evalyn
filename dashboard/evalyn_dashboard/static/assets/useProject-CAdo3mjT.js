@@ -1,1 +1,0 @@
-import{_ as e,g as t}from"./index-WzvUu9S1.js";function n(){let{data:n}=t(`home`,e.home);return n?n.project:null}export{n as t};
