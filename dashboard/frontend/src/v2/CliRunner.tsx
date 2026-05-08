@@ -1276,10 +1276,16 @@ function renderInput(
     );
   }
   if (kind === 'number') {
+    // Decimal (not numeric) - CLI param ranges may include floats
+    // (e.g. temperature 0..1, step 0.05), and inputMode="decimal"
+    // shows a numeric keypad with a decimal point on iOS / Android.
+    // inputMode="numeric" would force-strip the decimal on those
+    // keyboards, which is wrong for any non-integer step.
     return (
       <input
         id={id}
         type="number"
+        inputMode="decimal"
         value={value === undefined || value === null ? '' : String(value)}
         onChange={(e) => onChange(e.target.value)}
         step={param.range?.step}
