@@ -79,10 +79,43 @@ export async function maybeParseCapacityError(
  * Bare `String(e)` on an Error renders as "Error: <message>",
  * which double-prefixes when the caller already says "Failed to
  * X:". Going through this helper keeps the visible string clean.
+ *
+ * Network-level fetch failures (offline, DNS fail, CSP block,
+ * CORS pre-flight reject) reject with TypeError - the message
+ * varies by browser ("Failed to fetch" in Chrome, "Load failed"
+ * in Safari, "NetworkError when attempting to fetch resource"
+ * in Firefox). All of these are jargon-y to a non-technical user.
+ * When we see one, swap the raw text for a friendlier phrase so
+ * every callsite (UpdatingChip, retry buttons, alert banners)
+ * inherits the better wording for free.
  */
 export function errorMessage(e: unknown): string {
+  if (e instanceof TypeError && isLikelyNetworkFailure(e.message)) {
+    return 'Network unreachable - check your connection and try again.';
+  }
   if (e instanceof Error) return e.message;
   return String(e);
+}
+
+/** Heuristic for "this TypeError is a fetch network failure"
+ * rather than e.g. a programmer-error type mismatch.
+ *
+ * Only TypeErrors thrown by fetch() during the network leg use
+ * these specific messages; a TypeError from somewhere else (a
+ * .toLowerCase on undefined, etc.) is much less likely to match
+ * any of these strings. Match liberally on substrings so future
+ * browser engine variants ("Network connection lost", etc.) tend
+ * to be caught too. */
+function isLikelyNetworkFailure(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes('failed to fetch') ||
+    m.includes('load failed') ||
+    m.includes('networkerror') ||
+    m.includes('network error') ||
+    m.includes('network request failed') ||
+    m.includes('connection refused')
+  );
 }
 
 /**
