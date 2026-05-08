@@ -560,26 +560,60 @@ class JobPersistence:
             return False
 
     def delete_old(self, keep: int = 100) -> int:
-        """Keep the ``keep`` most recent rows; delete the rest. Returns count deleted."""
+        """Keep at least ``keep`` most recent rows; delete the rest.
+        Returns count deleted.
+
+        Tie handling: if multiple rows share the same
+        ``started_at_iso`` (rare but possible with sub-microsecond
+        job spawns or filesystems with coarse time precision), we
+        err on the side of "keep too many" rather than "keep too
+        few". Concretely: take the timestamp at position ``keep``
+        (1-indexed) and delete only rows STRICTLY older than it.
+        Ties exactly at the boundary stay - so the function may
+        retain ``keep + ties_at_boundary`` rows. The user said
+        "keep K"; over-keeping is benign (one extra GC cycle later
+        will catch up), but under-keeping silently drops what the
+        user wanted to retain.
+        """
+        keep = int(keep)
+        if keep < 0:
+            return 0
         if not self._readable():
             return 0
         try:
             with self._connect() as conn:
-                # Compute the cutoff started_at_iso. Anything strictly older
-                # than the keep-th newest row is deleted.
-                cutoff_row = conn.execute(
-                    "SELECT started_at_iso FROM jobs "
-                    "ORDER BY started_at_iso DESC LIMIT 1 OFFSET ?",
-                    (int(keep),),
-                ).fetchone()
-                if cutoff_row is None:
-                    return 0
-                cutoff = cutoff_row[0]
-                cur = conn.execute(
-                    "DELETE FROM jobs WHERE started_at_iso <= ?",
-                    (cutoff,),
-                )
-                deleted = cur.rowcount or 0
+                if keep == 0:
+                    # "Keep zero rows" -> wipe the table. The OFFSET
+                    # path below would degenerate to "no cutoff" and
+                    # return 0 deletes; explicit DELETE FROM jobs
+                    # matches the documented semantics + matches the
+                    # admin-prune endpoint's existing test.
+                    cur = conn.execute("DELETE FROM jobs")
+                    deleted = cur.rowcount or 0
+                else:
+                    # Take the timestamp of the keep-th newest row.
+                    # OFFSET is 0-indexed, so OFFSET keep-1 returns
+                    # row at position keep (1-indexed). Then
+                    # "< cutoff" deletes everything strictly older.
+                    # Boundary ties at the cutoff timestamp stay -
+                    # safer than the previous "<=" which could
+                    # nibble into the K-set when sub-microsecond
+                    # spawns or coarse-precision filesystems
+                    # produced timestamp ties.
+                    cutoff_row = conn.execute(
+                        "SELECT started_at_iso FROM jobs "
+                        "ORDER BY started_at_iso DESC LIMIT 1 OFFSET ?",
+                        (keep - 1,),
+                    ).fetchone()
+                    if cutoff_row is None:
+                        # Fewer than keep rows total - nothing to delete.
+                        return 0
+                    cutoff = cutoff_row[0]
+                    cur = conn.execute(
+                        "DELETE FROM jobs WHERE started_at_iso < ?",
+                        (cutoff,),
+                    )
+                    deleted = cur.rowcount or 0
             if deleted:
                 self._invalidate_stats_cache()
             return deleted
