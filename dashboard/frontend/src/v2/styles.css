@@ -251,6 +251,39 @@ textarea:focus-visible {
  * ember rim) keeps winning - shadow stacks visually without touching
  * the border layer.
  */
+/*
+ * Btn primitive hover/focus feedback. Applied via the .eBtn class
+ * the Btn component sets in primitives.tsx. The Btn previously had
+ * NO hover styling - every primary/secondary/ghost/bare/danger
+ * button across the dashboard signaled interactivity via cursor
+ * change alone, leaving mouse hover and keyboard focus visually
+ * silent. A subtle box-shadow + 0.5 px lift gives universal depth
+ * regardless of background colour (works the same on solid ember,
+ * panel2, transparent), with a tiny brightness shift on top to add
+ * extra signal for the solid-bg kinds. :focus-visible mirrors the
+ * effect for keyboard users; :not(:disabled) guards both so
+ * disabled buttons (already at opacity 0.55) don't tease the user
+ * with feedback for an action they can't trigger.
+ */
+.eBtn {
+  transition:
+    box-shadow 120ms ease,
+    transform 120ms ease,
+    filter 120ms ease;
+}
+.eBtn:hover:not(:disabled),
+.eBtn:focus-visible:not(:disabled) {
+  box-shadow: 0 2px 6px rgba(20, 18, 14, 0.10);
+  transform: translateY(-0.5px);
+  filter: brightness(0.97);
+}
+@media (prefers-reduced-motion: reduce) {
+  .eBtn:hover:not(:disabled),
+  .eBtn:focus-visible:not(:disabled) {
+    transform: none;
+  }
+}
+
 .eCardHover {
   transition:
     box-shadow 140ms ease,
