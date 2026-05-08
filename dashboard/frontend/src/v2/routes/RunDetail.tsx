@@ -1833,6 +1833,12 @@ function ItemsCompareTab({
                 key={f.key}
                 type="button"
                 onClick={() => setFilter(f.key)}
+                // Filter-pill toggle - sighted users see ember bg
+                // when active, SR users get aria-pressed + a label
+                // that includes the count (visible "Regressed 12"
+                // would otherwise read with no toggle context).
+                aria-pressed={active}
+                aria-label={`${f.label}, ${count} item${count === 1 ? '' : 's'}`}
                 style={{
                   padding: '5px 12px',
                   fontSize: 12,
@@ -2347,6 +2353,10 @@ function ItemsTab({ runId, initialFilter }: ItemsTabProps) {
                 key={f.key}
                 type="button"
                 onClick={() => changeFilter(f.key)}
+                // Same aria-pressed pattern as the compare filters
+                // above - SR users hear the toggle state instead of
+                // inferring from the bg-color flip alone.
+                aria-pressed={active}
                 style={{
                   padding: '5px 12px',
                   fontSize: 12,

@@ -93,6 +93,35 @@ def _build_timing_logger() -> logging.Logger:
 _timing_logger = _build_timing_logger()
 
 
+def _resolve_app_log_level() -> int:
+    """Read ``EVALYN_LOG_LEVEL`` from the env, fall back to INFO.
+
+    Accepts standard names: DEBUG, INFO, WARNING, ERROR, CRITICAL
+    (case-insensitive). Unknown / unset values fall through to
+    INFO so the audit-log trail stays visible by default.
+
+    Operator scenarios:
+      - Production daemon with stable workload: ``EVALYN_LOG_LEVEL=WARNING``
+        suppresses INFO audit chatter, surfacing only warnings/errors.
+      - Local debug session: ``EVALYN_LOG_LEVEL=DEBUG`` flips on
+        the debug-level traces (currently sparse but the seam exists
+        for future use).
+      - Default unset: INFO. Audit logs visible, debug suppressed.
+    """
+    import os
+
+    raw = os.environ.get("EVALYN_LOG_LEVEL", "").strip().upper()
+    if not raw:
+        return logging.INFO
+    # logging.getLevelName takes a name and returns an int; on
+    # unknown input it returns "Level <name>" string instead of an
+    # int, so we coerce defensively.
+    level = logging.getLevelName(raw)
+    if isinstance(level, int):
+        return level
+    return logging.INFO
+
+
 def _ensure_app_logger() -> logging.Logger:
     """Attach a stdout handler to the ``evalyn_dashboard`` package logger.
 
@@ -105,6 +134,9 @@ def _ensure_app_logger() -> logging.Logger:
     Without this function, every audit ``logger.info(...)`` call
     silently goes nowhere because Python's ``lastResort`` only
     surfaces WARNING+.
+
+    Level honors ``EVALYN_LOG_LEVEL`` (default INFO) so operators
+    can flip to WARNING in noisy production or DEBUG locally.
 
     Idempotent: a second call (e.g. tests building app multiple times)
     is a no-op once the handler is attached. Propagation stays on so
@@ -121,7 +153,7 @@ def _ensure_app_logger() -> logging.Logger:
             )
         )
         log.addHandler(handler)
-        log.setLevel(logging.INFO)
+        log.setLevel(_resolve_app_log_level())
     return log
 
 
