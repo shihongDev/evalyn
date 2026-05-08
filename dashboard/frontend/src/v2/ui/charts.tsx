@@ -6,6 +6,13 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { E } from '../tokens';
 
+// All chart primitives in this file are aria-hidden="true" by default
+// because every call site pairs the visual with text that conveys the
+// same data (e.g. "82% +2pp" alongside a Spark of weekly trend). SR
+// users would otherwise hear "graphic" with no payload, while sighted
+// users get the visual reinforcement. Override the default at the
+// call site if the chart IS the primary data carrier.
+
 export function Spark({
   data,
   w = 80,
@@ -20,7 +27,7 @@ export function Spark({
   dot?: boolean;
 }) {
   if (!data || data.length === 0) {
-    return <svg width={w} height={h} style={{ display: 'block' }} />;
+    return <svg width={w} height={h} aria-hidden="true" style={{ display: 'block' }} />;
   }
   const min = Math.min(...data);
   const max = Math.max(...data);
@@ -36,7 +43,7 @@ export function Spark({
   const lx = w - 2;
   const ly = h - ((last - min) / range) * (h - 6) - 3;
   return (
-    <svg width={w} height={h} style={{ display: 'block' }}>
+    <svg width={w} height={h} aria-hidden="true" style={{ display: 'block' }}>
       <polyline
         points={pts}
         fill="none"
@@ -64,12 +71,12 @@ export function Bars({
   track?: string;
 }) {
   if (!data || data.length === 0) {
-    return <svg width={w} height={h} style={{ display: 'block' }} />;
+    return <svg width={w} height={h} aria-hidden="true" style={{ display: 'block' }} />;
   }
   const max = Math.max(...data) || 1;
   const bw = (w - (data.length - 1) * 2) / data.length;
   return (
-    <svg width={w} height={h} style={{ display: 'block' }}>
+    <svg width={w} height={h} aria-hidden="true" style={{ display: 'block' }}>
       {data.map((v, i) => {
         const bh = Math.max(1, (v / max) * h);
         const x = i * (bw + 2);
@@ -109,6 +116,7 @@ export function Bar({
   const pct = Math.max(2, (value / Math.max(1, max)) * 100);
   return (
     <div
+      aria-hidden="true"
       style={{
         width: w,
         height: h,
@@ -137,6 +145,7 @@ export function StackBar({
   const total = segments.reduce((s, x) => s + x.value, 0) || 1;
   return (
     <div
+      aria-hidden="true"
       style={{
         width: w,
         height: h,
@@ -194,7 +203,7 @@ export function Donut({
     let acc = 0;
     return (
       <div style={{ position: 'relative', width: size, height: size, display: 'inline-block' }}>
-        <svg width={size} height={size} style={{ display: 'block' }}>
+        <svg width={size} height={size} aria-hidden="true" style={{ display: 'block' }}>
           <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={E.panel3} strokeWidth={t} />
           {segments.map((s, i) => {
             const len = (s.value / total) * c;
@@ -236,7 +245,7 @@ export function Donut({
 
   const off = c * (1 - (value || 0) / max);
   return (
-    <svg width={size} height={size} style={{ display: 'block' }}>
+    <svg width={size} height={size} aria-hidden="true" style={{ display: 'block' }}>
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={E.panel3} strokeWidth={t} />
       <circle
         cx={size / 2}
