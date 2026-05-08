@@ -789,11 +789,28 @@ export function RecentJobsDrawer({
             const results = await Promise.allSettled(
               active.map((e) => cancelJob(e.job_id)),
             );
+            let succeeded = 0;
+            let firstReason: unknown = null;
             results.forEach((r, i) => {
               if (r.status === 'fulfilled') {
                 patchJob(active[i].job_id, { status: 'cancelled' });
+                succeeded += 1;
+              } else if (firstReason === null) {
+                firstReason = r.reason;
               }
             });
+            // Surface partial / total failures so the user knows their
+            // click was attempted and what didn't take effect.
+            // All-success is its own feedback (rows flip to cancelled).
+            const failed = active.length - succeeded;
+            if (failed > 0) {
+              const reasonText = errorMessage(firstReason);
+              setActionMessage(
+                succeeded === 0
+                  ? `Cancel-all failed for all ${active.length} job${active.length === 1 ? '' : 's'}: ${reasonText}.`
+                  : `Cancelled ${succeeded} of ${active.length}; ${failed} failed: ${reasonText}.`,
+              );
+            }
           }}
         />
       </div>
