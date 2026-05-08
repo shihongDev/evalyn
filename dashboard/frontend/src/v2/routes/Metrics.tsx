@@ -10,8 +10,11 @@
  * The new /api/v2/rubrics/trust + saveRubric endpoints aren't on the
  * client yet so the scoreboard is computed from /rubrics + per-rubric
  * /calibration loads, the confusion matrix is derived from FP/FN%, and
- * "Save rubric" is a local-state operation. We swap to the dedicated
- * endpoints once the persistence + trust hooks land.
+ * "Save rubric" is honestly disabled with a "(soon)" suffix. We swap
+ * to the dedicated endpoints once the persistence + trust hooks land.
+ * The editor still tracks dirty/discard locally so users can explore
+ * weight changes; the beforeunload warning + "unsaved" pill make it
+ * clear edits do not survive navigation.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -25,11 +28,9 @@ import {
   Eyebrow,
   Pill,
   Skeleton,
-  Spinner,
   UpdatingChip,
 } from '../ui';
 import { v2 } from '../api/client';
-import { errorMessage } from '../api/errors';
 import type { RubricDetail, RubricRow } from '../api/types';
 import { useV2Resource } from '../hooks/useV2Resource';
 import { useRouteTour } from '../tour/useRouteTour';
@@ -765,11 +766,7 @@ interface RubricEditorProps {
   draft: DimensionDraft[];
   setDraft: (next: DimensionDraft[]) => void;
   dirty: boolean;
-  onSave: () => Promise<void>;
   onDiscard: () => void;
-  saving: boolean;
-  saveStatus: 'idle' | 'saved' | 'error';
-  saveError: string | null;
   drift: number;
 }
 
@@ -781,11 +778,7 @@ function RubricEditor({
   draft,
   setDraft,
   dirty,
-  onSave,
   onDiscard,
-  saving,
-  saveStatus,
-  saveError,
   drift,
 }: RubricEditorProps) {
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -927,24 +920,14 @@ function RubricEditor({
               </Pill>
             )}
             <span style={{ flex: 1 }} />
-            {saveStatus === 'saved' && (
-              <Pill bg={E.passDim} color={E.pass} mono>
-                Saved
-              </Pill>
-            )}
-            {saveStatus === 'error' && (
+            {dirty && (
               <Pill
-                bg={E.failDim}
-                color={E.fail}
+                bg={E.warnDim}
+                color={E.warn}
                 mono
-                title={saveError ?? 'Save failed'}
+                title="Local edits only - rubric persistence is not wired up yet"
               >
-                Save failed
-              </Pill>
-            )}
-            {dirty && saveStatus === 'idle' && (
-              <Pill bg={E.warnDim} color={E.warn} mono>
-                unsaved
+                unsaved (local)
               </Pill>
             )}
           </div>
@@ -1080,24 +1063,10 @@ function RubricEditor({
             <Btn
               kind="primary"
               size="sm"
-              onClick={() => void onSave()}
-              disabled={!dirty || saving || !sumOk}
-              aria-busy={saving}
-              title={
-                !sumOk
-                  ? 'Weights must sum to 100% before saving'
-                  : !dirty
-                    ? 'No changes to save'
-                    : 'Save the rubric edits'
-              }
+              disabled
+              title="Rubric persistence is not wired up yet - your edits live in this tab only and will be lost on navigation"
             >
-              {saving ? (
-                <>
-                  <Spinner size={11} /> Saving
-                </>
-              ) : (
-                'Save rubric'
-              )}
+              Save rubric (soon)
             </Btn>
             {/* Placeholder for the future "replay this rubric on the
                 most recent run" action. Honestly disabled until the
@@ -1115,7 +1084,7 @@ function RubricEditor({
               kind="ghost"
               size="sm"
               onClick={onDiscard}
-              disabled={!dirty || saving}
+              disabled={!dirty}
               title="Revert to the last loaded rubric"
             >
               Discard
@@ -1215,11 +1184,6 @@ export default function Metrics() {
 
   const [draft, setDraft] = useState<DimensionDraft[]>([]);
   const [draftLoadedFor, setDraftLoadedFor] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>(
-    'idle',
-  );
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   const buildInitialDraft = useCallback(
     (d: RubricDetail): DimensionDraft[] => {
@@ -1243,14 +1207,10 @@ export default function Metrics() {
     if (draftLoadedFor === detail.id) return;
     setDraft(buildInitialDraft(detail));
     setDraftLoadedFor(detail.id);
-    setSaveStatus('idle');
-    setSaveError(null);
   }, [detail, draftLoadedFor, buildInitialDraft]);
 
   useEffect(() => {
     setDraftLoadedFor(null);
-    setSaveStatus('idle');
-    setSaveError(null);
   }, [selectedId]);
 
   const initialDraftSerialized = useMemo(() => {
@@ -1260,34 +1220,9 @@ export default function Metrics() {
   const draftSerialized = useMemo(() => JSON.stringify(draft), [draft]);
   const dirty = !!detail && draftSerialized !== initialDraftSerialized;
 
-  async function handleSave(): Promise<void> {
-    if (!detail || saving) return;
-    setSaving(true);
-    setSaveStatus('idle');
-    setSaveError(null);
-    try {
-      // Persistence endpoint isn't wired yet. We freeze the current draft
-      // as the new baseline so dirty=false until the user edits again.
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 220));
-      setSaveStatus('saved');
-      setSaveError(null);
-      setDraftLoadedFor(`local:${detail.id}:${Date.now()}`);
-      window.setTimeout(() => {
-        setSaveStatus((s) => (s === 'saved' ? 'idle' : s));
-      }, 3000);
-    } catch (e: unknown) {
-      setSaveStatus('error');
-      setSaveError(errorMessage(e));
-    } finally {
-      setSaving(false);
-    }
-  }
-
   function handleDiscard(): void {
     if (!detail) return;
     setDraft(buildInitialDraft(detail));
-    setSaveStatus('idle');
-    setSaveError(null);
   }
 
   // Warn the user before they leave the page (tab close, refresh,
@@ -1394,11 +1329,7 @@ export default function Metrics() {
             draft={draft}
             setDraft={setDraft}
             dirty={dirty}
-            onSave={handleSave}
             onDiscard={handleDiscard}
-            saving={saving}
-            saveStatus={saveStatus}
-            saveError={saveError}
             drift={
               trustRows.find((r) => r.id === selectedId)?.drift_per_week ?? 0
             }
