@@ -193,6 +193,98 @@ def test_delete_old_keeps_n_most_recent(tmp_path: Path) -> None:
     assert "job-049" not in surviving_ids
 
 
+def test_delete_old_keeps_at_least_K_when_boundary_ties(tmp_path: Path) -> None:
+    """Boundary-tie regression: when rows at positions K and K+1
+    share the same started_at_iso, the previous "<= cutoff"
+    predicate would delete BOTH (sub-microsecond spawn timestamp
+    or coarse-precision filesystem). The fix uses strict-less so
+    ties at the boundary stay, retaining at least K rows.
+    """
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+
+    # 5 rows with strictly distinct timestamps (newer first):
+    #   job-04 newest
+    #   job-03
+    #   job-02   <-- want this to be the K-th when keep=3
+    #   job-01   <-- ties with job-02 (same iso)
+    #   job-00 oldest
+    # So K=3 should keep job-04, job-03, job-02 plus the tie at
+    # job-01 which has the same timestamp as job-02. Result:
+    # 4 rows (3 + 1 tie) survive. Pre-fix: only 3 would survive
+    # because "<= cutoff" deleted both job-02 and job-01.
+    persistence.upsert_job(
+        job_id="job-00",
+        cli_id="x", args={}, cmd="x", status="complete",
+        started_at_iso="2026-01-01T00:00:00.000000+00:00",
+    )
+    # Tie pair: job-01 and job-02 share the timestamp
+    # 2026-01-01T00:00:01.000000+00:00.
+    persistence.upsert_job(
+        job_id="job-01",
+        cli_id="x", args={}, cmd="x", status="complete",
+        started_at_iso="2026-01-01T00:00:01.000000+00:00",
+    )
+    persistence.upsert_job(
+        job_id="job-02",
+        cli_id="x", args={}, cmd="x", status="complete",
+        started_at_iso="2026-01-01T00:00:01.000000+00:00",
+    )
+    persistence.upsert_job(
+        job_id="job-03",
+        cli_id="x", args={}, cmd="x", status="complete",
+        started_at_iso="2026-01-01T00:00:02.000000+00:00",
+    )
+    persistence.upsert_job(
+        job_id="job-04",
+        cli_id="x", args={}, cmd="x", status="complete",
+        started_at_iso="2026-01-01T00:00:03.000000+00:00",
+    )
+
+    deleted = persistence.delete_old(keep=3)
+
+    # Only job-00 should be deleted (1 row).
+    # job-01, job-02 share the cutoff timestamp; both survive.
+    assert deleted == 1, f"expected 1 deleted; got {deleted}"
+
+    rows = persistence.list_recent(limit=10)
+    surviving_ids = {r["job_id"] for r in rows}
+    assert surviving_ids == {"job-01", "job-02", "job-03", "job-04"}, (
+        f"expected the 4 newest (3 plus boundary tie); got {surviving_ids}"
+    )
+
+
+def test_delete_old_keep_zero_clears_all(tmp_path: Path) -> None:
+    """keep=0 is the documented "wipe everything" path."""
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+    for i in range(5):
+        persistence.upsert_job(
+            job_id=f"job-{i}", cli_id="x", args={}, cmd="x",
+            status="complete",
+            started_at_iso=f"2026-01-01T00:00:0{i}.000000+00:00",
+        )
+    deleted = persistence.delete_old(keep=0)
+    assert deleted == 5
+    assert persistence.list_recent(limit=10) == []
+
+
+def test_delete_old_keep_negative_short_circuits(tmp_path: Path) -> None:
+    """Negative keep is invalid input, not "delete everything"; we
+    short-circuit to 0 deletes so a typo in an admin call is safe."""
+    db = tmp_path / "jobs.sqlite"
+    persistence = JobPersistence(db_path=db)
+    for i in range(3):
+        persistence.upsert_job(
+            job_id=f"job-{i}", cli_id="x", args={}, cmd="x",
+            status="complete",
+            started_at_iso=f"2026-01-01T00:00:0{i}.000000+00:00",
+        )
+    deleted = persistence.delete_old(keep=-5)
+    assert deleted == 0
+    assert len(persistence.list_recent(limit=10)) == 3
+
+
 # ---------------------------------------------------------------------------
 # Test 5: /api/jobs/recent merges in-memory + persisted, in-memory wins
 # ---------------------------------------------------------------------------
