@@ -583,12 +583,20 @@ interface ChipProps {
 }
 
 function ViewChip({ label, count, active, onClick, disabled, title }: ChipProps) {
+  // Strip leading direction glyphs ("↑ My week") from the SR label
+  // so blind users don't hear "U+2191 My week 5". The visible label
+  // keeps the glyph because it's a meaningful sighted hint
+  // ("currently sorted up"). Compose count separately so we can
+  // join it with a comma + plural agreement.
+  const srLabel = label.replace(/^[↑↓→←▴▾▸]\s*/, '').trim();
+  const srSuffix = count != null ? `, ${count} run${count === 1 ? '' : 's'}` : '';
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       title={title}
+      aria-label={`${srLabel}${srSuffix}`}
       style={{
         padding: '5px 10px',
         borderRadius: 999,
