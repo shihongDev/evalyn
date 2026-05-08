@@ -467,7 +467,7 @@ function DistributionRail({ onSendNow, compareMode, setCompareMode }: Distributi
             </div>
           ))}
           <Btn kind="primary" size="sm" style={{ marginTop: 4 }} onClick={onSendNow}>
-            Send now {'▸'}
+            Send now <span aria-hidden="true">{'▸'}</span>
           </Btn>
           {/* Honestly disabled - distribution destinations are
               placeholders. Previously this rendered as an active

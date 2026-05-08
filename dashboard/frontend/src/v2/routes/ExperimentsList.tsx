@@ -395,7 +395,7 @@ function LineageNode({ run, selected, onToggleSelect, onOpen }: NodeProps) {
             onClick={onOpen}
             style={{ justifyContent: 'flex-end' }}
           >
-            Open →
+            Open <span aria-hidden="true">→</span>
           </Btn>
         </div>
       </Card>

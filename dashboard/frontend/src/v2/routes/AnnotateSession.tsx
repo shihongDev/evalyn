@@ -4326,7 +4326,15 @@ export default function AnnotateSession() {
                     <span aria-hidden="true" style={{ opacity: 0.7, fontFamily: E.fMono, marginRight: 4 }}>
                       N
                     </span>
-                    {findInFilter(cursor, 1) < 0 ? 'Save (last item) ✓' : 'Save & next →'}
+                    {findInFilter(cursor, 1) < 0 ? (
+                      <>
+                        Save (last item) <span aria-hidden="true">✓</span>
+                      </>
+                    ) : (
+                      <>
+                        Save &amp; next <span aria-hidden="true">→</span>
+                      </>
+                    )}
                   </>
                 )}
               </Btn>

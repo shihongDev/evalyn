@@ -440,7 +440,9 @@ export function PlanCard({
               <Spinner size={11} /> Approving
             </>
           ) : (
-            'Approve & run →'
+            <>
+              Approve &amp; run <span aria-hidden="true">→</span>
+            </>
           )}
         </Btn>
         <Btn
