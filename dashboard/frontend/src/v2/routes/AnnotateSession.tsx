@@ -3185,8 +3185,14 @@ export default function AnnotateSession() {
             todo against total. Cheap surfacing of numbers that already
             live in session meta. */}
         <div
-          title={(() => {
-            if (!session) return undefined;
+          // Build the breakdown once and use it for both `title`
+          // (sighted hover) and `aria-label` (SR). Without aria-label
+          // SR users got nothing - this is a 4 px-tall bar with no
+          // text content, and the title attribute is unreliable for
+          // SR engines. Promoting it to a real progressbar role
+          // makes the semantic explicit.
+          {...(() => {
+            if (!session) return {};
             const done = session.items_done;
             const skipped = session.items_skipped;
             const total = session.items_total;
@@ -3197,10 +3203,6 @@ export default function AnnotateSession() {
               `${todo} todo`,
               `${total} total`,
             ];
-            // Append session age when available - same NaN-defensive
-            // Date.parse pattern as the all-done banner / session pill
-            // tooltip. Adds "started Xm ago" without taking layout
-            // space.
             if (session.started_at_iso) {
               const startMs = Date.parse(session.started_at_iso);
               if (!Number.isNaN(startMs)) {
@@ -3208,8 +3210,13 @@ export default function AnnotateSession() {
                 parts.push(`started ${formatDuration(elapsedSec)} ago`);
               }
             }
-            return parts.join(' · ');
+            const breakdown = parts.join(' · ');
+            return { title: breakdown, 'aria-label': `Session progress: ${breakdown}` };
           })()}
+          role="progressbar"
+          aria-valuenow={Math.round(progress?.pct ?? 0)}
+          aria-valuemin={0}
+          aria-valuemax={100}
           style={{
             height: 4,
             background: E.panel2,
