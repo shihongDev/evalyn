@@ -1116,6 +1116,10 @@ def test_admin_vacuum_emits_audit_log(caplog):
             f"expected exactly one admin-vacuum log line, "
             f"got {len(matched)}: {[r.message for r in caplog.records]}"
         )
+        # The log includes elapsed_ms so operators can spot
+        # slow vacuums on large dbs (decision metric: tighten
+        # persistence_keep when elapsed grows).
+        assert "elapsed_ms=" in matched[0].message
 
 
 def test_admin_prune_emits_audit_log(caplog):
@@ -1143,6 +1147,10 @@ def test_admin_prune_emits_audit_log(caplog):
         # The log line records the keep value the caller passed,
         # so the audit trail captures intent (not just outcome).
         assert "keep=0" in matched[0].message
+        # Includes elapsed_ms so operators can spot slow prunes
+        # (typically fast - single DELETE - but a large purge
+        # under contention is worth seeing).
+        assert "elapsed_ms=" in matched[0].message
 
 
 def test_admin_vacuum_advances_last_vacuum_at_field_on_health():
