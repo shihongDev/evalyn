@@ -946,6 +946,15 @@ function ActiveProviderCard({ data, onChanged }: ActiveProviderCardProps) {
   }, [data.providers]);
 
   async function handleChange(next: string) {
+    // Same-frame double-trigger guard, matching handleSave below.
+    // The select is `disabled={pending}` but React's batched state
+    // updates leave a brief window where two onChange events can
+    // fire before the disabled attribute lands. The closure for the
+    // second event sees pending=false (stale), so an explicit
+    // re-check inside the handler keeps a programmatic
+    // dispatchEvent or a flaky synthetic event from racing past
+    // the gate.
+    if (pending) return;
     if (next === data.active) return;
     setPending(true);
     setError(null);
