@@ -643,6 +643,8 @@ export default function CoPilotThread() {
                         key={p}
                         type="button"
                         onClick={() => useSuggestion(p)}
+                        title="Use this prompt"
+                        aria-label={`Use prompt: ${p}`}
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
