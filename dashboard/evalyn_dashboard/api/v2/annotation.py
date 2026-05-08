@@ -424,6 +424,20 @@ async def create_session(request: Request) -> JSONResponse:
         raise HTTPException(status_code=503, detail=f"could not create session: {exc}")
 
     await _broadcast_invalidate(["annotation/sessions"])
+    # Audit log: session creation is the entry point for annotation
+    # work. Operators tracking "who annotated which dataset and
+    # when" need annotator + source on record. items_total surfaces
+    # silent zero-item edge cases (we 422 above but logging the
+    # non-zero count makes the trail self-explanatory).
+    logger.info(
+        "annotation session created: id=%s annotator=%s "
+        "source_kind=%s source_id=%s items_total=%d",
+        session_id,
+        annotator_id,
+        source_kind,
+        source_id,
+        len(item_ids),
+    )
     return JSONResponse({**meta, "_dataset": dataset_dir.name})
 
 
@@ -826,6 +840,21 @@ async def finalize_session(session_id: str) -> JSONResponse:
 
     await _broadcast_invalidate(["annotation/sessions", "review/queue", "home"])
 
+    # Audit log: finalize commits annotation results into the canonical
+    # store. items_done + items_skipped show how complete the session
+    # was; merged tells operators how many records were actually
+    # appended (non-duplicate). The merged < items_done case is
+    # interesting in its own right - means re-finalize with overlap.
+    logger.info(
+        "annotation session finalized: id=%s annotator=%s "
+        "items_done=%d items_skipped=%d merged=%d",
+        session_id,
+        meta.get("annotator_id", ""),
+        int(meta.get("items_done", 0)),
+        int(meta.get("items_skipped", 0)),
+        merged,
+    )
+
     return JSONResponse({"ok": True, "merged": merged})
 
 
@@ -846,6 +875,17 @@ async def abandon_session(session_id: str) -> JSONResponse:
         logger.warning("session abandon write failed: %s", exc)
         raise HTTPException(status_code=503, detail=f"abandon failed: {exc}")
     await _broadcast_invalidate(["annotation/sessions"])
+    # Audit log: abandoned sessions leave their jsonl logs on disk
+    # but the verdicts never reach the canonical store. items_done
+    # surfaces the lost work for postmortem ("did we abandon at 5%
+    # complete or 95%?"). The session_id can be cross-referenced
+    # against the create-log to find the annotator + source.
+    logger.info(
+        "annotation session abandoned: id=%s items_done=%d items_skipped=%d",
+        session_id,
+        int(meta.get("items_done", 0)),
+        int(meta.get("items_skipped", 0)),
+    )
     return JSONResponse({"ok": True, "status": "abandoned"})
 
 
