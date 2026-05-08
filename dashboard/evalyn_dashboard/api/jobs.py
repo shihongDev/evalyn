@@ -971,7 +971,7 @@ async def vacuum_persistence(request: Request) -> JSONResponse:
       pre-vacuum and post-vacuum on-disk footprint (main + WAL +
       SHM). Negative or zero is normal on a freshly-vacuumed db.
 
-      ``{ok: False, reason: str}`` on best-effort failure (404
+      ``{ok: False, reason: str}`` on best-effort failure (503
       with reason='persistence_unavailable' when the JM has no
       persistence; 500 with reason='vacuum_failed' when the
       vacuum() call returned False).
@@ -982,8 +982,16 @@ async def vacuum_persistence(request: Request) -> JSONResponse:
     jm = request.app.state.job_manager
     persistence = _persistence_for(jm)
     if persistence is None:
+        # Match the prune endpoint's choice: 503 (transient,
+        # "service unavailable") rather than 404 (permanent,
+        # "resource doesn't exist"). The persistence layer being
+        # degraded is a transient operational state - the FE
+        # should treat it as "retry shortly", not "this endpoint
+        # never existed". Was previously 404; aligning the codes
+        # also lets a single FE error-handling branch cover both
+        # admin endpoints.
         raise HTTPException(
-            status_code=404,
+            status_code=503,
             detail="persistence_unavailable",
         )
     # Capture before/after sizes so the FE can show the win.
