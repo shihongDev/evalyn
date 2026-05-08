@@ -18,10 +18,11 @@ import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, StackBar, StatusDot, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
 import type { DatasetDetail as DatasetDetailT } from '../api/types';
-import { useV2Resource } from '../hooks/useV2Resource';
+import { useV2Resource, prefetchV2 } from '../hooks/useV2Resource';
 import { useFlashState } from '../hooks/useFlashState';
 import { useProject } from '../hooks/useProject';
 import { copyToClipboard } from '../clipboard';
+import { preloadRunDetail } from '../routePreloads';
 import { E } from '../tokens';
 
 const COVERAGE_COLORS = [E.ember, E.steel, '#a78bfa', E.warn, E.text3];
@@ -357,7 +358,19 @@ export default function DatasetDetail() {
               </div>
             ) : (
               <div>
-                {data.recent_runs.map((r, i) => (
+                {data.recent_runs.map((r, i) => {
+                  // Warm the RunDetail chunk + per-run payload so a
+                  // click landing here paints fast. Hoisted out of
+                  // the mouse handler so onFocus can share it -
+                  // keyboard users tabbing through the rows deserve
+                  // the same low-latency click->paint as hovering
+                  // mouse users. Mirrors the LineageNode pattern in
+                  // ExperimentsList.
+                  const warm = () => {
+                    void preloadRunDetail();
+                    prefetchV2(`experiment:${r.id}`, () => v2.experiment(r.id));
+                  };
+                  return (
                   <div
                     key={r.id}
                     onClick={() => goRun(r.id)}
@@ -372,8 +385,16 @@ export default function DatasetDetail() {
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background = E.panel2;
+                      warm();
                     }}
                     onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.background = E.panel2;
+                      warm();
+                    }}
+                    onBlur={(e) => {
                       e.currentTarget.style.background = 'transparent';
                     }}
                     style={{
@@ -418,7 +439,8 @@ export default function DatasetDetail() {
                       {r.cost}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </Card>
