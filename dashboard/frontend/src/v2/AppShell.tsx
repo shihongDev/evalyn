@@ -1690,12 +1690,25 @@ function Sidebar({ mode, active, navigate, dockOpen, setDockOpen, onAfterNavigat
             navigate('/settings');
             onAfterNavigate?.();
           }}
-          // Warm the chunk on hover/focus so a click-through paints
-          // instantly instead of waiting for the lazy-import to
-          // resolve. Other NAV_ITEMS already prefetch this way; the
-          // Settings button was the holdout.
-          onMouseEnter={() => void preloadSettings()}
-          onFocus={() => void preloadSettings()}
+          // Warm the chunk + the /api/settings/redacted data on
+          // hover/focus so a click-through paints instantly with
+          // populated state, matching the NAV_ITEMS pattern (every
+          // sidebar item warms BOTH bundle and data in parallel).
+          // Dynamic import keeps api/settings out of the main bundle;
+          // the chunk that ships api/settings is shared with the
+          // Settings route bundle so they warm together.
+          onMouseEnter={() => {
+            void preloadSettings();
+            prefetchV2('settings', () =>
+              import('./api/settings').then((m) => m.settingsApi.list()),
+            );
+          }}
+          onFocus={() => {
+            void preloadSettings();
+            prefetchV2('settings', () =>
+              import('./api/settings').then((m) => m.settingsApi.list()),
+            );
+          }}
           title="Configure LLM providers and API keys"
           // aria-label load-bearing for SR users: title attribute
           // isn't reliably announced, and the visible "Settings &

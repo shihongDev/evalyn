@@ -432,10 +432,16 @@ function DistributionRail({ compareMode, setCompareMode }: DistributionRailProps
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <Card style={{ padding: 14 }}>
         <Eyebrow>Send this report</Eyebrow>
-        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div
+          role="list"
+          aria-label="Distribution destinations"
+          style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}
+        >
           {destinations.map((x) => (
             <div
               key={x.title}
+              role="listitem"
+              aria-label={`${x.title}, ${x.cadence}`}
               style={{
                 display: 'flex',
                 alignItems: 'center',
