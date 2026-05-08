@@ -96,8 +96,13 @@ export function TourMenu() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         title={`Co-pilot guidance: ${enabled ? 'on' : 'off'}`}
-        aria-label="Co-pilot tours"
+        // The dot's color encodes enabled/disabled - SR users
+        // can't perceive that, so fold the state into the
+        // aria-label. aria-haspopup tells AT this trigger opens
+        // a menu (matches the actual role="menu" panel below).
+        aria-label={`Co-pilot tours menu (currently ${enabled ? 'on' : 'off'})`}
         aria-expanded={open}
+        aria-haspopup="menu"
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -113,6 +118,7 @@ export function TourMenu() {
         }}
       >
         <span
+          aria-hidden="true"
           style={{
             width: 6,
             height: 6,
