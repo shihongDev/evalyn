@@ -783,11 +783,16 @@ export function RecentJobsDrawer({
               searchQuery={searchQuery}
             />
           ) : (
-            renderRowsWithDayHeaders(visibleEntries, {
-              onRowClick,
-              onRerun,
-              onCancelRow,
-            })
+            <div
+              role="list"
+              aria-label={`Recent jobs - ${visibleEntries.length} item${visibleEntries.length === 1 ? '' : 's'}`}
+            >
+              {renderRowsWithDayHeaders(visibleEntries, {
+                onRowClick,
+                onRerun,
+                onCancelRow,
+              })}
+            </div>
           )}
         </div>
         <DrawerFooter
@@ -1394,6 +1399,13 @@ function renderRowsWithDayHeaders(
 function DayHeader({ label }: { label: string }): ReactElement {
   return (
     <div
+      // Section heading inside the list. role="heading" + aria-level
+      // tells AT this is a structural break between job groups
+      // ("Today", "Yesterday", "Mar 5") inside the role="list" parent.
+      // Without an explicit role this would be invisible structurally
+      // to AT - just a styled text node between listitems.
+      role="heading"
+      aria-level={3}
       style={{
         padding: '8px 18px 4px',
         fontFamily: E.fMono,
@@ -1507,6 +1519,7 @@ function JobRow({ entry, onClick, onRerun, onCancel, onTogglePin }: JobRowProps)
 
   return (
     <div
+      role="listitem"
       style={{
         display: 'flex',
         alignItems: 'stretch',
