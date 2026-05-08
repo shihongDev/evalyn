@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **CLI plugin import failures now log a breadcrumb.** `introspect.build_catalog` walks every CLI plugin module and silently `except Exception: continue` on either import or `register_commands` failure. The "dashboard stays up despite broken plugin" guarantee is correct, but a third-party plugin silently vanishing from the command list left operators with a debugging dead end. Now both except branches log `WARN` with the module path + exception type + message, so a postmortem can find the culprit. EVALYN_LOG_LEVEL=INFO (the default after tick 158) surfaces the WARN. New pytest case (`test_build_catalog_logs_when_plugin_import_fails`) monkey-patches `_collect_command_modules` to inject a synthetic broken plugin and asserts the WARN line appears in caplog; verified the regression-pin catches the bug by reverting to the silent `except Exception` and watching the test fail with "got []". 459 backend tests pass.
+
 ### Fixed
 
 - **`onRunAll` (BulkTestCard): upgraded to synchronous in-flight ref.** Same upgrade as last tick's handleTest, applied to the higher-stakes `onRunAll` handler. Each call iterates ALL configured providers (currently 3: anthropic / openai / ollama), so a same-frame double-fire would BURN 2N tokens (1 per provider × 2 sweeps × N LLMs). React-state guard `if (running !== null) return` doesn't catch the same-frame race because `setRunning(id)` is queued. Now uses `runAllInFlightRef` mutated synchronously inside the handler. Bonus reliability fix: moved `setRunning(null)` into the `finally` block so the spinner clears even if the outer for-loop throws unexpectedly (inner try/catch handles per-iteration network errors, but a setResults-after-unmount throw would leave the spinner stuck without the finally).
