@@ -450,7 +450,16 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
           setStatus((s) => (s === 'reconnecting' ? 'idle' : s));
         },
         onError: (evt) => {
-          console.error('agent ws error', evt);
+          // Throttle: log only on the FIRST error of this outage
+          // window. Subsequent retries inside the same outage flip
+          // attempt > 0; successful onOpen / onMessage resets it
+          // to 0, so the next outage produces a fresh log line.
+          // Without this throttle, a 5-attempt reconnect ladder
+          // produced 5+ identical "agent ws error" lines, burying
+          // any unique error in operator-side log review.
+          if (attempt === 0) {
+            console.error('agent ws error', evt);
+          }
           setError(`WebSocket error on /ws/agent/${threadId}`);
         },
         onClose: (evt) => {
@@ -459,10 +468,13 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
             wsRef.current = null;
             return;
           }
-          console.error('agent ws closed unexpectedly', {
-            code: evt.code,
-            reason: evt.reason,
-          });
+          // Same throttle rationale as onError above.
+          if (attempt === 0) {
+            console.error('agent ws closed unexpectedly', {
+              code: evt.code,
+              reason: evt.reason,
+            });
+          }
           if (attempt >= MAX_ATTEMPTS) {
             setError(
               `WebSocket closed (code ${evt.code}${evt.reason ? `: ${evt.reason}` : ''}) - giving up after ${MAX_ATTEMPTS} reconnect attempts`,
