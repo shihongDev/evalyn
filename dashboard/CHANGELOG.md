@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Co-pilot bubble's inline `pending_confirm` also cleared on tool_call_complete.** Last tick's F8 fix cleared the top-level `pending` state when a `tool_call_complete` arrived for the same `tool_call_id`, which gates the composer. But there's a SECOND mirror of pending state — `bubble.pending_confirm` — that drives the inline Approve/Reject card rendered by `CoPilotDock.tsx:440 {m.pending_confirm && ...}`. Pre-fix the inline card stayed visible inside the bubble even after the top-level pending was cleared, leaving the user with a still-clickable card that would 409 the backend. Now the `tool_call_complete` handler clears BOTH state slots when the matching `tool_call_id` arrives. Test extended: F8 now also asserts no bubble has a non-null `pending_confirm` after the matching complete event. Verified the regression-pin catches by reverting just the bubble-clear and watching F8 fail.
+
 ### Changed
 
 - **`/api/jobs/{id}/output.txt?tail=N`: added upper bound (100000).** Symmetric with `/recent`'s existing `limit <= 1000` cap. Pre-fix only validated `tail >= 1`; an absurd value like `?tail=999999999` would be accepted (the slice is bounded by data, but the validation should fail fast on obviously-wrong inputs rather than rely on data-bounded behavior). 100000 chosen well above any realistic manual-review number while still rejecting accidental `Number.MAX_SAFE_INTEGER`. Two new test assertions: `tail=100001` returns 400 with detail mentioning the cap, `tail=100000` is allowed (boundary check). Verified by reverting the upper-bound block and watching the test fail.
