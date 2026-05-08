@@ -335,6 +335,18 @@ export function useCoPilotThread(opts: UseCoPilotOptions = {}) {
 
     if (evt.type === 'tool_call_complete') {
       const out = evt.output ?? evt.stdout ?? '';
+      // Clear stale pending confirmation if the tool that just
+      // completed is the one the user was being asked to confirm.
+      // Customer scenario: backend's 5-minute confirmation timeout
+      // fires; agent emits tool_call_complete with ok=false +
+      // output="user did not confirm (timeout)" and clears
+      // pending_tool_call_id. Pre-fix the FE left the Approve /
+      // Reject card mounted, and a delayed click would 409 with
+      // "tool_call_id does not match the currently pending
+      // confirmation" - confusing because the user sees a card
+      // that visibly says "approve me" but the backend has moved
+      // on. Clear pending so the UI reflects the truth.
+      setPending((cur) => (cur?.tool_call_id === evt.tool_call_id ? null : cur));
       setMessages((prev) => {
         // Locate the bubble whose tools array already contains this
         // tool_call_id. Without this, a complete event arriving after

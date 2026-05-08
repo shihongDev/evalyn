@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Co-pilot pending confirmation card cleared on tool_call_complete.** Customer scenario: backend's 5-minute confirmation timeout fires; agent emits `tool_call_complete` with `ok=false` + output `"user did not confirm (timeout)"` and clears `pending_tool_call_id` server-side. Pre-fix the FE left the Approve / Reject card mounted - user comes back to a stale card, clicks Approve, and gets a 409 from the backend ("tool_call_id does not match the currently pending confirmation"). Confusing because the visible UI card said "approve me" but the backend had already moved on. Now the FE's tool_call_complete handler clears `pending` if its `tool_call_id` matches the currently-pending confirmation. Defense: F8b pin verifies that `tool_call_complete` for an UNRELATED tool (e.g. agent ran a read-only auto-approve tool while waiting for confirm on a different one) does NOT clobber the user's pending card. F8 + F8b add 2 new vitest cases (221 total, was 219 + 2 new).
+
 ### Changed
 
 - **Agent threads: periodic background auto-purge.** Closed agent threads currently stick around in `AgentRuntime._threads` indefinitely - each carries an events log + metadata (~10KB). The `/api/agent/threads/purge-old` endpoint exists for manual cleanup, but unattended long-running daemons would never trigger it. Without this fix, memory grows ~10KB per chat thread × N threads/day. Slow leak across weeks. Now a background task starts on app startup that calls `runtime.purge_old_threads(7 days)` every hour. Best-effort: WARN-logs and continues on tick failure. Cancelled cleanly on shutdown. Both startup task creation and shutdown cancellation are pinned via a new `test_server.py` test (32 tests, was 31 + 1 new); 460 backend tests pass.

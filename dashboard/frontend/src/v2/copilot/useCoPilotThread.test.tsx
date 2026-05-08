@@ -159,6 +159,133 @@ describe('useCoPilotThread', () => {
     expect(agentBubbles.length).toBe(1);
   });
 
+  it('F8: tool_call_complete clears pending if it matches the awaiting confirmation', async () => {
+    // Customer scenario: backend's 5-minute confirmation timeout
+    // fires; agent emits tool_call_complete with ok=false +
+    // output="user did not confirm (timeout)" and clears
+    // pending_tool_call_id. Pre-fix the FE left the Approve /
+    // Reject card mounted, and a delayed click would 409 with
+    // "tool_call_id does not match the currently pending
+    // confirmation" - confusing because the visible card said
+    // "approve me" but the backend had moved on.
+    //
+    // Pin: tool_call_complete with the same tool_call_id as the
+    // pending confirmation MUST clear `pending` so the card
+    // disappears.
+    const { result } = renderHook(() =>
+      useCoPilotThread({ initialThreadId: 'tid-8' }),
+    );
+    await waitFor(() => {
+      expect(subscribeAgentMock).toHaveBeenCalled();
+    });
+    const handlers = getHandlers();
+
+    // 1. confirmation_required arrives -> pending set.
+    act(() => {
+      handlers.onMessage({
+        type: 'tool_call_proposal',
+        thread_id: 'tid-8',
+        tool_call_id: 'tc-pending',
+        tool: 'run-eval',
+        args: {},
+        preview_cmd: 'run-eval',
+        ts: 1,
+      });
+      handlers.onMessage({
+        type: 'confirmation_required',
+        thread_id: 'tid-8',
+        tool_call_id: 'tc-pending',
+        tool: 'run-eval',
+        args: {},
+        preview_cmd: 'run-eval',
+        ts: 2,
+      });
+    });
+    expect(result.current.pending).not.toBeNull();
+
+    // 2. Backend timeout fires; tool_call_complete with ok=false
+    //    arrives for the SAME tool_call_id.
+    act(() => {
+      handlers.onMessage({
+        type: 'tool_call_complete',
+        thread_id: 'tid-8',
+        tool_call_id: 'tc-pending',
+        tool: 'run-eval',
+        ok: false,
+        output: 'user did not confirm (timeout)',
+        exit_code: -1,
+        ts: 3,
+      });
+    });
+
+    // Pending should be cleared. UI no longer shows the stale
+    // Approve / Reject card.
+    expect(result.current.pending).toBeNull();
+  });
+
+  it('F8b: tool_call_complete for an unrelated tool does NOT clear pending', async () => {
+    // Defensive: only the matching tool_call_id should clear
+    // pending. A complete event for a sibling tool (e.g. agent
+    // ran a read-only auto-approve tool while waiting for confirm
+    // on a different one) must not clobber the user's pending
+    // card.
+    const { result } = renderHook(() =>
+      useCoPilotThread({ initialThreadId: 'tid-8b' }),
+    );
+    await waitFor(() => {
+      expect(subscribeAgentMock).toHaveBeenCalled();
+    });
+    const handlers = getHandlers();
+
+    act(() => {
+      handlers.onMessage({
+        type: 'tool_call_proposal',
+        thread_id: 'tid-8b',
+        tool_call_id: 'tc-pending',
+        tool: 'run-eval',
+        args: {},
+        preview_cmd: 'run-eval',
+        ts: 1,
+      });
+      handlers.onMessage({
+        type: 'confirmation_required',
+        thread_id: 'tid-8b',
+        tool_call_id: 'tc-pending',
+        tool: 'run-eval',
+        args: {},
+        preview_cmd: 'run-eval',
+        ts: 2,
+      });
+    });
+    expect(result.current.pending).not.toBeNull();
+
+    // Unrelated tool completes - pending must stay.
+    act(() => {
+      handlers.onMessage({
+        type: 'tool_call_proposal',
+        thread_id: 'tid-8b',
+        tool_call_id: 'tc-other',
+        tool: 'list-runs',
+        args: {},
+        preview_cmd: 'list-runs',
+        ts: 3,
+      });
+      handlers.onMessage({
+        type: 'tool_call_complete',
+        thread_id: 'tid-8b',
+        tool_call_id: 'tc-other',
+        tool: 'list-runs',
+        ok: true,
+        output: 'two runs',
+        exit_code: 0,
+        ts: 4,
+      });
+    });
+
+    expect(result.current.pending).not.toBeNull();
+    expect(result.current.pending?.tool_call_id).toBe('tc-pending');
+  });
+
   it('F2: confirm() catch clears pending so composer unlocks', async () => {
     const { result } = renderHook(() =>
       useCoPilotThread({ initialThreadId: 'tid-2' }),
