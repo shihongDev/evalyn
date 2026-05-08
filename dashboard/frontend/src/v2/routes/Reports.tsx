@@ -19,13 +19,14 @@
  * so this view stays usable in either state.
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
 import { useV2Resource } from '../hooks/useV2Resource';
+import { useFlashState } from '../hooks/useFlashState';
 import { E } from '../tokens';
 import { copyToClipboard } from '../clipboard';
 import type { WeeklyReport } from '../api/types';
@@ -718,7 +719,12 @@ export default function Reports() {
     },
     [setSearchParams],
   );
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+  // useFlashState owns the auto-revert timer + unmount cleanup so a
+  // user navigating away mid-flash can't trip "setState on unmounted
+  // component". Same migration applied to CliRunner / RunDetail /
+  // FailureCluster / DatasetDetail / AnnotateSession / Settings -
+  // Reports was the last unmigrated callsite.
+  const [copyState, flashCopyState] = useFlashState<'idle' | 'copied' | 'error'>('idle');
 
   const markdown = useMemo(() => (report ? reportToMarkdown(report) : ''), [report]);
 
@@ -726,11 +732,9 @@ export default function Reports() {
     if (!report) return;
     try {
       await copyToClipboard(markdown);
-      setCopyState('copied');
-      window.setTimeout(() => setCopyState('idle'), 2000);
+      flashCopyState('copied', 2000);
     } catch {
-      setCopyState('error');
-      window.setTimeout(() => setCopyState('idle'), 3000);
+      flashCopyState('error', 3000);
     }
   }
 
