@@ -799,6 +799,7 @@ export default function CoPilotThread() {
                     submit();
                   }
                 }}
+                aria-label="Co-pilot message composer"
                 placeholder="Continue the conversation, or paste a new question..."
                 disabled={status === 'streaming' || pending != null}
                 rows={3}

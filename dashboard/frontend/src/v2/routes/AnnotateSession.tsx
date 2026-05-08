@@ -4211,6 +4211,7 @@ export default function AnnotateSession() {
                 onChange={(e) =>
                   setNotes((prev) => ({ ...prev, [currentItem.item_id]: e.target.value }))
                 }
+                aria-label="Verdict note (optional)"
                 placeholder="Why this verdict? (saved with N)"
                 rows={2}
                 style={{
