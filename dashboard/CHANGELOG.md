@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`handleVacuum` + `handlePrune`: upgraded to synchronous in-flight refs.** Completes the canonical sync-ref upgrade pattern across all Settings admin handlers. The cost of same-frame double-fire here isn't doubled token spend (those were tick 179 / 180), it's doubled audit-log entries — operators reading server logs would see "admin vacuum: ... × 2" or "admin prune: ... × 2" for one user click and (rightly) wonder if something is replaying. SQLite's exclusive lock serializes the actual work, but the audit trail is misleading. Both handlers now mirror the handleTest / onRunAll pattern with `vacuumInFlightRef` / `pruneInFlightRef`. setVacuum / setPrune state setters keep their roles for UI; the refs handle concurrency.
+
 ### Changed
 
 - **CLI plugin import failures now log a breadcrumb.** `introspect.build_catalog` walks every CLI plugin module and silently `except Exception: continue` on either import or `register_commands` failure. The "dashboard stays up despite broken plugin" guarantee is correct, but a third-party plugin silently vanishing from the command list left operators with a debugging dead end. Now both except branches log `WARN` with the module path + exception type + message, so a postmortem can find the culprit. EVALYN_LOG_LEVEL=INFO (the default after tick 158) surfaces the WARN. New pytest case (`test_build_catalog_logs_when_plugin_import_fails`) monkey-patches `_collect_command_modules` to inject a synthetic broken plugin and asserts the WARN line appears in caplog; verified the regression-pin catches the bug by reverting to the silent `except Exception` and watching the test fail with "got []". 459 backend tests pass.

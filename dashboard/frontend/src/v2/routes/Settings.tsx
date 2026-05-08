@@ -257,6 +257,14 @@ interface PruneFeedback {
 
 function SystemStatusCard() {
   const [vacuum, setVacuum] = useState<VacuumFeedback>({ state: 'idle' });
+  // Synchronous in-flight ref for true same-frame guard. The
+  // React-state `vacuum.state === 'pending'` check below catches
+  // CROSS-frame double-clicks but not same-frame ones (closures
+  // both see 'idle'). Mirrors the handleTest / onRunAll sync-ref
+  // upgrade. Backend serializes vacuums via SQLite's exclusive
+  // lock, but a same-frame double-fire still creates two audit
+  // log entries that mislead postmortem readers.
+  const vacuumInFlightRef = useRef(false);
   // Visibility-aware polling lives in the shared hook so this
   // surface and the drawer's capacity chip don't drift on the
   // subtle parts (start/stop idempotence, visible-on-mount gate,
@@ -334,14 +342,14 @@ function SystemStatusCard() {
   // to the button so the user sees the outcome of their click
   // inline rather than via a toast that they could miss.
   async function handleVacuum() {
-    // Same-frame double-click guard. The button is
-    // `disabled={vacuum.state === 'pending'}` but React's batched
-    // state updates leave a sub-frame window where a second click
-    // can fire before the disabled attribute commits. Without an
-    // explicit early-out, two parallel vacuumPersistence() POSTs
-    // would fly - wasted work, doubled audit-log entries, possible
-    // 503 if the server's per-route lock kicks in.
-    if (vacuum.state === 'pending') return;
+    // Synchronous in-flight guard. The React-state vacuum.state
+    // check fails on same-frame double-fire (both closures see
+    // 'idle'); the ref is mutated synchronously so the second
+    // call sees true and bails. Backend serializes vacuums via
+    // SQLite's exclusive lock, but doubled audit-log entries
+    // confuse postmortem readers.
+    if (vacuumInFlightRef.current) return;
+    vacuumInFlightRef.current = true;
     setVacuum({ state: 'pending' });
     try {
       const res = await vacuumPersistence();
@@ -354,6 +362,8 @@ function SystemStatusCard() {
       }, 6000);
     } catch (e) {
       setVacuum({ state: 'error', error: errorMessage(e) });
+    } finally {
+      vacuumInFlightRef.current = false;
     }
   }
 
@@ -363,6 +373,12 @@ function SystemStatusCard() {
   // - first click arms ("Click again to prune"), second click
   // fires. The arm auto-resets after 4s if the user walks away.
   const [prune, setPrune] = useState<PruneFeedback>({ state: 'idle' });
+  // Synchronous in-flight ref - same rationale as
+  // vacuumInFlightRef. handlePrune's race lives in the
+  // second-click branch (after pruneArm.reset()): two same-frame
+  // confirmation clicks both pass `pruneArm.armed === true`
+  // because setArmed(false) is async, then both spawn pruneOldJobs.
+  const pruneInFlightRef = useRef(false);
   const pruneArm = useArmedConfirm();
   // We default to keeping the 100 most recent rows, matching the
   // delete_old() helper's default. Operators wanting tighter
@@ -370,19 +386,19 @@ function SystemStatusCard() {
   const [pruneKeep, setPruneKeep] = useState<number>(100);
 
   async function handlePrune() {
-    // Same-frame double-click guard for the second-click branch.
-    // The first click flips armed=true; the second click resets
-    // armed and starts the prune. Without this guard, two
-    // confirmation clicks landing in the same React frame would
-    // both see armed=true (stale closure) and BOTH start a prune,
-    // because useArmedConfirm's setArmed(false) is async even
-    // though pruneArm.armed reads from React state.
-    if (prune.state === 'pending') return;
+    // Synchronous in-flight guard for the second-click branch
+    // (after pruneArm.reset). Same rationale as handleVacuum:
+    // doubled audit log entries from a same-frame race confuse
+    // postmortem readers. The pre-arm branch (first click) is
+    // safe without this guard because `pruneArm.arm()` is
+    // idempotent.
+    if (pruneInFlightRef.current) return;
     if (!pruneArm.armed) {
       pruneArm.arm();
       return;
     }
     pruneArm.reset();
+    pruneInFlightRef.current = true;
     setPrune({ state: 'pending' });
     try {
       const res = await pruneOldJobs(pruneKeep);
@@ -393,6 +409,8 @@ function SystemStatusCard() {
       }, 6000);
     } catch (e) {
       setPrune({ state: 'error', error: errorMessage(e) });
+    } finally {
+      pruneInFlightRef.current = false;
     }
   }
 
