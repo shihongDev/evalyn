@@ -1710,6 +1710,12 @@ function JobRow({ entry, onClick, onRerun, onCancel, onTogglePin }: JobRowProps)
           onMouseLeave={(e) => {
             e.currentTarget.style.color = entry.pinned ? E.ember : E.text4;
           }}
+          onFocus={(e) => {
+            e.currentTarget.style.color = entry.pinned ? E.ember : E.text1;
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.color = entry.pinned ? E.ember : E.text4;
+          }}
         >
           <span aria-hidden="true">{entry.pinned ? '★' : '☆'}</span>
         </button>
@@ -1735,6 +1741,12 @@ function JobRow({ entry, onClick, onRerun, onCancel, onTogglePin }: JobRowProps)
             (e.currentTarget as HTMLAnchorElement).style.color = E.text1;
           }}
           onMouseLeave={(e) => {
+            (e.currentTarget as HTMLAnchorElement).style.color = E.text4;
+          }}
+          onFocus={(e) => {
+            (e.currentTarget as HTMLAnchorElement).style.color = E.text1;
+          }}
+          onBlur={(e) => {
             (e.currentTarget as HTMLAnchorElement).style.color = E.text4;
           }}
         >
@@ -1771,6 +1783,12 @@ function JobRow({ entry, onClick, onRerun, onCancel, onTogglePin }: JobRowProps)
           onMouseLeave={(e) => {
             e.currentTarget.style.color = E.text3;
           }}
+          onFocus={(e) => {
+            e.currentTarget.style.color = E.text0;
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.color = E.text3;
+          }}
         >
           <span aria-hidden="true">↻</span>
         </button>
@@ -1804,6 +1822,12 @@ function JobRow({ entry, onClick, onRerun, onCancel, onTogglePin }: JobRowProps)
             if (!cancelling) e.currentTarget.style.opacity = '0.85';
           }}
           onMouseLeave={(e) => {
+            if (!cancelling) e.currentTarget.style.opacity = '1';
+          }}
+          onFocus={(e) => {
+            if (!cancelling) e.currentTarget.style.opacity = '0.85';
+          }}
+          onBlur={(e) => {
             if (!cancelling) e.currentTarget.style.opacity = '1';
           }}
         >
