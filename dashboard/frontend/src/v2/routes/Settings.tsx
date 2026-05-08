@@ -355,12 +355,44 @@ function SystemStatusCard() {
     }
   }
 
+  // Retain the last successfully-fetched value so a transient null
+  // (network blip, 503, malformed body) doesn't silently make the
+  // card vanish on a screen the user was already reading. After
+  // the first successful load we keep showing the previous numbers
+  // with a "connection issue" indicator until a fresh fetch lands.
+  const lastKnownHealthRef = useRef<SystemHealth | null>(null);
+  if (health !== null) {
+    lastKnownHealthRef.current = health;
+  }
+  const renderHealth = health ?? lastKnownHealthRef.current;
+  const isStale = health === null && renderHealth !== null;
+
   if (!loaded) return null;
-  if (health === null) return null;
+  if (renderHealth === null) return null;
 
   return (
     <Card style={{ padding: 20, marginTop: 14 }}>
       <Eyebrow>System status</Eyebrow>
+      {isStale && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            marginTop: 8,
+            padding: '6px 10px',
+            background: 'rgba(217, 132, 51, 0.08)',
+            border: `1px solid rgba(217, 132, 51, 0.25)`,
+            borderRadius: 6,
+            fontFamily: E.fMono,
+            fontSize: 11.5,
+            color: E.text2,
+            lineHeight: 1.4,
+          }}
+        >
+          Connection issue: showing the last successful snapshot. The card
+          will refresh as soon as the server responds.
+        </div>
+      )}
       <div
         style={{
           display: 'grid',
@@ -373,65 +405,65 @@ function SystemStatusCard() {
       >
         <StatusRow
           label="Version"
-          value={health.version}
+          value={renderHealth.version}
           tooltip="Build identifier reported by the running server"
         />
         <StatusRow
           label="Uptime"
-          value={formatUptime(health.uptime_seconds)}
-          tooltip={`Started at ${new Date(health.started_at * 1000).toLocaleString()}`}
+          value={formatUptime(renderHealth.uptime_seconds)}
+          tooltip={`Started at ${new Date(renderHealth.started_at * 1000).toLocaleString()}`}
         />
         <StatusRow
           label="Running jobs"
           value={
-            health.max_concurrent > 0
-              ? `${health.running} / ${health.max_concurrent}`
-              : `${health.running}`
+            renderHealth.max_concurrent > 0
+              ? `${renderHealth.running} / ${renderHealth.max_concurrent}`
+              : `${renderHealth.running}`
           }
           tooltip={
-            health.max_concurrent > 0
-              ? `Concurrent slot cap is ${health.max_concurrent}`
+            renderHealth.max_concurrent > 0
+              ? `Concurrent slot cap is ${renderHealth.max_concurrent}`
               : 'Concurrency cap is disabled'
           }
         />
         <StatusRow
           label="Agent threads"
-          value={`${health.agent_open_threads} open / ${health.agent_threads} total`}
+          value={`${renderHealth.agent_open_threads} open / ${renderHealth.agent_threads} total`}
           tooltip="Co-pilot threads still active vs all in memory"
         />
         <StatusRow
           label="Persisted jobs"
-          value={health.jobs_persisted.toLocaleString()}
+          value={renderHealth.jobs_persisted.toLocaleString()}
           tooltip="Rows in the sqlite mirror"
         />
         <StatusRow
           label="DB size"
-          value={formatBytes(health.jobs_db_bytes)}
+          value={formatBytes(renderHealth.jobs_db_bytes)}
           tooltip="Main + WAL + SHM file size; vacuumed on graceful shutdown"
         />
         <StatusRow
           label="Last vacuum"
           value={
-            health.last_vacuum_at === null
+            renderHealth.last_vacuum_at === null
               ? 'never (this session)'
-              : `${formatRelativeAgo(health.last_vacuum_at * 1000)} ago`
+              : `${formatRelativeAgo(renderHealth.last_vacuum_at * 1000)} ago`
           }
           tooltip={
-            health.last_vacuum_at === null
+            renderHealth.last_vacuum_at === null
               ? 'No VACUUM has run since the server started. Vacuum runs on graceful shutdown; restart the server to compact.'
-              : `Last VACUUM at ${new Date(health.last_vacuum_at * 1000).toLocaleString()}`
+              : `Last VACUUM at ${new Date(renderHealth.last_vacuum_at * 1000).toLocaleString()}`
           }
         />
         <StatusRow
           label="Failures (24h)"
-          value={health.recent_failures_24h.toLocaleString()}
+          value={renderHealth.recent_failures_24h.toLocaleString()}
           // Red text when > 0 so a glance flags "things are going
           // wrong" without forcing the operator to interpret a
           // bare integer. Zero stays in the default text color so
           // the row reads as neutral when healthy.
-          valueColor={health.recent_failures_24h > 0 ? E.fail : undefined}
+          valueColor={renderHealth.recent_failures_24h > 0 ? E.fail : undefined}
           tooltip={
-            health.recent_failures_24h > 0
+            renderHealth.recent_failures_24h > 0
               ? 'Jobs that ended in failed state in the last 24h. Click to open the Recent Jobs drawer with the failure filter on.'
               : 'Jobs that ended in failed state in the last 24h'
           }
@@ -440,7 +472,7 @@ function SystemStatusCard() {
           // confuse the user (no rows to look at). With zero
           // failures the row stays a passive label.
           onClick={
-            health.recent_failures_24h > 0
+            renderHealth.recent_failures_24h > 0
               ? () => openJobsDrawer({ failureFilter: true })
               : undefined
           }
