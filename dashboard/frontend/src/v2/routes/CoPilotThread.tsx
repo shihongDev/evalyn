@@ -621,6 +621,17 @@ export default function CoPilotThread() {
           <div
             ref={convRef}
             onScroll={onConvScroll}
+            // role="log" gives SR users a landmark to jump to with
+            // their screen-reader cursor. We override aria-live to
+            // "off" because role="log" implies polite live region
+            // by default - and the agent streams text-deltas
+            // chunk-by-chunk, which would announce every keystroke
+            // worth of incoming text. Users can cursor-walk the
+            // completed conversation; the explicit ariaStatus live
+            // region in this component handles state-change beats.
+            role="log"
+            aria-label="Conversation"
+            aria-live="off"
             style={{ flex: 1, overflowY: 'auto', padding: '24px 36px' }}
           >
             <div style={{ maxWidth: 720 }}>

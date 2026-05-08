@@ -351,6 +351,12 @@ export function CoPilotDock({ onClose, mode = 'docked' }: CoPilotDockProps) {
       <div
         ref={convRef}
         onScroll={onConvScroll}
+        // Mirror the CoPilotThread "log landmark, no auto-live"
+        // pattern: SR users can cursor into the conversation but
+        // won't get spammed by per-chunk text-delta streaming.
+        role="log"
+        aria-label="Conversation"
+        aria-live="off"
         style={{ flex: 1, overflowY: 'auto', padding: '18px 18px 8px' }}
       >
         {messages.length === 0 && (
