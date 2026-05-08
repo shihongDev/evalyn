@@ -32,6 +32,15 @@ interface ErrorBoundaryProps {
 
 interface ErrorBoundaryState {
   err: Error | null;
+  /** React's component-tree stack (which Route, which Provider) -
+   * separate from err.stack (which is the JS call stack). Both
+   * matter for triage; we render both and copy both. Captured in
+   * componentDidCatch since getDerivedStateFromError doesn't have
+   * access to the ErrorInfo. */
+  componentStack: string | null;
+  /** "copied!" feedback for the copy button. Resets after 1.5s so
+   * a second click is feedback-clean. */
+  copied: boolean;
 }
 
 /** Heuristic: is the error a lazy-chunk load failure?
@@ -52,9 +61,10 @@ function isChunkLoadError(err: Error): boolean {
 }
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { err: null };
+  state: ErrorBoundaryState = { err: null, componentStack: null, copied: false };
+  private copiedTimer: number | null = null;
 
-  static getDerivedStateFromError(err: Error): ErrorBoundaryState {
+  static getDerivedStateFromError(err: Error): Partial<ErrorBoundaryState> {
     return { err };
   }
 
@@ -63,15 +73,82 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     // logging would go through a real telemetry channel, which this
     // app doesn't have wired today.
     console.error('[ErrorBoundary]', err, info.componentStack);
+    this.setState({ componentStack: info.componentStack ?? null });
   }
 
   componentDidUpdate(prevProps: ErrorBoundaryProps) {
     // Reset on resetKey change so a per-route crash doesn't strand
     // the user across navigations.
     if (this.state.err && prevProps.resetKey !== this.props.resetKey) {
-      this.setState({ err: null });
+      this.setState({ err: null, componentStack: null, copied: false });
     }
   }
+
+  componentWillUnmount() {
+    if (this.copiedTimer != null) {
+      window.clearTimeout(this.copiedTimer);
+      this.copiedTimer = null;
+    }
+  }
+
+  /** Build the paste-ready report. Prefers err.stack when present
+   * (browsers all populate it for thrown Errors); falls back to
+   * name + message. ComponentStack is appended under its own header
+   * so a teammate reading the paste can tell JS-level from
+   * React-tree-level frames. */
+  private buildReport(): string {
+    const { err, componentStack } = this.state;
+    if (!err) return '';
+    const lines: string[] = [];
+    lines.push(`${err.name}: ${err.message}`);
+    if (err.stack && err.stack.trim() !== `${err.name}: ${err.message}`) {
+      lines.push('');
+      lines.push('Stack:');
+      lines.push(err.stack);
+    }
+    if (componentStack) {
+      lines.push('');
+      lines.push('Component stack:');
+      lines.push(componentStack.trim());
+    }
+    lines.push('');
+    lines.push(`URL: ${window.location.href}`);
+    lines.push(`User-Agent: ${navigator.userAgent}`);
+    return lines.join('\n');
+  }
+
+  private handleCopy = async () => {
+    const text = this.buildReport();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Older browsers / non-secure context: fall back to the
+      // synchronous execCommand path, which is wider-supported in
+      // exactly the older-browser cases where the async API fails.
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-1000px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch {
+        // Both paths failed - swallow. The user can still select the
+        // pre manually; a copy-failed alert here would be more
+        // jarring than just leaving them to do it.
+        return;
+      }
+    }
+    this.setState({ copied: true });
+    if (this.copiedTimer != null) window.clearTimeout(this.copiedTimer);
+    this.copiedTimer = window.setTimeout(() => {
+      this.setState({ copied: false });
+      this.copiedTimer = null;
+    }, 1500);
+  };
 
   render() {
     const { err } = this.state;
@@ -150,16 +227,16 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               fontFamily: E.fMono,
               fontSize: 11,
               color: E.text2,
-              maxHeight: 160,
+              maxHeight: 220,
               overflow: 'auto',
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-word',
               margin: '14px 0 0',
             }}
           >
-            {err.name}: {err.message}
+            {this.buildReport()}
           </pre>
-          <div style={{ marginTop: 20, display: 'flex', gap: 8 }}>
+          <div style={{ marginTop: 20, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={() => window.location.reload()}
@@ -194,6 +271,24 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               }}
             >
               Go home
+            </button>
+            <button
+              type="button"
+              onClick={this.handleCopy}
+              aria-label="Copy error details to clipboard"
+              style={{
+                padding: '8px 16px',
+                background: 'transparent',
+                color: E.text2,
+                border: `1px solid ${E.hair2}`,
+                borderRadius: 8,
+                cursor: 'pointer',
+                fontSize: 13,
+                fontFamily: E.fSans,
+                marginLeft: 'auto',
+              }}
+            >
+              {this.state.copied ? 'Copied' : 'Copy details'}
             </button>
           </div>
         </div>
