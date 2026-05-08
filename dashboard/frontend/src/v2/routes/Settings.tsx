@@ -275,10 +275,28 @@ function SystemStatusCard() {
   // (Refreshed 1s ago -> 2s ago ...) without forcing the polling
   // hook to fire more often. We could pull this from a dedicated
   // hook but a 5-line useEffect is fine for one consumer.
+  //
+  // Also snap on tab return: setInterval throttles in background tabs,
+  // so without the visibility listener the user comes back to a label
+  // showing the value as of when they left (could be minutes stale)
+  // until the next 5s tick. Mirrors the useLiveDuration snap pattern.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 5000);
-    return () => window.clearInterval(id);
+    const onVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        setNow(Date.now());
+      }
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisibility);
+    }
+    return () => {
+      window.clearInterval(id);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisibility);
+      }
+    };
   }, []);
 
   // Optimistic visual confirmation for the Refresh button.
@@ -1151,11 +1169,29 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
   // "tested Ns/Nm ago" label stays current. Cheap: 1Hz/min and only
   // when a result exists. Skipping setInterval entirely when no
   // result is showing keeps idle pages quiet.
+  //
+  // Tab-return snap: same rationale as the freshness `now` ticker
+  // above. Without this, a user who tested a connection then
+  // backgrounded the tab returns to a label that may be many minutes
+  // stale until the next 60s tick fires.
   const [nowMs, setNowMs] = useState(Date.now());
   useEffect(() => {
     if (!testResult) return;
     const id = window.setInterval(() => setNowMs(Date.now()), 60_000);
-    return () => window.clearInterval(id);
+    const onVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        setNowMs(Date.now());
+      }
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisibility);
+    }
+    return () => {
+      window.clearInterval(id);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisibility);
+      }
+    };
   }, [testResult]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
