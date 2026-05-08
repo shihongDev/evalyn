@@ -20,6 +20,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppShell } from '../AppShell';
 import { Btn, Card, Eyebrow, Pill, Skeleton, Spinner, StatusDot, UpdatingChip } from '../ui';
 import { useV2Resource } from '../hooks/useV2Resource';
+import { useFlashState } from '../hooks/useFlashState';
 import { useVisibilityPoll } from '../hooks/useVisibilityPoll';
 import { E } from '../tokens';
 import { errorMessage } from '../api/errors';
@@ -830,7 +831,11 @@ export function GuidanceToggleCard() {
       return true;
     }
   });
-  const [resetFlash, setResetFlash] = useState(false);
+  // useFlashState handles the auto-revert + unmount cleanup so the
+  // 2 s "reset done" pill cannot fire setState on an unmounted
+  // component if the user navigates away mid-window. Replaces a
+  // bare window.setTimeout(setResetFlash(false), 2000) pair.
+  const [resetFlash, flashResetFlash] = useFlashState(false);
 
   const handleToggle = () => {
     const next = !enabled;
@@ -853,8 +858,7 @@ export function GuidanceToggleCard() {
     } catch {
       // localStorage unavailable - silent best-effort.
     }
-    setResetFlash(true);
-    window.setTimeout(() => setResetFlash(false), 2000);
+    flashResetFlash(true, 2000);
   };
 
   return (

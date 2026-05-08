@@ -951,8 +951,41 @@ export default function Review() {
             >
               Inbox zero
             </div>
-            <div style={{ fontSize: 13, color: E.text2 }}>
-              The judge is confident on every recent item.
+            <div
+              style={{
+                fontSize: 13,
+                color: E.text2,
+                maxWidth: 360,
+                margin: '0 auto 16px',
+                lineHeight: 1.55,
+              }}
+            >
+              The judge is confident on every recent item. Browse experiments
+              to see how runs scored, or run a new evaluation to refresh the
+              queue.
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                gap: 8,
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+              }}
+            >
+              <Btn
+                kind="primary"
+                size="sm"
+                onClick={() => navigate('/experiments')}
+              >
+                Browse experiments
+              </Btn>
+              <Btn
+                kind="secondary"
+                size="sm"
+                onClick={() => navigate('/reports')}
+              >
+                View reports
+              </Btn>
             </div>
           </Card>
         )}
