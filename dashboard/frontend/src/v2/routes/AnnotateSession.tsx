@@ -3086,7 +3086,14 @@ export default function AnnotateSession() {
               marginBottom: 6,
               flexWrap: 'wrap',
             }}
-            aria-label="Item progress strip"
+            // role="group" anchors the aria-label so it lands on every
+            // SR engine. Without an explicit role, NVDA reads the label
+            // on enter, JAWS sometimes does, VoiceOver often doesn't.
+            // Group is the right primitive here because the dots aren't
+            // navigation links - they're related controls picking the
+            // active session item.
+            role="group"
+            aria-label={`Item progress strip - ${items.filter((x) => x.annotated).length} of ${items.length} annotated`}
           >
             {(() => {
               const MAX_DOTS = 60;
