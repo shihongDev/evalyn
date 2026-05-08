@@ -236,6 +236,17 @@ export function TourMenu() {
             onMouseLeave={(e) => {
               e.currentTarget.style.background = 'transparent';
             }}
+            // Keyboard users tabbing into the menu got only the
+            // global :focus-visible outline; the row-level panel2
+            // highlight that mouse hover provides was missing.
+            // Disabled buttons aren't in the tab order so the
+            // hover guard isn't needed here.
+            onFocus={(e) => {
+              e.currentTarget.style.background = E.panel2;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.background = 'transparent';
+            }}
           >
             <span aria-hidden="true" style={{ fontSize: 14 }}>▶</span>
             Take a tour of this page
@@ -266,6 +277,12 @@ export function TourMenu() {
               e.currentTarget.style.background = E.panel2;
             }}
             onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.background = E.panel2;
+            }}
+            onBlur={(e) => {
               e.currentTarget.style.background = 'transparent';
             }}
           >
