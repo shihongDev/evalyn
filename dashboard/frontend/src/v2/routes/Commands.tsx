@@ -593,6 +593,7 @@ function ParamInput({ param, value, onChange, id }: ParamInputProps) {
             type="button"
             onClick={() => onChange(arr.filter((x) => x !== m))}
             title="Remove"
+            aria-label={`Remove ${m}`}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -608,7 +609,7 @@ function ParamInput({ param, value, onChange, id }: ParamInputProps) {
             }}
           >
             {m}
-            <span style={{ opacity: 0.7 }}>x</span>
+            <span aria-hidden="true" style={{ opacity: 0.7 }}>x</span>
           </button>
         ))}
         {remaining.length > 0 ? (
@@ -618,6 +619,7 @@ function ParamInput({ param, value, onChange, id }: ParamInputProps) {
               const v = e.target.value;
               if (v) onChange([...arr, v]);
             }}
+            aria-label={`Add ${param.name} value`}
             style={{
               padding: '2px 8px',
               borderRadius: 999,
