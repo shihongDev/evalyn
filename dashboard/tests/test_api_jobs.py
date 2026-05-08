@@ -838,6 +838,53 @@ def test_admin_vacuum_returns_before_after_and_bytes_saved():
         assert body["bytes_saved"] == body["before"] - body["after"]
 
 
+def test_admin_vacuum_returns_503_when_persistence_unavailable(monkeypatch):
+    """When the JobManager has no attached persistence (early
+    startup, degraded shutdown, or a future override), the vacuum
+    endpoint must return 503 - not 404. Last week's fix flipped
+    the code from 404 (permanent: "endpoint never existed") to
+    503 (transient: "service unavailable, retry shortly") to
+    align with the prune endpoint and let a single FE error
+    branch cover both. Pin so the regression can't return.
+    """
+    from evalyn_dashboard.api import jobs as jobs_api
+
+    app = build_app()
+    # Force _persistence_for to return None regardless of the JM
+    # state. Patches the helper used by both vacuum + prune so a
+    # parallel test can do the same for prune (next test below).
+    monkeypatch.setattr(jobs_api, "_persistence_for", lambda jm: None)
+    with TestClient(app) as client:
+        token = _token_from(client)
+        r = client.post(
+            "/api/jobs/admin/vacuum",
+            headers={CSRF_HEADER: token},
+        )
+        assert r.status_code == 503, r.text
+        body = r.json()
+        assert body["detail"] == "persistence_unavailable"
+
+
+def test_admin_prune_returns_503_when_persistence_unavailable(monkeypatch):
+    """Mirror test for prune. Both admin endpoints share the
+    503-on-degraded-persistence contract; a single FE error
+    branch covers both, so the codes must stay aligned.
+    """
+    from evalyn_dashboard.api import jobs as jobs_api
+
+    app = build_app()
+    monkeypatch.setattr(jobs_api, "_persistence_for", lambda jm: None)
+    with TestClient(app) as client:
+        token = _token_from(client)
+        r = client.post(
+            "/api/jobs/admin/prune?keep=10",
+            headers={CSRF_HEADER: token},
+        )
+        assert r.status_code == 503, r.text
+        body = r.json()
+        assert body["detail"] == "persistence_unavailable"
+
+
 def test_admin_prune_requires_csrf():
     """Like vacuum, prune is a destructive POST that mutates
     persistence; missing token must 403 before the prune runs."""
