@@ -334,6 +334,14 @@ function SystemStatusCard() {
   // to the button so the user sees the outcome of their click
   // inline rather than via a toast that they could miss.
   async function handleVacuum() {
+    // Same-frame double-click guard. The button is
+    // `disabled={vacuum.state === 'pending'}` but React's batched
+    // state updates leave a sub-frame window where a second click
+    // can fire before the disabled attribute commits. Without an
+    // explicit early-out, two parallel vacuumPersistence() POSTs
+    // would fly - wasted work, doubled audit-log entries, possible
+    // 503 if the server's per-route lock kicks in.
+    if (vacuum.state === 'pending') return;
     setVacuum({ state: 'pending' });
     try {
       const res = await vacuumPersistence();
@@ -362,6 +370,14 @@ function SystemStatusCard() {
   const [pruneKeep, setPruneKeep] = useState<number>(100);
 
   async function handlePrune() {
+    // Same-frame double-click guard for the second-click branch.
+    // The first click flips armed=true; the second click resets
+    // armed and starts the prune. Without this guard, two
+    // confirmation clicks landing in the same React frame would
+    // both see armed=true (stale closure) and BOTH start a prune,
+    // because useArmedConfirm's setArmed(false) is async even
+    // though pruneArm.armed reads from React state.
+    if (prune.state === 'pending') return;
     if (!pruneArm.armed) {
       pruneArm.arm();
       return;
