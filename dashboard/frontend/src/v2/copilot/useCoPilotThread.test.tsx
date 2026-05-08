@@ -192,6 +192,67 @@ describe('useCoPilotThread', () => {
     expect(result.current.status).toBe('error');
   });
 
+  it('F7: same-frame double confirm fires confirmAgentTool only once', async () => {
+    // Customer scenario: user mashes Approve on a tool-confirm
+    // card. Without the in-flight guard, two confirmAgentTool
+    // POSTs fire; backend 409s the second; FE catch sets a
+    // spurious "already confirmed" error banner the user has to
+    // dismiss. Pin: only one POST per double-tap.
+    let resolveConfirm: (() => void) | null = null;
+    confirmAgentToolMock.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveConfirm = resolve;
+        }),
+    );
+
+    const { result } = renderHook(() =>
+      useCoPilotThread({ initialThreadId: 'tid-7' }),
+    );
+    await waitFor(() => {
+      expect(subscribeAgentMock).toHaveBeenCalled();
+    });
+    const handlers = getHandlers();
+
+    // Drive a confirmation_required event so `pending` is set.
+    act(() => {
+      handlers.onMessage({
+        type: 'confirmation_required',
+        thread_id: 'tid-7',
+        tool_call_id: 'tc-double',
+        tool: 'run-eval',
+        args: {},
+        preview_cmd: 'run-eval --dataset x',
+        ts: 1,
+      });
+    });
+    expect(result.current.pending).not.toBeNull();
+
+    // First confirm: enters, marks in-flight, awaits.
+    let firstPromise: Promise<void> | undefined;
+    act(() => {
+      firstPromise = result.current.confirm(true);
+    });
+    expect(confirmAgentToolMock).toHaveBeenCalledTimes(1);
+
+    // Second confirm same paint frame: ref blocks before any
+    // setState queues; the mock should NOT be called twice.
+    let secondPromise: Promise<void> | undefined;
+    act(() => {
+      secondPromise = result.current.confirm(true);
+    });
+    expect(confirmAgentToolMock).toHaveBeenCalledTimes(1);
+
+    // Resolve the first; ref clears in finally.
+    await act(async () => {
+      resolveConfirm?.();
+      await firstPromise;
+      await secondPromise;
+    });
+
+    expect(confirmAgentToolMock).toHaveBeenCalledTimes(1);
+  });
+
   it('F3: unclean WS close schedules a reconnect with backoff', async () => {
     vi.useFakeTimers();
     // Force the production jitter to 0 so the reconnect schedules at
