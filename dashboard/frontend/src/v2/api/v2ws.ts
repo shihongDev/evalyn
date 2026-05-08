@@ -11,9 +11,14 @@
  *    so the AppShell can call it on every mount without duplicating
  *    sockets; subsequent calls are no-ops while a connection is open
  *    or actively reconnecting.
- *  - Auto-reconnect with a fixed 2s backoff. Best-effort: if the WS
- *    repeatedly fails to connect we just keep the FE running on the
- *    existing useV2Resource refresh-on-nav semantics.
+ *  - Auto-reconnect with exponential backoff plus jitter, capped at
+ *    RECONNECT_MAX_MS (see _computeBackoffMs). The ladder is
+ *    2s -> 4s -> 8s -> 16s -> 30s with a [0, 500ms) jitter on each
+ *    attempt to prevent N tabs from thundering on the server when
+ *    it comes back. The attempt counter resets to 0 on every
+ *    successful open. Best-effort: if the WS repeatedly fails to
+ *    connect we just keep the FE running on the existing
+ *    useV2Resource refresh-on-nav semantics.
  *
  * Protocol kept in sync with ``api/v2/v2_ws.py``. Add a new variant
  * here when you add a new event type on the backend.
