@@ -967,6 +967,20 @@ export function AppShell({
               e.currentTarget.style.color = E.text2;
               e.currentTarget.style.borderColor = E.hair2;
             }}
+            // Focus parity: keyboard users get the same color +
+            // border-color shift as mouse hover. Without these, Tab
+            // to the help button surfaces only the global ember
+            // outline ring (a 24x24 button is small enough that the
+            // ring alone reads as a tight box, missing the affordance
+            // change mouse users see).
+            onFocus={(e) => {
+              e.currentTarget.style.color = E.text0;
+              e.currentTarget.style.borderColor = E.text3;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.color = E.text2;
+              e.currentTarget.style.borderColor = E.hair2;
+            }}
           >
             ?
           </button>
@@ -1245,6 +1259,19 @@ export function AppShell({
             e.currentTarget.style.color = E.ember;
           }}
           onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#fbf7ee';
+            e.currentTarget.style.color = E.text2;
+          }}
+          // Focus parity for the floating scroll-to-top button. As
+          // a small (~36 x 36) floating circle, the global ember
+          // outline alone is easy to miss against page content -
+          // mirroring the hover bg + ember color flip on focus
+          // makes the keyboard-focused state unmistakable.
+          onFocus={(e) => {
+            e.currentTarget.style.background = '#fcefe2';
+            e.currentTarget.style.color = E.ember;
+          }}
+          onBlur={(e) => {
             e.currentTarget.style.background = '#fbf7ee';
             e.currentTarget.style.color = E.text2;
           }}
@@ -1596,7 +1623,23 @@ function Sidebar({ mode, active, navigate, dockOpen, setDockOpen, onAfterNavigat
                 e.currentTarget.style.background = 'transparent';
               }
             }}
-            onFocus={warm}
+            // Keyboard parity: tab focus gets the same panel2 hover
+            // bg as mouse hover. Earlier version warmed the route
+            // but didn't apply the visual cue, so keyboard users
+            // tabbing through the nav rail got only the global
+            // :focus-visible outline. The active-item guard mirrors
+            // the hover handler.
+            onFocus={(e) => {
+              warm();
+              if (!isActive) {
+                e.currentTarget.style.background = E.panel2;
+              }
+            }}
+            onBlur={(e) => {
+              if (!isActive) {
+                e.currentTarget.style.background = 'transparent';
+              }
+            }}
             onTouchStart={warm}
             onClick={() => onAfterNavigate?.()}
             title={isIcon ? item.label : undefined}
