@@ -781,9 +781,11 @@ export default function Reports() {
 
         {err && !report && (
           <Card style={{ padding: 16, marginTop: 22, borderColor: E.fail }}>
-            <Eyebrow style={{ color: E.fail }}>Error loading report</Eyebrow>
-            <div style={{ fontFamily: E.fMono, fontSize: 12, color: E.text2, marginTop: 6 }}>
-              {err}
+            <div role="alert">
+              <Eyebrow style={{ color: E.fail }}>Error loading report</Eyebrow>
+              <div style={{ fontFamily: E.fMono, fontSize: 12, color: E.text2, marginTop: 6 }}>
+                {err}
+              </div>
             </div>
             <div style={{ marginTop: 10 }}>
               <Btn kind="ghost" size="sm" onClick={() => void refetch()}>

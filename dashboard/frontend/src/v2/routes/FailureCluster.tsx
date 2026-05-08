@@ -118,9 +118,11 @@ export default function FailureCluster() {
       <div style={{ padding: '28px 36px' }}>
         {err && (
           <Card style={{ padding: 16, marginBottom: 16, borderColor: E.fail }}>
-            <Eyebrow style={{ color: E.fail }}>Error loading cluster</Eyebrow>
-            <div style={{ fontFamily: E.fMono, fontSize: 12, color: E.text2, marginTop: 6 }}>
-              {err}
+            <div role="alert">
+              <Eyebrow style={{ color: E.fail }}>Error loading cluster</Eyebrow>
+              <div style={{ fontFamily: E.fMono, fontSize: 12, color: E.text2, marginTop: 6 }}>
+                {err}
+              </div>
             </div>
             <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
               <Btn

@@ -2293,9 +2293,11 @@ export default function AnnotateSession() {
       <AppShell breadcrumb={['Annotate', sessionId ?? '']}>
         <div style={{ padding: '32px 36px', maxWidth: 1100 }}>
           <Card style={{ padding: 16, borderColor: E.fail }}>
-            <Eyebrow style={{ color: E.fail }}>Error loading session</Eyebrow>
-            <div style={{ fontFamily: E.fMono, fontSize: 12, color: E.text2, marginTop: 6 }}>
-              {sessionErr || itemsErr}
+            <div role="alert">
+              <Eyebrow style={{ color: E.fail }}>Error loading session</Eyebrow>
+              <div style={{ fontFamily: E.fMono, fontSize: 12, color: E.text2, marginTop: 6 }}>
+                {sessionErr || itemsErr}
+              </div>
             </div>
             <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
               <Btn
@@ -3218,7 +3220,7 @@ export default function AnnotateSession() {
 
         {finalizeErr && (
           <Card style={{ padding: 12, marginBottom: 14, borderColor: E.fail }}>
-            <div style={{ fontSize: 12, color: E.fail, fontFamily: E.fMono }}>{finalizeErr}</div>
+            <div role="alert" style={{ fontSize: 12, color: E.fail, fontFamily: E.fMono }}>{finalizeErr}</div>
           </Card>
         )}
 
@@ -4268,7 +4270,7 @@ export default function AnnotateSession() {
               </Btn>
               <span style={{ flex: 1, minWidth: 8 }} />
               {submitErr && (
-                <span style={{ fontSize: 11, color: E.fail, fontFamily: E.fMono }}>{submitErr}</span>
+                <span role="alert" style={{ fontSize: 11, color: E.fail, fontFamily: E.fMono }}>{submitErr}</span>
               )}
               <KeyHints forceOpen={pinKeys} onTogglePin={() => setPinKeys((v) => !v)} />
               <Btn
