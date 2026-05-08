@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **ExperimentsList lineage sort: epoch-zero timestamps no longer misclassified as malformed.** The synthesized lineage sort used `Date.parse(iso) || -Infinity`. `Date.parse('1970-01-01T00:00:00Z')` returns 0 (legitimate epoch), and `0 || -Infinity` collapses to -Infinity - so a real epoch-zero timestamp would sink to the bottom alongside truly malformed rows. Customer impact: vanishingly low for eval runs (none from 1970), but the same foot-gun caught last tick in Datasets recent-sort. Audit-grep for `Date.parse.*||` found this remaining instance; both now use the `Number.isFinite(t) ? t : sentinel` shape via a small `tsOrSentinel` helper.
 - **Datasets "Recent" sort: unparseable timestamps now sink last instead of sorting as 1970-epoch.** The recent-sort path used `Date.parse(iso) || 0` for non-null timestamps - any string `Date.parse` couldn't read returned NaN, and `NaN || 0` collapses to 0, which sorts the row ABOVE the null-last sentinel of -1 (treats malformed as "older than any real run" but still real). Customer impact: a row with a corrupted timestamp would surface in the middle of the list instead of sinking to the bottom where "no date" rows live - confusing because the row's listed timestamp was unreadable. Now wraps the parse in a `recentTs` helper that returns -1 for both `null` AND unparseable inputs, unifying the two "no usable date" cases. The existing -1 sentinel + ascending null-handling now treats them identically.
 
 ### Changed

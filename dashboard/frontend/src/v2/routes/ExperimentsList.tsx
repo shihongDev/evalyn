@@ -129,9 +129,18 @@ function synthesizeLineage(rows: ExperimentRow[]): Lineage {
   const runs = rows.map(rowToLineage);
   // Sort newest-first; runs with unparseable timestamps drift to the
   // end so the freshest data stays at the top of the timeline.
+  // Use Number.isFinite rather than the bare ``||`` fallback because
+  // Date.parse('1970-01-01T00:00:00Z') returns 0, which would
+  // otherwise collapse to -Infinity via ``0 || -Infinity`` and
+  // misclassify a real epoch-zero timestamp as malformed. Same
+  // foot-gun a recent Datasets recent-sort fix caught.
+  function tsOrSentinel(iso: string): number {
+    const t = Date.parse(iso);
+    return Number.isFinite(t) ? t : -Infinity;
+  }
   runs.sort((a, b) => {
-    const at = Date.parse(a.when_iso) || -Infinity;
-    const bt = Date.parse(b.when_iso) || -Infinity;
+    const at = tsOrSentinel(a.when_iso);
+    const bt = tsOrSentinel(b.when_iso);
     return bt - at;
   });
   const passes = runs
