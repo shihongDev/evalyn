@@ -4306,17 +4306,29 @@ export default function AnnotateSession() {
                 onClick={goNext}
                 disabled={submitting}
                 aria-busy={submitting}
+                aria-label={
+                  submitting
+                    ? 'Saving'
+                    : findInFilter(cursor, 1) < 0
+                      ? 'Save last item (N)'
+                      : 'Save and go to next item (N)'
+                }
                 style={
                   shakeTick > 0
                     ? { animation: 'eShake 320ms ease-in-out' }
                     : undefined
                 }
               >
-                {submitting
-                  ? 'Saving...'
-                  : findInFilter(cursor, 1) < 0
-                    ? 'N · Save (last item) ✓'
-                    : 'N · Save & next →'}
+                {submitting ? (
+                  'Saving...'
+                ) : (
+                  <>
+                    <span aria-hidden="true" style={{ opacity: 0.7, fontFamily: E.fMono, marginRight: 4 }}>
+                      N
+                    </span>
+                    {findInFilter(cursor, 1) < 0 ? 'Save (last item) ✓' : 'Save & next →'}
+                  </>
+                )}
               </Btn>
             </div>
           </Card>
