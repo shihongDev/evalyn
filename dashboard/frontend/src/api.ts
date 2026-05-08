@@ -4,15 +4,17 @@
  * The full workbench api.ts was deleted with the workbench rewrite; this
  * file keeps just the agent-thread helpers that the co-pilot needs.
  * v2 endpoint fetchers live in src/v2/api/client.ts.
+ *
+ * CSRF retry: every mutation here mirrors the "send -> if 403, refresh
+ * the workbench token once, retry" pattern from src/v2/api/*. Without
+ * this, a tab left open across a server restart fails its first agent
+ * message with a raw 403; the v2 endpoints already self-heal so the
+ * agent path was the odd one out.
  */
 
-const API_BASE = '/api';
+import { readCsrfToken, refreshCsrfToken } from './v2/api/csrf';
 
-function csrfToken(): string | null {
-  if (typeof document === 'undefined') return null;
-  const meta = document.querySelector<HTMLMetaElement>('meta[name="workbench-token"]');
-  return meta?.content ?? null;
-}
+const API_BASE = '/api';
 
 function wsUrl(path: string): string {
   const proto =
@@ -22,15 +24,26 @@ function wsUrl(path: string): string {
 }
 
 async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...((init?.headers as Record<string, string> | undefined) ?? {}),
+  const isMutation = !!init?.method && init.method !== 'GET';
+  const send = async (token: string | null): Promise<Response> => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...((init?.headers as Record<string, string> | undefined) ?? {}),
+    };
+    if (isMutation && token) headers['X-Workbench-Token'] = token;
+    return fetch(`${API_BASE}${path}`, { ...init, headers });
   };
-  const tok = csrfToken();
-  if (tok && init?.method && init.method !== 'GET') {
-    headers['X-Workbench-Token'] = tok;
+  let res = await send(readCsrfToken());
+  // 403 on a mutation usually means the workbench token rotated since
+  // the page loaded (server restart, idle session). Refresh once and
+  // retry. Don't loop - if the second attempt also 403s, the user has
+  // a bigger problem than a stale token.
+  if (isMutation && res.status === 403) {
+    const fresh = await refreshCsrfToken();
+    if (fresh) {
+      res = await send(fresh);
+    }
   }
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`${res.status} ${res.statusText}: ${body}`);
