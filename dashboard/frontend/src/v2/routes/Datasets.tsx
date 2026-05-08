@@ -895,10 +895,21 @@ export default function Datasets() {
         return bv - av;
       });
     } else {
-      // recent: last_used_iso desc, nulls last
+      // recent: last_used_iso desc, nulls/malformed last.
+      // Date.parse returns NaN for unparseable strings; the prior
+      // ``|| 0`` fallback sorted those rows as 1970-epoch (i.e.
+      // older than any real run, but still ABOVE the null-last
+      // sentinel of -1). Treat unparseable timestamps the same as
+      // null - the row's "no usable last-used date" so it sinks
+      // to the bottom of the recent-first list.
+      function recentTs(iso: string | null | undefined): number {
+        if (!iso) return -1;
+        const t = Date.parse(iso);
+        return Number.isFinite(t) ? t : -1;
+      }
       sorted.sort((a, b) => {
-        const at = a.row.last_used_iso ? Date.parse(a.row.last_used_iso) || 0 : -1;
-        const bt = b.row.last_used_iso ? Date.parse(b.row.last_used_iso) || 0 : -1;
+        const at = recentTs(a.row.last_used_iso);
+        const bt = recentTs(b.row.last_used_iso);
         if (at === -1 && bt === -1) return 0;
         if (at === -1) return 1;
         if (bt === -1) return -1;
