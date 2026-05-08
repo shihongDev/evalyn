@@ -22,7 +22,7 @@ import {
   type ReactElement,
 } from 'react';
 import { E } from './tokens';
-import { Btn, Eyebrow, Pill, StatusDot } from './ui';
+import { Btn, Eyebrow, Pill, Spinner, StatusDot } from './ui';
 import { useStickToBottom } from './hooks/useStickToBottom';
 import { useLiveDuration } from './hooks/useLiveDuration';
 import { useSearchFilter } from './hooks/useSearchFilter';
@@ -1031,7 +1031,13 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
                         : undefined
                   }
                 >
-                  {submitting ? 'Starting...' : 'Run'}
+                  {submitting ? (
+                    <>
+                      <Spinner size={11} /> Starting
+                    </>
+                  ) : (
+                    'Run'
+                  )}
                 </Btn>
               </>
             )}

@@ -25,6 +25,7 @@ import {
   Eyebrow,
   Pill,
   Skeleton,
+  Spinner,
   StatusDot,
   UpdatingChip,
 } from '../ui';
@@ -447,10 +448,17 @@ function SmartQueueCard({
           size="sm"
           onClick={onStartSession}
           disabled={starting || metricId == null || itemCount === 0}
+          aria-busy={starting}
           onMouseEnter={() => void preloadAnnotateSession()}
           onFocus={() => void preloadAnnotateSession()}
         >
-          {starting ? 'Starting...' : 'Start session'}
+          {starting ? (
+            <>
+              <Spinner size={11} /> Starting
+            </>
+          ) : (
+            'Start session'
+          )}
         </Btn>
         <div style={{ position: 'relative' }}>
           <Btn kind="ghost" size="sm" onClick={onCustomizeRanking}>

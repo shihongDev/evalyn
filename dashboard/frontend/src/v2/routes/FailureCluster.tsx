@@ -6,7 +6,7 @@
 import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppShell } from '../AppShell';
-import { Bar, Btn, Card, Eyebrow, Glossary, LineChart, Pill, Skeleton, UpdatingChip } from '../ui';
+import { Bar, Btn, Card, Eyebrow, Glossary, LineChart, Pill, Skeleton, Spinner, UpdatingChip } from '../ui';
 import { v2 } from '../api/client';
 import type { ClusterDetail } from '../api/types';
 import { useV2Resource } from '../hooks/useV2Resource';
@@ -132,7 +132,13 @@ export default function FailureCluster() {
                 disabled={reloading}
                 aria-busy={reloading}
               >
-                {reloading ? 'Retrying...' : 'Retry'}
+                {reloading ? (
+                  <>
+                    <Spinner size={11} /> Retrying
+                  </>
+                ) : (
+                  'Retry'
+                )}
               </Btn>
               <Btn
                 kind="ghost"
