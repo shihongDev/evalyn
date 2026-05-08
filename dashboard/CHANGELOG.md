@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **CRITICAL: vacuum + prune admin buttons were 403-broken.** `health.ts:vacuumPersistence` and `health.ts:pruneOldJobs` were sending `X-CSRF-Token` while the server's CSRF middleware (server.py:CSRF_HEADER) only accepts `X-Workbench-Token`. So every Compact / Prune click in Settings hit a 403 in production - the user saw "POST /api/jobs/admin/vacuum 403: ..." and the destructive operations they intended never reached the backend. Existing `test_admin_vacuum_requires_csrf` only verified that a MISSING header returns 403; it never exercised a request with a wrong-name header, so the bug shipped silently. Fixed by using the correct header name in both functions, plus a new vitest spec (`health.test.ts`) that pins `X-Workbench-Token` is sent and `X-CSRF-Token` is NOT - so this regression class can't return.
+- **Vacuum endpoint: `persistence_unavailable` now returns 503 instead of 404.** The vacuum POST returned 404 for "persistence layer is degraded" while the parallel prune POST correctly returned 503. 404 says "this endpoint never existed" (permanent); 503 says "service unavailable, retry shortly" (transient). The latter is correct for an operational degradation. Aligning the codes also lets a single FE error-handling branch cover both admin endpoints.
+
 ### Changed
 
 - **`client.ts:jpost` now uses `fetchWithTimeout`.** Closes the wedged-server-bound sweep gap. Every other mutating module (cli, jobs, settings, demo, annotation) wraps its POSTs with a 30s `fetchWithTimeout` so a wedged server (TCP accepts, never responds) hits an explicit timeout and a recoverable error message - but `client.ts:jpost` (used by `v2.saveRubric` and `v2.submitVerdict`) still called bare `fetch`. submitVerdict is the highest-stakes path through this helper: a reviewer mid-session clicking the verdict button would get a forever-spinner on a wedged server, with no Cancel affordance and no path to recovery without reload. Same 30s bound + same "Server didn't respond within 30s..." message added to keep the surface error consistent with the other mutating modules. Bundle: 359.31 -> 359.41 kB (helper import is shared across modules; the +100 bytes are just timing constants).

@@ -110,7 +110,7 @@ export async function vacuumPersistence(): Promise<VacuumResult> {
         method: 'POST',
         headers: {
           Accept: 'application/json',
-          ...(token ? { 'X-CSRF-Token': token } : {}),
+          ...(token ? { 'X-Workbench-Token': token } : {}),
         },
       },
       ADMIN_MUTATION_TIMEOUT_MS,
@@ -150,7 +150,7 @@ export async function pruneOldJobs(keep: number): Promise<PruneResult> {
         method: 'POST',
         headers: {
           Accept: 'application/json',
-          ...(token ? { 'X-CSRF-Token': token } : {}),
+          ...(token ? { 'X-Workbench-Token': token } : {}),
         },
       },
       ADMIN_MUTATION_TIMEOUT_MS,
