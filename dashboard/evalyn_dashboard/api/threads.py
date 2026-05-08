@@ -30,6 +30,7 @@ dump cannot blow up the disk write.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,6 +39,8 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -205,5 +208,16 @@ async def save_thread(request: Request) -> JSONResponse:
         raise HTTPException(
             status_code=500, detail=f"failed to write thread: {exc}"
         ) from exc
+
+    # Audit log: thread save writes a markdown file under the
+    # workspace's threads dir. Lightweight metadata only - log the
+    # safe id (already sanitized via _safe_thread_id) and the
+    # message count, never message bodies (they can contain
+    # API keys / PII the user pasted into the chat).
+    logger.info(
+        "thread saved: id=%s messages=%d",
+        safe_id,
+        len(payload.messages),
+    )
 
     return JSONResponse({"path": str(file_path.resolve())})
