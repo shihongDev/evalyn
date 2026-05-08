@@ -879,7 +879,17 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
             ref={closeBtnRef}
             type="button"
             onClick={onCloseClick}
-            aria-label="Close command runner"
+            aria-label={
+              // Mirror the title's job-running context into the
+              // aria-label so screen-reader users hear the same
+              // "job keeps running" hint mouse users see on hover.
+              // Without this, an SR user hears just "Close command
+              // runner" and may assume Esc/× cancels the in-flight
+              // job (the title text is invisible to AT).
+              status === 'running' || status === 'queued'
+                ? 'Close command runner panel - job keeps running in the background, re-attach from Recent Jobs'
+                : 'Close command runner'
+            }
             title={
               status === 'running' || status === 'queued'
                 ? 'Close panel (job keeps running - re-attach from Recent Jobs)'
