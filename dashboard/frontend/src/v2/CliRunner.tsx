@@ -38,7 +38,7 @@ import {
   type JobStatus,
   type JobStatusKind,
 } from './api/jobs';
-import { CapacityError, errorMessage } from './api/errors';
+import { CapacityError, errorMessage, formatCapacityRetryHint } from './api/errors';
 import { clearDraft, loadDraft, saveDraft } from './cliRunnerDrafts';
 import { notifyJobTerminal } from './notifications';
 import { closeCliRunner, subscribeRunner } from './cliRunnerBridge';
@@ -665,7 +665,7 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
       // first having to clear an error state.
       if (e instanceof CapacityError) {
         setError(
-          `Job queue full (${e.running} / ${e.maxConcurrent} running). Try again in a few seconds.`,
+          `Job queue full (${e.running} / ${e.maxConcurrent} running). ${formatCapacityRetryHint(e.retryAfterSeconds)}.`,
         );
         // Revert to the pre-click state so the Run button is reachable
         // again. We avoid 'failed' because nothing actually failed on

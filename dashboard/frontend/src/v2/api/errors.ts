@@ -84,3 +84,26 @@ export function errorMessage(e: unknown): string {
   if (e instanceof Error) return e.message;
   return String(e);
 }
+
+/**
+ * Format a CapacityError retry-after hint into a human-friendly
+ * suffix. The server's Retry-After header is already parsed into
+ * `CapacityError.retryAfterSeconds`; previously every callsite
+ * just said "Try again in a few seconds" and dropped the precise
+ * value. With this helper:
+ *
+ *   - <= 1s: "Try again now" (server hint says we can retry
+ *     immediately; happens when the cap drops the moment the
+ *     503 fires).
+ *   - < 60s: "Try again in 30s" (precise seconds).
+ *   - >= 60s: "Try again in 2m" (round down to minutes).
+ *
+ * Pure helper so callers can compose it into longer messages
+ * (e.g. "Re-ran 3/5; queue full. Try again in 30s for the rest.").
+ */
+export function formatCapacityRetryHint(seconds: number): string {
+  if (seconds <= 1) return 'Try again now';
+  if (seconds < 60) return `Try again in ${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  return `Try again in ${m}m`;
+}

@@ -28,7 +28,7 @@ import {
   restartJob,
   type JobsCapacity,
 } from './api/jobs';
-import { CapacityError, errorMessage } from './api/errors';
+import { CapacityError, errorMessage, formatCapacityRetryHint } from './api/errors';
 import {
   notificationPermission,
   requestNotificationPermission,
@@ -449,7 +449,7 @@ export function RecentJobsDrawer({
       // the server's Retry-After hint.
       if (err instanceof CapacityError) {
         setActionMessage(
-          `Job queue full (${err.running} / ${err.maxConcurrent} running). Try again in a few seconds.`,
+          `Job queue full (${err.running} / ${err.maxConcurrent} running). ${formatCapacityRetryHint(err.retryAfterSeconds)}.`,
         );
         return;
       }
@@ -500,7 +500,7 @@ export function RecentJobsDrawer({
     setBulkRerunPending(true);
     let succeeded = 0;
     let hitCap = false;
-    let capInfo: { running: number; max: number } | null = null;
+    let capInfo: { running: number; max: number; retryAfterSeconds: number } | null = null;
     try {
       for (const entry of targets) {
         try {
@@ -526,6 +526,7 @@ export function RecentJobsDrawer({
             capInfo = {
               running: err.running,
               max: err.maxConcurrent,
+              retryAfterSeconds: err.retryAfterSeconds,
             };
             break;
           }
@@ -538,7 +539,7 @@ export function RecentJobsDrawer({
     if (hitCap && capInfo) {
       const remaining = targets.length - succeeded;
       setActionMessage(
-        `Re-ran ${succeeded} / ${targets.length}; queue full (${capInfo.running} / ${capInfo.max} running). Retry the remaining ${remaining} in a few seconds.`,
+        `Re-ran ${succeeded} / ${targets.length}; queue full (${capInfo.running} / ${capInfo.max} running). ${formatCapacityRetryHint(capInfo.retryAfterSeconds)} for the remaining ${remaining}.`,
       );
     }
     // After a successful bulk run, drop the failure filter so the
