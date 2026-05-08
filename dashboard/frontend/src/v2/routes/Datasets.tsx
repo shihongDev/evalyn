@@ -1237,7 +1237,11 @@ export default function Datasets() {
           </div>
         )}
 
-        {/* Stats line */}
+        {/* Stats line. The inline "Clear" link surfaces a recovery
+            path when the user has narrowed the list with q/tag - the
+            full Clear-filters card only appears when filters drop the
+            list to zero, which leaves a "why is X missing?" gap when
+            the result is small but non-empty. */}
         {data && (
           <div
             style={{
@@ -1245,10 +1249,46 @@ export default function Datasets() {
               color: E.text3,
               fontFamily: E.fMono,
               marginBottom: 10,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              flexWrap: 'wrap',
             }}
           >
-            showing {shownCount} of {totalCount} datasets - {totalItems} items
-            {composeMode && selected.size > 0 ? ` - ${selected.size} selected` : ''}
+            <span>
+              showing {shownCount} of {totalCount} datasets - {totalItems} items
+              {composeMode && selected.size > 0 ? ` - ${selected.size} selected` : ''}
+            </span>
+            {(query || tagFilter !== 'any') && (
+              <button
+                type="button"
+                onClick={() => {
+                  // Only reset what the label promises (search + tag)
+                  // - the hideEmpty toggle has its own visible button
+                  // and the user's choice there should survive a
+                  // narrow-results reset.
+                  const sp = new URLSearchParams(searchParams);
+                  sp.delete('q');
+                  sp.delete('tag');
+                  setSearchParams(sp, { replace: true });
+                }}
+                aria-label="Clear search and tag filters"
+                title="Clear search and tag filters"
+                style={{
+                  fontFamily: E.fMono,
+                  fontSize: 11,
+                  color: E.ember,
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  textUnderlineOffset: 2,
+                }}
+              >
+                Clear filters
+              </button>
+            )}
           </div>
         )}
 
