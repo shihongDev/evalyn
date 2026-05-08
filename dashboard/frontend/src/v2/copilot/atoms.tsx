@@ -444,7 +444,7 @@ export function PlanCard({
         >
           {clicked === 'approve' ? (
             <>
-              <Spinner size={11} /> Approving
+              <Spinner size={11} decorative /> Approving
             </>
           ) : (
             <>
@@ -465,7 +465,7 @@ export function PlanCard({
         >
           {clicked === 'reject' ? (
             <>
-              <Spinner size={11} /> Rejecting
+              <Spinner size={11} decorative /> Rejecting
             </>
           ) : (
             'Reject'

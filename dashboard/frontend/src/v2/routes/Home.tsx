@@ -307,7 +307,7 @@ function BriefHeader({ snap, reloading, onRegenerate, onNavigate }: BriefHeaderP
             aria-busy={reloading}
             title={reloading ? 'Refreshing...' : 'Regenerate the morning brief'}
           >
-            {reloading ? <Spinner size={11} /> : '↻'} Regenerate brief
+            {reloading ? <Spinner size={11} decorative /> : '↻'} Regenerate brief
           </Btn>
         </div>
       </div>

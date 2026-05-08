@@ -118,7 +118,7 @@ export function Welcome() {
         >
           {loading ? (
             <>
-              <Spinner size={11} /> Loading
+              <Spinner size={11} decorative /> Loading
             </>
           ) : (
             'Load demo data'

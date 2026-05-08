@@ -1044,7 +1044,7 @@ function RunnerBody({ cli, seed, resumeJobId, onClose }: RunnerBodyProps): React
                 >
                   {submitting ? (
                     <>
-                      <Spinner size={11} /> Starting
+                      <Spinner size={11} decorative /> Starting
                     </>
                   ) : (
                     'Run'

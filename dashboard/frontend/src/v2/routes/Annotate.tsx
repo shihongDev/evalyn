@@ -455,7 +455,7 @@ function SmartQueueCard({
         >
           {starting ? (
             <>
-              <Spinner size={11} /> Starting
+              <Spinner size={11} decorative /> Starting
             </>
           ) : (
             'Start session'

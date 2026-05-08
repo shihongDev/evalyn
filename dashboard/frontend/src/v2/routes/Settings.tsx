@@ -160,7 +160,7 @@ export default function Settings() {
                 disabled={reloading}
                 aria-busy={reloading}
               >
-                {reloading ? <><Spinner size={11} /> Retrying</> : 'Retry'}
+                {reloading ? <><Spinner size={11} decorative /> Retrying</> : 'Retry'}
               </Btn>
             </div>
           </Card>
@@ -559,7 +559,7 @@ function SystemStatusCard() {
         >
           {vacuum.state === 'pending' ? (
             <>
-              <Spinner size={11} /> Compacting…
+              <Spinner size={11} decorative /> Compacting…
             </>
           ) : (
             'Compact now'
@@ -638,7 +638,7 @@ function SystemStatusCard() {
           >
             {prune.state === 'pending' ? (
               <>
-                <Spinner size={11} /> Pruning…
+                <Spinner size={11} decorative /> Pruning…
               </>
             ) : pruneArm.armed ? (
               'Confirm prune?'
@@ -1031,15 +1031,11 @@ function ActiveProviderCard({ data, onChanged }: ActiveProviderCardProps) {
             </option>
           ))}
         </select>
-        {/* Spinner is visual-only; aria-busy on the select above
-            communicates the pending state to AT. Without aria-hidden
-            the Spinner's role="img"+aria-label="loading" would be
-            announced separately, doubling the saving signal. */}
-        {pending && (
-          <span aria-hidden="true">
-            <Spinner size={12} />
-          </span>
-        )}
+        {/* Spinner is decorative - aria-busy on the select above
+            is the SR signal. Using the new Spinner `decorative`
+            prop (commit d4779d6c) replaces the earlier
+            wrap-span pattern. */}
+        {pending && <Spinner size={12} decorative />}
         {success && (
           <Pill mono color={E.pass} bg={E.passDim}>
             Saved
@@ -1188,7 +1184,7 @@ function BulkTestCard({ data }: BulkTestCardProps) {
         >
           {running ? (
             <>
-              <Spinner size={11} /> Testing {running}
+              <Spinner size={11} decorative /> Testing {running}
             </>
           ) : (
             'Test all configured'

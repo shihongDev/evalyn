@@ -464,7 +464,7 @@ export default function RunDetail() {
       >
         {rerunBusy ? (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <Spinner size={10} /> Loading
+            <Spinner size={10} decorative /> Loading
           </span>
         ) : (
           '↻ Re-run'

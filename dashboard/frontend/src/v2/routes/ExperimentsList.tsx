@@ -854,7 +854,7 @@ export default function ExperimentsList() {
           >
             {newEvalBusy ? (
               <>
-                <Spinner size={11} /> Loading
+                <Spinner size={11} decorative /> Loading
               </>
             ) : (
               '+ New evaluation'
@@ -1074,7 +1074,7 @@ export default function ExperimentsList() {
               >
                 {newEvalBusy ? (
                   <>
-                    <Spinner size={11} /> Loading
+                    <Spinner size={11} decorative /> Loading
                   </>
                 ) : (
                   'Run your first eval'

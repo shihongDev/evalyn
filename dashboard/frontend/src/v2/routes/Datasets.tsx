@@ -704,7 +704,7 @@ function ComposeStrip({
       <Btn kind="primary" size="sm" onClick={onRun} disabled={busy} aria-busy={busy}>
         {busy ? (
           <>
-            <Spinner size={11} /> Spawning
+            <Spinner size={11} decorative /> Spawning
           </>
         ) : (
           '-> Run combined eval'
@@ -1348,7 +1348,7 @@ export default function Datasets() {
               >
                 {demoLoading ? (
                   <>
-                    <Spinner size={11} /> Loading
+                    <Spinner size={11} decorative /> Loading
                   </>
                 ) : (
                   'Load demo'

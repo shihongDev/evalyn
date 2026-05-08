@@ -133,7 +133,7 @@ export default function FailureCluster() {
               >
                 {reloading ? (
                   <>
-                    <Spinner size={11} /> Retrying
+                    <Spinner size={11} decorative /> Retrying
                   </>
                 ) : (
                   'Retry'
