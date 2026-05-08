@@ -1597,7 +1597,13 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
                 : 'Save your edits'
           }
         >
-          {saving ? <><Spinner size={11} /> Saving</> : 'Save'}
+          {/* Spinner is decorative - the parent Btn already
+              carries aria-busy + the visible "Saving" label
+              flip, so the Spinner's role=img aria-label="loading"
+              would double the SR announcement to "loading Saving,
+              busy". decorative={true} silences the spinner for
+              AT users while keeping the visible glyph. */}
+          {saving ? <><Spinner size={11} decorative /> Saving</> : 'Save'}
         </Btn>
         <Btn
           kind="secondary"
@@ -1613,7 +1619,7 @@ function ProviderCard({ id, label, state, onSaved }: ProviderCardProps) {
                 : 'Send a tiny request to verify the credentials work'
           }
         >
-          {testing ? <><Spinner size={11} /> Testing</> : 'Test connection'}
+          {testing ? <><Spinner size={11} decorative /> Testing</> : 'Test connection'}
         </Btn>
         {testResult && (
           <>

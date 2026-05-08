@@ -57,12 +57,30 @@ export function Skeleton({ w = '100%', h = 12, style }: SkeletonProps) {
  * glyph becomes the image's visual content - SR users hear
  * "loading" once instead of either "circle with vertical fill" or
  * the literal Unicode codepoint.
+ *
+ * `decorative` opts out of the role+label when the Spinner is sat
+ * inside an element that already announces the busy state (e.g.
+ * a `<Btn aria-busy>` whose visible text flips "Save" -> "Saving").
+ * In that case the Spinner's "loading" label would double up with
+ * the button's accessible-name computation, so SR users hear
+ * "loading Saving, busy" - three signals for one event. Setting
+ * `decorative={true}` makes the spinner sighted-only.
  */
-export function Spinner({ size = 12 }: { size?: number }) {
+export function Spinner({
+  size = 12,
+  decorative = false,
+}: {
+  size?: number;
+  /** True when an enclosing element already carries the busy
+   * signal (aria-busy + label change). Default false keeps the
+   * standalone spinner authoritative. */
+  decorative?: boolean;
+}) {
   return (
     <span
-      role="img"
-      aria-label="loading"
+      role={decorative ? undefined : 'img'}
+      aria-label={decorative ? undefined : 'loading'}
+      aria-hidden={decorative ? true : undefined}
       style={{
         display: 'inline-block',
         width: size,
