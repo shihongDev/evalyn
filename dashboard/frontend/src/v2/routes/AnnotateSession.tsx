@@ -2515,6 +2515,17 @@ export default function AnnotateSession() {
             <button
               type="button"
               onClick={() => setFilter((f) => (f === 'overrides' ? 'all' : 'overrides'))}
+              // aria-pressed exposes the toggle state to SR users -
+              // the visible color flip from #fcefe2 to ember+22 is
+              // sighted-only signal otherwise. aria-label spells out
+              // count + state because the visible "5 overrides" tells
+              // SR users *what* but not *how the button behaves*.
+              aria-pressed={filter === 'overrides'}
+              aria-label={
+                filter === 'overrides'
+                  ? `Showing only ${overridesCount} overrides. Click to show all items.`
+                  : `Filter to ${overridesCount} override${overridesCount === 1 ? '' : 's'}`
+              }
               title={
                 filter === 'overrides'
                   ? `Click to clear the overrides filter`
@@ -2539,6 +2550,12 @@ export default function AnnotateSession() {
             <button
               type="button"
               onClick={() => setFilter((f) => (f === 'bookmarked' ? 'all' : 'bookmarked'))}
+              aria-pressed={filter === 'bookmarked'}
+              aria-label={
+                filter === 'bookmarked'
+                  ? `Showing only ${bookmarkCount} bookmarked items. Click to show all.`
+                  : `Filter to ${bookmarkCount} bookmarked item${bookmarkCount === 1 ? '' : 's'}`
+              }
               title={
                 filter === 'bookmarked'
                   ? `Click to clear the bookmarks filter`
@@ -2556,7 +2573,7 @@ export default function AnnotateSession() {
                 transition: 'all 160ms',
               }}
             >
-              ★ {bookmarkCount}
+              <span aria-hidden="true">★</span> {bookmarkCount}
             </button>
           )}
           <Btn
