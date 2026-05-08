@@ -708,6 +708,7 @@ export default function ExperimentsList() {
     query: searchQuery,
     inputRef: searchRef,
     onKeyDown: onSearchKeyDown,
+    clear: clearSearch,
   } = useSearchFilter({ sessionKey: 'evalyn:experiments:searchQuery' });
   // "/" hotkey to focus the search input. Skip when the user is
   // already typing in another input/textarea so we don't intercept
@@ -1098,15 +1099,63 @@ export default function ExperimentsList() {
                     fontFamily: E.fSans,
                   }}
                 >
-                  No runs match the current view.
-                  <Btn
-                    kind="ghost"
-                    size="sm"
-                    onClick={() => setSavedView('all')}
-                    style={{ marginLeft: 10 }}
-                  >
-                    Reset to All runs
-                  </Btn>
+                  {(() => {
+                    // Tailor the reset CTA to whatever is actually
+                    // narrowing the list. The previous "Reset to All
+                    // runs" only flipped savedView, so a user with
+                    // BOTH a saved view AND a search active would hit
+                    // the button and STILL see zero results - because
+                    // the search was still on. Now we reset whichever
+                    // filters are non-default in a single click.
+                    const viewActive = savedView !== 'all';
+                    const searchActive = !!searchQuery;
+                    if (viewActive && searchActive) {
+                      return (
+                        <>
+                          No runs match this view and search.
+                          <Btn
+                            kind="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSavedView('all');
+                              clearSearch();
+                            }}
+                            style={{ marginLeft: 10 }}
+                          >
+                            Clear all filters
+                          </Btn>
+                        </>
+                      );
+                    }
+                    if (searchActive) {
+                      return (
+                        <>
+                          No runs match your search.
+                          <Btn
+                            kind="ghost"
+                            size="sm"
+                            onClick={clearSearch}
+                            style={{ marginLeft: 10 }}
+                          >
+                            Clear search
+                          </Btn>
+                        </>
+                      );
+                    }
+                    return (
+                      <>
+                        No runs match the current view.
+                        <Btn
+                          kind="ghost"
+                          size="sm"
+                          onClick={() => setSavedView('all')}
+                          style={{ marginLeft: 10 }}
+                        >
+                          Reset to All runs
+                        </Btn>
+                      </>
+                    );
+                  })()}
                 </Card>
               ) : (
                 <div
