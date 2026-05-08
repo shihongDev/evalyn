@@ -63,6 +63,14 @@ describe('useVisibilityPoll', () => {
     });
     expect(fetcher).toHaveBeenCalledTimes(1);
 
+    // Advance one tick at a time with a microtask flush between
+    // each. The hook's in-flight dedup correctly coalesces back-
+    // to-back interval ticks fired by a single advanceTimersByTime
+    // when the prior poll's promise hasn't yet settled - so the
+    // test must yield to the microtask queue between ticks for
+    // each fetcher call to land. (Pre-dedup the test could lump
+    // ticks together in one advance call; that was relying on
+    // undefined fake-timer + microtask interleaving.)
     await act(async () => {
       vi.advanceTimersByTime(1000);
       await Promise.resolve();
@@ -70,7 +78,13 @@ describe('useVisibilityPoll', () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
 
     await act(async () => {
-      vi.advanceTimersByTime(2500);
+      vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+    expect(fetcher).toHaveBeenCalledTimes(3);
+
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
       await Promise.resolve();
     });
     expect(fetcher).toHaveBeenCalledTimes(4);
@@ -268,5 +282,40 @@ describe('useVisibilityPoll', () => {
       await Promise.resolve();
     });
     expect(b).toHaveBeenCalledTimes(1);
+  });
+
+  it('refetch dedupes concurrent calls (rapid Refresh-button mash)', async () => {
+    // Simulate a slow fetcher: 1s before resolve. While in flight,
+    // the user hammers refetch() three times. Only ONE fetch should
+    // fire. Without the dedup the server would see 3 concurrent
+    // GETs for no benefit.
+    let resolveFetcher: ((v: { n: number }) => void) | null = null;
+    const fetcher = vi.fn().mockImplementation(() => {
+      return new Promise<{ n: number }>((resolve) => {
+        resolveFetcher = resolve;
+      });
+    });
+    const { result } = renderHook(() =>
+      useVisibilityPoll({ fetcher, intervalMs: 60_000 }),
+    );
+    // Initial mount fires the first poll. fetcher() called once.
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    // While in flight, mash refetch three times.
+    act(() => {
+      result.current.refetch();
+      result.current.refetch();
+      result.current.refetch();
+    });
+    // No new fetches - all three reuse the in-flight promise.
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    // Once the in-flight resolves, a future refetch fires fresh.
+    await act(async () => {
+      resolveFetcher!({ n: 1 });
+      await Promise.resolve();
+    });
+    act(() => {
+      result.current.refetch();
+    });
+    expect(fetcher).toHaveBeenCalledTimes(2);
   });
 });
