@@ -1,1 +1,0 @@
-import{g as e,v as t}from"./index-02vVoJ6-.js";function n(){let{data:n}=e(`home`,t.home);return n?n.project:null}export{n as t};

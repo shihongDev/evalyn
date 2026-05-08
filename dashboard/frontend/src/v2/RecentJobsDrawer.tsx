@@ -258,6 +258,11 @@ export function RecentJobsDrawer({
   // useEffect deps - patching a row would re-run the effect, which
   // would patch again, etc. The ref breaks that loop.
   const entriesRef = useRef(entries);
+  // Drawer container ref for the focus trap below - the trap
+  // querySelectors first/last focusables on every Tab event so it
+  // tolerates rows / buttons appearing and disappearing as jobs
+  // run, get cancelled, or land in the failure filter.
+  const drawerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     entriesRef.current = entries;
   }, [entries]);
@@ -652,7 +657,37 @@ export function RecentJobsDrawer({
       onClick={onClose}
     >
       <div
+        ref={drawerRef}
         onClick={(e) => e.stopPropagation()}
+        // Focus trap: aria-modal="true" promises AT users that focus
+        // stays inside the drawer until it closes. Without this,
+        // Tab from the last focusable (typically the cancel × on
+        // the bottom-most row) leaks focus into content underneath
+        // the overlay - exactly the bug aria-modal exists to
+        // prevent. Same pattern as CommandPalette (commit 252cfcf8)
+        // and the help overlay (cb78b43d), but the drawer's
+        // focusable inventory is dynamic (rows render conditionally,
+        // buttons get enabled/disabled), so we querySelector for
+        // first/last on every Tab event rather than holding refs.
+        onKeyDown={(e) => {
+          if (e.key !== 'Tab') return;
+          const root = drawerRef.current;
+          if (!root) return;
+          const focusables = root.querySelectorAll<HTMLElement>(
+            'button:not([disabled]):not([tabindex="-1"]), [href]:not([tabindex="-1"]), input:not([disabled]):not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])',
+          );
+          if (focusables.length === 0) return;
+          const first = focusables[0];
+          const last = focusables[focusables.length - 1];
+          const active = document.activeElement;
+          if (e.shiftKey && active === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && active === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }}
         style={{
           width: 360,
           maxWidth: 'calc(100vw - 24px)',
