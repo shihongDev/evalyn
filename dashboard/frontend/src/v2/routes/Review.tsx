@@ -1580,8 +1580,13 @@ function TracePane({
       {/* Workflow hotkeys that don't fit on a button label. P/F/S
           are visible inside the verdict buttons themselves; this
           line surfaces the navigation/undo keys that previously
-          had no on-screen documentation. */}
+          had no on-screen documentation. Sighted-only - SR users
+          discover the same keys via the global help overlay (?),
+          and "↵ / N" / "⌫" / "esc" pronounce as Unicode codepoints
+          ("U+21B5", "U+232B") on most engines, which would just
+          be noise. aria-hidden the whole row. */}
       <div
+        aria-hidden="true"
         style={{
           marginTop: 8,
           fontSize: 10.5,
