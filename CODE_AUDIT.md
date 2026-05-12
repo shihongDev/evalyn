@@ -45,6 +45,7 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 22 | 2026-05-12 06:17 PDT | 4-hour SEC-002 milestone re-flag + baseline holds | 0 (no-op iter) | SEC-002 still open (**+240 min, 4 HOURS**) | 0                   |
 | 23 | 2026-05-12 06:32 PDT | Steady-state no-op (no commits, no changes; see iter 22 delta) | 0 | SEC-002 still open (+255 min, 4h 15m) | 0                   |
 | 24 | 2026-05-12 06:47 PDT | Steady-state no-op | 0 | SEC-002 still open (+270 min, 4h 30m) | 0                   |
+| 25 | 2026-05-12 07:02 PDT | Steady-state no-op | 0 | SEC-002 still open (+285 min, 4h 45m) | 0                   |
 
 ---
 
