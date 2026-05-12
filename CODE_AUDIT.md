@@ -28,6 +28,7 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 5 | 2026-05-12 02:05 PDT | DC-001 exhaustive enumeration (transitive closure) | 0  | DC-001 made exact | 0                   |
 | 6 | 2026-05-12 02:17 PDT | Dashboard backend non-v2 (sec+perf+ext) **[1st crit found]** | 7  | PERF-012/013 still open | 0                   |
 | 7 | 2026-05-12 02:32 PDT | example_agents/ audit (24 files, 3 demos) | 2  | SEC-002 still open (+15 min) | 0                   |
+| 8 | 2026-05-12 02:47 PDT | SDK hot path: trace/ + evaluation/ (148 files, 2 parallel agents) | 15 | SEC-002 still open (+30 min) | 0                   |
 
 ---
 
@@ -374,6 +375,65 @@ No commits since iteration 6. Extended coverage to `example_agents/` (24 Python 
 ### Loop value note
 
 Iteration 7 added 2 findings (small), but the example_agents/ scope was the last untouched corner of "code users will read." Coverage is now: SDK CLI + analysis + annotation + metrics + storage + trace + calibration (iters 1, 2, 5); dashboard backend api/v2/ (iter 3) and non-v2 (iter 6); dashboard frontend (iter 4); shipped demos (this iter). Remaining unaudited corners are `local_scripts/` (1 file), `research/` (intentionally excluded), and the tests themselves.
+
+---
+
+## Iteration 8 delta (2026-05-12 02:47 PDT)
+
+No commits since iteration 7. Two parallel Explore agents over the SDK's runtime hot path: `sdk/evalyn_sdk/trace/` (70 files, instruments every user LLM call) and `sdk/evalyn_sdk/evaluation/` (78 files, orchestrates eval runs). Dimensions: SEC + PERF + EXT. Skipped deadcode this pass — if these subpackages have an orphan pattern like analysis/, that deserves its own DC-001-style enumeration iteration.
+
+Severity bar reminder: a `[med]` in `trace/` amortizes across every span on every user run, so it can be more valuable to fix than a `[high]` in a single dashboard handler.
+
+### SEC-002 status (30 min elapsed since flag)
+
+- `[open] [crit] SEC-002` — STILL OPEN. `api/promote.py:369-370` still references bare `run_id` / `row_hashes`. Re-verified at iteration timestamp; no commits since iter 6. Severity remains critical; recurring audit will continue re-flagging until fixed.
+
+### New findings — `trace/` performance (the SDK hot path)
+
+- `[open] [high] PERF-023` — `sdk/evalyn_sdk/trace/span_processor.py:35` — `_parent_id_map` is a plain dict that grows unbounded as OTEL spans are converted. No size cap, no TTL, no eviction. Long-running apps with many traces leak memory linearly. Fix: switch to `WeakValueDictionary` keyed on the span-context object, OR cap with `collections.OrderedDict` + LRU eviction at a configurable max (e.g. 10k entries).
+- `[open] [high] PERF-024` — `copy.deepcopy(span)` called unconditionally on every span transformation across at least 14 files in `sdk/evalyn_sdk/trace/`: `compression.py:86`, `anonymization.py:107`, `metadata_inheritance.py:93`, `pii_redaction.py:185`, and ~10 more. Even single-field mutations clone the entire span tree. On hot path (100+ spans per trace × N traces), this dominates trace-recording cost. Fix: shallow copy + selective field replacement (or treat span dicts as immutable and build the new dict from the old plus the diff).
+- `[open] [high] PERF-025` — `sdk/evalyn_sdk/trace/tracer.py:37, 39` — `_safe_value()` recursively walks and REBUILDS every nested list/dict in function inputs before recording the span. For agents with large prompts / large tool outputs, this runs per decorator invocation. Fix: lazy-serialize on demand (only when the span is actually exported), or memoize by `id(value)` for the duration of the trace.
+- `[open] [med] PERF-026` — `sdk/evalyn_sdk/trace/context.py:116-134` — `_add_span_to_collector()` acquires `_global_lock` for the thread-fallback path; if span processing (redaction, compression) runs before collection, the lock is held across that work. Fix: process first, then acquire the lock only for the append.
+- `[open] [med] PERF-027` — `sdk/evalyn_sdk/trace/tracer.py:295-311` — `_get_function_meta()` calls `inspect.getdoc`, `inspect.signature`, `inspect.getsource`, `inspect.getsourcefile` sequentially on every newly-instrumented function. There IS a per-`id(func)` cache, but the first-call cost is steep on import-heavy code paths. Fix: defer source-reading metadata until first export (when the user will look at it); keep only signature + name on the hot path.
+- `[open] [med] PERF-028` — `sdk/evalyn_sdk/trace/otel_export.py:145-242` — formatter functions (`format_as_otlp_json`, `format_as_jaeger_json`, `format_as_zipkin_json`) call `json.dumps(..., indent=2)` unconditionally over ALL spans. For traces with 1000+ spans, full pretty-print is wasted work for any streaming/chunking exporter. Fix: defer formatting to export time; drop `indent=2` for non-human consumers (the OTEL collector doesn't care).
+- `[open] [med] PERF-029` — `sdk/evalyn_sdk/trace/otel_export.py:268-289` — `export_to_file()` uses synchronous `open()` + `f.write()`. If called from an async trace-completion handler, this blocks the event loop. Fix: route through `asyncio.to_thread()` or use `aiofiles`; document that the sync entrypoint is for tests/scripts only.
+- `[open] [med] PERF-030` — `sdk/evalyn_sdk/trace/instrumentation/providers/crewai.py:658-690` — `_SpanTracker._open_spans` dict is keyed on event tuples; entries are removed on the matching "finish" event. If CrewAI fires events out-of-order or skips finish events (errors, aborts), entries leak forever. Fix: add TTL-based purge or a periodic GC pass; emit a warning when an entry is purged so users notice broken span pairing.
+- `[open] [med] PERF-031` — `sdk/evalyn_sdk/trace/otel.py:135-136` — `json.dumps(..., default=str)` silently coerces unserializable objects to `repr` strings. Hides bugs (the span looks normal but the data is lossy). Fix: validate explicitly pre-serialize; emit a warning when `default=str` would have fired.
+
+### New findings — `trace/` security
+
+- `[open] [med] SEC-005` — `sdk/evalyn_sdk/trace/otel.py:159` and `sdk/evalyn_sdk/trace/otel_export.py:57` — OTEL endpoint parameter accepts arbitrary URLs with no allow-list, no TLS validation, no warn-on-external. A misconfigured deployment could exfiltrate trace data (which may include prompts + responses) to an unintended host. Fix: env-var allow-list `EVALYN_OTEL_ALLOWED_ENDPOINTS`; warn on `http://` (non-TLS); reject endpoints that don't match a registered prefix.
+
+### New findings — `trace/` extensibility
+
+- `[open] [low] EXT-033` — `sdk/evalyn_sdk/trace/instrumentation/providers/` and `instrumentation/registry.py` — hardcoded provider instrumentor list (openai, anthropic, gemini, langchain, langgraph, crewai, autogen, ...). Same family as EXT-001 / EXT-002 / EXT-026 — new provider requires editing the core registry. Fix: entry-point group `evalyn.instrumentors` so plugins register themselves.
+
+### Re-confirmed within `trace/` (already in audit)
+
+- `EXT-014` (SpanType Literal closed) — confirmed still present; `span_types.py` does offer a runtime `register_span_type()` registry (good pattern), but the `Literal` in `models.py:32-47` is never updated, so type-checking breaks for custom kinds. Fix as a `Protocol` or open `str` with documented well-known values.
+
+### New findings — `evaluation/`
+
+- `[open] [med] PERF-032` — `sdk/evalyn_sdk/evaluation/runner.py:454-463` — unit-based evaluation path runs sequentially with no checkpointing. Profile-based and item-based paths DO have parallel + checkpoint support, so this is an inconsistency. Fine-grained span-level evals on large traces pay the full cost on every restart. Fix: extend the same parallel + checkpoint pattern to the unit path.
+- `[open] [med] EXT-034` — `sdk/evalyn_sdk/evaluation/runner.py:504` — `_summarize()` hardcodes the aggregation to `avg_score` + `pass_rate`. Users wanting `p50` / `p95` / median / stddev have to compute it from raw results post-hoc. Fix: accept an `aggregation_strategy: Callable[[Sequence[float]], dict[str, float]]` parameter with a default that produces the current shape.
+- `[open] [low] PERF-033` — `sdk/evalyn_sdk/evaluation/rate_limiter.py:88` — `time.sleep(wait / 1000)` blocks the calling thread on rate-limit hit. Fine if the caller is itself blocking; bad if it's awaited from async code. Fix: provide an `async` variant `await asyncio.sleep(...)`; document which entrypoint to use.
+- `[open] [low] PERF-034` — `sdk/evalyn_sdk/evaluation/cache.py:109-117` — cache key includes `(input, metric_id, config, provider, model)` but NOT `expected_output`. If the user updates the dataset's expected outputs and re-runs, cache hits return stale judgments. Fix: include a hash of `expected_output` in the cache key, or document the constraint loudly.
+
+### Confirmed-good patterns in `evaluation/` (regression watch — preserve these)
+
+The `evaluation/` subpackage is the **best-architected slice of the codebase** the audit has seen so far. Specifically:
+
+- **Unit builder registry** (`evaluation/units/builders.py:206-213`) — `_BUILDERS` dict with a `register_unit_builder()` API. Third parties can add unit types without core edits.
+- **Profile customization** (`evaluation/profiles.py:109-128`) — `get_profile()` accepts `custom_profiles` dict from config. Open by construction.
+- **Provider routing** (`evaluation/provider_routing.py`) — rule-based `RoutingRule` / `RoutingConfig` with pluggable matching.
+- **Checkpoint format** is forward-compatible JSON; resume reads incrementally via JSONL.
+- **No security findings**: no unsafe deserialization, no `yaml.load`-without-safe-loader, no shell-string subprocess, no dynamic-code-execution calls, prompt construction uses `json.dumps` for safe serialization.
+
+If EXT-002 (metric registry plugin discovery) ever lands, MIRROR the patterns above — they already work.
+
+### Loop value note
+
+After 8 iterations: 80 total findings (was 66), 17 in this pass alone. The trace/ scan finally explains why some users might have noticed slow trace recording on large agents — three independent O(N) hot-path issues compound. Combined with PERF-012 (rubrics N+1) and SEC-002 (the promote crit), this audit log is now ready to drive a focused remediation sprint.
 
 ---
 
