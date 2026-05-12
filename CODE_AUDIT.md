@@ -25,6 +25,7 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 2 | 2026-05-12 01:17 PDT | Diff-style recheck | 1   | 33           | 0                   |
 | 3 | 2026-05-12 01:32 PDT | Targeted perf scan (v2 API handlers) | 5   | 3 spot-checked | 0                   |
 | 4 | 2026-05-12 01:47 PDT | Frontend perf+ext audit (dashboard/frontend/src) | 10  | EXT-004 expanded | 0                   |
+| 5 | 2026-05-12 02:05 PDT | DC-001 exhaustive enumeration (transitive closure) | 0  | DC-001 made exact | 0                   |
 
 ---
 
@@ -32,7 +33,7 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 
 ### Dead code / unreferenced surface
 
-- `[open] [high] DC-001` — 60+ analysis submodules in `sdk/evalyn_sdk/analysis/` are never imported by any production caller. Only 8 are wired (`core`, `reports`, `trends`, `insights`, `clustering`, `html_report`, `panel`, `insights_dashboard`). Representative offenders (not exhaustive): `analysis_snapshots.py`, `cache_savings.py`, `category_stats.py`, `change_attribution.py`, `changelog.py`, `cohort_analysis.py`, `cold_start.py`, `comparative_heatmap.py`, `confusion_matrix.py`, `context_utilization.py`, `correlation_pruning.py`, `cost_dashboard.py`, `cost_phase.py`, `cross_run_stability.py`, `curve_fitting.py`, `dark_mode.py`, `dashboard_theming.py`, `data_export.py`, `dataset_stats.py`, `decision_tree_viz.py`, `density_heatmap.py`, `failure_taxonomy.py`, `forecast.py`, `graph_topology.py`, `hot_path.py`, `improvement_priority.py`, `inter_rater.py`, `item_cost.py`, `item_difficulty.py`, `jupyter_export.py`. Next-iteration task: enumerate the full list and decide per-module (delete vs wire-up vs move to `research/`).
+- `[open] [high] DC-001` — **69 of 77 modules** in `sdk/evalyn_sdk/analysis/` are orphan: not referenced from `__init__.py`'s `_LAZY_IMPORTS` map, not imported anywhere outside the package, and not reached transitively from any live module. **Total dead lines: 15,964.** Detected by parsing the lazy-import map + a static `git ls-files` import scan + transitive closure (see Iteration 5 delta below for the full list and the reproducer). The 8 live modules are `core`, `clustering`, `html_report`, `insights`, `insights_dashboard`, `panel`, `reports`, `trends` — and they do NOT import any orphan module, so the orphan set can be deleted/moved in one operation without code changes elsewhere. Next-step decision: delete vs move to `research/` (per-module judgment — some, like `confusion_matrix.py`, `cohort_analysis.py`, `forecast.py`, are large enough features that they may deserve wiring rather than deletion).
 - `[open] [med] DC-002` — `sdk/evalyn_sdk/analysis/clustering.py:1124` `_build_html_page` — internal helper with no callers in the module or elsewhere.
 - `[open] [med] DC-003` — `sdk/evalyn_sdk/analysis/clustering.py:1150` `_get_base_plotly_layout` — orphaned helper.
 - `[open] [med] DC-004` — `sdk/evalyn_sdk/analysis/clustering.py:1354` `_generate_fallback_html` — unreachable fallback path.
@@ -183,6 +184,115 @@ Scope scanned: `v2/routes/*`, `v2/api/*`, `v2/hooks/*`, `V2App.tsx`, `AppShell.t
 - 10 new findings, all in the frontend. Skewed toward extensibility (6) vs perf (4) — that matches the project's plug-in-your-own-judge thesis: the frontend needs to be as extensible as the SDK.
 - Performance findings here are **measurable but not user-visible lag** on typical dataset sizes (~100s of items). They'll bite when datasets grow or when a plugin renders thousands of evidence rows. Treat as `[med]` debt, not paging incidents.
 - EXT-026 cross-references EXT-001 (backend providers map). Fixing one without the other leaves drift.
+
+---
+
+## Iteration 5 delta (2026-05-12 02:05 PDT)
+
+No commits since iteration 4. Spent this iteration making DC-001 **exact**: replaced the seed's "60+ representative offenders" estimate with a rigorous enumeration via `__init__.py` lazy-import map parsing + static import scan + transitive closure.
+
+### Method (reproducible)
+
+1. Parse `sdk/evalyn_sdk/analysis/__init__.py` for `_LAZY_IMPORTS` entries → 8 lazy-wired modules.
+2. `git ls-files '*.py'`, exclude `sdk/evalyn_sdk/analysis/*` and `tests/*` → 588 candidate caller files.
+3. Static-pattern search for `from evalyn_sdk.analysis.{mod}` and `from .analysis.{mod}` → 2 statically-wired (`clustering`, `core`).
+4. Union (lazy ∪ static) = 8 wired entries.
+5. Compute transitive closure inside `analysis/` via `from .{mod}` and `from evalyn_sdk.analysis.{mod}` regex on each live module's source → closure adds 0 (the live 8 are isolated from each other AND from the orphan set).
+6. Orphan = all_modules - live = **69 modules**.
+
+### Correction to seed audit
+
+- Seed said "60+ orphans, only 8 wired" — direction right, count off. Exact figures:
+  - **77** total `.py` modules in `analysis/` (seed said 75)
+  - **8** live (matches seed)
+  - **69** orphan (seed said "60+")
+  - **15,964** total dead lines across orphans
+- More importantly: seed's "8 wired" was sourced from naming-pattern intuition. This pass confirmed rigorously via `__init__.py` parsing — the lazy-import map is what makes them reachable. A naive `grep` for direct submodule imports finds only 2 of them.
+
+### Complete orphan inventory (sorted by line count, descending)
+
+For per-module deletion decisions. Numbers are SLOC including blanks.
+
+| Lines | Module |
+|------:|--------|
+|   399 | root_cause.py |
+|   361 | what_if_simulator.py |
+|   351 | comparative_heatmap.py |
+|   350 | significance_testing.py |
+|   336 | stats.py |
+|   326 | graph_topology.py |
+|   326 | metric_budget.py |
+|   325 | forecast.py |
+|   317 | failure_taxonomy.py |
+|   314 | cohort_analysis.py |
+|   299 | dashboard_theming.py |
+|   296 | change_attribution.py |
+|   292 | pdf_export.py |
+|   285 | run_quality_score.py |
+|   284 | trend_anomaly.py |
+|   278 | confusion_matrix.py |
+|   276 | metric_contribution.py |
+|   273 | report_diff.py |
+|   269 | decision_tree_viz.py |
+|   268 | span_dependency.py |
+|   260 | multimodel_comparison.py |
+|   260 | time_to_fix.py |
+|   253 | multi_project.py |
+|   253 | trace_template.py |
+|   252 | node_attribution.py |
+|   250 | report_templates.py |
+|   248 | cross_run_stability.py |
+|   248 | regression_bisection.py |
+|   246 | improvement_priority.py |
+|   243 | cost_dashboard.py |
+|   243 | language_detect.py |
+|   240 | dataset_stats.py |
+|   230 | multi_project.py |
+|   229 | comparison_template.py |
+|   228 | jupyter_export.py |
+|   224 | dark_mode.py |
+|   223 | metric_interaction.py |
+|   220 | analysis_snapshots.py |
+|   218 | worst_case_items.py |
+|   214 | curve_fitting.py |
+|   213 | correlation_pruning.py |
+|   212 | item_difficulty.py |
+|   210 | time_series.py |
+|   207 | density_heatmap.py |
+|   204 | subagent_cost.py |
+|   200 | context_utilization.py |
+|   199 | metric_volatility.py |
+|   197 | cache_savings.py |
+|   190 | inter_rater.py |
+|   185 | trace_complexity.py |
+|   184 | unit_reporting.py |
+|   179 | output_diff.py |
+|   171 | cold_start.py |
+|   171 | weighting.py |
+|   169 | sensitivity.py |
+|   167 | changelog.py |
+|   166 | normalization.py |
+|   159 | metric_benchmark.py |
+|   156 | hot_path.py |
+|   154 | what_if.py |
+|   149 | cost_phase.py |
+|   149 | span_distribution.py |
+|   141 | category_stats.py |
+|   141 | runtime_estimation.py |
+|   135 | item_cost.py |
+|   134 | quality_score.py |
+|   123 | data_export.py |
+|   121 | versioning.py |
+
+### Cleanup triage suggestions
+
+- **Delete-now candidates** (small, narrowly scoped, no obvious feature): `cache_savings.py`, `cost_phase.py`, `data_export.py`, `versioning.py`, `quality_score.py`, `item_cost.py`, `hot_path.py`, `runtime_estimation.py`, `category_stats.py` — under 200 lines, unlikely to deserve wiring as standalone features.
+- **Move-to-research candidates** (substantial unfinished features): `root_cause.py` (399), `what_if_simulator.py` (361), `forecast.py` (325), `metric_budget.py` (326), `failure_taxonomy.py` (317), `cohort_analysis.py` (314), `confusion_matrix.py` (278), `decision_tree_viz.py` (269), `significance_testing.py` (350) — large enough that they may represent abandoned experiments worth preserving for later.
+- **Decision-needed**: `stats.py` (336) — generic name suggests it may be a forgotten helper module other code SHOULD be using; verify what's in it before deleting.
+
+### Confirmed-good pattern worth noting
+
+- The lazy-import gate in `analysis/__init__.py` is good engineering — it prevents `from evalyn_sdk.analysis import ...` from triggering imports of heavyweight modules (clustering, panel). Preserve this pattern when cleaning up: deleted modules should be removed from `_LAZY_IMPORTS` first to avoid `AttributeError` at import time.
 
 ---
 
