@@ -29,6 +29,7 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 6 | 2026-05-12 02:17 PDT | Dashboard backend non-v2 (sec+perf+ext) **[1st crit found]** | 7  | PERF-012/013 still open | 0                   |
 | 7 | 2026-05-12 02:32 PDT | example_agents/ audit (24 files, 3 demos) | 2  | SEC-002 still open (+15 min) | 0                   |
 | 8 | 2026-05-12 02:47 PDT | SDK hot path: trace/ + evaluation/ (148 files, 2 parallel agents) | 15 | SEC-002 still open (+30 min) | 0                   |
+| 9 | 2026-05-12 03:02 PDT | trace/ orphan enumeration + PERF-024 reassessment | 1  | PERF-024 downgraded to caveat | 0                   |
 
 ---
 
@@ -391,7 +392,7 @@ Severity bar reminder: a `[med]` in `trace/` amortizes across every span on ever
 ### New findings — `trace/` performance (the SDK hot path)
 
 - `[open] [high] PERF-023` — `sdk/evalyn_sdk/trace/span_processor.py:35` — `_parent_id_map` is a plain dict that grows unbounded as OTEL spans are converted. No size cap, no TTL, no eviction. Long-running apps with many traces leak memory linearly. Fix: switch to `WeakValueDictionary` keyed on the span-context object, OR cap with `collections.OrderedDict` + LRU eviction at a configurable max (e.g. 10k entries).
-- `[open] [high] PERF-024` — `copy.deepcopy(span)` called unconditionally on every span transformation across at least 14 files in `sdk/evalyn_sdk/trace/`: `compression.py:86`, `anonymization.py:107`, `metadata_inheritance.py:93`, `pii_redaction.py:185`, and ~10 more. Even single-field mutations clone the entire span tree. On hot path (100+ spans per trace × N traces), this dominates trace-recording cost. Fix: shallow copy + selective field replacement (or treat span dicts as immutable and build the new dict from the old plus the diff).
+- `[open] [med] PERF-024` — `copy.deepcopy(span)` called unconditionally on every span transformation across at least 14 files in `sdk/evalyn_sdk/trace/`: `compression.py:86`, `anonymization.py:107`, `metadata_inheritance.py:93`, `pii_redaction.py:185`, and ~10 more. Even single-field mutations clone the entire span tree. **Severity downgraded from `[high]` to `[med]` in iteration 9**: orphan analysis showed all four named files have only test callers, no production callers. The deepcopy cost is only realized if and when these modules are wired into the live span-processing pipeline. Fix when wiring up: shallow copy + selective field replacement (or treat span dicts as immutable and build the new dict from the old plus the diff). See iter-9 delta for the orphan reassessment methodology.
 - `[open] [high] PERF-025` — `sdk/evalyn_sdk/trace/tracer.py:37, 39` — `_safe_value()` recursively walks and REBUILDS every nested list/dict in function inputs before recording the span. For agents with large prompts / large tool outputs, this runs per decorator invocation. Fix: lazy-serialize on demand (only when the span is actually exported), or memoize by `id(value)` for the duration of the trace.
 - `[open] [med] PERF-026` — `sdk/evalyn_sdk/trace/context.py:116-134` — `_add_span_to_collector()` acquires `_global_lock` for the thread-fallback path; if span processing (redaction, compression) runs before collection, the lock is held across that work. Fix: process first, then acquire the lock only for the append.
 - `[open] [med] PERF-027` — `sdk/evalyn_sdk/trace/tracer.py:295-311` — `_get_function_meta()` calls `inspect.getdoc`, `inspect.signature`, `inspect.getsource`, `inspect.getsourcefile` sequentially on every newly-instrumented function. There IS a per-`id(func)` cache, but the first-call cost is steep on import-heavy code paths. Fix: defer source-reading metadata until first export (when the user will look at it); keep only signature + name on the hot path.
@@ -434,6 +435,45 @@ If EXT-002 (metric registry plugin discovery) ever lands, MIRROR the patterns ab
 ### Loop value note
 
 After 8 iterations: 80 total findings (was 66), 17 in this pass alone. The trace/ scan finally explains why some users might have noticed slow trace recording on large agents — three independent O(N) hot-path issues compound. Combined with PERF-012 (rubrics N+1) and SEC-002 (the promote crit), this audit log is now ready to drive a focused remediation sprint.
+
+---
+
+## Iteration 9 delta (2026-05-12 03:02 PDT)
+
+No commits since iteration 8. Two outcomes from this pass:
+
+1. Ran iter-5-style **transitive-closure orphan analysis on `sdk/evalyn_sdk/trace/`** (69 .py files excluding the top-level `__init__.py`).
+2. **Reassessed iter-8's PERF-024** against the resulting live/orphan partition. The 4 named files in PERF-024 turn out to be orphan; severity downgraded `[high]` -> `[med]`.
+
+### SEC-002 status (45 min elapsed since flag)
+
+- `[open] [crit] SEC-002` — STILL OPEN. `api/promote.py:369-370` unchanged on this iteration's re-read. No commits since iter 6.
+
+### New finding
+
+- `[open] [high] DC-007` — `sdk/evalyn_sdk/trace/` has **43 orphan modules / 7,962 dead lines** (out of 69 modules). Method: same as DC-001 (iter 5) but corrected to handle `__getattr__`-based lazy loading and subpackage `__init__.py` re-exports. Wired entries are 5: `context`, `tracer`, `otel`, `auto_instrument`, `instrumentation.__init__`. Transitive closure adds 21 (mostly providers under `instrumentation/providers/` reached via `instrumentation/__init__.py`'s lazy imports). Total live: 26; orphan: 43. Top orphans by SLOC:
+  - `async_tracking.py` (308), `trace_diff.py` (297), `otel_export.py` (296), `context_diagnostics.py` (280), `trace_replay.py` (257), `pii_redaction.py` (255), `trace_decorator.py` (253), `session_replay.py` (253), `orphan_recovery.py` (253), `rag_tracing.py` (251), `flame_graph.py` (236), `dry_run.py` (221), `health_check.py` (217), `lineage_graph.py` (216), `conditional.py` (207), `embedding_spans.py` (204), `overhead_measurement.py` (193), `query_language.py` (192), `correlation.py` (191), `anthropic_thinking.py` (191), `compatibility_report.py` (190), `streaming_support.py` (189), `multimodal.py` (186), `compression.py` (180), `anonymization.py` (171), and 18 more under 170 lines each.
+  - Combined with DC-001, total orphan SLOC across `sdk/evalyn_sdk/`: **~23,900 lines** (15,964 in analysis/ + 7,962 in trace/). A combined cleanup PR would meaningfully reduce repo size.
+  - Cross-check: many of these orphans (`trace_replay`, `flame_graph`, `lineage_graph`, `dry_run`, `overhead_measurement`) have descriptive names suggesting abandoned product experiments. Worth a per-module triage like DC-001's "delete-now vs move-to-research" before deletion.
+  - Note that this analysis is conservative: a module appears live only if reached via static `from .X import` or absolute import. Dynamic loaders (`importlib.import_module(name)` with computed names) would be missed. Mitigation: spot-checked 4 PERF-024-targeted files (`compression`, `anonymization`, `pii_redaction`, `metadata_inheritance`) and confirmed they have only test callers, no production callers.
+
+### Updates to existing findings
+
+- `PERF-024` — severity downgraded from `[high]` to `[med]` based on this iteration's orphan analysis. The deepcopy-on-every-span pattern is real in the implementation but doesn't run today because the 4 named files (`compression.py`, `anonymization.py`, `metadata_inheritance.py`, `pii_redaction.py`) are orphan in production paths (test-only callers). Severity becomes "fix-when-wiring," not "fix-now." Other PERF-* findings in iter 8 (PERF-023 unbounded `_parent_id_map`, PERF-025 `_safe_value` recursion) remain `[high]` — those live in `span_processor.py` and `tracer.py`, which ARE in the live set.
+
+### Methodology improvement note (for future DC-style iterations)
+
+The first attempt to enumerate trace/ orphans (mid-iteration) returned **62 orphans** because it (a) missed `__getattr__`-based lazy loading at the package top, and (b) excluded subpackage `__init__.py` files from the import graph. The corrected analysis returns 43, with the 19-module delta coming entirely from `instrumentation/providers/*` reached via `instrumentation/__init__.py`'s deferred-import block. Lesson: **for any future DC-style enumeration on subpackages with their own `__init__.py`, treat each `__init__.py` as both a wired entry (if it has external callers OR is lazy-loaded from the parent) AND as a node in the import graph whose `from .X import` lines count for reachability.** Updated mental model: every `__init__.py` is a re-export hub, not a leaf.
+
+### Loop value note
+
+After 9 iterations: SEC-002 still unfixed, but now the audit log carries:
+- Two precise orphan inventories (DC-001 analysis/, DC-007 trace/)
+- One severity downgrade (PERF-024) preventing wasted remediation effort
+- 23,900 lines of dead-code triage data ready for a cleanup sprint
+- 22 crit/high findings prioritized
+
+The recurring loop's value continues to be: each iteration either (a) finds new issues the seed missed, or (b) refines prior findings as new methodology gets applied. Iter 9 was (b) - no new agent dispatch, just an analyst pass.
 
 ---
 
