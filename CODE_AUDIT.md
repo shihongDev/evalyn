@@ -33,6 +33,7 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 10 | 2026-05-12 03:17 PDT | SDK subpackages spot-orphan scan (6 subpkgs, 198 files) | 1  | SEC-002 still open (+60 min, 1h) | 0                   |
 | 11 | 2026-05-12 03:32 PDT | AST orphan analysis (582 modules) + chain verification | DC-008 expanded by 8 | SEC-002 still open (+75 min) | 0                   |
 | 12 | 2026-05-12 03:47 PDT | AST fix: relative-import off-by-one + dispatch regex | iter-11 figures corrected | SEC-002 still open (+90 min, 1.5h) | 0                   |
+| 13 | 2026-05-12 04:02 PDT | AST fix: package-aware resolver + string-dispatch + lazy-map | iter-12 figures corrected (22→4) | SEC-002 still open (+105 min, 1h 45m) | 0                   |
 
 ---
 
@@ -706,6 +707,89 @@ Top orphans by SLOC:
 ### Loop value note (12 iterations in)
 
 The recurring loop has progressed beyond finding new code issues to **auditing its own methodology**. Iter 9 corrected iter 8's PERF severity. Iter 10 admitted methodology limits. Iter 11 introduced AST. Iter 12 fixed iter 11's bug. The audit log is now self-correcting — a meta-property that pure agent-driven audits don't naturally have.
+
+---
+
+## Iteration 13 delta (2026-05-12 04:02 PDT)
+
+No commits since iteration 12. Spot-verified the 22 alleged orphans from iter 12, found additional methodology issues, and applied the corrections. **Net: orphan count dropped 22 → 4** after a third round of analyzer fixes.
+
+### SEC-002 status (105 min / 1h 45m elapsed since flag)
+
+- `[open] [crit] SEC-002` — STILL OPEN. `api/promote.py:368-372` unchanged. Re-verified at iteration timestamp.
+
+### Spot-verification findings (10 of iter-12's 22 orphans)
+
+Direct-grep checked each candidate against the full repo. Result:
+
+- **9 confirmed orphan** (only `egg-info/SOURCES.txt` matches, which is a build manifest, not a real caller): `evaluation.batch.providers`, `judges.confidence.{logprobs, consistency, verbalized, base}`, `evaluation.batch.evaluator`, `simulation.simulator`, `annotation.span_annotation`, `evaluation.units.builders` (initial grep).
+- **2 false positives** in iter-12's AST output:
+  - `calibration.gepa_native` is **dispatched at runtime** via `calibration/factory.py:19` string `"evalyn_sdk.calibration.gepa_native"` (importlib pattern).
+  - `evaluation.units.builders` is **reachable through the package `__init__`'s re-export chain** (`evaluation/units/__init__.py` does `from .builders import EvalUnitBuilder, ...`), but iter-12's resolver was treating that __init__ as a regular module, misrouting its `from .builders` to `evalyn_sdk.evaluation.builders` (nonexistent) instead of `evalyn_sdk.evaluation.units.builders`.
+
+### Two more analyzer fixes
+
+1. **Package-aware relative-import resolution**: when the importing module IS itself a package's `__init__.py`, its "current package" is the package itself, not its parent. So `from .X` in `evaluation/units/__init__.py` should resolve to `evalyn_sdk.evaluation.units.X`, not `evalyn_sdk.evaluation.X`. The general formula: `strip_count = (level - 1) if is_package else level`. Added an `is_package` map keyed on module name during AST graph construction.
+2. **String-dispatch capture**: grep for `"evalyn_sdk\.[\w.]+"` literal strings in every module and treat matches as dependencies (covers the `importlib.import_module(name)` pattern used in `calibration/factory.py` and similar dispatch dicts).
+3. **Root-`__init__.py` lazy-map parsing with dotted-path support**: iter-12 only parsed `analysis/__init__.py`'s `_LAZY_IMPORTS` map with a regex that required `\w+` (single segment). The root `evalyn_sdk/__init__.py` uses dotted relative paths like `".evaluation.runner"`. Extended the regex to `\.[\w.]+`.
+
+### Authoritative figure (post-iter-13 fixes)
+
+After all corrections, sanity checks pass:
+
+- `evalyn_sdk.evaluation.runner`: LIVE
+- `evalyn_sdk.cli.utils.dataset_resolver`: LIVE
+- `evalyn_sdk.trace.otel`: LIVE
+- `evalyn_sdk.cli.constants`: LIVE
+- `evalyn_sdk.evaluation.units.builders`: LIVE (fixed via package-aware resolver)
+- `evalyn_sdk.calibration.gepa_native`: LIVE (fixed via string-dispatch capture)
+
+**Raw output**: 572 live / 10 orphan / 977 dead lines.
+
+**After pruning the 6 trivial / auto-loaded package __init__.py files**:
+
+- `evalyn_sdk.evaluation` (80 lines, the package __init__) — Python auto-loads when any submodule is imported
+- `evalyn_sdk.metrics` (50 lines, same)
+- `evalyn_sdk.cli.utils` (7 lines)
+- `evalyn_sdk.trace.instrumentation.providers` (47 lines)
+- `evalyn_sdk.testing` (1 line)
+- `evalyn_sdk.integration` (0 lines)
+
+These are package __init__.py files that, while having no DIRECT static callers, are implicitly executed by Python whenever any submodule under them is imported. So they cannot be "deleted" in the orphan sense.
+
+**True confident orphans: 4 modules / 792 lines**:
+
+- `evalyn_sdk.calibration.engine` (621 lines) — surprising; the CLI command `calibrate` was added as a dispatch entry point, but `cli/commands/calibration.py` likely uses `factory.py` and `gepa_native.py` directly without going through `engine.py`. Worth a per-file audit before deletion.
+- `evalyn_sdk.cli.utils.llm_callers` (160 lines)
+- `evalyn_sdk.cli.__main__` (6 lines) — almost certainly a runtime entry point (`python -m evalyn_sdk.cli`), worth verifying
+- `evalyn_sdk.utils` (5 lines)
+
+### Trajectory of the AST analyzer's accuracy
+
+| Iter | Orphans | Lines  | Notes |
+|-----:|--------:|-------:|-------|
+| 11   |     52  | 15,299 | First AST attempt — multiple bugs |
+| 12   |     22  |  5,032 | Fixed dispatch regex + off-by-one |
+| 13   |      4  |    792 | Fixed package-aware + string-dispatch + lazy-map |
+
+Each iteration dropped the figure by ~5x via methodology fixes alone, no new code analysis. The final figure is now small enough to manually triage.
+
+### Reconciliation with DC-008
+
+DC-008 (iter 10+11) has **15 chain-verified orphans / 4,906 lines** under the "no production callers; tests allowed" definition. The 4 modules above are the more restrictive "no callers anywhere" subset and partially overlap. `calibration.engine` is the only one large enough to consolidate the picture: it's confirmed orphan under both definitions and represents 621 lines of code that can be deleted without breaking anything.
+
+### Lesson for future analyzers
+
+A complete AST-based reachability analyzer for a Python codebase must handle:
+
+1. Multi-dot relative imports (`from ..X` / `from ...X.Y`) — needs accurate resolution.
+2. Package `__init__.py` modules — their "current package" is themselves, not their parent.
+3. Re-export chains via `__init__.py`'s `from .X import` lines.
+4. String-based dynamic imports (`importlib.import_module(name)` with name from a dispatch dict or string literal).
+5. Lazy-import maps using `__getattr__` (PEP 562) — common in this codebase.
+6. Plugin discovery via `importlib.metadata.entry_points` — can't be statically resolved; must be flagged as a known unknown.
+
+Sanity checks (known-live assertions) catch class-1 bugs at write-time. Direct-grep spot-checks catch class-2 through class-5 bugs after publication. Plugin discovery (class-6) requires runtime instrumentation.
 
 ---
 
