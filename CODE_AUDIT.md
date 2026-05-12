@@ -31,6 +31,7 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 8 | 2026-05-12 02:47 PDT | SDK hot path: trace/ + evaluation/ (148 files, 2 parallel agents) | 15 | SEC-002 still open (+30 min) | 0                   |
 | 9 | 2026-05-12 03:02 PDT | trace/ orphan enumeration + PERF-024 reassessment | 1  | PERF-024 downgraded to caveat | 0                   |
 | 10 | 2026-05-12 03:17 PDT | SDK subpackages spot-orphan scan (6 subpkgs, 198 files) | 1  | SEC-002 still open (+60 min, 1h) | 0                   |
+| 11 | 2026-05-12 03:32 PDT | AST orphan analysis (582 modules) + chain verification | DC-008 expanded by 8 | SEC-002 still open (+75 min) | 0                   |
 
 ---
 
@@ -499,7 +500,7 @@ A robust enumeration needs AST-based analysis (e.g. `ast.parse` per file, walkin
 
 ### New finding — spot-verified subset only
 
-- `[open] [med] DC-008` — **7 spot-verified orphan modules** across 4 SDK subpackages (total 2,145 lines confirmed dead via direct grep, no callers in `sdk/evalyn_sdk/` or `dashboard/` outside their own file and tests):
+- `[open] [med] DC-008` — **15 spot-verified orphan modules** across 5 SDK subpackages plus 4 confirmed orphan-caller files at the SDK root (total **4,906 lines** confirmed dead via direct grep, no callers in `sdk/evalyn_sdk/` or `dashboard/` outside their own file and tests). Original iter-10 cohort (7 modules, 2,145 lines):
   - `sdk/evalyn_sdk/evaluation/agentic_benchmarks.py` (357 lines)
   - `sdk/evalyn_sdk/evaluation/dag_metric.py` (316 lines)
   - `sdk/evalyn_sdk/evaluation/reference_free.py` (311 lines)
@@ -507,8 +508,19 @@ A robust enumeration needs AST-based analysis (e.g. `ast.parse` per file, walkin
   - `sdk/evalyn_sdk/calibration/active_learning.py` (238 lines)
   - `sdk/evalyn_sdk/metrics/custom_dsl.py` (284 lines)
   - `sdk/evalyn_sdk/storage/denormalized.py` (309 lines)
-  - These are the candidates that survived spot-verification. Severity `[med]` (not `[high]`) because (a) the sample is small and not exhaustive, (b) the total deletion impact is much smaller than DC-001 / DC-007.
-  - The preliminary (unreliable) script-based output suggested ~167 orphans / ~36k dead lines across these 6 subpackages, but the false-positive rate on spot-checks was 5/12. The true number is somewhere between 7 (confirmed) and ~167 (preliminary upper bound). A proper enumeration needs AST.
+  - Severity `[med]` because (a) the sample is not exhaustive, (b) total deletion impact is smaller than DC-001 / DC-007.
+
+  Iteration 11 chain-verification additions (8 modules, +2,761 lines confirmed). 4 caller files at SDK root and the 4 modules they kept "live-by-association":
+  - `sdk/evalyn_sdk/example_gallery.py` (464 lines) — no callers anywhere
+  - `sdk/evalyn_sdk/quickstart_templates.py` (250 lines) — no callers
+  - `sdk/evalyn_sdk/capo_optimizer.py` (490 lines) — no callers
+  - `sdk/evalyn_sdk/adversarial_sampling.py` (390 lines) — no callers
+  - `sdk/evalyn_sdk/evaluation/multi_turn.py` (316 lines) — only caller was orphan `example_gallery.py`
+  - `sdk/evalyn_sdk/metrics/goal_completion.py` (284 lines) — only caller was orphan `quickstart_templates.py`
+  - `sdk/evalyn_sdk/calibration/convergence.py` (266 lines) — only caller was orphan `capo_optimizer.py`
+  - `sdk/evalyn_sdk/storage/merge.py` (301 lines) — only caller was orphan `adversarial_sampling.py`
+
+  Iter-10's preliminary regex-based output suggested ~167 orphans / ~36k dead lines across these 6 subpackages. Iter-11's AST analysis (see delta below) gives an UPPER bound of 52 modules / 15,299 lines with zero callers anywhere in the repo (including tests) — but that figure has its own caveat (dynamic-import dispatch in CLI). True orphan count is somewhere between 15 (confirmed-this-pass) and 52 (AST upper bound).
 
 ### Live-but-suspicious chain (worth a future iteration)
 
@@ -530,6 +542,79 @@ Are `example_gallery.py`, `quickstart_templates.py`, `capo_optimizer.py`, `adver
 ### Loop value note
 
 After 10 iterations: 1 critical bug (SEC-002, still pending), 24 high findings, ~25,000+ lines of confirmed dead code, plus 2,145 more spot-verified this iteration. The recurring loop has converted "the seed audit found 33 issues" into "we have a remediation-grade backlog with prioritization." The cost of running the audit 10x has been about 10 agent dispatches + 4 analyst scripts — modest for what's been surfaced.
+
+---
+
+## Iteration 11 delta (2026-05-12 03:32 PDT)
+
+No commits since iteration 10. Paid down two debts from iter-10:
+
+1. **AST-based orphan analysis** (replacing the unreliable regex approach for general SDK-wide orphan counting).
+2. **Chain verification** of the 4 suspicious caller files iter-10 flagged.
+
+### SEC-002 status (75 min / 1h 15m elapsed since flag)
+
+- `[open] [crit] SEC-002` — STILL OPEN. `api/promote.py:368-372` unchanged. Re-verified at iteration timestamp.
+
+### Chain verification — clear win
+
+All 4 caller files flagged in iter-10 ARE themselves orphan (zero callers anywhere in `sdk/evalyn_sdk/` or `dashboard/`):
+
+- `example_gallery.py` (464 lines)
+- `quickstart_templates.py` (250 lines)
+- `capo_optimizer.py` (490 lines)
+- `adversarial_sampling.py` (390 lines)
+
+So the 4 chains they belonged to are dead — promoting 4 more module orphans (`multi_turn.py`, `goal_completion.py`, `convergence.py`, `merge.py`) from "live-by-association" to "confirmed orphan." Net: DC-008 expanded by 8 modules / +2,761 lines confirmed dead. Updated total: 15 modules / 4,906 lines.
+
+### AST-based SDK-wide orphan analysis
+
+Built a proper analyzer using Python's `ast` module: parses every `.py` file under `sdk/evalyn_sdk/`, extracts `ImportFrom` and `Import` nodes with their `level` attribute (correctly handling `from ..X` and `from ...X.Y` cases that regex missed), builds a module-level import graph, then computes reachability from entry points.
+
+Entry points: anything imported by any file outside `sdk/evalyn_sdk/` (including tests, dashboard, examples).
+
+Result: **52 modules / 15,299 lines** have ZERO callers anywhere in the repo, **including test files**.
+
+### Why the AST count differs from DC-001 / DC-007
+
+- DC-001 (analysis/, iter 5): 69 orphans, 15,964 lines. Counted "no PRODUCTION callers; tests excluded from entry points."
+- DC-007 (trace/, iter 9): 43 orphans, 7,962 lines. Same definition.
+- AST analysis (this iter): 52 orphans across the whole SDK, 15,299 lines. **Includes tests as entry points.** So a module with a `test_X.py` counterpart shows as "live" here even if no production code calls it.
+
+Both definitions are useful:
+- **AST 52 / 15,299** ≈ "if you delete these, no test even imports them — safe to remove with minimal risk."
+- **DC-001 69 + DC-007 43 = 112 / 23,926 lines** ≈ "these have no production users; tests exist but production wouldn't notice the deletion." Larger but riskier (need to also remove the tests).
+
+### Caveat on the AST 52
+
+The TOP orphan by AST is `evalyn_sdk.cli.commands.evaluation` at **1,727 lines** — but this is the CLI handler for `evalyn eval`, which is CLEARLY live. It loads dynamically via the `_COMMAND_MODULE_MAP` dict in `cli/main.py` (already flagged as EXT-005), so static AST analysis can't see the dispatch.
+
+This means the 52 figure has an UNKNOWN false-positive rate. To get a clean number, I'd need to:
+
+1. Parse `cli/main.py`'s command-module dispatch dict and seed those as entry points.
+2. Add any other dynamic-import sites (e.g. plugin registry calls, `importlib.import_module(name)` patterns).
+
+That's a future iteration's job. For now, treat the AST output as a "definitely-orphan-everywhere" candidate list to be filtered.
+
+### Filter pass: which AST orphans aren't dispatched dynamically?
+
+Quick check: the top AST orphans include `cli.commands.*` (dispatched via `_COMMAND_MODULE_MAP`), `cli.utils.pipeline_steps` (probably dispatched), `judges.confidence.logprobs` (probably plugin-loaded). The non-CLI items in the top 20 are the higher-confidence orphans:
+
+- `evalyn_sdk.analysis.html_report` (1,457 lines) — DC-001 catalog said it's lazy-imported via analysis/__init__.py, so this is a false positive caused by the AST's `__init__.py` chain not resolving lazy-import maps. Skip.
+- `evalyn_sdk.evaluation.batch.providers` (853 lines) — needs verification (could be plugin-loaded).
+- `evalyn_sdk.evaluation.runner` (653 lines) — probably live; the seed audit referenced its `runner.py:106-112` (EXT-013).
+- `evalyn_sdk.calibration.engine` (621 lines), `evalyn_sdk.calibration.gepa_native` (619 lines) — needs verification.
+
+So even within "AST orphans" the high-confidence subset is narrower. The robust deletion candidates remain DC-008's chain-verified 15.
+
+### Cross-iteration progress
+
+- Iter 5: DC-001 (analysis/, 69 orphans, 15,964 lines) — published precise figures
+- Iter 9: DC-007 (trace/, 43 orphans, 7,962 lines) — published precise figures
+- Iter 10: DC-008 v1 (7 spot-verified modules, 2,145 lines) — held back imprecise figures
+- Iter 11: DC-008 v2 (15 modules, 4,906 lines after chain verification) + AST methodology established for future passes
+
+If a future iteration adds dynamic-dispatch handling (step 1 above) and parses lazy-import maps for the AST analysis, the SDK-wide orphan count could finally be put on firm footing. Estimate range: between 52 (AST upper bound) and ~150 (combining DC-001 + DC-007 + spot-checks).
 
 ---
 
