@@ -23,6 +23,7 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 |---|-------------------|-----------|-----|--------------|---------------------|
 | 1 | 2026-05-12 (seed)    | Full sweep         | 33  | -            | -                   |
 | 2 | 2026-05-12 01:17 PDT | Diff-style recheck | 1   | 33           | 0                   |
+| 3 | 2026-05-12 01:32 PDT | Targeted perf scan (v2 API handlers) | 5   | 3 spot-checked | 0                   |
 
 ---
 
@@ -119,6 +120,34 @@ Commits inspected since seed (`b138042a`):
 ### Re-confirmed clean (security)
 
 - The new `annotation/compat.py` and the modified `dashboard/evalyn_dashboard/api/v2/annotation.py` both pass the SEC baseline: defensive `isinstance` guards in `detect_shape`, no shell/eval/yaml-unsafe/SQL-format, no raw HTML render. No new SEC findings.
+
+---
+
+## Iteration 3 delta (2026-05-12 01:32 PDT)
+
+No commits since iteration 2. This iteration paid down iteration 2's "audit miss" debt by extending the perf scan to `dashboard/evalyn_dashboard/api/v2/*.py` request handlers (12 files). One focused Explore agent, not the 4-parallel sweep.
+
+### Spot-check of prior high-severity items (still `[open]`)
+
+- `PERF-002` — Gini at `sdk/evalyn_sdk/annotation_delegation.py:298-301` still O(n²) double-sum (`abs_diffs = sum(abs(counts[i] - counts[j]) for i in range(n) for j in range(n))`).
+- `DC-001` — Sample submodules (`forecast.py`, `dataset_stats.py`) confirmed still have zero importers in production code.
+- `EXT-001` — `sdk/evalyn_sdk/defaults.py:12-25` `DEFAULT_MODELS_BY_PROVIDER` still hardcodes `gemini`/`openai`/`anthropic`/`ollama`.
+
+### New findings (paying down iter-2 audit-miss debt)
+
+All in `dashboard/evalyn_dashboard/api/v2/`. The team's `_replay_log` fix in `9ae576f2` showed the *shape* of perf bug to look for — these are the analogous ones in sibling handlers.
+
+- `[open] [high] PERF-012` — `rubrics.py:312-320` `list_rubrics()` calls `_load_saved_rubric(metric_id)` once per metric, and each call does a nested `for root in dataset_roots(): for ds in list_dataset_dirs(root):` walk. With ~30 metrics × ~491 dataset dirs that's ~15k dataset-dir traversals per request, none cached. Fix: hoist the `(root, ds)` enumeration outside the metric loop OR cache `_saved_rubric_path` lookups by metric.
+- `[open] [high] PERF-013` — `annotation.py:1010-1031` `smart_queue()` per-request rebuild: for every dataset it `reviews_dir.glob("*.jsonl")`, opens each file, line-reads to count verdicts, and rebuilds `coverage_counter` from scratch — no cache. Fix: cache `coverage_counter` keyed on `(dataset, mtime of reviews_dir)`, invalidate on write.
+- `[open] [med] PERF-014` — `annotation.py:484-492` `_find_session()` uses `root.iterdir()` directly instead of the cached `list_dataset_dirs()` helper used elsewhere in the file. Per-request session lookups defeat the mtime cache. Fix: route through `list_dataset_dirs()`.
+- `[open] [med] PERF-015` — `annotation.py:501-513` `_list_sessions()` same bypass pattern as PERF-014 for the `/sessions` listing endpoint. Fix: same as PERF-014.
+- `[open] [med] PERF-016` — `rubrics.py:294-301` `_saved_rubric_path(metric_id)` does the full nested traversal for a path that doesn't change between requests for the same metric. Fix: memoize on `metric_id` (`functools.lru_cache` with size matching the metric count).
+
+### Confirmed-good patterns worth preserving (regression watch)
+
+- `_shared.py` `list_dataset_dirs()` correctly caches by directory mtime — keep this pattern; the new PERF-014/015 findings are exactly violations of it.
+- `load_all_runs()` is whole-list mtime-cached — fine.
+- `annotation.py` lines 769-792: the `_meta_has_progress_index` / `_recompute_progress_from_log` migration helpers are the FIX for the prior `_replay_log` quadratic. Confirmed working.
 
 ---
 
