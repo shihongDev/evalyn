@@ -35,6 +35,7 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 12 | 2026-05-12 03:47 PDT | AST fix: relative-import off-by-one + dispatch regex | iter-11 figures corrected | SEC-002 still open (+90 min, 1.5h) | 0                   |
 | 13 | 2026-05-12 04:02 PDT | AST fix: package-aware resolver + string-dispatch + lazy-map | iter-12 figures corrected (22→4) | SEC-002 still open (+105 min, 1h 45m) | 0                   |
 | 14 | 2026-05-12 04:17 PDT | AST fix: generic lazy-map parser + python -m + ancestor packages | **1 orphan / 160 lines (converged)** | SEC-002 still open (+120 min, 2h) | 0                   |
+| 15 | 2026-05-12 04:32 PDT | Inverse audit: spot-check 6 old findings for silent resolutions | 0 (zero resolved) | SEC-002 still open (+135 min, 2h 15m) | 0                   |
 
 ---
 
@@ -863,6 +864,55 @@ The recurring audit has now produced:
 5. ~25,000 lines of SDK + dashboard backend code categorized by liveness
 
 Iters 11-14 specifically demonstrate that **methodology self-correction has a finite trajectory** — each iteration's fix shrinks the headline number by ~5x until it converges. After 4 such corrections, the figure is stable at 1 orphan / 160 lines. The same pattern would likely apply to perf and ext findings if a future iteration scrutinized them with the same rigor.
+
+---
+
+## Iteration 15 delta (2026-05-12 04:32 PDT)
+
+No commits since iteration 14. Inverse-audit iteration: instead of finding new issues, **spot-checked 6 old findings to look for silent resolutions** — none of them are tied to a recent commit my iter-log captured, but a quick git pull or local fix-without-commit could have closed them.
+
+### Spot-check results (zero resolved)
+
+All six findings verified STILL OPEN:
+
+| ID       | File:line                                                       | Pattern still present? |
+|----------|-----------------------------------------------------------------|:----------------------:|
+| SEC-002  | `dashboard/.../api/promote.py:369-370`                          | Yes (bare `run_id`, `len(row_hashes)`) |
+| SEC-001  | `dashboard/.../jobs_persistence.py:337`                         | Yes (`f"SELECT {column}..."`) |
+| PERF-001 | `sdk/evalyn_sdk/cli/utils/dataset_resolver.py:70`               | Yes (`key=lambda d: d.stat().st_mtime`) |
+| PERF-002 | `sdk/evalyn_sdk/annotation_delegation.py:299`                   | Yes (`sum(abs(counts[i]-counts[j]) for i...for j...)`) |
+| EXT-001  | `sdk/evalyn_sdk/defaults.py:12-25` `DEFAULT_MODELS_BY_PROVIDER` | Yes (gemini/openai/anthropic/ollama still hardcoded) |
+| EXT-006  | `sdk/evalyn_sdk/analysis/insights.py:85`                        | Yes (`REDUNDANT_THRESHOLD = 0.7`) |
+
+### SEC-002 status (135 min / 2h 15m elapsed since flag)
+
+- `[open] [crit] SEC-002` — STILL OPEN. The recurring audit's job is to keep the visibility level high. **2h 15m of un-acted critical finding** — would justify direct escalation in a team setting.
+
+### Meta-observation: zero remediation velocity over 15 iterations
+
+In 2h 15m of continuous audit operation, the audit log has gone from 33 findings (seed) to 91 open findings. The remediation rate over the same window is **zero closed findings**. Reasons (most charitable to least):
+
+1. The user invoked `/loop` overnight and has stepped away — no remediation expected until they return.
+2. The audit is producing too many findings too fast for any human to consume (rate-of-finding > rate-of-fixing).
+3. The audit log is going unread — a "write-only" failure mode where findings accumulate but nothing closes.
+
+Reason 1 is by far the most likely given the timestamp pattern. But reasons 2 and 3 are worth flagging: if the user returns and finds 91 open items with no triage hierarchy, the audit's value drops. **The audit log itself needs a top-of-file "if you only fix 3 things, fix these" summary.**
+
+### Recommendation: triaged top-3 summary
+
+The natural next-iteration debt is a `## Triage` section at the top of `CODE_AUDIT.md` ranking findings by remediation ROI. Candidate top-3:
+
+1. **`SEC-002`** — Critical, 1-line fix, blocks all successful promotes today, destroys data on retry. Fix this first.
+2. **`PERF-012`** — `[high]` rubrics N+1 (~15k traversals/req) on a hot dashboard endpoint. Single-file fix.
+3. **`PERF-023`** — `[high]` unbounded `_parent_id_map` memory leak in span_processor. Single-file fix that prevents long-running-process degradation.
+
+These three together are ~3 hours of focused work and would resolve the most user-visible problems in the audit log.
+
+### Loop value note (15 iterations in)
+
+The recurring audit is now in a steady state: finding new issues has decelerated; methodology corrections converged at iter 14; remediation velocity is zero. The most valuable thing the loop can do in this state is (a) keep flagging the unfixed critical, (b) re-verify older findings periodically to catch silent fixes or silent regressions, and (c) produce a triage summary that converts "91 open findings" into "fix these 3 first."
+
+This iteration was (b). If the user is still away when the next cron fires, a future iteration should be (c).
 
 ---
 
