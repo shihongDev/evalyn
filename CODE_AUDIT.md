@@ -36,6 +36,57 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 13 | 2026-05-12 04:02 PDT | AST fix: package-aware resolver + string-dispatch + lazy-map | iter-12 figures corrected (22→4) | SEC-002 still open (+105 min, 1h 45m) | 0                   |
 | 14 | 2026-05-12 04:17 PDT | AST fix: generic lazy-map parser + python -m + ancestor packages | **1 orphan / 160 lines (converged)** | SEC-002 still open (+120 min, 2h) | 0                   |
 | 15 | 2026-05-12 04:32 PDT | Inverse audit: spot-check 6 old findings for silent resolutions | 0 (zero resolved) | SEC-002 still open (+135 min, 2h 15m) | 0                   |
+| 16 | 2026-05-12 04:47 PDT | Added top-of-file Triage section (5 fix-first ranked by remediation ROI) | 0 (curation only) | SEC-002 still open (+150 min, 2h 30m) | 0                   |
+
+---
+
+## Triage: top 5 fix-first
+
+If you only fix five things from this audit, do these — ordered by remediation ROI (severity × user impact ÷ fix effort). This section is curated and gets re-ranked on each iteration as items resolve. Last updated iteration 16 (2026-05-12 04:47 PDT).
+
+### 1. `[crit] SEC-002` — `dashboard/.../api/promote.py:369-370` (~1 hour, blast radius: high)
+
+`logger.info(...)` at the end of `promote_run_failures` references bare `run_id` and `row_hashes`, but the function scope binds `req.run_id`, `req.row_hashes`, and `safe_run_id = _safe_run_id(req.run_id)` (line 266). **Every successful promote raises `NameError`, returns 500 to client even though the dataset was written. Retries trigger `shutil.rmtree(target_dir, ignore_errors=True)` and DESTROY the just-promoted dataset.** Audit log entries are also lost.
+
+**Fix:** Replace `run_id` → `safe_run_id` and `row_hashes` → `req.row_hashes` in the logger args (lines 369-370). Add a regression test that calls `POST /api/promote/run-failures` end-to-end and asserts the response is 200 with the expected `dataset_path`.
+
+### 2. `[high] PERF-012` — `dashboard/.../api/v2/rubrics.py:312-320` (~2 hours, blast radius: high)
+
+`list_rubrics()` calls `_load_saved_rubric(metric_id)` once per metric. Each call does a nested `for root in dataset_roots(): for ds in list_dataset_dirs(root):` walk. With ~30 metrics × ~491 dataset dirs that's **~15k dataset-dir traversals per request**. No caching. On a dashboard page load, this is one of the heaviest endpoints.
+
+**Fix:** Hoist the `(root, ds)` enumeration outside the per-metric loop OR memoize `_saved_rubric_path` on `metric_id` via `functools.lru_cache`. Same pattern applies to `PERF-016` at the same file.
+
+### 3. `[high] PERF-023` — `sdk/evalyn_sdk/trace/span_processor.py:35` (~1 hour, blast radius: every user)
+
+`_parent_id_map: Dict[str, str] = {}` grows unbounded as OTEL spans are converted. No size cap, no TTL, no eviction. **Long-running agents leak memory linearly** — this is the SDK's hot path and amortizes across every user's deployment.
+
+**Fix:** Switch to `WeakValueDictionary` keyed on the span-context object, OR cap with `collections.OrderedDict` + LRU eviction at a configurable max (suggest 10k entries). Add a regression test that emits 100k spans and asserts the map stays bounded.
+
+### 4. `[high] PERF-013` — `dashboard/.../api/v2/annotation.py:1008-1031` (~3 hours, blast radius: medium)
+
+`smart_queue()` per-request rebuild: for every dataset, `reviews_dir.glob("*.jsonl")`, opens each file, line-reads to count verdicts, rebuilds `coverage_counter` from scratch. **No cache.** Worst-case grows linearly with annotation activity over time, never plateaus.
+
+**Fix:** Cache `coverage_counter` keyed on `(dataset, mtime(reviews_dir))`; invalidate on write. The team already fixed an analogous pattern in `_replay_log` (commit `9ae576f2`) — the migration helper `_meta_has_progress_index` shows the right shape.
+
+### 5. `[high] PERF-002` — `sdk/evalyn_sdk/annotation_delegation.py:299` (~30 min, blast radius: low)
+
+`abs_diffs = sum(abs(counts[i] - counts[j]) for i in range(n) for j in range(n))` is O(n²). For workloads with many annotators this is a real cost; for small teams it's invisible.
+
+**Fix:** Sort `counts` once then apply the linear formula `2·Σ(i·counts[i]) / (n·Σ counts) - (n+1)/n`. Drop in replacement, ~5 lines.
+
+### Why these 5
+
+- All five are **single-file** fixes (no cross-cutting refactor).
+- Combined estimated work: **~8 hours of focused dev time**.
+- One critical correctness bug (`SEC-002`) sits on top — the others are perf.
+- Together they resolve the most user-visible / data-integrity-affecting items in the 91-finding backlog.
+- Sweeping deletes (DC-001's 15,964 lines, DC-007's 7,962 lines) are NOT in this triage list — they're cleanup wins but lower-priority than the above.
+
+### What's NOT in the top 5 (and why)
+
+- **EXT-002 (objective registry plugin discovery)** is the highest-leverage extensibility fix and unlocks EXT-001/003/010/011/012, but it's a multi-day design change — outside the "fix-this-sprint" frame.
+- **DC-001 / DC-007 (massive orphan inventories)** are great cleanup but yield no user-visible improvement until someone hits a search for `forecast.py` and is confused.
+- **The 8 frontend extensibility findings (EXT-024..032)** are real but each is a small, contained cosmetic issue.
 
 ---
 
@@ -913,6 +964,36 @@ These three together are ~3 hours of focused work and would resolve the most use
 The recurring audit is now in a steady state: finding new issues has decelerated; methodology corrections converged at iter 14; remediation velocity is zero. The most valuable thing the loop can do in this state is (a) keep flagging the unfixed critical, (b) re-verify older findings periodically to catch silent fixes or silent regressions, and (c) produce a triage summary that converts "91 open findings" into "fix these 3 first."
 
 This iteration was (b). If the user is still away when the next cron fires, a future iteration should be (c).
+
+---
+
+## Iteration 16 delta (2026-05-12 04:47 PDT)
+
+No commits since iteration 15. Pure curation iteration: added the top-of-file `## Triage: top 5 fix-first` section recommended in iteration 15. Selection criteria: severity × user-impact ÷ fix-effort. The 5 chosen items are all single-file fixes totaling ~8 hours of dev work.
+
+### SEC-002 status (150 min / 2h 30m elapsed since flag)
+
+- `[open] [crit] SEC-002` — STILL OPEN. Re-verified at iteration timestamp.
+
+### Curation logic for top 5
+
+- `SEC-002` is unambiguous: critical correctness bug, 1-line fix, data-destroying retry behavior. #1.
+- `PERF-012` and `PERF-013` are the two highest-impact perf items in the dashboard hot path (rubrics N+1, smart_queue per-request scan). #2 and #4.
+- `PERF-023` is the SDK hot-path memory leak (`_parent_id_map` unbounded) — affects every long-running user agent. #3.
+- `PERF-002` is included as a token small-effort win (~30 min, O(n²)→O(n)) to balance the heavier perf items. #5.
+
+`EXT-002` (entry-point plugin discovery) and the big DC inventories (DC-001, DC-007) are intentionally excluded — they're real but lower-velocity-ratio (high effort, harder-to-feel-immediately impact).
+
+### Loop value note (16 iterations in)
+
+After 15 iterations of accumulation, this iteration converts the audit log from "long backlog" to "actionable top-5 list" without dropping any prior finding. The Triage section is now the durable top-of-file artifact a returning reader sees first.
+
+If a future iteration finds that any of the top-5 items has been resolved, the next iteration should:
+
+1. Mark the finding `[resolved]` in the main Findings list.
+2. Promote the next-highest-ROI candidate into the Triage list to keep 5 items live.
+
+Candidate replacements (next in line): `PERF-022` (command-history double-scan), `EXT-006` (insights threshold constants), `SEC-003` (WebSocket auth via ID guessability).
 
 ---
 
