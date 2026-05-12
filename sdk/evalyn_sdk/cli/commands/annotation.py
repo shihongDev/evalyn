@@ -84,37 +84,122 @@ def cmd_import_annotations(args: argparse.Namespace) -> None:
 
 
 def cmd_annotation_stats(args: argparse.Namespace) -> None:
-    """Show annotation coverage statistics."""
-    from ...models import AnnotationItem
+    """Show annotation coverage statistics.
+
+    Reads ``annotations.jsonl`` through the cross-surface compat layer
+    (``sdk.evalyn_sdk.annotation.compat``) so records produced by either
+    the CLI ``evalyn annotate`` flow or the dashboard ``/annotate`` UI
+    are counted uniformly. Falls back to the legacy ``AnnotationItem``
+    path for ``dataset.jsonl`` exports which embed eval_results inline.
+    """
+    from ...annotation.compat import (
+        SHAPE_CLI_ANNOTATION_ITEM,
+        SHAPE_UNKNOWN,
+        derive_overall_label,
+        detect_shape,
+        normalize,
+    )
+    from ...models import AnnotationItem, HumanLabel
 
     # Resolve dataset path
     dataset_path = Path(args.dataset)
+    is_annotations_file = False
     if dataset_path.is_dir():
-        # Look for annotation file or dataset file
         ann_file = dataset_path / "annotations.jsonl"
         if ann_file.exists():
             data_file = ann_file
+            is_annotations_file = True
         else:
             data_file = dataset_path / "dataset.jsonl"
             if not data_file.exists():
                 data_file = dataset_path / "dataset.json"
     else:
         data_file = dataset_path
+        is_annotations_file = dataset_path.name == "annotations.jsonl"
 
     if not data_file.exists():
         fatal_error(f"File not found: {data_file}")
 
-    # Load data
-    items = []
     raw = data_file.read_text(encoding="utf-8").strip()
     if not raw:
         print("Empty file.")
         return
 
-    for line in raw.splitlines():
-        if line.strip():
+    items: List[AnnotationItem] = []
+    unknown_lines = 0
+    if is_annotations_file:
+        # Normalization path: any of the three known shapes is read into
+        # a CanonicalAnnotation, then re-projected into an AnnotationItem
+        # so the existing stats logic below can stay unchanged. The
+        # CanonicalAnnotation's per-metric labels become eval_results
+        # plus a human_label so per-metric and agreement sections work
+        # without further surface-specific parsing.
+        for line in raw.splitlines():
+            if not line.strip():
+                continue
             data = json.loads(line)
-            items.append(AnnotationItem.from_dict(data))
+            shape = detect_shape(data)
+            if shape == SHAPE_CLI_ANNOTATION_ITEM:
+                # Legacy passthrough - AnnotationItem already carries the
+                # full eval_results payload and is the richest shape.
+                items.append(AnnotationItem.from_dict(data))
+                continue
+            canonical = normalize(data)
+            if canonical is None or shape == SHAPE_UNKNOWN:
+                unknown_lines += 1
+                continue
+            # Derive a per-metric eval_results view from used_ai_verdict.
+            # If the human deferred to AI, AI agrees with human label;
+            # if the human flipped, AI disagreed - so the AI label is the
+            # logical inverse of the human's. Records missing
+            # used_ai_verdict drop out of the agreement section (correct).
+            eval_results: Dict[str, Dict[str, Any]] = {}
+            for lbl in canonical.labels:
+                if not lbl.metric_id:
+                    continue
+                if lbl.used_ai_verdict is True and lbl.label is not None:
+                    ai_passed = lbl.label == "pass"
+                elif lbl.used_ai_verdict is False and lbl.label is not None:
+                    ai_passed = lbl.label != "pass"
+                else:
+                    ai_passed = None
+                if ai_passed is not None:
+                    eval_results[lbl.metric_id] = {"passed": ai_passed}
+            overall = derive_overall_label(canonical)
+            human_label = (
+                HumanLabel(
+                    passed=bool(overall),
+                    annotator=canonical.annotator or "human",
+                    notes=canonical.rationale or "",
+                )
+                if overall is not None
+                else None
+            )
+            items.append(
+                AnnotationItem(
+                    id=canonical.item_id,
+                    input={},
+                    output=None,
+                    eval_results=eval_results,
+                    human_label=human_label,
+                    metadata={
+                        "source_shape": canonical.source_shape,
+                        "session_id": canonical.session_id,
+                    },
+                )
+            )
+    else:
+        # Dataset.jsonl path: every line is an AnnotationItem export.
+        for line in raw.splitlines():
+            if line.strip():
+                data = json.loads(line)
+                items.append(AnnotationItem.from_dict(data))
+
+    if unknown_lines:
+        print(
+            f"Note: skipped {unknown_lines} record(s) of unknown shape in "
+            f"{data_file}. Run with --verbose for line-level details."
+        )
 
     # Also check storage for imported annotations
     try:

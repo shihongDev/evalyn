@@ -523,3 +523,183 @@ def test_evidence_optional_omitted_works(tmp_path, monkeypatch):
         assert r.status_code == 200, r.text
         items = client.get(f"/api/v2/annotation/sessions/{sid}/items?limit=1").json()
         assert items["items"][0]["evidence"] == []
+
+
+# ---------------------------------------------------------------------------
+# Progress-tracking perf: post_verdict must not replay the log per request
+# ---------------------------------------------------------------------------
+
+
+def test_verdict_does_not_replay_log_in_hot_path(tmp_path, monkeypatch):
+    """Posting N verdicts must NOT invoke ``_replay_log`` N times.
+
+    Before 2026-05-12 the verdict POST handler recomputed progress by
+    replaying the full session log on every request - O(N) work per
+    write, quadratic across a session. This regression test pins the
+    fix: a fresh session with the progress index seeded at create time
+    pays zero replays on the verdict POST hot path.
+    """
+    monkeypatch.setenv("EVALYN_DASHBOARD_TEST_NO_CACHE", "1")
+    _clear_caches_for_tests()
+    make_populated_workspace(tmp_path, monkeypatch)
+
+    # Wrap _replay_log with a counter. Importing the module here so we
+    # patch the same name the verdict handler resolves.
+    from evalyn_dashboard.api.v2 import annotation as ann_mod
+
+    original = ann_mod._replay_log
+    calls: list[Path] = []
+
+    def counting_replay(log_path):
+        calls.append(log_path)
+        return original(log_path)
+
+    monkeypatch.setattr(ann_mod, "_replay_log", counting_replay)
+
+    with TestClient(build_app()) as client:
+        run_id = _first_run_id(client)
+        metric_id = _first_metric_id(client, run_id)
+        headers = _csrf(client)
+        meta = client.post(
+            "/api/v2/annotation/sessions",
+            json={
+                "source_kind": "run",
+                "source_id": run_id,
+                "metric_ids": [metric_id],
+                "annotator_id": "tester",
+            },
+            headers=headers,
+        ).json()
+        sid = meta["id"]
+        # Fetch the page so we know which item_ids belong to the session.
+        items_resp = client.get(
+            f"/api/v2/annotation/sessions/{sid}/items?limit=200"
+        ).json()
+        # items GET is allowed to replay (it reads per-item verdicts) -
+        # reset the counter so we only count verdict POST contributions.
+        calls.clear()
+
+        # Post a verdict for every item in the page (or up to 20, whichever
+        # is smaller). Old code: replay fires every iteration. New code: zero
+        # replays because the meta index was seeded at create time.
+        n = min(20, len(items_resp["items"]))
+        assert n >= 1, "fixture must have at least one item"
+        for i in range(n):
+            body = {
+                "item_id": items_resp["items"][i]["item_id"],
+                "labels": [
+                    {"metric_id": metric_id, "label": "pass", "used_ai_verdict": True}
+                ],
+            }
+            r = client.post(
+                f"/api/v2/annotation/sessions/{sid}/verdict",
+                json=body,
+                headers=headers,
+            )
+            assert r.status_code == 200, r.text
+
+        # Hard assertion: NO replays during N verdict POSTs. The legacy
+        # code would have fired N here.
+        assert calls == [], (
+            f"_replay_log invoked {len(calls)} times across {n} verdict "
+            f"POSTs - the hot path must use the meta progress index, "
+            f"not full replay"
+        )
+
+        # Sanity check: progress is correct end-to-end.
+        sess = client.get(f"/api/v2/annotation/sessions/{sid}").json()
+        assert sess["items_done"] == n
+
+
+def test_legacy_session_migrates_via_replay_once(tmp_path, monkeypatch):
+    """A session written before the progress index existed replays once
+    on the first verdict POST and then uses the fast path.
+
+    Migration path: strip the progress index fields from meta on disk and
+    verify the next verdict POST triggers exactly one replay (to migrate),
+    and subsequent posts trigger zero.
+    """
+    monkeypatch.setenv("EVALYN_DASHBOARD_TEST_NO_CACHE", "1")
+    _clear_caches_for_tests()
+    make_populated_workspace(tmp_path, monkeypatch)
+
+    from evalyn_dashboard.api.v2 import annotation as ann_mod
+
+    original = ann_mod._replay_log
+    calls: list[Path] = []
+
+    def counting_replay(log_path):
+        calls.append(log_path)
+        return original(log_path)
+
+    with TestClient(build_app()) as client:
+        run_id = _first_run_id(client)
+        metric_id = _first_metric_id(client, run_id)
+        headers = _csrf(client)
+        meta = client.post(
+            "/api/v2/annotation/sessions",
+            json={
+                "source_kind": "run",
+                "source_id": run_id,
+                "metric_ids": [metric_id],
+                "annotator_id": "tester",
+            },
+            headers=headers,
+        ).json()
+        sid = meta["id"]
+        items_resp = client.get(
+            f"/api/v2/annotation/sessions/{sid}/items?limit=5"
+        ).json()
+        # Simulate a legacy session by removing the new fields from meta.
+        ds_dir = tmp_path / ".evalyn" / "data" / "datasets" / "calibration"
+        meta_path = ds_dir / "annotation_sessions" / f"{sid}.json"
+        with meta_path.open("r", encoding="utf-8") as f:
+            disk_meta = json.load(f)
+        disk_meta.pop("items_done_ids", None)
+        disk_meta.pop("items_skipped_ids", None)
+        with meta_path.open("w", encoding="utf-8") as f:
+            json.dump(disk_meta, f)
+
+        # Wire the counter AFTER the legacy meta is on disk so we count
+        # only the migration + steady-state replays from now on.
+        monkeypatch.setattr(ann_mod, "_replay_log", counting_replay)
+
+        # First verdict POST: should migrate via one replay.
+        body1 = {
+            "item_id": items_resp["items"][0]["item_id"],
+            "labels": [
+                {"metric_id": metric_id, "label": "pass", "used_ai_verdict": True}
+            ],
+        }
+        r1 = client.post(
+            f"/api/v2/annotation/sessions/{sid}/verdict",
+            json=body1,
+            headers=headers,
+        )
+        assert r1.status_code == 200, r1.text
+        replays_after_migration = len(calls)
+        # Migration replay = 1. Allow a small upper bound to keep the test
+        # robust to incidental replays the handler might add elsewhere.
+        assert 1 <= replays_after_migration <= 2, (
+            f"Legacy session migration should replay 1-2 times, got "
+            f"{replays_after_migration}"
+        )
+
+        # Second verdict POST: meta now has the index, so zero new replays.
+        body2 = {
+            "item_id": items_resp["items"][1]["item_id"],
+            "labels": [
+                {"metric_id": metric_id, "label": "pass", "used_ai_verdict": True}
+            ],
+        }
+        r2 = client.post(
+            f"/api/v2/annotation/sessions/{sid}/verdict",
+            json=body2,
+            headers=headers,
+        )
+        assert r2.status_code == 200, r2.text
+        steady_state_replays = len(calls) - replays_after_migration
+        assert steady_state_replays == 0, (
+            f"After migration the fast path should fire zero replays, got "
+            f"{steady_state_replays}"
+        )

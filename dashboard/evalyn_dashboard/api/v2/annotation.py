@@ -271,6 +271,36 @@ def _append_log(log_path: Path, record: dict) -> None:
         f.write(json.dumps(record) + "\n")
 
 
+def _recompute_progress_from_log(
+    log_path: Path,
+) -> tuple[int, int, list[str], list[str]]:
+    """Full replay of the session log. Source of truth for cold-start.
+
+    Returns ``(items_done, items_skipped, items_done_ids, items_skipped_ids)``.
+    Used to migrate pre-index sessions on first verdict POST and as a
+    sanity-recovery path if the meta index ever falls out of sync with the
+    log.
+    """
+    log_state = _replay_log(log_path)
+    done_ids = sorted(iid for iid, r in log_state.items() if r.get("labels"))
+    skipped_ids = sorted(
+        iid
+        for iid, r in log_state.items()
+        if not r.get("labels") and r.get("skipped_metrics")
+    )
+    return len(done_ids), len(skipped_ids), done_ids, skipped_ids
+
+
+def _meta_has_progress_index(meta: dict) -> bool:
+    """True iff meta carries the incremental progress index.
+
+    Sessions created before the incremental-tracking change (2026-05-12)
+    lack ``items_done_ids`` / ``items_skipped_ids`` and need one replay
+    to migrate.
+    """
+    return "items_done_ids" in meta and "items_skipped_ids" in meta
+
+
 def _annotator_id_from_request(request: Request) -> str:
     """Best-effort annotator label. Today: hostname, tomorrow: auth user.
 
@@ -413,6 +443,11 @@ async def create_session(request: Request) -> JSONResponse:
         "items_total": len(item_ids),
         "items_done": 0,
         "items_skipped": 0,
+        # Incremental progress index. New sessions ship empty so the
+        # first verdict POST takes the fast path; legacy sessions
+        # missing these fields get migrated via one replay on first POST.
+        "items_done_ids": [],
+        "items_skipped_ids": [],
         "started_at_iso": _now_iso(),
         "last_active_iso": _now_iso(),
         "status": "in_progress",
@@ -723,17 +758,39 @@ async def post_verdict(session_id: str, request: Request) -> JSONResponse:
             # Log but don't fail the verdict - session log is the source of truth.
             logger.warning("reviews jsonl append failed: %s", exc)
 
-    # Recompute progress from the replayed log so a crashed write is
-    # self-correcting on the next verdict.
-    log_state = _replay_log(log_path)
-    items_done = sum(1 for r in log_state.values() if r.get("labels"))
-    items_skipped = sum(
-        1
-        for r in log_state.values()
-        if not r.get("labels") and r.get("skipped_metrics")
-    )
+    # Progress tracking. Fast path: incremental update from the meta's id
+    # index, O(log N) per verdict. Cold-start path: replay the log once
+    # to migrate sessions written before the index existed.
+    #
+    # Before 2026-05-12, every verdict POST replayed the full log to
+    # recompute progress - quadratic in session size and a wall-clock
+    # tax on the hot path. The index makes the hot path constant-time
+    # while preserving idempotency (drop-then-add per item_id).
+    if _meta_has_progress_index(meta):
+        done_ids: set[str] = set(meta.get("items_done_ids") or [])
+        skipped_ids: set[str] = set(meta.get("items_skipped_ids") or [])
+        # Idempotency: a re-post for the same item_id drops the prior
+        # classification, then re-adds based on the fresh record. Items
+        # with neither labels nor skipped_metrics fall out of both sets.
+        done_ids.discard(item_id)
+        skipped_ids.discard(item_id)
+        if labels:
+            done_ids.add(item_id)
+        elif skipped_metrics:
+            skipped_ids.add(item_id)
+        items_done = len(done_ids)
+        items_skipped = len(skipped_ids)
+    else:
+        items_done, items_skipped, done_ids_list, skipped_ids_list = (
+            _recompute_progress_from_log(log_path)
+        )
+        done_ids = set(done_ids_list)
+        skipped_ids = set(skipped_ids_list)
+
     meta["items_done"] = items_done
     meta["items_skipped"] = items_skipped
+    meta["items_done_ids"] = sorted(done_ids)
+    meta["items_skipped_ids"] = sorted(skipped_ids)
     meta["last_active_iso"] = _now_iso()
     if items_done + items_skipped >= meta["items_total"]:
         meta["status"] = "in_progress"  # finalize is explicit, not auto
@@ -741,7 +798,8 @@ async def post_verdict(session_id: str, request: Request) -> JSONResponse:
         _write_meta(_session_meta_path(ds_dir, session_id), meta)
     except OSError as exc:
         logger.warning("session meta write failed: %s", exc)
-        # Verdict is already appended; meta will self-heal on next call.
+        # Verdict is already appended; meta will self-heal on next call
+        # via the cold-start path (index is missing -> replay).
 
     await _broadcast_invalidate(
         ["annotation/sessions", "review/queue", "home"]
