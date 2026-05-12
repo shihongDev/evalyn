@@ -38,12 +38,15 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 15 | 2026-05-12 04:32 PDT | Inverse audit: spot-check 6 old findings for silent resolutions | 0 (zero resolved) | SEC-002 still open (+135 min, 2h 15m) | 0                   |
 | 16 | 2026-05-12 04:47 PDT | Added top-of-file Triage section (5 fix-first ranked by remediation ROI) | 0 (curation only) | SEC-002 still open (+150 min, 2h 30m) | 0                   |
 | 17 | 2026-05-12 05:02 PDT | Security baseline regression scan (7 patterns) | 0 (baseline holds) | SEC-002 still open (+165 min, 2h 45m) | 0                   |
+| 18 | 2026-05-12 05:17 PDT | Triage items test-coverage audit (4 of 5 untested) | 0 (gap audit only) | SEC-002 still open (+180 min, 3h) | 0                   |
 
 ---
 
 ## Triage: top 5 fix-first
 
-If you only fix five things from this audit, do these — ordered by remediation ROI (severity × user impact ÷ fix effort). This section is curated and gets re-ranked on each iteration as items resolve. Last updated iteration 16 (2026-05-12 04:47 PDT).
+If you only fix five things from this audit, do these — ordered by remediation ROI (severity × user impact ÷ fix effort). This section is curated and gets re-ranked on each iteration as items resolve. Last updated iteration 18 (2026-05-12 05:17 PDT).
+
+**Test-coverage status (audited iter 18)**: 4 of 5 items have ZERO regression test coverage; only `PERF-002` has a test home ready. See annotated callouts inline below.
 
 ### 1. `[crit] SEC-002` — `dashboard/.../api/promote.py:369-370` (~1 hour, blast radius: high)
 
@@ -51,11 +54,15 @@ If you only fix five things from this audit, do these — ordered by remediation
 
 **Fix:** Replace `run_id` → `safe_run_id` and `row_hashes` → `req.row_hashes` in the logger args (lines 369-370). Add a regression test that calls `POST /api/promote/run-failures` end-to-end and asserts the response is 200 with the expected `dataset_path`.
 
+**Test coverage:** ⚠️ NO TEST EXISTS. Zero matches for `test_*promote*.py` under `tests/` or `dashboard/tests/`, and zero matches for `promote_run_failures` or `/api/promote` in any test file. Any successful end-to-end test would have caught the NameError. **The PR that ships this fix must create the test file** (suggested: `dashboard/tests/test_api_promote.py`).
+
 ### 2. `[high] PERF-012` — `dashboard/.../api/v2/rubrics.py:312-320` (~2 hours, blast radius: high)
 
 `list_rubrics()` calls `_load_saved_rubric(metric_id)` once per metric. Each call does a nested `for root in dataset_roots(): for ds in list_dataset_dirs(root):` walk. With ~30 metrics × ~491 dataset dirs that's **~15k dataset-dir traversals per request**. No caching. On a dashboard page load, this is one of the heaviest endpoints.
 
 **Fix:** Hoist the `(root, ds)` enumeration outside the per-metric loop OR memoize `_saved_rubric_path` on `metric_id` via `functools.lru_cache`. Same pattern applies to `PERF-016` at the same file.
+
+**Test coverage:** ⚠️ NO TEST EXERCISES `list_rubrics`. There are 5 rubric test files (`test_rubric_i18n.py`, `_library.py`, `_optimization.py`, `_packs.py`, `_testing.py`) but none cover `api/v2/rubrics.py:list_rubrics` or `_load_saved_rubric`. Add a perf-regression test that times `list_rubrics` against a fixture with 30 metrics × 100 dataset dirs and asserts it completes in <500ms (or whatever the agreed budget is).
 
 ### 3. `[high] PERF-023` — `sdk/evalyn_sdk/trace/span_processor.py:35` (~1 hour, blast radius: every user)
 
@@ -63,17 +70,23 @@ If you only fix five things from this audit, do these — ordered by remediation
 
 **Fix:** Switch to `WeakValueDictionary` keyed on the span-context object, OR cap with `collections.OrderedDict` + LRU eviction at a configurable max (suggest 10k entries). Add a regression test that emits 100k spans and asserts the map stays bounded.
 
+**Test coverage:** ⚠️ NO TEST EXISTS for `span_processor.py`. The fix PR should create `tests/test_span_processor_bounds.py` with the 100k-span emission + assertion described above. Don't merge without it — this is the kind of memory leak that only shows in production.
+
 ### 4. `[high] PERF-013` — `dashboard/.../api/v2/annotation.py:1008-1031` (~3 hours, blast radius: medium)
 
 `smart_queue()` per-request rebuild: for every dataset, `reviews_dir.glob("*.jsonl")`, opens each file, line-reads to count verdicts, rebuilds `coverage_counter` from scratch. **No cache.** Worst-case grows linearly with annotation activity over time, never plateaus.
 
 **Fix:** Cache `coverage_counter` keyed on `(dataset, mtime(reviews_dir))`; invalidate on write. The team already fixed an analogous pattern in `_replay_log` (commit `9ae576f2`) — the migration helper `_meta_has_progress_index` shows the right shape.
 
+**Test coverage:** ⚠️ NO TEST EXERCISES `smart_queue` or `coverage_counter`. 5 annotation test files exist (`test_annotation_compat.py`, `_delegation.py`, `_flywheel.py`, `_session.py`, `_ux.py`) but none cover the `smart_queue` endpoint. The fix PR should add a test that hits the endpoint twice (warm cache check) and asserts the second call returns identical data with no extra file reads.
+
 ### 5. `[high] PERF-002` — `sdk/evalyn_sdk/annotation_delegation.py:299` (~30 min, blast radius: low)
 
 `abs_diffs = sum(abs(counts[i] - counts[j]) for i in range(n) for j in range(n))` is O(n²). For workloads with many annotators this is a real cost; for small teams it's invisible.
 
 **Fix:** Sort `counts` once then apply the linear formula `2·Σ(i·counts[i]) / (n·Σ counts) - (n+1)/n`. Drop in replacement, ~5 lines.
+
+**Test coverage:** ✅ READY. `tests/test_annotation_delegation.py:420, 431, 441, 448` has 4 gini-related assertions covering the edge cases (zero counts, identical counts, skewed counts). The fix PR can just re-run those tests and confirm the values match before/after — no new test file needed.
 
 ### Why these 5
 
@@ -1051,6 +1064,48 @@ The exact grep commands used live in the iteration-17 commit message so they don
 4. A converged orphan inventory (iter 14)
 
 What it CANNOT produce without human action: a single resolved finding. The audit's value is bottlenecked on the remediation side, not the detection side.
+
+---
+
+## Iteration 18 delta (2026-05-12 05:17 PDT)
+
+No commits since iteration 17. Audited the regression-test coverage of every item in the Triage list. Annotated each item inline with a `Test coverage:` line so a returning user knows exactly which test file to create or extend alongside the fix.
+
+### SEC-002 status (180 min / 3 HOURS elapsed since flag)
+
+- `[open] [crit] SEC-002` — STILL OPEN at the 3-hour mark. Re-verified at iteration timestamp. **No commit, no test, no fix attempt observed during 12 cron firings.**
+
+### Test-coverage results for top-5 Triage items
+
+| ID       | Has tests? | Test file                                    | Notes                                       |
+|----------|:----------:|----------------------------------------------|---------------------------------------------|
+| SEC-002  | ❌ NO      | (none)                                       | Zero `*promote*` test files; PR must create `dashboard/tests/test_api_promote.py` |
+| PERF-012 | ❌ NO      | (none for `list_rubrics`)                    | 5 rubric tests exist but cover other concerns |
+| PERF-023 | ❌ NO      | (none for span_processor.py)                 | Memory-leak class of bug — won't show without test |
+| PERF-013 | ❌ NO      | (none for `smart_queue`)                     | 5 annotation tests exist but cover other concerns |
+| PERF-002 | ✅ YES     | `tests/test_annotation_delegation.py:420-448`| 4 gini assertions; just re-run after fix |
+
+### Implications for remediation
+
+- The single `[crit]` finding (`SEC-002`) has zero tests. This is itself a process finding: **the dashboard's `/api/promote/run-failures` endpoint shipped with no end-to-end test, which is how the NameError survived to production.** Any PR that fixes SEC-002 should ALSO add the missing test.
+- Three high-severity perf items also have no tests. This means their fixes can land but won't be regression-protected. The "test coverage" notes inline describe what each test should do.
+- Only `PERF-002` is ready to ship as a pure fix (test exists).
+
+### Process observation
+
+If the 5 Triage items had test coverage, the 91+ finding backlog would have a clear quality gate. As-is, the audit log can identify problems but can't be regression-tested against without test-creation work happening in parallel. A future iteration COULD enumerate test coverage for every `[high]+` finding (not just the Triage 5), producing a "tests-needed" backlog.
+
+### Loop value note (18 iterations in)
+
+18 iterations, the audit log is now near its asymptotic value:
+
+- Triage list (iter 16): what to fix first
+- Test-coverage annotations (this iter): what tests to write alongside fixes
+- Reproducer commands (iter 17): how to verify the security baseline going forward
+- Per-finding fix instructions (across all iters): how to fix each item
+- Converged orphan inventory (iter 14): what to delete
+
+A "fix the audit log" sprint can now start with self-contained instructions for the top-5 items. Open question: at 18 iterations, what's left for the loop to add? Some candidates: (a) frontend deadcode (still untouched since iter 4 skipped it), (b) dependency vulnerability scan, (c) staleness check on lower-severity findings, (d) cross-reference findings to GitHub issue numbers if any exist.
 
 ---
 
