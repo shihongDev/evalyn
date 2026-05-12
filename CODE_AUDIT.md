@@ -26,6 +26,7 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 3 | 2026-05-12 01:32 PDT | Targeted perf scan (v2 API handlers) | 5   | 3 spot-checked | 0                   |
 | 4 | 2026-05-12 01:47 PDT | Frontend perf+ext audit (dashboard/frontend/src) | 10  | EXT-004 expanded | 0                   |
 | 5 | 2026-05-12 02:05 PDT | DC-001 exhaustive enumeration (transitive closure) | 0  | DC-001 made exact | 0                   |
+| 6 | 2026-05-12 02:17 PDT | Dashboard backend non-v2 (sec+perf+ext) **[1st crit found]** | 7  | PERF-012/013 still open | 0                   |
 
 ---
 
@@ -293,6 +294,52 @@ For per-module deletion decisions. Numbers are SLOC including blanks.
 ### Confirmed-good pattern worth noting
 
 - The lazy-import gate in `analysis/__init__.py` is good engineering — it prevents `from evalyn_sdk.analysis import ...` from triggering imports of heavyweight modules (clustering, panel). Preserve this pattern when cleaning up: deleted modules should be removed from `_LAZY_IMPORTS` first to avoid `AttributeError` at import time.
+
+---
+
+## Iteration 6 delta (2026-05-12 02:17 PDT)
+
+No commits since iteration 5. Extended coverage to the dashboard backend **outside `api/v2/`** (8 top-level + ~10 non-v2 `api/*.py` handlers). One Explore agent, three dimensions (sec + perf + ext). This pass surfaced the **first `[crit]` finding** across all 6 iterations.
+
+### CRITICAL — must fix before next deploy
+
+- `[open] [crit] SEC-002` — `dashboard/evalyn_dashboard/api/promote.py:365-374` — the audit-log `logger.info(...)` references bare names `run_id` and `row_hashes`, but the function scope only binds `req.run_id`, `req.row_hashes`, and `safe_run_id = _safe_run_id(req.run_id)` at line 266. Result: every successful promote raises `NameError: name 'run_id' is not defined` at the end of `promote_run_failures`, which FastAPI surfaces as a 500. The dataset is written to disk first, so the user sees a 500 but the side effect persisted; a retry hits the already-created directory and is handled by the `shutil.rmtree(target_dir, ignore_errors=True)` cleanup path — meaning retries DESTROY the just-promoted dataset. Audit log entries are also lost. Verified by reading function scope and confirming no module-level binding. **Fix: replace `run_id` -> `safe_run_id`, `row_hashes` -> `req.row_hashes` in the logger args; add a regression test that calls the endpoint end-to-end.**
+
+This is exactly the class of bug the recurring audit is designed to surface — it survived the seed and 5 subsequent iterations because it lives in a single non-v2 handler the prior passes hadn't scanned. Justifies the loop.
+
+### New findings — security
+
+- `[open] [high] SEC-003` — `dashboard/evalyn_dashboard/api/agent_ws.py` AND `api/jobs_ws.py` — WebSocket endpoints (`/ws/agent/{thread_id}`, `/ws/jobs/{job_id}`) accept connections with NO session-bound auth. Security model is "the IDs are opaque hex/uuid, plus loopback binding by default." If `--unsafe-bind` is ever used (or on a shared dev machine), an attacker who can enumerate `/api/jobs/recent` can subscribe to any job's stream. Fix: require a short-lived signed token (HMAC over the ID + a server secret + expiry) as a query-string param, validate at handshake.
+- `[open] [med] SEC-004` — `dashboard/evalyn_dashboard/credentials.py` — credentials are written to `~/.evalyn/credentials.json` and `chmod 0600` is applied AFTER the write. There's a brief window where the file exists with default umask permissions. Race window is small but real. Fix: open the file with `os.open(path, O_WRONLY|O_CREAT|O_EXCL, 0o600)` so the restrictive mode is applied at create time, then write; or write to a tempfile with mode 0600 and rename.
+
+### New findings — performance
+
+- `[open] [med] PERF-021` — `dashboard/evalyn_dashboard/jobs.py:458-461` — event-stream replay computes `replay_events = [evt for evt in job.events if cursor < evt["event_id"] <= snapshot_id]` on every WebSocket subscribe. Long-running jobs with 10k+ events pay an O(N) scan per connection. Fix: keep `job.events` as a sorted-by-event_id list and use `bisect_left` / `bisect_right` for O(log N) windowing; or maintain an `events_by_id` dict alongside.
+- `[open] [med] PERF-022` — `dashboard/evalyn_dashboard/api/cli.py:323, 362` — `get_command_history` calls `persistence.list_recent(limit=500)` twice in one request to compute total count and `used_count_this_week`. Two full row scans per request. Fix: single SQL query with conditional aggregation (`COUNT(*) FILTER (WHERE created_at >= week_start)` alongside `COUNT(*)`), or pull rows once and bucket in Python.
+
+### New findings — extensibility
+
+- `[open] [low] EXT-030` — `dashboard/evalyn_dashboard/server.py` (and scattered across other backend modules) — env-var names (`EVALYN_LOG_LEVEL`, `EVALYN_MAX_CONCURRENT_JOBS`, `EVALYN_AGENT_CONFIRM_TIMEOUT_S`, `EVALYN_AGENT_PURGE_INTERVAL_S`, `EVALYN_AGENT_THREAD_TTL_S`) are read at use-site in several files. No central registry — adding a tunable requires editing multiple files, and there's no single place to enumerate or document them. Fix: introduce a `config.py` module with an `@dataclass`-style `BackendConfig` populated from `os.environ` at startup.
+- `[open] [low] EXT-031` — `dashboard/evalyn_dashboard/api/settings.py:34-51` `HARDCODED_MODELS` — same plugin-registry smell as EXT-001 / EXT-026 but for model lists. Model catalogs drift fast (the seed audit was authored in 2026-03; this is now 2026-05 and the list already pre-dates several public releases). Fix: fetch from provider APIs on demand (with valid key) and cache; or move to a versioned JSON file refreshed by a build step.
+
+### Spot-checks of prior high-severity findings (all still `[open]`)
+
+- `PERF-012` (rubrics N+1 ~15k traversals/req) — verified still present at `api/v2/rubrics.py:310-322` (`for root in dataset_roots(): for ds in list_dataset_dirs(root):` nested in `_load_saved_rubric` called once per metric in `list_rubrics`).
+- `PERF-013` (smart_queue full-file scan) — verified still present at `api/v2/annotation.py:1008-1018` (`coverage_counter: dict[str, int] = defaultdict(int)` rebuilt from per-dataset `reviews_dir.glob("*.jsonl")` walk on every request).
+
+### Security baseline re-confirmation (regression watch)
+
+The seed audit's "ruled out" baseline holds in the non-v2 backend surface too:
+
+- No shell-string subprocess invocations; all spawns are `asyncio.create_subprocess_exec()` with argv lists.
+- No dynamic code-evaluation calls on non-constant strings anywhere in the scanned set.
+- No unsafe binary deserialization on inbound data; only `json.loads`.
+- No SQL injection: all SQL uses `?` placeholders (matches SEC-001's "single low-sev case" for f-string column names being the lone exception).
+- `/api/files/read` `Path.resolve().relative_to(root)` containment confirmed at the endpoints.
+
+### Loop value note
+
+After 6 iterations the recurring audit has materially exceeded the seed: 23 additional findings (5 v2 perf, 10 frontend, 1 compat, 7 backend non-v2 including 1 crit) plus a precision-upgraded DC-001. The crit in SEC-002 alone justifies the cost of every iteration so far combined.
 
 ---
 
