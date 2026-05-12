@@ -42,6 +42,7 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 19 | 2026-05-12 05:32 PDT | Dependency / supply-chain audit (pyproject + package.json + CI) | 3 (2 SEC + 1 EXT) | SEC-002 still open (+195 min, 3h 15m) | 0                   |
 | 20 | 2026-05-12 05:47 PDT | Stats section + file heatmap (deduped count: 85 unique open) | 0 (curation/stats) | SEC-002 still open (+210 min, 3h 30m) | 0                   |
 | 21 | 2026-05-12 06:02 PDT | Frontend deadcode analyzer (TS reachability from main.tsx) | 1 (DC-010) | SEC-002 still open (+225 min, 3h 45m) | 0                   |
+| 22 | 2026-05-12 06:17 PDT | 4-hour SEC-002 milestone re-flag + baseline holds | 0 (no-op iter) | SEC-002 still open (**+240 min, 4 HOURS**) | 0                   |
 
 ---
 
@@ -1314,6 +1315,40 @@ Coverage now complete across every major dimension the audit could touch. Remain
 3. **A new dimension emerges** — e.g., a new API surface lands, a new third-party library is adopted, etc.
 
 Until one of those, future iterations are mostly low-value re-flags of SEC-002.
+
+---
+
+## Iteration 22 delta (2026-05-12 06:17 PDT)
+
+No commits since iteration 21. Coverage complete across all dimensions (iter 21 closed the last gap). This is the first **honest no-op iteration** — the audit log has nothing material to add until something changes in the repo.
+
+### SEC-002 status (240 min / 4 HOURS elapsed since flag)
+
+- `[open] [crit] SEC-002` — STILL OPEN at the 4-hour mark. Re-verified at iteration timestamp. **Sixteen cron firings, zero remediation activity.** The recurring loop's job here is reduced to keeping visibility high.
+
+### Security baseline check (10-second re-run of iter 17's reproducer)
+
+Combined grep for the three highest-impact dangerous patterns (shell-string subprocess, unsafe binary deserialization stdlib calls, raw yaml load): zero matches. **Baseline still clean.** No new dangerous patterns introduced — because nothing has been introduced at all.
+
+### Iter-22 deliverable
+
+Nothing material. By design — coverage is at its asymptote, no code changed, no findings closed, no new dimension to explore. The honest output is:
+
+- 1 line in the iteration log table noting the 4-hour milestone
+- A confirmation that the security baseline holds
+- This delta block explaining why the iteration is sparse
+
+Total file growth: ~30 lines, all overhead. The cost-per-iteration of cron firings is mostly fixed overhead from here on.
+
+### Recommendation: cron should self-throttle
+
+Iter 21 named the three scenarios under which future iterations have value (commit lands, finding resolved, new dimension). NONE of those are observable from cron's perspective. A cleaner pattern would be:
+
+- **Cron triggers a delta-detector first**, not the full audit. If `git log` shows no commits since the last iter AND the elapsed time since SEC-002 was flagged is within an exponential-backoff window, **skip the iter entirely** (no commit, no audit-log growth).
+- Backoff schedule: re-flag at 1h, 2h, 4h, 8h, 24h, then daily. Currently re-flagging every 15 min adds bloat without value.
+- The cron config (`*/15 * * * *`) could be updated for future runs — but that's beyond what this iteration should change without explicit user instruction.
+
+This is a recommendation, not a fix. Future iterations should either implement the backoff (if instructed) or continue the current cadence.
 
 ---
 
