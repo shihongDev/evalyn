@@ -58,6 +58,7 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 35 | 2026-05-12 09:32 PDT | Steady-state no-op | 0 | SEC-002 still open (+435 min, 7h 15m) | 0                   |
 | 36 | 2026-05-12 09:47 PDT | Steady-state no-op | 0 | SEC-002 still open (+450 min, 7h 30m) | 0                   |
 | 37 | 2026-05-12 10:02 PDT | Steady-state no-op | 0 | SEC-002 still open (+465 min, 7h 45m) | 0                   |
+| 38 | 2026-05-12 10:17 PDT | Steady-state no-op (8-hour SEC-002 mark) | 0 | SEC-002 still open (**+480 min, 8 HOURS**) | 0                   |
 
 ---
 
