@@ -40,6 +40,61 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 17 | 2026-05-12 05:02 PDT | Security baseline regression scan (7 patterns) | 0 (baseline holds) | SEC-002 still open (+165 min, 2h 45m) | 0                   |
 | 18 | 2026-05-12 05:17 PDT | Triage items test-coverage audit (4 of 5 untested) | 0 (gap audit only) | SEC-002 still open (+180 min, 3h) | 0                   |
 | 19 | 2026-05-12 05:32 PDT | Dependency / supply-chain audit (pyproject + package.json + CI) | 3 (2 SEC + 1 EXT) | SEC-002 still open (+195 min, 3h 15m) | 0                   |
+| 20 | 2026-05-12 05:47 PDT | Stats section + file heatmap (deduped count: 85 unique open) | 0 (curation/stats) | SEC-002 still open (+210 min, 3h 30m) | 0                   |
+
+---
+
+## Stats (last refreshed iteration 20, 2026-05-12 05:47 PDT)
+
+Deduped finding count (each ID counted once, regardless of how many iter-deltas re-flagged it):
+
+| Severity | Count |
+|----------|------:|
+| `[crit]` |     1 |
+| `[high]` |    14 |
+| `[med]`  |    48 |
+| `[low]`  |    22 |
+| **Total** | **85** |
+
+By category:
+
+| Category    | Count | Sample |
+|-------------|------:|--------|
+| DC (dead code) |  9 | DC-001 (analysis orphans, 15,964 lines), DC-007 (trace orphans, 7,962), DC-008 (15 chain-verified), DC-009 (1 confident) |
+| SEC          |  7  | **SEC-002 [crit]** promote NameError; SEC-001/003/004/005/006/007 ranging high→low |
+| PERF         | 34  | 3 high-severity hot paths: PERF-012 (rubrics N+1), PERF-013 (smart_queue scan), PERF-023 (`_parent_id_map` leak) |
+| EXT          | 35  | Cluster around closed registries (EXT-002 unblocks 5+ others) |
+
+(Note: the iteration log's "New" column added up to ~100 entries because SEC-002 was re-flagged in 14 iter-deltas; the true count is 85.)
+
+### File heatmap — single-file remediation targets
+
+74 unique files referenced across 85 findings. Files with multiple findings (ranked by count) — opening any of these resolves several issues in one PR:
+
+| File                                         | Findings | IDs |
+|----------------------------------------------|---------:|-----|
+| `sdk/evalyn_sdk/analysis/clustering.py`      | 5 | DC-002, DC-003, DC-004, DC-005 (all orphan helpers) + EXT-007 (hardcoded clustering prompt) |
+| `sdk/evalyn_sdk/cli/commands/analysis.py`    | 5 | PERF-003/004/005/009 + EXT-020 (4 perf nits + threshold constants) |
+| `sdk/evalyn_sdk/evaluation/runner.py`        | 3 | EXT-013 (unit builders), EXT-034 (hardcoded aggregation), PERF-032 (no unit-eval parallelism) |
+| `dashboard/.../api/v2/annotation.py`         | 3 | PERF-013 **high** (smart_queue), PERF-014, PERF-015 (cache bypasses) |
+| `sdk/evalyn_sdk/trace/otel_export.py`        | 3 | PERF-028, PERF-029 (sync I/O, indent=2 dumps), SEC-005 (endpoint allow-list) |
+| `sdk/evalyn_sdk/cli/utils/dataset_resolver.py` | 2 | PERF-001 **high** (stat in sort), EXT-009 (layout hardcoded) |
+| `sdk/evalyn_sdk/calibration/ape.py`          | 2 | PERF-006, PERF-010 (small perf nits) |
+| `sdk/evalyn_sdk/analysis/core.py`            | 2 | PERF-008, EXT-018 |
+| `sdk/evalyn_sdk/analysis/html_report.py`     | 2 | EXT-008, EXT-016 |
+| `dashboard/.../api/v2/rubrics.py`            | 2 | PERF-012 **high** (N+1), PERF-016 |
+| `dashboard/frontend/src/v2/routes/RunDetail.tsx` | 2 | PERF-019 (no React.memo), PERF-020 (sort in render) |
+| `sdk/evalyn_sdk/trace/otel.py`               | 2 | PERF-031, SEC-005 |
+| `sdk/pyproject.toml`                         | 2 | SEC-006, EXT-035 |
+
+### Single-PR efficiency picks
+
+The two densest single-file PRs:
+
+- **`clustering.py` cleanup PR** — delete 4 orphan helpers (DC-002/003/004/005) and parameterize the clustering prompt (EXT-007). Closes 5 findings; mostly mechanical deletions. ~1 hour of work.
+- **`cli/commands/analysis.py` batch perf PR** — apply 4 small perf nits (PERF-003/004/005/009) and centralize health-score thresholds (EXT-020). Closes 5 findings. ~2 hours.
+
+These two PRs close **10 findings (~12% of the open count)** at low risk.
 
 ---
 
@@ -1152,6 +1207,52 @@ No commits since iteration 18. New dimension: **dependency / supply-chain audit*
 - 3 new findings, all `[low]` severity. This is the lowest-impact iteration since the seed pass but covers a previously-blind dimension (supply chain).
 - Combined with iter 17's regression-gate reproducer, the audit now has a complete view of "what's not covered by tests OR by dep scanning."
 - After 19 iterations, the audit is comprehensive across all major dimensions: code (SDK, dashboard backend, dashboard frontend, demos), tests (coverage of Triage items), security (baseline + supply chain), perf (hot paths), extensibility (registries + closed enums), deadcode (4 inventories at different strictness levels).
+
+---
+
+## Iteration 20 delta (2026-05-12 05:47 PDT)
+
+20th iteration milestone. No commits since iter 19. This iteration produced **summary statistics + a file heatmap** — both added near the top of `CODE_AUDIT.md` so a returning reader gets actionable counts and remediation targets without scrolling.
+
+### SEC-002 status (210 min / 3h 30m elapsed since flag)
+
+- `[open] [crit] SEC-002` — STILL OPEN. Re-verified at iteration timestamp.
+
+### Methodology note: my iteration-log row counts were inflated
+
+The "New" column in the iteration log table sums to ~100 entries, but the true deduped count is 85. The over-count came from `[open] [crit] SEC-002 STILL OPEN` re-flags in every iter-delta — each one matched the same regex pattern as a "new finding bullet." Lesson: **stop re-using the `[open] [crit]` prefix for status re-flags in delta sections**; use a different convention (e.g., `[status:open]`) to avoid this.
+
+### Highlights of the new Stats and File-heatmap sections
+
+- **True open count: 85** (1 crit, 14 high, 48 med, 22 low)
+- **2 single-file PRs would close 10 findings (12% of the backlog) at low risk**:
+  - `clustering.py` deletion PR closes 5 (4 orphan helpers + 1 hardcoded prompt)
+  - `cli/commands/analysis.py` batch perf PR closes 5 (4 perf nits + 1 threshold constant)
+- **3 high-severity hot paths** in single files: PERF-001 (`dataset_resolver.py`), PERF-012 (`rubrics.py`), PERF-013 (`api/v2/annotation.py`)
+- **74 unique files** referenced — most have only 1 finding (audit findings are well-distributed, not concentrated)
+
+### Loop value note (20 iterations in)
+
+After 20 iterations the audit log now includes:
+
+1. **Stats** (this iter) — at-a-glance backlog size and severity distribution
+2. **File heatmap** (this iter) — single-file remediation targets
+3. **Triage list** (iter 16) — top-5 fix-first
+4. **Test coverage** annotations (iter 18) — what tests to write alongside fixes
+5. **Per-finding fix instructions** — across all delta sections
+6. **Security baseline reproducer** (iter 17) — re-runnable regression gate
+7. **Orphan inventories** (iters 5/9/10/11/12/13/14) — converged at 4 strictness levels
+8. **AST methodology** documented for future analyzers
+
+Combined this is a full remediation kit. A returning user can:
+
+- See "85 open, 1 crit" at the top
+- Identify high-density files via heatmap
+- Pick the top-5 Triage items
+- Know which tests each needs (or which test file to create)
+- Re-run the reproducer to verify regressions don't slip in
+
+The audit has reached **diminishing returns on adding new findings**. Future iterations are most useful when (a) the codebase changes (cron picks up commits), (b) someone actually fixes a finding and we mark it resolved, or (c) a specific dimension still untouched (frontend deadcode is the last one).
 
 ---
 
