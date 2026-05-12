@@ -30,6 +30,7 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 7 | 2026-05-12 02:32 PDT | example_agents/ audit (24 files, 3 demos) | 2  | SEC-002 still open (+15 min) | 0                   |
 | 8 | 2026-05-12 02:47 PDT | SDK hot path: trace/ + evaluation/ (148 files, 2 parallel agents) | 15 | SEC-002 still open (+30 min) | 0                   |
 | 9 | 2026-05-12 03:02 PDT | trace/ orphan enumeration + PERF-024 reassessment | 1  | PERF-024 downgraded to caveat | 0                   |
+| 10 | 2026-05-12 03:17 PDT | SDK subpackages spot-orphan scan (6 subpkgs, 198 files) | 1  | SEC-002 still open (+60 min, 1h) | 0                   |
 
 ---
 
@@ -474,6 +475,61 @@ After 9 iterations: SEC-002 still unfixed, but now the audit log carries:
 - 22 crit/high findings prioritized
 
 The recurring loop's value continues to be: each iteration either (a) finds new issues the seed missed, or (b) refines prior findings as new methodology gets applied. Iter 9 was (b) - no new agent dispatch, just an analyst pass.
+
+---
+
+## Iteration 10 delta (2026-05-12 03:17 PDT)
+
+No commits since iteration 9. Attempted a generic transitive-closure orphan scan across the 6 remaining SDK subpackages (`evaluation/`, `calibration/`, `metrics/`, `storage/`, `cli/utils/`, `annotation/`, 198 files). **Hit methodology limitations** mid-iteration; recovered by switching to spot-verification of high-likelihood candidates only.
+
+### SEC-002 status (60 min / 1 hour elapsed since flag)
+
+- `[open] [crit] SEC-002` — STILL OPEN. `api/promote.py:368-372` unchanged. Re-verified at iteration timestamp. No commits since iter 6.
+
+### Methodology snag (and the correction)
+
+The generic transitive-closure script (same shape as DC-001 / DC-007) initially returned implausibly high orphan counts: cli/utils 18/18 orphan, annotation 1/3 orphan including `compat.py` (which I PROVED was live in iter 2). Triggered an early-stop and spot-verification:
+
+- The script's static patterns matched `from .X import Y` and `from evalyn_sdk.<pkg>.X import Y`, but NOT `from ..X import Y` (parent-relative) or `from ...X import Y` (grandparent-relative). E.g., `cli/commands/analysis.py:44` does `from ..utils.dataset_resolver import get_dataset` — a valid live caller my script flagged as nonexistent.
+- The script's closure didn't recurse into subpackage `__init__.py` files when following `from .batch import (...)` — so `evaluation/batch/providers.py` (used via `evaluation/__init__.py: from .batch import (...)` → batch/__init__.py: `from .providers import ...`) showed as orphan.
+
+A robust enumeration needs AST-based analysis (e.g. `ast.parse` per file, walking `ImportFrom` nodes with `level` attribute) or a published tool like `vulture` / `deadcode`. Static regex matching at this depth becomes unreliable.
+
+**Lesson for future DC-style iterations**: defer publishing precise per-subpackage orphan counts until either (a) AST-based analysis lands, or (b) every candidate is spot-verified by direct grep. Iter 5 (analysis/) and iter 9 (trace/) worked because those packages have simpler top-level imports; cross-package nested imports are where regex breaks.
+
+### New finding — spot-verified subset only
+
+- `[open] [med] DC-008` — **7 spot-verified orphan modules** across 4 SDK subpackages (total 2,145 lines confirmed dead via direct grep, no callers in `sdk/evalyn_sdk/` or `dashboard/` outside their own file and tests):
+  - `sdk/evalyn_sdk/evaluation/agentic_benchmarks.py` (357 lines)
+  - `sdk/evalyn_sdk/evaluation/dag_metric.py` (316 lines)
+  - `sdk/evalyn_sdk/evaluation/reference_free.py` (311 lines)
+  - `sdk/evalyn_sdk/calibration/sensitivity_analysis.py` (330 lines)
+  - `sdk/evalyn_sdk/calibration/active_learning.py` (238 lines)
+  - `sdk/evalyn_sdk/metrics/custom_dsl.py` (284 lines)
+  - `sdk/evalyn_sdk/storage/denormalized.py` (309 lines)
+  - These are the candidates that survived spot-verification. Severity `[med]` (not `[high]`) because (a) the sample is small and not exhaustive, (b) the total deletion impact is much smaller than DC-001 / DC-007.
+  - The preliminary (unreliable) script-based output suggested ~167 orphans / ~36k dead lines across these 6 subpackages, but the false-positive rate on spot-checks was 5/12. The true number is somewhere between 7 (confirmed) and ~167 (preliminary upper bound). A proper enumeration needs AST.
+
+### Live-but-suspicious chain (worth a future iteration)
+
+5 spot-checks that came back "live" because they have callers — but the CALLERS themselves are suspicious-sounding scaffolding files:
+
+- `evaluation/multi_turn.py` → called by `sdk/evalyn_sdk/example_gallery.py` (sounds like sample generation)
+- `metrics/goal_completion.py` → called by `sdk/evalyn_sdk/quickstart_templates.py`
+- `calibration/convergence.py` → called by `sdk/evalyn_sdk/capo_optimizer.py`
+- `storage/statistics.py` → called by `sdk/evalyn_sdk/annotation_delegation.py` (already flagged in PERF-002 for O(n²) Gini)
+- `storage/merge.py` → called by `sdk/evalyn_sdk/adversarial_sampling.py`
+
+Are `example_gallery.py`, `quickstart_templates.py`, `capo_optimizer.py`, `adversarial_sampling.py` themselves live? Or are they part of an orphan-caller chain (X is "live" only because Y calls it, but Y is itself orphan)? A future iteration should check. If those caller files are themselves orphan, the entire chain becomes another DC-006-style cleanup target.
+
+### Cross-cuts
+
+- This iteration is the second consecutive case (after iter 9 / PERF-024) where a precise numeric claim was downgraded after methodology scrutiny. Treat any "we found N orphan modules" claim as preliminary until proven via AST or per-file verification.
+- DC-001, DC-007 stand because their `_LAZY_IMPORTS`-anchored analysis was simpler (no cross-package multi-dot imports to confuse the regex).
+
+### Loop value note
+
+After 10 iterations: 1 critical bug (SEC-002, still pending), 24 high findings, ~25,000+ lines of confirmed dead code, plus 2,145 more spot-verified this iteration. The recurring loop has converted "the seed audit found 33 issues" into "we have a remediation-grade backlog with prioritization." The cost of running the audit 10x has been about 10 agent dispatches + 4 analyst scripts — modest for what's been surfaced.
 
 ---
 
