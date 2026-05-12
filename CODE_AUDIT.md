@@ -27,6 +27,7 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 4 | 2026-05-12 01:47 PDT | Frontend perf+ext audit (dashboard/frontend/src) | 10  | EXT-004 expanded | 0                   |
 | 5 | 2026-05-12 02:05 PDT | DC-001 exhaustive enumeration (transitive closure) | 0  | DC-001 made exact | 0                   |
 | 6 | 2026-05-12 02:17 PDT | Dashboard backend non-v2 (sec+perf+ext) **[1st crit found]** | 7  | PERF-012/013 still open | 0                   |
+| 7 | 2026-05-12 02:32 PDT | example_agents/ audit (24 files, 3 demos) | 2  | SEC-002 still open (+15 min) | 0                   |
 
 ---
 
@@ -340,6 +341,39 @@ The seed audit's "ruled out" baseline holds in the non-v2 backend surface too:
 ### Loop value note
 
 After 6 iterations the recurring audit has materially exceeded the seed: 23 additional findings (5 v2 perf, 10 frontend, 1 compat, 7 backend non-v2 including 1 crit) plus a precision-upgraded DC-001. The crit in SEC-002 alone justifies the cost of every iteration so far combined.
+
+---
+
+## Iteration 7 delta (2026-05-12 02:32 PDT)
+
+No commits since iteration 6. Extended coverage to `example_agents/` (24 Python files across 3 demos: `anthropic_research_agent/`, `googleadk_academic_research_agent/`, `langchain_deep_research_agent/`). These ship with the SDK as reference implementations — new users encounter them first, so the severity bar is "should be exemplary," not "works on my machine."
+
+### SEC-002 status (15 min elapsed since flag)
+
+- `[open] [crit] SEC-002` — STILL OPEN. The `logger.info(...)` call at `api/promote.py:365-374` still references bare `run_id` / `row_hashes`. Verified at iteration timestamp (re-read lines 363-374). No commits since iter 6, so no fix has landed. The recurring audit's job here is to keep the visibility level high until the fix lands.
+
+### New findings
+
+- `[open] [low] DC-006` — `example_agents/langchain_deep_research_agent/app.py` — 45-line FastAPI entry point (`app = FastAPI()`, `create_frontend_router(build_dir="../frontend/dist")`) that no other file in the demo imports, and which has no Dockerfile / pyproject / langgraph.json / compose config referencing it as a `uvicorn` target either. Orphan scaffolding from the original LangChain template that assumed a colocated `frontend/dist`. Fix: delete `app.py` and the `from fastapi.staticfiles` dependency note in `README` if any, or wire it up if you actually want users to launch a UI.
+- `[open] [med] EXT-032` — model defaults hardcoded across all 3 example agents without an env-var override path:
+  - `example_agents/anthropic_research_agent/agent.py:90, 102, 115, 146` — 4 subagents pinned to `model="haiku"`.
+  - `example_agents/googleadk_academic_research_agent/academic_research/agent.py:24` and `sub_agents/*/agent.py:21-22` — 3 occurrences pinned to `model="gemini-2.5-pro"`.
+  - `example_agents/langchain_deep_research_agent/configuration.py:12, 19, 26` and `agent.py:43` — 3 model fields all defaulting to `"gemini-2.5-flash-lite"` with no per-stage differentiation.
+  - Cross-cuts EXT-001 (backend providers map) and EXT-026 (frontend `KNOWN_PROVIDERS`). Fix: each demo should read its model from an env var (`EVALYN_DEMO_MODEL` or per-demo equivalent) with a sane default, and document the env var in each demo's README. The langchain demo's `Configuration` dataclass is the right pattern to lift into the other two.
+
+### Confirmed clean across example_agents/ (regression watch)
+
+- **No committed secrets** — all API key references go through `os.environ[...]`; no `sk-` / `Bearer ` / `ANTHROPIC_API_KEY=...` literals in source.
+- **No shell injection vectors** — tool execution paths don't pass LLM output to a shell.
+- **No unsafe deserialization** — no use of Python's binary-deserialization stdlib module, no `yaml.load`-without-safe-loader on tool/state files.
+- **No SSRF amplifiers** — URL fetching is constrained to a known set of search providers; no demo lets an LLM-generated URL drive a `requests.get`.
+- **Evalyn instrumentation correctly wired** — all 3 demos use the `@eval` decorator and `create_agent_hooks()` for tracing. Good pattern; preserve if these demos are ever refactored.
+- **No async/sync hazards** — no blocking I/O inside async loops.
+- **No dead imports or TODO/FIXME rot** in production paths.
+
+### Loop value note
+
+Iteration 7 added 2 findings (small), but the example_agents/ scope was the last untouched corner of "code users will read." Coverage is now: SDK CLI + analysis + annotation + metrics + storage + trace + calibration (iters 1, 2, 5); dashboard backend api/v2/ (iter 3) and non-v2 (iter 6); dashboard frontend (iter 4); shipped demos (this iter). Remaining unaudited corners are `local_scripts/` (1 file), `research/` (intentionally excluded), and the tests themselves.
 
 ---
 
