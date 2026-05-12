@@ -32,6 +32,7 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 9 | 2026-05-12 03:02 PDT | trace/ orphan enumeration + PERF-024 reassessment | 1  | PERF-024 downgraded to caveat | 0                   |
 | 10 | 2026-05-12 03:17 PDT | SDK subpackages spot-orphan scan (6 subpkgs, 198 files) | 1  | SEC-002 still open (+60 min, 1h) | 0                   |
 | 11 | 2026-05-12 03:32 PDT | AST orphan analysis (582 modules) + chain verification | DC-008 expanded by 8 | SEC-002 still open (+75 min) | 0                   |
+| 12 | 2026-05-12 03:47 PDT | AST fix: relative-import off-by-one + dispatch regex | iter-11 figures corrected | SEC-002 still open (+90 min, 1.5h) | 0                   |
 
 ---
 
@@ -615,6 +616,96 @@ So even within "AST orphans" the high-confidence subset is narrower. The robust 
 - Iter 11: DC-008 v2 (15 modules, 4,906 lines after chain verification) + AST methodology established for future passes
 
 If a future iteration adds dynamic-dispatch handling (step 1 above) and parses lazy-import maps for the AST analysis, the SDK-wide orphan count could finally be put on firm footing. Estimate range: between 52 (AST upper bound) and ~150 (combining DC-001 + DC-007 + spot-checks).
+
+---
+
+## Iteration 12 delta (2026-05-12 03:47 PDT)
+
+No commits since iteration 11. Pure correction iteration: paid down iter-11's debt to handle dynamic CLI dispatch AND uncovered a separate off-by-one bug in the AST relative-import resolver. Net effect: **iter-11's published 52-orphan / 15,299-line headline figure was substantially inflated.** Authoritative figure is now 22 orphans / 5,032 lines.
+
+### SEC-002 status (90 min / 1h 30m elapsed since flag)
+
+- `[open] [crit] SEC-002` — STILL OPEN. `api/promote.py:368-372` unchanged. Re-verified at iteration timestamp.
+
+### Three sequential fixes applied to the AST analyzer
+
+1. **Dispatch-regex fix**: iter-11's regex for `_COMMAND_MODULE_MAP` was `"\w+":\s*"(\w+)"`, which uses `\w+` for the KEY and so missed entries with hyphens (`"list-runs"`, `"export-for-annotation"`, `"cluster-failures"`, etc.). Fixed regex `:\s*"(\w+)"` captures all 15 unique dispatched-module values. Effect: `cli.commands.evaluation` (1,727 lines) and similar correctly recognized as live; orphan count drops from 52 to 47.
+2. **Top-`__init__.py` direct imports added as entry points**: iter-11 didn't seed `evalyn_sdk/__init__.py`'s explicit `from .X import Y` imports as entry points; closure depended on them being reached transitively, which was inhibited by bug #3. Effect: ~4 more modules correctly live.
+3. **Relative-import off-by-one fix (the big one)**: iter-11's resolver computed `base = parts[:len(parts) - level + 1]` for a `from <level dots> X import Y` statement in module `parts`. The correct formula is `parts[:len(parts) - level]` (= `parts[:-level]`). Python semantics: `level=1` means "from this package," `level=2` means "from parent package," etc. The buggy formula misrouted every multi-dot relative import to a nonexistent module path. Example: `from ..utils.dataset_resolver import get_dataset` (level=2) inside `cli/commands/analysis.py` was being resolved to `evalyn_sdk.cli.commands.utils.dataset_resolver` (nonexistent) instead of `evalyn_sdk.cli.utils.dataset_resolver`. With ~hundreds of `from ..X` imports across the SDK, that's a lot of missing graph edges. Effect: orphan count drops from 43 to 22.
+
+### Sanity checks (would have caught the bug in iter 11)
+
+After the fix, the following are verified LIVE (each known to be in production paths from prior iterations):
+
+- `evalyn_sdk.evaluation.runner` (referenced by EXT-013 / seed audit)
+- `evalyn_sdk.cli.utils.dataset_resolver` (referenced by PERF-001 / seed audit, iter-10 chain verification)
+- `evalyn_sdk.trace.otel` (imported by `trace/__init__.py`)
+- `evalyn_sdk.cli.constants` (referenced by EXT-010)
+
+**Lesson**: any AST/import-graph analysis should ship with sanity-check assertions for known-live modules before publishing numbers. Adding 1-2 assertions per analyzer would have caught the iter-11 bug at write-time.
+
+### Corrected authoritative figure
+
+After all three fixes:
+
+- **Total modules under `sdk/evalyn_sdk/`**: 582
+- **Live**: 560
+- **Orphan**: 22
+- **Orphan lines**: 5,032
+
+This is the "definitely-orphan-everywhere" set — no callers in *any* file repo-wide (including tests, dashboard, examples, scripts).
+
+Orphan breakdown by top-level subpackage:
+
+| Subpackage   | Orphans |
+|--------------|--------:|
+| evaluation   | 4       |
+| judges       | 4       |
+| calibration  | 3       |
+| cli          | 3       |
+| annotation   | 2       |
+| integration  | 1       |
+| metrics      | 1       |
+| simulation   | 1       |
+| testing      | 1       |
+| trace        | 1       |
+| utils        | 1       |
+
+Top orphans by SLOC:
+
+- `evalyn_sdk.evaluation.batch.providers` (853 lines)
+- `evalyn_sdk.calibration.engine` (621 lines)
+- `evalyn_sdk.calibration.gepa_native` (619 lines)
+- `evalyn_sdk.simulation.simulator` (455 lines)
+- `evalyn_sdk.evaluation.batch.evaluator` (413 lines)
+- `evalyn_sdk.judges.confidence.logprobs` (366 lines)
+- `evalyn_sdk.annotation.span_annotation` (316 lines)
+- `evalyn_sdk.calibration.basic` (272 lines)
+- `evalyn_sdk.evaluation.units.builders` (234 lines) — note: cross-cuts EXT-013 which references `get_default_builders()`; spot-check before deleting
+- `evalyn_sdk.judges.confidence.consistency` (204 lines)
+- `evalyn_sdk.cli.utils.llm_callers` (160 lines)
+- `evalyn_sdk.judges.confidence.verbalized` (135 lines)
+- `evalyn_sdk.judges.confidence.base` (106 lines)
+- `evalyn_sdk.annotation.annotations` (82 lines)
+
+### Residual caveats
+
+22 is the "no static or known-dynamic callers" set. Possible residual false positives:
+
+- **String-dispatched providers**: `evaluation.batch.providers` may be dispatched by provider-name from runtime config (similar to CLI commands). Spot-verify before deletion.
+- **Judge subpackage confidence/***: the 4 modules might be wired through a `JudgeRegistry`-style runtime dispatch. Worth spot-checking `judges/confidence/__init__.py` for `__getattr__` or registry patterns.
+- **`evaluation.units.builders`**: referenced obliquely in EXT-013. Pre-deletion: confirm `runner.py:106-112` doesn't call `get_default_builders()` from a path my AST graph still misses.
+
+### Reconciliation with DC-001 / DC-007 / DC-008
+
+- **DC-001** (analysis/, iter 5, 69 orphans / 15,964 lines): counts "no production callers; tests excluded." Definition still valid; figure stands.
+- **DC-007** (trace/, iter 9, 43 orphans / 7,962 lines): same definition; figure stands.
+- **DC-008** (iter 10+11, 15 chain-verified orphans / 4,906 lines): direct-grep verified; figure stands.
+- **This iter's 22 orphans / 5,032 lines**: counts "no callers in *any* repo file (including tests)." Stricter than DC-001 — this is the "safe-to-delete-without-touching-tests" set. Subset relationship: most of the 22 should also appear in the DC-001/007 lists (if a test imports it, but no production code does, DC-001 calls it orphan; this iter doesn't).
+
+### Loop value note (12 iterations in)
+
+The recurring loop has progressed beyond finding new code issues to **auditing its own methodology**. Iter 9 corrected iter 8's PERF severity. Iter 10 admitted methodology limits. Iter 11 introduced AST. Iter 12 fixed iter 11's bug. The audit log is now self-correcting — a meta-property that pure agent-driven audits don't naturally have.
 
 ---
 
