@@ -12,6 +12,28 @@ Updated 2026-03-29: ROADMAP 100% complete (559/559 items, 2151 sub-items). Focus
 - **Why:** New modules are covered only through commit-time smoke tests. Regressions in sampling strategies or simulation generators would go undetected until user-facing failures.
 - **Depends on:** Nothing.
 
+### Frontend keyboard handler test coverage for /annotate/:sessionId
+- **What:** Write unit tests against `AnnotateSession.tsx`'s keyboard handler: 1/2/3 cycle metric verdicts, A accepts AI, N/Enter saves and advances, Backspace/U reverts, arrow keys navigate, Esc exits, Cmd+Enter finalizes.
+- **Why:** Zero frontend test coverage today against the entire keyboard-driven annotation surface (4,656-line component). A typo in the keymap or a state-update race silently breaks human annotation. Identified as critical gap in `/plan-eng-review` retro 2026-05-12.
+- **Pros:** Closes the largest test gap in the feature. Pairs naturally with extracting `useKeyboardHandler` from the god component.
+- **Cons:** ~45 min standalone or ~2h bundled with the god-component refactor.
+- **Context:** See `~/.gstack/projects/shihongDev-evalyn/shiho-main-eng-review-test-plan-20260512-*-retro-annotation.md` and `docs/designs/annotation-compat-audit.md`.
+- **Depends on:** Optionally precede with C1 refactor (below) so `useKeyboardHandler` is testable in isolation.
+
+### Refactor AnnotateSession.tsx (god component)
+- **What:** Break the 4,656-line `dashboard/frontend/src/v2/routes/AnnotateSession.tsx` into hooks + sub-components: `useAnnotationDraft`, `useBookmarks`, `useCursor`, `useKeyboardHandler`, plus extract `<EvidencePopover>`, `<KeyHints>`, `<DiffBody>` into separate files under `routes/annotate-session/`.
+- **Why:** 110 hook calls and 37 useState/useReducer in one function ceilings maintainability. Identified as C1 in `/plan-eng-review` retro 2026-05-12. The feature shipped with 75 polish commits accreted post-review, none of which decomposed the surface.
+- **Pros:** Each sub-piece becomes individually testable; future polish commits stop concentrating in one file.
+- **Cons:** ~2-3h CC; touches a high-traffic file so timing matters (don't conflict with active frontend work).
+- **Depends on:** Frontend keyboard handler test coverage works better AFTER this refactor.
+
+### Draft persistence quota tests
+- **What:** Cover the silent-data-loss path in `AnnotateSession.tsx`'s `writeDraft` when `localStorage.setItem` throws (quota exceeded or storage disabled). Currently the catch is invisible to the user.
+- **Why:** Identified as critical gap (failure mode #2) in `/plan-eng-review` retro 2026-05-12. Without this test, any future "fix" to draft logic could silently drop verdicts.
+- **Pros:** Closes a critical silent-failure path.
+- **Cons:** ~20 min CC.
+- **Depends on:** Nothing.
+
 ---
 
 ## Medium Priority
