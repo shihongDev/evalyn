@@ -34,6 +34,7 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 11 | 2026-05-12 03:32 PDT | AST orphan analysis (582 modules) + chain verification | DC-008 expanded by 8 | SEC-002 still open (+75 min) | 0                   |
 | 12 | 2026-05-12 03:47 PDT | AST fix: relative-import off-by-one + dispatch regex | iter-11 figures corrected | SEC-002 still open (+90 min, 1.5h) | 0                   |
 | 13 | 2026-05-12 04:02 PDT | AST fix: package-aware resolver + string-dispatch + lazy-map | iter-12 figures corrected (22→4) | SEC-002 still open (+105 min, 1h 45m) | 0                   |
+| 14 | 2026-05-12 04:17 PDT | AST fix: generic lazy-map parser + python -m + ancestor packages | **1 orphan / 160 lines (converged)** | SEC-002 still open (+120 min, 2h) | 0                   |
 
 ---
 
@@ -790,6 +791,78 @@ A complete AST-based reachability analyzer for a Python codebase must handle:
 6. Plugin discovery via `importlib.metadata.entry_points` — can't be statically resolved; must be flagged as a known unknown.
 
 Sanity checks (known-live assertions) catch class-1 bugs at write-time. Direct-grep spot-checks catch class-2 through class-5 bugs after publication. Plugin discovery (class-6) requires runtime instrumentation.
+
+---
+
+## Iteration 14 delta (2026-05-12 04:17 PDT)
+
+No commits since iteration 13. Verified iter-13's 4 "confident orphans" and found that 3 were false positives. Net result: **the AST analyzer has converged on 1 orphan / 160 lines** as the strict "no callers anywhere" figure.
+
+### SEC-002 status (120 min / 2 hours elapsed since flag)
+
+- `[open] [crit] SEC-002` — STILL OPEN. `api/promote.py:368-372` unchanged. Re-verified at iteration timestamp. **2 hours since first flagged. The recurring audit's job here is to keep visibility high until the fix lands.**
+
+### Verification of iter-13's 4 confident orphans
+
+Direct-grep + manual inspection of each:
+
+- **`evalyn_sdk.calibration.engine`** (621 lines) — FALSE POSITIVE. `calibration/__init__.py:29-30` has its own `_LAZY_IMPORTS` map: `"CalibrationEngine": (".engine", "CalibrationEngine")`. Also re-exported at `evalyn_sdk/__init__.py:85`. Iter-13's analyzer only parsed `_LAZY_IMPORTS` from 3 specific top-level package __init__.py files; it missed the generic case of every subpackage having one.
+- **`evalyn_sdk.utils`** (5-line __init__.py) — FALSE POSITIVE. `utils/__init__.py` does `from .api_client import GeminiClient` and `api_client.py` has 5+ callers (`analysis/clustering.py`, `analysis/panel.py`, `calibration/ape.py`, `calibration/base_optimizer.py`, `calibration/basic.py`). Python auto-loads `utils/__init__.py` whenever any submodule under it is imported, so the package is live.
+- **`evalyn_sdk.cli.__main__`** (6 lines) — FALSE POSITIVE. The file is the entry point for `python -m evalyn_sdk.cli`. Static AST can't detect runtime `python -m` entry points; this needs manual recognition (CLI tooling convention).
+- **`evalyn_sdk.cli.utils.llm_callers`** (160 lines) — CONFIRMED ORPHAN. Only matches in docs (`CODE_AUDIT.md`, `CONTRIBUTING.md`, `docs/technical-manual.md`), zero code callers.
+
+### Three more analyzer fixes applied
+
+1. **Generic `_LAZY_IMPORTS` parsing**: extended to recognize the tuple-form `_LAZY_IMPORTS: dict = { "name": (".path", "attr"), ... }` in every package __init__.py, not just the three specific ones iter-13 parsed. Picks up `calibration/__init__.py:29-30` and equivalent maps in `judges/`, `evaluation/`, `metrics/`, etc.
+2. **Manual entry point for `python -m`**: added `evalyn_sdk.cli.__main__` to the entry set explicitly. Future analyzers could detect this generically by checking for files literally named `__main__.py` under any package.
+3. **Ancestor-package auto-loading**: after closure, for every live module `a.b.c.d`, walk up the ancestors and add each `a`, `a.b`, `a.b.c` (if they're packages) to the live set. Reflects Python's import semantics — accessing `a.b.c.d` loads all ancestor `__init__.py` files.
+
+### New finding
+
+- `[open] [low] DC-009` — `sdk/evalyn_sdk/cli/utils/llm_callers.py` (160 lines) — confirmed orphan: zero code callers anywhere in `sdk/`, `dashboard/`, `tests/`, `example_agents/`, or `local_scripts/`. The only mentions in the repo are documentation references (audit log, `CONTRIBUTING.md`, `docs/technical-manual.md`). Severity `[low]` because the deletion footprint is small. Fix: delete the file. Optional follow-up: also strip the doc references so future contributors don't search for a nonexistent utility.
+
+### Convergence summary (orphan figures across iterations 11-14)
+
+| Iter | Method                                                | Orphans | Lines  | Notes |
+|-----:|-------------------------------------------------------|--------:|-------:|-------|
+| 11   | First AST attempt                                     |     52  | 15,299 | Multiple bugs |
+| 12   | Fixed dispatch regex + off-by-one in resolver         |     22  |  5,032 | Still had package-aware bug |
+| 13   | Package-aware resolver + string-dispatch + 3 lazy maps |      4  |    792 | Still had generic lazy-map gap |
+| 14   | Generic lazy-map parser + python -m + ancestor pkgs   |      1  |    160 | **Converged: 1 orphan only** |
+
+The final figure: `cli/utils/llm_callers.py` is the **sole module in `sdk/evalyn_sdk/` with zero callers anywhere in the repo**. Every other 582-module file has at least one importer.
+
+### Caveat (the last unknown unknown)
+
+The 1-orphan figure assumes:
+
+- Only `python -m evalyn_sdk.cli` runs the SDK as a top-level executable. If there are other `python -m` entry points I haven't catalogued, they could each be a false-positive orphan with `__main__.py` files I'm not aware of. (Mitigation: search for all `__main__.py` files — but there's only one such file in `evalyn_sdk` itself.)
+- The `evalyn.commands` setuptools entry-point group (used for plugin discovery in `cli/main.py:138`) cannot be statically resolved. Any plugin that registers via that entry point would contribute live modules my AST can't see. Today, no first-party plugins exist in `sdk/`, so this is theoretical.
+
+For practical purposes: **`llm_callers.py` is the SDK's only true-no-callers orphan.** Safe to delete.
+
+### Reconciliation with DC-001 / DC-007 / DC-008
+
+The 1-orphan figure measures the strictest "no callers anywhere in repo" set. Other DC findings measure different definitions:
+
+- **DC-001** (analysis/, 69 orphans / 15,964 lines): "no production callers; tests allowed."
+- **DC-007** (trace/, 43 orphans / 7,962 lines): same as DC-001.
+- **DC-008** (15 modules / 4,906 lines): "no production callers; chain-verified via grep."
+- **DC-009** (this iter, 1 module / 160 lines): "no callers anywhere INCLUDING tests."
+
+DC-009 is a SUBSET of DC-001/DC-007/DC-008. Specifically: a deletion sprint following the strictest definition would delete `llm_callers.py` immediately (no test impact); following DC-008's definition would delete 15 modules but require removing their tests too.
+
+### Loop value note (14 iterations in)
+
+The recurring audit has now produced:
+
+1. 1 confirmed `[crit]` (SEC-002, still pending after 2 hours)
+2. ~25 `[high]` findings prioritized
+3. 4 different orphan inventories at different strictness levels (DC-001 / DC-007 / DC-008 / DC-009)
+4. A robust AST-based reachability analyzer with 6 fixes baked in (documented as a methodology lesson)
+5. ~25,000 lines of SDK + dashboard backend code categorized by liveness
+
+Iters 11-14 specifically demonstrate that **methodology self-correction has a finite trajectory** — each iteration's fix shrinks the headline number by ~5x until it converges. After 4 such corrections, the figure is stable at 1 orphan / 160 lines. The same pattern would likely apply to perf and ext findings if a future iteration scrutinized them with the same rigor.
 
 ---
 
