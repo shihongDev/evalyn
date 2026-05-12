@@ -24,6 +24,7 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 1 | 2026-05-12 (seed)    | Full sweep         | 33  | -            | -                   |
 | 2 | 2026-05-12 01:17 PDT | Diff-style recheck | 1   | 33           | 0                   |
 | 3 | 2026-05-12 01:32 PDT | Targeted perf scan (v2 API handlers) | 5   | 3 spot-checked | 0                   |
+| 4 | 2026-05-12 01:47 PDT | Frontend perf+ext audit (dashboard/frontend/src) | 10  | EXT-004 expanded | 0                   |
 
 ---
 
@@ -75,7 +76,7 @@ Note vs prior memory snapshot: the `find_eval_runs` 484-empty-dir cold-start reg
 - `[open] [high] EXT-001` — `sdk/evalyn_sdk/defaults.py:12-25` — provider/model map hardcoded (gemini, openai, anthropic, ollama). Adding a provider requires editing core. Suggested shape: registry + entry-point discovery, mirroring the existing CLI plugin pattern.
 - `[open] [high] EXT-002` — `sdk/evalyn_sdk/metrics/objective.py:61` — `OBJECTIVE_REGISTRY` is a single 4000+ line literal list. No discovery hook. New metrics require a core PR. Suggested shape: `register_objective()` decorator + entry-point group `evalyn.metrics`.
 - `[open] [high] EXT-003` — `sdk/evalyn_sdk/metrics/subjective.py` — `JUDGE_TEMPLATES` static; no registry for third-party judges. Mirror EXT-002.
-- `[open] [high] EXT-004` — `dashboard/frontend/src/v2/V2App.tsx:119-137` — routes are explicit `<Route>` children (copilot, experiments, datasets, metrics, review, reports). No injection point for plugin pages. Suggested shape: route registry that plugins push into at mount time.
+- `[open] [high] EXT-004` — `dashboard/frontend/src/v2/V2App.tsx:119-137` AND `dashboard/frontend/src/v2/routes/NotFound.tsx:18-29` — route registry hardcoded as explicit `<Route>` children in V2App AND duplicated as a path list in NotFound's 404-fallback logic. No injection point for plugin pages, and the duplication means adding a route requires two synchronized edits (merge-conflict risk). Suggested shape: single `const ROUTES = [{path, element, preload}, ...]` module that both V2App and NotFound import.
 - `[open] [med] EXT-005` — `sdk/evalyn_sdk/cli/main.py:68-121` — `_COMMAND_MODULE_MAP` hardcoded; CLI plugin support exists via entry points but core commands cannot be overridden. Document override precedence or expose merge hook.
 - `[open] [med] EXT-006` — `sdk/evalyn_sdk/analysis/insights.py:85` — `REDUNDANT_THRESHOLD=0.7`, `CRITICAL_THRESHOLD=0.15` are module constants. Promote to config / CLI flags.
 - `[open] [med] EXT-007` — `sdk/evalyn_sdk/analysis/clustering.py:539-551` — clustering prompt + cluster count hardcoded in `_build_failure_clustering_prompt`. Promote to parameters.
@@ -148,6 +149,40 @@ All in `dashboard/evalyn_dashboard/api/v2/`. The team's `_replay_log` fix in `9a
 - `_shared.py` `list_dataset_dirs()` correctly caches by directory mtime — keep this pattern; the new PERF-014/015 findings are exactly violations of it.
 - `load_all_runs()` is whole-list mtime-cached — fine.
 - `annotation.py` lines 769-792: the `_meta_has_progress_index` / `_recompute_progress_from_log` migration helpers are the FIX for the prior `_replay_log` quadratic. Confirmed working.
+
+---
+
+## Iteration 4 delta (2026-05-12 01:47 PDT)
+
+No commits since iteration 3. Spent this iteration extending coverage to the **dashboard frontend** (`dashboard/frontend/src/`, ~110 .ts/.tsx files), which the seed only audited at a single spot (EXT-004). One focused Explore agent, perf + extensibility only (no SEC / deadcode this pass).
+
+Scope scanned: `v2/routes/*`, `v2/api/*`, `v2/hooks/*`, `V2App.tsx`, `AppShell.tsx`, `CommandPalette.tsx`, `CliRunner.tsx`, `RecentJobsDrawer.tsx`. Excluded `__tests__/`, `*.test.ts(x)`.
+
+### Updates to existing findings
+
+- `EXT-004` expanded to include `NotFound.tsx:18-29` — the route list is *duplicated* across V2App and NotFound. The fix is unchanged (single ROUTES module), but the duplication adds merge-conflict risk on top of the plugin-injection block.
+
+### New findings — performance
+
+- `[open] [high] PERF-017` — `dashboard/frontend/src/v2/routes/AnnotateSession.tsx:4091` — evidence list rendered with `key={index}` on a reorderable/filterable collection. Reordering and filter changes break cursor/focus tracking and waste DOM diff work. Fix: use stable IDs (`key={ev.snippet}` or a hash).
+- `[open] [med] PERF-018` — `AnnotateSession.tsx:237-271` — diff ops (`eq`/`del`/`ins` spans) rendered with index keys. Fragment reordering breaks highlight/animation state. Fix: stable hash of `(op, text, start)`.
+- `[open] [med] PERF-019` — `RunDetail.tsx` `ItemsTab` / `ItemsCompareTab` sub-components have no `React.memo` wrapper despite deep trees and frequent parent re-renders on tab switch. Inline handlers (`jumpToFailedItems`, `handleRerun`) compound the problem. Fix: `React.memo()` on both subs + `useCallback` on the parent's handlers.
+- `[open] [med] PERF-020` — `RunDetail.tsx:141-149` — `runs.sort()` and `passes.filter().sort()` executed in the render body rather than memoized. Fix: `useMemo(() => [...runs].sort(...), [runs])`.
+
+### New findings — extensibility
+
+- `[open] [med] EXT-024` — `AnnotateSession.tsx:132-135, 4100, 2530` — hardcoded UI-state colors not in the design-token object `E` (e.g. `#fff8c8` evidence highlight, `#ffe89c` evidence flash, `#fcefe2` filter button, `#fff0d5` flash state). Blocks dark-mode + theme overrides. Fix: add `evidenceHighlight`, `evidenceFlash`, `filterPill` etc. to `E`.
+- `[open] [med] EXT-025` — `AnnotateSession.tsx:245, 263` — diff highlight colors hardcoded (`#e8f5e9` pass-bg, `#fde2e2` fail-bg). Fix: tokens `diffInsertBg`, `diffDeleteBg`.
+- `[open] [med] EXT-026` — `dashboard/frontend/src/v2/routes/Settings.tsx:42-46` — `KNOWN_PROVIDERS` hardcoded in the frontend. Coupled to backend `EXT-001` (provider map in `defaults.py`). Single-source fix: serve providers from `/api/settings/providers` and consume in both places.
+- `[open] [med] EXT-027` — `dashboard/frontend/src/v2/CommandPalette.tsx:479` — `const order: EntryKind[] = ['command', 'run', 'dataset', 'rubric']` literal bounds the entry-kind extension surface. Plugin entry types can't influence ordering without editing core. Fix: derive from a registered `KIND_ORDER` table.
+- `[open] [low] EXT-028` — `dashboard/frontend/src/v2/routes/Commands.tsx` — shell colors hardcoded (`SHELL_BG #2c281f`, `SHELL_TEXT #f6e4d2`, `SHELL_FLAG #a8caa8`). Fix: move into tokens or a shell-theme sub-object.
+- `[open] [low] EXT-029` — `dashboard/frontend/src/v2/routes/CoPilotThread.tsx:682, 761` — shadow / `rgba()` overlay values inlined. Fix: centralize as `shadowMd`, `shadowLg`, `overlayDim` in tokens.
+
+### Notes on this pass
+
+- 10 new findings, all in the frontend. Skewed toward extensibility (6) vs perf (4) — that matches the project's plug-in-your-own-judge thesis: the frontend needs to be as extensible as the SDK.
+- Performance findings here are **measurable but not user-visible lag** on typical dataset sizes (~100s of items). They'll bite when datasets grow or when a plugin renders thousands of evidence rows. Treat as `[med]` debt, not paging incidents.
+- EXT-026 cross-references EXT-001 (backend providers map). Fixing one without the other leaves drift.
 
 ---
 
