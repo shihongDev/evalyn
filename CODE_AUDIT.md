@@ -39,6 +39,7 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 16 | 2026-05-12 04:47 PDT | Added top-of-file Triage section (5 fix-first ranked by remediation ROI) | 0 (curation only) | SEC-002 still open (+150 min, 2h 30m) | 0                   |
 | 17 | 2026-05-12 05:02 PDT | Security baseline regression scan (7 patterns) | 0 (baseline holds) | SEC-002 still open (+165 min, 2h 45m) | 0                   |
 | 18 | 2026-05-12 05:17 PDT | Triage items test-coverage audit (4 of 5 untested) | 0 (gap audit only) | SEC-002 still open (+180 min, 3h) | 0                   |
+| 19 | 2026-05-12 05:32 PDT | Dependency / supply-chain audit (pyproject + package.json + CI) | 3 (2 SEC + 1 EXT) | SEC-002 still open (+195 min, 3h 15m) | 0                   |
 
 ---
 
@@ -1106,6 +1107,51 @@ If the 5 Triage items had test coverage, the 91+ finding backlog would have a cl
 - Converged orphan inventory (iter 14): what to delete
 
 A "fix the audit log" sprint can now start with self-contained instructions for the top-5 items. Open question: at 18 iterations, what's left for the loop to add? Some candidates: (a) frontend deadcode (still untouched since iter 4 skipped it), (b) dependency vulnerability scan, (c) staleness check on lower-severity findings, (d) cross-reference findings to GitHub issue numbers if any exist.
+
+---
+
+## Iteration 19 delta (2026-05-12 05:32 PDT)
+
+No commits since iteration 18. New dimension: **dependency / supply-chain audit**. Iter 1 (seed) ruled out hardcoded secrets but never looked at the dependency graph itself. This iteration scans `pyproject.toml` for SDK + dashboard, `dashboard/frontend/package.json`, and the CI config.
+
+### SEC-002 status (195 min / 3h 15m elapsed since flag)
+
+- `[open] [crit] SEC-002` — STILL OPEN. Re-verified at iteration timestamp.
+
+### Scope inspected
+
+- `pyproject.toml` (workspace root — just `members = ["sdk", "dashboard"]`)
+- `sdk/pyproject.toml` (3 runtime deps + 5 optional-extras)
+- `dashboard/pyproject.toml` (7 runtime deps + 1 dev extras)
+- `dashboard/frontend/package.json` (5 runtime, 16 dev)
+- `uv.lock` (801KB, present — locked reproducibility ✓)
+- `.github/workflows/dashboard-ci.yml` (pytest + vitest + build, NO dep scanning)
+
+### New findings
+
+- `[open] [low] SEC-006` — `dashboard/pyproject.toml:11-15` runtime deps lack upper bounds: `fastapi>=0.110`, `uvicorn[standard]>=0.27`, `openai>=1.10`, `anthropic>=0.20`, `httpx>=0.27`. Compare with `sdk/pyproject.toml`'s tighter `openai>=1.53.0,<2.0` / `google-generativeai>=0.7.2,<1.0` style. Two issues: (a) drift between subpackages on how strict to be; (b) no protection against a major-version breaking bump installing into a fresh env. Mitigation: `uv.lock` is locked, so this only affects fresh installs that don't `uv sync` against the lockfile. Fix: add `<X.0` upper bounds matching the SDK's style.
+- `[open] [low] SEC-007` — `.github/workflows/dashboard-ci.yml` has no dependency-vulnerability scanning step. CI runs pytest + vitest + build but no `pip-audit`, no `npm audit`, no `dependabot.yml` config visible in the repo, no Snyk/Trivy step. Defense-in-depth gap. Fix: add `uv run pip-audit` for Python and `npm audit --audit-level=high` for the frontend as a CI job step. Also recommend `.github/dependabot.yml` for automated PRs on known vulnerabilities.
+- `[open] [low] EXT-035` — `sdk/pyproject.toml:36` lists `google-generativeai>=0.7.2,<1.0` as an optional extra. Google has DEPRECATED this library in favor of the new `google-genai`. The SDK's `gemini.py` instrumentor at `trace/instrumentation/providers/gemini.py:34-66` correctly handles BOTH libraries via `importlib.util.find_spec` fallback (excellent backward-compat engineering), so the deprecated extra is fine to keep TODAY. But a future iteration should drop the deprecated extra once user telemetry shows everyone has migrated to `google-genai`. Track this as a planned-removal item, not a current bug.
+
+### Good patterns observed (regression watch)
+
+- **`uv.lock` is committed** (801KB) — reproducibility is locked for `uv sync` users. Don't lose this.
+- **SDK runtime deps are MINIMAL** (3 modules: `opentelemetry-sdk`, `opentelemetry-exporter-otlp`, `tqdm`). Every other dep is opt-in via extras. Excellent constraint: a user who just wants tracing doesn't get the langchain/anthropic transitive trees. Preserve this when adding new deps.
+- **Optional extras are scoped by use-case** (`llm`, `agent`, `anthropic-agents`, `clustering`, `dev`). Users pay only for what they need. Preserve this taxonomy.
+- **The `gemini.py` provider instrumentor pattern** — runtime `find_spec` fallback to support both deprecated and new Google AI libs — is the right shape for ANY future instrumentation that needs to support multiple SDK versions. If a new provider has the same situation (e.g., openai pre-1.0 vs 1.x), use the same idiom.
+
+### Notes on what I did NOT find
+
+- No hardcoded API keys in `pyproject.toml` or `package.json` (confirmed via direct inspection).
+- No unmaintained packages obvious from inspection (everything appears actively versioned).
+- No transitive-dep deep dive — needs `pip-audit` or `npm audit` running to surface CVEs. The lack of a local CVE-database lookup is itself the gap that SEC-007 addresses.
+- No `.github/dependabot.yml` (would be best practice — automatic PRs for security updates).
+
+### Loop value note (19 iterations in)
+
+- 3 new findings, all `[low]` severity. This is the lowest-impact iteration since the seed pass but covers a previously-blind dimension (supply chain).
+- Combined with iter 17's regression-gate reproducer, the audit now has a complete view of "what's not covered by tests OR by dep scanning."
+- After 19 iterations, the audit is comprehensive across all major dimensions: code (SDK, dashboard backend, dashboard frontend, demos), tests (coverage of Triage items), security (baseline + supply chain), perf (hot paths), extensibility (registries + closed enums), deadcode (4 inventories at different strictness levels).
 
 ---
 
