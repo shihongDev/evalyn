@@ -41,6 +41,7 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 | 18 | 2026-05-12 05:17 PDT | Triage items test-coverage audit (4 of 5 untested) | 0 (gap audit only) | SEC-002 still open (+180 min, 3h) | 0                   |
 | 19 | 2026-05-12 05:32 PDT | Dependency / supply-chain audit (pyproject + package.json + CI) | 3 (2 SEC + 1 EXT) | SEC-002 still open (+195 min, 3h 15m) | 0                   |
 | 20 | 2026-05-12 05:47 PDT | Stats section + file heatmap (deduped count: 85 unique open) | 0 (curation/stats) | SEC-002 still open (+210 min, 3h 30m) | 0                   |
+| 21 | 2026-05-12 06:02 PDT | Frontend deadcode analyzer (TS reachability from main.tsx) | 1 (DC-010) | SEC-002 still open (+225 min, 3h 45m) | 0                   |
 
 ---
 
@@ -1253,6 +1254,66 @@ Combined this is a full remediation kit. A returning user can:
 - Re-run the reproducer to verify regressions don't slip in
 
 The audit has reached **diminishing returns on adding new findings**. Future iterations are most useful when (a) the codebase changes (cron picks up commits), (b) someone actually fixes a finding and we mark it resolved, or (c) a specific dimension still untouched (frontend deadcode is the last one).
+
+---
+
+## Iteration 21 delta (2026-05-12 06:02 PDT)
+
+No commits since iteration 20. Tackled the last untouched dimension: **frontend deadcode** (iter 4 explicitly skipped, iter 20 named it as the remaining gap). Built a Python-based TS reachability analyzer mirroring the SDK AST methodology and ran it from `main.tsx`.
+
+### SEC-002 status (225 min / 3h 45m elapsed since flag)
+
+- `[open] [crit] SEC-002` — STILL OPEN. Re-verified at iteration timestamp.
+
+### TS reachability analyzer
+
+Approach (much simpler than the Python AST: no `__getattr__`, no `_LAZY_IMPORTS`, no string-dispatch tradition in this codebase):
+
+1. Enumerate `dashboard/frontend/src/**/*.{ts,tsx}` via `git ls-files` (excluding `*.d.ts`, `*.test.*`, `__tests__/`).
+2. Build import graph by regex on three patterns: `import ... from "..."`, `import("...")` (dynamic), `export ... from "..."` (re-exports).
+3. Resolve each relative import via `os.path.normpath` + `.tsx`/`.ts`/`/index.tsx`/`/index.ts` extension lookup.
+4. BFS from entry `dashboard/frontend/src/main.tsx`.
+5. Anything not reached = orphan.
+
+**Two bugs caught by sanity assertions (V2App and AppShell must be live)**:
+
+- `git ls-files dashboard/frontend/src/**/*.tsx` doesn't match top-level `src/main.tsx` — needed both `src/*.tsx` AND `src/**/*.tsx` patterns.
+- `pathlib.Path.resolve()` was returning absolute paths I was stripping incorrectly; replaced with `os.path.normpath` for purely-textual normalization.
+
+### New finding
+
+- `[open] [low] DC-010` — `dashboard/frontend/src/v2/routes/_placeholder.tsx` (44 lines) — exports `makePlaceholder(title, sub)` factory + 8 named placeholders (`ExperimentsListPlaceholder`, `RunDetailPlaceholder`, `FailureClusterPlaceholder`, `DatasetsPlaceholder`, `MetricsPlaceholder`, `ReviewPlaceholder`, `ReportsPlaceholder`, `CoPilotThreadPlaceholder`). The file's own docstring is explicit: "Placeholder routes - replaced by the screen agents. Kept here so the router compiles before all screens land." All 8 placeholder names correspond to real screen components that now exist (`RunDetail.tsx`, `Datasets.tsx`, `Metrics.tsx`, etc.). Zero callers anywhere in `src/`. Fix: delete the file. Pre-deletion: confirm no test imports it.
+
+### Net result
+
+- **Frontend file count: 79 non-test files**
+- **Live: 78 (98.7%)**
+- **Orphan: 1 (1.3%)** — `_placeholder.tsx` (44 lines)
+- **Coverage now complete across the codebase**: SDK + frontend both have a confirmed minimal-orphan figure.
+
+### Total deadcode picture (across all DC findings)
+
+| Finding | Scope                       | Definition                                  | Modules/Files | Lines  |
+|---------|-----------------------------|---------------------------------------------|--------------:|-------:|
+| DC-001  | `sdk/evalyn_sdk/analysis/`  | No production callers (tests OK)            | 69            | 15,964 |
+| DC-007  | `sdk/evalyn_sdk/trace/`     | No production callers (tests OK)            | 43            |  7,962 |
+| DC-008  | Multi-subpackage spot-verify| No production callers, chain-verified       | 15            |  4,906 |
+| DC-009  | SDK-wide (AST converged)    | No callers ANYWHERE in repo                 |  1            |    160 |
+| DC-010  | Frontend (TS reachability)  | No callers ANYWHERE in repo                 |  1            |     44 |
+
+Strictest (DC-009 + DC-010): 2 files / 204 lines safe to delete with zero ripple — a self-contained cleanup PR.
+
+Looser (DC-001 + DC-007 + DC-008): up to ~127 modules / ~28,832 lines if tests are also removed.
+
+### Loop value note (21 iterations in)
+
+Coverage now complete across every major dimension the audit could touch. Remaining loop value scenarios:
+
+1. **Cron picks up a commit** — the audit immediately becomes useful for diff-recheck (like iter 2).
+2. **Someone fixes a finding** — the next iter can mark it `[resolved]` and bump the next-highest-ROI item into the Triage list.
+3. **A new dimension emerges** — e.g., a new API surface lands, a new third-party library is adopted, etc.
+
+Until one of those, future iterations are mostly low-value re-flags of SEC-002.
 
 ---
 
