@@ -21,7 +21,8 @@ Severity: `[crit]` `[high]` `[med]` `[low]`.
 
 | # | Timestamp (local) | Pass type | New | Re-confirmed | Resolved since last |
 |---|-------------------|-----------|-----|--------------|---------------------|
-| 1 | 2026-05-12 (seed) | Full sweep | 33  | -            | -                   |
+| 1 | 2026-05-12 (seed)    | Full sweep         | 33  | -            | -                   |
+| 2 | 2026-05-12 01:17 PDT | Diff-style recheck | 1   | 33           | 0                   |
 
 ---
 
@@ -92,6 +93,32 @@ Note vs prior memory snapshot: the `find_eval_runs` 484-empty-dir cold-start reg
 - `[open] [low] EXT-020` — `sdk/evalyn_sdk/cli/commands/analysis.py:49-55` — health-score thresholds (`_PROBLEM_METRIC_THRESHOLD=0.2`, `_HEALTH_GOOD=90`, `_HEALTH_MODERATE=70`) hardcoded.
 - `[open] [low] EXT-021` — `sdk/evalyn_sdk/__init__.py:137-235` — `__all__` does not re-export `evaluation`, `trace.instrumentation`; third-party code forced into deep imports. Decide what is public API.
 - `[open] [low] EXT-022` — `sdk/evalyn_sdk/calibration/__init__.py` — GEPA + APE optimizers hardcoded as the only options; add a registry for custom calibrators.
+
+---
+
+## Iteration 2 delta (2026-05-12 01:17 PDT)
+
+Commits inspected since seed (`b138042a`):
+
+- `9ae576f2` — retro(annotation): perf fix for `_replay_log` quadratic + CLI/dashboard compat layer
+- `d2d329aa` — merge: retro /plan-eng-review on /annotate feature
+
+### Re-confirmation summary
+
+- PERF-001..PERF-011, DC-001..DC-005, SEC-001, EXT-001..EXT-022: not touched by the new commits. All **still `[open]`**.
+- Specifically PERF-002 (`sdk/evalyn_sdk/annotation_delegation.py:299` Gini O(n²)) is verified still present at line 299 — the `9ae576f2` perf fix is in `dashboard/evalyn_dashboard/api/v2/annotation.py` and targets `_replay_log`, a distinct hot path. PERF-002 was NOT addressed.
+
+### Audit miss (worth noting)
+
+- The seed pass did not flag the `_replay_log` quadratic pattern in `dashboard/evalyn_dashboard/api/v2/annotation.py` — the team's `/plan-eng-review` retro found it independently. Future iterations: extend the perf agent's scope to include `dashboard/evalyn_dashboard/api/v2/*.py` request handlers, with attention to per-request replay/scan patterns. Add a `[low]` self-improvement note rather than a finding ID — the issue is resolved.
+
+### New findings
+
+- `[open] [low] EXT-023` — `sdk/evalyn_sdk/annotation/compat.py:49-69` `detect_shape` — closed 3-shape registry (dashboard, cli_annotation, cli_annotation_item). A fourth on-disk annotation shape (e.g. from a third-party tool that exports to `annotations.jsonl`) requires editing this file. Suggested fix: register-by-decorator pattern with `(predicate, normalizer)` pairs, mirroring the family of EXT-002 / EXT-010 fixes. Small surface, low priority — flagged for visibility, not urgency.
+
+### Re-confirmed clean (security)
+
+- The new `annotation/compat.py` and the modified `dashboard/evalyn_dashboard/api/v2/annotation.py` both pass the SEC baseline: defensive `isinstance` guards in `detect_shape`, no shell/eval/yaml-unsafe/SQL-format, no raw HTML render. No new SEC findings.
 
 ---
 
