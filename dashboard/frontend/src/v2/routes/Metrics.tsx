@@ -888,17 +888,36 @@ function RubricEditor({
       )}
       {!loading && err && (
         <div role="alert">
-          <Eyebrow style={{ color: E.fail }}>Error loading rubric</Eyebrow>
-          <div
-            style={{
-              fontFamily: E.fMono,
-              fontSize: 12,
-              color: E.text2,
-              marginTop: 6,
-            }}
-          >
-            {err}
-          </div>
+          {/^GET\s+\S+\s+404\b/.test(err) ? (
+            <>
+              <Eyebrow style={{ color: E.text3 }}>Rubric not found</Eyebrow>
+              <div
+                style={{
+                  fontFamily: E.fSans,
+                  fontSize: 12,
+                  color: E.text2,
+                  marginTop: 6,
+                }}
+              >
+                This project doesn't have a rubric with that id. Pick one from
+                the list on the left, or run an eval first to record one.
+              </div>
+            </>
+          ) : (
+            <>
+              <Eyebrow style={{ color: E.fail }}>Error loading rubric</Eyebrow>
+              <div
+                style={{
+                  fontFamily: E.fMono,
+                  fontSize: 12,
+                  color: E.text2,
+                  marginTop: 6,
+                }}
+              >
+                {err}
+              </div>
+            </>
+          )}
           <div style={{ marginTop: 10 }}>
             <Btn kind="secondary" size="sm" onClick={onRetry}>
               Retry
