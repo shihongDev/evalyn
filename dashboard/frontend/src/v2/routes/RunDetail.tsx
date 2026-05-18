@@ -222,6 +222,96 @@ export default function RunDetail() {
   const [idCopyState, flashIdCopyState] = useFlashState<'idle' | 'copied' | 'error'>('idle');
   const [rerunErr, setRerunErr] = useState<string | null>(null);
 
+  // Memoize derived series/segments/clusters so unrelated parent state
+  // changes (tab clicks, Share button label, rerun status) don't
+  // recompute work that only depends on the loaded run details.
+  //
+  // These MUST be declared above the `!detail` early returns below.
+  // React requires the same hook order on every render; an early
+  // return between hooks triggers React error #310 ("Rendered fewer
+  // hooks than expected") on the next render where ``detail`` arrives.
+  // Each body therefore handles a null detail by returning an empty
+  // result.
+  type CompareCluster = {
+    label: string;
+    thisCount: number;
+    otherCount: number;
+    color: string;
+  };
+  const passSeries = useMemo<LineSeries[]>(() => {
+    if (!detail) return [];
+    const series: LineSeries[] = detail.pass_timeline.series.map((s) => ({
+      color: SERIES_COLOR[s.color_kind] ?? E.text2,
+      width: s.color_kind === 'ember' ? 2 : 1.5,
+      fill: s.color_kind === 'ember',
+      data: s.data,
+    }));
+    // When comparing, append the OTHER run's primary (ember-kind) series
+    // recolored steel so the timeline shows both lines on the same axes.
+    if (compareActive && compareDetail) {
+      const otherPrimary =
+        compareDetail.pass_timeline.series.find((s) => s.color_kind === 'ember') ??
+        compareDetail.pass_timeline.series[0];
+      if (otherPrimary && otherPrimary.data.length > 0) {
+        series.push({
+          color: E.steel,
+          width: 1.75,
+          dashed: true,
+          data: otherPrimary.data,
+        });
+      }
+    }
+    return series;
+  }, [detail, compareActive, compareDetail]);
+
+  const donutSegments = useMemo(
+    () =>
+      detail
+        ? detail.failure_clusters.clusters.map((c) => ({
+            value: c.count,
+            color: CLUSTER_COLOR[c.color_kind] ?? E.text3,
+            label: c.label,
+          }))
+        : [],
+    [detail],
+  );
+
+  const compareDonutSegments = useMemo(
+    () =>
+      compareDetail
+        ? compareDetail.failure_clusters.clusters.map((c) => ({
+            value: c.count,
+            color: CLUSTER_COLOR[c.color_kind] ?? E.text3,
+            label: c.label,
+          }))
+        : [],
+    [compareDetail],
+  );
+
+  // Build a colour-coded view of clusters across both runs.
+  // ember = appears in this run only (introduced/persisting here)
+  // pass  = appears in other run only (we fixed it)
+  // steel = appears in both runs (shared / persistent)
+  const compareClusters = useMemo<CompareCluster[]>(() => {
+    if (!detail || !compareDetail) return [];
+    const thisMap = new Map<string, number>();
+    const otherMap = new Map<string, number>();
+    for (const c of detail.failure_clusters.clusters) thisMap.set(c.label, c.count);
+    for (const c of compareDetail.failure_clusters.clusters) otherMap.set(c.label, c.count);
+    const keys = new Set<string>([...thisMap.keys(), ...otherMap.keys()]);
+    return Array.from(keys)
+      .map((label) => {
+        const thisCount = thisMap.get(label) ?? 0;
+        const otherCount = otherMap.get(label) ?? 0;
+        let color: string;
+        if (thisCount > 0 && otherCount === 0) color = E.ember;
+        else if (otherCount > 0 && thisCount === 0) color = E.pass;
+        else color = E.text3;
+        return { label, thisCount, otherCount, color };
+      })
+      .sort((a, b) => b.thisCount + b.otherCount - (a.thisCount + a.otherCount));
+  }, [detail, compareDetail]);
+
   function clearCompare(): void {
     navigate(`/experiments/${encodeURIComponent(runId ?? '')}`);
   }
@@ -472,86 +562,6 @@ export default function RunDetail() {
       </Btn>
     </div>
   );
-
-  // Memoize derived series/segments/clusters so unrelated parent state
-  // changes (tab clicks, Share button label, rerun status) don't
-  // recompute work that only depends on the loaded run details.
-  const passSeries = useMemo<LineSeries[]>(() => {
-    const series: LineSeries[] = detail.pass_timeline.series.map((s) => ({
-      color: SERIES_COLOR[s.color_kind] ?? E.text2,
-      width: s.color_kind === 'ember' ? 2 : 1.5,
-      fill: s.color_kind === 'ember',
-      data: s.data,
-    }));
-    // When comparing, append the OTHER run's primary (ember-kind) series
-    // recolored steel so the timeline shows both lines on the same axes.
-    if (compareActive && compareDetail) {
-      const otherPrimary =
-        compareDetail.pass_timeline.series.find((s) => s.color_kind === 'ember') ??
-        compareDetail.pass_timeline.series[0];
-      if (otherPrimary && otherPrimary.data.length > 0) {
-        series.push({
-          color: E.steel,
-          width: 1.75,
-          dashed: true,
-          data: otherPrimary.data,
-        });
-      }
-    }
-    return series;
-  }, [detail, compareActive, compareDetail]);
-
-  const donutSegments = useMemo(
-    () =>
-      detail.failure_clusters.clusters.map((c) => ({
-        value: c.count,
-        color: CLUSTER_COLOR[c.color_kind] ?? E.text3,
-        label: c.label,
-      })),
-    [detail],
-  );
-
-  const compareDonutSegments = useMemo(
-    () =>
-      compareDetail
-        ? compareDetail.failure_clusters.clusters.map((c) => ({
-            value: c.count,
-            color: CLUSTER_COLOR[c.color_kind] ?? E.text3,
-            label: c.label,
-          }))
-        : [],
-    [compareDetail],
-  );
-
-  // Build a colour-coded view of clusters across both runs.
-  // ember = appears in this run only (introduced/persisting here)
-  // pass  = appears in other run only (we fixed it)
-  // steel = appears in both runs (shared / persistent)
-  type CompareCluster = {
-    label: string;
-    thisCount: number;
-    otherCount: number;
-    color: string;
-  };
-  const compareClusters = useMemo<CompareCluster[]>(() => {
-    if (!compareDetail) return [];
-    const thisMap = new Map<string, number>();
-    const otherMap = new Map<string, number>();
-    for (const c of detail.failure_clusters.clusters) thisMap.set(c.label, c.count);
-    for (const c of compareDetail.failure_clusters.clusters) otherMap.set(c.label, c.count);
-    const keys = new Set<string>([...thisMap.keys(), ...otherMap.keys()]);
-    return Array.from(keys)
-      .map((label) => {
-        const thisCount = thisMap.get(label) ?? 0;
-        const otherCount = otherMap.get(label) ?? 0;
-        let color: string;
-        if (thisCount > 0 && otherCount === 0) color = E.ember;
-        else if (otherCount > 0 && thisCount === 0) color = E.pass;
-        else color = E.text3;
-        return { label, thisCount, otherCount, color };
-      })
-      .sort((a, b) => b.thisCount + b.otherCount - (a.thisCount + a.otherCount));
-  }, [detail, compareDetail]);
 
   return (
     <AppShell
