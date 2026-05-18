@@ -26,7 +26,14 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from ._shared import dataset_roots, list_dataset_dirs, load_all_runs, parse_iso
+from ._shared import (
+    _all_runs_cache_key,
+    _caches_disabled,
+    dataset_roots,
+    list_dataset_dirs,
+    load_all_runs,
+    parse_iso,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +48,16 @@ _RUBRIC_FILE_DIR = "rubrics"
 # WSL even when zero calibrations exist (cost is in the dataset_dir
 # stat()s, not file reads). Cleared via ``_clear_caches_for_tests``.
 _calibration_index_cache: dict[tuple, dict[str, list[Path]]] = {}
+
+# Mtime-keyed cache of persisted rubric overrides. The previous
+# ``_load_saved_rubric`` did O(metrics x dataset_dirs) stat() probes;
+# with ~40 metrics x ~495 dataset dirs on prod the warm path was 40s
+# on WSL/NTFS just to render the metrics page. Inverting the walk
+# (one pass, bucket by file name = metric id) mirrors the
+# ``_calibration_index_cache`` fix already shipped for calibrations.
+# Cleared on save (so the UI sees its own writes) and via
+# ``_clear_caches_for_tests``.
+_saved_rubric_index_cache: dict[tuple, dict[str, dict]] = {}
 
 
 def _bool_verdict(v: object) -> bool | None:
@@ -113,8 +130,6 @@ def _calibration_index() -> dict[str, list[Path]]:
     that mirrors how the v2 endpoints handled run additions before this
     cache work and matches the read-mostly workload.
     """
-    from ._shared import _all_runs_cache_key, _caches_disabled  # local to avoid cycle
-
     roots = dataset_roots()
     key = _all_runs_cache_key(roots) if not _caches_disabled() else None
     if key is not None and key in _calibration_index_cache:
@@ -307,24 +322,75 @@ def _saved_rubric_path(metric_id: str) -> Path | None:
         return None
 
 
-def _load_saved_rubric(metric_id: str) -> dict | None:
-    """Read any persisted rubric override across roots. First match wins."""
-    for root in dataset_roots():
+def _saved_rubric_index() -> dict[str, dict]:
+    """Walk dataset roots once and return ``{metric_id: rubric_dict}``.
+
+    First match wins across ``dataset_roots()`` x ``list_dataset_dirs(root)``
+    order, matching the prior ``_load_saved_rubric`` behaviour. Then
+    falls back to ``.evalyn/data/rubrics/`` for metric ids not seen in
+    any dataset. Cached against the same root-mtime key the calibration
+    index uses; ``save_rubric`` clears it so the dashboard sees its own
+    writes immediately.
+    """
+    roots = dataset_roots()
+    key = _all_runs_cache_key(roots) if not _caches_disabled() else None
+    if key is not None and key in _saved_rubric_index_cache:
+        return _saved_rubric_index_cache[key]
+
+    index: dict[str, dict] = {}
+    for root in roots:
         for ds in list_dataset_dirs(root):
-            p = ds / _RUBRIC_FILE_DIR / f"{metric_id}.json"
-            if p.is_file():
-                try:
-                    return json.loads(p.read_text(encoding="utf-8"))
-                except (OSError, json.JSONDecodeError) as exc:
-                    logger.warning("rubric load failed at %s: %s", p, exc)
-                    return None
-    fallback = Path.cwd() / ".evalyn" / "data" / "rubrics" / f"{metric_id}.json"
-    if fallback.is_file():
+            rubric_dir = ds / _RUBRIC_FILE_DIR
+            if not rubric_dir.is_dir():
+                continue
+            try:
+                with os.scandir(rubric_dir) as it:
+                    for entry in it:
+                        if not entry.is_file(follow_symlinks=False):
+                            continue
+                        if not entry.name.endswith(".json"):
+                            continue
+                        metric_id = entry.name[:-5]
+                        if metric_id in index:
+                            continue
+                        try:
+                            index[metric_id] = json.loads(
+                                Path(entry.path).read_text(encoding="utf-8")
+                            )
+                        except (OSError, json.JSONDecodeError) as exc:
+                            logger.warning("rubric load failed at %s: %s", entry.path, exc)
+            except OSError:
+                continue
+
+    fallback_dir = Path.cwd() / ".evalyn" / "data" / "rubrics"
+    if fallback_dir.is_dir():
         try:
-            return json.loads(fallback.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            logger.warning("rubric load failed at %s: %s", fallback, exc)
-    return None
+            with os.scandir(fallback_dir) as it:
+                for entry in it:
+                    if not entry.is_file(follow_symlinks=False):
+                        continue
+                    if not entry.name.endswith(".json"):
+                        continue
+                    metric_id = entry.name[:-5]
+                    if metric_id in index:
+                        continue
+                    try:
+                        index[metric_id] = json.loads(
+                            Path(entry.path).read_text(encoding="utf-8")
+                        )
+                    except (OSError, json.JSONDecodeError) as exc:
+                        logger.warning("rubric load failed at %s: %s", entry.path, exc)
+        except OSError:
+            pass
+
+    if key is not None:
+        _saved_rubric_index_cache[key] = index
+    return index
+
+
+def _load_saved_rubric(metric_id: str) -> dict | None:
+    """Read any persisted rubric override. O(1) lookup against the cached index."""
+    return _saved_rubric_index().get(metric_id)
 
 
 @router.get("")
@@ -562,6 +628,13 @@ async def save_rubric(rubric_id: str, request: Request) -> JSONResponse:
     except OSError as exc:
         logger.warning("rubric save failed at %s: %s", p, exc)
         raise HTTPException(503, f"rubric save failed: {exc}") from exc
+
+    # The cache is keyed on each dataset root's mtime, which does NOT
+    # bump when a file is written deep inside (rubrics/<id>.json under a
+    # dataset). Without an explicit invalidation, the user clicks Save
+    # and ``GET /api/v2/rubrics`` still shows pre-save state until the
+    # server restarts. Clear the index so the next read rebuilds.
+    _saved_rubric_index_cache.clear()
 
     # Audit log: rubric persistence is a configuration change that
     # affects every future eval run (judge weights, dimensions).

@@ -126,6 +126,7 @@ def _clear_caches_for_tests() -> None:
     try:
         from . import rubrics as _rubrics_mod  # noqa: WPS433 - intentional
         _rubrics_mod._calibration_index_cache.clear()
+        _rubrics_mod._saved_rubric_index_cache.clear()
     except ImportError:
         pass
     try:
