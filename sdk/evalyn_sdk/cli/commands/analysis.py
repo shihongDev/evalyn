@@ -105,9 +105,7 @@ def cmd_status(args: argparse.Namespace) -> None:
     annotations_file = ds.path / "annotations.jsonl"
     has_annotations = annotations_file.exists()
     calibrations_dir = ds.path / "calibrations"
-    has_calibrations = calibrations_dir.exists() and any(
-        calibrations_dir.iterdir()
-    ) if calibrations_dir.exists() else False
+    has_calibrations = calibrations_dir.exists() and any(calibrations_dir.iterdir())
 
     # Metrics detail
     if metric_files:

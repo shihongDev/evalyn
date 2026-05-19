@@ -823,7 +823,9 @@ def cmd_list_calibrations(args: argparse.Namespace) -> None:
                             "path": str(cal_file),
                         }
                     )
-            except Exception:
+            except (OSError, json.JSONDecodeError, KeyError):
+                # Skip unreadable / malformed calibration files; a broader
+                # except would hide real bugs in the parse loop above.
                 pass
 
     if not calibrations:

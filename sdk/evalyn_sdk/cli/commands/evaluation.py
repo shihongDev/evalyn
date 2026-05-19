@@ -1105,10 +1105,12 @@ def _maybe_infer_project_from_dataset_meta(args: argparse.Namespace) -> None:
         return
     try:
         meta = json.loads(meta_file.read_text(encoding="utf-8"))
-        if meta.get("project"):
-            args.project = meta["project"]
-    except Exception:
-        pass
+    except (OSError, json.JSONDecodeError):
+        # meta.json is optional - missing / unreadable means we just
+        # don't auto-fill args.project from it.
+        return
+    if meta.get("project"):
+        args.project = meta["project"]
 
 
 def _validate_suggest_metrics_args(args: argparse.Namespace) -> None:

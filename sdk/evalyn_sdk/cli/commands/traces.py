@@ -31,7 +31,6 @@ ESSENTIAL = {"limit"}
 
 import argparse
 import json
-import os
 from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:

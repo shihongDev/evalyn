@@ -686,13 +686,6 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
     print("=" * 70)
 
 
-def _annotation_truncate(text: str, max_len: int = 500) -> str:
-    """Truncate annotation UI text for terminal display."""
-    text = str(text) if text else ""
-    text = text.replace("\n", " ").strip()
-    return text if len(text) <= max_len else text[:max_len] + "..."
-
-
 def _display_annotation_item(
     idx: int,
     total: int,
@@ -712,14 +705,14 @@ def _display_annotation_item(
     )
     print("\nINPUT:")
     if len(input_text) > 300:
-        print(f"   {_annotation_truncate(input_text, 300)}")
+        print(f"   {truncate_text(input_text, 300)}")
     else:
         for line in input_text.split("\n")[:5]:
             print(f"   {line}")
 
     output_text = str(item.output) if item.output else "(no output)"
     print("\nOUTPUT:")
-    print(f"   {_annotation_truncate(output_text, 500)}")
+    print(f"   {truncate_text(output_text, 500)}")
 
     eval_data = eval_results_by_call.get(call_id, {})
     subjective_metrics: List[tuple] = []
@@ -737,7 +730,7 @@ def _display_annotation_item(
             else:
                 print(f"   {metric_id}: {status}")
             if reason:
-                print(f"       Reason: {_annotation_truncate(reason, 200)}")
+                print(f"       Reason: {truncate_text(reason, 200)}")
             subjective_metrics.append((metric_id, passed, reason))
             metric_num += 1
 
@@ -806,7 +799,7 @@ def _annotate_per_metric(
         status = "PASS" if llm_passed else "FAIL"
         print(f"\n  [{i}/{len(subjective_metrics)}] {metric_id}: LLM says {status}")
         if reason:
-            print(f"      Reason: {_annotation_truncate(reason, 150)}")
+            print(f"      Reason: {truncate_text(reason, 150)}")
 
         while True:
             try:
