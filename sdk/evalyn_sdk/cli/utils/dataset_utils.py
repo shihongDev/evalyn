@@ -224,10 +224,6 @@ class ProgressBar:
             self._last_render_time = now
             self._render()
 
-    def add_error(self, error: str) -> None:
-        """Record an error to display."""
-        self._errors.append(error)
-
     def _format_eta(self, seconds: float) -> str:
         """Format seconds as human-readable time."""
         if seconds < 60:

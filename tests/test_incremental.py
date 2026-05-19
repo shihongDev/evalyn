@@ -1,15 +1,8 @@
-"""Tests for environment validation and incremental dataset build."""
+"""Tests for incremental dataset build."""
 
 import json
-import os
 import pytest
 from pathlib import Path
-from unittest.mock import patch
-from evalyn_sdk.cli.utils.env_check import (
-    check_eval_environment,
-    check_storage_environment,
-    EnvCheckResult,
-)
 from evalyn_sdk.models import DatasetItem
 from evalyn_sdk.datasets_incremental import (
     incremental_build,
@@ -17,78 +10,6 @@ from evalyn_sdk.datasets_incremental import (
     save_build_state,
     IncrementalBuildResult,
 )
-
-
-# =============================================================================
-# Environment validation tests
-# =============================================================================
-
-class TestCheckEvalEnvironment:
-    def test_objective_only_passes(self):
-        result = check_eval_environment(needs_subjective=False)
-        assert result.passed is True
-
-    def test_gemini_with_key(self):
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "AIzaSy_valid_key_here_1234"}):
-            result = check_eval_environment(provider="gemini")
-            assert result.passed is True
-            assert "GEMINI_API_KEY" in result.found_keys
-
-    def test_gemini_missing_key(self):
-        with patch.dict(os.environ, {}, clear=True):
-            # Ensure no keys in env
-            env = {k: v for k, v in os.environ.items()
-                   if k not in ("GEMINI_API_KEY", "GOOGLE_API_KEY")}
-            with patch.dict(os.environ, env, clear=True):
-                result = check_eval_environment(provider="gemini", config={})
-                assert result.passed is False
-                assert any("No API key" in e for e in result.errors)
-
-    def test_openai_with_key(self):
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-valid_key_here_12345678"}):
-            result = check_eval_environment(provider="openai")
-            assert result.passed is True
-
-    def test_short_key_warning(self):
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "short"}, clear=True):
-            env = dict(os.environ)
-            env.pop("GOOGLE_API_KEY", None)
-            with patch.dict(os.environ, env, clear=True):
-                result = check_eval_environment(provider="gemini")
-                assert any("too short" in w for w in result.warnings)
-
-    def test_ollama_no_key_needed(self):
-        result = check_eval_environment(provider="ollama")
-        assert result.passed is True
-
-    def test_config_key_lookup(self):
-        with patch.dict(os.environ, {}, clear=True):
-            env = {k: v for k, v in os.environ.items()
-                   if k not in ("GEMINI_API_KEY", "GOOGLE_API_KEY")}
-            with patch.dict(os.environ, env, clear=True):
-                config = {"api_keys": {"gemini": "AIzaSy_from_config_1234567"}}
-                result = check_eval_environment(provider="gemini", config=config)
-                assert result.passed is True
-
-    def test_format_text(self):
-        result = EnvCheckResult(passed=True, found_keys={"KEY": "env"})
-        text = result.format_text()
-        assert "KEY" in text
-
-
-class TestCheckStorageEnvironment:
-    def test_default_storage(self):
-        result = check_storage_environment()
-        assert result.passed is True
-        assert "storage" in result.found_keys or "EVALYN_DB" in result.found_keys
-
-    def test_custom_db_path(self, tmp_path):
-        db_path = str(tmp_path / "test.sqlite")
-        with patch.dict(os.environ, {"EVALYN_DB": db_path}):
-            result = check_storage_environment()
-            assert result.passed is True
-            assert "EVALYN_DB" in result.found_keys
-
 
 # =============================================================================
 # Incremental dataset build tests

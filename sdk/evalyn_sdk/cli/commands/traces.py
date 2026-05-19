@@ -31,7 +31,6 @@ ESSENTIAL = {"limit"}
 
 import argparse
 import json
-import os
 from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -87,58 +86,6 @@ def _truncate(text: Any, max_len: int = 120) -> str:
         return ""
     text = str(text)
     return text if len(text) <= max_len else text[:max_len] + "..."
-
-
-def _normalize_span_time(raw: Any) -> float | None:
-    """Normalize span timestamp to Unix seconds."""
-    if raw is None:
-        return None
-    if isinstance(raw, (int, float)):
-        value = float(raw)
-        if value > 1e15:
-            return value / 1e9
-        if value > 1e12:
-            return value / 1e6
-        if value > 1e10:
-            return value / 1e3
-        return value
-    if isinstance(raw, str):
-        raw = raw.strip()
-        try:
-            if raw.isdigit():
-                return _normalize_span_time(int(raw))
-            return _normalize_span_time(float(raw))
-        except ValueError:
-            pass
-        try:
-            import datetime as _dt
-
-            return _dt.datetime.fromisoformat(raw).timestamp()
-        except Exception:
-            return None
-    return None
-
-
-def _span_duration_ms(span: dict) -> float | None:
-    """Calculate span duration in milliseconds."""
-    start_ts = _normalize_span_time(span.get("start_time"))
-    end_ts = _normalize_span_time(span.get("end_time"))
-    if start_ts is None or end_ts is None:
-        return None
-    return max(0.0, (end_ts - start_ts) * 1000)
-
-
-def _span_status(span: dict) -> str:
-    """Get span status as normalized string."""
-    status = span.get("status")
-    if status is None:
-        return "UNSET"
-    text = str(status).upper()
-    if "ERROR" in text:
-        return "ERROR"
-    if "OK" in text:
-        return "OK"
-    return text
 
 
 def _detect_call_turns(inputs: Any) -> tuple[str, int]:

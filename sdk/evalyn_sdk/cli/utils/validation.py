@@ -6,7 +6,6 @@ import os
 from typing import Optional, Tuple
 
 from .config import get_config_default, load_config
-from .errors import fatal_error
 
 
 def check_llm_api_keys(quiet: bool = False) -> Tuple[Optional[str], Optional[str]]:
@@ -38,23 +37,6 @@ def check_llm_api_keys(quiet: bool = False) -> Tuple[Optional[str], Optional[str
             print("Warning: GEMINI_API_KEY appears to be invalid (too short).")
 
     return gemini_key, openai_key
-
-
-def require_llm_api_key(quiet: bool = False) -> str:
-    """Require at least one LLM API key, exit if missing.
-
-    Returns:
-        The available API key (prefers GEMINI_API_KEY).
-    """
-    gemini_key, openai_key = check_llm_api_keys(quiet=True)
-
-    if not gemini_key and not openai_key:
-        fatal_error(
-            "No API key found for LLM operations",
-            "Set GEMINI_API_KEY or OPENAI_API_KEY environment variable",
-        )
-
-    return gemini_key or openai_key
 
 
 def extract_project_id(metadata: dict) -> Optional[str]:
