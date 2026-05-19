@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -20,7 +20,7 @@ class ForecastPoint:
     lower: float  # lower bound of confidence band
     upper: float  # upper bound of confidence band
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "step": self.step,
             "value": round(self.value, 6),
@@ -29,7 +29,7 @@ class ForecastPoint:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ForecastPoint":
+    def from_dict(cls, data: dict[str, Any]) -> ForecastPoint:
         return cls(
             step=data["step"],
             value=data["value"],
@@ -44,11 +44,11 @@ class MetricForecast:
 
     metric_id: str
     method: str  # "linear" or "exponential_smoothing"
-    observed: List[float] = field(default_factory=list)
-    forecasted: List[ForecastPoint] = field(default_factory=list)
-    alerts: List[str] = field(default_factory=list)
+    observed: list[float] = field(default_factory=list)
+    forecasted: list[ForecastPoint] = field(default_factory=list)
+    alerts: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "method": self.method,
@@ -59,7 +59,7 @@ class MetricForecast:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MetricForecast":
+    def from_dict(cls, data: dict[str, Any]) -> MetricForecast:
         forecasted = [
             ForecastPoint.from_dict(f) for f in data.get("forecasted", [])
         ]
@@ -85,20 +85,20 @@ class MetricForecast:
 class ForecastReport:
     """Forecast results for all metrics."""
 
-    results: List[MetricForecast] = field(default_factory=list)
+    results: list[MetricForecast] = field(default_factory=list)
 
     @property
-    def alerts(self) -> List[str]:
+    def alerts(self) -> list[str]:
         out = []
         for r in self.results:
             out.extend(r.alerts)
         return out
 
     @property
-    def metrics_at_risk(self) -> List[str]:
+    def metrics_at_risk(self) -> list[str]:
         return [r.metric_id for r in self.results if r.alerts]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "alerts": self.alerts,
             "metrics_at_risk": self.metrics_at_risk,
@@ -106,7 +106,7 @@ class ForecastReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ForecastReport":
+    def from_dict(cls, data: dict[str, Any]) -> ForecastReport:
         results = [MetricForecast.from_dict(r) for r in data.get("results", [])]
         return cls(results=results)
 
@@ -122,11 +122,11 @@ class ForecastReport:
 
 def forecast_metric(
     metric_id: str,
-    values: List[float],
+    values: list[float],
     horizon: int = 3,
     method: str = "linear",
     confidence: float = 0.9,
-    threshold: Optional[float] = None,
+    threshold: float | None = None,
 ) -> MetricForecast:
     """Forecast future values for a metric time series.
 
@@ -174,11 +174,11 @@ def forecast_metric(
 
 
 def forecast_all(
-    series_by_metric: Dict[str, List[float]],
+    series_by_metric: dict[str, list[float]],
     horizon: int = 3,
     method: str = "linear",
     confidence: float = 0.9,
-    threshold: Optional[float] = None,
+    threshold: float | None = None,
 ) -> ForecastReport:
     """Forecast all metric time series.
 
@@ -203,7 +203,7 @@ def forecast_all(
 
 # ---- Internal helpers ----
 
-def _linear_slope_intercept(values: List[float]) -> tuple:
+def _linear_slope_intercept(values: list[float]) -> tuple:
     """Return (slope, intercept) of linear fit."""
     n = len(values)
     if n < 2:
@@ -217,7 +217,7 @@ def _linear_slope_intercept(values: List[float]) -> tuple:
     return slope, intercept
 
 
-def _residual_std(values: List[float], slope: float, intercept: float) -> float:
+def _residual_std(values: list[float], slope: float, intercept: float) -> float:
     """Standard error of residuals around the regression line."""
     n = len(values)
     if n < 3:
@@ -227,10 +227,10 @@ def _residual_std(values: List[float], slope: float, intercept: float) -> float:
 
 
 def _linear_forecast(
-    values: List[float],
+    values: list[float],
     horizon: int,
     confidence: float,
-) -> List[ForecastPoint]:
+) -> list[ForecastPoint]:
     """Linear regression forecast with prediction intervals."""
     n = len(values)
     slope, intercept = _linear_slope_intercept(values)
@@ -262,11 +262,11 @@ def _linear_forecast(
 
 
 def _exponential_smoothing_forecast(
-    values: List[float],
+    values: list[float],
     horizon: int,
     confidence: float,
     alpha: float = 0.3,
-) -> List[ForecastPoint]:
+) -> list[ForecastPoint]:
     """Simple exponential smoothing forecast.
 
     Uses Holt's linear method (double exponential smoothing) with

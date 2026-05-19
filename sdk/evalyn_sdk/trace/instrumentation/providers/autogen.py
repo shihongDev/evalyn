@@ -19,11 +19,11 @@ from __future__ import annotations
 import functools
 import importlib.util
 import logging
-from typing import Any, List
+from typing import Any
 
-from ..base import Instrumentor, InstrumentorType
 from ....models import Span
 from ... import context as span_context
+from ..base import Instrumentor, InstrumentorType
 from ._shared import calculate_cost
 
 
@@ -40,7 +40,7 @@ class _LLMEventHandler(logging.Handler):
         super().__init__()
         self._prompt_tokens: int = 0
         self._completion_tokens: int = 0
-        self._events: List[dict] = []
+        self._events: list[dict] = []
 
     def emit(self, record: logging.LogRecord) -> None:
         # Guard: only process LLMCallEvent instances
@@ -73,7 +73,7 @@ class _LLMEventHandler(logging.Handler):
         return self._completion_tokens
 
     @property
-    def events(self) -> List[dict]:
+    def events(self) -> list[dict]:
         return list(self._events)
 
     def reset(self) -> None:

@@ -17,36 +17,37 @@ from __future__ import annotations
 
 import threading
 import uuid
+from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
-from typing import Any, Dict, Generator, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..models import Span, FunctionCall
+    from ..models import FunctionCall, Span
 
 # Context variables for span hierarchy
-_span_stack: ContextVar[List[str]] = ContextVar("_span_stack", default=[])
-_active_call: ContextVar[Optional["FunctionCall"]] = ContextVar(
+_span_stack: ContextVar[list[str]] = ContextVar("_span_stack", default=[])
+_active_call: ContextVar[FunctionCall | None] = ContextVar(
     "_active_call", default=None
 )
 
 # Sentinel to detect uninitialized collector (for context propagation detection)
-_UNSET_COLLECTOR: List["Span"] = []
-_span_collector: ContextVar[List["Span"]] = ContextVar(
+_UNSET_COLLECTOR: list[Span] = []
+_span_collector: ContextVar[list[Span]] = ContextVar(
     "_span_collector", default=_UNSET_COLLECTOR
 )
 
 # Thread-safe global collector fallback (for threads that don't inherit ContextVar)
 _global_lock = threading.Lock()
-_global_collectors: Dict[str, List["Span"]] = {}
+_global_collectors: dict[str, list[Span]] = {}
 # Per-thread call ID tracking (replaces single scalar to avoid data races
 # when multiple @eval calls run concurrently in different threads)
-_thread_call_ids: Dict[int, str] = {}
+_thread_call_ids: dict[int, str] = {}
 
 # Default orphan collector for spans created without a session/call context
 # This allows hooks to capture spans even when @eval decorator isn't used
-_orphan_spans: List["Span"] = []
+_orphan_spans: list[Span] = []
 
 
 def _generate_span_id() -> str:
@@ -54,7 +55,7 @@ def _generate_span_id() -> str:
     return str(uuid.uuid4())
 
 
-def get_current_span_id() -> Optional[str]:
+def get_current_span_id() -> str | None:
     """Get the ID of the current parent span.
 
     Returns None if no span is active (we're at the root level).
@@ -63,12 +64,12 @@ def get_current_span_id() -> Optional[str]:
     return stack[-1] if stack else None
 
 
-def get_current_call() -> Optional["FunctionCall"]:
+def get_current_call() -> FunctionCall | None:
     """Get the currently active FunctionCall being traced."""
     return _active_call.get()
 
 
-def set_current_call(call: Optional["FunctionCall"]) -> None:
+def set_current_call(call: FunctionCall | None) -> None:
     """Set the currently active FunctionCall and manage global collector."""
     tid = threading.get_ident()
     _active_call.set(call)
@@ -83,18 +84,18 @@ def set_current_call(call: Optional["FunctionCall"]) -> None:
                 _global_collectors.pop(old_id, None)
 
 
-def get_span_collector() -> List["Span"]:
+def get_span_collector() -> list[Span]:
     """Get the context-local span collector."""
     return _span_collector.get()
 
 
-def get_global_spans(call_id: str) -> List["Span"]:
+def get_global_spans(call_id: str) -> list[Span]:
     """Pop and return spans from the global collector for a call."""
     with _global_lock:
         return _global_collectors.pop(call_id, [])
 
 
-def get_orphan_spans() -> List["Span"]:
+def get_orphan_spans() -> list[Span]:
     """Pop and return all orphan spans (spans created without session context).
 
     This is useful for hooks like claude_agent_sdk that create spans
@@ -113,7 +114,7 @@ def has_orphan_spans() -> bool:
         return len(_orphan_spans) > 0
 
 
-def _add_span_to_collector(span: "Span") -> None:
+def _add_span_to_collector(span: Span) -> None:
     """Add span to collector. Falls back to global/orphan collector."""
     collector = _span_collector.get()
 
@@ -139,7 +140,7 @@ def span(
     name: str,
     span_type: str,
     **attributes: Any,
-) -> Generator["Span", None, None]:
+) -> Generator[Span, None, None]:
     """
     Create a child span under the current parent.
 

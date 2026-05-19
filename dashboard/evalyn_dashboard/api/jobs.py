@@ -688,7 +688,7 @@ async def get_job_output_txt(
             scope_bits.append(f"tail={tail}")
         scope = ", ".join(scope_bits) or "all"
         lines = [
-            f"# evalyn job log",
+            "# evalyn job log",
             f"# job_id: {job_id}",
             f"# cli: {cli_id}",
             f"# started_at: {started or '(unknown)'}",
@@ -700,7 +700,7 @@ async def get_job_output_txt(
         if exit_code is not None:
             lines.append(f"# exit_code: {exit_code}")
         lines.append(f"# scope: {scope}")
-        lines.append(f"#")
+        lines.append("#")
         return "\n".join(lines) + "\n"
 
     def _download_headers() -> dict[str, str]:
@@ -830,7 +830,7 @@ async def delete_job(request: Request, job_id: str) -> JSONResponse:
     try:
         removed = jm.purge(job_id)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if not removed:
         raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
     # Audit log: the row is gone. Postmortem queries like "where

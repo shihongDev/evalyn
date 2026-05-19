@@ -7,14 +7,15 @@ import inspect
 import json
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ...trace.tracer import EvalTracer
 
 
-def _extract_code_meta(tracer: "EvalTracer", fn: Callable[..., Any]) -> Optional[dict]:
+def _extract_code_meta(tracer: EvalTracer, fn: Callable[..., Any]) -> dict | None:
     """
     Try to reuse cached code metadata from the tracer; fall back to inspect if not present.
     """
@@ -37,8 +38,8 @@ def _extract_code_meta(tracer: "EvalTracer", fn: Callable[..., Any]) -> Optional
 
 
 def _resolve_dataset_and_metrics(
-    dataset_arg: str, metrics_arg: Optional[str], metrics_all: bool = False
-) -> tuple[Path, List[Path]]:
+    dataset_arg: str, metrics_arg: str | None, metrics_all: bool = False
+) -> tuple[Path, list[Path]]:
     """
     Resolve dataset file and metrics file paths.
 
@@ -69,7 +70,7 @@ def _resolve_dataset_and_metrics(
     if not dataset_file.exists():
         raise FileNotFoundError(f"Dataset file not found: {dataset_file}")
 
-    metrics_paths: List[Path] = []
+    metrics_paths: list[Path] = []
 
     # Option 1: Use all metrics from metrics/ folder
     if metrics_all:
@@ -104,7 +105,7 @@ def _resolve_dataset_and_metrics(
     try:
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
     except Exception as e:
-        raise ValueError(f"Failed to parse meta.json: {e}")
+        raise ValueError(f"Failed to parse meta.json: {e}") from e
 
     active_set = meta.get("active_metric_set")
     if not active_set:
@@ -133,7 +134,7 @@ def _resolve_dataset_and_metrics(
     return dataset_file, [metrics_path]
 
 
-def _dataset_has_reference(dataset_path: Optional[Path]) -> bool:
+def _dataset_has_reference(dataset_path: Path | None) -> bool:
     """
     Check if a dataset has SEPARATE reference/golden-standard values for comparison.
 
@@ -211,7 +212,7 @@ class ProgressBar:
         self._current_type = ""
         self._start_time = time.time()
         self._last_render_time = 0
-        self._errors: List[str] = []
+        self._errors: list[str] = []
 
     def update(self, current: int, total: int, metric: str, metric_type: str) -> None:
         self._current = current

@@ -9,8 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -27,7 +26,7 @@ class MigrationStep:
     down_description: str = ""
     applied_at: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "version": self.version,
             "name": self.name,
@@ -37,7 +36,7 @@ class MigrationStep:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MigrationStep:
+    def from_dict(cls, data: dict[str, Any]) -> MigrationStep:
         return cls(
             version=data.get("version", 0),
             name=data.get("name", ""),
@@ -51,17 +50,17 @@ class MigrationStep:
 class MigrationHistory:
     """Full history of applied migrations."""
 
-    steps: List[MigrationStep] = field(default_factory=list)
+    steps: list[MigrationStep] = field(default_factory=list)
     current_version: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "steps": [s.as_dict() for s in self.steps],
             "current_version": self.current_version,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MigrationHistory:
+    def from_dict(cls, data: dict[str, Any]) -> MigrationHistory:
         steps = [MigrationStep.from_dict(s) for s in data.get("steps", [])]
         return cls(
             steps=steps,
@@ -69,7 +68,7 @@ class MigrationHistory:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Migration History")
         lines.append("=" * 40)
         lines.append(f"Current version: {self.current_version}")
@@ -101,8 +100,8 @@ class MigrationManager:
     """Manages migration registration, application, and rollback."""
 
     def __init__(self) -> None:
-        self._registered: List[MigrationStep] = []
-        self._applied: List[MigrationStep] = []
+        self._registered: list[MigrationStep] = []
+        self._applied: list[MigrationStep] = []
 
     def register(
         self,
@@ -143,7 +142,7 @@ class MigrationManager:
         self._applied.sort(key=lambda s: s.version)
         return applied_step
 
-    def rollback(self, version: int) -> Optional[MigrationStep]:
+    def rollback(self, version: int) -> MigrationStep | None:
         """Remove a migration from applied list. Returns None if not applied."""
         for i, step in enumerate(self._applied):
             if step.version == version:
@@ -156,7 +155,7 @@ class MigrationManager:
             return 0
         return max(s.version for s in self._applied)
 
-    def get_pending(self) -> List[MigrationStep]:
+    def get_pending(self) -> list[MigrationStep]:
         """Return registered migrations that have not been applied."""
         applied_versions = {s.version for s in self._applied}
         return [s for s in self._registered if s.version not in applied_versions]
@@ -168,14 +167,14 @@ class MigrationManager:
             current_version=self.get_current_version(),
         )
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "registered": [s.as_dict() for s in self._registered],
             "applied": [s.as_dict() for s in self._applied],
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MigrationManager:
+    def from_dict(cls, data: dict[str, Any]) -> MigrationManager:
         mgr = cls()
         for s in data.get("registered", []):
             step = MigrationStep.from_dict(s)
@@ -187,7 +186,7 @@ class MigrationManager:
         mgr._applied.sort(key=lambda s: s.version)
         return mgr
 
-    def _find_registered(self, version: int) -> Optional[MigrationStep]:
+    def _find_registered(self, version: int) -> MigrationStep | None:
         for step in self._registered:
             if step.version == version:
                 return step
@@ -215,13 +214,13 @@ def create_migration(
 
 
 def validate_migration_order(
-    steps: List[MigrationStep],
-) -> Tuple[bool, List[str]]:
+    steps: list[MigrationStep],
+) -> tuple[bool, list[str]]:
     """Validate that migration versions are sequential starting from 1.
 
     Returns (is_valid, list_of_errors).
     """
-    errors: List[str] = []
+    errors: list[str] = []
     if not steps:
         return (True, errors)
 

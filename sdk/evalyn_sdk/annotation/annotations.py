@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, List
 
 from ..models import Annotation, AnnotationItem, DatasetItem
 
@@ -23,9 +23,9 @@ def export_annotation_items(items: Iterable[AnnotationItem], path: str | Path) -
             f.write(json.dumps(item.as_dict(), ensure_ascii=False) + "\n")
 
 
-def import_annotations(path: str | Path) -> List[Annotation]:
+def import_annotations(path: str | Path) -> list[Annotation]:
     """Import annotations - supports both old and new formats."""
-    annotations: List[Annotation] = []
+    annotations: list[Annotation] = []
     path = Path(path)
     with path.open("r", encoding="utf-8") as f:
         for line in f:
@@ -55,9 +55,9 @@ def import_annotations(path: str | Path) -> List[Annotation]:
     return annotations
 
 
-def import_annotation_items(path: str | Path) -> List[AnnotationItem]:
+def import_annotation_items(path: str | Path) -> list[AnnotationItem]:
     """Import annotation items in the new format."""
-    items: List[AnnotationItem] = []
+    items: list[AnnotationItem] = []
     path = Path(path)
     with path.open("r", encoding="utf-8") as f:
         for line in f:
@@ -68,9 +68,9 @@ def import_annotation_items(path: str | Path) -> List[AnnotationItem]:
 
 
 def merge_annotations_into_dataset(
-    dataset_items: List[DatasetItem],
-    annotation_items: List[AnnotationItem],
-) -> List[DatasetItem]:
+    dataset_items: list[DatasetItem],
+    annotation_items: list[AnnotationItem],
+) -> list[DatasetItem]:
     """Merge human_labels from annotations back into dataset items."""
     ann_map = {item.id: item for item in annotation_items}
     merged = []

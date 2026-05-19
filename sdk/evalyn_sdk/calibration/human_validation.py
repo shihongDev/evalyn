@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -18,11 +18,11 @@ class ValidationRequest:
     metric_id: str
     original_prompt: str
     calibrated_prompt: str
-    sample_items: List[Dict[str, Any]] = field(default_factory=list)
+    sample_items: list[dict[str, Any]] = field(default_factory=list)
     alignment_before: float = 0.0
     alignment_after: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "original_prompt": self.original_prompt,
@@ -33,7 +33,7 @@ class ValidationRequest:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ValidationRequest:
+    def from_dict(cls, data: dict[str, Any]) -> ValidationRequest:
         return cls(
             metric_id=data["metric_id"],
             original_prompt=data["original_prompt"],
@@ -51,9 +51,9 @@ class ValidationDecision:
     approved: bool
     reviewer: str = ""
     notes: str = ""
-    timestamp: Optional[datetime] = None
+    timestamp: datetime | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "approved": self.approved,
             "reviewer": self.reviewer,
@@ -62,7 +62,7 @@ class ValidationDecision:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ValidationDecision:
+    def from_dict(cls, data: dict[str, Any]) -> ValidationDecision:
         ts = data.get("timestamp")
         if ts is not None and isinstance(ts, str):
             ts = datetime.fromisoformat(ts)
@@ -78,13 +78,13 @@ class ValidationDecision:
 class ValidationReport:
     """Summary report of validation requests and decisions."""
 
-    requests: List[ValidationRequest] = field(default_factory=list)
-    decisions: List[ValidationDecision] = field(default_factory=list)
+    requests: list[ValidationRequest] = field(default_factory=list)
+    decisions: list[ValidationDecision] = field(default_factory=list)
     approved_count: int = 0
     rejected_count: int = 0
     pending_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "requests": [r.as_dict() for r in self.requests],
             "decisions": [d.as_dict() for d in self.decisions],
@@ -94,7 +94,7 @@ class ValidationReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ValidationReport:
+    def from_dict(cls, data: dict[str, Any]) -> ValidationReport:
         return cls(
             requests=[
                 ValidationRequest.from_dict(r) for r in data.get("requests", [])
@@ -126,11 +126,13 @@ def create_validation_request(
     metric_id: str,
     original_prompt: str,
     calibrated_prompt: str,
-    sample_items: List[Dict[str, Any]] = [],
+    sample_items: list[dict[str, Any]] | None = None,
     alignment_before: float = 0.0,
     alignment_after: float = 0.0,
 ) -> ValidationRequest:
     """Factory for creating a validation request."""
+    if sample_items is None:
+        sample_items = []
     return ValidationRequest(
         metric_id=metric_id,
         original_prompt=original_prompt,
@@ -179,8 +181,8 @@ def record_decision(
 
 
 def build_validation_report(
-    requests: List[ValidationRequest],
-    decisions: List[ValidationDecision],
+    requests: list[ValidationRequest],
+    decisions: list[ValidationDecision],
 ) -> ValidationReport:
     """Build report matching requests to decisions.
 

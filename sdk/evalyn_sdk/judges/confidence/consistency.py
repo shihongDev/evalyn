@@ -11,7 +11,8 @@ References:
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any, Callable, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from .base import ConfidenceEstimator, ConfidenceResult
 
@@ -39,7 +40,7 @@ class SelfConsistencyConfidence(ConfidenceEstimator):
         self,
         n_samples: int = 5,
         temperature: float = 0.7,
-        answer_extractor: Optional[Callable[[Any], Any]] = None,
+        answer_extractor: Callable[[Any], Any] | None = None,
     ):
         self.n_samples = n_samples
         self.temperature = temperature
@@ -51,8 +52,8 @@ class SelfConsistencyConfidence(ConfidenceEstimator):
 
     def estimate(
         self,
-        samples: Optional[List[Any]] = None,
-        generate_fn: Optional[Callable[[], Any]] = None,
+        samples: list[Any] | None = None,
+        generate_fn: Callable[[], Any] | None = None,
         **kwargs,
     ) -> ConfidenceResult:
         """Estimate confidence from sample agreement.
@@ -146,8 +147,8 @@ class MajorityVoteConfidence(ConfidenceEstimator):
 
     def estimate(
         self,
-        votes: List[Any],
-        weights: Optional[List[float]] = None,
+        votes: list[Any],
+        weights: list[float] | None = None,
         **kwargs,
     ) -> ConfidenceResult:
         """Estimate confidence from weighted votes.

@@ -42,21 +42,21 @@ import logging
 import os
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
+from ..utils.command_common import resolve_dataset_dir_and_file
 from ..utils.errors import fatal_error
+from ..utils.hints import HintCollector
 from ..utils.input_helpers import (
-    truncate_text,
     get_bool_input,
+    get_confidence,
     get_int_input,
     get_str_input,
-    get_confidence,
+    truncate_text,
 )
-from ..utils.command_common import resolve_dataset_dir_and_file
-from ..utils.hints import HintCollector
-from ..utils.rich import banner, icon, section, kv, table, progress_bar
+from ..utils.rich import banner, icon, kv, progress_bar, section, table
 
 
 def cmd_import_annotations(args: argparse.Namespace) -> None:
@@ -125,7 +125,7 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
         print("Empty file.")
         return
 
-    items: List[AnnotationItem] = []
+    items: list[AnnotationItem] = []
     unknown_lines = 0
     if is_annotations_file:
         # Normalization path: any of the three known shapes is read into
@@ -153,7 +153,7 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
             # if the human flipped, AI disagreed - so the AI label is the
             # logical inverse of the human's. Records missing
             # used_ai_verdict drop out of the agreement section (correct).
-            eval_results: Dict[str, Dict[str, Any]] = {}
+            eval_results: dict[str, dict[str, Any]] = {}
             for lbl in canonical.labels:
                 if not lbl.metric_id:
                     continue
@@ -209,7 +209,7 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
             stored_anns = tracer.storage.list_annotations(limit=10000)
             # list_annotations returns newest-first; setdefault keeps the
             # newest annotation per target when multiple exist.
-            stored_by_target: Dict[str, "Annotation"] = {}
+            stored_by_target: dict[str, Annotation] = {}
             for ann in stored_anns:
                 stored_by_target.setdefault(ann.target_id, ann)
             for item in items:
@@ -230,7 +230,7 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
     coverage = with_labels / total if total > 0 else 0
 
     # Per-metric stats
-    metric_stats: Dict[str, Dict[str, int]] = {}
+    metric_stats: dict[str, dict[str, int]] = {}
     for item in items:
         for metric_id, result in item.eval_results.items():
             if metric_id not in metric_stats:
@@ -242,7 +242,7 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
                 metric_stats[metric_id]["failed"] += 1
 
     # Human agreement with LLM (if we have both)
-    agreement_stats: Dict[str, Dict[str, int]] = {}
+    agreement_stats: dict[str, dict[str, int]] = {}
     for item in items:
         if not item.human_label or not item.eval_results:
             continue
@@ -377,11 +377,11 @@ def _display_span_detail(span_type: str, detail: dict) -> None:
 
 def _load_existing_span_annotations(
     output_path: Path, *, restart: bool
-) -> Dict[str, SpanAnnotation]:
+) -> dict[str, SpanAnnotation]:
     """Load existing span annotations indexed by span_id."""
     from ...annotation import SpanAnnotation
 
-    existing_annotations: Dict[str, SpanAnnotation] = {}
+    existing_annotations: dict[str, SpanAnnotation] = {}
     if not output_path.exists() or restart:
         return existing_annotations
 
@@ -398,17 +398,16 @@ def _load_existing_span_annotations(
 
 
 def _collect_spans_for_annotation(
-    dataset_items: List[DatasetItem],
+    dataset_items: list[DatasetItem],
     tracer,
     *,
-    span_type_filter: Optional[str],
-    existing_annotations: Dict[str, SpanAnnotation],
-) -> List[Dict[str, Any]]:
+    span_type_filter: str | None,
+    existing_annotations: dict[str, SpanAnnotation],
+) -> list[dict[str, Any]]:
     """Collect unannotated spans with call context attached."""
-    from ...annotation import SpanAnnotation, extract_spans_from_trace
-    from ...models import DatasetItem
+    from ...annotation import extract_spans_from_trace
 
-    all_spans: List[Dict[str, Any]] = []
+    all_spans: list[dict[str, Any]] = []
     for item in dataset_items:
         call_id = item.metadata.get("call_id", item.id)
         call = tracer.storage.get_call(call_id)
@@ -426,9 +425,9 @@ def _collect_spans_for_annotation(
     return all_spans
 
 
-def _summarize_span_types(spans: List[Dict[str, Any]]) -> Dict[str, int]:
+def _summarize_span_types(spans: list[dict[str, Any]]) -> dict[str, int]:
     """Count spans by span_type for the intro summary."""
-    by_type: Dict[str, int] = {}
+    by_type: dict[str, int] = {}
     for span in spans:
         st = span["span_type"]
         by_type[st] = by_type.get(st, 0) + 1
@@ -439,8 +438,8 @@ def _print_span_annotation_intro(
     *,
     data_file: Path,
     output_path: Path,
-    all_spans: List[Dict[str, Any]],
-    existing_annotations: Dict[str, SpanAnnotation],
+    all_spans: list[dict[str, Any]],
+    existing_annotations: dict[str, SpanAnnotation],
 ) -> None:
     """Print span annotation session summary."""
     by_type = _summarize_span_types(all_spans)
@@ -459,7 +458,7 @@ def _print_span_annotation_intro(
     print("=" * 70)
 
 
-def _save_span_annotations(output_path: Path, annotations: List[SpanAnnotation]) -> None:
+def _save_span_annotations(output_path: Path, annotations: list[SpanAnnotation]) -> None:
     """Persist span annotations to disk (full rewrite)."""
     with open(output_path, "w", encoding="utf-8") as f:
         for ann in annotations:
@@ -472,7 +471,7 @@ def _append_span_annotation(output_path: Path, ann: SpanAnnotation) -> None:
         f.write(json.dumps(ann.as_dict(), ensure_ascii=False) + "\n")
 
 
-def _display_span_annotation_context(span: Dict[str, Any], idx: int, total: int) -> None:
+def _display_span_annotation_context(span: dict[str, Any], idx: int, total: int) -> None:
     """Display span context before prompting."""
     call = span["call"]
     span_type = span["span_type"]
@@ -542,12 +541,12 @@ def _prompt_span_annotation_values(span_type: str) -> tuple[dict, bool, bool]:
 
 def _build_span_annotation_record(
     *,
-    span: Dict[str, Any],
+    span: dict[str, Any],
     args: argparse.Namespace,
     annotation_values: dict,
 ) -> SpanAnnotation:
     """Build a SpanAnnotation model from collected form values."""
-    from ...annotation import SpanAnnotation, ANNOTATION_SCHEMAS
+    from ...annotation import ANNOTATION_SCHEMAS, SpanAnnotation
 
     call = span["call"]
     span_type = span["span_type"]
@@ -565,11 +564,11 @@ def _build_span_annotation_record(
 
 
 def _handle_single_span_annotation(
-    span: Dict[str, Any],
+    span: dict[str, Any],
     idx: int,
     total: int,
     args: argparse.Namespace,
-) -> tuple[str, Optional[SpanAnnotation]]:
+) -> tuple[str, SpanAnnotation | None]:
     """Run one interactive span annotation step.
 
     Returns:
@@ -649,7 +648,7 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
         existing_annotations=existing_annotations,
     )
 
-    annotations: List[SpanAnnotation] = list(existing_annotations.values())
+    annotations: list[SpanAnnotation] = list(existing_annotations.values())
 
     idx = 0
     total = len(all_spans)
@@ -690,10 +689,10 @@ def _display_annotation_item(
     idx: int,
     total: int,
     item: DatasetItem,
-    eval_results_by_call: Dict[str, Dict[str, Any]],
+    eval_results_by_call: dict[str, dict[str, Any]],
     *,
     show_metric_numbers: bool = False,
-) -> List[tuple]:
+) -> list[tuple]:
     """Display item and return subjective metric tuples (metric_id, passed, reason)."""
     call_id = item.metadata.get("call_id", item.id)
     print(f"\n{'---' * 23}")
@@ -715,7 +714,7 @@ def _display_annotation_item(
     print(f"   {truncate_text(output_text, 500)}")
 
     eval_data = eval_results_by_call.get(call_id, {})
-    subjective_metrics: List[tuple] = []
+    subjective_metrics: list[tuple] = []
     if eval_data:
         print("\nLLM JUDGE RESULTS:")
         metric_num = 1
@@ -747,12 +746,12 @@ def _save_single_annotation(output_path: Path, ann: Annotation) -> bool:
             f.flush()
             os.fsync(f.fileno())
         return True
-    except IOError as e:
+    except OSError as e:
         print(f"Warning: Failed to save annotation: {e}")
         return False
 
 
-def _save_all_annotations_atomic(output_path: Path, annotations: List[Annotation]) -> bool:
+def _save_all_annotations_atomic(output_path: Path, annotations: list[Annotation]) -> bool:
     """Save all annotations atomically for recovery/fallback."""
     import tempfile
 
@@ -772,23 +771,23 @@ def _save_all_annotations_atomic(output_path: Path, annotations: List[Annotation
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
             raise
-    except IOError as e:
+    except OSError as e:
         print(f"Warning: Failed to save annotations: {e}")
         return False
 
 
 def _annotate_per_metric(
     item: DatasetItem,
-    subjective_metrics: List[tuple],
+    subjective_metrics: list[tuple],
     *,
     annotator: str,
     existing_count: int,
-) -> Optional[Annotation]:
+) -> Annotation | None:
     """Per-metric annotation flow."""
     from ...models import Annotation, MetricLabel
 
     call_id = item.metadata.get("call_id", item.id)
-    metric_labels: Dict[str, MetricLabel] = {}
+    metric_labels: dict[str, MetricLabel] = {}
 
     if not subjective_metrics:
         print("No subjective metrics to annotate for this item.")
@@ -870,7 +869,7 @@ def _annotate_simple(
     *,
     annotator: str,
     existing_count: int,
-) -> Optional[Annotation | str]:
+) -> Annotation | str | None:
     """Simple overall pass/fail annotation flow."""
     from ...models import Annotation
 
@@ -920,9 +919,9 @@ def _annotate_simple(
 def run_annotation(
     dataset_dir: str,
     *,
-    output: Optional[str] = None,
+    output: str | None = None,
     per_metric: bool = False,
-    run_id: Optional[str] = None,
+    run_id: str | None = None,
     annotator: str = "human",
     restart: bool = False,
     only_disagreements: bool = False,
@@ -973,7 +972,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
         run = runs[0] if runs else None
 
     # Build eval results lookup by call_id
-    eval_results_by_call: Dict[str, Dict[str, Any]] = {}
+    eval_results_by_call: dict[str, dict[str, Any]] = {}
     if run:
         for result in run.metric_results:
             if result.call_id not in eval_results_by_call:
@@ -988,7 +987,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
     output_path = (
         Path(args.output) if args.output else dataset_dir / "annotations.jsonl"
     )
-    existing_annotations: Dict[str, Annotation] = {}
+    existing_annotations: dict[str, Annotation] = {}
     if output_path.exists() and not args.restart:
         try:
             for line in output_path.read_text(encoding="utf-8").strip().splitlines():
@@ -1017,7 +1016,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
 
     total = len(items_to_annotate)
     annotated_count = len(existing_annotations)
-    annotations: List[Annotation] = list(existing_annotations.values())
+    annotations: list[Annotation] = list(existing_annotations.values())
     new_annotation_count = 0  # Track new annotations for progress display
     per_metric_mode = args.per_metric
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -21,7 +21,7 @@ class ItemChange:
     old_hash: str = ""
     new_hash: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "change_type": self.change_type,
@@ -34,7 +34,7 @@ class ItemChange:
 class DiffResult:
     """Result of diffing two dataset versions."""
 
-    changes: List[ItemChange] = field(default_factory=list)
+    changes: list[ItemChange] = field(default_factory=list)
     added_count: int = 0
     removed_count: int = 0
     modified_count: int = 0
@@ -42,7 +42,7 @@ class DiffResult:
     total_items: int = 0
 
     @property
-    def items_to_evaluate(self) -> List[str]:
+    def items_to_evaluate(self) -> list[str]:
         """Item IDs that need re-evaluation: added + modified."""
         return [
             c.item_id
@@ -50,7 +50,7 @@ class DiffResult:
             if c.change_type in ("added", "modified")
         ]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "changes": [c.as_dict() for c in self.changes],
             "added_count": self.added_count,
@@ -61,7 +61,7 @@ class DiffResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DiffResult":
+    def from_dict(cls, data: dict[str, Any]) -> DiffResult:
         changes = [
             ItemChange(
                 item_id=c["item_id"],
@@ -100,8 +100,8 @@ def hash_item(item_id: str, input_text: str, output_text: str = "") -> str:
 
 
 def compute_diff(
-    old_items: Dict[str, str],
-    new_items: Dict[str, str],
+    old_items: dict[str, str],
+    new_items: dict[str, str],
 ) -> DiffResult:
     """Compare two sets of item_id -> hash. Detect changes.
 
@@ -112,7 +112,7 @@ def compute_diff(
     Returns:
         DiffResult with all changes categorized.
     """
-    changes: List[ItemChange] = []
+    changes: list[ItemChange] = []
     added = 0
     removed = 0
     modified = 0
@@ -154,9 +154,9 @@ def compute_diff(
 
 
 def carry_forward_results(
-    previous_results: List[Dict[str, Any]],
+    previous_results: list[dict[str, Any]],
     diff: DiffResult,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Return results from previous run for unchanged items only.
 
     Filters previous_results to keep only those whose item_id
@@ -169,8 +169,8 @@ def carry_forward_results(
 
 
 def build_differential_plan(
-    old_hashes: Dict[str, str],
-    new_hashes: Dict[str, str],
+    old_hashes: dict[str, str],
+    new_hashes: dict[str, str],
 ) -> DiffResult:
     """Build a plan showing what needs re-evaluation.
 

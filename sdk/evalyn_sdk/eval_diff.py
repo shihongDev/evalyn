@@ -5,8 +5,8 @@ Pure Python, no external dependencies.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -20,7 +20,7 @@ class ItemDiff:
     delta: float
     direction: str  # "improved", "regressed", "unchanged"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "metric_id": self.metric_id,
@@ -31,7 +31,7 @@ class ItemDiff:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ItemDiff:
+    def from_dict(cls, data: dict[str, Any]) -> ItemDiff:
         return cls(
             item_id=data["item_id"],
             metric_id=data["metric_id"],
@@ -48,13 +48,13 @@ class RunDiff:
 
     run_a_id: str
     run_b_id: str
-    item_diffs: List[ItemDiff]
+    item_diffs: list[ItemDiff]
     improved_count: int
     regressed_count: int
     unchanged_count: int
     total_items: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "run_a_id": self.run_a_id,
             "run_b_id": self.run_b_id,
@@ -66,7 +66,7 @@ class RunDiff:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RunDiff:
+    def from_dict(cls, data: dict[str, Any]) -> RunDiff:
         return cls(
             run_a_id=data["run_a_id"],
             run_b_id=data["run_b_id"],
@@ -86,10 +86,10 @@ class TextDiff:
     field: str
     text_a: str
     text_b: str
-    added_words: List[str]
-    removed_words: List[str]
+    added_words: list[str]
+    removed_words: list[str]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "field": self.field,
@@ -100,7 +100,7 @@ class TextDiff:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TextDiff:
+    def from_dict(cls, data: dict[str, Any]) -> TextDiff:
         return cls(
             item_id=data["item_id"],
             field=data.get("field", ""),
@@ -112,8 +112,8 @@ class TextDiff:
 
 
 def compute_score_diff(
-    scores_a: Dict[str, Dict[str, float]],
-    scores_b: Dict[str, Dict[str, float]],
+    scores_a: dict[str, dict[str, float]],
+    scores_b: dict[str, dict[str, float]],
     threshold: float = 0.01,
     run_a_id: str = "run_a",
     run_b_id: str = "run_b",
@@ -123,7 +123,7 @@ def compute_score_diff(
     scores_a/scores_b: {item_id: {metric_id: score}}
     """
     all_items = sorted(set(scores_a.keys()) | set(scores_b.keys()))
-    diffs: List[ItemDiff] = []
+    diffs: list[ItemDiff] = []
     improved = 0
     regressed = 0
     unchanged = 0
@@ -169,11 +169,11 @@ def compute_score_diff(
 
 
 def compute_text_diff(
-    texts_a: Dict[str, str], texts_b: Dict[str, str], field_name: str = "output"
-) -> List[TextDiff]:
+    texts_a: dict[str, str], texts_b: dict[str, str], field_name: str = "output"
+) -> list[TextDiff]:
     """Word-level diff for items present in both sets."""
     common = sorted(set(texts_a.keys()) & set(texts_b.keys()))
-    diffs: List[TextDiff] = []
+    diffs: list[TextDiff] = []
     for item_id in common:
         words_a = set(texts_a[item_id].lower().split())
         words_b = set(texts_b[item_id].lower().split())
@@ -193,12 +193,12 @@ def compute_text_diff(
 
 def filter_diffs(
     run_diff: RunDiff,
-    direction: Optional[str] = None,
-    metric_id: Optional[str] = None,
+    direction: str | None = None,
+    metric_id: str | None = None,
     min_delta: float = 0.0,
-) -> List[ItemDiff]:
+) -> list[ItemDiff]:
     """Filter item diffs by direction, metric, or minimum delta magnitude."""
-    result: List[ItemDiff] = []
+    result: list[ItemDiff] = []
     for d in run_diff.item_diffs:
         if direction and d.direction != direction:
             continue
@@ -212,7 +212,7 @@ def filter_diffs(
 
 def format_score_diff(run_diff: RunDiff) -> str:
     """Human-readable score diff table."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"Diff: {run_diff.run_a_id} -> {run_diff.run_b_id}")
     lines.append(f"Items: {run_diff.total_items}")
     lines.append(
@@ -231,9 +231,9 @@ def format_score_diff(run_diff: RunDiff) -> str:
     return "\n".join(lines)
 
 
-def format_text_diff(diffs: List[TextDiff]) -> str:
+def format_text_diff(diffs: list[TextDiff]) -> str:
     """Human-readable text diff."""
-    lines: List[str] = []
+    lines: list[str] = []
     for d in diffs:
         lines.append(f"Item: {d.item_id} ({d.field})")
         if d.removed_words:
@@ -244,7 +244,7 @@ def format_text_diff(diffs: List[TextDiff]) -> str:
     return "\n".join(lines)
 
 
-def summarize_diff(run_diff: RunDiff) -> Dict[str, Any]:
+def summarize_diff(run_diff: RunDiff) -> dict[str, Any]:
     """Summary stats for a run diff."""
     deltas = [d.delta for d in run_diff.item_diffs]
     mean_delta = sum(deltas) / len(deltas) if deltas else 0.0

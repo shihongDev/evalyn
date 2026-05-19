@@ -7,7 +7,7 @@ without re-running the actual agent/function under test.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -15,12 +15,12 @@ class ReplayConfig:
     """Configuration for replaying an evaluation run."""
 
     original_run_id: str
-    override_provider: Optional[str] = None
-    override_model: Optional[str] = None
-    override_metrics: Optional[List[str]] = None
-    override_prompts: Optional[Dict[str, str]] = None
+    override_provider: str | None = None
+    override_model: str | None = None
+    override_metrics: list[str] | None = None
+    override_prompts: dict[str, str] | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "original_run_id": self.original_run_id,
             "override_provider": self.override_provider,
@@ -30,7 +30,7 @@ class ReplayConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ReplayConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ReplayConfig:
         return cls(
             original_run_id=data["original_run_id"],
             override_provider=data.get("override_provider"),
@@ -45,11 +45,11 @@ class ReplayPlan:
     """Plan showing what will be replayed before execution."""
 
     config: ReplayConfig
-    items_to_replay: List[str]
-    metrics_to_use: List[str]
+    items_to_replay: list[str]
+    metrics_to_use: list[str]
     estimated_calls: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "config": self.config.as_dict(),
             "items_to_replay": list(self.items_to_replay),
@@ -86,7 +86,7 @@ class ReplayComparison:
     replayed_score: float
     delta: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "metric_id": self.metric_id,
@@ -100,13 +100,13 @@ class ReplayComparison:
 class ReplayReport:
     """Aggregate report comparing original and replayed evaluation results."""
 
-    comparisons: List[ReplayComparison] = field(default_factory=list)
+    comparisons: list[ReplayComparison] = field(default_factory=list)
     improved_count: int = 0
     degraded_count: int = 0
     unchanged_count: int = 0
     mean_delta: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "comparisons": [c.as_dict() for c in self.comparisons],
             "improved_count": self.improved_count,
@@ -116,7 +116,7 @@ class ReplayReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ReplayReport:
+    def from_dict(cls, data: dict[str, Any]) -> ReplayReport:
         comparisons = [
             ReplayComparison(**c) for c in data.get("comparisons", [])
         ]
@@ -144,8 +144,8 @@ class ReplayReport:
 
 def build_replay_plan(
     config: ReplayConfig,
-    original_items: List[str],
-    original_metrics: List[str],
+    original_items: list[str],
+    original_metrics: list[str],
 ) -> ReplayPlan:
     """Build a plan showing what will be replayed.
 
@@ -163,8 +163,8 @@ def build_replay_plan(
 
 
 def compare_replay_results(
-    original_results: List[Dict[str, Any]],
-    replayed_results: List[Dict[str, Any]],
+    original_results: list[dict[str, Any]],
+    replayed_results: list[dict[str, Any]],
     threshold: float = 0.01,
 ) -> ReplayReport:
     """Compare original vs replayed scores.
@@ -175,12 +175,12 @@ def compare_replay_results(
     Unchanged: abs(delta) <= threshold.
     """
     # Build lookup for replayed results
-    replayed_lookup: Dict[tuple, float] = {}
+    replayed_lookup: dict[tuple, float] = {}
     for r in replayed_results:
         key = (r["item_id"], r["metric_id"])
         replayed_lookup[key] = r["score"]
 
-    comparisons: List[ReplayComparison] = []
+    comparisons: list[ReplayComparison] = []
     improved = 0
     degraded = 0
     unchanged = 0
@@ -219,7 +219,7 @@ def compare_replay_results(
     )
 
 
-def summarize_replay(report: ReplayReport) -> Dict[str, Any]:
+def summarize_replay(report: ReplayReport) -> dict[str, Any]:
     """Summary stats from a replay report."""
     return {
         "total_comparisons": len(report.comparisons),

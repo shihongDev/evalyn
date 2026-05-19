@@ -11,12 +11,11 @@ Supports annotating:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
-from typing import Any, Dict, List, Optional, Literal
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
+from typing import Any, Literal
 
 from ..models import now_utc
-
 
 # Annotation span types (distinct from models.SpanType which covers execution spans)
 AnnotationSpanType = Literal[
@@ -28,18 +27,18 @@ AnnotationSpanType = Literal[
 class LLMCallAnnotation:
     """Annotation schema for LLM API calls."""
 
-    quality: Optional[int] = None  # 1-5 scale
-    accurate: Optional[bool] = None  # Is the response factually correct?
-    relevant: Optional[bool] = None  # Does it address the query?
-    hallucinated: Optional[bool] = None  # Contains made-up information?
-    helpful: Optional[bool] = None  # Is it useful to the user?
+    quality: int | None = None  # 1-5 scale
+    accurate: bool | None = None  # Is the response factually correct?
+    relevant: bool | None = None  # Does it address the query?
+    hallucinated: bool | None = None  # Contains made-up information?
+    helpful: bool | None = None  # Is it useful to the user?
     notes: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "LLMCallAnnotation":
+    def from_dict(cls, data: dict[str, Any]) -> LLMCallAnnotation:
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
@@ -47,17 +46,17 @@ class LLMCallAnnotation:
 class ToolCallAnnotation:
     """Annotation schema for tool/function calls."""
 
-    correct_tool: Optional[bool] = None  # Was the right tool chosen?
-    correct_args: Optional[bool] = None  # Were the arguments correct?
-    successful: Optional[bool] = None  # Did the tool succeed?
-    necessary: Optional[bool] = None  # Was the tool call needed?
+    correct_tool: bool | None = None  # Was the right tool chosen?
+    correct_args: bool | None = None  # Were the arguments correct?
+    successful: bool | None = None  # Did the tool succeed?
+    necessary: bool | None = None  # Was the tool call needed?
     notes: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ToolCallAnnotation":
+    def from_dict(cls, data: dict[str, Any]) -> ToolCallAnnotation:
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
@@ -65,17 +64,17 @@ class ToolCallAnnotation:
 class ReasoningAnnotation:
     """Annotation schema for reasoning/thinking steps."""
 
-    logical: Optional[bool] = None  # Is the reasoning logical?
-    coherent: Optional[bool] = None  # Does it flow well?
-    complete: Optional[bool] = None  # Are all steps present?
-    correct: Optional[bool] = None  # Is the conclusion right?
+    logical: bool | None = None  # Is the reasoning logical?
+    coherent: bool | None = None  # Does it flow well?
+    complete: bool | None = None  # Are all steps present?
+    correct: bool | None = None  # Is the conclusion right?
     notes: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ReasoningAnnotation":
+    def from_dict(cls, data: dict[str, Any]) -> ReasoningAnnotation:
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
@@ -83,16 +82,16 @@ class ReasoningAnnotation:
 class RetrievalAnnotation:
     """Annotation schema for RAG retrieval steps."""
 
-    relevant: Optional[bool] = None  # Are retrieved docs relevant?
-    sufficient: Optional[bool] = None  # Enough context retrieved?
-    accurate: Optional[bool] = None  # Is the retrieved info correct?
+    relevant: bool | None = None  # Are retrieved docs relevant?
+    sufficient: bool | None = None  # Enough context retrieved?
+    accurate: bool | None = None  # Is the retrieved info correct?
     notes: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "RetrievalAnnotation":
+    def from_dict(cls, data: dict[str, Any]) -> RetrievalAnnotation:
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
@@ -100,15 +99,15 @@ class RetrievalAnnotation:
 class OverallAnnotation:
     """Annotation schema for overall result (backwards compatible)."""
 
-    passed: Optional[bool] = None
-    confidence: Optional[int] = None  # 1-5
+    passed: bool | None = None
+    confidence: int | None = None  # 1-5
     notes: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "OverallAnnotation":
+    def from_dict(cls, data: dict[str, Any]) -> OverallAnnotation:
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
@@ -152,7 +151,7 @@ class SpanAnnotation:
     annotator: str = "human"
     created_at: datetime = field(default_factory=now_utc)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "call_id": self.call_id,
@@ -164,7 +163,7 @@ class SpanAnnotation:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SpanAnnotation":
+    def from_dict(cls, data: dict[str, Any]) -> SpanAnnotation:
         span_type = data.get("span_type", "overall")
         schema_cls = ANNOTATION_SCHEMAS.get(span_type, OverallAnnotation)
         annotation = schema_cls.from_dict(data.get("annotation", {}))
@@ -184,7 +183,7 @@ class SpanAnnotation:
         )
 
 
-def extract_spans_from_trace(call) -> List[Dict[str, Any]]:
+def extract_spans_from_trace(call) -> list[dict[str, Any]]:
     """
     Extract annotatable spans from a FunctionCall's trace events.
 
@@ -254,7 +253,7 @@ def extract_spans_from_trace(call) -> List[Dict[str, Any]]:
     return spans
 
 
-def get_annotation_prompts(span_type: AnnotationSpanType) -> List[Dict[str, Any]]:
+def get_annotation_prompts(span_type: AnnotationSpanType) -> list[dict[str, Any]]:
     """
     Get the annotation prompts for a given span type.
 

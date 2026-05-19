@@ -7,7 +7,7 @@ into concrete run-pair comparison requests.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -17,14 +17,14 @@ class CompareMode:
     mode: str
     description: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "mode": self.mode,
             "description": self.description,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CompareMode:
+    def from_dict(cls, data: dict[str, Any]) -> CompareMode:
         return cls(
             mode=data["mode"],
             description=data["description"],
@@ -40,7 +40,7 @@ class CompareRequest:
     mode: str
     resolved: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "run_a_id": self.run_a_id,
             "run_b_id": self.run_b_id,
@@ -49,7 +49,7 @@ class CompareRequest:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CompareRequest:
+    def from_dict(cls, data: dict[str, Any]) -> CompareRequest:
         return cls(
             run_a_id=data["run_a_id"],
             run_b_id=data["run_b_id"],
@@ -58,7 +58,7 @@ class CompareRequest:
         )
 
 
-COMPARE_MODES: Dict[str, CompareMode] = {
+COMPARE_MODES: dict[str, CompareMode] = {
     "last_2": CompareMode(
         mode="last_2",
         description="Compare the two most recent runs",
@@ -74,7 +74,7 @@ COMPARE_MODES: Dict[str, CompareMode] = {
 }
 
 
-def list_modes() -> List[CompareMode]:
+def list_modes() -> list[CompareMode]:
     """Return all available comparison modes."""
     return list(COMPARE_MODES.values())
 

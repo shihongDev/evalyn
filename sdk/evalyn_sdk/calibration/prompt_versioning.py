@@ -11,8 +11,7 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -43,9 +42,9 @@ class PromptVersion:
     prompt_hash: str = ""
     created_at: str = ""
     notes: str = ""
-    alignment_score: Optional[float] = None
+    alignment_score: float | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "version": self.version,
             "prompt_text": self.prompt_text,
@@ -56,7 +55,7 @@ class PromptVersion:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PromptVersion:
+    def from_dict(cls, data: dict[str, Any]) -> PromptVersion:
         return cls(
             version=data["version"],
             prompt_text=data["prompt_text"],
@@ -72,10 +71,10 @@ class PromptHistory:
     """Version history for a single metric's judge prompt."""
 
     metric_id: str
-    versions: List[PromptVersion] = field(default_factory=list)
+    versions: list[PromptVersion] = field(default_factory=list)
 
     @property
-    def current(self) -> Optional[PromptVersion]:
+    def current(self) -> PromptVersion | None:
         """Latest version, or None if no versions exist."""
         if not self.versions:
             return None
@@ -85,21 +84,21 @@ class PromptHistory:
     def count(self) -> int:
         return len(self.versions)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "versions": [v.as_dict() for v in self.versions],
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PromptHistory:
+    def from_dict(cls, data: dict[str, Any]) -> PromptHistory:
         return cls(
             metric_id=data["metric_id"],
             versions=[PromptVersion.from_dict(v) for v in data.get("versions", [])],
         )
 
     def format_text(self) -> str:
-        lines: List[str] = [f"Prompt history for {self.metric_id} ({self.count} versions)"]
+        lines: list[str] = [f"Prompt history for {self.metric_id} ({self.count} versions)"]
         for v in self.versions:
             score_part = f"  score={v.alignment_score}" if v.alignment_score is not None else ""
             notes_part = f"  - {v.notes}" if v.notes else ""
@@ -116,7 +115,7 @@ class PromptVersionStore:
     """In-memory store that tracks prompt versions for multiple metrics."""
 
     def __init__(self) -> None:
-        self._histories: Dict[str, PromptHistory] = {}
+        self._histories: dict[str, PromptHistory] = {}
 
     # -- mutations ----------------------------------------------------------
 
@@ -125,7 +124,7 @@ class PromptVersionStore:
         metric_id: str,
         prompt_text: str,
         notes: str = "",
-        alignment_score: Optional[float] = None,
+        alignment_score: float | None = None,
     ) -> PromptVersion:
         """Add a new version for *metric_id* with auto-incrementing version number."""
         history = self.get_history(metric_id)
@@ -149,11 +148,11 @@ class PromptVersionStore:
             self._histories[metric_id] = PromptHistory(metric_id=metric_id)
         return self._histories[metric_id]
 
-    def get_current(self, metric_id: str) -> Optional[PromptVersion]:
+    def get_current(self, metric_id: str) -> PromptVersion | None:
         """Return the latest version for *metric_id*, or None."""
         return self.get_history(metric_id).current
 
-    def get_version(self, metric_id: str, version: int) -> Optional[PromptVersion]:
+    def get_version(self, metric_id: str, version: int) -> PromptVersion | None:
         """Return a specific version, or None if it does not exist."""
         for v in self.get_history(metric_id).versions:
             if v.version == version:
@@ -176,19 +175,19 @@ class PromptVersionStore:
             )
         )
 
-    def list_metrics(self) -> List[str]:
+    def list_metrics(self) -> list[str]:
         """Return all tracked metric IDs."""
         return sorted(self._histories.keys())
 
     # -- serialisation ------------------------------------------------------
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "histories": {mid: h.as_dict() for mid, h in self._histories.items()},
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PromptVersionStore:
+    def from_dict(cls, data: dict[str, Any]) -> PromptVersionStore:
         store = cls()
         for _mid, h_data in data.get("histories", {}).items():
             history = PromptHistory.from_dict(h_data)

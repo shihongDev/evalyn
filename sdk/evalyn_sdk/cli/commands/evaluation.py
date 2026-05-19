@@ -41,37 +41,38 @@ import argparse
 import json
 import os
 import re
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
-
-from dataclasses import dataclass, field
+from typing import Any
 
 from ..constants import BUNDLES
-from ..utils.config import load_config, get_config_default, resolve_dataset_path
+from ..utils.config import get_config_default, load_config, resolve_dataset_path
+from ..utils.dataset_utils import (
+    ProgressBar,
+    _dataset_has_reference,
+    _extract_code_meta,
+    _resolve_dataset_and_metrics,
+)
 from ..utils.errors import fatal_error
 from ..utils.formatters import print_token_usage_summary
 from ..utils.hints import HintCollector
 from ..utils.loaders import _load_callable
-from ..utils.rich import banner, icon, kv, section, table as rich_table
+from ..utils.rich import banner, icon, kv, section
+from ..utils.rich import table as rich_table
 from ..utils.validation import check_llm_api_keys
-from ..utils.dataset_utils import (
-    ProgressBar,
-    _resolve_dataset_and_metrics,
-    _dataset_has_reference,
-    _extract_code_meta,
-)
 
 
 def _save_suggested_metrics(
-    specs: List[MetricSpec],
-    dataset_path: Optional[Path],
-    metrics_name: Optional[str],
+    specs: list[MetricSpec],
+    dataset_path: Path | None,
+    metrics_name: str | None,
     append: bool,
     selected_mode: str,
     output_format: str,
     quiet: bool,
-) -> Optional[Path]:
+) -> Path | None:
     """Save suggested metrics to dataset's metrics directory.
 
     Args:
@@ -105,7 +106,7 @@ def _save_suggested_metrics(
     )
 
     # Handle --append: merge with existing metrics
-    existing_metrics: List[dict] = []
+    existing_metrics: list[dict] = []
     if append and metrics_file.exists():
         try:
             existing_metrics = json.loads(metrics_file.read_text(encoding="utf-8"))
@@ -235,7 +236,7 @@ def _resolve_run_eval_inputs(
     args: argparse.Namespace,
     output_format: str,
     config: dict,
-) -> tuple[Path, List[Any], Dict[str, dict], List[Path]]:
+) -> tuple[Path, list[Any], dict[str, dict], list[Path]]:
     """Resolve dataset and load merged metric specs for run-eval."""
     from ...datasets import load_dataset
 
@@ -256,8 +257,8 @@ def _resolve_run_eval_inputs(
 
     dataset_list = list(load_dataset(str(dataset_file)))
 
-    all_metrics_data: Dict[str, dict] = {}
-    duplicate_ids: List[str] = []
+    all_metrics_data: dict[str, dict] = {}
+    duplicate_ids: list[str] = []
     for metrics_path in metrics_paths:
         try:
             file_data = json.loads(metrics_path.read_text(encoding="utf-8"))
@@ -297,7 +298,7 @@ def _resolve_run_eval_inputs(
     return dataset_file, dataset_list, all_metrics_data, metrics_paths
 
 
-def _parse_unit_types(args: argparse.Namespace) -> Optional[List[str]]:
+def _parse_unit_types(args: argparse.Namespace) -> list[str] | None:
     """Parse and validate --unit-types."""
     unit_types_raw = getattr(args, "unit_types", None)
     if not unit_types_raw:
@@ -318,14 +319,14 @@ def _parse_unit_types(args: argparse.Namespace) -> Optional[List[str]]:
 class EvalMetricsConfig:
     """Configuration and metrics built for an evaluation run."""
 
-    metrics: List[Any] = field(default_factory=list)
+    metrics: list[Any] = field(default_factory=list)
     objective_count: int = 0
     subjective_count: int = 0
     calibrated_count: int = 0
     provider: str = "gemini"
     confidence_method: str = "none"
     confidence_samples: int = 3
-    unit_types: Optional[List[str]] = None
+    unit_types: list[str] | None = None
 
 
 def _build_run_eval_metrics(
@@ -333,14 +334,14 @@ def _build_run_eval_metrics(
     output_format: str,
     config: dict,
     dataset_dir: Path,
-    all_metrics_data: Dict[str, dict],
+    all_metrics_data: dict[str, dict],
 ) -> EvalMetricsConfig:
     """Build metric instances and return counters/settings."""
     from ...calibration import load_optimized_prompt
     from ...metrics.factory import build_objective_metric, build_subjective_metric
     from ...models import MetricSpec
 
-    metrics: List[Any] = []
+    metrics: list[Any] = []
     objective_count = 0
     subjective_count = 0
     calibrated_count = 0
@@ -454,10 +455,10 @@ def _execute_run_eval(
     output_format: str,
     dataset_file: Path,
     dataset_dir: Path,
-    dataset_list: List[Any],
-    metrics: List[Any],
+    dataset_list: list[Any],
+    metrics: list[Any],
     subjective_count: int,
-    unit_types: Optional[List[str]],
+    unit_types: list[str] | None,
 ):
     """Execute evaluation in standard or batch mode."""
     from ...decorators import get_default_tracer
@@ -484,7 +485,7 @@ def _execute_run_eval(
         print("Note: --batch only applies to subjective metrics. No subjective metrics found; ignoring --batch.")
 
     if use_batch and subjective_count > 0:
-        from ...evaluation.batch import BatchEvaluator, BatchEvalProgress
+        from ...evaluation.batch import BatchEvalProgress, BatchEvaluator
         from ...models import EvalRun
 
         batch_provider = getattr(args, "batch_provider", "gemini")
@@ -616,18 +617,20 @@ def _save_eval_run_and_report(
     run: Any,
     output_format: str,
     dataset_dir: Path,
-    dataset_list: List[Any],
-) -> tuple[Path, Path, Optional[Path], Optional[Any]]:
+    dataset_list: list[Any],
+) -> tuple[Path, Path, Path | None, Any | None]:
     """Persist run and generate HTML report.
 
     Returns (run_folder, results_path, report_path, run_analysis).
     run_analysis is the RunAnalysis object if analysis succeeded, else None.
     """
-    from ...evaluation.runner import save_eval_run_json
     from ...analysis import (
         analyze_run as analyze_run_data,
+    )
+    from ...analysis import (
         generate_html_report,
     )
+    from ...evaluation.runner import save_eval_run_json
 
     run_data = run.as_dict()  # serialize once, reuse for both file and analysis
     run_folder = save_eval_run_json(run, dataset_dir, _precomputed_dict=run_data)
@@ -660,8 +663,8 @@ def _render_run_eval_output(
     run: Any,
     run_folder: Path,
     results_path: Path,
-    report_path: Optional[Path],
-    metrics: List[Any],
+    report_path: Path | None,
+    metrics: list[Any],
 ) -> None:
     """Render run-eval output in JSON or table format."""
     if output_format == "json":
@@ -699,7 +702,7 @@ def _render_run_eval_output(
     print()
 
     metric_types = {m.spec.id: m.spec.type for m in metrics}
-    api_errors_by_metric: Dict[str, int] = {}
+    api_errors_by_metric: dict[str, int] = {}
     for result in run.metric_results:
         if result.details and isinstance(result.details, dict):
             reason = result.details.get("reason") or ""
@@ -778,7 +781,7 @@ def _render_run_eval_output(
 def _run_auto_insights(
     run_analysis: Any,
     dataset_dir: Path,
-    dataset_list: List[Any],
+    dataset_list: list[Any],
     results_path: Path,
 ) -> None:
     """Run lightweight deterministic insights after an eval and print a summary.
@@ -791,16 +794,18 @@ def _run_auto_insights(
     - Deep (dataset <= 500 items): metric correlations, input feature analysis
     """
     from ...analysis import (
+        analyze_run as analyze_run_data,
+    )
+    from ...analysis import (
         find_eval_runs,
         load_eval_run,
-        analyze_run as analyze_run_data,
     )
     from ...analysis.insights import (
         InsightsReport,
-        compute_metric_correlations,
-        detect_regressions,
         analyze_input_features,
         analyze_score_distributions,
+        compute_metric_correlations,
+        detect_regressions,
         generate_recommendations,
     )
 
@@ -867,7 +872,7 @@ def _run_auto_insights(
         try:
             dataset_dicts = []
             for item in dataset_list:
-                d: Dict[str, Any] = {"id": item.id}
+                d: dict[str, Any] = {"id": item.id}
                 for field in ("input", "inputs", "output", "expected"):
                     val = getattr(item, field, None)
                     if val is not None:
@@ -1125,9 +1130,9 @@ def _validate_suggest_metrics_args(args: argparse.Namespace) -> None:
 
 def _resolve_suggest_metrics_dataset_path(
     args: argparse.Namespace, config: dict, output_format: str
-) -> Optional[Path]:
+) -> Path | None:
     """Resolve and validate optional dataset path for metric suggestion."""
-    dataset_path_obj: Optional[Path] = None
+    dataset_path_obj: Path | None = None
     use_latest = getattr(args, "latest", False)
 
     if args.dataset or use_latest:
@@ -1164,7 +1169,7 @@ def _resolve_suggest_metrics_dataset_path(
 
 
 def _print_reference_note_if_needed(
-    dataset_path_obj: Optional[Path], has_reference: bool, output_format: str
+    dataset_path_obj: Path | None, has_reference: bool, output_format: str
 ) -> None:
     """Print dataset reference-value note when relevant."""
     if dataset_path_obj and not has_reference and output_format != "json":
@@ -1175,7 +1180,7 @@ def _print_reference_note_if_needed(
 
 def _load_suggest_metrics_context(
     args: argparse.Namespace, tracer, output_format: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Load traces and target function context from project or target input."""
     if args.project:
         return _load_suggest_metrics_project_context(args, tracer, output_format)
@@ -1184,7 +1189,7 @@ def _load_suggest_metrics_context(
 
 def _load_suggest_metrics_project_context(
     args: argparse.Namespace, tracer, output_format: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Load trace context for project-based suggestion."""
     if not tracer.storage:
         fatal_error("No storage configured", "Cannot load project traces")
@@ -1227,7 +1232,7 @@ def _load_suggest_metrics_project_context(
     }
 
 
-def _load_suggest_metrics_target_context(args: argparse.Namespace, tracer) -> Dict[str, Any]:
+def _load_suggest_metrics_target_context(args: argparse.Namespace, tracer) -> dict[str, Any]:
     """Load direct callable and optional recent traces for target-based suggestion."""
     target_fn = _load_callable(args.target)
     return {
@@ -1240,7 +1245,7 @@ def _load_suggest_metrics_target_context(args: argparse.Namespace, tracer) -> Di
 
 
 def _select_metric_suggestion_mode(
-    requested_mode: str, metric_mode_hint: Optional[str]
+    requested_mode: str, metric_mode_hint: str | None
 ) -> str:
     """Resolve final metric suggestion mode including decorator hints."""
     if requested_mode != "auto":
@@ -1249,8 +1254,8 @@ def _select_metric_suggestion_mode(
 
 
 def _normalize_suggest_metrics_limit(
-    selected_mode: str, requested_limit: Optional[int]
-) -> Optional[int]:
+    selected_mode: str, requested_limit: int | None
+) -> int | None:
     """Normalize metric limit defaults by mode."""
     max_metrics = requested_limit
     if selected_mode == "bundle" and max_metrics == 5:
@@ -1258,7 +1263,7 @@ def _normalize_suggest_metrics_limit(
     return max_metrics
 
 
-def _resolve_scope_filter(args: argparse.Namespace, output_format: str) -> Optional[str]:
+def _resolve_scope_filter(args: argparse.Namespace, output_format: str) -> str | None:
     """Resolve scope filter string and print context note."""
     scope_raw = getattr(args, "scope", "all")
     scope_filter = None if scope_raw == "all" else scope_raw
@@ -1267,7 +1272,7 @@ def _resolve_scope_filter(args: argparse.Namespace, output_format: str) -> Optio
     return scope_filter
 
 
-def _filter_metric_templates_by_scope(templates: list, scope_filter: Optional[str]) -> list:
+def _filter_metric_templates_by_scope(templates: list, scope_filter: str | None) -> list:
     """Filter metric templates by scope."""
     if not scope_filter:
         return templates
@@ -1284,7 +1289,7 @@ def _print_suggested_metric_spec(spec: MetricSpec, output_format: str) -> None:
 
 
 def _print_suggest_metrics_json(
-    specs: List[MetricSpec], saved_path: Optional[Path] = None
+    specs: list[MetricSpec], saved_path: Path | None = None
 ) -> None:
     """Print JSON output for suggested metrics."""
     result = {
@@ -1307,9 +1312,9 @@ def _print_suggest_metrics_json(
 
 def _finalize_suggest_metrics_output(
     *,
-    specs: List[MetricSpec],
-    max_metrics: Optional[int],
-    dataset_path_obj: Optional[Path],
+    specs: list[MetricSpec],
+    max_metrics: int | None,
+    dataset_path_obj: Path | None,
     args: argparse.Namespace,
     selected_mode: str,
     output_format: str,
@@ -1344,11 +1349,11 @@ def _print_suggest_metrics_empty_brainstorm(output_format: str) -> None:
 def _run_suggest_metrics_bundle_mode(
     *,
     args: argparse.Namespace,
-    bundle_name: Optional[str],
+    bundle_name: str | None,
     has_reference: bool,
-    scope_filter: Optional[str],
-    max_metrics: Optional[int],
-    dataset_path_obj: Optional[Path],
+    scope_filter: str | None,
+    max_metrics: int | None,
+    dataset_path_obj: Path | None,
     output_format: str,
 ) -> None:
     """Handle bundle-based metric suggestion mode."""
@@ -1381,7 +1386,7 @@ def _run_suggest_metrics_bundle_mode(
         OBJECTIVE_REGISTRY + SUBJECTIVE_REGISTRY, scope_filter
     )
     tpl_map = {t["id"]: t for t in all_templates}
-    specs: List[MetricSpec] = []
+    specs: list[MetricSpec] = []
     skipped_ref_metrics = []
 
     for mid in ids:
@@ -1413,8 +1418,8 @@ def _run_suggest_metrics_basic_mode(
     target_fn: Callable,
     traces: list,
     has_reference: bool,
-    scope_filter: Optional[str],
-) -> List[MetricSpec]:
+    scope_filter: str | None,
+) -> list[MetricSpec]:
     """Handle heuristic/basic metric suggestion mode."""
     from ...metrics.objective import OBJECTIVE_REGISTRY
     from ...metrics.subjective import SUBJECTIVE_REGISTRY

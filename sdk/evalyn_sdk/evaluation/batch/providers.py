@@ -19,7 +19,7 @@ import urllib.request
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class BatchJob:
     total_requests: int
     completed_requests: int = 0
     failed_requests: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def is_complete(self) -> bool:
         return self.status in ("completed", "failed", "cancelled", "expired")
@@ -55,9 +55,9 @@ class BatchResult:
 
     custom_id: str
     success: bool
-    response: Optional[str] = None
-    error: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    response: str | None = None
+    error: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 # =============================================================================
@@ -71,7 +71,7 @@ class BatchProvider(ABC):
     def __init__(
         self,
         model: str,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         timeout: int = 60,
     ):
         self.model = model
@@ -92,8 +92,8 @@ class BatchProvider(ABC):
     @abstractmethod
     def submit(
         self,
-        requests: List[Dict[str, Any]],
-        description: Optional[str] = None,
+        requests: list[dict[str, Any]],
+        description: str | None = None,
     ) -> BatchJob:
         """Submit a batch of requests.
 
@@ -112,7 +112,7 @@ class BatchProvider(ABC):
         pass
 
     @abstractmethod
-    def get_results(self, job_id: str) -> List[BatchResult]:
+    def get_results(self, job_id: str) -> list[BatchResult]:
         """Get results from a completed batch job."""
         pass
 
@@ -125,8 +125,8 @@ class BatchProvider(ABC):
         self,
         job_id: str,
         poll_interval: float = 30.0,
-        timeout: Optional[float] = None,
-        progress_callback: Optional[callable] = None,
+        timeout: float | None = None,
+        progress_callback: callable | None = None,
     ) -> BatchJob:
         """Wait for a batch job to complete.
 
@@ -179,11 +179,11 @@ class GeminiBatchProvider(BatchProvider):
     def __init__(
         self,
         model: str = "gemini-2.5-flash-lite",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         timeout: int = 120,
     ):
         super().__init__(model=model, api_key=api_key, timeout=timeout)
-        self._pending_jobs: Dict[str, Dict] = {}  # In-memory job tracking
+        self._pending_jobs: dict[str, dict] = {}  # In-memory job tracking
 
     @property
     def provider_name(self) -> str:
@@ -199,8 +199,8 @@ class GeminiBatchProvider(BatchProvider):
 
     def submit(
         self,
-        requests: List[Dict[str, Any]],
-        description: Optional[str] = None,
+        requests: list[dict[str, Any]],
+        description: str | None = None,
     ) -> BatchJob:
         """Submit batch using Gemini's batchGenerateContent API.
 
@@ -276,7 +276,7 @@ class GeminiBatchProvider(BatchProvider):
             completed_requests=len(job_data["requests"]),
         )
 
-    def get_results(self, job_id: str) -> List[BatchResult]:
+    def get_results(self, job_id: str) -> list[BatchResult]:
         """Get results from completed batch."""
         if job_id not in self._pending_jobs:
             raise ValueError(f"Unknown job ID: {job_id}")
@@ -354,7 +354,7 @@ class OpenAIBatchProvider(BatchProvider):
     def __init__(
         self,
         model: str = "gpt-4o-mini",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         timeout: int = 60,
     ):
         super().__init__(model=model, api_key=api_key, timeout=timeout)
@@ -373,9 +373,9 @@ class OpenAIBatchProvider(BatchProvider):
         self,
         method: str,
         endpoint: str,
-        data: Optional[bytes] = None,
-        headers: Optional[Dict] = None,
-    ) -> Dict:
+        data: bytes | None = None,
+        headers: dict | None = None,
+    ) -> dict:
         """Make API request to OpenAI."""
         api_key = self._get_api_key()
         url = f"{self.BASE_URL}/{endpoint}"
@@ -403,8 +403,8 @@ class OpenAIBatchProvider(BatchProvider):
 
     def submit(
         self,
-        requests: List[Dict[str, Any]],
-        description: Optional[str] = None,
+        requests: list[dict[str, Any]],
+        description: str | None = None,
     ) -> BatchJob:
         """Submit batch to OpenAI Batch API."""
         # Step 1: Create JSONL content
@@ -516,7 +516,7 @@ class OpenAIBatchProvider(BatchProvider):
             },
         )
 
-    def get_results(self, job_id: str) -> List[BatchResult]:
+    def get_results(self, job_id: str) -> list[BatchResult]:
         """Get results from completed batch."""
         job = self.get_status(job_id)
 
@@ -611,7 +611,7 @@ class AnthropicBatchProvider(BatchProvider):
     def __init__(
         self,
         model: str = "claude-3-5-haiku-latest",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         timeout: int = 60,
     ):
         super().__init__(model=model, api_key=api_key, timeout=timeout)
@@ -630,8 +630,8 @@ class AnthropicBatchProvider(BatchProvider):
         self,
         method: str,
         endpoint: str,
-        data: Optional[bytes] = None,
-    ) -> Dict:
+        data: bytes | None = None,
+    ) -> dict:
         """Make API request to Anthropic."""
         api_key = self._get_api_key()
         url = f"{self.BASE_URL}/{endpoint}"
@@ -659,8 +659,8 @@ class AnthropicBatchProvider(BatchProvider):
 
     def submit(
         self,
-        requests: List[Dict[str, Any]],
-        description: Optional[str] = None,
+        requests: list[dict[str, Any]],
+        description: str | None = None,
     ) -> BatchJob:
         """Submit batch to Anthropic Message Batches API."""
         batch_requests = []
@@ -732,7 +732,7 @@ class AnthropicBatchProvider(BatchProvider):
             metadata={"results_url": response.get("results_url")},
         )
 
-    def get_results(self, job_id: str) -> List[BatchResult]:
+    def get_results(self, job_id: str) -> list[BatchResult]:
         """Get results from completed batch."""
         job = self.get_status(job_id)
 
@@ -817,8 +817,8 @@ class AnthropicBatchProvider(BatchProvider):
 
 def create_batch_provider(
     provider: str,
-    model: Optional[str] = None,
-    api_key: Optional[str] = None,
+    model: str | None = None,
+    api_key: str | None = None,
 ) -> BatchProvider:
     """Create a batch provider instance.
 

@@ -34,7 +34,7 @@ import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -87,7 +87,7 @@ def _resolve_threads_dir() -> Path:
         Path.cwd() / ".evalyn" / "threads",
         Path.home() / ".evalyn" / "threads",
     ]
-    last_err: Optional[Exception] = None
+    last_err: Exception | None = None
     for candidate in candidates:
         try:
             candidate.mkdir(parents=True, exist_ok=True)

@@ -10,8 +10,7 @@ from __future__ import annotations
 import csv
 import json
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -29,7 +28,7 @@ class ImportConfig:
     id_column: str = "id"
     delimiter: str = ","
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "format": self.format,
             "file_path": self.file_path,
@@ -40,7 +39,7 @@ class ImportConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ImportConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ImportConfig:
         return cls(
             format=data["format"],
             file_path=data.get("file_path", ""),
@@ -58,10 +57,10 @@ class ImportedItem:
     id: str
     input_text: str
     output_text: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     source_format: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "input_text": self.input_text,
@@ -71,7 +70,7 @@ class ImportedItem:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ImportedItem:
+    def from_dict(cls, data: dict[str, Any]) -> ImportedItem:
         return cls(
             id=data["id"],
             input_text=data["input_text"],
@@ -85,13 +84,13 @@ class ImportedItem:
 class ImportResult:
     """Outcome of an import operation."""
 
-    items: List[ImportedItem] = field(default_factory=list)
+    items: list[ImportedItem] = field(default_factory=list)
     total_imported: int = 0
     skipped: int = 0
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     source_format: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "items": [it.as_dict() for it in self.items],
             "total_imported": self.total_imported,
@@ -101,7 +100,7 @@ class ImportResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ImportResult:
+    def from_dict(cls, data: dict[str, Any]) -> ImportResult:
         return cls(
             items=[ImportedItem.from_dict(d) for d in data.get("items", [])],
             total_imported=data.get("total_imported", 0),
@@ -132,13 +131,13 @@ class ImportResult:
 
 def import_from_csv(file_path: str, config: ImportConfig) -> ImportResult:
     """Read a CSV file and map columns according to config."""
-    items: List[ImportedItem] = []
-    errors: List[str] = []
+    items: list[ImportedItem] = []
+    errors: list[str] = []
     skipped = 0
     row_num = 0
 
     try:
-        with open(file_path, "r", encoding="utf-8", newline="") as f:
+        with open(file_path, encoding="utf-8", newline="") as f:
             reader = csv.DictReader(f, delimiter=config.delimiter)
             for row_num, row in enumerate(reader, start=1):
                 input_val = row.get(config.input_column, "")
@@ -179,12 +178,12 @@ def import_from_csv(file_path: str, config: ImportConfig) -> ImportResult:
 
 def import_from_jsonl(file_path: str, config: ImportConfig) -> ImportResult:
     """Read a JSONL file line by line, mapping fields via config."""
-    items: List[ImportedItem] = []
-    errors: List[str] = []
+    items: list[ImportedItem] = []
+    errors: list[str] = []
     skipped = 0
 
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             for line_num, line in enumerate(f, start=1):
                 line = line.strip()
                 if not line:
@@ -233,11 +232,11 @@ def import_from_jsonl(file_path: str, config: ImportConfig) -> ImportResult:
 
 
 def import_from_dict_list(
-    records: List[Dict[str, Any]], config: ImportConfig
+    records: list[dict[str, Any]], config: ImportConfig
 ) -> ImportResult:
     """Import from a list of in-memory dicts."""
-    items: List[ImportedItem] = []
-    errors: List[str] = []
+    items: list[ImportedItem] = []
+    errors: list[str] = []
     skipped = 0
 
     for idx, record in enumerate(records):
@@ -285,9 +284,9 @@ def detect_format(file_path: str) -> str:
     return "unknown"
 
 
-def validate_import(result: ImportResult) -> Tuple[bool, List[str]]:
+def validate_import(result: ImportResult) -> tuple[bool, list[str]]:
     """Validate that all imported items have required fields (id, input_text)."""
-    issues: List[str] = []
+    issues: list[str] = []
 
     for item in result.items:
         if not item.id:
@@ -299,11 +298,11 @@ def validate_import(result: ImportResult) -> Tuple[bool, List[str]]:
     return valid, issues
 
 
-def convert_to_evalyn_format(items: List[ImportedItem]) -> List[Dict[str, Any]]:
+def convert_to_evalyn_format(items: list[ImportedItem]) -> list[dict[str, Any]]:
     """Convert ImportedItem list to evalyn DatasetItem-compatible dicts."""
-    result: List[Dict[str, Any]] = []
+    result: list[dict[str, Any]] = []
     for item in items:
-        entry: Dict[str, Any] = {
+        entry: dict[str, Any] = {
             "id": item.id,
             "input": {"text": item.input_text},
         }

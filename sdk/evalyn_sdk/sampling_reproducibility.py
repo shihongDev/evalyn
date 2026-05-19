@@ -11,7 +11,7 @@ import json
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -19,11 +19,11 @@ class SamplingParams:
     """Parameters that controlled a sampling operation."""
 
     mode: str
-    seed: Optional[int] = None
+    seed: int | None = None
     sample_size: int = 0
-    extra_params: Dict[str, Any] = field(default_factory=dict)
+    extra_params: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "mode": self.mode,
             "seed": self.seed,
@@ -32,7 +32,7 @@ class SamplingParams:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SamplingParams:
+    def from_dict(cls, data: dict[str, Any]) -> SamplingParams:
         return cls(
             mode=data["mode"],
             seed=data.get("seed"),
@@ -47,12 +47,12 @@ class SamplingRecord:
 
     record_id: str
     params: SamplingParams
-    selected_ids: List[str]
+    selected_ids: list[str]
     total_pool: int
     timestamp: str
     checksum: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "record_id": self.record_id,
             "params": self.params.as_dict(),
@@ -63,7 +63,7 @@ class SamplingRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SamplingRecord:
+    def from_dict(cls, data: dict[str, Any]) -> SamplingRecord:
         return cls(
             record_id=data["record_id"],
             params=SamplingParams.from_dict(data["params"]),
@@ -74,7 +74,7 @@ class SamplingRecord:
         )
 
 
-def compute_selection_checksum(selected_ids: List[str]) -> str:
+def compute_selection_checksum(selected_ids: list[str]) -> str:
     """SHA256 of sorted, JSON-serialized selected IDs."""
     payload = json.dumps(sorted(selected_ids), separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -82,11 +82,11 @@ def compute_selection_checksum(selected_ids: List[str]) -> str:
 
 def create_sampling_record(
     mode: str,
-    seed: Optional[int],
+    seed: int | None,
     sample_size: int,
-    selected_ids: List[str],
+    selected_ids: list[str],
     total_pool: int,
-    extra_params: Optional[Dict[str, Any]] = None,
+    extra_params: dict[str, Any] | None = None,
 ) -> SamplingRecord:
     """Factory: build a SamplingRecord with auto-generated UUID and timestamp."""
     params = SamplingParams(
@@ -111,10 +111,10 @@ def save_sampling_record(record: SamplingRecord, path: str) -> None:
         json.dump(record.as_dict(), f, indent=2)
 
 
-def load_sampling_record(path: str) -> Optional[SamplingRecord]:
+def load_sampling_record(path: str) -> SamplingRecord | None:
     """Load a SamplingRecord from JSON. Returns None if file is missing."""
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
         return SamplingRecord.from_dict(data)
     except FileNotFoundError:
@@ -122,7 +122,7 @@ def load_sampling_record(path: str) -> Optional[SamplingRecord]:
 
 
 def verify_reproducibility(
-    record: SamplingRecord, new_selected_ids: List[str]
+    record: SamplingRecord, new_selected_ids: list[str]
 ) -> bool:
     """Check whether new_selected_ids reproduce the same checksum as record."""
     return compute_selection_checksum(new_selected_ids) == record.checksum

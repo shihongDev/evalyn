@@ -3,10 +3,9 @@ from __future__ import annotations
 import copy
 import importlib.metadata
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 from ..models import Span
-
 
 TRACKED_PACKAGES = [
     "google-generativeai",
@@ -27,7 +26,7 @@ class SDKVersionInfo:
     version: str = "unknown"
     installed: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "package_name": self.package_name,
             "version": self.version,
@@ -39,17 +38,17 @@ class SDKVersionInfo:
 class VersionReport:
     """Report of all tracked SDK versions and any mismatches."""
 
-    versions: List[SDKVersionInfo] = field(default_factory=list)
-    mismatches: List[str] = field(default_factory=list)
+    versions: list[SDKVersionInfo] = field(default_factory=list)
+    mismatches: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "versions": [v.as_dict() for v in self.versions],
             "mismatches": list(self.mismatches),
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> VersionReport:
+    def from_dict(cls, data: dict[str, Any]) -> VersionReport:
         versions = [
             SDKVersionInfo(
                 package_name=v["package_name"],
@@ -64,7 +63,7 @@ class VersionReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("SDK Version Report")
         lines.append("-" * 40)
         for v in self.versions:
@@ -104,14 +103,14 @@ def detect_all_versions() -> VersionReport:
     return VersionReport(versions=versions)
 
 
-def check_version_mismatch(spans: List[Span]) -> List[str]:
+def check_version_mismatch(spans: list[Span]) -> list[str]:
     """Compare span attribute 'evalyn.provider_sdk_version' across spans.
 
     Reports if different versions are found for the same provider.
     Returns a list of mismatch description strings.
     """
     # Collect provider -> set of versions
-    provider_versions: Dict[str, set] = {}
+    provider_versions: dict[str, set] = {}
     for s in spans:
         sdk_ver = s.attributes.get("evalyn.provider_sdk_version")
         if sdk_ver and isinstance(sdk_ver, str):
@@ -121,7 +120,7 @@ def check_version_mismatch(spans: List[Span]) -> List[str]:
                 provider, ver = parts
                 provider_versions.setdefault(provider, set()).add(ver)
 
-    mismatches: List[str] = []
+    mismatches: list[str] = []
     for provider, vers in sorted(provider_versions.items()):
         if len(vers) > 1:
             ver_list = ", ".join(sorted(vers))

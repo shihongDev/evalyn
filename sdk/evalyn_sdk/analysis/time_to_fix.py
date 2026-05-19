@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import statistics
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -22,11 +21,11 @@ class ItemFixHistory:
 
     item_id: str = ""
     first_failed_run: int = 0
-    first_fixed_run: Optional[int] = None
-    runs_to_fix: Optional[int] = None
+    first_fixed_run: int | None = None
+    runs_to_fix: int | None = None
     still_failing: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "first_failed_run": self.first_failed_run,
@@ -36,7 +35,7 @@ class ItemFixHistory:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ItemFixHistory:
+    def from_dict(cls, data: dict[str, Any]) -> ItemFixHistory:
         return cls(
             item_id=data.get("item_id", ""),
             first_failed_run=data.get("first_failed_run", 0),
@@ -50,14 +49,14 @@ class ItemFixHistory:
 class TimeToFixReport:
     """Aggregate time-to-fix report across all tracked items."""
 
-    items: List[ItemFixHistory] = field(default_factory=list)
+    items: list[ItemFixHistory] = field(default_factory=list)
     avg_runs_to_fix: float = 0.0
     median_runs_to_fix: float = 0.0
     still_failing_count: int = 0
     fixed_count: int = 0
     total_tracked: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "items": [item.as_dict() for item in self.items],
             "avg_runs_to_fix": self.avg_runs_to_fix,
@@ -68,7 +67,7 @@ class TimeToFixReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TimeToFixReport:
+    def from_dict(cls, data: dict[str, Any]) -> TimeToFixReport:
         return cls(
             items=[ItemFixHistory.from_dict(i) for i in data.get("items", [])],
             avg_runs_to_fix=data.get("avg_runs_to_fix", 0.0),
@@ -101,7 +100,7 @@ class TimeToFixReport:
 # ---------------------------------------------------------------------------
 
 
-def track_item_fixes(item_id: str, run_results: List[bool]) -> ItemFixHistory:
+def track_item_fixes(item_id: str, run_results: list[bool]) -> ItemFixHistory:
     """Track when an item first failed and first passed after failure.
 
     Args:
@@ -141,7 +140,7 @@ def track_item_fixes(item_id: str, run_results: List[bool]) -> ItemFixHistory:
     return history
 
 
-def track_all_fixes(item_results: Dict[str, List[bool]]) -> TimeToFixReport:
+def track_all_fixes(item_results: dict[str, list[bool]]) -> TimeToFixReport:
     """Track fix timelines for all items.
 
     Args:
@@ -168,7 +167,7 @@ def track_all_fixes(item_results: Dict[str, List[bool]]) -> TimeToFixReport:
     )
 
 
-def compute_fix_percentiles(report: TimeToFixReport) -> Dict[str, float]:
+def compute_fix_percentiles(report: TimeToFixReport) -> dict[str, float]:
     """Compute P25, P50, P75 of runs-to-fix for fixed items.
 
     Returns:
@@ -182,7 +181,7 @@ def compute_fix_percentiles(report: TimeToFixReport) -> Dict[str, float]:
     if not fix_times:
         return {"p25": 0.0, "p50": 0.0, "p75": 0.0}
 
-    def _percentile(data: List[int], pct: float) -> float:
+    def _percentile(data: list[int], pct: float) -> float:
         if len(data) == 1:
             return float(data[0])
         k = (len(data) - 1) * pct
@@ -199,7 +198,7 @@ def compute_fix_percentiles(report: TimeToFixReport) -> Dict[str, float]:
     }
 
 
-def identify_chronic_failures(report: TimeToFixReport, min_runs: int = 5) -> List[str]:
+def identify_chronic_failures(report: TimeToFixReport, min_runs: int = 5) -> list[str]:
     """Identify items still failing after at least min_runs since first failure.
 
     Args:
@@ -250,9 +249,7 @@ def render_fix_timeline(history: ItemFixHistory, total_runs: int) -> str:
 
     chars = []
     for i in range(total_runs):
-        if i < history.first_failed_run:
-            chars.append("P")
-        elif history.first_fixed_run is not None and i >= history.first_fixed_run:
+        if i < history.first_failed_run or history.first_fixed_run is not None and i >= history.first_fixed_run:
             chars.append("P")
         else:
             chars.append("F")

@@ -8,8 +8,7 @@ policies, compute savings, and suggest policies based on storage size.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -21,12 +20,12 @@ class RetentionPolicy:
     """Configurable retention policy for stored data."""
 
     max_age_days: int = 90
-    max_runs: Optional[int] = None
-    max_size_mb: Optional[float] = None
+    max_runs: int | None = None
+    max_size_mb: float | None = None
     exclude_pinned: bool = True
     dry_run: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "max_age_days": self.max_age_days,
             "max_runs": self.max_runs,
@@ -36,7 +35,7 @@ class RetentionPolicy:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RetentionPolicy:
+    def from_dict(cls, data: dict[str, Any]) -> RetentionPolicy:
         return cls(
             max_age_days=data.get("max_age_days", 90),
             max_runs=data.get("max_runs"),
@@ -57,7 +56,7 @@ class RetentionCandidate:
     pinned: bool = False
     reason: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "item_type": self.item_type,
@@ -72,13 +71,13 @@ class RetentionCandidate:
 class RetentionResult:
     """Result of applying a retention policy."""
 
-    candidates: List[RetentionCandidate] = field(default_factory=list)
+    candidates: list[RetentionCandidate] = field(default_factory=list)
     deleted_count: int = 0
     freed_bytes: int = 0
     skipped_pinned: int = 0
     dry_run: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "candidates": [c.as_dict() for c in self.candidates],
             "deleted_count": self.deleted_count,
@@ -88,7 +87,7 @@ class RetentionResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RetentionResult:
+    def from_dict(cls, data: dict[str, Any]) -> RetentionResult:
         candidates = [
             RetentionCandidate(
                 item_id=c["item_id"],
@@ -109,7 +108,7 @@ class RetentionResult:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         mode = "DRY RUN" if self.dry_run else "APPLIED"
         lines.append(f"Retention Result ({mode})")
         lines.append("=" * 40)
@@ -127,13 +126,13 @@ class RetentionResult:
 
 
 def identify_candidates(
-    items: List[Dict[str, Any]], policy: RetentionPolicy
-) -> List[RetentionCandidate]:
+    items: list[dict[str, Any]], policy: RetentionPolicy
+) -> list[RetentionCandidate]:
     """Find items exceeding the retention policy.
 
     Each item dict should have: "id", "type", "age_days", "size_bytes", "pinned".
     """
-    candidates: List[RetentionCandidate] = []
+    candidates: list[RetentionCandidate] = []
     for item in items:
         age_days = item.get("age_days", 0)
         pinned = item.get("pinned", False)
@@ -157,7 +156,7 @@ def identify_candidates(
 
 
 def apply_retention(
-    candidates: List[RetentionCandidate], policy: RetentionPolicy
+    candidates: list[RetentionCandidate], policy: RetentionPolicy
 ) -> RetentionResult:
     """Apply retention policy to candidates.
 
@@ -184,14 +183,14 @@ def apply_retention(
     )
 
 
-def compute_retention_savings(candidates: List[RetentionCandidate]) -> int:
+def compute_retention_savings(candidates: list[RetentionCandidate]) -> int:
     """Total bytes that would be freed by deleting all candidates."""
     return sum(c.size_bytes for c in candidates)
 
 
-def validate_policy(policy: RetentionPolicy) -> Tuple[bool, List[str]]:
+def validate_policy(policy: RetentionPolicy) -> tuple[bool, list[str]]:
     """Validate a retention policy. Returns (valid, list of errors)."""
-    errors: List[str] = []
+    errors: list[str] = []
 
     if policy.max_age_days <= 0:
         errors.append("max_age_days must be positive")
@@ -219,13 +218,13 @@ def suggest_retention_policy(
     else:
         max_age = 180
 
-    max_runs: Optional[int] = None
+    max_runs: int | None = None
     if total_items > 10_000:
         max_runs = 5000
     elif total_items > 1000:
         max_runs = 1000
 
-    max_size: Optional[float] = None
+    max_size: float | None = None
     if total_size_mb > 500:
         max_size = total_size_mb * 0.8
 

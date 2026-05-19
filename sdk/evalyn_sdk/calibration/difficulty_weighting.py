@@ -6,8 +6,7 @@ Weight alignment errors by item difficulty so hard items count more.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -24,7 +23,7 @@ class WeightedItem:
     difficulty: float  # 0-1
     weight: float = 1.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "score": self.score,
@@ -45,7 +44,7 @@ class WeightedAlignmentResult:
     hard_item_accuracy: float
     easy_item_accuracy: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "weighted_accuracy": self.weighted_accuracy,
             "unweighted_accuracy": self.unweighted_accuracy,
@@ -56,7 +55,7 @@ class WeightedAlignmentResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> WeightedAlignmentResult:
+    def from_dict(cls, data: dict[str, Any]) -> WeightedAlignmentResult:
         return cls(
             weighted_accuracy=data["weighted_accuracy"],
             unweighted_accuracy=data["unweighted_accuracy"],
@@ -84,9 +83,9 @@ class WeightedAlignmentResult:
 
 
 def assign_difficulty_weights(
-    items: List[WeightedItem],
+    items: list[WeightedItem],
     method: str = "inverse",
-) -> List[WeightedItem]:
+) -> list[WeightedItem]:
     """Assign weights based on difficulty.
 
     Methods:
@@ -107,7 +106,7 @@ def assign_difficulty_weights(
 
 
 def compute_weighted_accuracy(
-    items: List[WeightedItem],
+    items: list[WeightedItem],
     threshold: float = 0.5,
 ) -> WeightedAlignmentResult:
     """Weighted accuracy where each item's correctness is multiplied by weight.
@@ -168,14 +167,14 @@ def compute_weighted_accuracy(
 
 
 def identify_hard_failures(
-    items: List[WeightedItem],
+    items: list[WeightedItem],
     threshold: float = 0.5,
-) -> List[WeightedItem]:
+) -> list[WeightedItem]:
     """Return items that are hard (difficulty > 0.5) AND incorrectly predicted.
 
     These are highest priority for calibration attention.
     """
-    failures: List[WeightedItem] = []
+    failures: list[WeightedItem] = []
     for item in items:
         if item.difficulty <= 0.5:
             continue

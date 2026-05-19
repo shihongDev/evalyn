@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Dataclasses
@@ -24,9 +23,9 @@ class RubricCriterion:
     name: str
     description: str
     weight: float = 1.0
-    examples: List[str] = field(default_factory=list)
+    examples: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
@@ -35,7 +34,7 @@ class RubricCriterion:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RubricCriterion:
+    def from_dict(cls, data: dict[str, Any]) -> RubricCriterion:
         return cls(
             name=data["name"],
             description=data.get("description", ""),
@@ -49,11 +48,11 @@ class Rubric:
     """An evaluation rubric consisting of weighted criteria."""
 
     metric_id: str
-    criteria: List[RubricCriterion] = field(default_factory=list)
+    criteria: list[RubricCriterion] = field(default_factory=list)
     version: int = 1
     preamble: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "criteria": [c.as_dict() for c in self.criteria],
@@ -62,7 +61,7 @@ class Rubric:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Rubric:
+    def from_dict(cls, data: dict[str, Any]) -> Rubric:
         criteria = [
             RubricCriterion.from_dict(c) for c in data.get("criteria", [])
         ]
@@ -97,7 +96,7 @@ class RubricVariant:
     rubric: Rubric
     alignment_score: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "variant_id": self.variant_id,
             "rubric": self.rubric.as_dict(),
@@ -110,11 +109,11 @@ class RubricOptimizationResult:
     """Result of comparing multiple rubric variants."""
 
     original: Rubric
-    variants: List[RubricVariant] = field(default_factory=list)
+    variants: list[RubricVariant] = field(default_factory=list)
     best_variant_id: str = ""
     improvement: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "original": self.original.as_dict(),
             "variants": [v.as_dict() for v in self.variants],
@@ -123,7 +122,7 @@ class RubricOptimizationResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RubricOptimizationResult:
+    def from_dict(cls, data: dict[str, Any]) -> RubricOptimizationResult:
         original = Rubric.from_dict(data["original"])
         variants = []
         for v in data.get("variants", []):
@@ -162,7 +161,7 @@ class RubricOptimizationResult:
 
 def create_rubric(
     metric_id: str,
-    criteria: List[Dict[str, Any]],
+    criteria: list[dict[str, Any]],
     preamble: str = "",
 ) -> Rubric:
     """Build a Rubric from a list of criteria dicts.
@@ -237,7 +236,7 @@ def score_rubric_clarity(rubric: Rubric) -> float:
 
 
 def compare_rubric_variants(
-    variants: List[RubricVariant],
+    variants: list[RubricVariant],
 ) -> RubricOptimizationResult:
     """Find the best variant by alignment_score.
 
@@ -261,7 +260,7 @@ def compare_rubric_variants(
     )
 
 
-def suggest_rubric_improvements(rubric: Rubric) -> List[str]:
+def suggest_rubric_improvements(rubric: Rubric) -> list[str]:
     """Suggest improvements for a rubric.
 
     Checks for:
@@ -269,7 +268,7 @@ def suggest_rubric_improvements(rubric: Rubric) -> List[str]:
     - Short descriptions (fewer than 20 characters)
     - Empty criteria list
     """
-    suggestions: List[str] = []
+    suggestions: list[str] = []
     if not rubric.criteria:
         suggestions.append("Rubric has no criteria - add at least one")
         return suggestions

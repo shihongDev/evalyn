@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -11,12 +11,12 @@ class CIConfig:
 
     trigger: str = "pull_request"  # "pull_request" / "push" / "schedule"
     dataset_path: str = "data/"
-    metrics: List[str] = field(default_factory=lambda: ["output_nonempty"])
+    metrics: list[str] = field(default_factory=lambda: ["output_nonempty"])
     fail_on_regression: bool = True
     regression_threshold: float = 0.05
     provider: str = "gemini"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "trigger": self.trigger,
             "dataset_path": self.dataset_path,
@@ -27,7 +27,7 @@ class CIConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CIConfig:
+    def from_dict(cls, data: dict[str, Any]) -> CIConfig:
         return cls(
             trigger=data.get("trigger", "pull_request"),
             dataset_path=data.get("dataset_path", "data/"),
@@ -44,11 +44,11 @@ class CIResult:
 
     passed: bool = False
     pass_rate: float = 0.0
-    regressions: List[str] = field(default_factory=list)
+    regressions: list[str] = field(default_factory=list)
     summary: str = ""
     exit_code: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "passed": self.passed,
             "pass_rate": self.pass_rate,
@@ -58,7 +58,7 @@ class CIResult:
         }
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         status = "PASSED" if self.passed else "FAILED"
         lines.append(f"CI Evaluation: {status}")
         lines.append("-" * 40)
@@ -82,7 +82,7 @@ class GitHubActionConfig:
     python_version: str = "3.13"
     evalyn_version: str = "latest"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "runs_on": self.runs_on,
@@ -91,7 +91,7 @@ class GitHubActionConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> GitHubActionConfig:
+    def from_dict(cls, data: dict[str, Any]) -> GitHubActionConfig:
         return cls(
             name=data.get("name", "evalyn-eval"),
             runs_on=data.get("runs_on", "ubuntu-latest"),
@@ -107,7 +107,7 @@ class GitHubActionConfig:
 
 def generate_github_action_yaml(
     config: CIConfig,
-    action_config: Optional[GitHubActionConfig] = None,
+    action_config: GitHubActionConfig | None = None,
 ) -> str:
     """Generate a complete .github/workflows/evalyn.yml file content."""
     if action_config is None:
@@ -156,7 +156,7 @@ def generate_github_action_yaml(
 
 def check_ci_result(
     pass_rate: float,
-    regressions: List[str],
+    regressions: list[str],
     config: CIConfig,
 ) -> CIResult:
     """Determine pass/fail based on config thresholds."""
@@ -167,7 +167,7 @@ def check_ci_result(
         summary = f"All checks passed with {pass_rate:.1%} pass rate."
         exit_code = 0
     else:
-        parts: List[str] = []
+        parts: list[str] = []
         if pass_rate < (1.0 - config.regression_threshold):
             parts.append(f"pass rate {pass_rate:.1%} below threshold")
         if has_regressions:
@@ -207,10 +207,10 @@ def generate_pr_comment(result: CIResult) -> str:
     return "\n".join(lines)
 
 
-def parse_ci_environment() -> Dict[str, str]:
+def parse_ci_environment() -> dict[str, str]:
     """Read CI environment variables. Return dict of available vars."""
     keys = ["GITHUB_SHA", "GITHUB_REF", "GITHUB_EVENT_NAME"]
-    result: Dict[str, str] = {}
+    result: dict[str, str] = {}
     for key in keys:
         val = os.environ.get(key)
         if val is not None:

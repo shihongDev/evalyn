@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -21,7 +20,7 @@ class ConfigError:
     message: str
     suggestion: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "field": self.field,
             "error_type": self.error_type,
@@ -30,7 +29,7 @@ class ConfigError:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConfigError:
+    def from_dict(cls, data: dict[str, Any]) -> ConfigError:
         return cls(
             field=data["field"],
             error_type=data["error_type"],
@@ -43,12 +42,12 @@ class ConfigError:
 class ConfigSchema:
     """Schema definition for config validation."""
 
-    required_fields: List[str] = field(default_factory=list)
-    optional_fields: List[str] = field(default_factory=list)
-    field_types: Dict[str, str] = field(default_factory=dict)
-    deprecated_fields: Dict[str, str] = field(default_factory=dict)
+    required_fields: list[str] = field(default_factory=list)
+    optional_fields: list[str] = field(default_factory=list)
+    field_types: dict[str, str] = field(default_factory=dict)
+    deprecated_fields: dict[str, str] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "required_fields": list(self.required_fields),
             "optional_fields": list(self.optional_fields),
@@ -57,7 +56,7 @@ class ConfigSchema:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConfigSchema:
+    def from_dict(cls, data: dict[str, Any]) -> ConfigSchema:
         return cls(
             required_fields=data.get("required_fields", []),
             optional_fields=data.get("optional_fields", []),
@@ -79,11 +78,11 @@ class ConfigSchema:
 class ValidationResult:
     """Result of validating a config against a schema."""
 
-    errors: List[ConfigError] = field(default_factory=list)
-    warnings: List[ConfigError] = field(default_factory=list)
+    errors: list[ConfigError] = field(default_factory=list)
+    warnings: list[ConfigError] = field(default_factory=list)
     valid: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "errors": [e.as_dict() for e in self.errors],
             "warnings": [w.as_dict() for w in self.warnings],
@@ -91,7 +90,7 @@ class ValidationResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ValidationResult:
+    def from_dict(cls, data: dict[str, Any]) -> ValidationResult:
         return cls(
             errors=[ConfigError.from_dict(e) for e in data.get("errors", [])],
             warnings=[ConfigError.from_dict(w) for w in data.get("warnings", [])],
@@ -136,7 +135,7 @@ DEFAULT_SCHEMA = ConfigSchema(
 # Type checking helpers
 # ---------------------------------------------------------------------------
 
-_TYPE_CHECKERS: Dict[str, type] = {
+_TYPE_CHECKERS: dict[str, type] = {
     "str": str,
     "int": int,
     "float": float,
@@ -200,8 +199,8 @@ def validate_config(
     if schema is None:
         schema = DEFAULT_SCHEMA
 
-    errors: List[ConfigError] = []
-    warnings: List[ConfigError] = []
+    errors: list[ConfigError] = []
+    warnings: list[ConfigError] = []
     known = schema.all_known_fields
 
     # Check unknown keys
@@ -294,8 +293,8 @@ def validate_config_file(
             valid=False,
         )
 
-    config: Dict[str, Any] = {}
-    with open(path, "r") as f:
+    config: dict[str, Any] = {}
+    with open(path) as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith("#"):
@@ -331,7 +330,7 @@ def _parse_value(raw: str) -> Any:
 
 def format_validation_result(result: ValidationResult) -> str:
     """Format a ValidationResult as a human-readable string."""
-    lines: List[str] = []
+    lines: list[str] = []
 
     if result.valid and not result.warnings:
         lines.append("Config validation: PASSED")

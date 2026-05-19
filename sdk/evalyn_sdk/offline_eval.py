@@ -7,9 +7,8 @@ suggestions. Pure Python with no external dependencies.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
-
+from dataclasses import dataclass
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -22,10 +21,10 @@ class OfflineCapability:
 
     metric_id: str
     offline_supported: bool
-    requires: List[str]  # "llm_api", "embeddings_api", "internet"
+    requires: list[str]  # "llm_api", "embeddings_api", "internet"
     fallback: str  # offline alternative, empty if none
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "offline_supported": self.offline_supported,
@@ -34,7 +33,7 @@ class OfflineCapability:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> OfflineCapability:
+    def from_dict(cls, data: dict[str, Any]) -> OfflineCapability:
         return cls(
             metric_id=data["metric_id"],
             offline_supported=data["offline_supported"],
@@ -52,7 +51,7 @@ class OfflineConfig:
     local_model_provider: str = "ollama"
     cached_artifacts_dir: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "strict": self.strict,
             "allow_local_models": self.allow_local_models,
@@ -61,7 +60,7 @@ class OfflineConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> OfflineConfig:
+    def from_dict(cls, data: dict[str, Any]) -> OfflineConfig:
         return cls(
             strict=data.get("strict", True),
             allow_local_models=data.get("allow_local_models", True),
@@ -75,11 +74,11 @@ class OfflineCheckResult:
     """Result of an offline compatibility check."""
 
     all_offline: bool
-    online_metrics: List[str]
-    offline_metrics: List[str]
-    warnings: List[str]
+    online_metrics: list[str]
+    offline_metrics: list[str]
+    warnings: list[str]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "all_offline": self.all_offline,
             "online_metrics": list(self.online_metrics),
@@ -88,7 +87,7 @@ class OfflineCheckResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> OfflineCheckResult:
+    def from_dict(cls, data: dict[str, Any]) -> OfflineCheckResult:
         return cls(
             all_offline=data["all_offline"],
             online_metrics=data.get("online_metrics", []),
@@ -102,7 +101,7 @@ class OfflineCheckResult:
 # ---------------------------------------------------------------------------
 
 
-METRIC_CAPABILITIES: Dict[str, OfflineCapability] = {
+METRIC_CAPABILITIES: dict[str, OfflineCapability] = {
     # Objective metrics - fully offline
     "exact_match": OfflineCapability(
         metric_id="exact_match",
@@ -231,7 +230,7 @@ METRIC_CAPABILITIES: Dict[str, OfflineCapability] = {
 
 
 # Offline alternatives mapping: groups metrics by what they approximate
-_OFFLINE_ALTERNATIVES: Dict[str, List[str]] = {
+_OFFLINE_ALTERNATIVES: dict[str, list[str]] = {
     "helpfulness": ["token_length", "output_length", "bleu"],
     "coherence": ["bleu", "rouge", "string_distance"],
     "safety": ["regex_match", "exact_match"],
@@ -249,7 +248,7 @@ _OFFLINE_ALTERNATIVES: Dict[str, List[str]] = {
 
 
 def check_offline_compatibility(
-    metric_ids: List[str],
+    metric_ids: list[str],
     config: OfflineConfig,
 ) -> OfflineCheckResult:
     """Check which metrics can run offline given a configuration.
@@ -261,9 +260,9 @@ def check_offline_compatibility(
     Returns:
         OfflineCheckResult with categorized metrics and warnings.
     """
-    online: List[str] = []
-    offline: List[str] = []
-    warnings: List[str] = []
+    online: list[str] = []
+    offline: list[str] = []
+    warnings: list[str] = []
 
     for mid in metric_ids:
         cap = METRIC_CAPABILITIES.get(mid)
@@ -318,7 +317,7 @@ def check_offline_compatibility(
     )
 
 
-def filter_offline_metrics(metric_ids: List[str]) -> List[str]:
+def filter_offline_metrics(metric_ids: list[str]) -> list[str]:
     """Return only metrics that work fully offline (no API needed).
 
     Args:
@@ -335,7 +334,7 @@ def filter_offline_metrics(metric_ids: List[str]) -> List[str]:
     return result
 
 
-def suggest_offline_alternatives(metric_id: str) -> List[str]:
+def suggest_offline_alternatives(metric_id: str) -> list[str]:
     """Suggest offline-capable alternatives for an online metric.
 
     Args:
@@ -363,9 +362,9 @@ def suggest_offline_alternatives(metric_id: str) -> List[str]:
 
 
 def validate_offline_run(
-    metric_ids: List[str],
+    metric_ids: list[str],
     config: OfflineConfig,
-) -> Tuple[bool, List[str]]:
+) -> tuple[bool, list[str]]:
     """Validate whether a set of metrics can run offline.
 
     Args:
@@ -378,7 +377,7 @@ def validate_offline_run(
         In non-strict mode, online metrics are warnings but run is allowed.
     """
     check = check_offline_compatibility(metric_ids, config)
-    errors: List[str] = []
+    errors: list[str] = []
 
     if not metric_ids:
         errors.append("No metrics specified.")
@@ -410,7 +409,7 @@ def format_offline_check(result: OfflineCheckResult) -> str:
     Returns:
         Multi-line string report.
     """
-    lines: List[str] = []
+    lines: list[str] = []
 
     if result.all_offline:
         lines.append("Offline Status: ALL METRICS OFFLINE-COMPATIBLE")
@@ -443,7 +442,7 @@ def format_offline_check(result: OfflineCheckResult) -> str:
     return "\n".join(lines)
 
 
-def estimate_offline_coverage(metric_ids: List[str]) -> float:
+def estimate_offline_coverage(metric_ids: list[str]) -> float:
     """Estimate what fraction of metrics work fully offline.
 
     Args:

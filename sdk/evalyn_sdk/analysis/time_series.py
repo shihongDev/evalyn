@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -16,14 +16,14 @@ class DecompositionResult:
     """Time series decomposition for a single metric."""
 
     metric_id: str
-    values: List[float] = field(default_factory=list)
-    trend: List[float] = field(default_factory=list)
-    residual: List[float] = field(default_factory=list)
+    values: list[float] = field(default_factory=list)
+    trend: list[float] = field(default_factory=list)
+    residual: list[float] = field(default_factory=list)
     trend_direction: str = "stable"  # "improving", "declining", "stable"
     trend_slope: float = 0.0
     noise_level: float = 0.0  # std dev of residuals
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         """Summary dict (excludes raw trend/residual arrays)."""
         return {
             "metric_id": self.metric_id,
@@ -34,7 +34,7 @@ class DecompositionResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DecompositionResult":
+    def from_dict(cls, data: dict[str, Any]) -> DecompositionResult:
         """Reconstruct from summary dict (trend/residual not restored)."""
         return cls(
             metric_id=data["metric_id"],
@@ -55,22 +55,22 @@ class DecompositionResult:
 class TimeSeriesReport:
     """Report of time series analysis across all metrics."""
 
-    results: List[DecompositionResult] = field(default_factory=list)
+    results: list[DecompositionResult] = field(default_factory=list)
 
     @property
-    def improving_metrics(self) -> List[str]:
+    def improving_metrics(self) -> list[str]:
         return [r.metric_id for r in self.results if r.trend_direction == "improving"]
 
     @property
-    def declining_metrics(self) -> List[str]:
+    def declining_metrics(self) -> list[str]:
         return [r.metric_id for r in self.results if r.trend_direction == "declining"]
 
     @property
-    def noisy_metrics(self) -> List[str]:
+    def noisy_metrics(self) -> list[str]:
         """Metrics with high noise (residual std > 0.1)."""
         return [r.metric_id for r in self.results if r.noise_level > 0.1]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "improving": self.improving_metrics,
             "declining": self.declining_metrics,
@@ -79,7 +79,7 @@ class TimeSeriesReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TimeSeriesReport":
+    def from_dict(cls, data: dict[str, Any]) -> TimeSeriesReport:
         results = [
             DecompositionResult.from_dict(r) for r in data.get("results", [])
         ]
@@ -98,7 +98,7 @@ class TimeSeriesReport:
 
 def decompose_metric(
     metric_id: str,
-    values: List[float],
+    values: list[float],
     window: int = 3,
     slope_threshold: float = 0.01,
 ) -> DecompositionResult:
@@ -154,7 +154,7 @@ def decompose_metric(
 
 
 def decompose_all(
-    series_by_metric: Dict[str, List[float]],
+    series_by_metric: dict[str, list[float]],
     window: int = 3,
 ) -> TimeSeriesReport:
     """Decompose all metric time series.
@@ -172,7 +172,7 @@ def decompose_all(
     return TimeSeriesReport(results=results)
 
 
-def _moving_average(values: List[float], window: int) -> List[float]:
+def _moving_average(values: list[float], window: int) -> list[float]:
     """Compute centered moving average. Window must be odd."""
     if window % 2 == 0:
         raise ValueError(f"window must be odd, got {window}")
@@ -190,7 +190,7 @@ def _moving_average(values: List[float], window: int) -> List[float]:
     return result
 
 
-def _linear_slope(values: List[float]) -> float:
+def _linear_slope(values: list[float]) -> float:
     """Compute slope of a linear fit through values."""
     n = len(values)
     if n < 2:
@@ -202,7 +202,7 @@ def _linear_slope(values: List[float]) -> float:
     return num / den if den > 0 else 0.0
 
 
-def _std(values: List[float]) -> float:
+def _std(values: list[float]) -> float:
     """Population std dev (N denominator). Noise thresholds are calibrated to this."""
     if len(values) < 2:
         return 0.0

@@ -6,12 +6,12 @@ DataFrame construction or other downstream analysis tools.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .core import RunAnalysis
 
 
-def analyze_to_dict(analysis: RunAnalysis) -> Dict[str, List[Any]]:
+def analyze_to_dict(analysis: RunAnalysis) -> dict[str, list[Any]]:
     """Export analysis as dict-of-lists (columnar format).
 
     Returns a dict where each key is a column name and each value is a
@@ -23,7 +23,7 @@ def analyze_to_dict(analysis: RunAnalysis) -> Dict[str, List[Any]]:
     item_ids = sorted(analysis.item_stats.keys())
     metric_ids = sorted(analysis.metric_stats.keys())
 
-    result: Dict[str, List[Any]] = {
+    result: dict[str, list[Any]] = {
         "item_id": [],
         "all_passed": [],
         "metrics_passed": [],
@@ -48,13 +48,13 @@ def analyze_to_dict(analysis: RunAnalysis) -> Dict[str, List[Any]]:
     return result
 
 
-def metric_summary_to_dict(analysis: RunAnalysis) -> Dict[str, List[Any]]:
+def metric_summary_to_dict(analysis: RunAnalysis) -> dict[str, list[Any]]:
     """Export metric-level summary as dict-of-lists.
 
     Columns: metric_id, metric_type, count, passed, failed,
     pass_rate, avg_score, min_score, max_score, std_dev.
     """
-    result: Dict[str, List[Any]] = {
+    result: dict[str, list[Any]] = {
         "metric_id": [],
         "metric_type": [],
         "count": [],
@@ -83,7 +83,7 @@ def metric_summary_to_dict(analysis: RunAnalysis) -> Dict[str, List[Any]]:
     return result
 
 
-def scores_matrix(analysis: RunAnalysis) -> Dict[str, List[Optional[float]]]:
+def scores_matrix(analysis: RunAnalysis) -> dict[str, list[float | None]]:
     """Export item x metric score matrix.
 
     Returns dict with "item_ids" key (list of item IDs) and one key
@@ -92,7 +92,7 @@ def scores_matrix(analysis: RunAnalysis) -> Dict[str, List[Optional[float]]]:
     item_ids = sorted(analysis.item_stats.keys())
     metric_ids = sorted(analysis.metric_stats.keys())
 
-    result: Dict[str, List[Optional[float]]] = {"item_id": item_ids}
+    result: dict[str, list[float | None]] = {"item_id": item_ids}
     for mid in metric_ids:
         col = []
         for item_id in item_ids:
@@ -103,7 +103,7 @@ def scores_matrix(analysis: RunAnalysis) -> Dict[str, List[Optional[float]]]:
     return result
 
 
-def export_flat_records(analysis: RunAnalysis) -> List[Dict[str, Any]]:
+def export_flat_records(analysis: RunAnalysis) -> list[dict[str, Any]]:
     """Export as list of flat records (one per item-metric pair).
 
     Each record has: item_id, metric_id, score, passed.

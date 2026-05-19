@@ -7,8 +7,9 @@ Pure Python, no external dependencies.
 from __future__ import annotations
 
 import random
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -19,7 +20,7 @@ class SampleWeight:
     weight: float
     reason: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "weight": self.weight,
@@ -27,7 +28,7 @@ class SampleWeight:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SampleWeight:
+    def from_dict(cls, data: dict[str, Any]) -> SampleWeight:
         return cls(
             item_id=data["item_id"],
             weight=data["weight"],
@@ -42,9 +43,9 @@ class SamplingConfig:
     strategy: str  # "inverse_pass_rate", "confidence", "custom"
     sample_size: int = 100
     min_weight: float = 0.01
-    seed: Optional[int] = None
+    seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "strategy": self.strategy,
             "sample_size": self.sample_size,
@@ -53,7 +54,7 @@ class SamplingConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SamplingConfig:
+    def from_dict(cls, data: dict[str, Any]) -> SamplingConfig:
         return cls(
             strategy=data["strategy"],
             sample_size=data.get("sample_size", 100),
@@ -66,12 +67,12 @@ class SamplingConfig:
 class SamplingResult:
     """Result of an importance sampling run."""
 
-    selected_ids: List[str] = field(default_factory=list)
-    weights_used: List[SampleWeight] = field(default_factory=list)
+    selected_ids: list[str] = field(default_factory=list)
+    weights_used: list[SampleWeight] = field(default_factory=list)
     total_pool: int = 0
     effective_sample_size: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected_ids": self.selected_ids,
             "weights_used": [w.as_dict() for w in self.weights_used],
@@ -80,7 +81,7 @@ class SamplingResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SamplingResult:
+    def from_dict(cls, data: dict[str, Any]) -> SamplingResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
             weights_used=[
@@ -92,17 +93,17 @@ class SamplingResult:
 
 
 def compute_inverse_pass_rate_weights(
-    scores: Dict[str, float],
+    scores: dict[str, float],
     threshold: float = 0.5,
     min_weight: float = 0.01,
-) -> List[SampleWeight]:
+) -> list[SampleWeight]:
     """Compute weights inversely proportional to score.
 
     Lower scores get higher weights: weight = 1 / max(score, min_weight).
     The threshold parameter is used only for labeling (below/above) in the
     reason field, not for weight computation.
     """
-    weights: List[SampleWeight] = []
+    weights: list[SampleWeight] = []
     for item_id, score in scores.items():
         clamped = max(score, min_weight)
         w = 1.0 / clamped
@@ -113,13 +114,13 @@ def compute_inverse_pass_rate_weights(
 
 
 def compute_confidence_weights(
-    confidences: Dict[str, float],
-) -> List[SampleWeight]:
+    confidences: dict[str, float],
+) -> list[SampleWeight]:
     """Compute weights from model confidence scores.
 
     Low confidence items get higher weights: weight = 1 / max(confidence, 0.01).
     """
-    weights: List[SampleWeight] = []
+    weights: list[SampleWeight] = []
     for item_id, conf in confidences.items():
         clamped = max(conf, 0.01)
         w = 1.0 / clamped
@@ -129,11 +130,11 @@ def compute_confidence_weights(
 
 
 def compute_custom_weights(
-    items: Dict[str, float],
+    items: dict[str, float],
     weight_fn: Callable[[float], float],
-) -> List[SampleWeight]:
+) -> list[SampleWeight]:
     """Apply a custom weight function to item values."""
-    weights: List[SampleWeight] = []
+    weights: list[SampleWeight] = []
     for item_id, value in items.items():
         w = weight_fn(value)
         weights.append(SampleWeight(item_id=item_id, weight=w, reason="custom"))
@@ -141,10 +142,10 @@ def compute_custom_weights(
 
 
 def weighted_sample(
-    weights: List[SampleWeight],
+    weights: list[SampleWeight],
     sample_size: int,
-    seed: Optional[int] = None,
-) -> List[str]:
+    seed: int | None = None,
+) -> list[str]:
     """Sample item_ids proportional to weight without replacement."""
     if not weights:
         return []
@@ -154,7 +155,7 @@ def weighted_sample(
     rng = random.Random(seed)
     remaining_ids = [w.item_id for w in weights]
     remaining_ws = [w.weight for w in weights]
-    selected: List[str] = []
+    selected: list[str] = []
     for _ in range(sample_size):
         if not remaining_ids:
             break
@@ -166,7 +167,7 @@ def weighted_sample(
     return selected
 
 
-def compute_effective_sample_size(weights: List[float]) -> float:
+def compute_effective_sample_size(weights: list[float]) -> float:
     """Compute effective sample size: ESS = (sum(w))^2 / sum(w^2).
 
     Measures how many "effective" independent samples the weighted set
@@ -182,7 +183,7 @@ def compute_effective_sample_size(weights: List[float]) -> float:
 
 
 def run_importance_sampling(
-    pool: Dict[str, float],
+    pool: dict[str, float],
     config: SamplingConfig,
 ) -> SamplingResult:
     """Run the full importance sampling pipeline.
@@ -216,7 +217,7 @@ def run_importance_sampling(
 
 def format_sampling_report(result: SamplingResult) -> str:
     """Format a human-readable sampling report."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Importance Sampling Report")
     lines.append("=" * 40)
     lines.append(f"Total pool size: {result.total_pool}")

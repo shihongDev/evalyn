@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -27,7 +27,7 @@ class BiasMetrics:
             or abs(self.verbosity_bias) > threshold
         )
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "position_bias": round(self.position_bias, 4),
             "length_bias": round(self.length_bias, 4),
@@ -35,7 +35,7 @@ class BiasMetrics:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BiasMetrics:
+    def from_dict(cls, data: dict[str, Any]) -> BiasMetrics:
         return cls(
             position_bias=data.get("position_bias", 0.0),
             length_bias=data.get("length_bias", 0.0),
@@ -52,7 +52,7 @@ class DebiasedScore:
     correction: float
     method: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "original_score": round(self.original_score, 4),
             "debiased_score": round(self.debiased_score, 4),
@@ -66,10 +66,10 @@ class DebiasReport:
     """Full bias analysis report."""
 
     metrics: BiasMetrics = field(default_factory=BiasMetrics)
-    scores: List[DebiasedScore] = field(default_factory=list)
+    scores: list[DebiasedScore] = field(default_factory=list)
     method: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metrics": self.metrics.as_dict(),
             "scores": [s.as_dict() for s in self.scores],
@@ -77,7 +77,7 @@ class DebiasReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DebiasReport:
+    def from_dict(cls, data: dict[str, Any]) -> DebiasReport:
         metrics = BiasMetrics.from_dict(data.get("metrics", {}))
         scores = [
             DebiasedScore(
@@ -110,7 +110,7 @@ class DebiasReport:
 
 
 def detect_position_bias(
-    scores_first: List[float], scores_second: List[float]
+    scores_first: list[float], scores_second: list[float]
 ) -> float:
     """Compute position bias as mean score difference (first - second).
 
@@ -125,7 +125,7 @@ def detect_position_bias(
     return total / n
 
 
-def detect_length_bias(lengths: List[int], scores: List[float]) -> float:
+def detect_length_bias(lengths: list[int], scores: list[float]) -> float:
     """Pearson correlation between output length and score.
 
     Returns 0.0 for insufficient data (fewer than 2 pairs).
@@ -150,8 +150,8 @@ def detect_length_bias(lengths: List[int], scores: List[float]) -> float:
 
 
 def correct_length_bias(
-    scores: List[float], lengths: List[int]
-) -> List[DebiasedScore]:
+    scores: list[float], lengths: list[int]
+) -> list[DebiasedScore]:
     """Apply linear regression correction to remove length bias.
 
     Subtracts the predicted score component from length, keeps
@@ -201,8 +201,8 @@ def correct_length_bias(
 
 
 def correct_position_bias(
-    scores_first: List[float], scores_second: List[float]
-) -> List[float]:
+    scores_first: list[float], scores_second: list[float]
+) -> list[float]:
     """Average first-position and second-position scores for each item."""
     if not scores_first or not scores_second:
         return []
@@ -211,9 +211,9 @@ def correct_position_bias(
 
 
 def analyze_judge_bias(
-    scores: List[float],
-    lengths: List[int],
-    positions: Optional[List[int]] = None,
+    scores: list[float],
+    lengths: list[int],
+    positions: list[int] | None = None,
 ) -> DebiasReport:
     """Full bias analysis: detect and correct biases.
 

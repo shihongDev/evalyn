@@ -9,10 +9,9 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 from ..models import Span
-
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -25,13 +24,13 @@ class PhoenixSpan:
 
     name: str
     span_kind: str = "LLM"
-    context: Dict[str, str] = field(default_factory=dict)
-    attributes: Dict[str, Any] = field(default_factory=dict)
+    context: dict[str, str] = field(default_factory=dict)
+    attributes: dict[str, Any] = field(default_factory=dict)
     start_time_ns: int = 0
     end_time_ns: int = 0
     status: str = "OK"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "span_kind": self.span_kind,
@@ -43,7 +42,7 @@ class PhoenixSpan:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PhoenixSpan:
+    def from_dict(cls, data: dict[str, Any]) -> PhoenixSpan:
         return cls(
             name=data["name"],
             span_kind=data.get("span_kind", "LLM"),
@@ -64,7 +63,7 @@ class ExportConfig:
     include_inputs: bool = True
     include_outputs: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "platform": self.platform,
             "project_name": self.project_name,
@@ -73,7 +72,7 @@ class ExportConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ExportConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ExportConfig:
         return cls(
             platform=data.get("platform", "phoenix"),
             project_name=data.get("project_name", "evalyn"),
@@ -91,7 +90,7 @@ class PlatformExportResult:
     format: str = ""
     file_path: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "platform": self.platform,
             "spans_exported": self.spans_exported,
@@ -114,7 +113,7 @@ class PlatformExportResult:
 # Conversion Helpers
 # ---------------------------------------------------------------------------
 
-_SPAN_TYPE_TO_KIND: Dict[str, str] = {
+_SPAN_TYPE_TO_KIND: dict[str, str] = {
     "llm_call": "LLM",
     "tool_call": "TOOL",
     "retrieval": "RETRIEVER",
@@ -142,11 +141,11 @@ def _datetime_to_ns(dt) -> int:
 def convert_to_phoenix_span(span: Span) -> PhoenixSpan:
     """Convert an evalyn Span to Phoenix format."""
     span_kind = _SPAN_TYPE_TO_KIND.get(span.span_type, "CHAIN")
-    context: Dict[str, str] = {
+    context: dict[str, str] = {
         "trace_id": span.parent_id or span.id,
         "span_id": span.id,
     }
-    attributes: Dict[str, Any] = dict(span.attributes)
+    attributes: dict[str, Any] = dict(span.attributes)
     attributes["evalyn.span_type"] = span.span_type
 
     return PhoenixSpan(
@@ -160,9 +159,9 @@ def convert_to_phoenix_span(span: Span) -> PhoenixSpan:
     )
 
 
-def convert_to_langfuse_format(span: Span) -> Dict[str, Any]:
+def convert_to_langfuse_format(span: Span) -> dict[str, Any]:
     """Convert an evalyn Span to Langfuse-compatible dict."""
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "id": span.id,
         "name": span.name,
         "type": "generation" if span.span_type == "llm_call" else "span",
@@ -177,9 +176,9 @@ def convert_to_langfuse_format(span: Span) -> Dict[str, Any]:
     return result
 
 
-def convert_to_langsmith_format(span: Span) -> Dict[str, Any]:
+def convert_to_langsmith_format(span: Span) -> dict[str, Any]:
     """Convert an evalyn Span to LangSmith-compatible dict."""
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "id": span.id,
         "name": span.name,
         "run_type": "llm" if span.span_type == "llm_call" else "chain",
@@ -193,7 +192,7 @@ def convert_to_langsmith_format(span: Span) -> Dict[str, Any]:
     return result
 
 
-def export_spans(spans: List[Span], config: ExportConfig) -> PlatformExportResult:
+def export_spans(spans: list[Span], config: ExportConfig) -> PlatformExportResult:
     """Export all spans in the format specified by config."""
     if config.platform == "phoenix":
         content = format_as_phoenix_json([convert_to_phoenix_span(s) for s in spans])
@@ -216,12 +215,12 @@ def export_spans(spans: List[Span], config: ExportConfig) -> PlatformExportResul
     )
 
 
-def format_as_phoenix_json(phoenix_spans: List[PhoenixSpan]) -> str:
+def format_as_phoenix_json(phoenix_spans: list[PhoenixSpan]) -> str:
     """Serialize Phoenix spans to a JSON string for import."""
     return json.dumps([s.as_dict() for s in phoenix_spans], indent=2, default=str)
 
 
-def format_as_langfuse_json(spans: List[Span]) -> str:
+def format_as_langfuse_json(spans: list[Span]) -> str:
     """Serialize evalyn spans to Langfuse-compatible JSON string."""
     converted = [convert_to_langfuse_format(s) for s in spans]
     return json.dumps(converted, indent=2, default=str)

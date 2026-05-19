@@ -7,7 +7,7 @@ enforces failure limits, and provides recovery suggestions.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 
 @dataclass
@@ -20,7 +20,7 @@ class ItemFailure:
     error_type: str = ""
     recoverable: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "metric_id": self.metric_id,
@@ -39,7 +39,7 @@ class GracefulConfig:
     retry_count: int = 0
     collect_errors: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "max_failures": self.max_failures,
             "skip_on_timeout": self.skip_on_timeout,
@@ -48,7 +48,7 @@ class GracefulConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> GracefulConfig:
+    def from_dict(cls, data: dict[str, Any]) -> GracefulConfig:
         return cls(
             max_failures=data.get("max_failures", 0),
             skip_on_timeout=data.get("skip_on_timeout", True),
@@ -65,11 +65,11 @@ class GracefulReport:
     succeeded: int = 0
     failed: int = 0
     skipped: int = 0
-    failures: List[ItemFailure] = field(default_factory=list)
+    failures: list[ItemFailure] = field(default_factory=list)
     failure_rate: float = 0.0
     should_abort: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_items": self.total_items,
             "succeeded": self.succeeded,
@@ -81,7 +81,7 @@ class GracefulReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> GracefulReport:
+    def from_dict(cls, data: dict[str, Any]) -> GracefulReport:
         failures = [
             ItemFailure(**f) for f in data.get("failures", [])
         ]
@@ -142,7 +142,7 @@ class GracefulEvaluator:
         self._succeeded: int = 0
         self._failed: int = 0
         self._skipped: int = 0
-        self._failures: List[ItemFailure] = []
+        self._failures: list[ItemFailure] = []
 
     def record_success(self, item_id: str) -> None:
         """Record a successful item evaluation."""
@@ -206,7 +206,7 @@ def create_graceful_evaluator(max_failures: int = 0) -> GracefulEvaluator:
     return GracefulEvaluator(config)
 
 
-def classify_error(error: str) -> Tuple[str, bool]:
+def classify_error(error: str) -> tuple[str, bool]:
     """Classify an error string into a type and recoverability.
 
     Returns:

@@ -45,9 +45,10 @@ import logging
 import time
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Awaitable, Callable, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -765,7 +766,7 @@ class _Thread:
     id: str
     messages: list[dict[str, Any]] = field(default_factory=list)
     events: list[dict[str, Any]] = field(default_factory=list)
-    subscribers: set["_AgentEventStream"] = field(default_factory=set)
+    subscribers: set[_AgentEventStream] = field(default_factory=set)
     confirm_event: asyncio.Event = field(default_factory=asyncio.Event)
     confirm_decision: bool = False
     # Tool-call id currently waiting on user confirmation. Set when
@@ -777,7 +778,7 @@ class _Thread:
     # from the UI can mutate it in place before `_execute_tool_call` resumes.
     # Underscore-prefixed because the WS event payload already exposes the id;
     # this is the in-memory object tests reach into.
-    _pending_tool_call_obj: Optional["ProviderToolCall"] = None
+    _pending_tool_call_obj: ProviderToolCall | None = None
     # Per-session whitelist of tool names the user has chosen to auto-approve
     # for the rest of this thread (P1 spec §5.5: "Approve - don't ask again
     # this session for <tool>"). Populated by `AgentRuntime.confirm` when the
@@ -834,7 +835,7 @@ class _AgentEventStream:
         except Exception:  # noqa: BLE001
             pass
 
-    def __aiter__(self) -> "_AgentEventStream":
+    def __aiter__(self) -> _AgentEventStream:
         return self
 
     async def __anext__(self) -> dict[str, Any]:
@@ -944,7 +945,7 @@ class AgentRuntime:
         del self._threads[thread_id]
         return True
 
-    def _thread_to_dict(self, thread: "_Thread") -> dict[str, Any]:
+    def _thread_to_dict(self, thread: _Thread) -> dict[str, Any]:
         """Project a ``_Thread`` to its JSON-friendly metadata shape.
 
         Shared by ``list_threads`` and ``thread_metadata`` so the two
@@ -1551,7 +1552,7 @@ def build_provider(
 
 def make_provider_factory(
     credential_store: Any,
-) -> Callable[[], Optional[BaseProvider]]:
+) -> Callable[[], BaseProvider | None]:
     """Return a zero-arg callable that builds the active provider on demand."""
 
     def _factory() -> BaseProvider | None:

@@ -6,8 +6,9 @@ execution with an executor callback, and result formatting.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any
 
 
 @dataclass
@@ -23,12 +24,12 @@ class ChainStep:
     """
 
     command: str
-    args: List[str] = field(default_factory=list)
+    args: list[str] = field(default_factory=list)
     input_data: str = ""
     output_data: str = ""
     exit_code: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "command": self.command,
             "args": list(self.args),
@@ -38,7 +39,7 @@ class ChainStep:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ChainStep":
+    def from_dict(cls, data: dict[str, Any]) -> ChainStep:
         return cls(
             command=data.get("command", ""),
             args=list(data.get("args", [])),
@@ -60,14 +61,14 @@ class ChainConfig:
     stop_on_error: bool = True
     pass_output_as: str = "stdin"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "stop_on_error": self.stop_on_error,
             "pass_output_as": self.pass_output_as,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ChainConfig":
+    def from_dict(cls, data: dict[str, Any]) -> ChainConfig:
         return cls(
             stop_on_error=data.get("stop_on_error", True),
             pass_output_as=data.get("pass_output_as", "stdin"),
@@ -86,13 +87,13 @@ class ChainResult:
         failed: Number of steps that failed (exit_code != 0).
     """
 
-    steps: List[ChainStep] = field(default_factory=list)
+    steps: list[ChainStep] = field(default_factory=list)
     final_output: str = ""
     total_steps: int = 0
     succeeded: int = 0
     failed: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "steps": [s.as_dict() for s in self.steps],
             "final_output": self.final_output,
@@ -102,7 +103,7 @@ class ChainResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ChainResult":
+    def from_dict(cls, data: dict[str, Any]) -> ChainResult:
         return cls(
             steps=[ChainStep.from_dict(s) for s in data.get("steps", [])],
             final_output=data.get("final_output", ""),
@@ -112,13 +113,13 @@ class ChainResult:
         )
 
 
-def parse_chain(command_string: str, separator: str = "|") -> List[ChainStep]:
+def parse_chain(command_string: str, separator: str = "|") -> list[ChainStep]:
     """Parse a piped command string into a list of ChainStep objects.
 
     Example: "cmd1 arg1 | cmd2 | cmd3 -v" produces three steps.
     """
     parts = command_string.split(separator)
-    steps: List[ChainStep] = []
+    steps: list[ChainStep] = []
     for part in parts:
         tokens = part.strip().split()
         if not tokens:
@@ -130,8 +131,8 @@ def parse_chain(command_string: str, separator: str = "|") -> List[ChainStep]:
 
 
 def execute_chain(
-    steps: List[ChainStep],
-    executor: Callable[[str, List[str], str], Tuple[int, str]],
+    steps: list[ChainStep],
+    executor: Callable[[str, list[str], str], tuple[int, str]],
     config: ChainConfig | None = None,
 ) -> ChainResult:
     """Execute a chain of steps sequentially using the provided executor.
@@ -177,14 +178,14 @@ def execute_chain(
     return result
 
 
-def format_chain_plan(steps: List[ChainStep]) -> str:
+def format_chain_plan(steps: list[ChainStep]) -> str:
     """Preview what will execute as a readable plan.
 
     Format: "Step 1: cmd1 -> Step 2: cmd2 -> ..."
     """
     if not steps:
         return ""
-    parts: List[str] = []
+    parts: list[str] = []
     for i, step in enumerate(steps, 1):
         label = f"Step {i}: {step.command}"
         if step.args:
@@ -201,7 +202,7 @@ def format_chain_result(result: ChainResult) -> str:
     """
     if not result.steps:
         return "No steps executed."
-    lines: List[str] = []
+    lines: list[str] = []
     for i, step in enumerate(result.steps, 1):
         status = "OK" if step.exit_code == 0 else f"FAILED (exit {step.exit_code})"
         cmd = step.command

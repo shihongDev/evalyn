@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -24,7 +24,7 @@ class ColdStartResult:
     cold_count: int
     warm_count: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "cold_start_detected": self.cold_start_detected,
@@ -49,17 +49,17 @@ class ColdStartResult:
 class ColdStartReport:
     """Cold start analysis across all metrics."""
 
-    results: List[ColdStartResult] = field(default_factory=list)
+    results: list[ColdStartResult] = field(default_factory=list)
 
     @property
-    def affected_metrics(self) -> List[str]:
+    def affected_metrics(self) -> list[str]:
         return [r.metric_id for r in self.results if r.cold_start_detected]
 
     @property
     def has_cold_starts(self) -> bool:
         return len(self.affected_metrics) > 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "affected_metrics": self.affected_metrics,
             "has_cold_starts": self.has_cold_starts,
@@ -79,7 +79,7 @@ class ColdStartReport:
 
 
 def detect_cold_start(
-    scores_by_metric: Dict[str, List[float]],
+    scores_by_metric: dict[str, list[float]],
     cold_window: int = 5,
     significance_threshold: float = 0.1,
 ) -> ColdStartReport:
@@ -138,18 +138,18 @@ def detect_cold_start(
     return ColdStartReport(results=results)
 
 
-def _mean(values: List[float]) -> float:
+def _mean(values: list[float]) -> float:
     return sum(values) / len(values) if values else 0.0
 
 
-def _std(values: List[float]) -> float:
+def _std(values: list[float]) -> float:
     if len(values) < 2:
         return 0.0
     m = _mean(values)
     return math.sqrt(sum((v - m) ** 2 for v in values) / (len(values) - 1))
 
 
-def _welch_t_test_p(a: List[float], b: List[float]) -> float:
+def _welch_t_test_p(a: list[float], b: list[float]) -> float:
     """Approximate p-value for Welch's t-test (two-tailed)."""
     na, nb = len(a), len(b)
     if na < 2 or nb < 2:

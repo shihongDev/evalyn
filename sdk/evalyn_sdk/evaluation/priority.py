@@ -7,7 +7,7 @@ so that failing metrics surface earlier in the evaluation output.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -18,7 +18,7 @@ class MetricPriority:
     historical_fail_rate: float  # 0.0-1.0, higher = more likely to fail
     priority_score: float = 0.0  # computed: higher = evaluate first
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "historical_fail_rate": round(self.historical_fail_rate, 4),
@@ -27,10 +27,10 @@ class MetricPriority:
 
 
 def compute_priorities(
-    metrics: List,
-    historical_fail_rates: Optional[Dict[str, float]] = None,
-    metric_types: Optional[Dict[str, str]] = None,
-) -> List[MetricPriority]:
+    metrics: list,
+    historical_fail_rates: dict[str, float] | None = None,
+    metric_types: dict[str, str] | None = None,
+) -> list[MetricPriority]:
     """Compute execution priorities for metrics.
 
     Strategy: metrics most likely to fail run first for fast feedback.
@@ -71,9 +71,9 @@ def compute_priorities(
 
 
 def sort_metrics_by_priority(
-    metrics: List,
-    historical_fail_rates: Optional[Dict[str, float]] = None,
-) -> List:
+    metrics: list,
+    historical_fail_rates: dict[str, float] | None = None,
+) -> list:
     """Sort metrics by execution priority (most likely to fail first).
 
     Args:
@@ -89,7 +89,7 @@ def sort_metrics_by_priority(
     return sorted(metrics, key=lambda m: priority_order.get(m.spec.id, len(metrics)))
 
 
-def extract_fail_rates_from_run(run) -> Dict[str, float]:
+def extract_fail_rates_from_run(run) -> dict[str, float]:
     """Extract per-metric fail rates from an EvalRun.
 
     Useful for feeding into the priority queue on subsequent runs.
@@ -100,7 +100,7 @@ def extract_fail_rates_from_run(run) -> Dict[str, float]:
     Returns:
         Dict of metric_id -> fail rate (0.0-1.0).
     """
-    counts: Dict[str, list] = {}
+    counts: dict[str, list] = {}
     for mr in run.metric_results:
         mid = mr.metric_id
         if mid not in counts:

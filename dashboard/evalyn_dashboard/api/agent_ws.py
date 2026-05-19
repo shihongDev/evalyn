@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
@@ -22,8 +21,8 @@ logger = logging.getLogger(__name__)
 def register_agent_ws_routes(app: FastAPI) -> None:
     @app.websocket("/ws/agent/{thread_id}")
     async def agent_ws(websocket: WebSocket, thread_id: str) -> None:
-        since_raw: Optional[str] = websocket.query_params.get("since")
-        since: Optional[int] = None
+        since_raw: str | None = websocket.query_params.get("since")
+        since: int | None = None
         if since_raw is not None:
             try:
                 since = int(since_raw)

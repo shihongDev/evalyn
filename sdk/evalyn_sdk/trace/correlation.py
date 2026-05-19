@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
+from typing import Any
 
 
-def _iso(dt: Optional[datetime]) -> Optional[str]:
+def _iso(dt: datetime | None) -> str | None:
     return dt.isoformat() if dt else None
 
 
-def _parse_datetime(raw: Optional[str]) -> Optional[datetime]:
+def _parse_datetime(raw: str | None) -> datetime | None:
     if raw is None:
         return None
     return datetime.fromisoformat(raw)
@@ -23,9 +23,9 @@ class ExternalEvent:
     event_type: str  # "deployment", "incident", "config_change", "release"
     timestamp: datetime
     description: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "event_id": self.event_id,
             "event_type": self.event_type,
@@ -35,7 +35,7 @@ class ExternalEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ExternalEvent:
+    def from_dict(cls, data: dict[str, Any]) -> ExternalEvent:
         return cls(
             event_id=data["event_id"],
             event_type=data["event_type"],
@@ -54,7 +54,7 @@ class CorrelationMatch:
     time_delta_ms: float
     correlation_type: str = "temporal"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "trace_id": self.trace_id,
             "event_id": self.event_id,
@@ -67,12 +67,12 @@ class CorrelationMatch:
 class CorrelationReport:
     """Summary of trace-to-event correlation analysis."""
 
-    matches: List[CorrelationMatch] = field(default_factory=list)
+    matches: list[CorrelationMatch] = field(default_factory=list)
     total_traces: int = 0
     total_events: int = 0
     correlated_traces: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "matches": [m.as_dict() for m in self.matches],
             "total_traces": self.total_traces,
@@ -81,7 +81,7 @@ class CorrelationReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CorrelationReport:
+    def from_dict(cls, data: dict[str, Any]) -> CorrelationReport:
         return cls(
             matches=[
                 CorrelationMatch(**m) for m in data.get("matches", [])
@@ -92,7 +92,7 @@ class CorrelationReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(
             f"Correlation report: {self.correlated_traces}/{self.total_traces} "
             f"traces correlated across {self.total_events} events"
@@ -106,10 +106,10 @@ class CorrelationReport:
 
 
 def correlate_by_time(
-    traces: List[Dict[str, Any]],
-    events: List[ExternalEvent],
+    traces: list[dict[str, Any]],
+    events: list[ExternalEvent],
     max_gap_ms: float = 60000.0,
-) -> List[CorrelationMatch]:
+) -> list[CorrelationMatch]:
     """Match traces to events by timestamp proximity.
 
     Each trace dict has "id" and "timestamp" (datetime).
@@ -118,11 +118,11 @@ def correlate_by_time(
     if not traces or not events:
         return []
 
-    matches: List[CorrelationMatch] = []
+    matches: list[CorrelationMatch] = []
     for trace in traces:
         trace_id = trace["id"]
         trace_ts = trace["timestamp"]
-        best_event: Optional[ExternalEvent] = None
+        best_event: ExternalEvent | None = None
         best_delta_ms: float = float("inf")
 
         for event in events:
@@ -144,17 +144,17 @@ def correlate_by_time(
 
 
 def find_events_in_window(
-    events: List[ExternalEvent],
+    events: list[ExternalEvent],
     start: datetime,
     end: datetime,
-) -> List[ExternalEvent]:
+) -> list[ExternalEvent]:
     """Filter events within a time window (inclusive)."""
     return [e for e in events if start <= e.timestamp <= end]
 
 
 def build_correlation_report(
-    traces: List[Dict[str, Any]],
-    events: List[ExternalEvent],
+    traces: list[dict[str, Any]],
+    events: list[ExternalEvent],
     max_gap_ms: float = 60000.0,
 ) -> CorrelationReport:
     """Full correlation analysis between traces and external events."""
@@ -170,12 +170,12 @@ def build_correlation_report(
 
 def annotate_trace_with_events(
     trace_id: str,
-    matches: List[CorrelationMatch],
-    events: List[ExternalEvent],
-) -> Dict[str, Any]:
+    matches: list[CorrelationMatch],
+    events: list[ExternalEvent],
+) -> dict[str, Any]:
     """Return dict with trace_id and list of correlated events."""
     event_map = {e.event_id: e for e in events}
-    correlated: List[Dict[str, Any]] = []
+    correlated: list[dict[str, Any]] = []
     for m in matches:
         if m.trace_id == trace_id and m.event_id in event_map:
             ev = event_map[m.event_id]

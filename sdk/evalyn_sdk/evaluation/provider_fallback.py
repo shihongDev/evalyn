@@ -7,8 +7,9 @@ in priority order; the first successful call wins.
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -21,7 +22,7 @@ class ProviderConfig:
     max_retries: int = 1
     enabled: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "model": self.model,
@@ -31,7 +32,7 @@ class ProviderConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ProviderConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ProviderConfig:
         return cls(
             name=data["name"],
             model=data.get("model", ""),
@@ -50,7 +51,7 @@ class FallbackAttempt:
     error: str = ""
     duration_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "provider": self.provider,
             "success": self.success,
@@ -64,11 +65,11 @@ class FallbackResult:
     """Result of executing through the fallback chain."""
 
     final_provider: str = ""
-    attempts: List[FallbackAttempt] = field(default_factory=list)
+    attempts: list[FallbackAttempt] = field(default_factory=list)
     success: bool = False
     total_attempts: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "final_provider": self.final_provider,
             "attempts": [a.as_dict() for a in self.attempts],
@@ -77,7 +78,7 @@ class FallbackResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FallbackResult:
+    def from_dict(cls, data: dict[str, Any]) -> FallbackResult:
         attempts = [
             FallbackAttempt(**a) for a in data.get("attempts", [])
         ]
@@ -111,17 +112,17 @@ class FallbackResult:
 class FallbackChainConfig:
     """Configuration for the full fallback chain."""
 
-    providers: List[ProviderConfig] = field(default_factory=list)
+    providers: list[ProviderConfig] = field(default_factory=list)
     stop_on_first_success: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "providers": [p.as_dict() for p in self.providers],
             "stop_on_first_success": self.stop_on_first_success,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FallbackChainConfig:
+    def from_dict(cls, data: dict[str, Any]) -> FallbackChainConfig:
         providers = [
             ProviderConfig.from_dict(p) for p in data.get("providers", [])
         ]
@@ -131,13 +132,13 @@ class FallbackChainConfig:
         )
 
 
-def create_fallback_chain(providers: List[Dict[str, Any]]) -> FallbackChainConfig:
+def create_fallback_chain(providers: list[dict[str, Any]]) -> FallbackChainConfig:
     """Factory: build a FallbackChainConfig from a list of dicts."""
     configs = [ProviderConfig.from_dict(p) for p in providers]
     return FallbackChainConfig(providers=configs)
 
 
-def get_ordered_providers(config: FallbackChainConfig) -> List[ProviderConfig]:
+def get_ordered_providers(config: FallbackChainConfig) -> list[ProviderConfig]:
     """Return enabled providers sorted by priority (lowest first)."""
     enabled = [p for p in config.providers if p.enabled]
     return sorted(enabled, key=lambda p: p.priority)
@@ -157,10 +158,10 @@ def execute_with_fallback(
         FallbackResult with attempts and final outcome.
     """
     ordered = get_ordered_providers(config)
-    attempts: List[FallbackAttempt] = []
+    attempts: list[FallbackAttempt] = []
 
     for provider in ordered:
-        for retry in range(provider.max_retries):
+        for _retry in range(provider.max_retries):
             start = time.monotonic()
             try:
                 execute_fn(provider.name, provider.model)
@@ -203,13 +204,13 @@ def execute_with_fallback(
     )
 
 
-def build_fallback_report(results: List[FallbackResult]) -> Dict[str, Any]:
+def build_fallback_report(results: list[FallbackResult]) -> dict[str, Any]:
     """Aggregate multiple fallback results into a summary report.
 
     Returns dict with provider success rates and average fallback depth.
     """
-    provider_attempts: Dict[str, int] = {}
-    provider_successes: Dict[str, int] = {}
+    provider_attempts: dict[str, int] = {}
+    provider_successes: dict[str, int] = {}
     total_depth = 0
 
     for result in results:
@@ -223,7 +224,7 @@ def build_fallback_report(results: List[FallbackResult]) -> Dict[str, Any]:
                     provider_successes.get(attempt.provider, 0) + 1
                 )
 
-    provider_success_rates: Dict[str, float] = {}
+    provider_success_rates: dict[str, float] = {}
     for name, total in provider_attempts.items():
         successes = provider_successes.get(name, 0)
         provider_success_rates[name] = successes / total if total > 0 else 0.0
@@ -238,7 +239,7 @@ def build_fallback_report(results: List[FallbackResult]) -> Dict[str, Any]:
     }
 
 
-def suggest_chain_optimization(results: List[FallbackResult]) -> List[str]:
+def suggest_chain_optimization(results: list[FallbackResult]) -> list[str]:
     """Suggest optimizations based on fallback results.
 
     Looks at first-attempt success rates and suggests reordering.
@@ -246,11 +247,11 @@ def suggest_chain_optimization(results: List[FallbackResult]) -> List[str]:
     if not results:
         return []
 
-    suggestions: List[str] = []
+    suggestions: list[str] = []
 
     # Count first-attempt successes per provider
-    first_attempt_success: Dict[str, int] = {}
-    first_attempt_total: Dict[str, int] = {}
+    first_attempt_success: dict[str, int] = {}
+    first_attempt_total: dict[str, int] = {}
     for result in results:
         if result.attempts:
             first = result.attempts[0]
@@ -263,8 +264,8 @@ def suggest_chain_optimization(results: List[FallbackResult]) -> List[str]:
                 )
 
     # Count overall success rates per provider
-    provider_successes: Dict[str, int] = {}
-    provider_totals: Dict[str, int] = {}
+    provider_successes: dict[str, int] = {}
+    provider_totals: dict[str, int] = {}
     for result in results:
         for attempt in result.attempts:
             provider_totals[attempt.provider] = (

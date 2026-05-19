@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional
 
 
 @dataclass
@@ -15,7 +13,7 @@ class HistoryEntry:
     """A single recorded command invocation."""
 
     command: str
-    args: List[str]
+    args: list[str]
     timestamp: str
     exit_code: int = 0
     duration_seconds: float = 0.0
@@ -44,7 +42,7 @@ class HistoryEntry:
 class HistoryLog:
     """A collection of history entries bound to a file path."""
 
-    entries: List[HistoryEntry] = field(default_factory=list)
+    entries: list[HistoryEntry] = field(default_factory=list)
     log_path: str = ""
 
     def as_dict(self) -> dict:
@@ -86,8 +84,8 @@ def read_history(log_path: str, limit: int = 50) -> HistoryLog:
     if not path.exists():
         return HistoryLog(entries=[], log_path=log_path)
 
-    entries: List[HistoryEntry] = []
-    with open(path, "r", encoding="utf-8") as f:
+    entries: list[HistoryEntry] = []
+    with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -108,9 +106,9 @@ def read_history(log_path: str, limit: int = 50) -> HistoryLog:
 
 def filter_history(
     log: HistoryLog,
-    command: Optional[str] = None,
-    after: Optional[str] = None,
-    before: Optional[str] = None,
+    command: str | None = None,
+    after: str | None = None,
+    before: str | None = None,
 ) -> HistoryLog:
     """Filter history entries by command name and/or date range.
 
@@ -142,7 +140,7 @@ def filter_history(
 # ---------------------------------------------------------------------------
 
 
-def get_replay_sequence(log: HistoryLog, from_timestamp: str) -> List[HistoryEntry]:
+def get_replay_sequence(log: HistoryLog, from_timestamp: str) -> list[HistoryEntry]:
     """Return entries from the given timestamp onward (inclusive)."""
     return [e for e in log.entries if e.timestamp >= from_timestamp]
 
@@ -160,7 +158,7 @@ def format_history(log: HistoryLog) -> str:
     if not log.entries:
         return ""
 
-    lines: List[str] = []
+    lines: list[str] = []
     header = f"{'TIMESTAMP':<26}  {'COMMAND':<20}  {'EXIT':>4}  {'DURATION':>8}  ARGS"
     lines.append(header)
     lines.append("-" * len(header))
@@ -180,7 +178,7 @@ def format_history(log: HistoryLog) -> str:
 
 def create_history_entry(
     command: str,
-    args: List[str],
+    args: list[str],
     exit_code: int = 0,
     duration: float = 0.0,
 ) -> HistoryEntry:

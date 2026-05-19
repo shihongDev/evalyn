@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class TrajectoryEntry:
     accuracy: float
     iteration: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "preamble": self.preamble,
             "f1_score": self.f1_score,
@@ -92,8 +92,8 @@ class OPROOptimizer:
 
     def __init__(
         self,
-        config: Optional[OPROConfig] = None,
-        api_key: Optional[str] = None,
+        config: OPROConfig | None = None,
+        api_key: str | None = None,
     ):
         """Initialize OPRO optimizer.
 
@@ -103,8 +103,8 @@ class OPROOptimizer:
         """
         self.config = config or OPROConfig()
         self._api_key = api_key
-        self._optimizer_client: Optional[GeminiClient] = None
-        self._scorer_client: Optional[GeminiClient] = None
+        self._optimizer_client: GeminiClient | None = None
+        self._scorer_client: GeminiClient | None = None
 
     @property
     def optimizer_client(self) -> GeminiClient:
@@ -133,10 +133,10 @@ class OPROOptimizer:
     def _evaluate_prompt(
         self,
         preamble: str,
-        rubric: List[str],
-        examples: List[Dict[str, Any]],
-        accumulator: Optional[TokenAccumulator] = None,
-    ) -> Tuple[float, float]:
+        rubric: list[str],
+        examples: list[dict[str, Any]],
+        accumulator: TokenAccumulator | None = None,
+    ) -> tuple[float, float]:
         """
         Evaluate a prompt by running it as a judge on examples.
 
@@ -181,9 +181,9 @@ Provide your verdict:"""
     def _build_meta_prompt(
         self,
         metric_id: str,
-        rubric: List[str],
-        trajectory: List[TrajectoryEntry],
-        train_examples: List[Dict[str, Any]],
+        rubric: list[str],
+        trajectory: list[TrajectoryEntry],
+        train_examples: list[dict[str, Any]],
         num_candidates: int,
     ) -> str:
         """
@@ -269,11 +269,11 @@ Do not include any other text, just the JSON array."""
     def _generate_candidates(
         self,
         metric_id: str,
-        rubric: List[str],
-        trajectory: List[TrajectoryEntry],
-        train_examples: List[Dict[str, Any]],
-        accumulator: Optional[TokenAccumulator] = None,
-    ) -> List[str]:
+        rubric: list[str],
+        trajectory: list[TrajectoryEntry],
+        train_examples: list[dict[str, Any]],
+        accumulator: TokenAccumulator | None = None,
+    ) -> list[str]:
         """Generate new candidate preambles using the optimizer LLM.
 
         Args:
@@ -303,12 +303,12 @@ Do not include any other text, just the JSON array."""
     def optimize(
         self,
         metric_id: str,
-        current_rubric: List[str],
-        metric_results: List[MetricResult],
-        annotations: List[Annotation],
-        dataset_items: Optional[List[DatasetItem]] = None,
+        current_rubric: list[str],
+        metric_results: list[MetricResult],
+        annotations: list[Annotation],
+        dataset_items: list[DatasetItem] | None = None,
         current_preamble: str = "",
-        accumulator: Optional[TokenAccumulator] = None,
+        accumulator: TokenAccumulator | None = None,
     ) -> PromptOptimizationResult:
         """
         Run OPRO optimization loop.
@@ -364,7 +364,7 @@ Do not include any other text, just the JSON array."""
         )
 
         # Initialize trajectory
-        trajectory: List[TrajectoryEntry] = [
+        trajectory: list[TrajectoryEntry] = [
             TrajectoryEntry(
                 preamble=seed_preamble,
                 f1_score=seed_f1,
@@ -392,7 +392,7 @@ Do not include any other text, just the JSON array."""
                 continue
 
             # Evaluate candidates
-            iteration_best: Optional[TrajectoryEntry] = None
+            iteration_best: TrajectoryEntry | None = None
             for candidate in candidates:
                 f1, acc = self._evaluate_prompt(
                     candidate, current_rubric, trainset, accumulator

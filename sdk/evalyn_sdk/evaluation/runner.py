@@ -5,19 +5,27 @@ import logging
 import os
 import tempfile
 from collections import defaultdict
+from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 from uuid import uuid4
 
-from ..decorators import get_default_tracer
 from ..datasets import hash_inputs
-from .units import EvalUnitBuilder, get_default_builders, get_builders_for_types
-from .units.views import project_unit
-from .execution import ProgressCallback, create_strategy
-from ..models import EvalUnit, EvalView, Metric
-from ..models import DatasetItem, EvalRun, FunctionCall, MetricResult, now_utc
+from ..decorators import get_default_tracer
+from ..models import (
+    DatasetItem,
+    EvalRun,
+    EvalUnit,
+    EvalView,
+    FunctionCall,
+    Metric,
+    MetricResult,
+    now_utc,
+)
 from ..storage.base import StorageBackend
 from ..trace.tracer import EvalTracer
+from .execution import ProgressCallback, create_strategy
+from .units import EvalUnitBuilder, get_builders_for_types, get_default_builders
+from .units.views import project_unit
 
 logger = logging.getLogger(__name__)
 
@@ -71,23 +79,23 @@ class EvalRunner:
         self,
         target_fn: Callable,
         metrics: Iterable[Metric],
-        tracer: Optional[EvalTracer] = None,
-        storage: Optional[StorageBackend] = None,
+        tracer: EvalTracer | None = None,
+        storage: StorageBackend | None = None,
         dataset_name: str = "dataset",
         instrument: bool = True,
         cache_enabled: bool = True,
-        progress_callback: Optional[ProgressCallback] = None,
-        checkpoint_path: Optional[Union[str, Path]] = None,
+        progress_callback: ProgressCallback | None = None,
+        checkpoint_path: str | Path | None = None,
         checkpoint_interval: int = 5,
         max_workers: int = 1,
-        unit_builders: Optional[List[EvalUnitBuilder]] = None,
-        unit_types: Optional[List[str]] = None,
+        unit_builders: list[EvalUnitBuilder] | None = None,
+        unit_types: list[str] | None = None,
     ):
         self.tracer = tracer or get_default_tracer()
         if storage:
             self.tracer.attach_storage(storage)
         self.dataset_name = dataset_name
-        self.metrics: List[Metric] = list(metrics)
+        self.metrics: list[Metric] = list(metrics)
         already_wrapped = getattr(target_fn, "_evalyn_instrumented", False)
         self.target_fn = (
             target_fn
@@ -95,7 +103,7 @@ class EvalRunner:
             else self.tracer.instrument(target_fn)
         )
         self.cache_enabled = cache_enabled
-        self._cache: Dict[str, str] = {}  # cache key -> call id
+        self._cache: dict[str, str] = {}  # cache key -> call id
         self._progress_callback = progress_callback
         self.checkpoint_path = Path(checkpoint_path) if checkpoint_path else None
         self.checkpoint_interval = checkpoint_interval
@@ -112,13 +120,13 @@ class EvalRunner:
             self.unit_builders = get_default_builders()
 
     @property
-    def _checkpoint_results_path(self) -> Optional[Path]:
+    def _checkpoint_results_path(self) -> Path | None:
         """JSONL file that stores metric results alongside the header."""
         if self.checkpoint_path is None:
             return None
         return self.checkpoint_path.with_suffix(".jsonl")
 
-    def _load_checkpoint(self) -> Dict:
+    def _load_checkpoint(self) -> dict:
         """Load checkpoint if it exists. Returns dict with 'results' and 'completed_items'.
 
         Supports two formats:
@@ -129,14 +137,14 @@ class EvalRunner:
             return {"results": [], "completed_items": set(), "run_id": str(uuid4())}
 
         try:
-            with open(self.checkpoint_path, "r", encoding="utf-8") as f:
+            with open(self.checkpoint_path, encoding="utf-8") as f:
                 data = json.load(f)
 
             # Check for JSONL results file (new format)
             results_path = self._checkpoint_results_path
             if results_path and results_path.exists():
                 raw_results = []
-                with open(results_path, "r", encoding="utf-8") as rf:
+                with open(results_path, encoding="utf-8") as rf:
                     for line in rf:
                         line = line.strip()
                         if line:
@@ -156,7 +164,7 @@ class EvalRunner:
             return {"results": [], "completed_items": set(), "run_id": str(uuid4())}
 
     def _save_checkpoint(
-        self, results: List[MetricResult], completed_items: set, run_id: str
+        self, results: list[MetricResult], completed_items: set, run_id: str
     ) -> bool:
         """Save checkpoint incrementally. Returns True on success.
 
@@ -224,7 +232,7 @@ class EvalRunner:
                 except Exception:
                     pass
 
-    def _discover_units(self, call: FunctionCall) -> List[EvalUnit]:
+    def _discover_units(self, call: FunctionCall) -> list[EvalUnit]:
         """Discover all evaluatable units from a call using configured builders."""
         units = []
         for builder in self.unit_builders:
@@ -272,8 +280,8 @@ class EvalRunner:
             )
 
     def _prepare_item_call(
-        self, item: DatasetItem, use_synthetic: bool, failures: List[str]
-    ) -> Optional[FunctionCall]:
+        self, item: DatasetItem, use_synthetic: bool, failures: list[str]
+    ) -> FunctionCall | None:
         """Prepare FunctionCall for an item. Returns None if cannot be resolved."""
         storage = self.tracer.storage
 
@@ -320,15 +328,12 @@ class EvalRunner:
 
     def _run_unit_evaluation(
         self,
-        prepared: List[Tuple[DatasetItem, FunctionCall]],
+        prepared: list[tuple[DatasetItem, FunctionCall]],
         run_id: str,
         completed_items: set,
-    ) -> List[MetricResult]:
+    ) -> list[MetricResult]:
         """Run unit-based evaluation (for non-default unit types)."""
-        results: List[MetricResult] = []
-
-        # Collect all unit types we're evaluating
-        unit_types_active = {b.unit_type for b in self.unit_builders}
+        results: list[MetricResult] = []
 
         for item, call in prepared:
             # Discover units from this call
@@ -374,10 +379,10 @@ class EvalRunner:
         """
         # Load checkpoint if exists
         checkpoint = self._load_checkpoint()
-        metric_results: List[MetricResult] = checkpoint["results"]
+        metric_results: list[MetricResult] = checkpoint["results"]
         completed_items: set = checkpoint["completed_items"]
         run_id = checkpoint["run_id"]
-        failures: List[str] = []
+        failures: list[str] = []
 
         # Convert to list for progress tracking
         items = list(dataset)
@@ -394,13 +399,13 @@ class EvalRunner:
             if isinstance(item.metadata, dict) and "call_id" in item.metadata:
                 call_ids_to_fetch.append(item.metadata["call_id"])
 
-        calls_by_id: Dict[str, FunctionCall] = {}
+        calls_by_id: dict[str, FunctionCall] = {}
         if call_ids_to_fetch and storage and hasattr(storage, "get_calls_batch"):
             calls_by_id = storage.get_calls_batch(call_ids_to_fetch)
 
         # Prepare all items with their FunctionCalls
-        prepared: List[Tuple[DatasetItem, FunctionCall]] = []
-        for item_idx, item in pending_items:
+        prepared: list[tuple[DatasetItem, FunctionCall]] = []
+        for _item_idx, item in pending_items:
             # Try batch-fetched call first (O(1) dict lookup)
             call = None
             if isinstance(item.metadata, dict) and "call_id" in item.metadata:
@@ -490,8 +495,8 @@ class EvalRunner:
         return run
 
     @staticmethod
-    def _summarize(results: List[MetricResult], failures: List[str]) -> dict:
-        by_metric: defaultdict[str, List[MetricResult]] = defaultdict(list)
+    def _summarize(results: list[MetricResult], failures: list[str]) -> dict:
+        by_metric: defaultdict[str, list[MetricResult]] = defaultdict(list)
         for res in results:
             by_metric[res.metric_id].append(res)
 
@@ -509,7 +514,7 @@ class EvalRunner:
         return summary
 
     @staticmethod
-    def _compute_usage_summary(results: List[MetricResult]) -> dict:
+    def _compute_usage_summary(results: list[MetricResult]) -> dict:
         """Compute token usage and cost summary from metric results."""
         from ..trace.instrumentation.providers._shared import (
             calculate_cost,
@@ -522,9 +527,9 @@ class EvalRunner:
         has_unknown_pricing = False
 
         # Track costs by model and metric
-        cost_by_model: Dict[str, float] = defaultdict(float)
-        cost_by_metric: Dict[str, float] = defaultdict(float)
-        tokens_by_metric: Dict[str, Dict[str, int]] = defaultdict(
+        cost_by_model: dict[str, float] = defaultdict(float)
+        cost_by_metric: dict[str, float] = defaultdict(float)
+        tokens_by_metric: dict[str, dict[str, int]] = defaultdict(
             lambda: {"input": 0, "output": 0}
         )
 
@@ -566,10 +571,10 @@ class EvalRunner:
 
 def save_eval_run_json(
     run: EvalRun,
-    dataset_dir: Union[str, Path],
+    dataset_dir: str | Path,
     *,
     runs_subdir: str = "eval_runs",
-    _precomputed_dict: Optional[dict] = None,
+    _precomputed_dict: dict | None = None,
 ) -> Path:
     """
     Save an EvalRun as JSON in a dedicated folder.
@@ -611,7 +616,7 @@ def save_eval_run_json(
     return run_folder
 
 
-def load_eval_run_json(path: Union[str, Path]) -> EvalRun:
+def load_eval_run_json(path: str | Path) -> EvalRun:
     """Load an EvalRun from a JSON file or folder.
 
     Args:
@@ -626,8 +631,8 @@ def load_eval_run_json(path: Union[str, Path]) -> EvalRun:
 
 
 def list_eval_runs_json(
-    dataset_dir: Union[str, Path], runs_subdir: str = "eval_runs"
-) -> List[EvalRun]:
+    dataset_dir: str | Path, runs_subdir: str = "eval_runs"
+) -> list[EvalRun]:
     """List all eval runs from folders in a dataset directory."""
     dataset_dir = Path(dataset_dir)
     runs_dir = dataset_dir / runs_subdir

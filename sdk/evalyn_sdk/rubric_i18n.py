@@ -7,8 +7,8 @@ based on output text language.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -18,10 +18,10 @@ class LocalizedRubric:
     metric_id: str
     locale: str
     prompt: str
-    rubric_levels: Dict[str, str]
+    rubric_levels: dict[str, str]
     description: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "locale": self.locale,
@@ -31,7 +31,7 @@ class LocalizedRubric:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> LocalizedRubric:
+    def from_dict(cls, data: dict[str, Any]) -> LocalizedRubric:
         return cls(
             metric_id=data["metric_id"],
             locale=data["locale"],
@@ -45,7 +45,7 @@ class RubricLocaleRegistry:
     """Registry for localized rubrics keyed by (metric_id, locale)."""
 
     def __init__(self) -> None:
-        self._rubrics: Dict[str, Dict[str, LocalizedRubric]] = {}
+        self._rubrics: dict[str, dict[str, LocalizedRubric]] = {}
 
     def register(self, rubric: LocalizedRubric) -> None:
         """Register a localized rubric."""
@@ -53,7 +53,7 @@ class RubricLocaleRegistry:
             self._rubrics[rubric.metric_id] = {}
         self._rubrics[rubric.metric_id][rubric.locale] = rubric
 
-    def get(self, metric_id: str, locale: str) -> Optional[LocalizedRubric]:
+    def get(self, metric_id: str, locale: str) -> LocalizedRubric | None:
         """Get rubric for a specific metric and locale."""
         metric_map = self._rubrics.get(metric_id)
         if metric_map is None:
@@ -65,21 +65,21 @@ class RubricLocaleRegistry:
         metric_id: str,
         locale: str,
         fallback: str = "en",
-    ) -> Optional[LocalizedRubric]:
+    ) -> LocalizedRubric | None:
         """Try locale first, then fallback locale."""
         result = self.get(metric_id, locale)
         if result is not None:
             return result
         return self.get(metric_id, fallback)
 
-    def list_locales(self, metric_id: str) -> List[str]:
+    def list_locales(self, metric_id: str) -> list[str]:
         """List available locales for a metric."""
         metric_map = self._rubrics.get(metric_id)
         if metric_map is None:
             return []
         return sorted(metric_map.keys())
 
-    def list_metrics(self, locale: Optional[str] = None) -> List[str]:
+    def list_metrics(self, locale: str | None = None) -> list[str]:
         """List metrics, optionally filtered by locale."""
         if locale is None:
             return sorted(self._rubrics.keys())
@@ -89,9 +89,9 @@ class RubricLocaleRegistry:
                 result.append(metric_id)
         return sorted(result)
 
-    def get_all(self) -> List[LocalizedRubric]:
+    def get_all(self) -> list[LocalizedRubric]:
         """Return all registered rubrics."""
-        result: List[LocalizedRubric] = []
+        result: list[LocalizedRubric] = []
         for metric_map in self._rubrics.values():
             for rubric in metric_map.values():
                 result.append(rubric)
@@ -106,7 +106,7 @@ def detect_output_language(text: str) -> str:
     Korean is checked before CJK because Hangul is a distinct range.
     """
     # Count characters in each script range
-    counts: Dict[str, int] = {
+    counts: dict[str, int] = {
         "ko": 0,
         "ja": 0,
         "ru": 0,
@@ -143,7 +143,7 @@ def match_rubric_language(
     metric_id: str,
     output_text: str,
     registry: RubricLocaleRegistry,
-) -> Optional[LocalizedRubric]:
+) -> LocalizedRubric | None:
     """Detect output language and find matching rubric.
 
     Falls back to English if no rubric exists for the detected language.

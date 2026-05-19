@@ -7,8 +7,9 @@ informative boundary cases, and maximum word coverage.
 from __future__ import annotations
 
 import random
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -21,7 +22,7 @@ class Example:
     label: str = ""  # "pass" / "fail"
     score: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "input_text": self.input_text,
@@ -31,7 +32,7 @@ class Example:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Example:
+    def from_dict(cls, data: dict[str, Any]) -> Example:
         return cls(
             id=data["id"],
             input_text=data["input_text"],
@@ -45,11 +46,11 @@ class Example:
 class SelectionResult:
     """Result of a few-shot selection strategy."""
 
-    selected: List[Example] = field(default_factory=list)
+    selected: list[Example] = field(default_factory=list)
     method: str = ""
     coverage_score: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected": [e.as_dict() for e in self.selected],
             "method": self.method,
@@ -73,7 +74,7 @@ def _word_set(example: Example) -> set:
     return set(text.lower().split())
 
 
-def _coverage_score(selected: List[Example]) -> float:
+def _coverage_score(selected: list[Example]) -> float:
     """Compute word diversity as coverage score."""
     if not selected:
         return 0.0
@@ -84,7 +85,7 @@ def _coverage_score(selected: List[Example]) -> float:
 
 
 def select_diverse(
-    examples: List[Example], k: int = 5, seed: Optional[int] = None
+    examples: list[Example], k: int = 5, seed: int | None = None
 ) -> SelectionResult:
     """Select k examples covering different failure modes.
 
@@ -103,7 +104,7 @@ def select_diverse(
     rng = random.Random(seed)
 
     # Group by label
-    groups: Dict[str, List[Example]] = {}
+    groups: dict[str, list[Example]] = {}
     for ex in examples:
         groups.setdefault(ex.label, []).append(ex)
 
@@ -114,7 +115,7 @@ def select_diverse(
     # Allocate slots proportionally
     labels = sorted(groups.keys())
     n = len(examples)
-    allocation: Dict[str, int] = {}
+    allocation: dict[str, int] = {}
     remaining = k
     for i, label in enumerate(labels):
         if i == len(labels) - 1:
@@ -125,7 +126,7 @@ def select_diverse(
             allocation[label] = share
             remaining -= share
 
-    selected: List[Example] = []
+    selected: list[Example] = []
     for label in labels:
         group = groups[label]
         count = min(allocation[label], len(group))
@@ -157,7 +158,7 @@ def select_diverse(
 
 
 def select_informative(
-    examples: List[Example], k: int = 5
+    examples: list[Example], k: int = 5
 ) -> SelectionResult:
     """Select examples with scores near the decision boundary.
 
@@ -183,7 +184,7 @@ def select_informative(
 
 
 def select_by_coverage(
-    examples: List[Example], k: int = 5
+    examples: list[Example], k: int = 5
 ) -> SelectionResult:
     """Maximize word diversity across selected examples.
 
@@ -199,7 +200,7 @@ def select_by_coverage(
         )
 
     covered: set = set()
-    selected: List[Example] = []
+    selected: list[Example] = []
     remaining = list(examples)
 
     for _ in range(k):
@@ -224,9 +225,9 @@ def select_by_coverage(
 
 
 def evaluate_leave_one_out(
-    examples: List[Example],
-    score_fn: Callable[[List[Example]], float],
-) -> Dict[str, float]:
+    examples: list[Example],
+    score_fn: Callable[[list[Example]], float],
+) -> dict[str, float]:
     """For each example, compute score without it.
 
     Returns dict of id -> contribution (full_score - score_without).
@@ -235,7 +236,7 @@ def evaluate_leave_one_out(
         return {}
 
     full_score = score_fn(examples)
-    result: Dict[str, float] = {}
+    result: dict[str, float] = {}
     for i, ex in enumerate(examples):
         subset = examples[:i] + examples[i + 1 :]
         score_without = score_fn(subset) if subset else 0.0
@@ -244,8 +245,8 @@ def evaluate_leave_one_out(
 
 
 def find_optimal_k(
-    examples: List[Example],
-    score_fn: Callable[[List[Example]], float],
+    examples: list[Example],
+    score_fn: Callable[[list[Example]], float],
     max_k: int = 10,
 ) -> int:
     """Try k=1..max_k, return k that maximizes score_fn.

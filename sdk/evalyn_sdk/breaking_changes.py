@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 
 @dataclass
@@ -14,7 +14,7 @@ class MetricFingerprint:
     version_hash: str
     parameters_hash: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "version_hash": self.version_hash,
@@ -22,7 +22,7 @@ class MetricFingerprint:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MetricFingerprint:
+    def from_dict(cls, data: dict[str, Any]) -> MetricFingerprint:
         return cls(
             metric_id=data["metric_id"],
             version_hash=data["version_hash"],
@@ -36,10 +36,10 @@ class RunManifest:
 
     run_id: str
     evalyn_version: str
-    fingerprints: List[MetricFingerprint]
+    fingerprints: list[MetricFingerprint]
     created_at: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "run_id": self.run_id,
             "evalyn_version": self.evalyn_version,
@@ -48,7 +48,7 @@ class RunManifest:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RunManifest:
+    def from_dict(cls, data: dict[str, Any]) -> RunManifest:
         return cls(
             run_id=data["run_id"],
             evalyn_version=data["evalyn_version"],
@@ -69,7 +69,7 @@ class BreakingChange:
     change_type: str  # "removed", "modified", "parameters_changed"
     migration_hint: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "old_hash": self.old_hash,
@@ -79,7 +79,7 @@ class BreakingChange:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BreakingChange:
+    def from_dict(cls, data: dict[str, Any]) -> BreakingChange:
         return cls(
             metric_id=data["metric_id"],
             old_hash=data["old_hash"],
@@ -94,11 +94,11 @@ class CompatibilityReport:
     """Report of compatibility between two manifests."""
 
     compatible: bool
-    changes: List[BreakingChange]
+    changes: list[BreakingChange]
     old_version: str
     new_version: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "compatible": self.compatible,
             "changes": [c.as_dict() for c in self.changes],
@@ -107,7 +107,7 @@ class CompatibilityReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CompatibilityReport:
+    def from_dict(cls, data: dict[str, Any]) -> CompatibilityReport:
         return cls(
             compatible=data["compatible"],
             changes=[
@@ -146,7 +146,7 @@ def compute_fingerprint(
 
 
 def create_manifest(
-    run_id: str, version: str, fingerprints: List[MetricFingerprint]
+    run_id: str, version: str, fingerprints: list[MetricFingerprint]
 ) -> RunManifest:
     """Create a run manifest with the given fingerprints."""
     from datetime import datetime, timezone
@@ -170,14 +170,14 @@ def compare_manifests(
     - modified: metric implementation hash changed
     - parameters_changed: metric parameters hash changed
     """
-    old_fps: Dict[str, MetricFingerprint] = {
+    old_fps: dict[str, MetricFingerprint] = {
         fp.metric_id: fp for fp in old.fingerprints
     }
-    new_fps: Dict[str, MetricFingerprint] = {
+    new_fps: dict[str, MetricFingerprint] = {
         fp.metric_id: fp for fp in new.fingerprints
     }
 
-    changes: List[BreakingChange] = []
+    changes: list[BreakingChange] = []
 
     # Check for removed and modified metrics
     for metric_id, old_fp in old_fps.items():
@@ -230,7 +230,7 @@ def compare_manifests(
 
 def format_compatibility_report(report: CompatibilityReport) -> str:
     """Format a compatibility report as human-readable text."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(
         f"Compatibility: {report.old_version} -> {report.new_version}"
     )

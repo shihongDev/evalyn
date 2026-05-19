@@ -7,23 +7,23 @@ import json
 import os
 import shutil
 import subprocess
-from typing import Callable, List, Optional
+from collections.abc import Callable
 
-from .config import get_config_default, load_config
-from .ui import Spinner
-from .loaders import _load_callable
 from ...parsing import extract_json_list
+from .config import get_config_default, load_config
+from .loaders import _load_callable
+from .ui import Spinner
 
 
-def _parse_json_array(text: str) -> List[dict]:
+def _parse_json_array(text: str) -> list[dict]:
     """Parse JSON array from text, handling malformed responses."""
     return extract_json_list(text)
 
 
-def _ollama_caller(model: str) -> Callable[[str], List[dict]]:
+def _ollama_caller(model: str) -> Callable[[str], list[dict]]:
     """Create an Ollama-based LLM caller."""
 
-    def _call(prompt: str) -> List[dict]:
+    def _call(prompt: str) -> list[dict]:
         if not shutil.which("ollama"):
             raise RuntimeError(
                 "ollama CLI not found. Install Ollama or choose --llm-mode api."
@@ -44,11 +44,11 @@ def _ollama_caller(model: str) -> Callable[[str], List[dict]]:
 
 
 def _openai_caller(
-    model: str, api_base: Optional[str] = None, api_key: Optional[str] = None
-) -> Callable[[str], List[dict]]:
+    model: str, api_base: str | None = None, api_key: str | None = None
+) -> Callable[[str], list[dict]]:
     """Create an OpenAI/Gemini-based LLM caller."""
 
-    def _call(prompt: str) -> List[dict]:
+    def _call(prompt: str) -> list[dict]:
         config = load_config()
 
         # Gemini shortcut using google-genai if model name starts with a gemini prefix
@@ -126,18 +126,18 @@ def _openai_caller(
 
 
 def _with_spinner(
-    caller: Callable[[str], List[dict]], message: str = "Calling LLM"
-) -> Callable[[str], List[dict]]:
+    caller: Callable[[str], list[dict]], message: str = "Calling LLM"
+) -> Callable[[str], list[dict]]:
     """Wrap a caller function with a spinner for visual feedback."""
 
-    def _wrapped(prompt: str) -> List[dict]:
+    def _wrapped(prompt: str) -> list[dict]:
         with Spinner(message):
             return caller(prompt)
 
     return _wrapped
 
 
-def _build_llm_caller(args: argparse.Namespace) -> Callable[[str], List[dict]]:
+def _build_llm_caller(args: argparse.Namespace) -> Callable[[str], list[dict]]:
     """Build an LLM caller based on CLI arguments."""
     model_name = getattr(args, "model", "LLM")
     spinner_msg = f"Querying {model_name}"

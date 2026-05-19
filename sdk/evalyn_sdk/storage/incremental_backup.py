@@ -10,8 +10,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -28,7 +27,7 @@ class BackupConfig:
     interval_minutes: float = 60.0
     compress: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "source_path": self.source_path,
             "backup_dir": self.backup_dir,
@@ -38,7 +37,7 @@ class BackupConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BackupConfig:
+    def from_dict(cls, data: dict[str, Any]) -> BackupConfig:
         return cls(
             source_path=data.get("source_path", ""),
             backup_dir=data.get("backup_dir", ".evalyn_backups"),
@@ -59,7 +58,7 @@ class BackupRecord:
     size_bytes: int = 0
     compressed: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "backup_id": self.backup_id,
             "source_path": self.source_path,
@@ -70,7 +69,7 @@ class BackupRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BackupRecord:
+    def from_dict(cls, data: dict[str, Any]) -> BackupRecord:
         return cls(
             backup_id=data.get("backup_id", ""),
             source_path=data.get("source_path", ""),
@@ -85,13 +84,13 @@ class BackupRecord:
 class BackupReport:
     """Summary report of all backups in a directory."""
 
-    backups: List[BackupRecord] = field(default_factory=list)
+    backups: list[BackupRecord] = field(default_factory=list)
     total_backups: int = 0
     total_size_bytes: int = 0
     oldest_backup: str = ""
     newest_backup: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "backups": [b.as_dict() for b in self.backups],
             "total_backups": self.total_backups,
@@ -101,7 +100,7 @@ class BackupReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BackupReport:
+    def from_dict(cls, data: dict[str, Any]) -> BackupReport:
         return cls(
             backups=[BackupRecord.from_dict(b) for b in data.get("backups", [])],
             total_backups=data.get("total_backups", 0),
@@ -142,7 +141,7 @@ def create_backup_path(config: BackupConfig, backup_id: str) -> str:
 
 
 def should_backup(
-    config: BackupConfig, last_backup_time: Optional[str] = None
+    config: BackupConfig, last_backup_time: str | None = None
 ) -> bool:
     """Return True if enough time has passed since last backup.
 
@@ -177,7 +176,7 @@ def plan_backup(config: BackupConfig) -> BackupRecord:
     )
 
 
-def list_backups(backup_dir: str) -> List[BackupRecord]:
+def list_backups(backup_dir: str) -> list[BackupRecord]:
     """List existing backup records in a directory.
 
     Scans the directory for files matching the backup naming pattern
@@ -185,7 +184,7 @@ def list_backups(backup_dir: str) -> List[BackupRecord]:
     """
     if not os.path.isdir(backup_dir):
         return []
-    records: List[BackupRecord] = []
+    records: list[BackupRecord] = []
     for name in sorted(os.listdir(backup_dir)):
         if not name.startswith("backup_"):
             continue
@@ -217,8 +216,8 @@ def list_backups(backup_dir: str) -> List[BackupRecord]:
 
 
 def cleanup_old_backups(
-    records: List[BackupRecord], max_backups: int = 5
-) -> List[BackupRecord]:
+    records: list[BackupRecord], max_backups: int = 5
+) -> list[BackupRecord]:
     """Return records to keep (newest max_backups).
 
     Assumes records are ordered oldest-first. Keeps the last max_backups items.
@@ -228,7 +227,7 @@ def cleanup_old_backups(
     return records[-max_backups:]
 
 
-def build_backup_report(records: List[BackupRecord]) -> BackupReport:
+def build_backup_report(records: list[BackupRecord]) -> BackupReport:
     """Build an aggregate report from a list of backup records."""
     if not records:
         return BackupReport()

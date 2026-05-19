@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import difflib
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -19,7 +19,7 @@ class ItemDiff:
     expected: str
     actual: str
     similarity: float  # 0.0-1.0 (SequenceMatcher ratio)
-    diff_lines: List[str] = field(default_factory=list)
+    diff_lines: list[str] = field(default_factory=list)
 
     @property
     def is_match(self) -> bool:
@@ -29,7 +29,7 @@ class ItemDiff:
     def is_close(self) -> bool:
         return self.similarity >= 0.8
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "similarity": round(self.similarity, 4),
@@ -55,13 +55,13 @@ class ItemDiff:
 class OutputDiffReport:
     """Report of output diffs across all items."""
 
-    diffs: List[ItemDiff] = field(default_factory=list)
+    diffs: list[ItemDiff] = field(default_factory=list)
     total_items: int = 0
     exact_matches: int = 0
     close_matches: int = 0
     significant_diffs: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_items": self.total_items,
             "exact_matches": self.exact_matches,
@@ -127,8 +127,8 @@ def compute_output_diff(
 
 
 def diff_run_outputs(
-    items: List,
-    run_results: Optional[Dict[str, str]] = None,
+    items: list,
+    run_results: dict[str, str] | None = None,
 ) -> OutputDiffReport:
     """Compute output diffs for all items with expected references.
 

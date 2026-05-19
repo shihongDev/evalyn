@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -104,8 +104,8 @@ class TextGradOptimizer(BaseOptimizer):
 
     def __init__(
         self,
-        config: Optional[TextGradConfig] = None,
-        api_key: Optional[str] = None,
+        config: TextGradConfig | None = None,
+        api_key: str | None = None,
     ):
         """Initialize TextGrad optimizer.
 
@@ -114,8 +114,8 @@ class TextGradOptimizer(BaseOptimizer):
             api_key: Optional API key for Gemini (default: from env).
         """
         super().__init__(config=config or TextGradConfig(), api_key=api_key)
-        self._task_client: Optional[GeminiClient] = None
-        self._scorer_client: Optional[GeminiClient] = None
+        self._task_client: GeminiClient | None = None
+        self._scorer_client: GeminiClient | None = None
 
     # ------------------------------------------------------------------
     # Lazy client properties
@@ -154,8 +154,8 @@ class TextGradOptimizer(BaseOptimizer):
     def _critique(
         self,
         preamble: str,
-        failures: List[Dict[str, Any]],
-        accumulator: Optional[TokenAccumulator] = None,
+        failures: list[dict[str, Any]],
+        accumulator: TokenAccumulator | None = None,
     ) -> str:
         """Ask LLM to critique the preamble based on failure cases.
 
@@ -194,7 +194,7 @@ class TextGradOptimizer(BaseOptimizer):
         self,
         preamble: str,
         critique: str,
-        accumulator: Optional[TokenAccumulator] = None,
+        accumulator: TokenAccumulator | None = None,
     ) -> str:
         """Ask LLM to revise the preamble based on the critique.
 
@@ -228,13 +228,13 @@ class TextGradOptimizer(BaseOptimizer):
         self,
         *,
         metric_id: str,
-        current_rubric: List[str],
+        current_rubric: list[str],
         current_preamble: str = "",
         metric_results: list,
         annotations: list,
         disagreements: Any = None,
-        dataset_items: Optional[list] = None,
-        accumulator: Optional[TokenAccumulator] = None,
+        dataset_items: list | None = None,
+        accumulator: TokenAccumulator | None = None,
         **kwargs: Any,
     ) -> PromptOptimizationResult:
         """Run TextGrad optimization loop.
@@ -308,7 +308,7 @@ class TextGradOptimizer(BaseOptimizer):
             desc="TextGrad",
             unit="iter",
         )
-        for iteration in pbar:
+        for _iteration in pbar:
             # Step 1: Collect failure cases
             failures = self._collect_failures(
                 current_preamble_text, current_rubric, trainset,

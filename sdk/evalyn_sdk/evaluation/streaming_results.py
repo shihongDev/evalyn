@@ -8,7 +8,7 @@ arrive.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -21,7 +21,7 @@ class PartialResult:
     passed: bool
     timestamp_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "metric_id": self.metric_id,
@@ -42,7 +42,7 @@ class StreamingStats:
     avg_score: float
     pass_rate: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_expected": self.total_expected,
             "completed": self.completed,
@@ -68,7 +68,7 @@ class StreamingStats:
 class StreamingBuffer:
     """Accumulates partial results and computes live statistics."""
 
-    results: List[PartialResult] = field(default_factory=list)
+    results: list[PartialResult] = field(default_factory=list)
     expected_count: int = 0
 
     def add_result(self, result: PartialResult) -> None:
@@ -99,11 +99,11 @@ class StreamingBuffer:
             pass_rate=pass_rate,
         )
 
-    def get_results_by_metric(self, metric_id: str) -> List[PartialResult]:
+    def get_results_by_metric(self, metric_id: str) -> list[PartialResult]:
         """Filter buffered results by metric id."""
         return [r for r in self.results if r.metric_id == metric_id]
 
-    def get_results_by_item(self, item_id: str) -> List[PartialResult]:
+    def get_results_by_item(self, item_id: str) -> list[PartialResult]:
         """Filter buffered results by item id."""
         return [r for r in self.results if r.item_id == item_id]
 
@@ -111,7 +111,7 @@ class StreamingBuffer:
         """Return True when all expected results have been received."""
         return len(self.results) >= self.expected_count and self.expected_count > 0
 
-    def get_early_insights(self) -> Dict[str, Any]:
+    def get_early_insights(self) -> dict[str, Any]:
         """Compute preliminary insights from results received so far."""
         completed = len(self.results)
         if completed == 0:
@@ -135,14 +135,14 @@ class StreamingBuffer:
             "completed": completed,
         }
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "expected_count": self.expected_count,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> StreamingBuffer:
+    def from_dict(cls, data: dict[str, Any]) -> StreamingBuffer:
         results = [
             PartialResult(
                 item_id=r["item_id"],

@@ -8,8 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -24,11 +23,11 @@ class GoldenItem:
     input_text: str
     expected_output: str
     category: str = ""
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
     verified: bool = False
     verified_by: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "input_text": self.input_text,
@@ -40,7 +39,7 @@ class GoldenItem:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> GoldenItem:
+    def from_dict(cls, data: dict[str, Any]) -> GoldenItem:
         return cls(
             id=data["id"],
             input_text=data["input_text"],
@@ -57,7 +56,7 @@ class GoldenSet:
     """A versioned collection of golden evaluation items."""
 
     name: str
-    items: List[GoldenItem] = field(default_factory=list)
+    items: list[GoldenItem] = field(default_factory=list)
     version: int = 1
     description: str = ""
     created_at: str = ""
@@ -86,7 +85,7 @@ class GoldenSet:
             lines.append(f"  {self.description}")
         return "\n".join(lines)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "items": [item.as_dict() for item in self.items],
@@ -96,7 +95,7 @@ class GoldenSet:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> GoldenSet:
+    def from_dict(cls, data: dict[str, Any]) -> GoldenSet:
         items = [GoldenItem.from_dict(d) for d in data.get("items", [])]
         return cls(
             name=data["name"],
@@ -113,11 +112,11 @@ class GoldenSetComparison:
 
     set_a_name: str
     set_b_name: str
-    added_ids: List[str] = field(default_factory=list)
-    removed_ids: List[str] = field(default_factory=list)
-    modified_ids: List[str] = field(default_factory=list)
+    added_ids: list[str] = field(default_factory=list)
+    removed_ids: list[str] = field(default_factory=list)
+    modified_ids: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "set_a_name": self.set_a_name,
             "set_b_name": self.set_b_name,
@@ -147,7 +146,7 @@ class GoldenSetComparison:
 
 def create_golden_set(
     name: str,
-    items: List[Dict[str, Any]],
+    items: list[dict[str, Any]],
     description: str = "",
 ) -> GoldenSet:
     """Create a golden set from a list of item dicts."""
@@ -195,7 +194,7 @@ def verify_item(
     verified_by: str = "",
 ) -> GoldenSet:
     """Mark an item as verified. Returns a new set (does not mutate)."""
-    new_items: List[GoldenItem] = []
+    new_items: list[GoldenItem] = []
     for item in golden.items:
         if item.id == item_id:
             new_items.append(
@@ -239,7 +238,7 @@ def compare_golden_sets(
     added = sorted(b_ids - a_ids)
     removed = sorted(a_ids - b_ids)
 
-    modified: List[str] = []
+    modified: list[str] = []
     for item_id in sorted(a_ids & b_ids):
         a_item = a_by_id[item_id]
         b_item = b_by_id[item_id]
@@ -262,14 +261,16 @@ def compare_golden_sets(
 def filter_golden_set(
     golden: GoldenSet,
     category: str = "",
-    tags: List[str] = [],
+    tags: list[str] | None = None,
     verified_only: bool = False,
 ) -> GoldenSet:
     """Filter items in a golden set by category, tags, or verification status.
 
     Returns a new golden set with only matching items.
     """
-    filtered: List[GoldenItem] = []
+    if tags is None:
+        tags = []
+    filtered: list[GoldenItem] = []
     for item in golden.items:
         if category and item.category != category:
             continue

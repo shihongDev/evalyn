@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import copy
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from ..models import Span
 
@@ -13,16 +14,16 @@ class ExtractedAttribute:
     value: Any
     source: str = "plugin"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {"key": self.key, "value": self.value, "source": self.source}
 
 
 @dataclass
 class ExtractionResult:
-    attributes: List[ExtractedAttribute] = field(default_factory=list)
+    attributes: list[ExtractedAttribute] = field(default_factory=list)
     plugin_name: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "attributes": [a.as_dict() for a in self.attributes],
             "plugin_name": self.plugin_name,
@@ -31,7 +32,7 @@ class ExtractionResult:
 
 @runtime_checkable
 class AttributeExtractor(Protocol):
-    def extract(self, span: Span) -> List[ExtractedAttribute]: ...
+    def extract(self, span: Span) -> list[ExtractedAttribute]: ...
 
 
 # ---------------------------------------------------------------------------
@@ -44,7 +45,7 @@ class ModelExtractor:
 
     _KEYS = ("model", "model_name", "llm.model")
 
-    def extract(self, span: Span) -> List[ExtractedAttribute]:
+    def extract(self, span: Span) -> list[ExtractedAttribute]:
         for key in self._KEYS:
             value = span.attributes.get(key)
             if value is not None:
@@ -59,8 +60,8 @@ class TokenExtractor:
     _OUTPUT_KEYS = ("output_tokens", "completion_tokens", "llm.output_tokens")
     _TOTAL_KEYS = ("total_tokens", "llm.total_tokens")
 
-    def extract(self, span: Span) -> List[ExtractedAttribute]:
-        attrs: List[ExtractedAttribute] = []
+    def extract(self, span: Span) -> list[ExtractedAttribute]:
+        attrs: list[ExtractedAttribute] = []
         input_tokens = self._find(span, self._INPUT_KEYS)
         output_tokens = self._find(span, self._OUTPUT_KEYS)
         total_tokens = self._find(span, self._TOTAL_KEYS)
@@ -98,7 +99,7 @@ class CostExtractor:
     _DEFAULT_INPUT_COST_PER_TOKEN = 0.000003
     _DEFAULT_OUTPUT_COST_PER_TOKEN = 0.000015
 
-    def extract(self, span: Span) -> List[ExtractedAttribute]:
+    def extract(self, span: Span) -> list[ExtractedAttribute]:
         # Check for explicit cost attribute
         cost = span.attributes.get("cost")
         if cost is not None:
@@ -123,12 +124,12 @@ class CostExtractor:
 
 
 def create_extractor_pipeline(
-    extractors: List[AttributeExtractor],
-) -> Callable[[Span], Dict[str, Any]]:
+    extractors: list[AttributeExtractor],
+) -> Callable[[Span], dict[str, Any]]:
     """Chain multiple extractors. Returns a function that runs all and merges results."""
 
-    def pipeline(span: Span) -> Dict[str, Any]:
-        merged: Dict[str, Any] = {}
+    def pipeline(span: Span) -> dict[str, Any]:
+        merged: dict[str, Any] = {}
         for extractor in extractors:
             for attr in extractor.extract(span):
                 merged[attr.key] = attr.value
@@ -137,7 +138,7 @@ def create_extractor_pipeline(
     return pipeline
 
 
-def apply_extractors(span: Span, extractors: List[AttributeExtractor]) -> Span:
+def apply_extractors(span: Span, extractors: list[AttributeExtractor]) -> Span:
     """Apply extractors and add extracted attributes to span. Returns a NEW span."""
     new_span = copy.deepcopy(span)
     for extractor in extractors:
@@ -150,7 +151,7 @@ def apply_extractors(span: Span, extractors: List[AttributeExtractor]) -> Span:
 # Global registry
 # ---------------------------------------------------------------------------
 
-_EXTRACTOR_REGISTRY: Dict[str, AttributeExtractor] = {}
+_EXTRACTOR_REGISTRY: dict[str, AttributeExtractor] = {}
 
 
 def register_extractor(name: str, extractor: AttributeExtractor) -> None:
@@ -158,7 +159,7 @@ def register_extractor(name: str, extractor: AttributeExtractor) -> None:
     _EXTRACTOR_REGISTRY[name] = extractor
 
 
-def get_registered_extractors() -> Dict[str, AttributeExtractor]:
+def get_registered_extractors() -> dict[str, AttributeExtractor]:
     """Get all registered extractors."""
     return dict(_EXTRACTOR_REGISTRY)
 

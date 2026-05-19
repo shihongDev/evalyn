@@ -9,8 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -26,7 +25,7 @@ class ChecksumRecord:
     algorithm: str = "sha256"
     verified: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "record_id": self.record_id,
             "checksum": self.checksum,
@@ -35,7 +34,7 @@ class ChecksumRecord:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> ChecksumRecord:
+    def from_dict(cls, d: dict[str, Any]) -> ChecksumRecord:
         return cls(
             record_id=d["record_id"],
             checksum=d["checksum"],
@@ -54,7 +53,7 @@ class ChecksumReport:
     missing: int = 0
     integrity_rate: float = 1.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_records": self.total_records,
             "verified": self.verified,
@@ -64,7 +63,7 @@ class ChecksumReport:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> ChecksumReport:
+    def from_dict(cls, d: dict[str, Any]) -> ChecksumReport:
         return cls(
             total_records=d.get("total_records", 0),
             verified=d.get("verified", 0),
@@ -74,7 +73,7 @@ class ChecksumReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Checksum Report")
         lines.append("-" * 40)
         lines.append(f"Total records: {self.total_records}")
@@ -92,7 +91,7 @@ class ChecksumReport:
 
 
 def compute_checksum(
-    data: Dict[str, Any], algorithm: str = "sha256"
+    data: dict[str, Any], algorithm: str = "sha256"
 ) -> str:
     """Compute checksum of a dict by JSON-serializing (sorted keys) and hashing.
 
@@ -105,8 +104,8 @@ def compute_checksum(
 
 
 def add_checksum(
-    record: Dict[str, Any], algorithm: str = "sha256"
-) -> Dict[str, Any]:
+    record: dict[str, Any], algorithm: str = "sha256"
+) -> dict[str, Any]:
     """Add a '_checksum' field to a record. Returns a new dict."""
     # Compute checksum on the data without any existing _checksum
     data = {k: v for k, v in record.items() if k != "_checksum"}
@@ -117,7 +116,7 @@ def add_checksum(
 
 
 def verify_checksum(
-    record: Dict[str, Any], algorithm: str = "sha256"
+    record: dict[str, Any], algorithm: str = "sha256"
 ) -> bool:
     """Verify that a record's '_checksum' matches the computed checksum."""
     stored = record.get("_checksum")
@@ -128,7 +127,7 @@ def verify_checksum(
     return stored == expected
 
 
-def verify_batch(records: List[Dict[str, Any]]) -> ChecksumReport:
+def verify_batch(records: list[dict[str, Any]]) -> ChecksumReport:
     """Verify all records and return an aggregated report."""
     total = len(records)
     verified = 0
@@ -153,9 +152,9 @@ def verify_batch(records: List[Dict[str, Any]]) -> ChecksumReport:
     )
 
 
-def find_corrupted(records: List[Dict[str, Any]]) -> List[str]:
+def find_corrupted(records: list[dict[str, Any]]) -> list[str]:
     """Return IDs of records with failed checksums."""
-    result: List[str] = []
+    result: list[str] = []
     for rec in records:
         if "_checksum" in rec and not verify_checksum(rec):
             record_id = rec.get("id", rec.get("record_id", "unknown"))
@@ -164,8 +163,8 @@ def find_corrupted(records: List[Dict[str, Any]]) -> List[str]:
 
 
 def strip_checksums(
-    records: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    records: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """Remove '_checksum' field from all records. Returns a new list."""
     return [
         {k: v for k, v in rec.items() if k != "_checksum"}

@@ -7,9 +7,8 @@ or weighted merge strategies.
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from dataclasses import dataclass
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -25,7 +24,7 @@ class OptimizerCandidate:
     alignment_score: float
     cost_tokens: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "optimizer_name": self.optimizer_name,
             "prompt": self.prompt,
@@ -39,11 +38,11 @@ class TournamentResult:
     """Result of an ensemble fusion pass."""
 
     winner: OptimizerCandidate
-    participants: List[OptimizerCandidate]
+    participants: list[OptimizerCandidate]
     rounds: int
     method: str = "tournament"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "winner": self.winner.as_dict(),
             "participants": [p.as_dict() for p in self.participants],
@@ -52,7 +51,7 @@ class TournamentResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TournamentResult:
+    def from_dict(cls, data: dict[str, Any]) -> TournamentResult:
         winner = OptimizerCandidate(
             optimizer_name=data["winner"]["optimizer_name"],
             prompt=data["winner"]["prompt"],
@@ -95,14 +94,14 @@ class FusionConfig:
     method: str = "tournament"  # "tournament" / "best_of" / "weighted_merge"
     tournament_rounds: int = 3
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "method": self.method,
             "tournament_rounds": self.tournament_rounds,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FusionConfig:
+    def from_dict(cls, data: dict[str, Any]) -> FusionConfig:
         return cls(
             method=data.get("method", "tournament"),
             tournament_rounds=data.get("tournament_rounds", 3),
@@ -115,9 +114,9 @@ class FusionConfig:
 
 
 def tournament_select(
-    candidates: List[OptimizerCandidate],
+    candidates: list[OptimizerCandidate],
     rounds: int = 3,
-    seed: Optional[int] = None,
+    seed: int | None = None,
 ) -> TournamentResult:
     """Random tournament: pair candidates each round, advance the better one.
 
@@ -143,7 +142,7 @@ def tournament_select(
         if len(pool) <= 1:
             break
         rng.shuffle(pool)
-        next_pool: List[OptimizerCandidate] = []
+        next_pool: list[OptimizerCandidate] = []
         i = 0
         while i < len(pool):
             if i + 1 < len(pool):
@@ -167,7 +166,7 @@ def tournament_select(
 
 
 def best_of_select(
-    candidates: List[OptimizerCandidate],
+    candidates: list[OptimizerCandidate],
 ) -> TournamentResult:
     """Pick the candidate with the highest alignment score."""
     if not candidates:
@@ -183,7 +182,7 @@ def best_of_select(
 
 
 def weighted_merge_prompts(
-    candidates: List[OptimizerCandidate],
+    candidates: list[OptimizerCandidate],
 ) -> str:
     """Create a merged prompt from candidates.
 
@@ -196,8 +195,8 @@ def weighted_merge_prompts(
 
 
 def run_ensemble_fusion(
-    candidates: List[OptimizerCandidate],
-    config: Optional[FusionConfig] = None,
+    candidates: list[OptimizerCandidate],
+    config: FusionConfig | None = None,
 ) -> TournamentResult:
     """Route to the appropriate fusion method based on config."""
     if config is None:

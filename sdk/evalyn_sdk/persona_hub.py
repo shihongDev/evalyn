@@ -9,7 +9,7 @@ from __future__ import annotations
 import random
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 @dataclass
@@ -18,9 +18,9 @@ class PersonaTrait:
 
     trait_name: str
     category: str  # "demographic", "expertise", "intent", "communication"
-    values: List[str] = field(default_factory=list)
+    values: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "trait_name": self.trait_name,
             "category": self.category,
@@ -28,7 +28,7 @@ class PersonaTrait:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PersonaTrait:
+    def from_dict(cls, data: dict[str, Any]) -> PersonaTrait:
         return cls(
             trait_name=data["trait_name"],
             category=data["category"],
@@ -42,10 +42,10 @@ class PersonaProfile:
 
     persona_id: str
     name: str
-    traits: Dict[str, str] = field(default_factory=dict)  # trait_name -> value
+    traits: dict[str, str] = field(default_factory=dict)  # trait_name -> value
     description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "persona_id": self.persona_id,
             "name": self.name,
@@ -54,7 +54,7 @@ class PersonaProfile:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PersonaProfile:
+    def from_dict(cls, data: dict[str, Any]) -> PersonaProfile:
         return cls(
             persona_id=data["persona_id"],
             name=data["name"],
@@ -67,11 +67,11 @@ class PersonaProfile:
 class PersonaHub:
     """A collection of persona profiles and their trait definitions."""
 
-    profiles: List[PersonaProfile] = field(default_factory=list)
-    trait_definitions: List[PersonaTrait] = field(default_factory=list)
+    profiles: list[PersonaProfile] = field(default_factory=list)
+    trait_definitions: list[PersonaTrait] = field(default_factory=list)
     total_profiles: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "profiles": [p.as_dict() for p in self.profiles],
             "trait_definitions": [t.as_dict() for t in self.trait_definitions],
@@ -79,7 +79,7 @@ class PersonaHub:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PersonaHub:
+    def from_dict(cls, data: dict[str, Any]) -> PersonaHub:
         return cls(
             profiles=[
                 PersonaProfile.from_dict(p) for p in data.get("profiles", [])
@@ -92,7 +92,7 @@ class PersonaHub:
         )
 
 
-DEFAULT_TRAITS: List[PersonaTrait] = [
+DEFAULT_TRAITS: list[PersonaTrait] = [
     PersonaTrait(
         trait_name="demographic",
         category="demographic",
@@ -128,22 +128,22 @@ DEFAULT_TRAITS: List[PersonaTrait] = [
 ]
 
 
-def _build_persona_name(traits: Dict[str, str]) -> str:
+def _build_persona_name(traits: dict[str, str]) -> str:
     """Build a readable name from trait values."""
-    parts: List[str] = []
+    parts: list[str] = []
     for key in sorted(traits.keys()):
         parts.append(traits[key])
     return "_".join(parts)
 
 
 def generate_persona(
-    traits: List[PersonaTrait],
-    rng: Optional[random.Random] = None,
+    traits: list[PersonaTrait],
+    rng: random.Random | None = None,
 ) -> PersonaProfile:
     """Randomly combine one value from each trait into a persona."""
     if rng is None:
         rng = random.Random()
-    chosen: Dict[str, str] = {}
+    chosen: dict[str, str] = {}
     for trait in traits:
         if trait.values:
             chosen[trait.trait_name] = rng.choice(trait.values)
@@ -161,8 +161,8 @@ def generate_persona(
 
 def generate_persona_hub(
     n_personas: int = 20,
-    traits: Optional[List[PersonaTrait]] = None,
-    seed: Optional[int] = None,
+    traits: list[PersonaTrait] | None = None,
+    seed: int | None = None,
 ) -> PersonaHub:
     """Generate n diverse personas ensuring coverage across trait categories.
 
@@ -175,18 +175,18 @@ def generate_persona_hub(
 
     # First pass: ensure every trait value appears at least once
     # by cycling through values for each trait
-    value_queues: Dict[str, List[str]] = {}
+    value_queues: dict[str, list[str]] = {}
     for trait in traits:
         if trait.values:
             shuffled = list(trait.values)
             rng.shuffle(shuffled)
             value_queues[trait.trait_name] = shuffled
 
-    profiles: List[PersonaProfile] = []
+    profiles: list[PersonaProfile] = []
     seen_combos: set[tuple[str, ...]] = set()
 
     for i in range(n_personas):
-        chosen: Dict[str, str] = {}
+        chosen: dict[str, str] = {}
         for trait in traits:
             if not trait.values:
                 continue
@@ -231,7 +231,7 @@ def generate_persona_hub(
 def expand_persona_pairs(
     hub: PersonaHub,
     n_pairs: int = 5,
-) -> List[Tuple[PersonaProfile, PersonaProfile]]:
+) -> list[tuple[PersonaProfile, PersonaProfile]]:
     """Create interesting persona pairs for multi-turn simulation.
 
     Prioritizes pairs with opposite expertise levels or different intents.
@@ -241,7 +241,7 @@ def expand_persona_pairs(
         return []
 
     # Score each pair by how "interesting" the contrast is
-    scored_pairs: List[Tuple[float, int, int]] = []
+    scored_pairs: list[tuple[float, int, int]] = []
     expertise_order = {"novice": 0, "intermediate": 1, "advanced": 2, "expert": 3}
 
     for i in range(len(hub.profiles)):
@@ -273,9 +273,9 @@ def expand_persona_pairs(
     # Sort by score descending
     scored_pairs.sort(key=lambda x: x[0], reverse=True)
 
-    pairs: List[Tuple[PersonaProfile, PersonaProfile]] = []
+    pairs: list[tuple[PersonaProfile, PersonaProfile]] = []
     used: set[int] = set()
-    for score, i, j in scored_pairs:
+    for _score, i, j in scored_pairs:
         if len(pairs) >= n_pairs:
             break
         if i not in used and j not in used:
@@ -285,7 +285,7 @@ def expand_persona_pairs(
 
     # If we still need more pairs, relax the uniqueness constraint
     if len(pairs) < n_pairs:
-        for score, i, j in scored_pairs:
+        for _score, i, j in scored_pairs:
             if len(pairs) >= n_pairs:
                 break
             pair = (hub.profiles[i], hub.profiles[j])
@@ -295,9 +295,9 @@ def expand_persona_pairs(
     return pairs[:n_pairs]
 
 
-def check_diversity_coverage(hub: PersonaHub) -> Dict[str, float]:
+def check_diversity_coverage(hub: PersonaHub) -> dict[str, float]:
     """Per-trait-category coverage: fraction of values represented."""
-    coverage: Dict[str, float] = {}
+    coverage: dict[str, float] = {}
     for trait in hub.trait_definitions:
         if not trait.values:
             coverage[trait.category] = 1.0
@@ -315,7 +315,7 @@ def filter_personas(
     hub: PersonaHub,
     trait_name: str,
     value: str,
-) -> List[PersonaProfile]:
+) -> list[PersonaProfile]:
     """Filter personas by a specific trait value."""
     return [
         p for p in hub.profiles if p.traits.get(trait_name) == value
@@ -324,7 +324,7 @@ def filter_personas(
 
 def format_persona_hub(hub: PersonaHub) -> str:
     """Format a human-readable persona catalog."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Persona Hub Catalog")
     lines.append("=" * 40)
     lines.append(f"Total profiles: {hub.total_profiles}")

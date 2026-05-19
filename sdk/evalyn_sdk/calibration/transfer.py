@@ -7,8 +7,7 @@ rubric similarity and adapting prompts via text substitution.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -24,7 +23,7 @@ class MetricSimilarity:
     similarity_score: float  # 0-1
     method: str = "word_overlap"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "source_metric": self.source_metric,
             "target_metric": self.target_metric,
@@ -41,10 +40,10 @@ class TransferResult:
     target_metric: str
     transferred_preamble: str
     similarity: float
-    validation_score: Optional[float] = None
+    validation_score: float | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {
+    def as_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {
             "source_metric": self.source_metric,
             "target_metric": self.target_metric,
             "transferred_preamble": self.transferred_preamble,
@@ -54,7 +53,7 @@ class TransferResult:
         return result
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TransferResult:
+    def from_dict(cls, data: dict[str, Any]) -> TransferResult:
         return cls(
             source_metric=data["source_metric"],
             target_metric=data["target_metric"],
@@ -68,11 +67,11 @@ class TransferResult:
 class TransferReport:
     """Report of all transfer calibration attempts."""
 
-    transfers: List[TransferResult]
+    transfers: list[TransferResult]
     successful: int
     total: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "transfers": [t.as_dict() for t in self.transfers],
             "successful": self.successful,
@@ -80,7 +79,7 @@ class TransferReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TransferReport:
+    def from_dict(cls, data: dict[str, Any]) -> TransferReport:
         transfers = [TransferResult.from_dict(t) for t in data.get("transfers", [])]
         return cls(
             transfers=transfers,
@@ -123,15 +122,15 @@ def compute_rubric_similarity(rubric_a: str, rubric_b: str) -> float:
 
 def find_similar_metrics(
     source_rubric: str,
-    target_rubrics: Dict[str, str],
+    target_rubrics: dict[str, str],
     min_similarity: float = 0.3,
-) -> List[MetricSimilarity]:
+) -> list[MetricSimilarity]:
     """Find target metrics similar to the source rubric.
 
     Returns a list of MetricSimilarity sorted by similarity descending,
     filtered to those meeting the min_similarity threshold.
     """
-    results: List[MetricSimilarity] = []
+    results: list[MetricSimilarity] = []
     for name, rubric in target_rubrics.items():
         score = compute_rubric_similarity(source_rubric, rubric)
         if score >= min_similarity:
@@ -166,8 +165,8 @@ def transfer_preamble(source_prompt: str, target_metric_name: str) -> str:
 
 def validate_transfer(
     transferred_prompt: str,
-    test_scores: List[float],
-    ground_truth: List[bool],
+    test_scores: list[float],
+    ground_truth: list[bool],
 ) -> float:
     """Quick validation of transferred prompt scores against ground truth.
 
@@ -188,8 +187,8 @@ def validate_transfer(
 
 
 def plan_transfers(
-    source_calibrations: Dict[str, str],
-    target_rubrics: Dict[str, str],
+    source_calibrations: dict[str, str],
+    target_rubrics: dict[str, str],
     min_similarity: float = 0.3,
 ) -> TransferReport:
     """Plan all possible transfers from source calibrations to target rubrics.
@@ -199,7 +198,7 @@ def plan_transfers(
 
     Returns a TransferReport with one TransferResult per viable pair.
     """
-    transfers: List[TransferResult] = []
+    transfers: list[TransferResult] = []
 
     for source_name, source_preamble in source_calibrations.items():
         # Use the source preamble as the "rubric" for similarity computation

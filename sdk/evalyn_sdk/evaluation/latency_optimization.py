@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -22,7 +22,7 @@ class LatencyProfile:
     p99_ms: float = 0.0
     call_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "avg_latency_ms": self.avg_latency_ms,
@@ -33,7 +33,7 @@ class LatencyProfile:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> LatencyProfile:
+    def from_dict(cls, data: dict[str, Any]) -> LatencyProfile:
         return cls(
             metric_id=data["metric_id"],
             avg_latency_ms=data.get("avg_latency_ms", 0.0),
@@ -52,7 +52,7 @@ class OptimizationSuggestion:
     estimated_savings_pct: float = 0.0
     priority: str = "medium"  # "low" / "medium" / "high"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "suggestion": self.suggestion,
             "estimated_savings_pct": self.estimated_savings_pct,
@@ -64,12 +64,12 @@ class OptimizationSuggestion:
 class LatencyReport:
     """Aggregated latency report with optimization suggestions."""
 
-    profiles: List[LatencyProfile] = field(default_factory=list)
-    suggestions: List[OptimizationSuggestion] = field(default_factory=list)
+    profiles: list[LatencyProfile] = field(default_factory=list)
+    suggestions: list[OptimizationSuggestion] = field(default_factory=list)
     total_calls: int = 0
     total_latency_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "profiles": [p.as_dict() for p in self.profiles],
             "suggestions": [s.as_dict() for s in self.suggestions],
@@ -78,7 +78,7 @@ class LatencyReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> LatencyReport:
+    def from_dict(cls, data: dict[str, Any]) -> LatencyReport:
         return cls(
             profiles=[LatencyProfile.from_dict(p) for p in data.get("profiles", [])],
             suggestions=[],
@@ -88,7 +88,7 @@ class LatencyReport:
 
     def format_text(self) -> str:
         """Human-readable text summary."""
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Latency Report")
         lines.append(f"  Total calls: {self.total_calls}")
         lines.append(f"  Total latency: {self.total_latency_ms:.1f} ms")
@@ -110,7 +110,7 @@ class LatencyReport:
         return "\n".join(lines)
 
 
-def compute_percentile(values: List[float], percentile: float) -> float:
+def compute_percentile(values: list[float], percentile: float) -> float:
     """Compute percentile (0-100) from a list of values.
 
     Uses linear interpolation between adjacent ranks.
@@ -131,7 +131,7 @@ def compute_percentile(values: List[float], percentile: float) -> float:
     return sorted_values[lower] + frac * (sorted_values[upper] - sorted_values[lower])
 
 
-def build_latency_profile(metric_id: str, latencies: List[float]) -> LatencyProfile:
+def build_latency_profile(metric_id: str, latencies: list[float]) -> LatencyProfile:
     """Compute avg, p50, p95, p99 from raw latency measurements."""
     if not latencies:
         return LatencyProfile(metric_id=metric_id)
@@ -146,12 +146,12 @@ def build_latency_profile(metric_id: str, latencies: List[float]) -> LatencyProf
     )
 
 
-def analyze_latency(profiles: List[LatencyProfile]) -> LatencyReport:
+def analyze_latency(profiles: list[LatencyProfile]) -> LatencyReport:
     """Analyze all profiles and generate optimization suggestions."""
     total_calls = sum(p.call_count for p in profiles)
     total_latency = sum(p.avg_latency_ms * p.call_count for p in profiles)
 
-    suggestions: List[OptimizationSuggestion] = []
+    suggestions: list[OptimizationSuggestion] = []
 
     # Suggest batching if many calls
     if total_calls >= 10:
@@ -205,6 +205,6 @@ def estimate_optimization_impact(profile: LatencyProfile, optimization: str) -> 
     return reductions.get(optimization, 0.0)
 
 
-def rank_metrics_by_latency(profiles: List[LatencyProfile]) -> List[LatencyProfile]:
+def rank_metrics_by_latency(profiles: list[LatencyProfile]) -> list[LatencyProfile]:
     """Sort profiles by avg_latency descending (slowest first)."""
     return sorted(profiles, key=lambda p: p.avg_latency_ms, reverse=True)

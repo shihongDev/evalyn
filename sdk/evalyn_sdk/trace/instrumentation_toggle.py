@@ -7,12 +7,13 @@ instrumentation without restarting the process.
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Any, Dict, Generator, List
+from typing import Any
 
 _INSTRUMENTATION_ENABLED: bool = True
-_TOGGLE_HISTORY: List[Dict[str, Any]] = []
+_TOGGLE_HISTORY: list[dict[str, Any]] = []
 
 
 def toggle_instrumentation(enabled: bool = True) -> bool:
@@ -48,7 +49,7 @@ def resume_instrumentation() -> bool:
     return toggle_instrumentation(True)
 
 
-def get_toggle_history() -> List[Dict[str, Any]]:
+def get_toggle_history() -> list[dict[str, Any]]:
     """Return the history of toggle operations.
 
     Each entry is {"timestamp": str, "enabled": bool, "previous": bool}.

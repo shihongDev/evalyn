@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 import threading
 import time
-from typing import Any, Optional
+from typing import Any
 
 
 class Spinner:
@@ -28,7 +28,7 @@ class Spinner:
         sys.stderr.write("\r" + " " * (len(self.message) + 5) + "\r")
         sys.stderr.flush()
 
-    def __enter__(self) -> "Spinner":
+    def __enter__(self) -> Spinner:
         self._running = True
         self._thread = threading.Thread(target=self._spin, daemon=True)
         self._thread.start()
@@ -50,7 +50,7 @@ class ProgressIndicator:
         self.width = width
         self._start_time = time.time()
 
-    def update(self, current: Optional[int] = None, extra: str = ""):
+    def update(self, current: int | None = None, extra: str = ""):
         """Update progress display."""
         if current is not None:
             self.current = current

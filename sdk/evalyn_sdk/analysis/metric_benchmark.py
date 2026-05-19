@@ -7,7 +7,7 @@ breakdown. Identifies the slowest and most expensive metrics.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -30,7 +30,7 @@ class MetricBenchmark:
         total = self.total_input_tokens + self.total_output_tokens
         return total // self.item_count if self.item_count > 0 else 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "metric_type": self.metric_type,
@@ -47,17 +47,17 @@ class MetricBenchmark:
 class BenchmarkReport:
     """Complete benchmark report for all metrics in a run."""
 
-    metrics: List[MetricBenchmark] = field(default_factory=list)
+    metrics: list[MetricBenchmark] = field(default_factory=list)
     total_cost_usd: float = 0.0
     total_tokens: int = 0
 
     @property
-    def most_expensive(self) -> Optional[MetricBenchmark]:
+    def most_expensive(self) -> MetricBenchmark | None:
         """Metric with highest total cost."""
         return max(self.metrics, key=lambda m: m.total_cost_usd) if self.metrics else None
 
     @property
-    def cheapest(self) -> Optional[MetricBenchmark]:
+    def cheapest(self) -> MetricBenchmark | None:
         """Metric with lowest total cost."""
         return min(self.metrics, key=lambda m: m.total_cost_usd) if self.metrics else None
 
@@ -69,7 +69,7 @@ class BenchmarkReport:
     def subjective_count(self) -> int:
         return sum(1 for m in self.metrics if m.metric_type == "subjective")
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_cost_usd": round(self.total_cost_usd, 6),
             "total_tokens": self.total_tokens,
@@ -99,8 +99,8 @@ class BenchmarkReport:
 
 
 def benchmark_metrics(
-    metric_results: List,
-    metric_specs: Optional[List] = None,
+    metric_results: list,
+    metric_specs: list | None = None,
 ) -> BenchmarkReport:
     """Compute per-metric benchmarks from evaluation results.
 
@@ -112,13 +112,13 @@ def benchmark_metrics(
         BenchmarkReport with per-metric cost and token breakdowns.
     """
     # Build type lookup from specs
-    type_map: Dict[str, str] = {}
+    type_map: dict[str, str] = {}
     if metric_specs:
         for spec in metric_specs:
             type_map[spec.id] = spec.type
 
     # Aggregate by metric
-    aggregated: Dict[str, MetricBenchmark] = {}
+    aggregated: dict[str, MetricBenchmark] = {}
 
     for result in metric_results:
         mid = result.metric_id

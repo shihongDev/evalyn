@@ -7,7 +7,7 @@ round-robin, cost-optimized, or capacity-weighted strategies.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -19,7 +19,7 @@ class ProviderAllocation:
     item_count: int
     estimated_cost_usd: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "provider": self.provider,
             "model": self.model,
@@ -32,17 +32,17 @@ class ProviderAllocation:
 class SplitConfig:
     """Configuration for splitting items across providers."""
 
-    providers: List[Dict[str, Any]] = field(default_factory=list)
+    providers: list[dict[str, Any]] = field(default_factory=list)
     strategy: str = "round_robin"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "providers": self.providers,
             "strategy": self.strategy,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SplitConfig:
+    def from_dict(cls, data: dict[str, Any]) -> SplitConfig:
         return cls(
             providers=data.get("providers", []),
             strategy=data.get("strategy", "round_robin"),
@@ -53,11 +53,11 @@ class SplitConfig:
 class SplitPlan:
     """Plan describing how items are split across providers."""
 
-    allocations: List[ProviderAllocation] = field(default_factory=list)
+    allocations: list[ProviderAllocation] = field(default_factory=list)
     total_items: int = 0
     total_estimated_cost: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "allocations": [a.as_dict() for a in self.allocations],
             "total_items": self.total_items,
@@ -65,7 +65,7 @@ class SplitPlan:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SplitPlan:
+    def from_dict(cls, data: dict[str, Any]) -> SplitPlan:
         allocations = [
             ProviderAllocation(
                 provider=a["provider"],
@@ -100,9 +100,9 @@ class SplitResult:
 
     provider: str
     model: str
-    item_ids: List[str] = field(default_factory=list)
+    item_ids: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "provider": self.provider,
             "model": self.model,
@@ -111,8 +111,8 @@ class SplitResult:
 
 
 def split_round_robin(
-    item_ids: List[str], providers: List[Dict[str, Any]]
-) -> List[SplitResult]:
+    item_ids: list[str], providers: list[dict[str, Any]]
+) -> list[SplitResult]:
     """Distribute items evenly across providers in round-robin order."""
     if not providers:
         return []
@@ -130,8 +130,8 @@ def split_round_robin(
 
 
 def split_cost_optimized(
-    item_ids: List[str], providers: List[Dict[str, Any]]
-) -> List[SplitResult]:
+    item_ids: list[str], providers: list[dict[str, Any]]
+) -> list[SplitResult]:
     """Assign items to cheapest provider first until capacity reached, then next cheapest."""
     if not providers:
         return []
@@ -165,8 +165,8 @@ def split_cost_optimized(
 
 
 def split_capacity_weighted(
-    item_ids: List[str], providers: List[Dict[str, Any]]
-) -> List[SplitResult]:
+    item_ids: list[str], providers: list[dict[str, Any]]
+) -> list[SplitResult]:
     """Distribute proportional to each provider's capacity."""
     if not providers:
         return []
@@ -196,7 +196,7 @@ def split_capacity_weighted(
 
 
 def create_split_plan(
-    item_ids: List[str], config: SplitConfig
+    item_ids: list[str], config: SplitConfig
 ) -> SplitPlan:
     """Route to the appropriate splitting strategy and build a plan."""
     if config.strategy == "cost_optimized":

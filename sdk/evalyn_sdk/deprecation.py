@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 @dataclass
@@ -15,7 +15,7 @@ class DeprecationEntry:
     category: str  # "config", "flag", or "api"
     message: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "old_name": self.old_name,
             "new_name": self.new_name,
@@ -26,7 +26,7 @@ class DeprecationEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DeprecationEntry:
+    def from_dict(cls, data: dict[str, Any]) -> DeprecationEntry:
         return cls(
             old_name=data["old_name"],
             new_name=data["new_name"],
@@ -44,14 +44,14 @@ class DeprecationWarning_:
     entry: DeprecationEntry
     context: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "entry": self.entry.as_dict(),
             "context": self.context,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DeprecationWarning_:
+    def from_dict(cls, data: dict[str, Any]) -> DeprecationWarning_:
         return cls(
             entry=DeprecationEntry.from_dict(data["entry"]),
             context=data["context"],
@@ -62,14 +62,14 @@ class DeprecationRegistry:
     """Registry of deprecated names with lookup and migration support."""
 
     def __init__(self) -> None:
-        self._entries: Dict[Tuple[str, str], List[DeprecationEntry]] = {}
+        self._entries: dict[tuple[str, str], list[DeprecationEntry]] = {}
 
     def register(self, entry: DeprecationEntry) -> None:
         """Register a deprecation entry."""
         key = (entry.old_name, entry.category)
         self._entries.setdefault(key, []).append(entry)
 
-    def check(self, name: str, category: str) -> Optional[DeprecationEntry]:
+    def check(self, name: str, category: str) -> DeprecationEntry | None:
         """Check if a name is deprecated in a given category.
 
         Returns the deprecation entry if found, None otherwise.
@@ -80,12 +80,12 @@ class DeprecationRegistry:
             return entries[-1]
         return None
 
-    def check_config(self, config: dict) -> List[DeprecationWarning_]:
+    def check_config(self, config: dict) -> list[DeprecationWarning_]:
         """Check all keys in a config dict for deprecations.
 
         Returns a list of warnings for any deprecated keys found.
         """
-        warnings: List[DeprecationWarning_] = []
+        warnings: list[DeprecationWarning_] = []
         for key in config:
             entry = self.check(key, "config")
             if entry is not None:
@@ -93,23 +93,23 @@ class DeprecationRegistry:
                 warnings.append(DeprecationWarning_(entry=entry, context=context))
         return warnings
 
-    def get_all(self, category: Optional[str] = None) -> List[DeprecationEntry]:
+    def get_all(self, category: str | None = None) -> list[DeprecationEntry]:
         """List all deprecation entries, optionally filtered by category."""
-        result: List[DeprecationEntry] = []
+        result: list[DeprecationEntry] = []
         for entries in self._entries.values():
             for entry in entries:
                 if category is None or entry.category == category:
                     result.append(entry)
         return result
 
-    def migrate_config(self, config: dict) -> Tuple[dict, List[str]]:
+    def migrate_config(self, config: dict) -> tuple[dict, list[str]]:
         """Migrate a config dict by replacing deprecated keys with new ones.
 
         Returns (new_config, list_of_changes) where each change is a
         human-readable description of what was migrated.
         """
         new_config: dict = {}
-        changes: List[str] = []
+        changes: list[str] = []
         for key, value in config.items():
             entry = self.check(key, "config")
             if entry is not None:
@@ -122,11 +122,11 @@ class DeprecationRegistry:
         return new_config, changes
 
 
-def format_warnings(warnings: List[DeprecationWarning_]) -> str:
+def format_warnings(warnings: list[DeprecationWarning_]) -> str:
     """Format a list of deprecation warnings for display."""
     if not warnings:
         return "No deprecation warnings."
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"Found {len(warnings)} deprecation warning(s):")
     for w in warnings:
         e = w.entry
@@ -140,11 +140,11 @@ def format_warnings(warnings: List[DeprecationWarning_]) -> str:
     return "\n".join(lines)
 
 
-def format_migration_report(changes: List[str]) -> str:
+def format_migration_report(changes: list[str]) -> str:
     """Format migration changes for display."""
     if not changes:
         return "No migrations needed."
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"Applied {len(changes)} migration(s):")
     for change in changes:
         lines.append(f"  - {change}")

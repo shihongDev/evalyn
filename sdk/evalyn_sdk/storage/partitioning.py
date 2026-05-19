@@ -10,8 +10,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -26,7 +25,7 @@ class PartitionConfig:
     base_dir: str = "."
     naming_pattern: str = "evalyn_{period}"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "period": self.period,
             "base_dir": self.base_dir,
@@ -34,7 +33,7 @@ class PartitionConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PartitionConfig:
+    def from_dict(cls, data: dict[str, Any]) -> PartitionConfig:
         return cls(
             period=data.get("period", "monthly"),
             base_dir=data.get("base_dir", "."),
@@ -54,7 +53,7 @@ class Partition:
     row_count: int = 0
     size_bytes: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "partition_id": self.partition_id,
             "period_label": self.period_label,
@@ -66,7 +65,7 @@ class Partition:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Partition:
+    def from_dict(cls, data: dict[str, Any]) -> Partition:
         return cls(
             partition_id=data.get("partition_id", ""),
             period_label=data.get("period_label", ""),
@@ -82,12 +81,12 @@ class Partition:
 class PartitionReport:
     """Report summarizing all partitions."""
 
-    partitions: List[Partition] = field(default_factory=list)
+    partitions: list[Partition] = field(default_factory=list)
     total_partitions: int = 0
     total_rows: int = 0
     total_size_bytes: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "partitions": [p.as_dict() for p in self.partitions],
             "total_partitions": self.total_partitions,
@@ -96,7 +95,7 @@ class PartitionReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PartitionReport:
+    def from_dict(cls, data: dict[str, Any]) -> PartitionReport:
         partitions = [
             Partition.from_dict(p) for p in data.get("partitions", [])
         ]
@@ -108,7 +107,7 @@ class PartitionReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Partition Report")
         lines.append("=" * 40)
         lines.append(f"Total partitions: {self.total_partitions}")
@@ -167,7 +166,7 @@ def generate_partition_path(config: PartitionConfig, partition_key: str) -> str:
 
 
 def assign_to_partition(
-    record: Dict[str, Any],
+    record: dict[str, Any],
     config: PartitionConfig,
     timestamp_field: str = "created_at",
 ) -> str:
@@ -179,7 +178,7 @@ def assign_to_partition(
 
 
 def plan_partitions(
-    records: List[Dict[str, Any]],
+    records: list[dict[str, Any]],
     config: PartitionConfig,
     timestamp_field: str = "created_at",
 ) -> PartitionReport:
@@ -188,7 +187,7 @@ def plan_partitions(
         return PartitionReport()
 
     # Group records by partition key
-    groups: Dict[str, List[Dict[str, Any]]] = {}
+    groups: dict[str, list[dict[str, Any]]] = {}
     for record in records:
         key = assign_to_partition(record, config, timestamp_field)
         if not key:
@@ -201,7 +200,7 @@ def plan_partitions(
         return PartitionReport()
 
     # Build partitions sorted by key
-    partitions: List[Partition] = []
+    partitions: list[Partition] = []
     total_rows = 0
 
     for key in sorted(groups.keys()):
@@ -210,7 +209,7 @@ def plan_partitions(
         total_rows += row_count
 
         # Extract timestamp range within this partition
-        timestamps: List[str] = []
+        timestamps: list[str] = []
         for r in group:
             ts = r.get(timestamp_field, "")
             if ts:
@@ -240,7 +239,7 @@ def plan_partitions(
     )
 
 
-def merge_partition_reports(reports: List[PartitionReport]) -> PartitionReport:
+def merge_partition_reports(reports: list[PartitionReport]) -> PartitionReport:
     """Combine partition reports from multiple sources.
 
     Merges partitions with the same partition_id by summing row counts
@@ -249,7 +248,7 @@ def merge_partition_reports(reports: List[PartitionReport]) -> PartitionReport:
     if not reports:
         return PartitionReport()
 
-    merged: Dict[str, Partition] = {}
+    merged: dict[str, Partition] = {}
 
     for report in reports:
         for p in report.partitions:

@@ -6,7 +6,7 @@ it did, beyond just the pass/fail result.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 def explain_metric_result(result) -> str:
@@ -19,9 +19,6 @@ def explain_metric_result(result) -> str:
         Explanation string describing why the metric scored this way.
     """
     mid = result.metric_id
-    score = result.score
-    passed = result.passed
-    details = result.details or {}
 
     # Try metric-specific explainers
     explainer = _EXPLAINERS.get(mid)
@@ -137,7 +134,7 @@ def _explain_tool_call_sequence(result) -> str:
 
 
 # Registry of metric-specific explainers
-_EXPLAINERS: Dict[str, Any] = {
+_EXPLAINERS: dict[str, Any] = {
     "json_valid": _explain_json_valid,
     "nonempty_output": _explain_nonempty_output,
     "regex_match": _explain_regex_match,

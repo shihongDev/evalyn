@@ -1,2 +1,69 @@
 [tool.uv.workspace]
 members = ["sdk", "dashboard"]
+
+# ---------------------------------------------------------------------------
+# Style / lint config — applies to both workspace members.
+#
+# The qa/style-modernize branch brought the SDK + dashboard from
+# 12,555 ruff findings down to ~1,680 in 2026-05. This config locks in the
+# wins (PEP 585 / 604 typing, sorted imports, no orphan typing aliases) and
+# documents the explicitly-permitted exceptions so future contributors
+# don't reinstate the noise.
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [
+  ".evalyn",
+  ".gstack",
+  "data",
+  "local_scripts",
+  "example_agents",
+]
+
+[tool.ruff.lint]
+select = [
+  "F",    # pyflakes - real bugs (unused imports, undefined names, ...)
+  "E",    # pycodestyle errors
+  "W",    # pycodestyle warnings
+  "I",    # isort - import sorting
+  "UP",   # pyupgrade - modern Python syntax
+  "B",    # flake8-bugbear - bug-magnet patterns
+  "SIM",  # flake8-simplify - obvious simplifications
+]
+ignore = [
+  # E501 (line-too-long): ~1,200 existing violations, mostly long
+  # error messages or URLs in comments. Manual sweep deferred;
+  # `ruff format` would help but its split decisions are disruptive
+  # on big files. Re-enable once a dedicated format pass lands.
+  "E501",
+  # E402 (module-import-not-at-top-of-file): ~200 sites, most are
+  # legitimate sys.path manipulation, optional-dep `try: import x
+  # except ImportError: ...` blocks, or conditional debug imports.
+  # Decide per-file rather than blanket-ban.
+  "E402",
+  # B905 (zip-without-explicit-strict): review-by-review. Some hot
+  # loops zip iterables of asserted-equal length and adding
+  # strict=True everywhere risks production crashes on data we
+  # haven't audited; strict=False would silence the lint but lose
+  # the signal.
+  "B905",
+  # SIM108 (if-else-block-instead-of-if-exp): ternaries are not
+  # always clearer; let the reviewer decide.
+  "SIM108",
+  # SIM105 (suppressible-exception): contextlib.suppress isn't
+  # always the right call when the except body does anything
+  # besides `pass`.
+  "SIM105",
+  # SIM102 (collapsible-if): nested ifs often read better than
+  # `and` chains when each level has its own semantics.
+  "SIM102",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["F401", "F841", "B007", "E741"]
+"**/conftest.py" = ["F401"]
+
+[tool.ruff.format]
+quote-style = "double"

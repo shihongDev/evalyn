@@ -8,13 +8,11 @@ dependencies, no actual LLM calls.
 
 from __future__ import annotations
 
-import math
 import re
 import uuid
-from collections import Counter, defaultdict
+from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -30,7 +28,7 @@ class CurationGap:
     severity: str = "medium"
     suggested_count: int = 5
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "gap_type": self.gap_type,
             "description": self.description,
@@ -39,7 +37,7 @@ class CurationGap:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CurationGap:
+    def from_dict(cls, data: dict[str, Any]) -> CurationGap:
         return cls(
             gap_type=data["gap_type"],
             description=data["description"],
@@ -57,7 +55,7 @@ class CurationSuggestion:
     action: str
     example_prompt: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "suggestion_id": self.suggestion_id,
             "gap": self.gap.as_dict(),
@@ -66,7 +64,7 @@ class CurationSuggestion:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CurationSuggestion:
+    def from_dict(cls, data: dict[str, Any]) -> CurationSuggestion:
         return cls(
             suggestion_id=data["suggestion_id"],
             gap=CurationGap.from_dict(data["gap"]),
@@ -79,12 +77,12 @@ class CurationSuggestion:
 class CurationReport:
     """Report summarizing dataset curation suggestions."""
 
-    suggestions: List[CurationSuggestion] = field(default_factory=list)
+    suggestions: list[CurationSuggestion] = field(default_factory=list)
     total_items: int = 0
     gaps_found: int = 0
-    gaps: List[CurationGap] = field(default_factory=list)
+    gaps: list[CurationGap] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "suggestions": [s.as_dict() for s in self.suggestions],
             "total_items": self.total_items,
@@ -93,7 +91,7 @@ class CurationReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CurationReport:
+    def from_dict(cls, data: dict[str, Any]) -> CurationReport:
         return cls(
             suggestions=[
                 CurationSuggestion.from_dict(s) for s in data.get("suggestions", [])
@@ -203,7 +201,7 @@ _STOPWORDS = frozenset(
 _WORD_RE = re.compile(r"[a-zA-Z]{2,}")
 
 
-def _tokenize(text: str) -> List[str]:
+def _tokenize(text: str) -> list[str]:
     """Extract lowercase words, filtering stopwords."""
     words = _WORD_RE.findall(text.lower())
     return [w for w in words if w not in _STOPWORDS]
@@ -227,9 +225,9 @@ def _make_suggestion_id() -> str:
 
 
 def analyze_topic_coverage(
-    items: Dict[str, str],
+    items: dict[str, str],
     min_cluster_size: int = 3,
-) -> List[CurationGap]:
+) -> list[CurationGap]:
     """Find underrepresented topics using word frequency analysis.
 
     Identifies words that appear in fewer than min_cluster_size items
@@ -250,7 +248,7 @@ def analyze_topic_coverage(
             doc_freq[t] += 1
         word_freq.update(tokens)
 
-    gaps: List[CurationGap] = []
+    gaps: list[CurationGap] = []
 
     # Find words that are mentioned overall but in few items
     for word, total_count in word_freq.most_common():
@@ -274,8 +272,8 @@ def analyze_topic_coverage(
 
 
 def analyze_difficulty_distribution(
-    items: Dict[str, str],
-) -> List[CurationGap]:
+    items: dict[str, str],
+) -> list[CurationGap]:
     """Check if difficulty levels are balanced using word complexity heuristics.
 
     Classifies items into easy (avg word len < 4.5), medium (4.5-6),
@@ -284,7 +282,7 @@ def analyze_difficulty_distribution(
     if not items:
         return []
 
-    buckets: Dict[str, int] = {"easy": 0, "medium": 0, "hard": 0}
+    buckets: dict[str, int] = {"easy": 0, "medium": 0, "hard": 0}
     for text in items.values():
         complexity = _word_complexity(text)
         if complexity < 4.5:
@@ -298,7 +296,7 @@ def analyze_difficulty_distribution(
     if total == 0:
         return []
 
-    gaps: List[CurationGap] = []
+    gaps: list[CurationGap] = []
     ideal_fraction = 1.0 / 3.0
 
     for level, count in buckets.items():
@@ -333,8 +331,8 @@ def analyze_difficulty_distribution(
 
 
 def analyze_length_distribution(
-    items: Dict[str, str],
-) -> List[CurationGap]:
+    items: dict[str, str],
+) -> list[CurationGap]:
     """Check for length imbalance in dataset items.
 
     Classifies items as short (< 50 chars), medium (50-200), or long (> 200),
@@ -343,7 +341,7 @@ def analyze_length_distribution(
     if not items:
         return []
 
-    buckets: Dict[str, int] = {"short": 0, "medium": 0, "long": 0}
+    buckets: dict[str, int] = {"short": 0, "medium": 0, "long": 0}
     for text in items.values():
         length = len(text)
         if length < 50:
@@ -357,7 +355,7 @@ def analyze_length_distribution(
     if total == 0:
         return []
 
-    gaps: List[CurationGap] = []
+    gaps: list[CurationGap] = []
     ideal_fraction = 1.0 / 3.0
 
     for level, count in buckets.items():
@@ -392,14 +390,14 @@ def analyze_length_distribution(
 
 
 def build_curation_prompt(
-    gaps: List[CurationGap],
-    existing_items: List[str],
+    gaps: list[CurationGap],
+    existing_items: list[str],
 ) -> str:
     """Construct an LLM prompt asking to generate items that fill the gaps.
 
     Returns the prompt string - does not call any LLM.
     """
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("You are a dataset curator. Generate new evaluation items to fill ")
     lines.append("the following gaps in the dataset.\n")
     lines.append("")
@@ -434,15 +432,15 @@ def build_curation_prompt(
 
 
 def generate_curation_report(
-    items: Dict[str, str],
+    items: dict[str, str],
 ) -> CurationReport:
     """Run all analyses and produce a curation report with suggestions."""
-    all_gaps: List[CurationGap] = []
+    all_gaps: list[CurationGap] = []
     all_gaps.extend(analyze_topic_coverage(items))
     all_gaps.extend(analyze_difficulty_distribution(items))
     all_gaps.extend(analyze_length_distribution(items))
 
-    suggestions: List[CurationSuggestion] = []
+    suggestions: list[CurationSuggestion] = []
     for gap in all_gaps:
         action = _action_for_gap(gap)
         example_prompt = ""
@@ -484,7 +482,7 @@ def _action_for_gap(gap: CurationGap) -> str:
 
 def format_curation_report(report: CurationReport) -> str:
     """Format a curation report as human-readable text."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Dataset Curation Report")
     lines.append("=" * 40)
     lines.append(f"Total items analyzed: {report.total_items}")
@@ -501,7 +499,7 @@ def format_curation_report(report: CurationReport) -> str:
         lines.append(f"     Severity: {s.gap.severity}")
         lines.append(f"     Action: {s.action}")
         if s.example_prompt:
-            lines.append(f"     (LLM prompt available)")
+            lines.append("     (LLM prompt available)")
     lines.append("")
 
     return "\n".join(lines)

@@ -9,11 +9,9 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import json
 import secrets
-from dataclasses import dataclass, field
-from typing import Any, Dict, List
-
+from dataclasses import dataclass
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -29,7 +27,7 @@ class EncryptionConfig:
     key_source: str = "env"  # "env" / "file" / "config"
     key_env_var: str = "EVALYN_ENCRYPTION_KEY"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
             "algorithm": self.algorithm,
@@ -38,7 +36,7 @@ class EncryptionConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EncryptionConfig:
+    def from_dict(cls, data: dict[str, Any]) -> EncryptionConfig:
         return cls(
             enabled=data.get("enabled", False),
             algorithm=data.get("algorithm", "fernet"),
@@ -56,7 +54,7 @@ class EncryptionResult:
     algorithm: str = ""
     success: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "original_size": self.original_size,
             "encrypted_size": self.encrypted_size,
@@ -128,8 +126,8 @@ def is_encrypted(value: str) -> bool:
 
 
 def encrypt_dict(
-    data: Dict[str, Any], key: str, fields: List[str] | None = None
-) -> Dict[str, Any]:
+    data: dict[str, Any], key: str, fields: list[str] | None = None
+) -> dict[str, Any]:
     """Encrypt specified string fields in a dict.
 
     Returns a new dict with encrypted values prefixed with 'ENC:'.
@@ -145,7 +143,7 @@ def encrypt_dict(
     return result
 
 
-def decrypt_dict(data: Dict[str, Any], key: str) -> Dict[str, Any]:
+def decrypt_dict(data: dict[str, Any], key: str) -> dict[str, Any]:
     """Decrypt all fields that start with 'ENC:'.
 
     Returns a new dict with decrypted values.

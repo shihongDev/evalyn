@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 def _now_iso() -> str:
@@ -22,12 +22,12 @@ class AnnotatorProfile:
 
     annotator_id: str
     name: str
-    expertise_tags: List[str] = field(default_factory=list)
+    expertise_tags: list[str] = field(default_factory=list)
     max_daily_items: int = 50
     items_assigned: int = 0
     items_completed: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "annotator_id": self.annotator_id,
             "name": self.name,
@@ -38,7 +38,7 @@ class AnnotatorProfile:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AnnotatorProfile:
+    def from_dict(cls, data: dict[str, Any]) -> AnnotatorProfile:
         return cls(
             annotator_id=data["annotator_id"],
             name=data["name"],
@@ -55,10 +55,10 @@ class DelegationRule:
 
     rule_id: str
     item_tag: str
-    required_expertise: List[str] = field(default_factory=list)
+    required_expertise: list[str] = field(default_factory=list)
     priority: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "rule_id": self.rule_id,
             "item_tag": self.item_tag,
@@ -67,7 +67,7 @@ class DelegationRule:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DelegationRule:
+    def from_dict(cls, data: dict[str, Any]) -> DelegationRule:
         return cls(
             rule_id=data["rule_id"],
             item_tag=data["item_tag"],
@@ -86,7 +86,7 @@ class Assignment:
     status: str = "pending"  # pending / in_progress / completed
     rule_id: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "annotator_id": self.annotator_id,
@@ -96,7 +96,7 @@ class Assignment:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Assignment:
+    def from_dict(cls, data: dict[str, Any]) -> Assignment:
         return cls(
             item_id=data["item_id"],
             annotator_id=data["annotator_id"],
@@ -115,9 +115,9 @@ class DelegationManager:
     """Manage item-to-annotator assignment using rules and workload balancing."""
 
     def __init__(self) -> None:
-        self.annotators: Dict[str, AnnotatorProfile] = {}
-        self.rules: List[DelegationRule] = []
-        self.assignments: List[Assignment] = []
+        self.annotators: dict[str, AnnotatorProfile] = {}
+        self.rules: list[DelegationRule] = []
+        self.assignments: list[Assignment] = []
 
     def register_annotator(self, profile: AnnotatorProfile) -> None:
         """Register an annotator profile."""
@@ -130,27 +130,27 @@ class DelegationManager:
 
     # -- assignment helpers --------------------------------------------------
 
-    def _matching_rules(self, item_tags: List[str]) -> List[DelegationRule]:
+    def _matching_rules(self, item_tags: list[str]) -> list[DelegationRule]:
         """Return rules whose item_tag appears in the given tags, sorted by priority."""
         return [r for r in self.rules if r.item_tag in item_tags]
 
-    def _required_expertise(self, item_tags: List[str]) -> List[str]:
+    def _required_expertise(self, item_tags: list[str]) -> list[str]:
         """Aggregate required expertise across all matching rules."""
-        expertise: List[str] = []
+        expertise: list[str] = []
         for rule in self._matching_rules(item_tags):
             for tag in rule.required_expertise:
                 if tag not in expertise:
                     expertise.append(tag)
         return expertise
 
-    def _best_rule_id(self, item_tags: List[str]) -> str:
+    def _best_rule_id(self, item_tags: list[str]) -> str:
         """Return the rule_id of the highest-priority matching rule, or empty."""
         rules = self._matching_rules(item_tags)
         return rules[0].rule_id if rules else ""
 
     def _score_annotator(
-        self, profile: AnnotatorProfile, required: List[str]
-    ) -> Tuple[int, int]:
+        self, profile: AnnotatorProfile, required: list[str]
+    ) -> tuple[int, int]:
         """Return (expertise_overlap, negative_assigned) for sorting.
 
         Higher overlap is better; fewer assigned items is better.
@@ -159,8 +159,8 @@ class DelegationManager:
         return (overlap, -profile.items_assigned)
 
     def _pick_annotator(
-        self, item_tags: List[str]
-    ) -> Optional[AnnotatorProfile]:
+        self, item_tags: list[str]
+    ) -> AnnotatorProfile | None:
         """Select the best available annotator for the given item tags."""
         required = self._required_expertise(item_tags)
         candidates = [
@@ -181,8 +181,8 @@ class DelegationManager:
     # -- public API ----------------------------------------------------------
 
     def assign_item(
-        self, item_id: str, item_tags: List[str]
-    ) -> Optional[Assignment]:
+        self, item_id: str, item_tags: list[str]
+    ) -> Assignment | None:
         """Assign a single item to the best-matching annotator.
 
         Returns None if no annotator has capacity.
@@ -203,17 +203,17 @@ class DelegationManager:
         return assignment
 
     def assign_batch(
-        self, items: List[Tuple[str, List[str]]]
-    ) -> List[Assignment]:
+        self, items: list[tuple[str, list[str]]]
+    ) -> list[Assignment]:
         """Assign a batch of (item_id, tags) pairs."""
-        results: List[Assignment] = []
+        results: list[Assignment] = []
         for item_id, tags in items:
             a = self.assign_item(item_id, tags)
             if a is not None:
                 results.append(a)
         return results
 
-    def get_annotator_workload(self, annotator_id: str) -> Dict[str, Any]:
+    def get_annotator_workload(self, annotator_id: str) -> dict[str, Any]:
         """Return workload stats for a single annotator."""
         profile = self.annotators.get(annotator_id)
         if profile is None:
@@ -228,9 +228,9 @@ class DelegationManager:
 
     def get_assignments(
         self,
-        annotator_id: Optional[str] = None,
-        status: Optional[str] = None,
-    ) -> List[Assignment]:
+        annotator_id: str | None = None,
+        status: str | None = None,
+    ) -> list[Assignment]:
         """Filter assignments by annotator and/or status."""
         result = self.assignments
         if annotator_id is not None:
@@ -251,8 +251,8 @@ class DelegationManager:
         return False
 
     def rebalance(
-        self, items: List[Tuple[str, List[str]]]
-    ) -> List[Assignment]:
+        self, items: list[tuple[str, list[str]]]
+    ) -> list[Assignment]:
         """Redistribute unfinished assignments for better balance.
 
         Removes all non-completed assignments, resets annotator counts
@@ -277,7 +277,7 @@ class DelegationManager:
 # ---------------------------------------------------------------------------
 
 
-def compute_workload_balance(manager: DelegationManager) -> Dict[str, Any]:
+def compute_workload_balance(manager: DelegationManager) -> dict[str, Any]:
     """Compute workload balance statistics across annotators.
 
     Returns min, max, mean items per annotator and the Gini coefficient.
@@ -310,7 +310,7 @@ def compute_workload_balance(manager: DelegationManager) -> Dict[str, Any]:
 
 def format_delegation_dashboard(manager: DelegationManager) -> str:
     """Format a text table showing per-annotator progress."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Delegation Dashboard")
     lines.append("-" * 60)
     header = f"{'Annotator':<20} {'Assigned':>8} {'Done':>8} {'Capacity':>8}"

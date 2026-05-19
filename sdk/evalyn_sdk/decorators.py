@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 from .trace.tracer import EvalTracer
 
 ALLOWED_METRIC_MODES = {"llm-registry", "llm-brainstorm", "bundle"}
 
-_default_tracer: Optional[EvalTracer] = None
+_default_tracer: EvalTracer | None = None
 
 
 def get_default_tracer() -> EvalTracer:
@@ -39,15 +40,15 @@ def configure_tracer(tracer: EvalTracer) -> None:
 
 
 def eval(
-    func: Optional[Callable[..., Any]] = None,
+    func: Callable[..., Any] | None = None,
     *,
-    tracer: Optional[EvalTracer] = None,
-    name: Optional[str] = None,
-    project: Optional[str] = None,
-    version: Optional[str] = None,
+    tracer: EvalTracer | None = None,
+    name: str | None = None,
+    project: str | None = None,
+    version: str | None = None,
     is_simulation: bool = False,
-    metric_mode: Optional[str] = None,
-    metric_bundle: Optional[str] = None,
+    metric_mode: str | None = None,
+    metric_bundle: str | None = None,
 ):
     """
     Decorator to trace sync/async functions. Example:
@@ -90,11 +91,11 @@ def eval(
             metric_mode=mode,
             metric_bundle=bundle,
         )
-        setattr(wrapped, "_evalyn_metric_mode", mode)
-        setattr(wrapped, "_evalyn_metric_bundle", bundle)
-        setattr(wrapped, "_evalyn_project", project)
-        setattr(wrapped, "_evalyn_version", version)
-        setattr(wrapped, "_evalyn_is_simulation", is_simulation)
+        wrapped._evalyn_metric_mode = mode
+        wrapped._evalyn_metric_bundle = bundle
+        wrapped._evalyn_project = project
+        wrapped._evalyn_version = version
+        wrapped._evalyn_is_simulation = is_simulation
         return wrapped
 
     if func is not None:

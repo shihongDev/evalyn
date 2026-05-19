@@ -8,10 +8,9 @@ binary dependencies (wkhtmltopdf etc.) are required.
 from __future__ import annotations
 
 import html as _html
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -28,7 +27,7 @@ class PDFConfig:
     include_charts: bool = True
     include_raw_data: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "title": self.title,
             "author": self.author,
@@ -39,7 +38,7 @@ class PDFConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PDFConfig:
+    def from_dict(cls, data: dict[str, Any]) -> PDFConfig:
         return cls(
             title=data.get("title", "Evalyn Report"),
             author=data.get("author", ""),
@@ -57,7 +56,7 @@ class PDFSection:
     content_html: str = ""
     page_break_after: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "title": self.title,
             "content_html": self.content_html,
@@ -73,7 +72,7 @@ class PDFExportResult:
     estimated_pages: int = 0
     file_path: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "html_content": self.html_content,
             "sections": self.sections,
@@ -107,7 +106,7 @@ _CHARS_PER_PAGE = 3000
 # ---------------------------------------------------------------------------
 
 
-def build_pdf_html(sections: List[PDFSection], config: PDFConfig) -> str:
+def build_pdf_html(sections: list[PDFSection], config: PDFConfig) -> str:
     """Build print-optimized HTML with CSS @media print rules.
 
     Args:
@@ -155,7 +154,7 @@ def build_pdf_html(sections: List[PDFSection], config: PDFConfig) -> str:
     if escaped_author:
         header_parts.append(f'<div class="meta">Author: {escaped_author}</div>')
 
-    section_parts: List[str] = []
+    section_parts: list[str] = []
     for sec in sections:
         cls = "section page-break" if sec.page_break_after else "section"
         escaped_sec_title = _html.escape(sec.title)
@@ -176,7 +175,7 @@ def build_pdf_html(sections: List[PDFSection], config: PDFConfig) -> str:
     )
 
 
-def create_summary_section(data: Dict[str, Any]) -> PDFSection:
+def create_summary_section(data: dict[str, Any]) -> PDFSection:
     """Build a summary section from run data.
 
     Args:
@@ -185,7 +184,7 @@ def create_summary_section(data: Dict[str, Any]) -> PDFSection:
     Returns:
         A PDFSection containing an HTML summary table.
     """
-    rows: List[str] = []
+    rows: list[str] = []
     for key in ("run_id", "dataset_name", "created_at", "total_items", "total_metrics"):
         val = data.get(key, "")
         rows.append(
@@ -197,7 +196,7 @@ def create_summary_section(data: Dict[str, Any]) -> PDFSection:
     return PDFSection(title="Summary", content_html=html_content)
 
 
-def create_metrics_section(metrics: Dict[str, float]) -> PDFSection:
+def create_metrics_section(metrics: dict[str, float]) -> PDFSection:
     """Build a per-metric table section.
 
     Args:
@@ -219,7 +218,7 @@ def create_metrics_section(metrics: Dict[str, float]) -> PDFSection:
     return PDFSection(title="Metrics", content_html=html_content)
 
 
-def create_chart_section(title: str, chart_data: Dict[str, Any]) -> PDFSection:
+def create_chart_section(title: str, chart_data: dict[str, Any]) -> PDFSection:
     """Build a chart placeholder section.
 
     Since PDF export relies on browser printing, charts are represented as
@@ -234,7 +233,7 @@ def create_chart_section(title: str, chart_data: Dict[str, Any]) -> PDFSection:
     """
     labels = chart_data.get("labels", [])
     values = chart_data.get("values", [])
-    items: List[str] = []
+    items: list[str] = []
     for label, value in zip(labels, values):
         items.append(f"{_html.escape(str(label))}: {_html.escape(str(value))}")
 
@@ -247,7 +246,7 @@ def create_chart_section(title: str, chart_data: Dict[str, Any]) -> PDFSection:
     return PDFSection(title=title, content_html=html_content)
 
 
-def estimate_page_count(sections: List[PDFSection]) -> int:
+def estimate_page_count(sections: list[PDFSection]) -> int:
     """Rough page estimate based on content length.
 
     Args:
@@ -262,9 +261,9 @@ def estimate_page_count(sections: List[PDFSection]) -> int:
 
 
 def export_pdf_html(
-    sections: List[PDFSection],
+    sections: list[PDFSection],
     file_path: str,
-    config: Optional[PDFConfig] = None,
+    config: PDFConfig | None = None,
 ) -> PDFExportResult:
     """Write print-optimized HTML file.
 

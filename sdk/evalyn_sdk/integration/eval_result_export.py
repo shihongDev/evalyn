@@ -8,10 +8,8 @@ Does NOT hardcode API keys.
 
 from __future__ import annotations
 
-import json
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
-
+from dataclasses import dataclass
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -28,7 +26,7 @@ class EvalScore:
     label: str = ""
     explanation: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "span_id": self.span_id,
             "metric_id": self.metric_id,
@@ -38,7 +36,7 @@ class EvalScore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EvalScore:
+    def from_dict(cls, data: dict[str, Any]) -> EvalScore:
         return cls(
             span_id=data.get("span_id", ""),
             metric_id=data.get("metric_id", ""),
@@ -56,7 +54,7 @@ class EvalExportConfig:
     project_name: str = "evalyn"
     batch_size: int = 100
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "platform": self.platform,
             "project_name": self.project_name,
@@ -64,7 +62,7 @@ class EvalExportConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EvalExportConfig:
+    def from_dict(cls, data: dict[str, Any]) -> EvalExportConfig:
         return cls(
             platform=data.get("platform", "phoenix"),
             project_name=data.get("project_name", "evalyn"),
@@ -81,7 +79,7 @@ class EvalExportResult:
     failed: int = 0
     platform: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_scores": self.total_scores,
             "exported": self.exported,
@@ -104,11 +102,11 @@ class EvalExportResult:
 # ---------------------------------------------------------------------------
 
 
-def format_eval_for_phoenix(scores: List[EvalScore]) -> List[Dict[str, Any]]:
+def format_eval_for_phoenix(scores: list[EvalScore]) -> list[dict[str, Any]]:
     """Format evaluation scores in Phoenix evaluation format."""
-    result: List[Dict[str, Any]] = []
+    result: list[dict[str, Any]] = []
     for s in scores:
-        entry: Dict[str, Any] = {
+        entry: dict[str, Any] = {
             "span_id": s.span_id,
             "name": s.metric_id,
             "score": s.score,
@@ -121,11 +119,11 @@ def format_eval_for_phoenix(scores: List[EvalScore]) -> List[Dict[str, Any]]:
     return result
 
 
-def format_eval_for_langfuse(scores: List[EvalScore]) -> List[Dict[str, Any]]:
+def format_eval_for_langfuse(scores: list[EvalScore]) -> list[dict[str, Any]]:
     """Format evaluation scores in Langfuse score format."""
-    result: List[Dict[str, Any]] = []
+    result: list[dict[str, Any]] = []
     for s in scores:
-        entry: Dict[str, Any] = {
+        entry: dict[str, Any] = {
             "observationId": s.span_id,
             "name": s.metric_id,
             "value": s.score,
@@ -141,11 +139,11 @@ def format_eval_for_langfuse(scores: List[EvalScore]) -> List[Dict[str, Any]]:
     return result
 
 
-def format_eval_for_langsmith(scores: List[EvalScore]) -> List[Dict[str, Any]]:
+def format_eval_for_langsmith(scores: list[EvalScore]) -> list[dict[str, Any]]:
     """Format evaluation scores in LangSmith feedback format."""
-    result: List[Dict[str, Any]] = []
+    result: list[dict[str, Any]] = []
     for s in scores:
-        entry: Dict[str, Any] = {
+        entry: dict[str, Any] = {
             "run_id": s.span_id,
             "key": s.metric_id,
             "score": s.score,
@@ -164,7 +162,7 @@ def format_eval_for_langsmith(scores: List[EvalScore]) -> List[Dict[str, Any]]:
 
 
 def export_eval_results(
-    scores: List[EvalScore], config: EvalExportConfig
+    scores: list[EvalScore], config: EvalExportConfig
 ) -> EvalExportResult:
     """Export evaluation scores in the specified platform format.
 
@@ -205,23 +203,23 @@ def export_eval_results(
 
 
 def batch_scores(
-    scores: List[EvalScore], batch_size: int = 100
-) -> List[List[EvalScore]]:
+    scores: list[EvalScore], batch_size: int = 100
+) -> list[list[EvalScore]]:
     """Split scores into batches of the given size."""
     if batch_size <= 0:
         batch_size = len(scores) or 1
-    batches: List[List[EvalScore]] = []
+    batches: list[list[EvalScore]] = []
     for i in range(0, len(scores), batch_size):
         batches.append(scores[i : i + batch_size])
     return batches
 
 
-def validate_scores(scores: List[EvalScore]) -> Tuple[bool, List[str]]:
+def validate_scores(scores: list[EvalScore]) -> tuple[bool, list[str]]:
     """Validate that all scores have required fields.
 
     Returns (is_valid, list_of_issues).
     """
-    issues: List[str] = []
+    issues: list[str] = []
     for idx, s in enumerate(scores):
         if not s.span_id:
             issues.append(f"score[{idx}]: missing span_id")

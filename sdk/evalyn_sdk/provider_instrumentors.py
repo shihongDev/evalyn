@@ -5,8 +5,7 @@ Pure Python registry and spec definitions - no external deps, no actual API call
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from dataclasses import dataclass
 
 
 @dataclass
@@ -17,10 +16,10 @@ class ProviderSpec:
     name: str
     module_path: str
     client_class: str
-    methods_to_wrap: List[str]
+    methods_to_wrap: list[str]
     env_key: str
 
-    def as_dict(self) -> Dict[str, object]:
+    def as_dict(self) -> dict[str, object]:
         return {
             "provider_id": self.provider_id,
             "name": self.name,
@@ -31,7 +30,7 @@ class ProviderSpec:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, object]) -> ProviderSpec:
+    def from_dict(cls, data: dict[str, object]) -> ProviderSpec:
         return cls(
             provider_id=str(data["provider_id"]),
             name=str(data["name"]),
@@ -52,7 +51,7 @@ class InstrumentationHook:
     before_fn_name: str = ""
     after_fn_name: str = ""
 
-    def as_dict(self) -> Dict[str, object]:
+    def as_dict(self) -> dict[str, object]:
         return {
             "hook_id": self.hook_id,
             "provider_id": self.provider_id,
@@ -62,7 +61,7 @@ class InstrumentationHook:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, object]) -> InstrumentationHook:
+    def from_dict(cls, data: dict[str, object]) -> InstrumentationHook:
         return cls(
             hook_id=str(data["hook_id"]),
             provider_id=str(data["provider_id"]),
@@ -76,17 +75,17 @@ class ProviderRegistry:
     """Registry of LLM provider specs for instrumentation."""
 
     def __init__(self) -> None:
-        self._providers: Dict[str, ProviderSpec] = {}
+        self._providers: dict[str, ProviderSpec] = {}
 
     def register(self, spec: ProviderSpec) -> None:
         """Register a provider spec. Overwrites if provider_id already exists."""
         self._providers[spec.provider_id] = spec
 
-    def get(self, provider_id: str) -> Optional[ProviderSpec]:
+    def get(self, provider_id: str) -> ProviderSpec | None:
         """Return the spec for a provider, or None if not registered."""
         return self._providers.get(provider_id)
 
-    def list_providers(self) -> List[ProviderSpec]:
+    def list_providers(self) -> list[ProviderSpec]:
         """Return all registered provider specs in insertion order."""
         return list(self._providers.values())
 
@@ -97,7 +96,7 @@ class ProviderRegistry:
             return False
         return bool(os.environ.get(spec.env_key))
 
-    def get_available(self) -> List[ProviderSpec]:
+    def get_available(self) -> list[ProviderSpec]:
         """Return provider specs whose env keys are set."""
         return [s for s in self._providers.values() if self.is_available(s.provider_id)]
 
@@ -106,7 +105,7 @@ class ProviderRegistry:
 # Built-in provider definitions
 # ---------------------------------------------------------------------------
 
-BUILTIN_PROVIDERS: List[ProviderSpec] = [
+BUILTIN_PROVIDERS: list[ProviderSpec] = [
     ProviderSpec(
         provider_id="cohere",
         name="Cohere",

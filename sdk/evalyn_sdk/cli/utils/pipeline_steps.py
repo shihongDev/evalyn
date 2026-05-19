@@ -16,19 +16,19 @@ import argparse
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-from .pipeline import PipelineStep, StepResult
+from ...defaults import DEFAULT_EVAL_MODEL
 from .config import get_config_default
 from .loaders import _load_callable
-from ...defaults import DEFAULT_EVAL_MODEL
+from .pipeline import PipelineStep, StepResult
 
 
 def _build_metrics_from_specs(
-    metrics_data: List[Dict],
-    gemini_key: Optional[str],
-    calibrated_prompts: Optional[Dict[str, str]] = None,
-) -> Tuple[List, int]:
+    metrics_data: list[dict],
+    gemini_key: str | None,
+    calibrated_prompts: dict[str, str] | None = None,
+) -> tuple[list, int]:
     """Build metric instances from spec data.
 
     Delegates to the shared build_metrics_from_specs in metrics.factory.
@@ -61,8 +61,8 @@ class BuildDatasetStep(PipelineStep):
     step_number = 1
 
     def execute(
-        self, output_dir: Path, context: Dict[str, Any]
-    ) -> Tuple[StepResult, Dict[str, Any]]:
+        self, output_dir: Path, context: dict[str, Any]
+    ) -> tuple[StepResult, dict[str, Any]]:
         from datetime import datetime as dt
 
         from ...datasets import build_dataset_from_storage, save_dataset_with_meta
@@ -142,8 +142,8 @@ class SuggestMetricsStep(PipelineStep):
     step_number = 2
 
     def execute(
-        self, output_dir: Path, context: Dict[str, Any]
-    ) -> Tuple[StepResult, Dict[str, Any]]:
+        self, output_dir: Path, context: dict[str, Any]
+    ) -> tuple[StepResult, dict[str, Any]]:
         metrics_dir = output_dir / self.name
         metrics_dir.mkdir(exist_ok=True)
         metrics_path = metrics_dir / "metrics.json"
@@ -227,15 +227,15 @@ class SuggestMetricsStep(PipelineStep):
         mode: str,
         model: str,
         llm_mode: str,
-        bundle: Optional[str],
+        bundle: str | None,
         target_fn: Any,
-        calls: List,
-    ) -> List:
+        calls: list,
+    ) -> list:
         """Suggest metrics based on mode."""
         from ...metrics.suggester import (
             HeuristicSuggester,
-            LLMSuggester,
             LLMRegistrySelector,
+            LLMSuggester,
         )
 
         if mode == "all":
@@ -252,11 +252,11 @@ class SuggestMetricsStep(PipelineStep):
         else:  # bundle
             return self._get_bundle_metrics(bundle) if bundle else []
 
-    def _get_bundle_metrics(self, bundle_name: str) -> List:
+    def _get_bundle_metrics(self, bundle_name: str) -> list:
         """Get metrics for a bundle by name."""
-        from ...models import MetricSpec
         from ...metrics.objective import OBJECTIVE_REGISTRY
         from ...metrics.subjective import SUBJECTIVE_REGISTRY
+        from ...models import MetricSpec
         from ..constants import BUNDLES
 
         bundle = bundle_name.lower()
@@ -277,10 +277,10 @@ class SuggestMetricsStep(PipelineStep):
         self,
         model: str,
         llm_mode: str,
-        bundle: Optional[str],
+        bundle: str | None,
         target_fn: Any,
-        calls: List,
-    ) -> List:
+        calls: list,
+    ) -> list:
         """Comprehensive mode: run all modes and merge."""
         from ...metrics.suggester import (
             HeuristicSuggester,
@@ -337,8 +337,8 @@ class InitialEvalStep(PipelineStep):
     step_number = 3
 
     def execute(
-        self, output_dir: Path, context: Dict[str, Any]
-    ) -> Tuple[StepResult, Dict[str, Any]]:
+        self, output_dir: Path, context: dict[str, Any]
+    ) -> tuple[StepResult, dict[str, Any]]:
         from ...datasets import load_dataset
         from ...evaluation.runner import EvalRunner
 
@@ -415,14 +415,14 @@ class AnnotationStep(PipelineStep):
     display_name = "Human Annotation"
     step_number = 4
 
-    def should_skip(self) -> Optional[str]:
+    def should_skip(self) -> str | None:
         if getattr(self.args, "skip_annotation", False):
             return "--skip-annotation"
         return None
 
     def execute(
-        self, output_dir: Path, context: Dict[str, Any]
-    ) -> Tuple[StepResult, Dict[str, Any]]:
+        self, output_dir: Path, context: dict[str, Any]
+    ) -> tuple[StepResult, dict[str, Any]]:
         from ..commands.annotation import run_annotation
 
         ann_dir = output_dir / "annotations"
@@ -479,14 +479,14 @@ class CalibrationStep(PipelineStep):
     display_name = "Calibrating LLM Judges"
     step_number = 5
 
-    def should_skip(self) -> Optional[str]:
+    def should_skip(self) -> str | None:
         if getattr(self.args, "skip_calibration", False):
             return "--skip-calibration"
         return None
 
     def execute(
-        self, output_dir: Path, context: Dict[str, Any]
-    ) -> Tuple[StepResult, Dict[str, Any]]:
+        self, output_dir: Path, context: dict[str, Any]
+    ) -> tuple[StepResult, dict[str, Any]]:
         from ..commands.calibration import calibrate_metric
 
         ann_path = output_dir / "annotations" / "annotations.jsonl"
@@ -580,12 +580,12 @@ class CalibratedEvalStep(PipelineStep):
     display_name = "Re-evaluating with Calibrated Prompts"
     step_number = 6
 
-    def should_skip(self) -> Optional[str]:
+    def should_skip(self) -> str | None:
         return None  # Will check for calibrations in execute
 
     def execute(
-        self, output_dir: Path, context: Dict[str, Any]
-    ) -> Tuple[StepResult, Dict[str, Any]]:
+        self, output_dir: Path, context: dict[str, Any]
+    ) -> tuple[StepResult, dict[str, Any]]:
         from ...datasets import load_dataset
         from ...evaluation.runner import EvalRunner
 
@@ -677,7 +677,7 @@ class SimulationStep(PipelineStep):
     display_name = "Generating Simulations"
     step_number = 7
 
-    def should_skip(self) -> Optional[str]:
+    def should_skip(self) -> str | None:
         if not getattr(self.args, "enable_simulation", False):
             return "use --enable-simulation to enable"
         if not self.args.target:
@@ -685,8 +685,8 @@ class SimulationStep(PipelineStep):
         return None
 
     def execute(
-        self, output_dir: Path, context: Dict[str, Any]
-    ) -> Tuple[StepResult, Dict[str, Any]]:
+        self, output_dir: Path, context: dict[str, Any]
+    ) -> tuple[StepResult, dict[str, Any]]:
         from ..commands.simulate import run_simulation
 
         sim_dir = output_dir / "simulations"
@@ -723,8 +723,8 @@ class SimulationStep(PipelineStep):
 
 
 def create_pipeline_steps(
-    args: argparse.Namespace, config: Dict[str, Any]
-) -> List[PipelineStep]:
+    args: argparse.Namespace, config: dict[str, Any]
+) -> list[PipelineStep]:
     """Create all pipeline steps."""
     return [
         BuildDatasetStep(args, config),

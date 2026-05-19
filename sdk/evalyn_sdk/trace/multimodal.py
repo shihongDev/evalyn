@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..models import Span
 
@@ -21,9 +21,9 @@ class MediaAttachment:
     file_path: str = ""
     mime_type: str = ""
     size_bytes: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "media_type": self.media_type,
             "file_path": self.file_path,
@@ -33,7 +33,7 @@ class MediaAttachment:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MediaAttachment:
+    def from_dict(cls, data: dict[str, Any]) -> MediaAttachment:
         return cls(
             media_type=data["media_type"],
             file_path=data.get("file_path", ""),
@@ -47,12 +47,12 @@ class MediaAttachment:
 class MultimodalSpanData:
     """Multimodal data payload for a span."""
 
-    input_media: List[MediaAttachment] = field(default_factory=list)
-    output_media: List[MediaAttachment] = field(default_factory=list)
+    input_media: list[MediaAttachment] = field(default_factory=list)
+    output_media: list[MediaAttachment] = field(default_factory=list)
     text_input: str = ""
     text_output: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "input_media": [m.as_dict() for m in self.input_media],
             "output_media": [m.as_dict() for m in self.output_media],
@@ -61,7 +61,7 @@ class MultimodalSpanData:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MultimodalSpanData:
+    def from_dict(cls, data: dict[str, Any]) -> MultimodalSpanData:
         return cls(
             input_media=[
                 MediaAttachment.from_dict(m) for m in data.get("input_media", [])
@@ -79,10 +79,10 @@ class MultimodalStats:
     """Aggregate statistics across multimodal spans."""
 
     total_media: int = 0
-    by_type: Dict[str, int] = field(default_factory=dict)
+    by_type: dict[str, int] = field(default_factory=dict)
     total_size_bytes: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_media": self.total_media,
             "by_type": dict(self.by_type),
@@ -99,7 +99,7 @@ class MultimodalStats:
         return "\n".join(lines)
 
 
-def supported_media_types() -> List[str]:
+def supported_media_types() -> list[str]:
     """Return the list of supported media types."""
     return list(_VALID_MEDIA_TYPES)
 
@@ -127,10 +127,14 @@ def create_multimodal_span(
     span_id: str,
     text_input: str = "",
     text_output: str = "",
-    input_media: List[MediaAttachment] = [],
-    output_media: List[MediaAttachment] = [],
+    input_media: list[MediaAttachment] | None = None,
+    output_media: list[MediaAttachment] | None = None,
 ) -> Span:
     """Create a span with multimodal data stored in attributes."""
+    if input_media is None:
+        input_media = []
+    if output_media is None:
+        output_media = []
     data = MultimodalSpanData(
         input_media=list(input_media),
         output_media=list(output_media),
@@ -147,7 +151,7 @@ def create_multimodal_span(
     )
 
 
-def extract_multimodal_data(span: Span) -> Optional[MultimodalSpanData]:
+def extract_multimodal_data(span: Span) -> MultimodalSpanData | None:
     """Extract MultimodalSpanData from span attributes. Returns None if not present."""
     raw = span.attributes.get("multimodal_data")
     if not raw or not isinstance(raw, dict):
@@ -163,10 +167,10 @@ def has_media(span: Span) -> bool:
     return len(data.input_media) > 0 or len(data.output_media) > 0
 
 
-def compute_multimodal_stats(spans: List[Span]) -> MultimodalStats:
+def compute_multimodal_stats(spans: list[Span]) -> MultimodalStats:
     """Aggregate media statistics across spans."""
     total_media = 0
-    by_type: Dict[str, int] = {}
+    by_type: dict[str, int] = {}
     total_size_bytes = 0
 
     for s in spans:

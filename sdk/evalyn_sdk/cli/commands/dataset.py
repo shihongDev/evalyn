@@ -32,12 +32,11 @@ ESSENTIAL = {"project", "limit"}
 import argparse
 import os
 from datetime import datetime, timezone
-from typing import Optional
 
 from ..utils.config import get_data_dir
 from ..utils.errors import fatal_error
 from ..utils.hints import HintCollector
-from ..utils.rich import banner, icon, kv
+from ..utils.rich import icon
 from ..utils.validation import extract_project_id
 
 
@@ -75,7 +74,7 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
             args.project = list(projects)[0]
             print(f"Auto-selected project: {args.project}")
 
-    def _parse_dt(value: Optional[str]) -> Optional[datetime]:
+    def _parse_dt(value: str | None) -> datetime | None:
         if not value:
             return None
         try:

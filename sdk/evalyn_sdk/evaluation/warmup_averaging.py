@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import statistics
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -18,7 +18,7 @@ class AveragedResult:
     metric_id: str
     item_id: str
     samples: int
-    scores: List[float] = field(default_factory=list)
+    scores: list[float] = field(default_factory=list)
     passed_votes: int = 0
     failed_votes: int = 0
 
@@ -47,7 +47,7 @@ class AveragedResult:
         """Flag if score variance is high (suggests unreliable metric)."""
         return self.score_std > 0.15 and len(self.scores) >= 3
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "item_id": self.item_id,
@@ -66,7 +66,7 @@ class AveragedResult:
 class WarmupAveragingReport:
     """Report from warmup averaging across all items and metrics."""
 
-    results: List[AveragedResult] = field(default_factory=list)
+    results: list[AveragedResult] = field(default_factory=list)
 
     @property
     def high_variance_count(self) -> int:
@@ -78,7 +78,7 @@ class WarmupAveragingReport:
             return 0.0
         return statistics.mean(r.agreement_rate for r in self.results)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_evaluations": len(self.results),
             "high_variance_count": self.high_variance_count,
@@ -102,7 +102,7 @@ class WarmupAveragingReport:
 
 
 def average_results(
-    sample_results: List[List],
+    sample_results: list[list],
     metric_id: str,
     item_id: str,
 ) -> AveragedResult:

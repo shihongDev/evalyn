@@ -6,8 +6,8 @@ alongside the remaining items for consistent scoring.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -18,7 +18,7 @@ class WarmupConfig:
     discard_warmup: bool = True  # if True, re-evaluate warmup items after priming
     enabled: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "warmup_count": self.warmup_count,
             "discard_warmup": self.discard_warmup,
@@ -36,7 +36,7 @@ class WarmupResult:
     post_warmup_pass_rate: float  # pass rate after warm-up
     variance_reduction: float  # estimated variance reduction
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "warmup_items_count": self.warmup_items_count,
             "warmup_results_discarded": self.warmup_results_discarded,
@@ -47,7 +47,7 @@ class WarmupResult:
 
     def format_text(self) -> str:
         lines = [
-            f"Warm-Up Summary:",
+            "Warm-Up Summary:",
             f"  Items warmed up:     {self.warmup_items_count}",
             f"  Results discarded:   {self.warmup_results_discarded}",
             f"  Warmup pass rate:    {self.warmup_pass_rate:.1%}",
@@ -59,7 +59,7 @@ class WarmupResult:
 
 
 def split_warmup_items(
-    items: List,
+    items: list,
     warmup_count: int = 5,
 ) -> tuple:
     """Split items into warmup set and evaluation set.
@@ -81,8 +81,8 @@ def split_warmup_items(
 
 
 def analyze_warmup_effect(
-    warmup_results: List,
-    post_warmup_results: List,
+    warmup_results: list,
+    post_warmup_results: list,
 ) -> WarmupResult:
     """Analyze the effect of warm-up on score quality.
 
@@ -116,7 +116,7 @@ def analyze_warmup_effect(
     )
 
 
-def _pass_rate(results: List) -> float:
+def _pass_rate(results: list) -> float:
     if not results:
         return 0.0
     passed = sum(1 for r in results if r.passed is True)
@@ -124,7 +124,7 @@ def _pass_rate(results: List) -> float:
     return passed / total if total > 0 else 0.0
 
 
-def _score_variance(results: List) -> float:
+def _score_variance(results: list) -> float:
     scores = [r.score for r in results if r.score is not None]
     if len(scores) < 2:
         return 0.0

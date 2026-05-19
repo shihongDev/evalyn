@@ -61,7 +61,6 @@ import argparse
 import importlib
 import importlib.metadata as importlib_metadata
 import sys
-from typing import List, Optional
 
 # Command name -> module name (relative to .commands package).
 # Only the module for the invoked command is imported at runtime.
@@ -146,7 +145,7 @@ def _discover_plugin_commands() -> dict[str, str]:
     return plugins
 
 
-def _resolve_command_module(command: str) -> Optional[str]:
+def _resolve_command_module(command: str) -> str | None:
     """Return the importable module path that owns ``command``.
 
     Plugin entry points take precedence over the built-in command map. This
@@ -249,7 +248,7 @@ For command details: evalyn <command> --help
     print(grouped_help)
 
 
-def _find_command(argv: List[str]) -> Optional[str]:
+def _find_command(argv: list[str]) -> str | None:
     """Return the first non-flag token (the subcommand name), or None."""
     for arg in argv:
         if not arg.startswith("-"):
@@ -283,7 +282,7 @@ For more info on a command: evalyn <command> --help
     return parser
 
 
-def main(argv: Optional[List[str]] = None) -> None:
+def main(argv: list[str] | None = None) -> None:
     """Main CLI entry point.
 
     Uses lazy imports: only the command module needed for the invoked

@@ -7,7 +7,7 @@ them using a more capable model, then merges results back into the original set.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -20,7 +20,7 @@ class UncertainItem:
     confidence: float
     original_model: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "metric_id": self.metric_id,
@@ -34,12 +34,12 @@ class UncertainItem:
 class ReEvalPlan:
     """Plan for re-evaluating uncertain items with a stronger model."""
 
-    uncertain_items: List[UncertainItem] = field(default_factory=list)
+    uncertain_items: list[UncertainItem] = field(default_factory=list)
     target_model: str = ""
     estimated_calls: int = 0
     confidence_threshold: float = 0.5
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "uncertain_items": [item.as_dict() for item in self.uncertain_items],
             "target_model": self.target_model,
@@ -48,7 +48,7 @@ class ReEvalPlan:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ReEvalPlan:
+    def from_dict(cls, data: dict[str, Any]) -> ReEvalPlan:
         items = [
             UncertainItem(**item) for item in data.get("uncertain_items", [])
         ]
@@ -81,7 +81,7 @@ class ReEvalResult:
     new_model: str
     improved: bool
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "metric_id": self.metric_id,
@@ -96,13 +96,13 @@ class ReEvalResult:
 class ReEvalReport:
     """Summary report of a re-evaluation batch."""
 
-    results: List[ReEvalResult] = field(default_factory=list)
+    results: list[ReEvalResult] = field(default_factory=list)
     total_re_evaluated: int = 0
     improved_count: int = 0
     unchanged_count: int = 0
     degraded_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "total_re_evaluated": self.total_re_evaluated,
@@ -112,7 +112,7 @@ class ReEvalReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ReEvalReport:
+    def from_dict(cls, data: dict[str, Any]) -> ReEvalReport:
         results = [
             ReEvalResult(**r) for r in data.get("results", [])
         ]
@@ -141,15 +141,15 @@ class ReEvalReport:
 
 
 def identify_uncertain_items(
-    scores: List[Dict[str, Any]],
+    scores: list[dict[str, Any]],
     confidence_threshold: float = 0.5,
-) -> List[UncertainItem]:
+) -> list[UncertainItem]:
     """Find items where confidence is below the threshold.
 
     Each score dict must have: item_id, metric_id, score, confidence.
     Optionally: model.
     """
-    uncertain: List[UncertainItem] = []
+    uncertain: list[UncertainItem] = []
     for s in scores:
         confidence = s.get("confidence", 1.0)
         if confidence < confidence_threshold:
@@ -166,7 +166,7 @@ def identify_uncertain_items(
 
 
 def create_reeval_plan(
-    uncertain: List[UncertainItem],
+    uncertain: list[UncertainItem],
     target_model: str = "gemini-2.5-pro",
 ) -> ReEvalPlan:
     """Build a re-evaluation plan from a list of uncertain items."""
@@ -179,18 +179,18 @@ def create_reeval_plan(
 
 
 def merge_reeval_results(
-    original_scores: List[Dict[str, Any]],
-    reeval_results: List[ReEvalResult],
-) -> List[Dict[str, Any]]:
+    original_scores: list[dict[str, Any]],
+    reeval_results: list[ReEvalResult],
+) -> list[dict[str, Any]]:
     """Merge re-evaluated scores back into the original score list.
 
     For re-evaluated items, replaces the original score with the new score.
     Non-re-evaluated items are returned unchanged.
     """
-    lookup: Dict[tuple[str, str], ReEvalResult] = {
+    lookup: dict[tuple[str, str], ReEvalResult] = {
         (r.item_id, r.metric_id): r for r in reeval_results
     }
-    merged: List[Dict[str, Any]] = []
+    merged: list[dict[str, Any]] = []
     for s in original_scores:
         key = (s["item_id"], s["metric_id"])
         if key in lookup:
@@ -205,7 +205,7 @@ def merge_reeval_results(
 
 
 def build_reeval_report(
-    results: List[ReEvalResult],
+    results: list[ReEvalResult],
     threshold: float = 0.01,
 ) -> ReEvalReport:
     """Build a summary report from re-evaluation results.

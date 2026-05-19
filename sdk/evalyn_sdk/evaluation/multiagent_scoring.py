@@ -7,7 +7,7 @@ clarity, and information density of messages exchanged between agents.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -19,7 +19,7 @@ class AgentMessage:
     timestamp_ms: float = 0.0
     message_type: str = "text"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "agent_id": self.agent_id,
             "content": self.content,
@@ -38,7 +38,7 @@ class MessageScore:
     information_density: float  # 0-1
     composite: float  # 0-1
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "agent_id": self.agent_id,
             "relevance": round(self.relevance, 4),
@@ -52,14 +52,14 @@ class MessageScore:
 class CommunicationReport:
     """Full communication quality report."""
 
-    messages: List[AgentMessage] = field(default_factory=list)
-    scores: List[MessageScore] = field(default_factory=list)
+    messages: list[AgentMessage] = field(default_factory=list)
+    scores: list[MessageScore] = field(default_factory=list)
     avg_composite: float = 0.0
     collaborative_efficiency: float = 0.0
     total_messages: int = 0
     unique_agents: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "messages": [m.as_dict() for m in self.messages],
             "scores": [s.as_dict() for s in self.scores],
@@ -70,7 +70,7 @@ class CommunicationReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CommunicationReport:
+    def from_dict(cls, data: dict[str, Any]) -> CommunicationReport:
         messages = [
             AgentMessage(
                 agent_id=m["agent_id"],
@@ -124,12 +124,12 @@ class CommunicationReport:
 _TRIVIAL_MESSAGES = {"ok", "yes", "no", "done", "thanks", "sure", "agreed", "ack"}
 
 
-def _tokenize(text: str) -> List[str]:
+def _tokenize(text: str) -> list[str]:
     """Simple whitespace tokenizer, lowercased."""
     return text.lower().split()
 
 
-def score_relevance(message: AgentMessage, context: List[AgentMessage]) -> float:
+def score_relevance(message: AgentMessage, context: list[AgentMessage]) -> float:
     """Word overlap between message and recent context messages.
 
     Higher overlap means more relevant. Returns 0.0 when context is empty.
@@ -184,7 +184,7 @@ def score_information_density(message: AgentMessage) -> float:
     return len(set(words)) / len(words)
 
 
-def score_message(message: AgentMessage, context: List[AgentMessage]) -> MessageScore:
+def score_message(message: AgentMessage, context: list[AgentMessage]) -> MessageScore:
     """Score a single message. Composite = average of relevance, clarity, density."""
     rel = score_relevance(message, context)
     clar = score_clarity(message)
@@ -199,7 +199,7 @@ def score_message(message: AgentMessage, context: List[AgentMessage]) -> Message
     )
 
 
-def compute_collaborative_efficiency(messages: List[AgentMessage]) -> float:
+def compute_collaborative_efficiency(messages: list[AgentMessage]) -> float:
     """Fraction of messages that are substantive.
 
     Substantive: > 20 chars and not a trivial message like "ok" or "yes".
@@ -215,12 +215,12 @@ def compute_collaborative_efficiency(messages: List[AgentMessage]) -> float:
     return substantive / len(messages)
 
 
-def evaluate_communication(messages: List[AgentMessage]) -> CommunicationReport:
+def evaluate_communication(messages: list[AgentMessage]) -> CommunicationReport:
     """Full evaluation of multi-agent communication."""
     if not messages:
         return CommunicationReport()
 
-    scores: List[MessageScore] = []
+    scores: list[MessageScore] = []
     for i, msg in enumerate(messages):
         context = messages[:i]  # all prior messages
         scores.append(score_message(msg, context))

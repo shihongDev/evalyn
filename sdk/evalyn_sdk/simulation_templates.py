@@ -8,8 +8,7 @@ with persona mixes, edge case types, and topic lists.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data models
@@ -23,14 +22,14 @@ class PersonaMix:
     persona_id: str
     weight: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "persona_id": self.persona_id,
             "weight": self.weight,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PersonaMix:
+    def from_dict(cls, data: dict[str, Any]) -> PersonaMix:
         return cls(
             persona_id=data["persona_id"],
             weight=data["weight"],
@@ -44,15 +43,15 @@ class SimulationTemplate:
     template_id: str
     name: str
     description: str
-    persona_mix: List[PersonaMix] = field(default_factory=list)
-    edge_case_types: List[str] = field(default_factory=list)
+    persona_mix: list[PersonaMix] = field(default_factory=list)
+    edge_case_types: list[str] = field(default_factory=list)
     output_format: str = "text"
-    topics: List[str] = field(default_factory=list)
+    topics: list[str] = field(default_factory=list)
     min_turns: int = 1
     max_turns: int = 1
-    constraints: List[str] = field(default_factory=list)
+    constraints: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "template_id": self.template_id,
             "name": self.name,
@@ -67,7 +66,7 @@ class SimulationTemplate:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SimulationTemplate:
+    def from_dict(cls, data: dict[str, Any]) -> SimulationTemplate:
         return cls(
             template_id=data["template_id"],
             name=data["name"],
@@ -86,15 +85,15 @@ class SimulationTemplate:
 class TemplateLibrary:
     """Collection of simulation templates keyed by template_id."""
 
-    templates: Dict[str, SimulationTemplate] = field(default_factory=dict)
+    templates: dict[str, SimulationTemplate] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "templates": {k: v.as_dict() for k, v in self.templates.items()},
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TemplateLibrary:
+    def from_dict(cls, data: dict[str, Any]) -> TemplateLibrary:
         return cls(
             templates={
                 k: SimulationTemplate.from_dict(v)
@@ -181,7 +180,7 @@ BUILTIN_TEMPLATES = TemplateLibrary(templates={
 # ---------------------------------------------------------------------------
 
 
-def get_template(template_id: str) -> Optional[SimulationTemplate]:
+def get_template(template_id: str) -> SimulationTemplate | None:
     """Get a built-in template by ID. Returns None if not found."""
     return BUILTIN_TEMPLATES.templates.get(template_id)
 

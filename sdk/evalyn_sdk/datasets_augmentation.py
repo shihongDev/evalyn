@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -25,7 +24,7 @@ class AugmentationMethod:
     description: str = ""
     preserves_label: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
@@ -42,9 +41,9 @@ class AugmentedItem:
     input_text: str
     output_text: str = ""
     method: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "original_id": self.original_id,
             "augmented_id": self.augmented_id,
@@ -55,7 +54,7 @@ class AugmentedItem:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AugmentedItem:
+    def from_dict(cls, data: dict[str, Any]) -> AugmentedItem:
         return cls(
             original_id=data["original_id"],
             augmented_id=data["augmented_id"],
@@ -72,10 +71,10 @@ class AugmentationReport:
 
     original_count: int = 0
     augmented_count: int = 0
-    methods_used: List[str] = field(default_factory=list)
+    methods_used: list[str] = field(default_factory=list)
     expansion_ratio: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "original_count": self.original_count,
             "augmented_count": self.augmented_count,
@@ -84,7 +83,7 @@ class AugmentationReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AugmentationReport:
+    def from_dict(cls, data: dict[str, Any]) -> AugmentationReport:
         return cls(
             original_count=data.get("original_count", 0),
             augmented_count=data.get("augmented_count", 0),
@@ -107,7 +106,7 @@ class AugmentationReport:
 # Synonym map (small, deterministic)
 # ---------------------------------------------------------------------------
 
-_SYNONYMS: Dict[str, str] = {
+_SYNONYMS: dict[str, str] = {
     "quick": "fast",
     "fast": "quick",
     "big": "large",
@@ -136,7 +135,7 @@ _SYNONYMS: Dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 
-def paraphrase_input(text: str, seed: Optional[int] = None) -> str:
+def paraphrase_input(text: str, seed: int | None = None) -> str:
     """Simple paraphrase by reordering clauses and swapping synonyms."""
     if not text:
         return text
@@ -168,7 +167,7 @@ def paraphrase_input(text: str, seed: Optional[int] = None) -> str:
     return " ".join(result)
 
 
-def add_noise(text: str, noise_rate: float = 0.05, seed: Optional[int] = None) -> str:
+def add_noise(text: str, noise_rate: float = 0.05, seed: int | None = None) -> str:
     """Add random typos at noise_rate frequency."""
     if not text:
         return text
@@ -218,10 +217,10 @@ def truncate_input(text: str, ratio: float = 0.8) -> str:
 
 
 def augment_item(
-    item: Dict[str, Any],
-    methods: List[str] | None = None,
-    seed: Optional[int] = None,
-) -> List[AugmentedItem]:
+    item: dict[str, Any],
+    methods: list[str] | None = None,
+    seed: int | None = None,
+) -> list[AugmentedItem]:
     """Apply augmentation methods to one item.
 
     Item dict should have "id", "input", and optionally "output".
@@ -240,7 +239,7 @@ def augment_item(
         "truncate": lambda t, _s: truncate_input(t),
     }
 
-    results: List[AugmentedItem] = []
+    results: list[AugmentedItem] = []
     for idx, method_name in enumerate(methods):
         fn = method_map.get(method_name)
         if fn is None:
@@ -262,16 +261,16 @@ def augment_item(
 
 
 def augment_dataset(
-    items: List[Dict[str, Any]],
-    methods: List[str] | None = None,
+    items: list[dict[str, Any]],
+    methods: list[str] | None = None,
     augmentations_per_item: int = 2,
-    seed: Optional[int] = None,
-) -> Tuple[List[AugmentedItem], AugmentationReport]:
+    seed: int | None = None,
+) -> tuple[list[AugmentedItem], AugmentationReport]:
     """Augment a full dataset, returning augmented items and a report."""
     if methods is None:
         methods = ["paraphrase", "noise"]
 
-    all_augmented: List[AugmentedItem] = []
+    all_augmented: list[AugmentedItem] = []
     methods_actually_used: set[str] = set()
 
     for item_idx, item in enumerate(items):
@@ -300,7 +299,7 @@ def augment_dataset(
 # Method Registry
 # ---------------------------------------------------------------------------
 
-_METHOD_REGISTRY: Dict[str, AugmentationMethod] = {
+_METHOD_REGISTRY: dict[str, AugmentationMethod] = {
     "paraphrase": AugmentationMethod(
         name="paraphrase",
         description="Reorder clauses and swap synonyms",
@@ -324,6 +323,6 @@ _METHOD_REGISTRY: Dict[str, AugmentationMethod] = {
 }
 
 
-def list_augmentation_methods() -> List[AugmentationMethod]:
+def list_augmentation_methods() -> list[AugmentationMethod]:
     """Return all available augmentation methods."""
     return list(_METHOD_REGISTRY.values())

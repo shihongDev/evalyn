@@ -9,8 +9,7 @@ Pure Python - no external deps, no LLM calls.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -26,7 +25,7 @@ class AdversarialCategory:
     description: str
     severity: str  # "critical" / "high" / "medium"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "category_id": self.category_id,
             "name": self.name,
@@ -35,7 +34,7 @@ class AdversarialCategory:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AdversarialCategory:
+    def from_dict(cls, data: dict[str, Any]) -> AdversarialCategory:
         return cls(
             category_id=data["category_id"],
             name=data["name"],
@@ -52,9 +51,9 @@ class AdversarialInput:
     category_id: str
     variant: str
     description: str
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "input_text": self.input_text,
             "category_id": self.category_id,
@@ -64,7 +63,7 @@ class AdversarialInput:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AdversarialInput:
+    def from_dict(cls, data: dict[str, Any]) -> AdversarialInput:
         return cls(
             input_text=data["input_text"],
             category_id=data["category_id"],
@@ -78,11 +77,11 @@ class AdversarialInput:
 class AdversarialSuite:
     """A collection of adversarial inputs across categories."""
 
-    inputs: List[AdversarialInput]
-    categories: List[str]
+    inputs: list[AdversarialInput]
+    categories: list[str]
     total_count: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "inputs": [inp.as_dict() for inp in self.inputs],
             "categories": list(self.categories),
@@ -90,7 +89,7 @@ class AdversarialSuite:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AdversarialSuite:
+    def from_dict(cls, data: dict[str, Any]) -> AdversarialSuite:
         return cls(
             inputs=[AdversarialInput.from_dict(i) for i in data.get("inputs", [])],
             categories=data.get("categories", []),
@@ -103,7 +102,7 @@ class AdversarialSuite:
 # ---------------------------------------------------------------------------
 
 
-CATEGORIES: Dict[str, AdversarialCategory] = {
+CATEGORIES: dict[str, AdversarialCategory] = {
     "prompt_injection": AdversarialCategory(
         category_id="prompt_injection",
         name="Prompt Injection",
@@ -136,14 +135,14 @@ CATEGORIES: Dict[str, AdversarialCategory] = {
 # ---------------------------------------------------------------------------
 
 
-def generate_prompt_injections(system_prompt: str = "") -> List[AdversarialInput]:
+def generate_prompt_injections(system_prompt: str = "") -> list[AdversarialInput]:
     """Generate prompt injection variants.
 
     Produces at least 5 injection attempts: ignore previous instructions,
     role override, delimiter escape, encoding tricks, and nested instructions.
     """
     cat = "prompt_injection"
-    inputs: List[AdversarialInput] = []
+    inputs: list[AdversarialInput] = []
 
     # 1. Ignore previous instructions
     inputs.append(
@@ -246,14 +245,14 @@ def generate_prompt_injections(system_prompt: str = "") -> List[AdversarialInput
     return inputs
 
 
-def generate_boundary_inputs() -> List[AdversarialInput]:
+def generate_boundary_inputs() -> list[AdversarialInput]:
     """Generate boundary and edge-case inputs.
 
     Covers: empty string, single character, max length, special characters,
     and unicode edges (CJK, emoji placeholders, RTL markers, zero-width chars).
     """
     cat = "boundary"
-    inputs: List[AdversarialInput] = []
+    inputs: list[AdversarialInput] = []
 
     # Empty string
     inputs.append(
@@ -368,14 +367,14 @@ def generate_boundary_inputs() -> List[AdversarialInput]:
     return inputs
 
 
-def generate_contradiction_inputs(system_prompt: str = "") -> List[AdversarialInput]:
+def generate_contradiction_inputs(system_prompt: str = "") -> list[AdversarialInput]:
     """Generate inputs that contradict system instructions.
 
     If a system prompt is provided, generates contradictions specific to it.
     Otherwise, generates generic contradictions against common instructions.
     """
     cat = "contradiction"
-    inputs: List[AdversarialInput] = []
+    inputs: list[AdversarialInput] = []
 
     # Generic contradictions (always included)
     generic_pairs = [
@@ -448,13 +447,13 @@ def generate_contradiction_inputs(system_prompt: str = "") -> List[AdversarialIn
     return inputs
 
 
-def generate_jailbreak_patterns() -> List[AdversarialInput]:
+def generate_jailbreak_patterns() -> list[AdversarialInput]:
     """Generate common jailbreak pattern inputs.
 
     Covers: DAN, hypothetical scenario, roleplay, and base64 instruction.
     """
     cat = "jailbreak"
-    inputs: List[AdversarialInput] = []
+    inputs: list[AdversarialInput] = []
 
     # DAN pattern
     inputs.append(
@@ -542,7 +541,7 @@ def generate_jailbreak_patterns() -> List[AdversarialInput]:
 
 def generate_full_suite(system_prompt: str = "") -> AdversarialSuite:
     """Generate a complete adversarial test suite across all categories."""
-    all_inputs: List[AdversarialInput] = []
+    all_inputs: list[AdversarialInput] = []
 
     all_inputs.extend(generate_prompt_injections(system_prompt))
     all_inputs.extend(generate_boundary_inputs())
@@ -560,7 +559,7 @@ def generate_full_suite(system_prompt: str = "") -> AdversarialSuite:
 
 def filter_by_category(
     suite: AdversarialSuite, category_id: str
-) -> List[AdversarialInput]:
+) -> list[AdversarialInput]:
     """Filter suite inputs to a specific category."""
     return [inp for inp in suite.inputs if inp.category_id == category_id]
 
@@ -579,7 +578,7 @@ def format_adversarial_report(suite: AdversarialSuite) -> str:
     ]
 
     # Per-category breakdown
-    category_counts: Dict[str, int] = {}
+    category_counts: dict[str, int] = {}
     for inp in suite.inputs:
         category_counts[inp.category_id] = category_counts.get(inp.category_id, 0) + 1
 

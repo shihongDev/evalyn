@@ -9,7 +9,7 @@ from __future__ import annotations
 import functools
 import importlib.util
 import time
-from typing import Any, Optional
+from typing import Any
 
 from ..base import Instrumentor, InstrumentorType
 from ._shared import log_llm_call
@@ -75,8 +75,8 @@ class OpenAIInstrumentor(Instrumentor):
     """Instrumentor for OpenAI SDK."""
 
     _instrumented = False
-    _original_create: Optional[Any] = None
-    _original_acreate: Optional[Any] = None
+    _original_create: Any | None = None
+    _original_acreate: Any | None = None
 
     @property
     def name(self) -> str:

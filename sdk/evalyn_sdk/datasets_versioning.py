@@ -17,10 +17,10 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -32,7 +32,7 @@ class DatasetVersion:
     created_at: str  # ISO timestamp
     description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "version_hash": self.version_hash,
             "item_count": self.item_count,
@@ -41,7 +41,7 @@ class DatasetVersion:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DatasetVersion":
+    def from_dict(cls, data: dict[str, Any]) -> DatasetVersion:
         return cls(
             version_hash=data["version_hash"],
             item_count=data["item_count"],
@@ -68,7 +68,7 @@ def compute_version_hash(dataset_path: Path) -> str:
 def create_snapshot(
     dataset_dir: Path,
     description: str = "",
-) -> Optional[DatasetVersion]:
+) -> DatasetVersion | None:
     """Create a versioned snapshot of the current dataset.
 
     Copies current dataset.jsonl to .versions/v_<hash>.jsonl and
@@ -115,7 +115,7 @@ def create_snapshot(
     return version
 
 
-def list_versions(dataset_dir: Path) -> List[DatasetVersion]:
+def list_versions(dataset_dir: Path) -> list[DatasetVersion]:
     """List all versioned snapshots for a dataset.
 
     Args:
@@ -129,7 +129,7 @@ def list_versions(dataset_dir: Path) -> List[DatasetVersion]:
         return []
 
     try:
-        with open(changelog_path, "r", encoding="utf-8") as f:
+        with open(changelog_path, encoding="utf-8") as f:
             entries = json.load(f)
         versions = [DatasetVersion.from_dict(e) for e in entries]
         return list(reversed(versions))  # newest first
@@ -174,7 +174,7 @@ def _append_changelog(versions_dir: Path, version: DatasetVersion) -> None:
     entries = []
     if changelog_path.exists():
         try:
-            with open(changelog_path, "r", encoding="utf-8") as f:
+            with open(changelog_path, encoding="utf-8") as f:
                 entries = json.load(f)
         except (json.JSONDecodeError, OSError):
             entries = []

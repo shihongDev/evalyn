@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -20,7 +20,7 @@ class DriftScore:
     old_version: str = ""
     new_version: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "drift_magnitude": self.drift_magnitude,
@@ -29,7 +29,7 @@ class DriftScore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DriftScore:
+    def from_dict(cls, data: dict[str, Any]) -> DriftScore:
         return cls(
             item_id=data["item_id"],
             drift_magnitude=data["drift_magnitude"],
@@ -44,9 +44,9 @@ class DriftConfig:
 
     sample_size: int = 50
     min_drift: float = 0.1
-    seed: Optional[int] = None
+    seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "sample_size": self.sample_size,
             "min_drift": self.min_drift,
@@ -54,7 +54,7 @@ class DriftConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DriftConfig:
+    def from_dict(cls, data: dict[str, Any]) -> DriftConfig:
         return cls(
             sample_size=data.get("sample_size", 50),
             min_drift=data.get("min_drift", 0.1),
@@ -66,13 +66,13 @@ class DriftConfig:
 class DriftResult:
     """Result of a drift sampling run."""
 
-    selected_ids: List[str] = field(default_factory=list)
-    drift_scores: List[DriftScore] = field(default_factory=list)
+    selected_ids: list[str] = field(default_factory=list)
+    drift_scores: list[DriftScore] = field(default_factory=list)
     mean_drift: float = 0.0
     max_drift: float = 0.0
     total_pool: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected_ids": self.selected_ids,
             "drift_scores": [s.as_dict() for s in self.drift_scores],
@@ -82,7 +82,7 @@ class DriftResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DriftResult:
+    def from_dict(cls, data: dict[str, Any]) -> DriftResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
             drift_scores=[
@@ -113,15 +113,15 @@ def compute_text_drift(old_text: str, new_text: str) -> float:
 
 
 def compute_dataset_drift(
-    old_items: Dict[str, str], new_items: Dict[str, str]
-) -> List[DriftScore]:
+    old_items: dict[str, str], new_items: dict[str, str]
+) -> list[DriftScore]:
     """Compute drift for all items present in both old and new versions.
 
     Items only in one version are ignored (use identify_new_items /
     identify_removed_items for those).
     """
     common_ids = sorted(set(old_items.keys()) & set(new_items.keys()))
-    scores: List[DriftScore] = []
+    scores: list[DriftScore] = []
     for item_id in common_ids:
         magnitude = compute_text_drift(old_items[item_id], new_items[item_id])
         scores.append(
@@ -136,22 +136,22 @@ def compute_dataset_drift(
 
 
 def identify_new_items(
-    old_items: Dict[str, str], new_items: Dict[str, str]
-) -> List[str]:
+    old_items: dict[str, str], new_items: dict[str, str]
+) -> list[str]:
     """Return sorted list of item IDs present in new but not in old."""
     return sorted(set(new_items.keys()) - set(old_items.keys()))
 
 
 def identify_removed_items(
-    old_items: Dict[str, str], new_items: Dict[str, str]
-) -> List[str]:
+    old_items: dict[str, str], new_items: dict[str, str]
+) -> list[str]:
     """Return sorted list of item IDs present in old but not in new."""
     return sorted(set(old_items.keys()) - set(new_items.keys()))
 
 
 def sample_by_drift(
-    drift_scores: List[DriftScore], config: DriftConfig
-) -> List[str]:
+    drift_scores: list[DriftScore], config: DriftConfig
+) -> list[str]:
     """Select top-N items by drift magnitude above min_drift threshold.
 
     Filters to items with drift >= min_drift, sorts descending by magnitude,
@@ -169,8 +169,8 @@ def sample_by_drift(
 
 
 def run_drift_sampling(
-    old_items: Dict[str, str],
-    new_items: Dict[str, str],
+    old_items: dict[str, str],
+    new_items: dict[str, str],
     config: DriftConfig,
 ) -> DriftResult:
     """Full drift sampling pipeline.
@@ -201,7 +201,7 @@ def run_drift_sampling(
 
 def format_drift_report(result: DriftResult) -> str:
     """Format a human-readable drift sampling report."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Drift Sampling Report")
     lines.append("=" * 40)
     lines.append(f"Total common items: {result.total_pool}")

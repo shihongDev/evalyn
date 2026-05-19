@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -22,7 +22,7 @@ class ModelTier:
     cost_per_1k: float = 0.0
     max_complexity: float = 1.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "model": self.model,
@@ -32,7 +32,7 @@ class ModelTier:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> ModelTier:
+    def from_dict(cls, d: dict[str, Any]) -> ModelTier:
         return cls(
             name=d["name"],
             model=d["model"],
@@ -52,7 +52,7 @@ class SelectionResult:
     complexity: float
     reason: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "selected_model": self.selected_model,
@@ -66,11 +66,11 @@ class SelectionResult:
 class AutoSelectionConfig:
     """Configuration for automatic model selection."""
 
-    tiers: List[ModelTier] = field(default_factory=list)
+    tiers: list[ModelTier] = field(default_factory=list)
     complexity_threshold: float = 0.5
     default_tier: str = "fast"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "tiers": [t.as_dict() for t in self.tiers],
             "complexity_threshold": self.complexity_threshold,
@@ -78,7 +78,7 @@ class AutoSelectionConfig:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> AutoSelectionConfig:
+    def from_dict(cls, d: dict[str, Any]) -> AutoSelectionConfig:
         return cls(
             tiers=[ModelTier.from_dict(t) for t in d.get("tiers", [])],
             complexity_threshold=d.get("complexity_threshold", 0.5),
@@ -90,11 +90,11 @@ class AutoSelectionConfig:
 class SelectionReport:
     """Aggregated report of model selections for a batch."""
 
-    selections: List[SelectionResult] = field(default_factory=list)
-    tier_distribution: Dict[str, int] = field(default_factory=dict)
+    selections: list[SelectionResult] = field(default_factory=list)
+    tier_distribution: dict[str, int] = field(default_factory=dict)
     estimated_cost_savings_pct: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selections": [s.as_dict() for s in self.selections],
             "tier_distribution": dict(self.tier_distribution),
@@ -102,7 +102,7 @@ class SelectionReport:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> SelectionReport:
+    def from_dict(cls, d: dict[str, Any]) -> SelectionReport:
         return cls(
             selections=[
                 SelectionResult(**s) for s in d.get("selections", [])
@@ -112,7 +112,7 @@ class SelectionReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Model Selection Report")
         lines.append("-" * 40)
         total = len(self.selections)
@@ -136,7 +136,7 @@ DEFAULT_TIERS = [
 
 
 def estimate_complexity(
-    text: str, avg_score: Optional[float] = None
+    text: str, avg_score: float | None = None
 ) -> float:
     """Heuristic complexity estimate from text length and optional score.
 
@@ -181,15 +181,15 @@ def select_model(
 
 
 def select_models_batch(
-    items: List[Dict[str, Any]],
-    config: Optional[AutoSelectionConfig] = None,
+    items: list[dict[str, Any]],
+    config: AutoSelectionConfig | None = None,
 ) -> SelectionReport:
     """Batch model selection. Each item dict has 'id', 'text', optionally 'avg_score'."""
     if config is None:
         config = get_default_config()
 
-    selections: List[SelectionResult] = []
-    tier_counts: Dict[str, int] = {}
+    selections: list[SelectionResult] = []
+    tier_counts: dict[str, int] = {}
 
     for item in items:
         item_id = item.get("id", "")
@@ -199,7 +199,7 @@ def select_models_batch(
         complexity = estimate_complexity(text, avg_score)
         tier = select_model(complexity, config)
 
-        reason_parts: List[str] = []
+        reason_parts: list[str] = []
         reason_parts.append(f"complexity={complexity:.4f}")
         if avg_score is not None:
             reason_parts.append(f"avg_score={avg_score}")
@@ -244,7 +244,7 @@ def estimate_cost_savings(
         return 0.0
 
     config = get_default_config()
-    tier_cost_map: Dict[str, float] = {t.name: t.cost_per_1k for t in config.tiers}
+    tier_cost_map: dict[str, float] = {t.name: t.cost_per_1k for t in config.tiers}
 
     uniform_total = len(report.selections) * uniform_model_cost
     selected_total = 0.0

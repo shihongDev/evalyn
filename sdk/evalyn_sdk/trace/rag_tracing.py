@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..models import Span
 
@@ -16,12 +16,12 @@ class RetrievalContext:
     """Context for a retrieval operation in a RAG pipeline."""
 
     query: str
-    documents: List[Dict[str, Any]] = field(default_factory=list)
+    documents: list[dict[str, Any]] = field(default_factory=list)
     top_k: int = 0
-    similarity_scores: List[float] = field(default_factory=list)
+    similarity_scores: list[float] = field(default_factory=list)
     retrieval_method: str = "vector"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "query": self.query,
             "documents": list(self.documents),
@@ -31,7 +31,7 @@ class RetrievalContext:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RetrievalContext:
+    def from_dict(cls, data: dict[str, Any]) -> RetrievalContext:
         return cls(
             query=data["query"],
             documents=data.get("documents", []),
@@ -50,7 +50,7 @@ class MemoryOperation:
     value_summary: str = ""
     timestamp_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "operation_type": self.operation_type,
             "key": self.key,
@@ -59,7 +59,7 @@ class MemoryOperation:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MemoryOperation:
+    def from_dict(cls, data: dict[str, Any]) -> MemoryOperation:
         return cls(
             operation_type=data["operation_type"],
             key=data.get("key", ""),
@@ -72,11 +72,11 @@ class MemoryOperation:
 class RAGSpanData:
     """Data payload for a RAG-related span."""
 
-    retrieval_context: Optional[RetrievalContext] = None
-    memory_ops: List[MemoryOperation] = field(default_factory=list)
+    retrieval_context: RetrievalContext | None = None
+    memory_ops: list[MemoryOperation] = field(default_factory=list)
     augmented_prompt_length: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "retrieval_context": self.retrieval_context.as_dict()
             if self.retrieval_context
@@ -86,7 +86,7 @@ class RAGSpanData:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RAGSpanData:
+    def from_dict(cls, data: dict[str, Any]) -> RAGSpanData:
         rc_raw = data.get("retrieval_context")
         return cls(
             retrieval_context=RetrievalContext.from_dict(rc_raw)
@@ -108,9 +108,9 @@ class RAGStats:
     total_memory_ops: int = 0
     avg_top_k: float = 0.0
     avg_similarity: float = 0.0
-    retrieval_methods: List[str] = field(default_factory=list)
+    retrieval_methods: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_retrievals": self.total_retrievals,
             "total_memory_ops": self.total_memory_ops,
@@ -134,11 +134,13 @@ class RAGStats:
 def create_retrieval_span(
     span_id: str,
     query: str,
-    documents: List[Dict[str, Any]],
+    documents: list[dict[str, Any]],
     top_k: int = 0,
-    scores: List[float] = [],
+    scores: list[float] | None = None,
 ) -> Span:
     """Create a retrieval span with RAGSpanData."""
+    if scores is None:
+        scores = []
     rc = RetrievalContext(
         query=query,
         documents=documents,
@@ -158,7 +160,7 @@ def create_retrieval_span(
 
 def create_memory_span(
     span_id: str,
-    operations: List[MemoryOperation],
+    operations: list[MemoryOperation],
 ) -> Span:
     """Create a memory operation span."""
     data = RAGSpanData(memory_ops=operations)
@@ -172,7 +174,7 @@ def create_memory_span(
     )
 
 
-def extract_rag_data(span: Span) -> Optional[RAGSpanData]:
+def extract_rag_data(span: Span) -> RAGSpanData | None:
     """Extract RAGSpanData from span attributes. Returns None if not present."""
     raw = span.attributes.get("rag_data")
     if not raw or not isinstance(raw, dict):
@@ -180,7 +182,7 @@ def extract_rag_data(span: Span) -> Optional[RAGSpanData]:
     return RAGSpanData.from_dict(raw)
 
 
-def compute_rag_stats(spans: List[Span]) -> RAGStats:
+def compute_rag_stats(spans: list[Span]) -> RAGStats:
     """Aggregate retrieval stats across spans."""
     total_retrievals = 0
     total_memory_ops = 0
@@ -188,7 +190,7 @@ def compute_rag_stats(spans: List[Span]) -> RAGStats:
     top_k_count = 0
     sim_sum = 0.0
     sim_count = 0
-    methods: List[str] = []
+    methods: list[str] = []
 
     for s in spans:
         data = extract_rag_data(s)
@@ -216,7 +218,7 @@ def compute_rag_stats(spans: List[Span]) -> RAGStats:
     )
 
 
-def analyze_retrieval_quality(spans: List[Span]) -> Dict[str, Any]:
+def analyze_retrieval_quality(spans: list[Span]) -> dict[str, Any]:
     """Analyze retrieval effectiveness across spans.
 
     Returns dict with:
@@ -224,10 +226,10 @@ def analyze_retrieval_quality(spans: List[Span]) -> Dict[str, Any]:
     - zero_result_rate: fraction of retrievals returning no documents
     - top_k_distribution: mapping of top_k value to count
     """
-    all_scores: List[float] = []
+    all_scores: list[float] = []
     zero_results = 0
     total_retrievals = 0
-    top_k_dist: Dict[int, int] = {}
+    top_k_dist: dict[int, int] = {}
 
     for s in spans:
         data = extract_rag_data(s)

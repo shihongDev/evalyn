@@ -9,8 +9,7 @@ from __future__ import annotations
 import importlib.metadata
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
-
+from typing import Any
 
 VALID_PLUGIN_TYPES = {"metric", "instrumentor", "storage", "analyzer"}
 
@@ -28,7 +27,7 @@ class PluginInfo:
     author: str = ""
     entry_point: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "version": self.version,
@@ -39,7 +38,7 @@ class PluginInfo:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PluginInfo:
+    def from_dict(cls, data: dict[str, Any]) -> PluginInfo:
         return cls(
             name=data.get("name", ""),
             version=data.get("version", "0.0.0"),
@@ -54,7 +53,7 @@ class PluginInfo:
 class PluginRegistry:
     """Registry of discovered and registered plugins."""
 
-    plugins: Dict[str, PluginInfo] = field(default_factory=dict)
+    plugins: dict[str, PluginInfo] = field(default_factory=dict)
 
     def register(self, info: PluginInfo) -> None:
         """Register a plugin. Raises ValueError if name already registered."""
@@ -69,15 +68,15 @@ class PluginRegistry:
             return True
         return False
 
-    def get(self, name: str) -> Optional[PluginInfo]:
+    def get(self, name: str) -> PluginInfo | None:
         """Look up a plugin by name."""
         return self.plugins.get(name)
 
-    def list_all(self) -> List[PluginInfo]:
+    def list_all(self) -> list[PluginInfo]:
         """Return all registered plugins."""
         return list(self.plugins.values())
 
-    def list_by_type(self, plugin_type: str) -> List[PluginInfo]:
+    def list_by_type(self, plugin_type: str) -> list[PluginInfo]:
         """Filter plugins by type."""
         return [p for p in self.plugins.values() if p.plugin_type == plugin_type]
 
@@ -90,13 +89,13 @@ class PluginRegistry:
         """Number of registered plugins."""
         return len(self.plugins)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "plugins": {name: info.as_dict() for name, info in self.plugins.items()},
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PluginRegistry:
+    def from_dict(cls, data: dict[str, Any]) -> PluginRegistry:
         plugins = {}
         for name, info_data in data.get("plugins", {}).items():
             plugins[name] = PluginInfo.from_dict(info_data)
@@ -104,7 +103,7 @@ class PluginRegistry:
 
 
 # Module-level singleton registry
-_global_registry: Optional[PluginRegistry] = None
+_global_registry: PluginRegistry | None = None
 
 
 def get_global_registry() -> PluginRegistry:
@@ -123,13 +122,13 @@ def reset_global_registry() -> None:
 
 def discover_plugins(
     entry_point_group: str = "evalyn.plugins",
-) -> List[PluginInfo]:
+) -> list[PluginInfo]:
     """Discover plugins via importlib.metadata entry_points.
 
     Returns a list of PluginInfo for each entry point found in the group.
     Returns an empty list if no entry points are found or on error.
     """
-    found: List[PluginInfo] = []
+    found: list[PluginInfo] = []
     try:
         eps = importlib.metadata.entry_points()
         # Python 3.12+ returns a SelectableGroups; 3.9+ dict-like
@@ -151,7 +150,7 @@ def discover_plugins(
     return found
 
 
-def validate_plugin(info: PluginInfo) -> Tuple[bool, List[str]]:
+def validate_plugin(info: PluginInfo) -> tuple[bool, list[str]]:
     """Validate plugin info.
 
     Checks:
@@ -161,7 +160,7 @@ def validate_plugin(info: PluginInfo) -> Tuple[bool, List[str]]:
 
     Returns (is_valid, list_of_error_messages).
     """
-    errors: List[str] = []
+    errors: list[str] = []
     if not info.name or not info.name.strip():
         errors.append("name must be non-empty")
     if info.plugin_type not in VALID_PLUGIN_TYPES:

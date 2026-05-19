@@ -7,8 +7,7 @@ import platform
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -26,7 +25,7 @@ class StorageProfile:
     trace_count: int
     annotation_count: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "data_dir": self.data_dir,
             "total_size_bytes": self.total_size_bytes,
@@ -37,7 +36,7 @@ class StorageProfile:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> StorageProfile:
+    def from_dict(cls, data: dict[str, Any]) -> StorageProfile:
         return cls(
             data_dir=data["data_dir"],
             total_size_bytes=data["total_size_bytes"],
@@ -55,9 +54,9 @@ class EnvironmentProfile:
     python_version: str
     evalyn_version: str
     platform: str
-    installed_providers: List[str] = field(default_factory=list)
+    installed_providers: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "python_version": self.python_version,
             "evalyn_version": self.evalyn_version,
@@ -66,7 +65,7 @@ class EnvironmentProfile:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EnvironmentProfile:
+    def from_dict(cls, data: dict[str, Any]) -> EnvironmentProfile:
         return cls(
             python_version=data["python_version"],
             evalyn_version=data["evalyn_version"],
@@ -83,7 +82,7 @@ class ProfileReport:
     environment: EnvironmentProfile
     generated_at: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "storage": self.storage.as_dict(),
             "environment": self.environment.as_dict(),
@@ -91,7 +90,7 @@ class ProfileReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ProfileReport:
+    def from_dict(cls, data: dict[str, Any]) -> ProfileReport:
         return cls(
             storage=StorageProfile.from_dict(data["storage"]),
             environment=EnvironmentProfile.from_dict(data["environment"]),
@@ -103,7 +102,7 @@ class ProfileReport:
 # Provider env var mapping
 # ---------------------------------------------------------------------------
 
-_PROVIDER_ENV_VARS: Dict[str, str] = {
+_PROVIDER_ENV_VARS: dict[str, str] = {
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
     "google": "GOOGLE_API_KEY",
@@ -188,7 +187,7 @@ def get_environment_profile() -> EnvironmentProfile:
 
     plat = platform.platform()
 
-    installed_providers: List[str] = []
+    installed_providers: list[str] = []
     for provider_name, env_var in sorted(_PROVIDER_ENV_VARS.items()):
         if os.environ.get(env_var):
             installed_providers.append(provider_name)

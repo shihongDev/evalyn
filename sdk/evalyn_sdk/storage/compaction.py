@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass
@@ -16,7 +16,7 @@ class CompactionStats:
     savings_pct: float = 0.0
     duration_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "original_size_bytes": self.original_size_bytes,
             "compacted_size_bytes": self.compacted_size_bytes,
@@ -46,7 +46,7 @@ class CompactionConfig:
     analyze: bool = True
     wal_checkpoint: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "vacuum": self.vacuum,
             "reindex": self.reindex,
@@ -55,7 +55,7 @@ class CompactionConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CompactionConfig:
+    def from_dict(cls, data: dict[str, Any]) -> CompactionConfig:
         return cls(
             vacuum=data.get("vacuum", True),
             reindex=data.get("reindex", True),
@@ -112,7 +112,7 @@ def estimate_compaction_savings(db_path: str) -> CompactionStats:
 
 
 def compact_database(
-    db_path: str, config: Optional[CompactionConfig] = None
+    db_path: str, config: CompactionConfig | None = None
 ) -> CompactionStats:
     """Run compaction on a database file.
 

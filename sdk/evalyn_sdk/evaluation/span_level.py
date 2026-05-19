@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..models import Span
 
@@ -13,9 +13,9 @@ class SpanScore:
     span_type: str
     score: float
     passed: bool
-    checks: Dict[str, bool] = field(default_factory=dict)
+    checks: dict[str, bool] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "span_id": self.span_id,
             "span_name": self.span_name,
@@ -34,7 +34,7 @@ class SpanEvalConfig:
     max_latency_ms: float = 5000.0
     min_output_length: int = 10
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "check_llm_quality": self.check_llm_quality,
             "check_tool_success": self.check_tool_success,
@@ -44,7 +44,7 @@ class SpanEvalConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SpanEvalConfig:
+    def from_dict(cls, data: dict[str, Any]) -> SpanEvalConfig:
         return cls(
             check_llm_quality=data.get("check_llm_quality", True),
             check_tool_success=data.get("check_tool_success", True),
@@ -56,14 +56,14 @@ class SpanEvalConfig:
 
 @dataclass
 class SpanEvalReport:
-    span_scores: List[SpanScore]
+    span_scores: list[SpanScore]
     total_spans: int
     passed_count: int
     failed_count: int
     pass_rate: float
-    by_type: Dict[str, Dict[str, Any]]
+    by_type: dict[str, dict[str, Any]]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "span_scores": [s.as_dict() for s in self.span_scores],
             "total_spans": self.total_spans,
@@ -74,7 +74,7 @@ class SpanEvalReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SpanEvalReport:
+    def from_dict(cls, data: dict[str, Any]) -> SpanEvalReport:
         return cls(
             span_scores=[
                 SpanScore(
@@ -95,7 +95,7 @@ class SpanEvalReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Span Evaluation: {self.total_spans} spans")
         lines.append(
             f"Passed: {self.passed_count}  Failed: {self.failed_count}  "
@@ -125,7 +125,7 @@ def evaluate_span(span: Span, config: SpanEvalConfig) -> SpanScore:
     - Default: check status != error
     Score = fraction of checks passed.
     """
-    checks: Dict[str, bool] = {}
+    checks: dict[str, bool] = {}
     attrs = span.attributes
 
     if span.span_type == "llm_call":
@@ -175,7 +175,7 @@ def evaluate_span(span: Span, config: SpanEvalConfig) -> SpanScore:
 
 
 def evaluate_spans(
-    spans: List[Span], config: Optional[SpanEvalConfig] = None
+    spans: list[Span], config: SpanEvalConfig | None = None
 ) -> SpanEvalReport:
     """Evaluate all spans and compute per-type breakdown."""
     if config is None:
@@ -198,20 +198,20 @@ def evaluate_spans(
     )
 
 
-def find_failing_spans(report: SpanEvalReport) -> List[SpanScore]:
+def find_failing_spans(report: SpanEvalReport) -> list[SpanScore]:
     """Return spans with passed=False."""
     return [s for s in report.span_scores if not s.passed]
 
 
 def compute_type_breakdown(
-    scores: List[SpanScore],
-) -> Dict[str, Dict[str, Any]]:
+    scores: list[SpanScore],
+) -> dict[str, dict[str, Any]]:
     """Group by span_type, compute pass_rate and avg_score per type."""
-    groups: Dict[str, List[SpanScore]] = {}
+    groups: dict[str, list[SpanScore]] = {}
     for s in scores:
         groups.setdefault(s.span_type, []).append(s)
 
-    result: Dict[str, Dict[str, Any]] = {}
+    result: dict[str, dict[str, Any]] = {}
     for type_name, group in groups.items():
         count = len(group)
         type_passed = sum(1 for s in group if s.passed)

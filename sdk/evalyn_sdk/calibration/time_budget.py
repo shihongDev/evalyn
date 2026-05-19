@@ -7,8 +7,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass
@@ -18,14 +17,14 @@ class TimeBudgetConfig:
     max_minutes: float = 30.0
     warning_at_pct: float = 0.8
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "max_minutes": self.max_minutes,
             "warning_at_pct": self.warning_at_pct,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TimeBudgetConfig:
+    def from_dict(cls, data: dict[str, Any]) -> TimeBudgetConfig:
         return cls(
             max_minutes=data.get("max_minutes", 30.0),
             warning_at_pct=data.get("warning_at_pct", 0.8),
@@ -42,7 +41,7 @@ class TimeBudgetStatus:
     status: str  # "ok" / "warning" / "expired"
     should_stop: bool
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "elapsed_minutes": self.elapsed_minutes,
             "remaining_minutes": self.remaining_minutes,
@@ -68,7 +67,7 @@ class TimeBudgetTracker:
 
     def __init__(self, config: TimeBudgetConfig) -> None:
         self._config = config
-        self._start_time: Optional[float] = None
+        self._start_time: float | None = None
 
     def start(self) -> None:
         """Record start time."""

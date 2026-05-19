@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -21,7 +21,7 @@ class ResourceSnapshot:
     memory_pct: float      # memory percentage (0-100)
     items_evaluated: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "timestamp": round(self.timestamp, 2),
             "memory_mb": round(self.memory_mb, 1),
@@ -39,10 +39,10 @@ class ResourceReport:
     start_memory_mb: float = 0.0
     end_memory_mb: float = 0.0
     memory_growth_mb: float = 0.0
-    snapshots: List[ResourceSnapshot] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    snapshots: list[ResourceSnapshot] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "peak_memory_mb": round(self.peak_memory_mb, 1),
             "peak_memory_pct": round(self.peak_memory_pct, 1),
@@ -89,8 +89,8 @@ class ResourceMonitor:
     ):
         self.warning_threshold_mb = warning_threshold_mb
         self.enabled = enabled
-        self._snapshots: List[ResourceSnapshot] = []
-        self._warnings: List[str] = []
+        self._snapshots: list[ResourceSnapshot] = []
+        self._warnings: list[str] = []
         self._start_memory: float = 0.0
 
     def start(self) -> None:
@@ -162,7 +162,7 @@ def _get_memory_mb() -> float:
 
     # Fallback: read /proc/self/status on Linux
     try:
-        with open("/proc/self/status", "r") as f:
+        with open("/proc/self/status") as f:
             for line in f:
                 if line.startswith("VmRSS:"):
                     return int(line.split()[1]) / 1024  # kB to MB

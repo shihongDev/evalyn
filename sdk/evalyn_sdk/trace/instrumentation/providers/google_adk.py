@@ -17,30 +17,26 @@ from __future__ import annotations
 
 import importlib.util
 import time
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncIterator,
-    Callable,
-    Dict,
-    List,
-    Optional,
     TypedDict,
 )
 
-from ... import context as span_context
 from ....models import Span
+from ... import context as span_context
 from ..base import Instrumentor, InstrumentorType
 from ..span_processor import get_or_create_tracer_provider
 
 if TYPE_CHECKING:
     from google.adk.agents.callback_context import CallbackContext
+    from google.adk.events import Event
     from google.adk.models.llm_request import LlmRequest
     from google.adk.models.llm_response import LlmResponse
     from google.adk.tools.base_tool import BaseTool
     from google.adk.tools.tool_context import ToolContext
-    from google.adk.events import Event
     from google.genai.types import Content
 
 
@@ -60,7 +56,7 @@ class AgentContext:
     agent_name: str
     invocation_id: str
     start_time: float
-    parent_agent_name: Optional[str] = None
+    parent_agent_name: str | None = None
 
 
 class TokenUsage(TypedDict, total=False):
@@ -109,26 +105,26 @@ class EvalynADKCallbacks:
     def __init__(self) -> None:
         """Initialize the callback handler."""
         # Track spans by invocation_id for correlation
-        self._agent_spans: Dict[str, SpanState] = {}
-        self._llm_spans: Dict[str, SpanState] = {}
-        self._tool_spans: Dict[str, SpanState] = {}
+        self._agent_spans: dict[str, SpanState] = {}
+        self._llm_spans: dict[str, SpanState] = {}
+        self._tool_spans: dict[str, SpanState] = {}
 
         # Track agent hierarchy
-        self._agent_contexts: Dict[str, AgentContext] = {}
+        self._agent_contexts: dict[str, AgentContext] = {}
 
         # Track LLM call count per agent for naming
-        self._llm_call_counts: Dict[str, int] = {}
+        self._llm_call_counts: dict[str, int] = {}
         # Track last LLM span key per agent for before/after correlation
-        self._last_llm_key: Dict[str, str] = {}
+        self._last_llm_key: dict[str, str] = {}
 
         # Track tool call count per agent for naming
-        self._tool_call_counts: Dict[str, int] = {}
+        self._tool_call_counts: dict[str, int] = {}
 
         # Accumulated output text
-        self._output_text: List[str] = []
+        self._output_text: list[str] = []
 
         # Run metadata
-        self._run_start_time: Optional[float] = None
+        self._run_start_time: float | None = None
 
     def _extract_usage(self, usage_metadata: Any) -> TokenUsage:
         """Extract token usage from GenerateContentResponseUsageMetadata."""
@@ -146,25 +142,25 @@ class EvalynADKCallbacks:
             "thoughts_tokens": get_count("thoughts_token_count"),
         }
 
-    def _get_agent_span_key(self, ctx: "CallbackContext") -> str:
+    def _get_agent_span_key(self, ctx: CallbackContext) -> str:
         """Generate unique key for agent span tracking."""
         return f"{ctx.agent_name}:{ctx.invocation_id}"
 
-    def _get_llm_span_key(self, ctx: "CallbackContext") -> str:
+    def _get_llm_span_key(self, ctx: CallbackContext) -> str:
         """Generate unique key for LLM span tracking."""
         agent_name = ctx.agent_name
         count = self._llm_call_counts.get(agent_name, 0) + 1
         return f"{agent_name}:llm:{count}"
 
     def _get_tool_span_key(
-        self, tool: "BaseTool", ctx: "ToolContext", args: Dict[str, Any]
+        self, tool: BaseTool, ctx: ToolContext, args: dict[str, Any]
     ) -> str:
         """Generate unique key for tool span tracking."""
         tool_name = getattr(tool, "name", type(tool).__name__)
         args_hash = hash(str(sorted(args.items()))) if args else 0
         return f"{ctx.agent_name}:{tool_name}:{ctx.invocation_id}:{args_hash}"
 
-    def _extract_text_from_content(self, content: Optional["Content"]) -> str:
+    def _extract_text_from_content(self, content: Content | None) -> str:
         """Extract text from google.genai.types.Content."""
         if content is None:
             return ""
@@ -174,8 +170,8 @@ class EvalynADKCallbacks:
         return "\n".join(texts)
 
     def _extract_tool_calls_from_content(
-        self, content: Optional["Content"]
-    ) -> List[Dict[str, Any]]:
+        self, content: Content | None
+    ) -> list[dict[str, Any]]:
         """Extract tool calls from content."""
         if content is None:
             return []
@@ -193,7 +189,7 @@ class EvalynADKCallbacks:
                 )
         return tool_calls
 
-    def before_agent_callback(self, ctx: "CallbackContext") -> Optional["Content"]:
+    def before_agent_callback(self, ctx: CallbackContext) -> Content | None:
         """Called before agent execution begins. Creates agent span and tracks hierarchy."""
         if self._run_start_time is None:
             self._run_start_time = time.time()
@@ -242,7 +238,7 @@ class EvalynADKCallbacks:
 
         return None
 
-    def after_agent_callback(self, ctx: "CallbackContext") -> Optional["Content"]:
+    def after_agent_callback(self, ctx: CallbackContext) -> Content | None:
         """Called after agent execution completes. Finishes the agent span."""
         span_key = self._get_agent_span_key(ctx)
         state = self._agent_spans.pop(span_key, None)
@@ -268,8 +264,8 @@ class EvalynADKCallbacks:
         return None
 
     def before_model_callback(
-        self, ctx: "CallbackContext", llm_request: "LlmRequest"
-    ) -> Optional["LlmResponse"]:
+        self, ctx: CallbackContext, llm_request: LlmRequest
+    ) -> LlmResponse | None:
         """Called before LLM model is invoked. Creates LLM call span."""
         agent_name = ctx.agent_name
         count = self._llm_call_counts.get(agent_name, 0) + 1
@@ -316,8 +312,8 @@ class EvalynADKCallbacks:
         return None
 
     def after_model_callback(
-        self, ctx: "CallbackContext", llm_response: "LlmResponse"
-    ) -> Optional["LlmResponse"]:
+        self, ctx: CallbackContext, llm_response: LlmResponse
+    ) -> LlmResponse | None:
         """Called after LLM model returns response. Finishes LLM span."""
         span_key = self._last_llm_key.pop(ctx.agent_name, None) or self._get_llm_span_key(ctx)
         state = self._llm_spans.pop(span_key, None)
@@ -380,10 +376,10 @@ class EvalynADKCallbacks:
 
     def before_tool_callback(
         self,
-        tool: "BaseTool",
-        args: Dict[str, Any],
-        ctx: "ToolContext",
-    ) -> Optional[Dict[str, Any]]:
+        tool: BaseTool,
+        args: dict[str, Any],
+        ctx: ToolContext,
+    ) -> dict[str, Any] | None:
         """Called before tool execution. Creates tool call span."""
         tool_name = getattr(tool, "name", None) or type(tool).__name__
         agent_name = ctx.agent_name
@@ -397,7 +393,7 @@ class EvalynADKCallbacks:
         args_str = str(args)
         input_size = len(args_str)
 
-        extra_attrs: Dict[str, Any] = {}
+        extra_attrs: dict[str, Any] = {}
         if type(tool).__name__ == "AgentTool":
             sub_agent = getattr(tool, "agent", None)
             if sub_agent:
@@ -424,11 +420,11 @@ class EvalynADKCallbacks:
 
     def after_tool_callback(
         self,
-        tool: "BaseTool",
-        args: Dict[str, Any],
-        ctx: "ToolContext",
-        result: Dict[str, Any],
-    ) -> Optional[Dict[str, Any]]:
+        tool: BaseTool,
+        args: dict[str, Any],
+        ctx: ToolContext,
+        result: dict[str, Any],
+    ) -> dict[str, Any] | None:
         """Called after tool execution completes. Finishes tool span."""
         span_key = self._get_tool_span_key(tool, ctx, args)
         state = self._tool_spans.pop(span_key, None)
@@ -449,7 +445,7 @@ class EvalynADKCallbacks:
         return None
 
     def capture_user_input(
-        self, message: str, session_id: Optional[str] = None
+        self, message: str, session_id: str | None = None
     ) -> None:
         """Capture user input message as a span."""
         span = Span.new(
@@ -509,12 +505,12 @@ class ADKStreamAdapter:
 
     def __init__(self, callbacks: EvalynADKCallbacks) -> None:
         self._callbacks = callbacks
-        self._accumulated_text: List[str] = []
-        self._last_usage: Optional[Dict[str, int]] = None
+        self._accumulated_text: list[str] = []
+        self._last_usage: dict[str, int] | None = None
 
     async def wrap_stream(
-        self, events: AsyncIterator["Event"]
-    ) -> AsyncIterator["Event"]:
+        self, events: AsyncIterator[Event]
+    ) -> AsyncIterator[Event]:
         """Wrap an ADK event stream to intercept and instrument events."""
         async for event in events:
             content = getattr(event, "content", None)
@@ -537,7 +533,7 @@ class ADKStreamAdapter:
         """Get all accumulated text output."""
         return "\n".join(self._accumulated_text)
 
-    def get_last_usage(self) -> Optional[Dict[str, int]]:
+    def get_last_usage(self) -> dict[str, int] | None:
         """Get the last captured usage metadata."""
         return self._last_usage
 
@@ -553,13 +549,13 @@ class GoogleADKInstrumentor(Instrumentor):
     """
 
     _instrumented: bool = False
-    _otel_instrumentor: Optional[Any] = None
-    _callbacks: Optional[EvalynADKCallbacks] = None
-    _original_run: Optional[Callable[..., Any]] = None
-    _original_run_async: Optional[Callable[..., Any]] = None
+    _otel_instrumentor: Any | None = None
+    _callbacks: EvalynADKCallbacks | None = None
+    _original_run: Callable[..., Any] | None = None
+    _original_run_async: Callable[..., Any] | None = None
     _patched: bool = False
     _callbacks_injected: bool = False
-    _original_properties: Dict[str, Any] = {}
+    _original_properties: dict[str, Any] = {}
 
     @property
     def name(self) -> str:
@@ -609,8 +605,8 @@ class GoogleADKInstrumentor(Instrumentor):
     def _instrument_manually(self) -> None:
         """Manual instrumentation when openinference is not available."""
         try:
-            from opentelemetry import trace
             from google.adk import Agent
+            from opentelemetry import trace
 
             tracer = trace.get_tracer("evalyn.google_adk")
             original_run = Agent.run
@@ -701,11 +697,11 @@ class GoogleADKInstrumentor(Instrumentor):
 
         def make_patched_getter(
             evalyn_callback: Callable[..., Any],
-            original_getter: Callable[..., List[Any]],
-        ) -> Callable[[Any], List[Any]]:
+            original_getter: Callable[..., list[Any]],
+        ) -> Callable[[Any], list[Any]]:
             """Create a patched property getter that prepends the Evalyn callback."""
 
-            def patched(instance: Any) -> List[Any]:
+            def patched(instance: Any) -> list[Any]:
                 return [evalyn_callback] + original_getter(instance)
 
             return patched
@@ -818,7 +814,7 @@ class GoogleADKInstrumentor(Instrumentor):
         except Exception:
             return False
 
-    def get_callbacks(self) -> Optional[EvalynADKCallbacks]:
+    def get_callbacks(self) -> EvalynADKCallbacks | None:
         """Get the callbacks instance for manual integration."""
         if self._callbacks is None:
             self.instrument()

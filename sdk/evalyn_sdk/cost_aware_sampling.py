@@ -8,8 +8,9 @@ Pure Python, no external dependencies.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -20,7 +21,7 @@ class ItemCost:
     estimated_tokens: int
     estimated_cost: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "estimated_tokens": self.estimated_tokens,
@@ -28,7 +29,7 @@ class ItemCost:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ItemCost:
+    def from_dict(cls, data: dict[str, Any]) -> ItemCost:
         return cls(
             item_id=data["item_id"],
             estimated_tokens=data["estimated_tokens"],
@@ -44,7 +45,7 @@ class CostBudget:
     max_cost: float = 0.0  # 0 means unlimited
     cost_per_1k_tokens: float = 0.075
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "max_tokens": self.max_tokens,
             "max_cost": self.max_cost,
@@ -52,7 +53,7 @@ class CostBudget:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CostBudget:
+    def from_dict(cls, data: dict[str, Any]) -> CostBudget:
         return cls(
             max_tokens=data.get("max_tokens", 0),
             max_cost=data.get("max_cost", 0.0),
@@ -64,13 +65,13 @@ class CostBudget:
 class CostAwareResult:
     """Result of a cost-aware sampling run."""
 
-    selected_ids: List[str] = field(default_factory=list)
+    selected_ids: list[str] = field(default_factory=list)
     total_tokens: int = 0
     total_cost: float = 0.0
     items_selected: int = 0
     budget_utilization: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected_ids": self.selected_ids,
             "total_tokens": self.total_tokens,
@@ -80,7 +81,7 @@ class CostAwareResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CostAwareResult:
+    def from_dict(cls, data: dict[str, Any]) -> CostAwareResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
             total_tokens=data.get("total_tokens", 0),
@@ -101,13 +102,13 @@ def estimate_item_tokens(text: str) -> int:
 
 
 def compute_item_costs(
-    items: Dict[str, str], cost_per_1k: float = 0.075
-) -> List[ItemCost]:
+    items: dict[str, str], cost_per_1k: float = 0.075
+) -> list[ItemCost]:
     """Compute estimated token counts and costs for all items.
 
     Items are returned sorted by item_id for deterministic ordering.
     """
-    costs: List[ItemCost] = []
+    costs: list[ItemCost] = []
     for item_id in sorted(items.keys()):
         tokens = estimate_item_tokens(items[item_id])
         cost = tokens * cost_per_1k / 1000.0
@@ -133,8 +134,8 @@ def _fits_budget(
 
 
 def greedy_budget_selection(
-    costs: List[ItemCost], budget: CostBudget
-) -> List[str]:
+    costs: list[ItemCost], budget: CostBudget
+) -> list[str]:
     """Sort by cost ascending and greedily select items until budget exhausted.
 
     Maximizes item count within budget constraints. When both token and cost
@@ -144,7 +145,7 @@ def greedy_budget_selection(
     if budget.max_tokens == 0 and budget.max_cost == 0.0:
         return []
     sorted_costs = sorted(costs, key=lambda c: c.estimated_cost)
-    selected: List[str] = []
+    selected: list[str] = []
     running_tokens = 0
     running_cost = 0.0
 
@@ -160,10 +161,10 @@ def greedy_budget_selection(
 
 
 def knapsack_selection(
-    costs: List[ItemCost],
+    costs: list[ItemCost],
     budget: CostBudget,
-    value_fn: Optional[Callable[[ItemCost], float]] = None,
-) -> List[str]:
+    value_fn: Callable[[ItemCost], float] | None = None,
+) -> list[str]:
     """Greedy fractional knapsack: sort by value/cost ratio, select greedily.
 
     Default value function assigns 1.0 per item (maximizing item count per
@@ -179,7 +180,7 @@ def knapsack_selection(
         return val / item.estimated_cost
 
     sorted_costs = sorted(costs, key=ratio_key, reverse=True)
-    selected: List[str] = []
+    selected: list[str] = []
     running_tokens = 0
     running_cost = 0.0
 
@@ -214,7 +215,7 @@ def _compute_budget_utilization(
 
 
 def run_cost_aware_sampling(
-    items: Dict[str, str], budget: CostBudget
+    items: dict[str, str], budget: CostBudget
 ) -> CostAwareResult:
     """Full cost-aware sampling pipeline.
 
@@ -241,7 +242,7 @@ def run_cost_aware_sampling(
 
 def format_cost_report(result: CostAwareResult) -> str:
     """Format a human-readable cost sampling report with budget utilization."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Cost-Aware Sampling Report")
     lines.append("=" * 40)
     lines.append(f"Items selected: {result.items_selected}")

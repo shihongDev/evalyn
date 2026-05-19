@@ -11,9 +11,9 @@ import html
 import io
 import json
 from base64 import b64encode
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -22,10 +22,10 @@ class ExportableChart:
 
     chart_id: str
     title: str
-    data: List[Dict[str, Any]]
-    columns: List[str]
+    data: list[dict[str, Any]]
+    columns: list[str]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "chart_id": self.chart_id,
             "title": self.title,
@@ -34,7 +34,7 @@ class ExportableChart:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ExportableChart:
+    def from_dict(cls, data: dict[str, Any]) -> ExportableChart:
         return cls(
             chart_id=data.get("chart_id", ""),
             title=data.get("title", ""),
@@ -47,11 +47,11 @@ class ExportableChart:
 class ExportBundle:
     """A collection of exportable charts with summary data."""
 
-    charts: List[ExportableChart]
-    summary: Dict[str, Any]
+    charts: list[ExportableChart]
+    summary: dict[str, Any]
     generated_at: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "charts": [c.as_dict() for c in self.charts],
             "summary": dict(self.summary),
@@ -59,7 +59,7 @@ class ExportBundle:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ExportBundle:
+    def from_dict(cls, data: dict[str, Any]) -> ExportBundle:
         return cls(
             charts=[
                 ExportableChart.from_dict(c) for c in data.get("charts", [])
@@ -144,42 +144,42 @@ def generate_export_panel_html(bundle: ExportBundle) -> str:
     Includes CSV and JSON download buttons for each chart plus a summary
     copy button.
     """
-    parts: List[str] = []
+    parts: list[str] = []
     parts.append('<div class="export-panel">')
     parts.append(f"  <h3>{html.escape('Data Export')}</h3>")
     parts.append(f"  <p>Generated at: {html.escape(bundle.generated_at)}</p>")
 
     for chart in bundle.charts:
         safe_title = html.escape(chart.title)
-        parts.append(f'  <div class="export-chart-section">')
+        parts.append('  <div class="export-chart-section">')
         parts.append(f"    <h4>{safe_title}</h4>")
         parts.append(f"    {generate_download_button_html(chart, 'csv')}")
         parts.append(f"    {generate_download_button_html(chart, 'json')}")
-        parts.append(f"  </div>")
+        parts.append("  </div>")
 
     summary_text = json.dumps(bundle.summary, indent=2)
-    parts.append(f'  <div class="export-summary-section">')
-    parts.append(f"    <h4>Summary</h4>")
+    parts.append('  <div class="export-summary-section">')
+    parts.append("    <h4>Summary</h4>")
     parts.append(
         f"    {generate_copy_button_html(summary_text, 'Copy Summary')}"
     )
-    parts.append(f"  </div>")
+    parts.append("  </div>")
     parts.append("</div>")
 
     return "\n".join(parts)
 
 
 def build_export_bundle(
-    metrics: Dict[str, float],
-    failed_items: List[Dict[str, Any]],
-    per_metric_data: Dict[str, List[Dict[str, Any]]],
+    metrics: dict[str, float],
+    failed_items: list[dict[str, Any]],
+    per_metric_data: dict[str, list[dict[str, Any]]],
 ) -> ExportBundle:
     """Build an export bundle from typical dashboard data.
 
     Creates charts for: metrics summary, failed items, and per-metric
     detail tables.
     """
-    charts: List[ExportableChart] = []
+    charts: list[ExportableChart] = []
 
     # Metrics overview chart
     metrics_rows = [
@@ -221,7 +221,7 @@ def build_export_bundle(
 
     generated_at = datetime.now(timezone.utc).isoformat()
 
-    summary: Dict[str, Any] = {
+    summary: dict[str, Any] = {
         "total_metrics": len(metrics),
         "failed_count": len(failed_items),
         "metrics": dict(metrics),

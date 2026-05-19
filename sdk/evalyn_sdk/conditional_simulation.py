@@ -11,8 +11,7 @@ from __future__ import annotations
 import itertools
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -29,7 +28,7 @@ class EdgeCondition:
     generator: str  # function name reference
     severity: str = "medium"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "condition_id": self.condition_id,
             "name": self.name,
@@ -39,7 +38,7 @@ class EdgeCondition:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EdgeCondition:
+    def from_dict(cls, data: dict[str, Any]) -> EdgeCondition:
         return cls(
             condition_id=data["condition_id"],
             name=data["name"],
@@ -54,10 +53,10 @@ class ConditionalInput:
     """A generated input with metadata about which conditions were applied."""
 
     input_text: str
-    conditions_applied: List[str] = field(default_factory=list)
-    tags: List[str] = field(default_factory=list)
+    conditions_applied: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "input_text": self.input_text,
             "conditions_applied": list(self.conditions_applied),
@@ -65,7 +64,7 @@ class ConditionalInput:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConditionalInput:
+    def from_dict(cls, data: dict[str, Any]) -> ConditionalInput:
         return cls(
             input_text=data["input_text"],
             conditions_applied=data.get("conditions_applied", []),
@@ -77,11 +76,11 @@ class ConditionalInput:
 class ConditionalConfig:
     """Configuration for conditional input generation."""
 
-    conditions: List[str] = field(default_factory=list)  # condition IDs to apply
+    conditions: list[str] = field(default_factory=list)  # condition IDs to apply
     base_text: str = ""
     combinatorial: bool = False  # if True, generate all pair combinations
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "conditions": list(self.conditions),
             "base_text": self.base_text,
@@ -89,7 +88,7 @@ class ConditionalConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConditionalConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ConditionalConfig:
         return cls(
             conditions=data.get("conditions", []),
             base_text=data.get("base_text", ""),
@@ -107,7 +106,7 @@ def generate_empty() -> str:
     return ""
 
 
-def generate_null_like(rng: Optional[random.Random] = None) -> str:
+def generate_null_like(rng: random.Random | None = None) -> str:
     """Return a None-like string value."""
     choices = ["null", "None", "undefined"]
     if rng is not None:
@@ -172,7 +171,7 @@ _GENERATORS = {
     "generate_html_tags": generate_html_tags,
 }
 
-EDGE_CONDITIONS: Dict[str, EdgeCondition] = {
+EDGE_CONDITIONS: dict[str, EdgeCondition] = {
     "empty": EdgeCondition(
         condition_id="empty",
         name="Empty String",
@@ -252,7 +251,7 @@ EDGE_CONDITIONS: Dict[str, EdgeCondition] = {
 
 
 def _call_generator(
-    generator_name: str, rng: Optional[random.Random] = None
+    generator_name: str, rng: random.Random | None = None
 ) -> str:
     """Call a generator function by name, passing rng if accepted."""
     fn = _GENERATORS[generator_name]
@@ -264,14 +263,14 @@ def _call_generator(
 
 def generate_conditional_inputs(
     config: ConditionalConfig,
-    rng: Optional[random.Random] = None,
-) -> List[ConditionalInput]:
+    rng: random.Random | None = None,
+) -> list[ConditionalInput]:
     """Generate inputs for specified conditions.
 
     If combinatorial is True, also generate inputs combining pairs of
     conditions (concatenated with a space separator).
     """
-    results: List[ConditionalInput] = []
+    results: list[ConditionalInput] = []
 
     # Filter to valid condition IDs
     valid_ids = [c for c in config.conditions if c in EDGE_CONDITIONS]
@@ -316,7 +315,7 @@ def generate_conditional_inputs(
     return results
 
 
-def generate_all_conditions(base_text: str = "") -> List[ConditionalInput]:
+def generate_all_conditions(base_text: str = "") -> list[ConditionalInput]:
     """Generate one input per known edge condition."""
     config = ConditionalConfig(
         conditions=list(EDGE_CONDITIONS.keys()),
@@ -326,16 +325,16 @@ def generate_all_conditions(base_text: str = "") -> List[ConditionalInput]:
     return generate_conditional_inputs(config)
 
 
-def format_conditional_report(inputs: List[ConditionalInput]) -> str:
+def format_conditional_report(inputs: list[ConditionalInput]) -> str:
     """Format a summary report of generated conditional inputs."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Conditional Simulation Report")
     lines.append("=" * 40)
     lines.append(f"Total inputs generated: {len(inputs)}")
     lines.append("")
 
     # Count by condition
-    condition_counts: Dict[str, int] = {}
+    condition_counts: dict[str, int] = {}
     for inp in inputs:
         for cid in inp.conditions_applied:
             condition_counts[cid] = condition_counts.get(cid, 0) + 1
@@ -356,7 +355,7 @@ def format_conditional_report(inputs: List[ConditionalInput]) -> str:
         lines.append("")
 
     # Severity breakdown
-    severity_counts: Dict[str, int] = {}
+    severity_counts: dict[str, int] = {}
     for inp in inputs:
         for tag in inp.tags:
             if tag in ("low", "medium", "high", "critical"):

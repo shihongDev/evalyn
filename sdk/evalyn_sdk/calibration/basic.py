@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +36,11 @@ class BasicOptimizer:
     def __init__(
         self,
         model: str = DEFAULT_EVAL_MODEL,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
     ):
         self.model = model
         self._api_key = api_key
-        self._client: Optional[GeminiClient] = None
+        self._client: GeminiClient | None = None
 
     @property
     def client(self) -> GeminiClient:
@@ -58,11 +57,11 @@ class BasicOptimizer:
     def optimize(
         self,
         metric_id: str,
-        current_rubric: List[str],
+        current_rubric: list[str],
         disagreements: DisagreementAnalysis,
         alignment_metrics: AlignmentMetrics,
         current_preamble: str = "",
-        accumulator: Optional[TokenAccumulator] = None,
+        accumulator: TokenAccumulator | None = None,
     ) -> PromptOptimizationResult:
         """
         Analyze disagreements and suggest preamble improvements.
@@ -113,7 +112,7 @@ class BasicOptimizer:
     def _build_optimization_prompt(
         self,
         metric_id: str,
-        current_rubric: List[str],
+        current_rubric: list[str],
         current_preamble: str,
         disagreements: DisagreementAnalysis,
         alignment_metrics: AlignmentMetrics,
@@ -204,7 +203,7 @@ Return ONLY the JSON object, no other text."""
     def _parse_optimization_response(
         self,
         response_text: str,
-        original_rubric: List[str],
+        original_rubric: list[str],
         original_preamble: str,
     ) -> PromptOptimizationResult:
         """Parse the LLM response into a structured result."""

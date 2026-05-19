@@ -7,8 +7,7 @@ according to a strategy, and merge record sets.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -26,7 +25,7 @@ class MergeConflict:
     value_b: str = ""
     resolution: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "table": self.table,
             "record_id": self.record_id,
@@ -42,16 +41,16 @@ class MergeConfig:
     """Configuration for a merge operation."""
 
     strategy: str = "keep_newest"
-    tables: List[str] = field(default_factory=list)
+    tables: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "strategy": self.strategy,
             "tables": list(self.tables),
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MergeConfig:
+    def from_dict(cls, data: dict[str, Any]) -> MergeConfig:
         return cls(
             strategy=data.get("strategy", "keep_newest"),
             tables=data.get("tables", []),
@@ -64,10 +63,10 @@ class MergeResult:
 
     merged_count: int = 0
     conflict_count: int = 0
-    conflicts: List[MergeConflict] = field(default_factory=list)
+    conflicts: list[MergeConflict] = field(default_factory=list)
     skipped_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "merged_count": self.merged_count,
             "conflict_count": self.conflict_count,
@@ -76,7 +75,7 @@ class MergeResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MergeResult:
+    def from_dict(cls, data: dict[str, Any]) -> MergeResult:
         conflicts = [
             MergeConflict(**c) for c in data.get("conflicts", [])
         ]
@@ -88,7 +87,7 @@ class MergeResult:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Merge Result")
         lines.append("-" * 40)
         lines.append(f"Merged records: {self.merged_count}")
@@ -111,18 +110,18 @@ class MergeResult:
 
 
 def detect_conflicts(
-    records_a: List[Dict[str, Any]],
-    records_b: List[Dict[str, Any]],
+    records_a: list[dict[str, Any]],
+    records_b: list[dict[str, Any]],
     id_field: str = "id",
-) -> List[MergeConflict]:
+) -> list[MergeConflict]:
     """Find records with the same ID but different field values."""
-    index_a: Dict[str, Dict[str, Any]] = {}
+    index_a: dict[str, dict[str, Any]] = {}
     for rec in records_a:
         rid = str(rec.get(id_field, ""))
         if rid:
             index_a[rid] = rec
 
-    conflicts: List[MergeConflict] = []
+    conflicts: list[MergeConflict] = []
     for rec in records_b:
         rid = str(rec.get(id_field, ""))
         if rid and rid in index_a:
@@ -172,19 +171,19 @@ def resolve_conflict(
 
 
 def merge_records(
-    records_a: List[Dict[str, Any]],
-    records_b: List[Dict[str, Any]],
+    records_a: list[dict[str, Any]],
+    records_b: list[dict[str, Any]],
     config: MergeConfig,
     id_field: str = "id",
-) -> Tuple[List[Dict[str, Any]], MergeResult]:
+) -> tuple[list[dict[str, Any]], MergeResult]:
     """Merge two record sets. Return (merged_records, result)."""
-    index_a: Dict[str, Dict[str, Any]] = {}
+    index_a: dict[str, dict[str, Any]] = {}
     for rec in records_a:
         rid = str(rec.get(id_field, ""))
         if rid:
             index_a[rid] = dict(rec)
 
-    conflicts: List[MergeConflict] = []
+    conflicts: list[MergeConflict] = []
     skipped = 0
 
     for rec in records_b:
@@ -244,12 +243,12 @@ def merge_records(
 
 
 def plan_merge(
-    tables_a: Dict[str, int],
-    tables_b: Dict[str, int],
-) -> Dict[str, Any]:
+    tables_a: dict[str, int],
+    tables_b: dict[str, int],
+) -> dict[str, Any]:
     """Plan showing which tables will be merged and estimated sizes."""
     all_tables = sorted(set(tables_a.keys()) | set(tables_b.keys()))
-    plan: List[Dict[str, Any]] = []
+    plan: list[dict[str, Any]] = []
     for name in all_tables:
         count_a = tables_a.get(name, 0)
         count_b = tables_b.get(name, 0)
@@ -268,12 +267,12 @@ def plan_merge(
 
 
 def validate_merge(
-    records_a: List[Dict[str, Any]],
-    records_b: List[Dict[str, Any]],
+    records_a: list[dict[str, Any]],
+    records_b: list[dict[str, Any]],
     id_field: str = "id",
-) -> Tuple[bool, List[str]]:
+) -> tuple[bool, list[str]]:
     """Validate that a merge is possible (same schema / compatible fields)."""
-    errors: List[str] = []
+    errors: list[str] = []
 
     if not records_a and not records_b:
         return True, []

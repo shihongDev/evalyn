@@ -7,8 +7,7 @@ Supports linear, quadratic, and threshold penalty methods.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -24,7 +23,7 @@ class LengthPenalty:
     penalty: float
     method: str = "linear"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "original_length": self.original_length,
             "penalized_score": self.penalized_score,
@@ -42,7 +41,7 @@ class RegularizationConfig:
     max_length: int = 2000
     threshold_length: int = 1000
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "method": self.method,
             "penalty_weight": self.penalty_weight,
@@ -51,7 +50,7 @@ class RegularizationConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RegularizationConfig:
+    def from_dict(cls, data: dict[str, Any]) -> RegularizationConfig:
         return cls(
             method=data.get("method", "linear"),
             penalty_weight=data.get("penalty_weight", 0.1),
@@ -69,7 +68,7 @@ class RegularizationReport:
     avg_penalty: float
     prompts_over_threshold: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "prompts_evaluated": self.prompts_evaluated,
             "avg_length": self.avg_length,
@@ -144,7 +143,7 @@ def apply_regularization(
 
 
 def evaluate_prompt_lengths(
-    prompts: List[str], config: RegularizationConfig
+    prompts: list[str], config: RegularizationConfig
 ) -> RegularizationReport:
     """Analyze lengths and penalties across multiple prompts."""
     if not prompts:
@@ -178,7 +177,7 @@ def evaluate_prompt_lengths(
 
 def suggest_compression(
     text: str, max_length: int = 1000
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Analyze a prompt for compression opportunities.
 
     Returns a dict with current_length, over_budget, excess_chars, suggestion.

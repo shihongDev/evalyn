@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import time
 import traceback
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -25,7 +25,7 @@ class IsolationConfig:
     timeout_seconds: float = 30.0
     capture_stderr: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
             "timeout_seconds": self.timeout_seconds,
@@ -33,7 +33,7 @@ class IsolationConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> IsolationConfig:
+    def from_dict(cls, data: dict[str, Any]) -> IsolationConfig:
         return cls(
             enabled=data.get("enabled", True),
             timeout_seconds=data.get("timeout_seconds", 30.0),
@@ -47,13 +47,13 @@ class IsolatedResult:
 
     metric_id: str
     success: bool
-    score: Optional[float] = None
+    score: float | None = None
     error: str = ""
     stderr_output: str = ""
     duration_ms: float = 0.0
     timed_out: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "success": self.success,
@@ -69,13 +69,13 @@ class IsolatedResult:
 class IsolationReport:
     """Aggregated report from running all metrics in isolation."""
 
-    results: List[IsolatedResult] = field(default_factory=list)
+    results: list[IsolatedResult] = field(default_factory=list)
     total_metrics: int = 0
     succeeded: int = 0
     failed: int = 0
     timed_out: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "total_metrics": self.total_metrics,
@@ -85,7 +85,7 @@ class IsolationReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> IsolationReport:
+    def from_dict(cls, data: dict[str, Any]) -> IsolationReport:
         results = []
         for r in data.get("results", []):
             results.append(
@@ -137,7 +137,7 @@ class IsolationReport:
 
 def run_isolated(
     metric_id: str,
-    evaluate_fn: Callable[[], Dict[str, Any]],
+    evaluate_fn: Callable[[], dict[str, Any]],
     config: IsolationConfig,
 ) -> IsolatedResult:
     """Run evaluate_fn in isolation, capturing errors and timing."""
@@ -168,14 +168,14 @@ def run_isolated(
 
 
 def run_all_isolated(
-    metrics: List[Tuple[str, Callable[[], Dict[str, Any]]]],
-    config: Optional[IsolationConfig] = None,
+    metrics: list[tuple[str, Callable[[], dict[str, Any]]]],
+    config: IsolationConfig | None = None,
 ) -> IsolationReport:
     """Run all metrics in isolation and aggregate results."""
     if config is None:
         config = IsolationConfig()
 
-    results: List[IsolatedResult] = []
+    results: list[IsolatedResult] = []
     for metric_id, evaluate_fn in metrics:
         result = run_isolated(metric_id, evaluate_fn, config)
         results.append(result)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -16,10 +16,10 @@ class PreviewStats:
     avg_output_length: float = 0.0
     min_input_length: int = 0
     max_input_length: int = 0
-    categories: Dict[str, int] = field(default_factory=dict)
+    categories: dict[str, int] = field(default_factory=dict)
     has_outputs: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_items": self.total_items,
             "avg_input_length": self.avg_input_length,
@@ -49,12 +49,12 @@ class PreviewStats:
 class DatasetPreview:
     """Preview of a dataset with sample items and stats."""
 
-    sample_items: List[Dict[str, Any]] = field(default_factory=list)
-    stats: Optional[PreviewStats] = None
+    sample_items: list[dict[str, Any]] = field(default_factory=list)
+    stats: PreviewStats | None = None
     total_count: int = 0
     sample_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "sample_items": list(self.sample_items),
             "stats": self.stats.as_dict() if self.stats else None,
@@ -63,7 +63,7 @@ class DatasetPreview:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DatasetPreview:
+    def from_dict(cls, data: dict[str, Any]) -> DatasetPreview:
         stats_raw = data.get("stats")
         stats = PreviewStats(**stats_raw) if stats_raw else None
         return cls(
@@ -94,14 +94,14 @@ class DatasetPreview:
 # ---------------------------------------------------------------------------
 
 
-def compute_preview_stats(items: List[Dict[str, Any]]) -> PreviewStats:
+def compute_preview_stats(items: list[dict[str, Any]]) -> PreviewStats:
     """Compute summary statistics from a list of dataset items."""
     if not items:
         return PreviewStats()
 
-    input_lengths: List[int] = []
-    output_lengths: List[int] = []
-    categories: Dict[str, int] = {}
+    input_lengths: list[int] = []
+    output_lengths: list[int] = []
+    categories: dict[str, int] = {}
     has_outputs = False
 
     for item in items:
@@ -133,8 +133,8 @@ def compute_preview_stats(items: List[Dict[str, Any]]) -> PreviewStats:
 
 
 def sample_items(
-    items: List[Dict[str, Any]], n: int = 5, seed: Optional[int] = None
-) -> List[Dict[str, Any]]:
+    items: list[dict[str, Any]], n: int = 5, seed: int | None = None
+) -> list[dict[str, Any]]:
     """Return a random sample of n items. If fewer than n items, return all."""
     if n >= len(items):
         return list(items)
@@ -143,9 +143,9 @@ def sample_items(
 
 
 def build_preview(
-    items: List[Dict[str, Any]],
+    items: list[dict[str, Any]],
     sample_size: int = 5,
-    seed: Optional[int] = None,
+    seed: int | None = None,
 ) -> DatasetPreview:
     """Build a full preview with stats and a random sample."""
     stats = compute_preview_stats(items)
@@ -182,9 +182,9 @@ def render_preview_table(preview: DatasetPreview, max_text_length: int = 80) -> 
     return "\n".join(lines)
 
 
-def detect_data_quality_issues(stats: PreviewStats) -> List[str]:
+def detect_data_quality_issues(stats: PreviewStats) -> list[str]:
     """Flag potential data quality issues based on preview stats."""
-    issues: List[str] = []
+    issues: list[str] = []
 
     if not stats.has_outputs:
         issues.append("No outputs found")

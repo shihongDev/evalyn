@@ -10,9 +10,9 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class CacheStats:
     def hit_rate(self) -> float:
         return self.hits / self.total if self.total > 0 else 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "hits": self.hits,
             "misses": self.misses,
@@ -61,15 +61,15 @@ class EvalCache:
         cache.save()  # persist to disk
     """
 
-    def __init__(self, path: Optional[Path] = None, enabled: bool = True):
+    def __init__(self, path: Path | None = None, enabled: bool = True):
         self.path = Path(path) if path else None
         self.enabled = enabled
-        self._cache: Dict[str, Dict[str, Any]] = {}
+        self._cache: dict[str, dict[str, Any]] = {}
         self._stats = CacheStats()
 
         if self.enabled and self.path and self.path.exists():
             try:
-                with open(self.path, "r", encoding="utf-8") as f:
+                with open(self.path, encoding="utf-8") as f:
                     self._cache = json.load(f)
                 logger.debug("Loaded eval cache with %d entries", len(self._cache))
             except (json.JSONDecodeError, OSError) as e:
@@ -116,7 +116,7 @@ class EvalCache:
         }, sort_keys=True, default=str)
         return hashlib.sha256(content.encode()).hexdigest()[:32]
 
-    def get(self, key: str) -> Optional[Dict[str, Any]]:
+    def get(self, key: str) -> dict[str, Any] | None:
         """Look up a cached result.
 
         Returns:
@@ -133,7 +133,7 @@ class EvalCache:
             self._stats.misses += 1
         return result
 
-    def put(self, key: str, result: Dict[str, Any]) -> None:
+    def put(self, key: str, result: dict[str, Any]) -> None:
         """Store a result in the cache."""
         if not self.enabled:
             return

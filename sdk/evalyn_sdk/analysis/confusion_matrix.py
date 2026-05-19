@@ -7,10 +7,8 @@ Computes precision, recall, F1, accuracy, and Cohen's kappa.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -25,7 +23,7 @@ class ConfusionCell:
     actual: str
     count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "predicted": self.predicted,
             "actual": self.actual,
@@ -37,11 +35,11 @@ class ConfusionCell:
 class ConfusionMatrix:
     """Confusion matrix with labels and cell counts."""
 
-    cells: List[ConfusionCell] = field(default_factory=list)
-    labels: List[str] = field(default_factory=list)
+    cells: list[ConfusionCell] = field(default_factory=list)
+    labels: list[str] = field(default_factory=list)
     total: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "cells": [c.as_dict() for c in self.cells],
             "labels": list(self.labels),
@@ -49,7 +47,7 @@ class ConfusionMatrix:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConfusionMatrix:
+    def from_dict(cls, data: dict[str, Any]) -> ConfusionMatrix:
         cells = [
             ConfusionCell(
                 predicted=c["predicted"],
@@ -86,11 +84,11 @@ class ConfusionReport:
 
     matrix: ConfusionMatrix = field(default_factory=ConfusionMatrix)
     accuracy: float = 0.0
-    precision: Dict[str, float] = field(default_factory=dict)
-    recall: Dict[str, float] = field(default_factory=dict)
-    f1: Dict[str, float] = field(default_factory=dict)
+    precision: dict[str, float] = field(default_factory=dict)
+    recall: dict[str, float] = field(default_factory=dict)
+    f1: dict[str, float] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "matrix": self.matrix.as_dict(),
             "accuracy": self.accuracy,
@@ -100,7 +98,7 @@ class ConfusionReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConfusionReport:
+    def from_dict(cls, data: dict[str, Any]) -> ConfusionReport:
         matrix = ConfusionMatrix.from_dict(data.get("matrix", {}))
         return cls(
             matrix=matrix,
@@ -111,7 +109,7 @@ class ConfusionReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Confusion Report (accuracy={self.accuracy:.4f})")
         lines.append("")
         if self.matrix.labels:
@@ -130,7 +128,7 @@ class ConfusionReport:
 
 
 def build_confusion_matrix(
-    predictions: List[str], actuals: List[str]
+    predictions: list[str], actuals: list[str]
 ) -> ConfusionMatrix:
     """Build a confusion matrix from paired predictions and actuals."""
     if len(predictions) != len(actuals):
@@ -141,8 +139,8 @@ def build_confusion_matrix(
         return ConfusionMatrix(cells=[], labels=[], total=0)
 
     # Discover labels in order of first appearance
-    seen: Dict[str, bool] = {}
-    labels: List[str] = []
+    seen: dict[str, bool] = {}
+    labels: list[str] = []
     for p, a in zip(predictions, actuals):
         if p not in seen:
             seen[p] = True
@@ -152,13 +150,13 @@ def build_confusion_matrix(
             labels.append(a)
 
     # Count cells
-    counts: Dict[Tuple[str, str], int] = {}
+    counts: dict[tuple[str, str], int] = {}
     for p, a in zip(predictions, actuals):
         key = (p, a)
         counts[key] = counts.get(key, 0) + 1
 
     # Build cells for all label combinations (including zero counts)
-    cells: List[ConfusionCell] = []
+    cells: list[ConfusionCell] = []
     for pred in labels:
         for actual in labels:
             count = counts.get((pred, actual), 0)
@@ -169,10 +167,10 @@ def build_confusion_matrix(
 
 def compute_precision_recall(
     matrix: ConfusionMatrix,
-) -> Tuple[Dict[str, float], Dict[str, float]]:
+) -> tuple[dict[str, float], dict[str, float]]:
     """Per-label precision and recall from a confusion matrix."""
-    precision: Dict[str, float] = {}
-    recall: Dict[str, float] = {}
+    precision: dict[str, float] = {}
+    recall: dict[str, float] = {}
 
     for label in matrix.labels:
         # Precision: TP / (TP + FP) = correct for this predicted label / total predicted as this label
@@ -188,10 +186,10 @@ def compute_precision_recall(
 
 
 def compute_f1_scores(
-    precision: Dict[str, float], recall: Dict[str, float]
-) -> Dict[str, float]:
+    precision: dict[str, float], recall: dict[str, float]
+) -> dict[str, float]:
     """Harmonic mean of precision and recall per label."""
-    f1: Dict[str, float] = {}
+    f1: dict[str, float] = {}
     for label in precision:
         p = precision[label]
         r = recall.get(label, 0.0)
@@ -203,7 +201,7 @@ def compute_f1_scores(
 
 
 def build_confusion_report(
-    predictions: List[str], actuals: List[str]
+    predictions: list[str], actuals: list[str]
 ) -> ConfusionReport:
     """Build a full confusion report from predictions and actuals."""
     matrix = build_confusion_matrix(predictions, actuals)
@@ -227,13 +225,13 @@ def render_confusion_ascii(matrix: ConfusionMatrix) -> str:
     labels = matrix.labels
 
     # Determine column widths
-    max_label_len = max(len(l) for l in labels)
+    max_label_len = max(len(lbl) for lbl in labels)
     col_width = max(max_label_len, 5)
 
-    lines: List[str] = []
+    lines: list[str] = []
 
     # Header row
-    header = " " * (col_width + 2) + "| " + " | ".join(l.rjust(col_width) for l in labels) + " |"
+    header = " " * (col_width + 2) + "| " + " | ".join(lbl.rjust(col_width) for lbl in labels) + " |"
     lines.append("Predicted v / Actual >")
     lines.append(header)
     lines.append("-" * len(header))
@@ -261,7 +259,7 @@ def compute_kappa(matrix: ConfusionMatrix) -> float:
     labels = matrix.labels
 
     # Observed agreement (accuracy)
-    observed = sum(matrix.get_cell(l, l) for l in labels) / n
+    observed = sum(matrix.get_cell(lbl, lbl) for lbl in labels) / n
 
     # Expected agreement by chance
     expected = 0.0

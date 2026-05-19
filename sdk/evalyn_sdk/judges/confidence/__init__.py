@@ -23,13 +23,13 @@ Usage:
 """
 
 from .base import ConfidenceEstimator, ConfidenceResult, get_confidence_estimator
+from .consistency import MajorityVoteConfidence, SelfConsistencyConfidence
 from .logprobs import (
+    DeepConfConfidence,
+    EntropyConfidence,
     LogprobsConfidence,
     PerplexityConfidence,
-    EntropyConfidence,
-    DeepConfConfidence,
 )
-from .consistency import SelfConsistencyConfidence, MajorityVoteConfidence
 from .verbalized import VerbalizedConfidence
 
 __all__ = [

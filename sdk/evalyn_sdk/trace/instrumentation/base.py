@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 
 class InstrumentorType(Enum):
@@ -76,7 +76,7 @@ class Instrumentor(ABC):
         """Check if the SDK is currently instrumented."""
         ...
 
-    def get_hooks(self) -> Optional[Any]:
+    def get_hooks(self) -> Any | None:
         """
         Get hook adapter for hook-based instrumentors.
 

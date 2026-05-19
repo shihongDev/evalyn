@@ -6,12 +6,11 @@ that are no longer referenced by active datasets or sessions.
 
 from __future__ import annotations
 
-import os
 import shutil
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -23,7 +22,7 @@ class OrphanedItem:
     size_bytes: int
     reason: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "path": self.path,
             "item_type": self.item_type,
@@ -32,7 +31,7 @@ class OrphanedItem:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> OrphanedItem:
+    def from_dict(cls, data: dict[str, Any]) -> OrphanedItem:
         return cls(
             path=data.get("path", ""),
             item_type=data.get("item_type", "temp"),
@@ -50,7 +49,7 @@ class GCConfig:
     dry_run: bool = True
     max_age_days: float = 30.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "data_dir": self.data_dir,
             "temp_dir": self.temp_dir,
@@ -59,7 +58,7 @@ class GCConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> GCConfig:
+    def from_dict(cls, data: dict[str, Any]) -> GCConfig:
         return cls(
             data_dir=data.get("data_dir", "data"),
             temp_dir=data.get("temp_dir", ".evalyn"),
@@ -72,12 +71,12 @@ class GCConfig:
 class GCResult:
     """Result of a garbage collection run."""
 
-    items_found: List[OrphanedItem] = field(default_factory=list)
+    items_found: list[OrphanedItem] = field(default_factory=list)
     items_removed: int = 0
     bytes_freed: int = 0
     dry_run: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "items_found": [item.as_dict() for item in self.items_found],
             "items_removed": self.items_removed,
@@ -86,7 +85,7 @@ class GCResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> GCResult:
+    def from_dict(cls, data: dict[str, Any]) -> GCResult:
         return cls(
             items_found=[
                 OrphanedItem.from_dict(item)
@@ -112,13 +111,13 @@ def _get_size(path: str) -> int:
     return 0
 
 
-def find_orphaned_checkpoints(data_dir: str) -> List[OrphanedItem]:
+def find_orphaned_checkpoints(data_dir: str) -> list[OrphanedItem]:
     """Find checkpoint*.json files without a corresponding run directory.
 
     Scans data_dir recursively for checkpoint*.json files. A checkpoint is
     orphaned if no run_* directory exists in the same parent directory.
     """
-    results: List[OrphanedItem] = []
+    results: list[OrphanedItem] = []
     root = Path(data_dir)
     if not root.is_dir():
         return results
@@ -140,13 +139,13 @@ def find_orphaned_checkpoints(data_dir: str) -> List[OrphanedItem]:
     return results
 
 
-def find_orphaned_runs(data_dir: str) -> List[OrphanedItem]:
+def find_orphaned_runs(data_dir: str) -> list[OrphanedItem]:
     """Find run_* directories without a dataset.jsonl in their parent.
 
     A run directory is orphaned if its parent directory does not contain
     a dataset.jsonl file, meaning the dataset it belonged to is gone.
     """
-    results: List[OrphanedItem] = []
+    results: list[OrphanedItem] = []
     root = Path(data_dir)
     if not root.is_dir():
         return results
@@ -167,12 +166,12 @@ def find_orphaned_runs(data_dir: str) -> List[OrphanedItem]:
     return results
 
 
-def find_temp_files(temp_dir: str, max_age_days: float = 30.0) -> List[OrphanedItem]:
+def find_temp_files(temp_dir: str, max_age_days: float = 30.0) -> list[OrphanedItem]:
     """Find old temporary files in the .evalyn/ directory.
 
     Files older than max_age_days are considered orphaned.
     """
-    results: List[OrphanedItem] = []
+    results: list[OrphanedItem] = []
     root = Path(temp_dir)
     if not root.is_dir():
         return results
@@ -221,7 +220,7 @@ def collect_garbage(config: GCConfig) -> GCResult:
     Combines results from find_orphaned_checkpoints, find_orphaned_runs,
     and find_temp_files. When dry_run is False, removes each item.
     """
-    all_items: List[OrphanedItem] = []
+    all_items: list[OrphanedItem] = []
     all_items.extend(find_orphaned_checkpoints(config.data_dir))
     all_items.extend(find_orphaned_runs(config.data_dir))
     all_items.extend(find_temp_files(config.temp_dir, config.max_age_days))
@@ -244,7 +243,7 @@ def collect_garbage(config: GCConfig) -> GCResult:
 
 def format_gc_report(result: GCResult) -> str:
     """Format a human-readable garbage collection report."""
-    lines: List[str] = []
+    lines: list[str] = []
     mode = "DRY RUN" if result.dry_run else "CLEANUP"
     lines.append(f"Garbage Collection Report ({mode})")
     lines.append("=" * 40)
@@ -259,7 +258,7 @@ def format_gc_report(result: GCResult) -> str:
     lines.append("")
 
     # Group by type
-    by_type: Dict[str, List[OrphanedItem]] = {}
+    by_type: dict[str, list[OrphanedItem]] = {}
     for item in result.items_found:
         by_type.setdefault(item.item_type, []).append(item)
 

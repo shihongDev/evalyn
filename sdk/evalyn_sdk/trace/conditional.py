@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import os
 import random
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 
 @dataclass
@@ -12,9 +13,9 @@ class TracingCondition:
 
     name: str
     condition_type: str  # "sample_rate", "predicate", "environment"
-    config: Dict[str, Any] = field(default_factory=dict)
+    config: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "condition_type": self.condition_type,
@@ -22,7 +23,7 @@ class TracingCondition:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TracingCondition:
+    def from_dict(cls, data: dict[str, Any]) -> TracingCondition:
         return cls(
             name=data["name"],
             condition_type=data["condition_type"],
@@ -38,7 +39,7 @@ class TracingDecision:
     reason: str
     condition_name: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "should_trace": self.should_trace,
             "reason": self.reason,
@@ -47,10 +48,10 @@ class TracingDecision:
 
 
 def sample_rate_condition(
-    rate: float, seed: Optional[int] = None
+    rate: float, seed: int | None = None
 ) -> TracingCondition:
     """Create a rate-based sampling condition."""
-    config: Dict[str, Any] = {"rate": rate}
+    config: dict[str, Any] = {"rate": rate}
     if seed is not None:
         config["seed"] = seed
     return TracingCondition(
@@ -60,7 +61,7 @@ def sample_rate_condition(
     )
 
 
-def environment_condition(allowed_envs: List[str]) -> TracingCondition:
+def environment_condition(allowed_envs: list[str]) -> TracingCondition:
     """Only trace when EVALYN_ENV is in the allowed list."""
     return TracingCondition(
         name="env_filter",
@@ -71,7 +72,7 @@ def environment_condition(allowed_envs: List[str]) -> TracingCondition:
 
 def predicate_condition(
     name: str, predicate: Callable[..., bool]
-) -> Tuple[TracingCondition, Callable[..., bool]]:
+) -> tuple[TracingCondition, Callable[..., bool]]:
     """Create a predicate-based condition.
 
     Returns the condition dataclass and the wrapped predicate callable.
@@ -89,7 +90,7 @@ def predicate_condition(
 
 def evaluate_condition(
     condition: TracingCondition,
-    context: Optional[Dict[str, Any]] = None,
+    context: dict[str, Any] | None = None,
 ) -> TracingDecision:
     """Evaluate a single tracing condition."""
     ctx = context or {}
@@ -156,9 +157,9 @@ def evaluate_condition(
 
 
 def evaluate_conditions(
-    conditions: List[TracingCondition],
+    conditions: list[TracingCondition],
     mode: str = "all",
-    context: Optional[Dict[str, Any]] = None,
+    context: dict[str, Any] | None = None,
 ) -> TracingDecision:
     """Evaluate multiple conditions.
 

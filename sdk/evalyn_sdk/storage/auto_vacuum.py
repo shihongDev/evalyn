@@ -9,8 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -26,7 +25,7 @@ class VacuumScheduleConfig:
     max_vacuum_time_seconds: float = 300.0
     enabled: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "growth_threshold_mb": self.growth_threshold_mb,
             "check_interval_minutes": self.check_interval_minutes,
@@ -35,7 +34,7 @@ class VacuumScheduleConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> VacuumScheduleConfig:
+    def from_dict(cls, data: dict[str, Any]) -> VacuumScheduleConfig:
         return cls(
             growth_threshold_mb=data.get("growth_threshold_mb", 50.0),
             check_interval_minutes=data.get("check_interval_minutes", 60.0),
@@ -55,7 +54,7 @@ class VacuumStatus:
     growth_since_vacuum_mb: float = 0.0
     needs_vacuum: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "last_vacuum": self.last_vacuum,
             "last_check": self.last_check,
@@ -128,7 +127,7 @@ class VacuumScheduler:
         """Quick check whether vacuum is needed."""
         return self._status.needs_vacuum
 
-    def time_since_last_vacuum_minutes(self) -> Optional[float]:
+    def time_since_last_vacuum_minutes(self) -> float | None:
         """Minutes since last vacuum, or None if never vacuumed."""
         if not self._status.last_vacuum:
             return None

@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -19,9 +20,9 @@ class BatchConfig:
 
     stop_on_error: bool = True
     dry_run: bool = False
-    variables: Dict[str, str] = field(default_factory=dict)
+    variables: dict[str, str] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "stop_on_error": self.stop_on_error,
             "dry_run": self.dry_run,
@@ -29,7 +30,7 @@ class BatchConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BatchConfig":
+    def from_dict(cls, data: dict[str, Any]) -> BatchConfig:
         return cls(
             stop_on_error=data.get("stop_on_error", True),
             dry_run=data.get("dry_run", False),
@@ -47,7 +48,7 @@ class CommandResult:
     duration_seconds: float = 0.0
     skipped: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "command": self.command,
             "exit_code": self.exit_code,
@@ -57,7 +58,7 @@ class CommandResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "CommandResult":
+    def from_dict(cls, data: dict[str, Any]) -> CommandResult:
         return cls(
             command=data["command"],
             exit_code=data.get("exit_code", 0),
@@ -71,13 +72,13 @@ class CommandResult:
 class BatchResult:
     """Aggregate result of a batch execution."""
 
-    results: List[CommandResult] = field(default_factory=list)
+    results: list[CommandResult] = field(default_factory=list)
     total_commands: int = 0
     succeeded: int = 0
     failed: int = 0
     skipped: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "total_commands": self.total_commands,
@@ -87,7 +88,7 @@ class BatchResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BatchResult":
+    def from_dict(cls, data: dict[str, Any]) -> BatchResult:
         return cls(
             results=[CommandResult.from_dict(r) for r in data.get("results", [])],
             total_commands=data.get("total_commands", 0),
@@ -97,13 +98,13 @@ class BatchResult:
         )
 
 
-def parse_script(content: str) -> List[str]:
+def parse_script(content: str) -> list[str]:
     """Parse script content into a list of commands.
 
     One command per line. Blank lines and lines starting with # are skipped.
     Leading/trailing whitespace is stripped from each line.
     """
-    commands: List[str] = []
+    commands: list[str] = []
     for line in content.splitlines():
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
@@ -112,7 +113,7 @@ def parse_script(content: str) -> List[str]:
     return commands
 
 
-def substitute_variables(command: str, variables: Dict[str, str]) -> str:
+def substitute_variables(command: str, variables: dict[str, str]) -> str:
     """Replace $VAR and ${VAR} patterns with values from variables dict.
 
     Built-in variables (always available, overridable):
@@ -136,9 +137,9 @@ def substitute_variables(command: str, variables: Dict[str, str]) -> str:
 
 
 def execute_batch(
-    commands: List[str],
+    commands: list[str],
     executor: Callable[[str], tuple[int, str]],
-    config: Optional[BatchConfig] = None,
+    config: BatchConfig | None = None,
 ) -> BatchResult:
     """Execute a list of commands via the given executor callback.
 
@@ -151,7 +152,7 @@ def execute_batch(
     if config is None:
         config = BatchConfig()
 
-    results: List[CommandResult] = []
+    results: list[CommandResult] = []
     succeeded = 0
     failed = 0
     skipped = 0
@@ -198,15 +199,15 @@ def execute_batch(
     )
 
 
-def load_script_file(path: str) -> List[str]:
+def load_script_file(path: str) -> list[str]:
     """Read a script file and parse it into commands."""
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return parse_script(f.read())
 
 
 def format_batch_report(result: BatchResult) -> str:
     """Format a BatchResult as a human-readable report."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Batch Execution Report")
     lines.append("=" * 40)
     lines.append("")

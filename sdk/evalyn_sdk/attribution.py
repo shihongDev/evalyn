@@ -1,14 +1,12 @@
 """Extract span-metric attribution links from judge results."""
 from __future__ import annotations
 
-from typing import List
-
 from .models import MetricResult, SpanMetricLink, _default_id
 
 
 def extract_span_metric_links(
     result: MetricResult, run_id: str
-) -> List[SpanMetricLink]:
+) -> list[SpanMetricLink]:
     """Extract SpanMetricLinks from a MetricResult's raw_judge data.
 
     Looks for a "span_attribution" array in the raw_judge dict,

@@ -6,7 +6,7 @@ import html
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def _now_iso() -> str:
@@ -24,9 +24,9 @@ class GuidelineSection:
 
     title: str
     content: str
-    examples: List[Dict[str, str]] = field(default_factory=list)
+    examples: list[dict[str, str]] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "title": self.title,
             "content": self.content,
@@ -34,7 +34,7 @@ class GuidelineSection:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> GuidelineSection:
+    def from_dict(cls, data: dict[str, Any]) -> GuidelineSection:
         return cls(
             title=data["title"],
             content=data["content"],
@@ -48,12 +48,12 @@ class AnnotationGuideline:
 
     metric_id: str
     metric_description: str
-    sections: List[GuidelineSection] = field(default_factory=list)
+    sections: list[GuidelineSection] = field(default_factory=list)
     scale_description: str = ""
-    edge_cases: List[str] = field(default_factory=list)
+    edge_cases: list[str] = field(default_factory=list)
     generated_at: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "metric_description": self.metric_description,
@@ -64,7 +64,7 @@ class AnnotationGuideline:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AnnotationGuideline:
+    def from_dict(cls, data: dict[str, Any]) -> AnnotationGuideline:
         return cls(
             metric_id=data["metric_id"],
             metric_description=data["metric_description"],
@@ -90,14 +90,14 @@ _EDGE_CASE_KEYWORDS = [
 ]
 
 
-def extract_edge_cases(rubric: Dict[str, str]) -> List[str]:
+def extract_edge_cases(rubric: dict[str, str]) -> list[str]:
     """Identify potential edge cases from rubric text.
 
     Scans rubric descriptions for keywords that signal ambiguity:
     borderline, ambiguous, may, sometimes, unless.
     Returns de-duplicated list of sentences containing those keywords.
     """
-    cases: List[str] = []
+    cases: list[str] = []
     seen: set[str] = set()
 
     for score, description in rubric.items():
@@ -134,8 +134,8 @@ def _build_overview_section(
     )
 
 
-def _build_scale_section(rubric: Dict[str, str]) -> GuidelineSection:
-    lines: List[str] = []
+def _build_scale_section(rubric: dict[str, str]) -> GuidelineSection:
+    lines: list[str] = []
     for score in sorted(rubric.keys()):
         lines.append(f"- {score}: {rubric[score]}")
     return GuidelineSection(
@@ -144,7 +144,7 @@ def _build_scale_section(rubric: Dict[str, str]) -> GuidelineSection:
     )
 
 
-def _build_pass_fail_section(rubric: Dict[str, str]) -> GuidelineSection:
+def _build_pass_fail_section(rubric: dict[str, str]) -> GuidelineSection:
     """Derive pass/fail criteria from the rubric.
 
     Convention: scores that parse as numbers >= half the max are 'pass'.
@@ -171,7 +171,7 @@ def _build_pass_fail_section(rubric: Dict[str, str]) -> GuidelineSection:
 
 
 def _build_examples_section(
-    examples: Optional[List[Dict[str, str]]],
+    examples: list[dict[str, str]] | None,
 ) -> GuidelineSection:
     if not examples:
         return GuidelineSection(
@@ -186,7 +186,7 @@ def _build_examples_section(
     )
 
 
-def _build_edge_cases_section(edge_cases: List[str]) -> GuidelineSection:
+def _build_edge_cases_section(edge_cases: list[str]) -> GuidelineSection:
     if not edge_cases:
         return GuidelineSection(
             title="Edge Cases",
@@ -202,8 +202,8 @@ def _build_edge_cases_section(edge_cases: List[str]) -> GuidelineSection:
 def generate_guideline(
     metric_id: str,
     description: str,
-    rubric: Dict[str, str],
-    examples: Optional[List[Dict[str, str]]] = None,
+    rubric: dict[str, str],
+    examples: list[dict[str, str]] | None = None,
 ) -> AnnotationGuideline:
     """Convert a metric rubric into annotator-friendly guidelines.
 
@@ -239,14 +239,14 @@ def generate_guideline(
 
 
 def generate_batch_guidelines(
-    metrics: List[Dict[str, Any]],
-) -> List[AnnotationGuideline]:
+    metrics: list[dict[str, Any]],
+) -> list[AnnotationGuideline]:
     """Generate guidelines for multiple metrics.
 
     Each dict must have: metric_id (or id), description, rubric.
     Optional: examples.
     """
-    results: List[AnnotationGuideline] = []
+    results: list[AnnotationGuideline] = []
     for m in metrics:
         g = generate_guideline(
             metric_id=m.get("metric_id") or m["id"],
@@ -265,7 +265,7 @@ def generate_batch_guidelines(
 
 def format_guideline_markdown(guideline: AnnotationGuideline) -> str:
     """Render a guideline as Markdown."""
-    parts: List[str] = []
+    parts: list[str] = []
     parts.append(f"# {guideline.metric_id}")
     parts.append("")
     parts.append(f"*{guideline.metric_description}*")
@@ -307,7 +307,7 @@ def format_guideline_html(guideline: AnnotationGuideline) -> str:
     All dynamic content is escaped via html.escape.
     """
     esc = html.escape
-    parts: List[str] = []
+    parts: list[str] = []
 
     parts.append("<!DOCTYPE html>")
     parts.append("<html lang=\"en\">")
@@ -334,7 +334,7 @@ def format_guideline_html(guideline: AnnotationGuideline) -> str:
 
         if section.examples:
             for i, ex in enumerate(section.examples, 1):
-                parts.append(f"<div class=\"example\">")
+                parts.append("<div class=\"example\">")
                 parts.append(f"<strong>Example {i}</strong><br>")
                 for key in ("input", "output", "label", "reasoning"):
                     if key in ex:
@@ -363,10 +363,10 @@ def format_guideline_html(guideline: AnnotationGuideline) -> str:
 
 
 def format_guidelines_index(
-    guidelines: List[AnnotationGuideline],
+    guidelines: list[AnnotationGuideline],
 ) -> str:
     """Generate a Markdown index page linking to each guideline."""
-    parts: List[str] = []
+    parts: list[str] = []
     parts.append("# Annotation Guidelines Index")
     parts.append("")
 
@@ -375,8 +375,8 @@ def format_guidelines_index(
         parts.append("")
         return "\n".join(parts)
 
-    parts.append(f"| # | Metric | Description | Sections | Edge Cases |")
-    parts.append(f"|---|--------|-------------|----------|------------|")
+    parts.append("| # | Metric | Description | Sections | Edge Cases |")
+    parts.append("|---|--------|-------------|----------|------------|")
 
     for i, g in enumerate(guidelines, 1):
         parts.append(

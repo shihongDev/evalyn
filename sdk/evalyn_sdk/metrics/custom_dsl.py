@@ -22,7 +22,7 @@ Example YAML:
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..models import (
     DatasetItem,
@@ -104,7 +104,7 @@ def build_custom_objective_metric(
 def build_custom_subjective_spec(
     metric_id: str,
     prompt: str,
-    rubric: Optional[List[str]] = None,
+    rubric: list[str] | None = None,
     description: str = "",
     threshold: float = 0.5,
 ) -> MetricSpec:
@@ -123,7 +123,7 @@ def build_custom_subjective_spec(
     Returns:
         MetricSpec ready for build_subjective_metric().
     """
-    config: Dict[str, Any] = {
+    config: dict[str, Any] = {
         "prompt": prompt,
         "threshold": threshold,
     }
@@ -140,8 +140,8 @@ def build_custom_subjective_spec(
 
 
 def load_custom_metrics_from_config(
-    config: Dict[str, Any],
-) -> List[Metric]:
+    config: dict[str, Any],
+) -> list[Metric]:
     """Load custom metrics from evalyn.yaml config.
 
     Expected format:

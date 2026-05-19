@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -24,9 +23,9 @@ class KGNode:
     node_id: str
     label: str
     node_type: str  # "entity", "concept", "fact"
-    properties: Dict[str, str] = field(default_factory=dict)
+    properties: dict[str, str] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "node_id": self.node_id,
             "label": self.label,
@@ -35,7 +34,7 @@ class KGNode:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> KGNode:
+    def from_dict(cls, data: dict[str, Any]) -> KGNode:
         return cls(
             node_id=data["node_id"],
             label=data["label"],
@@ -53,7 +52,7 @@ class KGEdge:
     relation: str
     weight: float = 1.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "source": self.source,
             "target": self.target,
@@ -62,7 +61,7 @@ class KGEdge:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> KGEdge:
+    def from_dict(cls, data: dict[str, Any]) -> KGEdge:
         return cls(
             source=data["source"],
             target=data["target"],
@@ -75,17 +74,17 @@ class KGEdge:
 class KnowledgeGraph:
     """A collection of nodes and edges forming a knowledge graph."""
 
-    nodes: List[KGNode] = field(default_factory=list)
-    edges: List[KGEdge] = field(default_factory=list)
+    nodes: list[KGNode] = field(default_factory=list)
+    edges: list[KGEdge] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "nodes": [n.as_dict() for n in self.nodes],
             "edges": [e.as_dict() for e in self.edges],
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> KnowledgeGraph:
+    def from_dict(cls, data: dict[str, Any]) -> KnowledgeGraph:
         return cls(
             nodes=[KGNode.from_dict(n) for n in data.get("nodes", [])],
             edges=[KGEdge.from_dict(e) for e in data.get("edges", [])],
@@ -98,11 +97,11 @@ class GeneratedQuestion:
 
     question: str
     expected_answer: str
-    source_nodes: List[str] = field(default_factory=list)
+    source_nodes: list[str] = field(default_factory=list)
     difficulty: str = "medium"
     question_type: str = "factual"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "question": self.question,
             "expected_answer": self.expected_answer,
@@ -112,7 +111,7 @@ class GeneratedQuestion:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> GeneratedQuestion:
+    def from_dict(cls, data: dict[str, Any]) -> GeneratedQuestion:
         return cls(
             question=data["question"],
             expected_answer=data["expected_answer"],
@@ -137,13 +136,13 @@ def _make_node_id(label: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_")
 
 
-def extract_entities(text: str) -> List[KGNode]:
+def extract_entities(text: str) -> list[KGNode]:
     """Extract entities from text using simple heuristics.
 
     Finds capitalized multi-word phrases, quoted terms, and terms
     following "is a"/"is an"/"are" patterns.
     """
-    seen: Dict[str, KGNode] = {}
+    seen: dict[str, KGNode] = {}
 
     # Capitalized multi-word phrases -> entity
     for match in _CAPITALIZED_PHRASE_RE.finditer(text):
@@ -200,7 +199,7 @@ _VERB_PHRASE_RE = re.compile(
 )
 
 
-def extract_relations(text: str, entities: List[KGNode]) -> List[KGEdge]:
+def extract_relations(text: str, entities: list[KGNode]) -> list[KGEdge]:
     """Find verb phrases connecting entities and create edges.
 
     Scans text for patterns where a capitalized phrase is connected to
@@ -208,7 +207,7 @@ def extract_relations(text: str, entities: List[KGNode]) -> List[KGEdge]:
     phrases match known entities.
     """
     entity_labels = {e.label.lower(): e.node_id for e in entities}
-    edges: List[KGEdge] = []
+    edges: list[KGEdge] = []
     seen: set[tuple[str, str, str]] = set()
 
     for match in _VERB_PHRASE_RE.finditer(text):
@@ -233,14 +232,14 @@ def extract_relations(text: str, entities: List[KGNode]) -> List[KGEdge]:
 # ---------------------------------------------------------------------------
 
 
-def build_knowledge_graph(texts: List[str]) -> KnowledgeGraph:
+def build_knowledge_graph(texts: list[str]) -> KnowledgeGraph:
     """Build a knowledge graph from multiple text passages.
 
     Extracts entities and relations from each text and merges them
     into a single graph, deduplicating nodes by id.
     """
-    all_nodes: Dict[str, KGNode] = {}
-    all_edges: List[KGEdge] = []
+    all_nodes: dict[str, KGNode] = {}
+    all_edges: list[KGEdge] = []
     seen_edges: set[tuple[str, str, str]] = set()
 
     for text in texts:
@@ -265,13 +264,13 @@ def build_knowledge_graph(texts: List[str]) -> KnowledgeGraph:
 
 def generate_factual_questions(
     graph: KnowledgeGraph, n: int = 5
-) -> List[GeneratedQuestion]:
+) -> list[GeneratedQuestion]:
     """Generate factual questions from graph nodes and edges.
 
     Produces "What is X?" questions from nodes and "What is the
     relationship between X and Y?" questions from edges.
     """
-    questions: List[GeneratedQuestion] = []
+    questions: list[GeneratedQuestion] = []
 
     # Node-based questions
     for node in graph.nodes:
@@ -310,17 +309,17 @@ def generate_factual_questions(
 
 def generate_reasoning_questions(
     graph: KnowledgeGraph, n: int = 3
-) -> List[GeneratedQuestion]:
+) -> list[GeneratedQuestion]:
     """Generate multi-hop reasoning questions from graph paths.
 
     Finds two-hop paths (A->B->C) and produces questions of the form
     "If A relates to B and B relates to C, what can be inferred?"
     """
-    questions: List[GeneratedQuestion] = []
+    questions: list[GeneratedQuestion] = []
     node_map = {nd.node_id: nd for nd in graph.nodes}
 
     # Build adjacency: source -> list of (target, relation)
-    adj: Dict[str, List[tuple[str, str]]] = {}
+    adj: dict[str, list[tuple[str, str]]] = {}
     for edge in graph.edges:
         adj.setdefault(edge.source, []).append((edge.target, edge.relation))
 
@@ -371,12 +370,12 @@ def generate_reasoning_questions(
 # ---------------------------------------------------------------------------
 
 
-def format_question_set(questions: List[GeneratedQuestion]) -> str:
+def format_question_set(questions: list[GeneratedQuestion]) -> str:
     """Format questions as a human-readable numbered Q&A list."""
     if not questions:
         return "No questions generated."
 
-    lines: List[str] = []
+    lines: list[str] = []
     for i, q in enumerate(questions, 1):
         lines.append(f"Q{i}: {q.question}")
         lines.append(f"A{i}: {q.expected_answer}")

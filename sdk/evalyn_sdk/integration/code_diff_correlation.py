@@ -9,9 +9,7 @@ and suggesting root causes based on files changed.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -23,13 +21,13 @@ class CodeChange:
     """A single code change (commit) with metadata."""
 
     commit_hash: str = ""
-    files_changed: List[str] = field(default_factory=list)
+    files_changed: list[str] = field(default_factory=list)
     lines_added: int = 0
     lines_removed: int = 0
     description: str = ""
     timestamp: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "commit_hash": self.commit_hash,
             "files_changed": list(self.files_changed),
@@ -40,7 +38,7 @@ class CodeChange:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CodeChange:
+    def from_dict(cls, data: dict[str, Any]) -> CodeChange:
         return cls(
             commit_hash=data.get("commit_hash", ""),
             files_changed=list(data.get("files_changed", [])),
@@ -60,7 +58,7 @@ class MetricChange:
     after_score: float = 0.0
     delta: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "before_score": self.before_score,
@@ -74,10 +72,10 @@ class CorrelationEntry:
     """Links a code change to its metric impacts."""
 
     code_change: CodeChange = field(default_factory=CodeChange)
-    metric_changes: List[MetricChange] = field(default_factory=list)
+    metric_changes: list[MetricChange] = field(default_factory=list)
     correlation_strength: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "code_change": self.code_change.as_dict(),
             "metric_changes": [m.as_dict() for m in self.metric_changes],
@@ -89,11 +87,11 @@ class CorrelationEntry:
 class CodeMetricReport:
     """Aggregate report of code-metric correlations."""
 
-    entries: List[CorrelationEntry] = field(default_factory=list)
-    strongest_correlation: Optional[str] = None
+    entries: list[CorrelationEntry] = field(default_factory=list)
+    strongest_correlation: str | None = None
     total_changes: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "entries": [e.as_dict() for e in self.entries],
             "strongest_correlation": self.strongest_correlation,
@@ -101,7 +99,7 @@ class CodeMetricReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CodeMetricReport:
+    def from_dict(cls, data: dict[str, Any]) -> CodeMetricReport:
         entries = []
         for entry_data in data.get("entries", []):
             code_change = CodeChange.from_dict(entry_data.get("code_change", {}))
@@ -151,7 +149,7 @@ class CodeMetricReport:
 
 def correlate_change(
     code_change: CodeChange,
-    metric_changes: List[MetricChange],
+    metric_changes: list[MetricChange],
 ) -> CorrelationEntry:
     """Compute correlation strength as avg abs(delta) of metric changes."""
     if not metric_changes:
@@ -170,7 +168,7 @@ def correlate_change(
 
 
 def build_correlation_report(
-    entries: List[CorrelationEntry],
+    entries: list[CorrelationEntry],
 ) -> CodeMetricReport:
     """Build a report and find the strongest correlation."""
     if not entries:
@@ -188,17 +186,17 @@ def build_correlation_report(
 def identify_impactful_changes(
     report: CodeMetricReport,
     threshold: float = 0.1,
-) -> List[CorrelationEntry]:
+) -> list[CorrelationEntry]:
     """Return entries whose correlation strength exceeds the threshold."""
     return [e for e in report.entries if e.correlation_strength > threshold]
 
 
-def render_correlation_timeline(entries: List[CorrelationEntry]) -> str:
+def render_correlation_timeline(entries: list[CorrelationEntry]) -> str:
     """ASCII timeline of changes and their metric impacts."""
     if not entries:
         return "No entries to display."
 
-    lines: List[str] = ["Timeline of Code-Metric Correlations", ""]
+    lines: list[str] = ["Timeline of Code-Metric Correlations", ""]
     for i, entry in enumerate(entries):
         cc = entry.code_change
         marker = f"[{i + 1}]"
@@ -217,9 +215,9 @@ def render_correlation_timeline(entries: List[CorrelationEntry]) -> str:
     return "\n".join(lines)
 
 
-def suggest_root_causes(entry: CorrelationEntry) -> List[str]:
+def suggest_root_causes(entry: CorrelationEntry) -> list[str]:
     """Suggest root causes based on files changed in the code change."""
-    suggestions: List[str] = []
+    suggestions: list[str] = []
     files = entry.code_change.files_changed
 
     if not files:

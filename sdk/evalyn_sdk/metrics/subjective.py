@@ -17,13 +17,13 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 # =============================================================================
 # Category Definitions
 # =============================================================================
 
-CATEGORIES: Dict[str, str] = {
+CATEGORIES: dict[str, str] = {
     "safety": "Content safety and harm prevention",
     "correctness": "Factual accuracy and truthfulness",
     "style": "Writing quality, tone, and clarity",
@@ -47,7 +47,7 @@ CATEGORIES: Dict[str, str] = {
 # Subjective Metric Templates
 # =============================================================================
 
-SUBJECTIVE_REGISTRY: List[Dict[str, Any]] = [
+SUBJECTIVE_REGISTRY: list[dict[str, Any]] = [
     # =========================================================================
     # EXISTING TEMPLATES (enhanced rubrics)
     # =========================================================================
@@ -1304,7 +1304,7 @@ SUBJECTIVE_REGISTRY: List[Dict[str, Any]] = [
 # =============================================================================
 
 # Create dict for backward compatibility with judges.py
-JUDGE_TEMPLATES: Dict[str, Dict[str, Any]] = {t["id"]: t for t in SUBJECTIVE_REGISTRY}
+JUDGE_TEMPLATES: dict[str, dict[str, Any]] = {t["id"]: t for t in SUBJECTIVE_REGISTRY}
 
 
 # =============================================================================
@@ -1312,12 +1312,12 @@ JUDGE_TEMPLATES: Dict[str, Dict[str, Any]] = {t["id"]: t for t in SUBJECTIVE_REG
 # =============================================================================
 
 
-def list_templates() -> List[str]:
+def list_templates() -> list[str]:
     """List all available template IDs."""
     return [t["id"] for t in SUBJECTIVE_REGISTRY]
 
 
-def get_template(template_id: str) -> Dict[str, Any]:
+def get_template(template_id: str) -> dict[str, Any]:
     """Get a template by ID, or raise KeyError if not found."""
     if template_id not in JUDGE_TEMPLATES:
         available = ", ".join(list_templates())
@@ -1325,7 +1325,7 @@ def get_template(template_id: str) -> Dict[str, Any]:
     return JUDGE_TEMPLATES[template_id]
 
 
-def get_templates_by_category(category: str) -> List[Dict[str, Any]]:
+def get_templates_by_category(category: str) -> list[dict[str, Any]]:
     """Get all templates in a given category."""
     return [t for t in SUBJECTIVE_REGISTRY if t.get("category") == category]
 

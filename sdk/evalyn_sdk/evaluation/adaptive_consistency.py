@@ -7,9 +7,9 @@ This saves budget when judges agree quickly.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Dataclasses
@@ -24,7 +24,7 @@ class AdaptiveConfig:
     min_samples: int = 3
     agreement_threshold: float = 1.0  # fraction needed to stop early
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "max_samples": self.max_samples,
             "min_samples": self.min_samples,
@@ -32,7 +32,7 @@ class AdaptiveConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AdaptiveConfig:
+    def from_dict(cls, data: dict[str, Any]) -> AdaptiveConfig:
         return cls(
             max_samples=data.get("max_samples", 5),
             min_samples=data.get("min_samples", 3),
@@ -52,7 +52,7 @@ class AdaptiveSampleResult:
     final_decision: bool  # passed or not
     savings_pct: float  # percentage of samples saved
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "samples_taken": self.samples_taken,
@@ -68,12 +68,12 @@ class AdaptiveSampleResult:
 class AdaptiveReport:
     """Aggregate report across all adaptively-sampled items."""
 
-    results: List[AdaptiveSampleResult] = field(default_factory=list)
+    results: list[AdaptiveSampleResult] = field(default_factory=list)
     total_samples_taken: int = 0
     total_samples_possible: int = 0
     overall_savings_pct: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "total_samples_taken": self.total_samples_taken,
@@ -82,7 +82,7 @@ class AdaptiveReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AdaptiveReport:
+    def from_dict(cls, data: dict[str, Any]) -> AdaptiveReport:
         results = [
             AdaptiveSampleResult(**r) for r in data.get("results", [])
         ]
@@ -111,7 +111,7 @@ class AdaptiveReport:
 # ---------------------------------------------------------------------------
 
 
-def compute_agreement_rate(decisions: List[bool]) -> float:
+def compute_agreement_rate(decisions: list[bool]) -> float:
     """Fraction of the majority class among decisions.
 
     Example: [True, True, False] -> 2/3 = 0.667.
@@ -124,7 +124,7 @@ def compute_agreement_rate(decisions: List[bool]) -> float:
     return majority / len(decisions)
 
 
-def should_stop_early(decisions: List[bool], config: AdaptiveConfig) -> bool:
+def should_stop_early(decisions: list[bool], config: AdaptiveConfig) -> bool:
     """Check whether enough agreement exists to stop sampling.
 
     Returns True when len(decisions) >= min_samples and the agreement
@@ -150,7 +150,7 @@ def run_adaptive_sampling(
     Returns:
         AdaptiveSampleResult with savings info.
     """
-    decisions: List[bool] = []
+    decisions: list[bool] = []
     early_stopped = False
 
     for _ in range(config.max_samples):
@@ -177,7 +177,7 @@ def run_adaptive_sampling(
 
 
 def compute_adaptive_report(
-    results: List[AdaptiveSampleResult],
+    results: list[AdaptiveSampleResult],
 ) -> AdaptiveReport:
     """Aggregate multiple adaptive sample results into a report."""
     total_taken = sum(r.samples_taken for r in results)

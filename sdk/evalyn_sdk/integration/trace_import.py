@@ -8,11 +8,9 @@ functions for parsing, mapping, and validating imported traces.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -24,12 +22,12 @@ class ImportedTrace:
     """A trace imported from an external platform."""
 
     trace_id: str
-    spans: List[Dict[str, Any]] = field(default_factory=list)
+    spans: list[dict[str, Any]] = field(default_factory=list)
     source_platform: str = ""
     imported_at: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "trace_id": self.trace_id,
             "spans": list(self.spans),
@@ -39,7 +37,7 @@ class ImportedTrace:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ImportedTrace:
+    def from_dict(cls, data: dict[str, Any]) -> ImportedTrace:
         return cls(
             trace_id=data.get("trace_id", ""),
             spans=data.get("spans", []),
@@ -57,7 +55,7 @@ class TraceImportConfig:
     map_span_types: bool = True
     preserve_ids: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "source_platform": self.source_platform,
             "map_span_types": self.map_span_types,
@@ -65,7 +63,7 @@ class TraceImportConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TraceImportConfig:
+    def from_dict(cls, data: dict[str, Any]) -> TraceImportConfig:
         return cls(
             source_platform=data.get("source_platform", "phoenix"),
             map_span_types=data.get("map_span_types", True),
@@ -77,12 +75,12 @@ class TraceImportConfig:
 class TraceImportResult:
     """Result of a trace import operation."""
 
-    traces: List[ImportedTrace] = field(default_factory=list)
+    traces: list[ImportedTrace] = field(default_factory=list)
     total_imported: int = 0
     skipped: int = 0
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "traces": [t.as_dict() for t in self.traces],
             "total_imported": self.total_imported,
@@ -91,7 +89,7 @@ class TraceImportResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TraceImportResult:
+    def from_dict(cls, data: dict[str, Any]) -> TraceImportResult:
         return cls(
             traces=[ImportedTrace.from_dict(t) for t in data.get("traces", [])],
             total_imported=data.get("total_imported", 0),
@@ -115,7 +113,7 @@ class TraceImportResult:
 # Span Type Mapping
 # ---------------------------------------------------------------------------
 
-_PHOENIX_SPAN_MAP: Dict[str, str] = {
+_PHOENIX_SPAN_MAP: dict[str, str] = {
     "LLM": "llm_call",
     "TOOL": "tool_call",
     "RETRIEVER": "retrieval",
@@ -124,7 +122,7 @@ _PHOENIX_SPAN_MAP: Dict[str, str] = {
     "EMBEDDING": "custom",
 }
 
-_LANGFUSE_SPAN_MAP: Dict[str, str] = {
+_LANGFUSE_SPAN_MAP: dict[str, str] = {
     "GENERATION": "llm_call",
     "SPAN": "custom",
     "EVENT": "custom",
@@ -133,7 +131,7 @@ _LANGFUSE_SPAN_MAP: Dict[str, str] = {
     "AGENT": "agent",
 }
 
-_LANGSMITH_SPAN_MAP: Dict[str, str] = {
+_LANGSMITH_SPAN_MAP: dict[str, str] = {
     "llm": "llm_call",
     "tool": "tool_call",
     "retriever": "retrieval",
@@ -171,7 +169,7 @@ def _now_iso() -> str:
 
 
 def import_from_phoenix(
-    data: List[Dict[str, Any]], config: TraceImportConfig
+    data: list[dict[str, Any]], config: TraceImportConfig
 ) -> TraceImportResult:
     """Parse Phoenix OTEL format traces.
 
@@ -179,8 +177,8 @@ def import_from_phoenix(
     dict with "trace_id", and optionally "spans" or top-level span fields
     like "name", "span_kind", "attributes".
     """
-    traces: List[ImportedTrace] = []
-    errors: List[str] = []
+    traces: list[ImportedTrace] = []
+    errors: list[str] = []
     skipped = 0
 
     for idx, item in enumerate(data):
@@ -229,15 +227,15 @@ def import_from_phoenix(
 
 
 def import_from_langfuse(
-    data: List[Dict[str, Any]], config: TraceImportConfig
+    data: list[dict[str, Any]], config: TraceImportConfig
 ) -> TraceImportResult:
     """Parse Langfuse format traces.
 
     Expects each item to have "id" or "trace_id" and optionally
     "observations" (Langfuse's span equivalent).
     """
-    traces: List[ImportedTrace] = []
-    errors: List[str] = []
+    traces: list[ImportedTrace] = []
+    errors: list[str] = []
     skipped = 0
 
     for idx, item in enumerate(data):
@@ -281,14 +279,14 @@ def import_from_langfuse(
 
 
 def import_from_generic(
-    data: List[Dict[str, Any]], config: TraceImportConfig
+    data: list[dict[str, Any]], config: TraceImportConfig
 ) -> TraceImportResult:
     """Generic trace import with minimal mapping.
 
     Expects each item to have "trace_id" and optionally "spans".
     """
-    traces: List[ImportedTrace] = []
-    errors: List[str] = []
+    traces: list[ImportedTrace] = []
+    errors: list[str] = []
     skipped = 0
 
     for idx, item in enumerate(data):
@@ -329,7 +327,7 @@ def import_from_generic(
 
 
 def import_traces(
-    data: List[Dict[str, Any]], config: TraceImportConfig
+    data: list[dict[str, Any]], config: TraceImportConfig
 ) -> TraceImportResult:
     """Route to the appropriate platform-specific importer.
 
@@ -352,7 +350,7 @@ def import_traces(
 
 def validate_imported_traces(
     result: TraceImportResult,
-) -> Tuple[bool, List[str]]:
+) -> tuple[bool, list[str]]:
     """Validate imported trace data.
 
     Checks that each trace has a non-empty trace_id and that spans
@@ -361,7 +359,7 @@ def validate_imported_traces(
     Returns:
         A tuple of (is_valid, list_of_issues).
     """
-    issues: List[str] = []
+    issues: list[str] = []
 
     if not result.traces:
         issues.append("No traces imported")

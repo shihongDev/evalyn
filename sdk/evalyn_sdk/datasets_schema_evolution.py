@@ -9,8 +9,7 @@ validate records.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -26,7 +25,7 @@ class SchemaField:
     required: bool = True
     default: Any = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "field_type": self.field_type,
@@ -35,7 +34,7 @@ class SchemaField:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SchemaField:
+    def from_dict(cls, data: dict[str, Any]) -> SchemaField:
         return cls(
             name=data["name"],
             field_type=data.get("field_type", "str"),
@@ -49,10 +48,10 @@ class SchemaVersion:
     """A versioned dataset schema containing a list of fields."""
 
     version: int
-    fields: List[SchemaField] = field(default_factory=list)
+    fields: list[SchemaField] = field(default_factory=list)
     description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "version": self.version,
             "fields": [f.as_dict() for f in self.fields],
@@ -60,7 +59,7 @@ class SchemaVersion:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SchemaVersion:
+    def from_dict(cls, data: dict[str, Any]) -> SchemaVersion:
         return cls(
             version=data["version"],
             fields=[SchemaField.from_dict(f) for f in data.get("fields", [])],
@@ -74,11 +73,11 @@ class SchemaMigration:
 
     from_version: int
     to_version: int
-    add_fields: List[SchemaField] = field(default_factory=list)
-    remove_fields: List[str] = field(default_factory=list)
-    rename_fields: Dict[str, str] = field(default_factory=dict)
+    add_fields: list[SchemaField] = field(default_factory=list)
+    remove_fields: list[str] = field(default_factory=list)
+    rename_fields: dict[str, str] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "from_version": self.from_version,
             "to_version": self.to_version,
@@ -88,7 +87,7 @@ class SchemaMigration:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SchemaMigration:
+    def from_dict(cls, data: dict[str, Any]) -> SchemaMigration:
         return cls(
             from_version=data["from_version"],
             to_version=data["to_version"],
@@ -105,11 +104,11 @@ class MigrationResult:
     """Summary of a migration operation."""
 
     migrated_count: int = 0
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     from_version: int = 0
     to_version: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "migrated_count": self.migrated_count,
             "errors": list(self.errors),
@@ -118,7 +117,7 @@ class MigrationResult:
         }
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(
             f"Migration v{self.from_version} -> v{self.to_version}: "
             f"{self.migrated_count} records migrated"
@@ -134,7 +133,7 @@ class MigrationResult:
 # Type mapping helpers
 # ---------------------------------------------------------------------------
 
-_PYTHON_TYPE_TO_SCHEMA: List[tuple] = [
+_PYTHON_TYPE_TO_SCHEMA: list[tuple] = [
     (bool, "bool"),   # bool before int (bool is subclass of int)
     (int, "int"),
     (float, "float"),
@@ -157,7 +156,7 @@ def _infer_type(value: Any) -> str:
 # ---------------------------------------------------------------------------
 
 
-def detect_schema(records: List[Dict[str, Any]]) -> SchemaVersion:
+def detect_schema(records: list[dict[str, Any]]) -> SchemaVersion:
     """Infer a schema from records by inspecting field names and types.
 
     All fields found are marked required if they appear in every record.
@@ -167,8 +166,8 @@ def detect_schema(records: List[Dict[str, Any]]) -> SchemaVersion:
         return SchemaVersion(version=1)
 
     # Collect all field names and track presence counts
-    field_counts: Dict[str, int] = {}
-    field_types: Dict[str, str] = {}
+    field_counts: dict[str, int] = {}
+    field_types: dict[str, str] = {}
     for record in records:
         for key, value in record.items():
             field_counts[key] = field_counts.get(key, 0) + 1
@@ -176,7 +175,7 @@ def detect_schema(records: List[Dict[str, Any]]) -> SchemaVersion:
                 field_types[key] = _infer_type(value)
 
     total = len(records)
-    fields: List[SchemaField] = []
+    fields: list[SchemaField] = []
     for name in sorted(field_counts):
         fields.append(
             SchemaField(
@@ -208,17 +207,17 @@ def compare_schemas(
     removed_names = old_names - new_names
 
     # Detect renames: pair removed/added fields that share the same type
-    rename_fields: Dict[str, str] = {}
+    rename_fields: dict[str, str] = {}
     remaining_added: set[str] = set(added_names)
     remaining_removed: set[str] = set(removed_names)
 
     # Group by type for matching
-    removed_by_type: Dict[str, List[str]] = {}
+    removed_by_type: dict[str, list[str]] = {}
     for rname in list(remaining_removed):
         ftype = old_field_map[rname].field_type
         removed_by_type.setdefault(ftype, []).append(rname)
 
-    added_by_type: Dict[str, List[str]] = {}
+    added_by_type: dict[str, list[str]] = {}
     for aname in list(remaining_added):
         ftype = new_field_map[aname].field_type
         added_by_type.setdefault(ftype, []).append(aname)
@@ -247,8 +246,8 @@ def compare_schemas(
 
 
 def apply_migration(
-    records: List[Dict[str, Any]], migration: SchemaMigration
-) -> Tuple[List[Dict[str, Any]], MigrationResult]:
+    records: list[dict[str, Any]], migration: SchemaMigration
+) -> tuple[list[dict[str, Any]], MigrationResult]:
     """Apply a migration to records, returning migrated records and a result.
 
     Operations are applied in order: rename, remove, add defaults.
@@ -257,7 +256,7 @@ def apply_migration(
         from_version=migration.from_version,
         to_version=migration.to_version,
     )
-    migrated: List[Dict[str, Any]] = []
+    migrated: list[dict[str, Any]] = []
 
     for i, record in enumerate(records):
         try:
@@ -282,13 +281,13 @@ def apply_migration(
 
 
 def validate_against_schema(
-    records: List[Dict[str, Any]], schema: SchemaVersion
-) -> Tuple[bool, List[str]]:
+    records: list[dict[str, Any]], schema: SchemaVersion
+) -> tuple[bool, list[str]]:
     """Check that records conform to a schema.
 
     Returns (valid, errors) where valid is True only when errors is empty.
     """
-    errors: List[str] = []
+    errors: list[str] = []
     required_names = {f.name for f in schema.fields if f.required}
 
     for i, record in enumerate(records):
@@ -300,8 +299,8 @@ def validate_against_schema(
 
 
 def build_migration_chain(
-    versions: List[SchemaVersion],
-) -> List[SchemaMigration]:
+    versions: list[SchemaVersion],
+) -> list[SchemaMigration]:
     """Build sequential migrations between consecutive schema versions.
 
     Versions are sorted by version number. A migration is created for each
@@ -311,7 +310,7 @@ def build_migration_chain(
         return []
 
     sorted_versions = sorted(versions, key=lambda v: v.version)
-    chain: List[SchemaMigration] = []
+    chain: list[SchemaMigration] = []
     for i in range(len(sorted_versions) - 1):
         chain.append(compare_schemas(sorted_versions[i], sorted_versions[i + 1]))
     return chain

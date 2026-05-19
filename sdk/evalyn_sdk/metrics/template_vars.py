@@ -10,8 +10,7 @@ Custom variables: defined in evalyn.yaml template_vars section.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # Built-in variable names
 BUILTIN_VARS = {"input", "output", "expected", "item_id"}
@@ -19,8 +18,8 @@ BUILTIN_VARS = {"input", "output", "expected", "item_id"}
 
 def resolve_template(
     template: str,
-    item: Optional[Any] = None,
-    custom_vars: Optional[Dict[str, str]] = None,
+    item: Any | None = None,
+    custom_vars: dict[str, str] | None = None,
 ) -> str:
     """Resolve {{variable}} placeholders in a template string.
 
@@ -51,7 +50,7 @@ def resolve_template(
     return resolved
 
 
-def extract_variables(template: str) -> List[str]:
+def extract_variables(template: str) -> list[str]:
     """Extract all {{variable}} names from a template.
 
     Args:
@@ -66,8 +65,8 @@ def extract_variables(template: str) -> List[str]:
 
 def validate_template(
     template: str,
-    available_vars: Optional[Dict[str, str]] = None,
-) -> Dict[str, Any]:
+    available_vars: dict[str, str] | None = None,
+) -> dict[str, Any]:
     """Validate a template and check for unresolvable variables.
 
     Args:
@@ -101,9 +100,9 @@ def validate_template(
 
 def _resolve_variable(
     var_name: str,
-    item: Optional[Any],
-    custom_vars: Optional[Dict[str, str]],
-) -> Optional[str]:
+    item: Any | None,
+    custom_vars: dict[str, str] | None,
+) -> str | None:
     """Resolve a single variable name to its value."""
     # Built-in variables
     if item is not None:

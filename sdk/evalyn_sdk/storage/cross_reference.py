@@ -7,8 +7,7 @@ detect relations, find orphans, and render Mermaid diagrams.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Set
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -24,7 +23,7 @@ class EntityRelation:
     relation: str = "references"
     count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "source_type": self.source_type,
             "target_type": self.target_type,
@@ -39,10 +38,10 @@ class EntitySummary:
 
     entity_type: str
     count: int = 0
-    referenced_by: List[str] = field(default_factory=list)
-    references: List[str] = field(default_factory=list)
+    referenced_by: list[str] = field(default_factory=list)
+    references: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "entity_type": self.entity_type,
             "count": self.count,
@@ -55,12 +54,12 @@ class EntitySummary:
 class CrossReferenceReport:
     """Full cross-reference report across all entity types."""
 
-    entities: List[EntitySummary] = field(default_factory=list)
-    relations: List[EntityRelation] = field(default_factory=list)
+    entities: list[EntitySummary] = field(default_factory=list)
+    relations: list[EntityRelation] = field(default_factory=list)
     total_entities: int = 0
-    orphaned_entities: List[str] = field(default_factory=list)
+    orphaned_entities: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "entities": [e.as_dict() for e in self.entities],
             "relations": [r.as_dict() for r in self.relations],
@@ -69,7 +68,7 @@ class CrossReferenceReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CrossReferenceReport:
+    def from_dict(cls, data: dict[str, Any]) -> CrossReferenceReport:
         entities = [
             EntitySummary(
                 entity_type=e["entity_type"],
@@ -96,7 +95,7 @@ class CrossReferenceReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Cross-Reference Report")
         lines.append("=" * 40)
         lines.append(f"Total entity types: {len(self.entities)}")
@@ -132,8 +131,8 @@ class CrossReferenceReport:
 
 def build_entity_summary(
     entity_type: str,
-    records: List[Dict[str, Any]],
-    reference_fields: Dict[str, str] | None = None,
+    records: list[dict[str, Any]],
+    reference_fields: dict[str, str] | None = None,
 ) -> EntitySummary:
     """Analyze one entity type.
 
@@ -144,7 +143,7 @@ def build_entity_summary(
     if reference_fields is None:
         reference_fields = {}
 
-    refs: Set[str] = set()
+    refs: set[str] = set()
     for field_name, target_type in reference_fields.items():
         for record in records:
             if field_name in record and record[field_name] is not None:
@@ -159,19 +158,19 @@ def build_entity_summary(
 
 
 def detect_relations(
-    entities: Dict[str, List[Dict[str, Any]]],
-    reference_map: Dict[str, Dict[str, str]],
-) -> List[EntityRelation]:
+    entities: dict[str, list[dict[str, Any]]],
+    reference_map: dict[str, dict[str, str]],
+) -> list[EntityRelation]:
     """Detect all relations across entity types.
 
     reference_map: entity_type -> {field_name -> target_entity_type}.
     Counts how many records in the source entity reference each target.
     """
-    relations: List[EntityRelation] = []
+    relations: list[EntityRelation] = []
 
     for source_type, field_map in sorted(reference_map.items()):
         records = entities.get(source_type, [])
-        target_counts: Dict[str, int] = {}
+        target_counts: dict[str, int] = {}
 
         for field_name, target_type in field_map.items():
             count = 0
@@ -197,16 +196,16 @@ def detect_relations(
 
 
 def find_orphaned_entities(
-    entities: Dict[str, List[Dict[str, Any]]],
-    reference_map: Dict[str, Dict[str, str]],
-) -> List[str]:
+    entities: dict[str, list[dict[str, Any]]],
+    reference_map: dict[str, dict[str, str]],
+) -> list[str]:
     """Find entity types with no references to or from other entity types."""
     all_types = set(entities.keys())
 
     # Types that reference something
-    sources: Set[str] = set()
+    sources: set[str] = set()
     # Types that are referenced by something
-    targets: Set[str] = set()
+    targets: set[str] = set()
 
     for source_type, field_map in reference_map.items():
         records = entities.get(source_type, [])
@@ -223,19 +222,19 @@ def find_orphaned_entities(
 
 
 def build_cross_reference_report(
-    entities: Dict[str, List[Dict[str, Any]]],
-    reference_map: Dict[str, Dict[str, str]],
+    entities: dict[str, list[dict[str, Any]]],
+    reference_map: dict[str, dict[str, str]],
 ) -> CrossReferenceReport:
     """Build a full cross-reference report."""
     relations = detect_relations(entities, reference_map)
     orphaned = find_orphaned_entities(entities, reference_map)
 
     # Build referenced_by map
-    referenced_by_map: Dict[str, Set[str]] = {}
+    referenced_by_map: dict[str, set[str]] = {}
     for rel in relations:
         referenced_by_map.setdefault(rel.target_type, set()).add(rel.source_type)
 
-    summaries: List[EntitySummary] = []
+    summaries: list[EntitySummary] = []
     for entity_type in sorted(entities.keys()):
         records = entities[entity_type]
         ref_fields = reference_map.get(entity_type, {})
@@ -255,7 +254,7 @@ def build_cross_reference_report(
 
 def render_relation_diagram(report: CrossReferenceReport) -> str:
     """Render a Mermaid ER diagram from the report."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("erDiagram")
 
     if not report.relations and not report.entities:

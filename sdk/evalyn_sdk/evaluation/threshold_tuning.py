@@ -8,7 +8,7 @@ to select the one that maximizes F1 score.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 
 @dataclass
@@ -21,7 +21,7 @@ class ThresholdCandidate:
     recall: float
     f1_score: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "threshold": round(self.threshold, 6),
             "accuracy": round(self.accuracy, 6),
@@ -38,10 +38,10 @@ class ThresholdResult:
     metric_id: str
     optimal_threshold: float
     best_f1: float
-    candidates: List[ThresholdCandidate] = field(default_factory=list)
+    candidates: list[ThresholdCandidate] = field(default_factory=list)
     num_samples: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "optimal_threshold": round(self.optimal_threshold, 6),
@@ -51,7 +51,7 @@ class ThresholdResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ThresholdResult":
+    def from_dict(cls, data: dict[str, Any]) -> ThresholdResult:
         candidates = [
             ThresholdCandidate(
                 threshold=c["threshold"],
@@ -81,7 +81,7 @@ class ThresholdResult:
         return "\n".join(lines)
 
 
-def compute_f1(predictions: List[bool], ground_truth: List[bool]) -> float:
+def compute_f1(predictions: list[bool], ground_truth: list[bool]) -> float:
     """Standard F1 score from binary predictions and ground truth.
 
     Handles edge cases: empty lists return 0.0, all-same-class
@@ -104,7 +104,7 @@ def compute_f1(predictions: List[bool], ground_truth: List[bool]) -> float:
     return 2 * precision * recall / (precision + recall)
 
 
-def compute_accuracy(predictions: List[bool], ground_truth: List[bool]) -> float:
+def compute_accuracy(predictions: list[bool], ground_truth: list[bool]) -> float:
     """Fraction of correct predictions."""
     if not predictions or not ground_truth:
         return 0.0
@@ -115,8 +115,8 @@ def compute_accuracy(predictions: List[bool], ground_truth: List[bool]) -> float
 
 
 def evaluate_threshold(
-    scores: List[float],
-    ground_truth: List[bool],
+    scores: list[float],
+    ground_truth: list[bool],
     threshold: float,
 ) -> ThresholdCandidate:
     """Apply a threshold to scores and compute all classification metrics.
@@ -154,8 +154,8 @@ def evaluate_threshold(
 
 def find_optimal_threshold(
     metric_id: str,
-    scores: List[float],
-    ground_truth: List[bool],
+    scores: list[float],
+    ground_truth: list[bool],
     num_candidates: int = 20,
 ) -> ThresholdResult:
     """Grid search over thresholds from min(scores) to max(scores).
@@ -186,7 +186,7 @@ def find_optimal_threshold(
         )
 
     step = (hi - lo) / (num_candidates - 1) if num_candidates > 1 else 0
-    candidates: List[ThresholdCandidate] = []
+    candidates: list[ThresholdCandidate] = []
     for i in range(num_candidates):
         t = lo + i * step
         candidate = evaluate_threshold(scores, ground_truth, t)
@@ -204,8 +204,8 @@ def find_optimal_threshold(
 
 
 def tune_thresholds(
-    metrics: Dict[str, Tuple[List[float], List[bool]]],
-) -> Dict[str, ThresholdResult]:
+    metrics: dict[str, tuple[list[float], list[bool]]],
+) -> dict[str, ThresholdResult]:
     """Tune thresholds for multiple metrics at once.
 
     Args:
@@ -214,7 +214,7 @@ def tune_thresholds(
     Returns:
         Mapping of metric_id to ThresholdResult.
     """
-    results: Dict[str, ThresholdResult] = {}
+    results: dict[str, ThresholdResult] = {}
     for metric_id, (scores, ground_truth) in metrics.items():
         results[metric_id] = find_optimal_threshold(metric_id, scores, ground_truth)
     return results

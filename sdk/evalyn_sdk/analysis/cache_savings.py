@@ -6,8 +6,8 @@ cache_creation_tokens, cache_read_tokens, and input_tokens from spans.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from dataclasses import dataclass
+from typing import Any
 
 from ..models import Span
 
@@ -25,7 +25,7 @@ class CacheSavings:
     savings_pct: float = 0.0
     cache_hit_rate: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_cache_creation_tokens": self.total_cache_creation_tokens,
             "total_cache_read_tokens": self.total_cache_read_tokens,
@@ -38,7 +38,7 @@ class CacheSavings:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CacheSavings:
+    def from_dict(cls, data: dict[str, Any]) -> CacheSavings:
         return cls(
             total_cache_creation_tokens=data.get("total_cache_creation_tokens", 0),
             total_cache_read_tokens=data.get("total_cache_read_tokens", 0),
@@ -73,7 +73,7 @@ class CacheRecommendation:
     cacheable: bool
     estimated_savings_pct: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "prompt_pattern": self.prompt_pattern,
             "repetition_count": self.repetition_count,
@@ -82,7 +82,7 @@ class CacheRecommendation:
         }
 
 
-def compute_cache_savings(spans: List[Span]) -> CacheSavings:
+def compute_cache_savings(spans: list[Span]) -> CacheSavings:
     """Aggregate cache savings from span attributes.
 
     Reads "cache_creation_tokens", "cache_read_tokens", "input_tokens",
@@ -143,7 +143,7 @@ def compute_cache_savings(spans: List[Span]) -> CacheSavings:
     )
 
 
-def analyze_prompt_patterns(spans: List[Span]) -> List[CacheRecommendation]:
+def analyze_prompt_patterns(spans: list[Span]) -> list[CacheRecommendation]:
     """Group spans by first 100 chars of input text and recommend caching.
 
     High-repetition groups (repetition_count >= 3) are marked as cacheable.
@@ -154,7 +154,7 @@ def analyze_prompt_patterns(spans: List[Span]) -> List[CacheRecommendation]:
     Returns:
         List of CacheRecommendation sorted by repetition count descending.
     """
-    groups: Dict[str, int] = {}
+    groups: dict[str, int] = {}
     for span in spans:
         text = str(span.attributes.get("input_text", ""))
         if not text:
@@ -180,7 +180,7 @@ def analyze_prompt_patterns(spans: List[Span]) -> List[CacheRecommendation]:
     return recs
 
 
-def build_cache_report(spans: List[Span]) -> Dict[str, Any]:
+def build_cache_report(spans: list[Span]) -> dict[str, Any]:
     """Full cache savings report combining savings and recommendations.
 
     Args:

@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
-
+from typing import Any
 
 VALID_STEP_TYPES = ("trace", "evaluate", "analyze", "calibrate", "export")
 
@@ -14,10 +13,10 @@ class PipelineStep:
 
     name: str
     step_type: str
-    config: Dict[str, Any] = field(default_factory=dict)
-    depends_on: List[str] = field(default_factory=list)
+    config: dict[str, Any] = field(default_factory=dict)
+    depends_on: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "step_type": self.step_type,
@@ -26,7 +25,7 @@ class PipelineStep:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PipelineStep:
+    def from_dict(cls, data: dict[str, Any]) -> PipelineStep:
         return cls(
             name=data["name"],
             step_type=data["step_type"],
@@ -41,10 +40,10 @@ class PipelineDefinition:
 
     name: str
     description: str = ""
-    steps: List[PipelineStep] = field(default_factory=list)
+    steps: list[PipelineStep] = field(default_factory=list)
     version: int = 1
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
@@ -53,7 +52,7 @@ class PipelineDefinition:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PipelineDefinition:
+    def from_dict(cls, data: dict[str, Any]) -> PipelineDefinition:
         steps = [PipelineStep.from_dict(s) for s in data.get("steps", [])]
         return cls(
             name=data["name"],
@@ -63,11 +62,11 @@ class PipelineDefinition:
         )
 
     @property
-    def step_names(self) -> List[str]:
+    def step_names(self) -> list[str]:
         return [s.name for s in self.steps]
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Pipeline: {self.name} (v{self.version})")
         if self.description:
             lines.append(f"  {self.description}")
@@ -79,7 +78,7 @@ class PipelineDefinition:
             lines.append(f"    {i}. {s.name} [{s.step_type}]{deps}")
         return "\n".join(lines)
 
-    def validate(self) -> Tuple[bool, List[str]]:
+    def validate(self) -> tuple[bool, list[str]]:
         """Validate the pipeline definition.
 
         Returns (is_valid, list_of_errors).
@@ -87,7 +86,7 @@ class PipelineDefinition:
         - All depends_on references point to existing step names.
         - No circular dependencies.
         """
-        errors: List[str] = []
+        errors: list[str] = []
         names = set(self.step_names)
 
         # Check missing dependency references
@@ -99,8 +98,8 @@ class PipelineDefinition:
                     )
 
         # Check circular dependencies via topological sort attempt
-        in_degree: Dict[str, int] = {s.name: 0 for s in self.steps}
-        adj: Dict[str, List[str]] = {s.name: [] for s in self.steps}
+        in_degree: dict[str, int] = {s.name: 0 for s in self.steps}
+        adj: dict[str, list[str]] = {s.name: [] for s in self.steps}
         for step in self.steps:
             for dep in step.depends_on:
                 if dep in names:
@@ -132,12 +131,12 @@ class PipelineRunResult:
     """Result of executing a pipeline."""
 
     pipeline_name: str
-    step_results: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    completed_steps: List[str] = field(default_factory=list)
+    step_results: dict[str, dict[str, Any]] = field(default_factory=dict)
+    completed_steps: list[str] = field(default_factory=list)
     failed_step: str = ""
     total_duration_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "pipeline_name": self.pipeline_name,
             "step_results": self.step_results,
@@ -147,7 +146,7 @@ class PipelineRunResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PipelineRunResult:
+    def from_dict(cls, data: dict[str, Any]) -> PipelineRunResult:
         return cls(
             pipeline_name=data["pipeline_name"],
             step_results=data.get("step_results", {}),
@@ -157,7 +156,7 @@ class PipelineRunResult:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Pipeline Run: {self.pipeline_name}")
         lines.append(f"  Duration: {self.total_duration_ms:.1f} ms")
         lines.append(f"  Completed: {len(self.completed_steps)} step(s)")
@@ -194,7 +193,7 @@ FULL_PIPELINE = PipelineDefinition(
     ],
 )
 
-_BUILTIN_PIPELINES: Dict[str, PipelineDefinition] = {
+_BUILTIN_PIPELINES: dict[str, PipelineDefinition] = {
     p.name: p for p in [QUICK_EVAL_PIPELINE, FULL_PIPELINE]
 }
 
@@ -211,18 +210,18 @@ def get_pipeline(name: str) -> PipelineDefinition:
     return _BUILTIN_PIPELINES[name]
 
 
-def list_pipelines() -> List[PipelineDefinition]:
+def list_pipelines() -> list[PipelineDefinition]:
     """Return all available pipeline definitions."""
     return list(_BUILTIN_PIPELINES.values())
 
 
-def create_pipeline(name: str, steps: List[Dict[str, Any]]) -> PipelineDefinition:
+def create_pipeline(name: str, steps: list[dict[str, Any]]) -> PipelineDefinition:
     """Create a pipeline from a list of step dicts."""
     parsed_steps = [PipelineStep.from_dict(s) for s in steps]
     return PipelineDefinition(name=name, steps=parsed_steps)
 
 
-def get_execution_order(pipeline: PipelineDefinition) -> List[str]:
+def get_execution_order(pipeline: PipelineDefinition) -> list[str]:
     """Return step names in topological order respecting depends_on.
 
     Steps with no dependencies come first. Among steps at the same
@@ -232,8 +231,8 @@ def get_execution_order(pipeline: PipelineDefinition) -> List[str]:
     # Map name -> index for stable ordering
     name_to_idx = {s.name: i for i, s in enumerate(pipeline.steps)}
 
-    in_degree: Dict[str, int] = {s.name: 0 for s in pipeline.steps}
-    adj: Dict[str, List[str]] = {s.name: [] for s in pipeline.steps}
+    in_degree: dict[str, int] = {s.name: 0 for s in pipeline.steps}
+    adj: dict[str, list[str]] = {s.name: [] for s in pipeline.steps}
     for step in pipeline.steps:
         for dep in step.depends_on:
             if dep in names:
@@ -241,16 +240,16 @@ def get_execution_order(pipeline: PipelineDefinition) -> List[str]:
                 in_degree[step.name] += 1
 
     # Use a list sorted by original index for stable BFS
-    queue: List[str] = sorted(
+    queue: list[str] = sorted(
         [n for n, d in in_degree.items() if d == 0],
         key=lambda n: name_to_idx[n],
     )
-    order: List[str] = []
+    order: list[str] = []
 
     while queue:
         node = queue.pop(0)
         order.append(node)
-        next_ready: List[str] = []
+        next_ready: list[str] = []
         for neighbor in adj[node]:
             in_degree[neighbor] -= 1
             if in_degree[neighbor] == 0:
@@ -267,7 +266,7 @@ def get_execution_order(pipeline: PipelineDefinition) -> List[str]:
 def compare_pipeline_runs(
     result_a: PipelineRunResult,
     result_b: PipelineRunResult,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compare two pipeline run results."""
     a_steps = set(result_a.completed_steps)
     b_steps = set(result_b.completed_steps)

@@ -11,8 +11,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 PIN_FILENAME = ".evalyn-pin"
 
@@ -26,7 +25,7 @@ class DatasetPin:
     pinned_at: str  # ISO timestamp
     description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "dataset_hash": self.dataset_hash,
             "item_count": self.item_count,
@@ -35,7 +34,7 @@ class DatasetPin:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DatasetPin":
+    def from_dict(cls, data: dict[str, Any]) -> DatasetPin:
         return cls(
             dataset_hash=data["dataset_hash"],
             item_count=data["item_count"],
@@ -44,7 +43,7 @@ class DatasetPin:
         )
 
 
-def compute_dataset_content_hash(items: List) -> str:
+def compute_dataset_content_hash(items: list) -> str:
     """Compute a deterministic hash of dataset content.
 
     Args:
@@ -65,7 +64,7 @@ def compute_dataset_content_hash(items: List) -> str:
 
 
 def create_pin(
-    items: List,
+    items: list,
     dataset_dir: Path,
     description: str = "",
 ) -> DatasetPin:
@@ -95,7 +94,7 @@ def create_pin(
     return pin
 
 
-def load_pin(dataset_dir: Path) -> Optional[DatasetPin]:
+def load_pin(dataset_dir: Path) -> DatasetPin | None:
     """Load an existing pin file.
 
     Args:
@@ -114,7 +113,7 @@ def load_pin(dataset_dir: Path) -> Optional[DatasetPin]:
         return None
 
 
-def verify_pin(items: List, pin: DatasetPin) -> bool:
+def verify_pin(items: list, pin: DatasetPin) -> bool:
     """Verify that current dataset matches the pinned version.
 
     Args:

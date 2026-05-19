@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -19,9 +19,9 @@ class BalanceConfig:
     balance_field: str
     strategy: str = "undersample"  # "undersample", "oversample", "proportional"
     target_size: int = 0  # 0 means auto
-    seed: Optional[int] = None
+    seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "balance_field": self.balance_field,
             "strategy": self.strategy,
@@ -30,7 +30,7 @@ class BalanceConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BalanceConfig:
+    def from_dict(cls, data: dict[str, Any]) -> BalanceConfig:
         return cls(
             balance_field=data["balance_field"],
             strategy=data.get("strategy", "undersample"),
@@ -48,7 +48,7 @@ class CategoryStats:
     sampled_count: int
     ratio: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "category": self.category,
             "count": self.count,
@@ -57,7 +57,7 @@ class CategoryStats:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CategoryStats:
+    def from_dict(cls, data: dict[str, Any]) -> CategoryStats:
         return cls(
             category=data["category"],
             count=data["count"],
@@ -70,13 +70,13 @@ class CategoryStats:
 class BalanceResult:
     """Result of a balanced sampling run."""
 
-    selected_ids: List[str] = field(default_factory=list)
-    category_stats: List[CategoryStats] = field(default_factory=list)
+    selected_ids: list[str] = field(default_factory=list)
+    category_stats: list[CategoryStats] = field(default_factory=list)
     total_pool: int = 0
     total_selected: int = 0
     balance_score: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected_ids": self.selected_ids,
             "category_stats": [s.as_dict() for s in self.category_stats],
@@ -86,7 +86,7 @@ class BalanceResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BalanceResult:
+    def from_dict(cls, data: dict[str, Any]) -> BalanceResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
             category_stats=[
@@ -99,14 +99,14 @@ class BalanceResult:
 
 
 def compute_category_counts(
-    items: List[Dict[str, Any]], field_name: str
-) -> Dict[str, List[str]]:
+    items: list[dict[str, Any]], field_name: str
+) -> dict[str, list[str]]:
     """Group item IDs by category field value.
 
     Each item dict must have an "id" key and a key matching field_name.
     Items missing the field are grouped under "<missing>".
     """
-    groups: Dict[str, List[str]] = {}
+    groups: dict[str, list[str]] = {}
     for item in items:
         item_id = str(item.get("id", ""))
         category = str(item.get(field_name, "<missing>"))
@@ -116,7 +116,7 @@ def compute_category_counts(
     return groups
 
 
-def compute_balance_score(counts: Dict[str, int]) -> float:
+def compute_balance_score(counts: dict[str, int]) -> float:
     """Compute balance score as 1 - Gini coefficient.
 
     Returns 1.0 for perfectly uniform distributions, approaching 0.0 for
@@ -144,17 +144,17 @@ def compute_balance_score(counts: Dict[str, int]) -> float:
 
 
 def undersample(
-    groups: Dict[str, List[str]],
+    groups: dict[str, list[str]],
     target_per_category: int,
-    seed: Optional[int] = None,
-) -> List[str]:
+    seed: int | None = None,
+) -> list[str]:
     """Sample min(target, available) items from each category.
 
     Produces at most target_per_category items per group. If a group has
     fewer items, all are included.
     """
     rng = random.Random(seed)
-    selected: List[str] = []
+    selected: list[str] = []
     for category in sorted(groups.keys()):
         ids = list(groups[category])
         take = min(target_per_category, len(ids))
@@ -167,17 +167,17 @@ def undersample(
 
 
 def oversample(
-    groups: Dict[str, List[str]],
+    groups: dict[str, list[str]],
     target_per_category: int,
-    seed: Optional[int] = None,
-) -> List[str]:
+    seed: int | None = None,
+) -> list[str]:
     """Repeat items from small categories to match target count.
 
     Categories with fewer items than target_per_category will have items
     repeated (with random selection) to reach the target.
     """
     rng = random.Random(seed)
-    selected: List[str] = []
+    selected: list[str] = []
     for category in sorted(groups.keys()):
         ids = list(groups[category])
         if not ids:
@@ -196,10 +196,10 @@ def oversample(
 
 
 def proportional_sample(
-    groups: Dict[str, List[str]],
+    groups: dict[str, list[str]],
     total: int,
-    seed: Optional[int] = None,
-) -> List[str]:
+    seed: int | None = None,
+) -> list[str]:
     """Sample proportionally but ensure at least 1 item per category.
 
     Distributes total budget proportionally to category sizes, ensuring
@@ -217,7 +217,7 @@ def proportional_sample(
     non_empty = [c for c in sorted_cats if groups[c]]
 
     # Calculate proportional allocation with minimum of 1
-    allocation: Dict[str, int] = {}
+    allocation: dict[str, int] = {}
     # First pass: give each category at least 1
     remaining_budget = total
     for cat in non_empty:
@@ -228,7 +228,7 @@ def proportional_sample(
         # Not enough budget for all categories: pick a subset
         rng.shuffle(non_empty)
         chosen = non_empty[:total]
-        selected: List[str] = []
+        selected: list[str] = []
         for cat in sorted(chosen):
             ids = groups[cat]
             selected.append(rng.choice(ids))
@@ -240,7 +240,7 @@ def proportional_sample(
             cat: len(groups[cat]) / pool_size for cat in non_empty
         }
         # Distribute remaining
-        fractional: Dict[str, float] = {}
+        fractional: dict[str, float] = {}
         for cat in non_empty:
             fractional[cat] = proportions[cat] * remaining_budget
 
@@ -271,7 +271,7 @@ def proportional_sample(
 
 
 def run_balanced_sampling(
-    items: List[Dict[str, Any]], config: BalanceConfig
+    items: list[dict[str, Any]], config: BalanceConfig
 ) -> BalanceResult:
     """Full balanced sampling pipeline.
 
@@ -316,8 +316,7 @@ def run_balanced_sampling(
         raise ValueError(f"Unknown strategy: {config.strategy!r}")
 
     # Build category stats
-    selected_set = set(selected)
-    category_stats: List[CategoryStats] = []
+    category_stats: list[CategoryStats] = []
     total_selected = len(selected)
     for cat in sorted(groups.keys()):
         original_count = len(groups[cat])
@@ -348,7 +347,7 @@ def run_balanced_sampling(
 
 def format_balance_report(result: BalanceResult) -> str:
     """Format a human-readable balance sampling report with per-category breakdown."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Balanced Sampling Report")
     lines.append("=" * 40)
     lines.append(f"Total pool size: {result.total_pool}")
@@ -369,7 +368,7 @@ def format_balance_report(result: BalanceResult) -> str:
     return "\n".join(lines)
 
 
-def suggest_rebalancing(stats: List[CategoryStats]) -> List[str]:
+def suggest_rebalancing(stats: list[CategoryStats]) -> list[str]:
     """Suggest which categories need more or fewer items.
 
     Compares each category's ratio to a uniform target ratio. Categories
@@ -382,7 +381,7 @@ def suggest_rebalancing(stats: List[CategoryStats]) -> List[str]:
     target_ratio = 1.0 / n_cats
     threshold = target_ratio * 0.25  # 25% deviation threshold
 
-    suggestions: List[str] = []
+    suggestions: list[str] = []
     for s in stats:
         diff = s.ratio - target_ratio
         if diff > threshold:

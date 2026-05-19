@@ -7,7 +7,7 @@ subjective metric, with template variables filled in with sample data.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -17,13 +17,13 @@ class MetricPreview:
     metric_id: str
     metric_type: str
     description: str
-    prompt: Optional[str] = None      # full judge prompt (subjective only)
-    rubric: Optional[List[str]] = None  # rubric criteria
-    threshold: Optional[float] = None
-    config: Dict[str, Any] = field(default_factory=dict)
+    prompt: str | None = None      # full judge prompt (subjective only)
+    rubric: list[str] | None = None  # rubric criteria
+    threshold: float | None = None
+    config: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
-        d: Dict[str, Any] = {
+    def as_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
             "metric_id": self.metric_id,
             "type": self.metric_type,
             "description": self.description,
@@ -48,7 +48,7 @@ class MetricPreview:
             for i, r in enumerate(self.rubric, 1):
                 lines.append(f"    {i}. {r}")
         if self.prompt:
-            lines.append(f"  Prompt preview:")
+            lines.append("  Prompt preview:")
             # Show first 200 chars
             preview = self.prompt[:200]
             if len(self.prompt) > 200:
@@ -78,7 +78,7 @@ def preview_metric(metric_spec) -> MetricPreview:
     )
 
 
-def preview_all_metrics(metric_specs: List) -> List[MetricPreview]:
+def preview_all_metrics(metric_specs: list) -> list[MetricPreview]:
     """Generate previews for all metrics.
 
     Args:
@@ -90,7 +90,7 @@ def preview_all_metrics(metric_specs: List) -> List[MetricPreview]:
     return [preview_metric(spec) for spec in metric_specs]
 
 
-def preview_from_template(template_id: str) -> Optional[MetricPreview]:
+def preview_from_template(template_id: str) -> MetricPreview | None:
     """Preview a metric from its template ID.
 
     Looks up the template in the subjective registry and returns

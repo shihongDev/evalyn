@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import html as _html
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -20,7 +20,7 @@ class HeatmapCell:
     value: float
     color_intensity: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "row": self.row,
             "col": self.col,
@@ -33,12 +33,12 @@ class HeatmapCell:
 class HeatmapData:
     """Full heatmap grid with rows, columns, and cells."""
 
-    cells: List[HeatmapCell] = field(default_factory=list)
-    rows: List[str] = field(default_factory=list)
-    cols: List[str] = field(default_factory=list)
+    cells: list[HeatmapCell] = field(default_factory=list)
+    rows: list[str] = field(default_factory=list)
+    cols: list[str] = field(default_factory=list)
     title: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "cells": [c.as_dict() for c in self.cells],
             "rows": list(self.rows),
@@ -47,7 +47,7 @@ class HeatmapData:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> HeatmapData:
+    def from_dict(cls, data: dict[str, Any]) -> HeatmapData:
         cells = [
             HeatmapCell(
                 row=c["row"],
@@ -70,10 +70,10 @@ class HeatmapReport:
     """Heatmap with hotspot and coldspot analysis."""
 
     data: HeatmapData = field(default_factory=HeatmapData)
-    hotspots: List[str] = field(default_factory=list)
-    coldspots: List[str] = field(default_factory=list)
+    hotspots: list[str] = field(default_factory=list)
+    coldspots: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "data": self.data.as_dict(),
             "hotspots": list(self.hotspots),
@@ -81,7 +81,7 @@ class HeatmapReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> HeatmapReport:
+    def from_dict(cls, data: dict[str, Any]) -> HeatmapReport:
         return cls(
             data=HeatmapData.from_dict(data.get("data", {})),
             hotspots=data.get("hotspots", []),
@@ -90,7 +90,7 @@ class HeatmapReport:
 
     def format_text(self) -> str:
         """Human-readable text summary."""
-        lines: List[str] = []
+        lines: list[str] = []
         title = self.data.title or "Heatmap Report"
         lines.append(title)
         lines.append("=" * len(title))
@@ -116,7 +116,7 @@ class HeatmapReport:
 # ---------------------------------------------------------------------------
 
 
-def _collect_all_values(cells: List[HeatmapCell]) -> tuple:
+def _collect_all_values(cells: list[HeatmapCell]) -> tuple:
     """Return (min_val, max_val) across all cells."""
     if not cells:
         return (0.0, 1.0)
@@ -125,7 +125,7 @@ def _collect_all_values(cells: List[HeatmapCell]) -> tuple:
 
 
 def build_item_metric_heatmap(
-    scores: Dict[str, Dict[str, float]],
+    scores: dict[str, dict[str, float]],
 ) -> HeatmapData:
     """Build heatmap from scores[item_id][metric_id] = score.
 
@@ -147,7 +147,7 @@ def build_item_metric_heatmap(
     min_val = min(all_values) if all_values else 0.0
     max_val = max(all_values) if all_values else 1.0
 
-    cells: List[HeatmapCell] = []
+    cells: list[HeatmapCell] = []
     for row in rows:
         for col in cols:
             value = scores[row].get(col, 0.0)
@@ -162,7 +162,7 @@ def build_item_metric_heatmap(
 
 
 def build_run_metric_heatmap(
-    run_scores: Dict[str, Dict[str, float]],
+    run_scores: dict[str, dict[str, float]],
 ) -> HeatmapData:
     """Build heatmap from run_scores[run_id][metric_id] = score.
 
@@ -183,7 +183,7 @@ def build_run_metric_heatmap(
     min_val = min(all_values) if all_values else 0.0
     max_val = max(all_values) if all_values else 1.0
 
-    cells: List[HeatmapCell] = []
+    cells: list[HeatmapCell] = []
     for row in rows:
         for col in cols:
             value = run_scores[row].get(col, 0.0)
@@ -214,12 +214,12 @@ def compute_color_intensity(
     return max(0.0, min(1.0, raw))
 
 
-def find_hotspots(data: HeatmapData, threshold: float = 0.9) -> List[str]:
+def find_hotspots(data: HeatmapData, threshold: float = 0.9) -> list[str]:
     """Rows with all values above threshold."""
     if not data.cells:
         return []
 
-    row_values: Dict[str, List[float]] = {}
+    row_values: dict[str, list[float]] = {}
     for cell in data.cells:
         row_values.setdefault(cell.row, []).append(cell.value)
 
@@ -231,12 +231,12 @@ def find_hotspots(data: HeatmapData, threshold: float = 0.9) -> List[str]:
     return hotspots
 
 
-def find_coldspots(data: HeatmapData, threshold: float = 0.3) -> List[str]:
+def find_coldspots(data: HeatmapData, threshold: float = 0.3) -> list[str]:
     """Rows with any value below threshold."""
     if not data.cells:
         return []
 
-    row_values: Dict[str, List[float]] = {}
+    row_values: dict[str, list[float]] = {}
     for cell in data.cells:
         row_values.setdefault(cell.row, []).append(cell.value)
 
@@ -262,7 +262,7 @@ def render_heatmap_ascii(data: HeatmapData, width: int = 80) -> str:
     chars = " .:;+=xX#@"
 
     # Build lookup
-    lookup: Dict[str, Dict[str, HeatmapCell]] = {}
+    lookup: dict[str, dict[str, HeatmapCell]] = {}
     for cell in data.cells:
         lookup.setdefault(cell.row, {})[cell.col] = cell
 
@@ -274,7 +274,7 @@ def render_heatmap_ascii(data: HeatmapData, width: int = 80) -> str:
     max_cols_width = (width - row_label_width - 2) // max(len(data.cols), 1)
     col_width = max(3, min(col_width, max_cols_width))
 
-    lines: List[str] = []
+    lines: list[str] = []
 
     if data.title:
         lines.append(data.title)
@@ -310,15 +310,14 @@ def render_heatmap_html(data: HeatmapData) -> str:
     if not data.cells:
         return "<p>No heatmap data.</p>"
 
-    lookup: Dict[str, Dict[str, HeatmapCell]] = {}
+    lookup: dict[str, dict[str, HeatmapCell]] = {}
     for cell in data.cells:
         lookup.setdefault(cell.row, {})[cell.col] = cell
 
-    parts: List[str] = []
+    parts: list[str] = []
     parts.append("<table>")
 
     if data.title:
-        col_span = len(data.cols) + 1
         parts.append(
             f"<caption>{_html.escape(data.title)}</caption>"
         )

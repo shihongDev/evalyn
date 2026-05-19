@@ -8,7 +8,7 @@ unavailable.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -20,7 +20,7 @@ class MethodScore:
     available: bool = True
     weight: float = 1.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "method": self.method,
             "score": round(self.score, 6),
@@ -34,11 +34,11 @@ class HybridScore:
     """Combined confidence score from multiple methods."""
 
     combined_score: float = 0.0
-    method_scores: List[MethodScore] = field(default_factory=list)
+    method_scores: list[MethodScore] = field(default_factory=list)
     methods_used: int = 0
-    methods_unavailable: List[str] = field(default_factory=list)
+    methods_unavailable: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "combined_score": round(self.combined_score, 6),
             "methods_used": self.methods_used,
@@ -47,7 +47,7 @@ class HybridScore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "HybridScore":
+    def from_dict(cls, data: dict[str, Any]) -> HybridScore:
         method_scores = [
             MethodScore(
                 method=m["method"],
@@ -75,7 +75,7 @@ class HybridScore:
 
 
 # Default weights calibrated for common providers
-DEFAULT_WEIGHTS: Dict[str, float] = {
+DEFAULT_WEIGHTS: dict[str, float] = {
     "logprobs": 0.35,
     "consistency": 0.30,
     "verbalized": 0.20,
@@ -84,8 +84,8 @@ DEFAULT_WEIGHTS: Dict[str, float] = {
 
 
 def compute_hybrid_score(
-    scores: Dict[str, Optional[float]],
-    weights: Optional[Dict[str, float]] = None,
+    scores: dict[str, float | None],
+    weights: dict[str, float] | None = None,
 ) -> HybridScore:
     """Combine confidence scores from multiple methods.
 
@@ -135,9 +135,9 @@ def compute_hybrid_score(
 
 
 def compute_with_bayesian_update(
-    scores: Dict[str, Optional[float]],
+    scores: dict[str, float | None],
     prior: float = 0.5,
-    method_reliability: Optional[Dict[str, float]] = None,
+    method_reliability: dict[str, float] | None = None,
 ) -> HybridScore:
     """Combine confidence using Bayesian updating.
 

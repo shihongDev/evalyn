@@ -7,11 +7,9 @@ proportionally with per-locale minimum guarantees.
 
 from __future__ import annotations
 
-import math
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -25,10 +23,10 @@ class LocaleConfig:
     min_per_locale: int = 1
     proportional: bool = True
     locale_field: str = ""  # if set, read locale from metadata; else auto-detect
-    seed: Optional[int] = None
+    seed: int | None = None
     sample_size: int = 100
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "min_per_locale": self.min_per_locale,
             "proportional": self.proportional,
@@ -38,7 +36,7 @@ class LocaleConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> LocaleConfig:
+    def from_dict(cls, data: dict[str, Any]) -> LocaleConfig:
         return cls(
             min_per_locale=data.get("min_per_locale", 1),
             proportional=data.get("proportional", True),
@@ -57,7 +55,7 @@ class LocaleStats:
     sampled_count: int
     target_rate: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "locale": self.locale,
             "total_count": self.total_count,
@@ -66,7 +64,7 @@ class LocaleStats:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> LocaleStats:
+    def from_dict(cls, data: dict[str, Any]) -> LocaleStats:
         return cls(
             locale=data["locale"],
             total_count=data["total_count"],
@@ -79,12 +77,12 @@ class LocaleStats:
 class LocaleResult:
     """Result of locale-aware sampling."""
 
-    selected_ids: List[str] = field(default_factory=list)
-    locale_stats: List[LocaleStats] = field(default_factory=list)
+    selected_ids: list[str] = field(default_factory=list)
+    locale_stats: list[LocaleStats] = field(default_factory=list)
     total_pool: int = 0
     locales_represented: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected_ids": list(self.selected_ids),
             "locale_stats": [s.as_dict() for s in self.locale_stats],
@@ -93,7 +91,7 @@ class LocaleResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> LocaleResult:
+    def from_dict(cls, data: dict[str, Any]) -> LocaleResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
             locale_stats=[LocaleStats.from_dict(s) for s in data.get("locale_stats", [])],
@@ -122,7 +120,7 @@ def detect_locale(text: str) -> str:
     Returns:
         Two-letter locale code.
     """
-    counts: Dict[str, int] = {
+    counts: dict[str, int] = {
         "ko": 0,
         "ja": 0,
         "zh": 0,
@@ -171,7 +169,7 @@ def detect_locale(text: str) -> str:
 
     # Latin-script language detection via common word markers
     lower = text.lower()
-    _LANG_MARKERS: Dict[str, List[str]] = {
+    _LANG_MARKERS: dict[str, list[str]] = {
         "fr": ["le ", "la ", "les ", "des ", "est ", "une ", "dans ", "pour ", "avec ", "que "],
         "es": [" el ", " la ", " los ", " las ", " es ", " una ", " del ", " por ", " con ", " que "],
         "de": [" der ", " die ", " das ", " und ", " ist ", " ein ", " mit ", " den ", " von "],
@@ -179,7 +177,7 @@ def detect_locale(text: str) -> str:
         "it": [" il ", " la ", " che ", " per ", " con ", " una ", " del ", " sono "],
         "nl": [" de ", " het ", " een ", " van ", " en ", " is ", " dat ", " niet "],
     }
-    marker_hits: Dict[str, int] = {}
+    marker_hits: dict[str, int] = {}
     for lang, markers in _LANG_MARKERS.items():
         marker_hits[lang] = sum(1 for m in markers if m in lower)
 
@@ -195,9 +193,9 @@ def detect_locale(text: str) -> str:
 
 
 def group_by_locale(
-    items: Dict[str, str],
+    items: dict[str, str],
     locale_field: str = "",
-) -> Dict[str, List[str]]:
+) -> dict[str, list[str]]:
     """Group item IDs by detected or specified locale.
 
     Args:
@@ -209,7 +207,7 @@ def group_by_locale(
     Returns:
         Mapping of locale code to list of item IDs.
     """
-    groups: Dict[str, List[str]] = {}
+    groups: dict[str, list[str]] = {}
     for item_id, text in items.items():
         if locale_field:
             locale = text  # value is already the locale
@@ -227,9 +225,9 @@ def group_by_locale(
 
 
 def sample_by_locale(
-    groups: Dict[str, List[str]],
+    groups: dict[str, list[str]],
     config: LocaleConfig,
-) -> List[str]:
+) -> list[str]:
     """Sample items proportionally by locale with minimum guarantees.
 
     Algorithm:
@@ -254,7 +252,7 @@ def sample_by_locale(
     budget = min(config.sample_size, total_pool)
 
     # Phase 1: guarantee minimums
-    allocations: Dict[str, int] = {}
+    allocations: dict[str, int] = {}
     used = 0
     for locale, ids in groups.items():
         alloc = min(config.min_per_locale, len(ids))
@@ -274,7 +272,7 @@ def sample_by_locale(
             current_total = sum(allocations.values())
             leftover = budget - current_total
             # Sort locales by fractional share descending for fair rounding
-            fractional: List[tuple[str, float]] = []
+            fractional: list[tuple[str, float]] = []
             for locale, ids in groups.items():
                 share = (len(ids) / total_pool) * remaining
                 frac = share - int(share)
@@ -298,7 +296,7 @@ def sample_by_locale(
                 allocations[locale] += min(extra, headroom)
 
     # Phase 3: sample within each locale
-    selected: List[str] = []
+    selected: list[str] = []
     for locale in sorted(groups.keys()):
         ids = list(groups[locale])
         n = min(allocations.get(locale, 0), len(ids))
@@ -315,7 +313,7 @@ def sample_by_locale(
 
 
 def run_locale_sampling(
-    items: Dict[str, str],
+    items: dict[str, str],
     config: LocaleConfig,
 ) -> LocaleResult:
     """Run locale-aware sampling end to end.
@@ -336,7 +334,7 @@ def run_locale_sampling(
     selected_set = set(selected)
 
     total_pool = len(items)
-    stats: List[LocaleStats] = []
+    stats: list[LocaleStats] = []
     for locale in sorted(groups.keys()):
         ids = groups[locale]
         sampled = sum(1 for i in ids if i in selected_set)
@@ -367,7 +365,7 @@ def format_locale_report(result: LocaleResult) -> str:
     Returns:
         Multi-line string with summary and per-locale table.
     """
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"Total pool: {result.total_pool}")
     lines.append(f"Selected: {len(result.selected_ids)}")
     lines.append(f"Locales represented: {result.locales_represented}")

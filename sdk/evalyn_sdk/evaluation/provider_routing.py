@@ -7,7 +7,7 @@ configurable rules with pattern matching and priority ordering.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -19,7 +19,7 @@ class RoutingRule:
     model: str = ""
     priority: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_pattern": self.metric_pattern,
             "provider": self.provider,
@@ -28,7 +28,7 @@ class RoutingRule:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RoutingRule:
+    def from_dict(cls, data: dict[str, Any]) -> RoutingRule:
         return cls(
             metric_pattern=data["metric_pattern"],
             provider=data["provider"],
@@ -46,7 +46,7 @@ class RoutingDecision:
     model: str
     rule_name: str = "default"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "provider": self.provider,
@@ -59,11 +59,11 @@ class RoutingDecision:
 class RoutingConfig:
     """Configuration for metric routing."""
 
-    rules: List[RoutingRule] = field(default_factory=list)
+    rules: list[RoutingRule] = field(default_factory=list)
     default_provider: str = "gemini"
     default_model: str = "gemini-2.5-flash"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "rules": [r.as_dict() for r in self.rules],
             "default_provider": self.default_provider,
@@ -71,7 +71,7 @@ class RoutingConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RoutingConfig:
+    def from_dict(cls, data: dict[str, Any]) -> RoutingConfig:
         rules = [RoutingRule.from_dict(r) for r in data.get("rules", [])]
         return cls(
             rules=rules,
@@ -84,11 +84,11 @@ class RoutingConfig:
 class RoutingReport:
     """Summary of routing decisions across all metrics."""
 
-    decisions: List[RoutingDecision] = field(default_factory=list)
-    providers_used: List[str] = field(default_factory=list)
+    decisions: list[RoutingDecision] = field(default_factory=list)
+    providers_used: list[str] = field(default_factory=list)
     estimated_cost_savings_pct: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "decisions": [d.as_dict() for d in self.decisions],
             "providers_used": list(self.providers_used),
@@ -96,7 +96,7 @@ class RoutingReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RoutingReport:
+    def from_dict(cls, data: dict[str, Any]) -> RoutingReport:
         decisions = [
             RoutingDecision(
                 metric_id=d["metric_id"],
@@ -113,7 +113,7 @@ class RoutingReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Routing Report")
         lines.append("-" * 40)
         for d in self.decisions:
@@ -130,16 +130,16 @@ class RoutingReport:
 
 
 def match_metric_to_rule(
-    metric_id: str, rules: List[RoutingRule]
-) -> Optional[RoutingRule]:
+    metric_id: str, rules: list[RoutingRule]
+) -> RoutingRule | None:
     """Find the best matching rule for a metric.
 
     Matching order: exact match first, then substring match.
     If multiple rules match at the same level, highest priority wins.
     Returns None if no rule matches.
     """
-    exact_matches: List[RoutingRule] = []
-    substring_matches: List[RoutingRule] = []
+    exact_matches: list[RoutingRule] = []
+    substring_matches: list[RoutingRule] = []
 
     for rule in rules:
         if rule.metric_pattern == metric_id:
@@ -173,10 +173,10 @@ def route_metric(metric_id: str, config: RoutingConfig) -> RoutingDecision:
 
 
 def route_all_metrics(
-    metric_ids: List[str], config: RoutingConfig
+    metric_ids: list[str], config: RoutingConfig
 ) -> RoutingReport:
     """Route all metrics and produce a summary report."""
-    decisions: List[RoutingDecision] = []
+    decisions: list[RoutingDecision] = []
     provider_set: set[str] = set()
 
     for mid in metric_ids:

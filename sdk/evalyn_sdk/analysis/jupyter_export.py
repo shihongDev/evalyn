@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -16,9 +16,9 @@ class NotebookCell:
 
     cell_type: str = "code"
     source: str = ""
-    outputs: List[Any] = field(default_factory=list)
+    outputs: list[Any] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "cell_type": self.cell_type,
             "source": self.source,
@@ -35,7 +35,7 @@ class NotebookConfig:
     include_summary: bool = True
     include_raw_data: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "title": self.title,
             "include_charts": self.include_charts,
@@ -44,7 +44,7 @@ class NotebookConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> NotebookConfig:
+    def from_dict(cls, data: dict[str, Any]) -> NotebookConfig:
         return cls(
             title=data.get("title", "Evalyn Analysis"),
             include_charts=data.get("include_charts", True),
@@ -57,16 +57,16 @@ class NotebookConfig:
 class ExportedNotebook:
     """A complete Jupyter notebook ready for export."""
 
-    cells: List[NotebookCell] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    cells: list[NotebookCell] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "cells": [c.as_dict() for c in self.cells],
             "metadata": dict(self.metadata),
         }
 
-    def to_ipynb_dict(self) -> Dict[str, Any]:
+    def to_ipynb_dict(self) -> dict[str, Any]:
         """Full ipynb format with nbformat metadata."""
         ipynb_cells = []
         for c in self.cells:
@@ -121,12 +121,12 @@ def create_code_cell(source: str) -> NotebookCell:
 # ---------------------------------------------------------------------------
 
 
-def build_summary_cells(data: Dict[str, Any]) -> List[NotebookCell]:
+def build_summary_cells(data: dict[str, Any]) -> list[NotebookCell]:
     """Generate markdown and code cells for run summary.
 
     data keys: run_id, pass_rate, total_items, metrics.
     """
-    cells: List[NotebookCell] = []
+    cells: list[NotebookCell] = []
 
     run_id = data.get("run_id", "unknown")
     pass_rate = data.get("pass_rate", 0.0)
@@ -155,12 +155,12 @@ def build_summary_cells(data: Dict[str, Any]) -> List[NotebookCell]:
     return cells
 
 
-def build_chart_cells(metric_scores: Dict[str, List[float]]) -> List[NotebookCell]:
+def build_chart_cells(metric_scores: dict[str, list[float]]) -> list[NotebookCell]:
     """Generate code cells for matplotlib-style charts.
 
     Produces code strings - does not execute charts.
     """
-    cells: List[NotebookCell] = []
+    cells: list[NotebookCell] = []
 
     if not metric_scores:
         return cells
@@ -195,12 +195,12 @@ def build_chart_cells(metric_scores: Dict[str, List[float]]) -> List[NotebookCel
 
 
 def build_notebook(
-    data: Dict[str, Any],
-    config: Optional[NotebookConfig] = None,
+    data: dict[str, Any],
+    config: NotebookConfig | None = None,
 ) -> ExportedNotebook:
     """Build a full notebook from analysis data."""
     cfg = config or NotebookConfig()
-    cells: List[NotebookCell] = []
+    cells: list[NotebookCell] = []
 
     cells.append(create_markdown_cell(f"# {cfg.title}"))
 

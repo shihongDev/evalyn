@@ -8,10 +8,8 @@ Pure Python, no external dependencies, no LLM calls.
 from __future__ import annotations
 
 import random
-import string
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -25,9 +23,9 @@ class BehaviorSpec:
     behavior_id: str
     description: str
     expected_outcome: str
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "behavior_id": self.behavior_id,
             "description": self.description,
@@ -36,7 +34,7 @@ class BehaviorSpec:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BehaviorSpec:
+    def from_dict(cls, data: dict[str, Any]) -> BehaviorSpec:
         return cls(
             behavior_id=data["behavior_id"],
             description=data["description"],
@@ -56,7 +54,7 @@ class GeneratedTestCase:
     variant: str = ""
     difficulty: str = "medium"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "test_id": self.test_id,
             "input_text": self.input_text,
@@ -67,7 +65,7 @@ class GeneratedTestCase:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> GeneratedTestCase:
+    def from_dict(cls, data: dict[str, Any]) -> GeneratedTestCase:
         return cls(
             test_id=data["test_id"],
             input_text=data["input_text"],
@@ -87,9 +85,9 @@ class TestGenConfig:
     variants_per_behavior: int = 5
     include_edge_cases: bool = True
     include_negatives: bool = True
-    seed: Optional[int] = None
+    seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "variants_per_behavior": self.variants_per_behavior,
             "include_edge_cases": self.include_edge_cases,
@@ -98,7 +96,7 @@ class TestGenConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TestGenConfig:
+    def from_dict(cls, data: dict[str, Any]) -> TestGenConfig:
         return cls(
             variants_per_behavior=data.get("variants_per_behavior", 5),
             include_edge_cases=data.get("include_edge_cases", True),
@@ -113,12 +111,12 @@ class TestGenReport:
 
     __test__ = False  # not a pytest test class
 
-    test_cases: List[GeneratedTestCase] = field(default_factory=list)
+    test_cases: list[GeneratedTestCase] = field(default_factory=list)
     total_behaviors: int = 0
     total_tests: int = 0
-    coverage: Dict[str, int] = field(default_factory=dict)
+    coverage: dict[str, int] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "test_cases": [tc.as_dict() for tc in self.test_cases],
             "total_behaviors": self.total_behaviors,
@@ -127,7 +125,7 @@ class TestGenReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TestGenReport:
+    def from_dict(cls, data: dict[str, Any]) -> TestGenReport:
         return cls(
             test_cases=[
                 GeneratedTestCase.from_dict(tc) for tc in data.get("test_cases", [])
@@ -169,7 +167,7 @@ _SPECIAL_CHARS = "!@#$%^&*()[]{}|;:',.<>?/~`"
 # ---------------------------------------------------------------------------
 
 
-def _make_rng(rng: Optional[random.Random]) -> random.Random:
+def _make_rng(rng: random.Random | None) -> random.Random:
     """Return the given RNG or create a new unseeded one."""
     return rng if rng is not None else random.Random()
 
@@ -181,14 +179,14 @@ def _make_test_id(behavior_id: str, variant: str, index: int) -> str:
 def generate_positive_variants(
     spec: BehaviorSpec,
     n: int = 3,
-    rng: Optional[random.Random] = None,
-) -> List[GeneratedTestCase]:
+    rng: random.Random | None = None,
+) -> list[GeneratedTestCase]:
     """Generate positive test inputs by rephrasing the behavior description."""
     rng = _make_rng(rng)
     templates = list(_POSITIVE_TEMPLATES)
     rng.shuffle(templates)
     selected = templates[:n]
-    cases: List[GeneratedTestCase] = []
+    cases: list[GeneratedTestCase] = []
     for i, tmpl in enumerate(selected):
         input_text = tmpl.format(desc=spec.description)
         cases.append(
@@ -207,14 +205,14 @@ def generate_positive_variants(
 def generate_negative_variants(
     spec: BehaviorSpec,
     n: int = 2,
-    rng: Optional[random.Random] = None,
-) -> List[GeneratedTestCase]:
+    rng: random.Random | None = None,
+) -> list[GeneratedTestCase]:
     """Generate inputs that should NOT trigger the behavior."""
     rng = _make_rng(rng)
     templates = list(_NEGATIVE_TEMPLATES)
     rng.shuffle(templates)
     selected = templates[:n]
-    cases: List[GeneratedTestCase] = []
+    cases: list[GeneratedTestCase] = []
     for i, tmpl in enumerate(selected):
         input_text = tmpl.format(desc=spec.description)
         cases.append(
@@ -232,11 +230,11 @@ def generate_negative_variants(
 
 def generate_edge_cases(
     spec: BehaviorSpec,
-    rng: Optional[random.Random] = None,
-) -> List[GeneratedTestCase]:
+    rng: random.Random | None = None,
+) -> list[GeneratedTestCase]:
     """Generate edge case inputs: empty, very long, and special characters."""
     rng = _make_rng(rng)
-    cases: List[GeneratedTestCase] = []
+    cases: list[GeneratedTestCase] = []
 
     # Empty input
     cases.append(
@@ -282,8 +280,8 @@ def generate_edge_cases(
 
 
 def generate_test_suite(
-    behaviors: List[BehaviorSpec],
-    config: Optional[TestGenConfig] = None,
+    behaviors: list[BehaviorSpec],
+    config: TestGenConfig | None = None,
 ) -> TestGenReport:
     """Generate a full test suite from a list of behavior specs."""
     if config is None:
@@ -291,11 +289,11 @@ def generate_test_suite(
 
     rng = random.Random(config.seed) if config.seed is not None else random.Random()
 
-    all_cases: List[GeneratedTestCase] = []
-    coverage: Dict[str, int] = {}
+    all_cases: list[GeneratedTestCase] = []
+    coverage: dict[str, int] = {}
 
     for spec in behaviors:
-        behavior_cases: List[GeneratedTestCase] = []
+        behavior_cases: list[GeneratedTestCase] = []
 
         # Positive variants
         pos_count = config.variants_per_behavior
@@ -325,7 +323,7 @@ def generate_test_suite(
 
 def format_test_report(report: TestGenReport) -> str:
     """Format a test generation report as human-readable text."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Test Generation Report")
     lines.append("=" * 40)
     lines.append(f"Total behaviors: {report.total_behaviors}")

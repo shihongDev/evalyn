@@ -9,8 +9,7 @@ from __future__ import annotations
 import random
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # Common stop words to exclude from keyword extraction
 _STOP_WORDS = frozenset({
@@ -36,9 +35,9 @@ class ClusterInfo:
     cluster_id: int = 0
     size: int = 0
     centroid_item_id: str = ""
-    keywords: List[str] = field(default_factory=list)
+    keywords: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "cluster_id": self.cluster_id,
             "size": self.size,
@@ -54,9 +53,9 @@ class SubsetConfig:
     num_clusters: int = 5
     method: str = "keyword"  # "keyword", "length", or "random"
     items_per_cluster: int = 0  # 0 means all
-    seed: Optional[int] = None
+    seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "num_clusters": self.num_clusters,
             "method": self.method,
@@ -65,7 +64,7 @@ class SubsetConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SubsetConfig:
+    def from_dict(cls, data: dict[str, Any]) -> SubsetConfig:
         return cls(
             num_clusters=data.get("num_clusters", 5),
             method=data.get("method", "keyword"),
@@ -78,11 +77,11 @@ class SubsetConfig:
 class SubsetResult:
     """Result of subset extraction with cluster assignments."""
 
-    subsets: Dict[int, List[Dict[str, Any]]] = field(default_factory=dict)
-    clusters: List[ClusterInfo] = field(default_factory=list)
+    subsets: dict[int, list[dict[str, Any]]] = field(default_factory=dict)
+    clusters: list[ClusterInfo] = field(default_factory=list)
     total_items: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "subsets": {
                 str(k): v for k, v in self.subsets.items()
@@ -92,7 +91,7 @@ class SubsetResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SubsetResult:
+    def from_dict(cls, data: dict[str, Any]) -> SubsetResult:
         subsets = {}
         for k, v in data.get("subsets", {}).items():
             subsets[int(k)] = v
@@ -122,7 +121,7 @@ class SubsetResult:
         return "\n".join(lines)
 
 
-def _tokenize(text: str) -> List[str]:
+def _tokenize(text: str) -> list[str]:
     """Split text into lowercase tokens, filtering stop words and short tokens."""
     words = text.lower().split()
     # Strip punctuation from edges
@@ -135,8 +134,8 @@ def _tokenize(text: str) -> List[str]:
 
 
 def compute_cluster_keywords(
-    items: List[Dict[str, Any]], input_field: str = "input", top_n: int = 5
-) -> List[str]:
+    items: list[dict[str, Any]], input_field: str = "input", top_n: int = 5
+) -> list[str]:
     """Extract the top keywords from a list of items."""
     counter: Counter = Counter()
     for item in items:
@@ -147,7 +146,7 @@ def compute_cluster_keywords(
 
 
 def cluster_by_keywords(
-    items: List[Dict[str, Any]], num_clusters: int = 5, input_field: str = "input"
+    items: list[dict[str, Any]], num_clusters: int = 5, input_field: str = "input"
 ) -> SubsetResult:
     """Cluster items by shared keywords.
 
@@ -174,7 +173,7 @@ def cluster_by_keywords(
         top_keywords.append(f"cluster_{len(top_keywords)}")
 
     # Assign each item to the cluster whose keyword appears most in its text
-    subsets: Dict[int, List[Dict[str, Any]]] = {i: [] for i in range(num_clusters)}
+    subsets: dict[int, list[dict[str, Any]]] = {i: [] for i in range(num_clusters)}
 
     for item in items:
         text = str(item.get(input_field, "")).lower()
@@ -207,7 +206,7 @@ def cluster_by_keywords(
 
 
 def cluster_by_length(
-    items: List[Dict[str, Any]], num_clusters: int = 5, input_field: str = "input"
+    items: list[dict[str, Any]], num_clusters: int = 5, input_field: str = "input"
 ) -> SubsetResult:
     """Cluster items by input text length into equal-width buckets."""
     if not items:
@@ -222,7 +221,7 @@ def cluster_by_length(
     # Avoid division by zero when all items have same length
     bucket_width = (max_len - min_len + 1) / num_clusters if max_len > min_len else 1
 
-    subsets: Dict[int, List[Dict[str, Any]]] = {i: [] for i in range(num_clusters)}
+    subsets: dict[int, list[dict[str, Any]]] = {i: [] for i in range(num_clusters)}
 
     for item, length in zip(items, lengths):
         if max_len == min_len:
@@ -253,7 +252,7 @@ def cluster_by_length(
 
 
 def extract_subset(
-    items: List[Dict[str, Any]], config: SubsetConfig
+    items: list[dict[str, Any]], config: SubsetConfig
 ) -> SubsetResult:
     """Route to the appropriate clustering method based on config."""
     if config.seed is not None:
@@ -271,7 +270,7 @@ def extract_subset(
     if config.items_per_cluster > 0:
         sampled_items = sample_from_clusters(result, config.items_per_cluster, seed=config.seed)
         # Rebuild subsets with sampled items
-        new_subsets: Dict[int, List[Dict[str, Any]]] = {}
+        new_subsets: dict[int, list[dict[str, Any]]] = {}
         for ci, cluster_items in result.subsets.items():
             sampled_ids = {str(s.get("id", "")) for s in sampled_items}
             new_subsets[ci] = [item for item in cluster_items if str(item.get("id", "")) in sampled_ids]
@@ -283,7 +282,7 @@ def extract_subset(
 
 
 def _cluster_random(
-    items: List[Dict[str, Any]], num_clusters: int = 5, seed: Optional[int] = None
+    items: list[dict[str, Any]], num_clusters: int = 5, seed: int | None = None
 ) -> SubsetResult:
     """Assign items to clusters randomly."""
     if not items:
@@ -292,7 +291,7 @@ def _cluster_random(
     num_clusters = min(num_clusters, len(items))
     rng = random.Random(seed)
 
-    subsets: Dict[int, List[Dict[str, Any]]] = {i: [] for i in range(num_clusters)}
+    subsets: dict[int, list[dict[str, Any]]] = {i: [] for i in range(num_clusters)}
     for item in items:
         ci = rng.randint(0, num_clusters - 1)
         subsets[ci].append(item)
@@ -316,11 +315,11 @@ def _cluster_random(
 
 
 def sample_from_clusters(
-    result: SubsetResult, items_per_cluster: int = 3, seed: Optional[int] = None
-) -> List[Dict[str, Any]]:
+    result: SubsetResult, items_per_cluster: int = 3, seed: int | None = None
+) -> list[dict[str, Any]]:
     """Sample items from each cluster for a representative subset."""
     rng = random.Random(seed)
-    sampled: List[Dict[str, Any]] = []
+    sampled: list[dict[str, Any]] = []
 
     for ci in sorted(result.subsets.keys()):
         cluster_items = result.subsets[ci]

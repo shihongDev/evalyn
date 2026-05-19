@@ -8,9 +8,8 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -21,7 +20,7 @@ class LanguageDetection:
     confidence: float   # 0.0-1.0
     script: str         # Primary script (e.g., "Latin", "CJK", "Cyrillic")
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "language": self.language,
             "confidence": round(self.confidence, 4),
@@ -33,11 +32,11 @@ class LanguageDetection:
 class DatasetLanguageReport:
     """Language distribution across a dataset."""
 
-    language_counts: Dict[str, int] = field(default_factory=dict)
+    language_counts: dict[str, int] = field(default_factory=dict)
     total_items: int = 0
 
     @property
-    def primary_language(self) -> Optional[str]:
+    def primary_language(self) -> str | None:
         if not self.language_counts:
             return None
         return max(self.language_counts, key=self.language_counts.get)
@@ -46,7 +45,7 @@ class DatasetLanguageReport:
     def is_multilingual(self) -> bool:
         return len(self.language_counts) > 1
 
-    def distribution(self) -> Dict[str, float]:
+    def distribution(self) -> dict[str, float]:
         if self.total_items == 0:
             return {}
         return {
@@ -54,7 +53,7 @@ class DatasetLanguageReport:
             for lang, count in sorted(self.language_counts.items(), key=lambda x: -x[1])
         }
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "primary_language": self.primary_language,
             "is_multilingual": self.is_multilingual,
@@ -128,7 +127,7 @@ def detect_language(text: str) -> LanguageDetection:
     return LanguageDetection(language="unknown", confidence=0.3, script=primary_script)
 
 
-def analyze_dataset_languages(items: List) -> DatasetLanguageReport:
+def analyze_dataset_languages(items: list) -> DatasetLanguageReport:
     """Analyze language distribution across dataset items.
 
     Args:
@@ -137,7 +136,7 @@ def analyze_dataset_languages(items: List) -> DatasetLanguageReport:
     Returns:
         DatasetLanguageReport with per-language counts and distribution.
     """
-    counts: Dict[str, int] = {}
+    counts: dict[str, int] = {}
     for item in items:
         text = _item_to_text(item)
         detection = detect_language(text)
@@ -154,9 +153,9 @@ def analyze_dataset_languages(items: List) -> DatasetLanguageReport:
 # Internal helpers
 # =============================================================================
 
-def _count_scripts(text: str) -> Dict[str, int]:
+def _count_scripts(text: str) -> dict[str, int]:
     """Count characters by Unicode script category."""
-    scripts: Dict[str, int] = {}
+    scripts: dict[str, int] = {}
     for char in text:
         if not char.isalpha():
             continue

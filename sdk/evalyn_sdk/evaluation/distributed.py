@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import time
 import uuid
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -21,10 +21,10 @@ class TaskMessage:
     task_id: str
     item_id: str
     metric_id: str
-    payload: Dict[str, Any] = field(default_factory=dict)
+    payload: dict[str, Any] = field(default_factory=dict)
     priority: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "task_id": self.task_id,
             "item_id": self.item_id,
@@ -34,7 +34,7 @@ class TaskMessage:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TaskMessage:
+    def from_dict(cls, data: dict[str, Any]) -> TaskMessage:
         return cls(
             task_id=data.get("task_id", ""),
             item_id=data.get("item_id", ""),
@@ -53,7 +53,7 @@ class WorkerStatus:
     tasks_completed: int = 0
     current_task: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "worker_id": self.worker_id,
             "status": self.status,
@@ -71,7 +71,7 @@ class DistributedConfig:
     retry_failed: bool = True
     timeout_seconds: float = 60.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "num_workers": self.num_workers,
             "queue_type": self.queue_type,
@@ -80,7 +80,7 @@ class DistributedConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DistributedConfig:
+    def from_dict(cls, data: dict[str, Any]) -> DistributedConfig:
         return cls(
             num_workers=data.get("num_workers", 4),
             queue_type=data.get("queue_type", "memory"),
@@ -99,7 +99,7 @@ class DistributedReport:
     avg_task_duration_ms: float = 0.0
     workers_used: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_tasks": self.total_tasks,
             "completed": self.completed,
@@ -109,7 +109,7 @@ class DistributedReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DistributedReport:
+    def from_dict(cls, data: dict[str, Any]) -> DistributedReport:
         return cls(
             total_tasks=data.get("total_tasks", 0),
             completed=data.get("completed", 0),
@@ -119,7 +119,7 @@ class DistributedReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Distributed Evaluation Report")
         lines.append("-" * 40)
         lines.append(f"  Total tasks: {self.total_tasks}")
@@ -139,12 +139,12 @@ class TaskQueue:
     """In-memory task queue for local simulation."""
 
     def __init__(self) -> None:
-        self._tasks: List[TaskMessage] = []
+        self._tasks: list[TaskMessage] = []
 
     def enqueue(self, task: TaskMessage) -> None:
         self._tasks.append(task)
 
-    def dequeue(self) -> Optional[TaskMessage]:
+    def dequeue(self) -> TaskMessage | None:
         if not self._tasks:
             return None
         return self._tasks.pop(0)
@@ -155,7 +155,7 @@ class TaskQueue:
     def is_empty(self) -> bool:
         return len(self._tasks) == 0
 
-    def peek(self) -> Optional[TaskMessage]:
+    def peek(self) -> TaskMessage | None:
         if not self._tasks:
             return None
         return self._tasks[0]
@@ -167,10 +167,10 @@ class TaskQueue:
 
 
 def create_task_messages(
-    items: List[str], metrics: List[str]
-) -> List[TaskMessage]:
+    items: list[str], metrics: list[str]
+) -> list[TaskMessage]:
     """Create one task per item-metric pair."""
-    tasks: List[TaskMessage] = []
+    tasks: list[TaskMessage] = []
     for item_id in items:
         for metric_id in metrics:
             tasks.append(
@@ -184,19 +184,19 @@ def create_task_messages(
 
 
 def partition_tasks(
-    tasks: List[TaskMessage], num_workers: int
-) -> List[List[TaskMessage]]:
+    tasks: list[TaskMessage], num_workers: int
+) -> list[list[TaskMessage]]:
     """Split tasks into worker partitions using round-robin."""
     if num_workers <= 0:
         return []
-    partitions: List[List[TaskMessage]] = [[] for _ in range(num_workers)]
+    partitions: list[list[TaskMessage]] = [[] for _ in range(num_workers)]
     for i, task in enumerate(tasks):
         partitions[i % num_workers].append(task)
     return partitions
 
 
 def simulate_distributed_run(
-    tasks: List[TaskMessage],
+    tasks: list[TaskMessage],
     num_workers: int,
     task_fn: Callable[[TaskMessage], Any],
 ) -> DistributedReport:
@@ -207,7 +207,7 @@ def simulate_distributed_run(
     effective_workers = min(num_workers, len(tasks))
     completed = 0
     failed = 0
-    durations: List[float] = []
+    durations: list[float] = []
 
     def _run_task(task: TaskMessage) -> bool:
         start = time.monotonic()

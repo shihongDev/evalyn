@@ -8,8 +8,7 @@ from __future__ import annotations
 import math
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -25,7 +24,7 @@ class DriftMetric:
     threshold: float = 0.1
     drifted: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "value": self.value,
@@ -38,12 +37,12 @@ class DriftMetric:
 class DriftReport:
     """Aggregated drift report across all checked dimensions."""
 
-    metrics: List[DriftMetric] = field(default_factory=list)
+    metrics: list[DriftMetric] = field(default_factory=list)
     overall_drifted: bool = False
     drift_score: float = 0.0
     summary: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metrics": [m.as_dict() for m in self.metrics],
             "overall_drifted": self.overall_drifted,
@@ -52,7 +51,7 @@ class DriftReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DriftReport:
+    def from_dict(cls, data: dict[str, Any]) -> DriftReport:
         metrics = [DriftMetric(**m) for m in data.get("metrics", [])]
         return cls(
             metrics=metrics,
@@ -62,7 +61,7 @@ class DriftReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Drift Report")
         lines.append("-" * 40)
         for m in self.metrics:
@@ -80,14 +79,14 @@ class DriftReport:
 # ---------------------------------------------------------------------------
 
 
-def compute_length_distribution(texts: List[str]) -> Dict[str, float]:
+def compute_length_distribution(texts: list[str]) -> dict[str, float]:
     """Compute mean, std, min, max of text lengths."""
     if not texts:
         return {"mean": 0.0, "std": 0.0, "min": 0.0, "max": 0.0}
     lengths = [len(t) for t in texts]
     n = len(lengths)
     mean = sum(lengths) / n
-    variance = sum((l - mean) ** 2 for l in lengths) / n
+    variance = sum((length - mean) ** 2 for length in lengths) / n
     std = math.sqrt(variance)
     return {
         "mean": mean,
@@ -97,7 +96,7 @@ def compute_length_distribution(texts: List[str]) -> Dict[str, float]:
     }
 
 
-def compute_vocabulary_overlap(texts_a: List[str], texts_b: List[str]) -> float:
+def compute_vocabulary_overlap(texts_a: list[str], texts_b: list[str]) -> float:
     """Jaccard similarity of unique word sets."""
     words_a: set[str] = set()
     for t in texts_a:
@@ -115,8 +114,8 @@ def compute_vocabulary_overlap(texts_a: List[str], texts_b: List[str]) -> float:
 
 
 def detect_length_drift(
-    texts_a: List[str],
-    texts_b: List[str],
+    texts_a: list[str],
+    texts_b: list[str],
     threshold: float = 0.2,
 ) -> DriftMetric:
     """Compare mean lengths. Drift = abs(mean_a - mean_b) / max(mean_a, mean_b, 1)."""
@@ -135,8 +134,8 @@ def detect_length_drift(
 
 
 def detect_vocabulary_drift(
-    texts_a: List[str],
-    texts_b: List[str],
+    texts_a: list[str],
+    texts_b: list[str],
     threshold: float = 0.3,
 ) -> DriftMetric:
     """Vocabulary overlap below threshold = drift."""
@@ -152,8 +151,8 @@ def detect_vocabulary_drift(
 
 
 def detect_category_drift(
-    categories_a: List[str],
-    categories_b: List[str],
+    categories_a: list[str],
+    categories_b: list[str],
     threshold: float = 0.15,
 ) -> DriftMetric:
     """Compare category distributions. Sum of abs(pct_a - pct_b) for each category."""
@@ -178,15 +177,15 @@ def detect_category_drift(
 
 
 def detect_drift(
-    items_a: List[Dict[str, Any]],
-    items_b: List[Dict[str, Any]],
+    items_a: list[dict[str, Any]],
+    items_b: list[dict[str, Any]],
     input_field: str = "input",
 ) -> DriftReport:
     """Run all drift checks on two sets of dataset items."""
     texts_a = [str(item.get(input_field, "")) for item in items_a]
     texts_b = [str(item.get(input_field, "")) for item in items_b]
 
-    metrics: List[DriftMetric] = []
+    metrics: list[DriftMetric] = []
 
     # Length drift
     metrics.append(detect_length_drift(texts_a, texts_b))

@@ -1,110 +1,111 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
+from ..models import Metric
 from .objective import (
-    # Efficiency
-    latency_metric,
-    cost_metric,
-    token_length_metric,
-    compression_ratio_metric,
+    OBJECTIVE_REGISTRY,
+    # Character/Format
+    ascii_ratio_metric,
+    avg_sentence_length_metric,
     # Correctness
     bleu_metric,
-    pass_at_k_metric,
-    levenshtein_similarity_metric,
-    cosine_word_overlap_metric,
-    # Structure
-    json_valid_metric,
-    regex_match_metric,
-    csv_valid_metric,
-    xml_valid_metric,
-    json_schema_keys_metric,
-    json_types_match_metric,
-    json_path_present_metric,
-    regex_capture_count_metric,
-    syntax_valid_metric,
+    # Structure detection
+    bullet_count_metric,
+    citation_count_metric,
+    code_block_count_metric,
     code_complexity_metric,
-    # Text overlap
-    rouge_l_metric,
-    rouge_1_metric,
-    rouge_2_metric,
-    token_overlap_f1_metric,
-    jaccard_similarity_metric,
-    # Numeric
-    numeric_mae_metric,
-    numeric_rmse_metric,
-    numeric_rel_error_metric,
-    numeric_within_tolerance_metric,
-    # Output quality
-    output_nonempty_metric,
-    output_length_range_metric,
-    # Readability
-    flesch_kincaid_metric,
-    sentence_count_metric,
-    avg_sentence_length_metric,
+    # Code quality
+    comment_ratio_metric,
+    compression_ratio_metric,
+    confidence_markers_metric,
+    contains_all_metric,
+    contains_none_metric,
+    cosine_word_overlap_metric,
+    cost_metric,
+    csv_valid_metric,
     # Diversity
     distinct_1_metric,
     distinct_2_metric,
-    vocabulary_richness_metric,
-    # Trace-based
-    tool_call_count_metric,
-    llm_call_count_metric,
-    llm_error_rate_metric,
-    tool_success_ratio_metric,
-    tool_error_count_metric,
-    # Grounding
-    url_count_metric,
-    citation_count_metric,
-    markdown_link_count_metric,
-    # Format validation
-    yaml_valid_metric,
-    markdown_structure_metric,
-    html_valid_metric,
-    sql_valid_metric,
-    # Structure detection
-    bullet_count_metric,
-    heading_count_metric,
-    code_block_count_metric,
-    table_count_metric,
-    paragraph_count_metric,
-    word_count_metric,
-    # Repetition
-    repetition_ratio_metric,
     duplicate_line_ratio_metric,
-    # Uncertainty/Confidence
-    hedging_count_metric,
-    question_count_metric,
-    confidence_markers_metric,
-    # Code quality
-    comment_ratio_metric,
-    function_count_metric,
-    import_count_metric,
-    # Character/Format
-    ascii_ratio_metric,
-    uppercase_ratio_metric,
-    numeric_density_metric,
-    whitespace_ratio_metric,
-    # Match variants
-    prefix_match_metric,
-    suffix_match_metric,
-    contains_all_metric,
-    contains_none_metric,
-    # List/Enumeration
-    numbered_list_count_metric,
-    list_item_count_metric,
     # Response quality
     emoji_count_metric,
+    # Readability
+    flesch_kincaid_metric,
+    function_count_metric,
+    heading_count_metric,
+    # Uncertainty/Confidence
+    hedging_count_metric,
+    html_valid_metric,
+    import_count_metric,
+    jaccard_similarity_metric,
+    json_path_present_metric,
+    json_schema_keys_metric,
+    json_types_match_metric,
+    # Structure
+    json_valid_metric,
+    # Efficiency
+    latency_metric,
+    levenshtein_similarity_metric,
     link_density_metric,
+    list_item_count_metric,
+    llm_call_count_metric,
+    llm_error_rate_metric,
+    markdown_link_count_metric,
+    markdown_structure_metric,
+    # List/Enumeration
+    numbered_list_count_metric,
+    numeric_density_metric,
+    # Numeric
+    numeric_mae_metric,
+    numeric_rel_error_metric,
+    numeric_rmse_metric,
+    numeric_within_tolerance_metric,
+    output_length_range_metric,
+    # Output quality
+    output_nonempty_metric,
+    paragraph_count_metric,
+    pass_at_k_metric,
+    # Match variants
+    prefix_match_metric,
     prompt_injection_metric,
+    question_count_metric,
+    regex_capture_count_metric,
+    regex_match_metric,
+    # Repetition
+    repetition_ratio_metric,
+    rouge_1_metric,
+    rouge_2_metric,
+    # Text overlap
+    rouge_l_metric,
+    sentence_count_metric,
+    sql_valid_metric,
+    suffix_match_metric,
+    syntax_valid_metric,
+    table_count_metric,
+    token_length_metric,
+    token_overlap_f1_metric,
     tool_call_accuracy_metric,
+    # Trace-based
+    tool_call_count_metric,
     tool_call_sequence_metric,
+    tool_error_count_metric,
+    tool_success_ratio_metric,
+    uppercase_ratio_metric,
+    # Grounding
+    url_count_metric,
+    vocabulary_richness_metric,
+    whitespace_ratio_metric,
+    word_count_metric,
+    xml_valid_metric,
+    # Format validation
+    yaml_valid_metric,
 )
-from ..models import Metric
-from .objective import OBJECTIVE_REGISTRY
 from .subjective import SUBJECTIVE_REGISTRY
 
 
-def _tpl_by_id(templates: List[dict]) -> Dict[str, dict]:
+def _tpl_by_id(templates: list[dict]) -> dict[str, dict]:
     return {t["id"]: t for t in templates}
 
 
@@ -118,7 +119,7 @@ def _safe_float(value: Any, default: float) -> float:
         return default
 
 
-def _normalize_rubric(rubric: Any) -> List[str]:
+def _normalize_rubric(rubric: Any) -> list[str]:
     """Normalize rubric to a list of strings."""
     if not rubric:
         return []
@@ -133,7 +134,7 @@ _SUBJECTIVE_TPL = _tpl_by_id(SUBJECTIVE_REGISTRY)
 
 def _wrap_with_consistency_confidence(
     base_metric: Metric,
-    judge: "LLMJudge",
+    judge: LLMJudge,
     n_samples: int,
     threshold: float,
 ) -> Metric:
@@ -145,9 +146,9 @@ def _wrap_with_consistency_confidence(
     NOTE: This temporarily sets temperature to 0.7 to get diverse samples.
     With temp=0, all samples would be identical.
     """
+    from ..judges import LLMJudge as JudgeClass
     from ..judges.confidence import SelfConsistencyConfidence
     from ..models import DatasetItem, FunctionCall, MetricResult
-    from ..judges import LLMJudge as JudgeClass
 
     confidence_estimator = SelfConsistencyConfidence(n_samples=n_samples)
 
@@ -225,7 +226,7 @@ def _wrap_with_consistency_confidence(
 
 def _wrap_with_logprobs_confidence(
     base_metric: Metric,
-    judge: "LLMJudge",
+    judge: LLMJudge,
     threshold: float,
 ) -> Metric:
     """Wrap a subjective metric with logprobs-based confidence.
@@ -266,7 +267,7 @@ def _wrap_with_logprobs_confidence(
 
 def _wrap_with_deepconf_confidence(
     base_metric: Metric,
-    judge: "LLMJudge",
+    judge: LLMJudge,
     threshold: float,
     strategy: str = "bottom10",
 ) -> Metric:
@@ -310,12 +311,12 @@ def _wrap_with_deepconf_confidence(
     return Metric(base_metric.spec, handler_with_confidence)
 
 
-def list_template_ids() -> List[str]:
+def list_template_ids() -> list[str]:
     """Return all known template ids (objective + subjective)."""
     return sorted(list(_OBJECTIVE_TPL.keys()) + list(_SUBJECTIVE_TPL.keys()))
 
 
-def _apply_unit_types(metric: Metric, config: Optional[Dict[str, Any]]) -> Metric:
+def _apply_unit_types(metric: Metric, config: dict[str, Any] | None) -> Metric:
     """Apply unit_types from config to metric's spec if present."""
     if config and "unit_types" in config:
         unit_types = config["unit_types"]
@@ -328,10 +329,10 @@ def _apply_unit_types(metric: Metric, config: Optional[Dict[str, Any]]) -> Metri
 
 
 def build_objective_metric(
-    metric_id: str, config: Optional[Dict[str, Any]] = None
+    metric_id: str, config: dict[str, Any] | None = None
 ) -> Metric:
     cfg = config or {}
-    builders: Dict[str, Callable[[Dict[str, Any]], Metric]] = {
+    builders: dict[str, Callable[[dict[str, Any]], Metric]] = {
         # Efficiency
         "latency_ms": lambda c: latency_metric(),
         "cost": lambda c: cost_metric(),
@@ -530,11 +531,11 @@ def build_objective_metric(
 
 def build_subjective_metric(
     metric_id: str,
-    config: Optional[Dict[str, Any]] = None,
+    config: dict[str, Any] | None = None,
     *,
-    judge: Optional[LLMJudge] = None,
-    description: Optional[str] = None,
-    api_key: Optional[str] = None,
+    judge: LLMJudge | None = None,
+    description: str | None = None,
+    api_key: str | None = None,
     provider: str = "gemini",
     confidence_method: str = "none",
     confidence_samples: int = 3,
@@ -606,7 +607,7 @@ def build_subjective_metric(
     # Create judge if not provided
     if judge is None:
         # Default model depends on provider
-        from ..defaults import DEFAULT_MODELS_BY_PROVIDER, DEFAULT_EVAL_MODEL
+        from ..defaults import DEFAULT_EVAL_MODEL, DEFAULT_MODELS_BY_PROVIDER
 
         model = cfg.get("model", DEFAULT_MODELS_BY_PROVIDER.get(provider, DEFAULT_EVAL_MODEL))
         temperature = float(cfg.get("temperature", 0.0))
@@ -657,15 +658,15 @@ def build_subjective_metric(
 
 
 def build_metrics_from_specs(
-    specs_data: List[Dict[str, Any]],
+    specs_data: list[dict[str, Any]],
     *,
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
     provider: str = "gemini",
-    calibrated_prompts: Optional[Dict[str, str]] = None,
+    calibrated_prompts: dict[str, str] | None = None,
     confidence_method: str = "none",
     confidence_samples: int = 3,
-    on_error: Optional[Callable[[str, Exception], None]] = None,
-) -> List:
+    on_error: Callable[[str, Exception], None] | None = None,
+) -> list:
     """Build metric instances from a list of spec dicts.
 
     Shared logic used by both CLI run-eval and pipeline steps.

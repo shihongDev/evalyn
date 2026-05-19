@@ -11,8 +11,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Set
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -28,7 +27,7 @@ class QualityDimension:
     weight: float = 1.0
     details: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "score": self.score,
@@ -37,7 +36,7 @@ class QualityDimension:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> QualityDimension:
+    def from_dict(cls, data: dict[str, Any]) -> QualityDimension:
         return cls(
             name=data["name"],
             score=data["score"],
@@ -52,10 +51,10 @@ class ItemQualityScore:
 
     item_id: str
     overall_score: float
-    dimensions: List[QualityDimension] = field(default_factory=list)
+    dimensions: list[QualityDimension] = field(default_factory=list)
     passed: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "overall_score": self.overall_score,
@@ -64,7 +63,7 @@ class ItemQualityScore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ItemQualityScore:
+    def from_dict(cls, data: dict[str, Any]) -> ItemQualityScore:
         return cls(
             item_id=data["item_id"],
             overall_score=data["overall_score"],
@@ -80,13 +79,13 @@ class ItemQualityScore:
 class QualityReport:
     """Aggregated quality report for a batch of generated items."""
 
-    scores: List[ItemQualityScore] = field(default_factory=list)
+    scores: list[ItemQualityScore] = field(default_factory=list)
     mean_score: float = 0.0
     rejection_count: int = 0
     acceptance_rate: float = 0.0
     total_items: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "scores": [s.as_dict() for s in self.scores],
             "mean_score": self.mean_score,
@@ -96,7 +95,7 @@ class QualityReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> QualityReport:
+    def from_dict(cls, data: dict[str, Any]) -> QualityReport:
         return cls(
             scores=[
                 ItemQualityScore.from_dict(s)
@@ -114,18 +113,18 @@ class QualityReport:
 # ---------------------------------------------------------------------------
 
 
-def _tokenize(text: str) -> List[str]:
+def _tokenize(text: str) -> list[str]:
     """Split text into lowercase word tokens."""
     return [w for w in re.findall(r"[a-zA-Z']+", text.lower()) if w]
 
 
-def _split_sentences(text: str) -> List[str]:
+def _split_sentences(text: str) -> list[str]:
     """Split text into sentences."""
     raw = re.split(r"[.!?]+", text)
     return [s.strip() for s in raw if s.strip()]
 
 
-def _bigrams(words: List[str]) -> List[str]:
+def _bigrams(words: list[str]) -> list[str]:
     """Generate bigram strings from word list."""
     return [f"{words[i]} {words[i + 1]}" for i in range(len(words) - 1)]
 
@@ -156,7 +155,7 @@ def score_word_validity(text: str) -> float:
     return round(valid / len(words), 4)
 
 
-def score_length_naturalness(text: str, seed_lengths: List[int]) -> float:
+def score_length_naturalness(text: str, seed_lengths: list[int]) -> float:
     """How close text length is to the seed distribution (z-score based).
 
     Returns a score from 0.0 to 1.0. Closer to seed mean = higher score.
@@ -181,7 +180,7 @@ def score_length_naturalness(text: str, seed_lengths: List[int]) -> float:
     return round(score, 4)
 
 
-def score_vocabulary_naturalness(text: str, seed_vocab: Set[str]) -> float:
+def score_vocabulary_naturalness(text: str, seed_vocab: set[str]) -> float:
     """Fraction of words in text that appear in seed vocabulary.
 
     Returns 0.0 to 1.0. Higher = more natural vocabulary.
@@ -256,14 +255,14 @@ def score_coherence(text: str) -> float:
 
 def compute_quality_score(
     text: str,
-    seed_texts: List[str],
+    seed_texts: list[str],
     item_id: str = "",
     threshold: float = 0.3,
 ) -> ItemQualityScore:
     """Compute all quality dimensions and overall score for one item."""
     # Build seed statistics
     seed_lengths = [len(t) for t in seed_texts]
-    seed_vocab: Set[str] = set()
+    seed_vocab: set[str] = set()
     for st in seed_texts:
         seed_vocab.update(_tokenize(st))
 
@@ -325,12 +324,12 @@ def compute_quality_score(
 
 
 def build_quality_report(
-    gen_texts: List[str],
-    seed_texts: List[str],
+    gen_texts: list[str],
+    seed_texts: list[str],
     threshold: float = 0.3,
 ) -> QualityReport:
     """Build a quality report for a batch of generated texts."""
-    scores: List[ItemQualityScore] = []
+    scores: list[ItemQualityScore] = []
     for i, text in enumerate(gen_texts):
         scores.append(
             compute_quality_score(
@@ -353,8 +352,8 @@ def build_quality_report(
 
 
 def filter_high_quality(
-    scores: List[ItemQualityScore],
-) -> List[ItemQualityScore]:
+    scores: list[ItemQualityScore],
+) -> list[ItemQualityScore]:
     """Return only items that passed the quality threshold."""
     return [s for s in scores if s.passed]
 
@@ -366,7 +365,7 @@ def filter_high_quality(
 
 def format_quality_report(report: QualityReport) -> str:
     """Human-readable quality report."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Quality Score Report")
     lines.append("=" * 40)
     lines.append("")

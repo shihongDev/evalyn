@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -22,7 +22,7 @@ class DisagreementScore:
     n_annotators: int
     label_spread: float  # max - min label
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "score": self.score,
@@ -31,7 +31,7 @@ class DisagreementScore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DisagreementScore:
+    def from_dict(cls, data: dict[str, Any]) -> DisagreementScore:
         return cls(
             item_id=data["item_id"],
             score=data["score"],
@@ -47,9 +47,9 @@ class DisagreementConfig:
     sample_size: int = 50
     min_annotators: int = 2
     severity_weight: float = 1.0  # boost binary flips vs score differences
-    seed: Optional[int] = None
+    seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "sample_size": self.sample_size,
             "min_annotators": self.min_annotators,
@@ -58,7 +58,7 @@ class DisagreementConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DisagreementConfig:
+    def from_dict(cls, data: dict[str, Any]) -> DisagreementConfig:
         return cls(
             sample_size=data.get("sample_size", 50),
             min_annotators=data.get("min_annotators", 2),
@@ -71,12 +71,12 @@ class DisagreementConfig:
 class DisagreementResult:
     """Result of a disagreement sampling run."""
 
-    selected_ids: List[str] = field(default_factory=list)
-    scores: List[DisagreementScore] = field(default_factory=list)
+    selected_ids: list[str] = field(default_factory=list)
+    scores: list[DisagreementScore] = field(default_factory=list)
     mean_disagreement: float = 0.0
     total_pool: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected_ids": self.selected_ids,
             "scores": [s.as_dict() for s in self.scores],
@@ -85,7 +85,7 @@ class DisagreementResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DisagreementResult:
+    def from_dict(cls, data: dict[str, Any]) -> DisagreementResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
             scores=[
@@ -259,7 +259,7 @@ def run_disagreement_sampling(
 
 def format_disagreement_report(result: DisagreementResult) -> str:
     """Format a human-readable disagreement sampling report."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Disagreement Sampling Report")
     lines.append("=" * 40)
     lines.append(f"Total pool size: {result.total_pool}")

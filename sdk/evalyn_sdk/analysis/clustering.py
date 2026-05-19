@@ -15,14 +15,14 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..calibration.models import DisagreementAnalysis, DisagreementCase
 from ..defaults import DEFAULT_EVAL_MODEL
 from ..utils.api_client import GeminiClient
 
 if TYPE_CHECKING:
-    from ..models import MetricResult, DatasetItem
+    from ..models import DatasetItem, MetricResult
 
 
 @dataclass
@@ -32,11 +32,11 @@ class ReasonCluster:
     cluster_id: str
     label: str  # LLM-generated cluster name
     count: int
-    reasons: List[str]
+    reasons: list[str]
     representative_example: DisagreementCase
     disagreement_type: str  # "false_positive" or "false_negative"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "cluster_id": self.cluster_id,
             "label": self.label,
@@ -51,18 +51,18 @@ class ReasonCluster:
 class ClusteringResult:
     """Result of clustering misalignment cases."""
 
-    false_positive_clusters: List[ReasonCluster] = field(default_factory=list)
-    false_negative_clusters: List[ReasonCluster] = field(default_factory=list)
+    false_positive_clusters: list[ReasonCluster] = field(default_factory=list)
+    false_negative_clusters: list[ReasonCluster] = field(default_factory=list)
     total_cases: int = 0
     # Store embeddings and coordinates for visualization
-    embeddings: Optional[List[List[float]]] = None
-    coordinates_2d: Optional[List[List[float]]] = None
-    case_labels: Optional[List[str]] = None  # Cluster label for each case
-    case_types: Optional[List[str]] = None  # "false_positive" or "false_negative"
-    case_reasons: Optional[List[str]] = None  # Original reason text
-    case_ids: Optional[List[str]] = None  # call_id for each case
+    embeddings: list[list[float]] | None = None
+    coordinates_2d: list[list[float]] | None = None
+    case_labels: list[str] | None = None  # Cluster label for each case
+    case_types: list[str] | None = None  # "false_positive" or "false_negative"
+    case_reasons: list[str] | None = None  # Original reason text
+    case_ids: list[str] | None = None  # call_id for each case
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         result = {
             "false_positive_clusters": [
                 c.as_dict() for c in self.false_positive_clusters
@@ -95,7 +95,7 @@ class FailureCase:
     score: float
     metric_id: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "call_id": self.call_id,
             "input": self.input_text[:500],
@@ -113,10 +113,10 @@ class FailureCluster:
     cluster_id: str
     label: str  # LLM-generated cluster name
     count: int
-    reasons: List[str]
+    reasons: list[str]
     representative_example: FailureCase
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "cluster_id": self.cluster_id,
             "label": self.label,
@@ -130,16 +130,16 @@ class FailureCluster:
 class FailureClusteringResult:
     """Result of clustering failure cases from eval runs."""
 
-    clusters: List[FailureCluster] = field(default_factory=list)
+    clusters: list[FailureCluster] = field(default_factory=list)
     total_cases: int = 0
     metric_id: str = ""
     # Visualization data
-    coordinates_2d: Optional[List[List[float]]] = None
-    case_labels: Optional[List[str]] = None
-    case_reasons: Optional[List[str]] = None
-    case_ids: Optional[List[str]] = None
+    coordinates_2d: list[list[float]] | None = None
+    case_labels: list[str] | None = None
+    case_reasons: list[str] | None = None
+    case_ids: list[str] | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         result = {
             "clusters": [c.as_dict() for c in self.clusters],
             "total_cases": self.total_cases,
@@ -164,8 +164,8 @@ class ReasonClusterer:
     def __init__(
         self,
         model: str = DEFAULT_EVAL_MODEL,
-        api_key: Optional[str] = None,
-        cache_dir: Optional[Path] = None,
+        api_key: str | None = None,
+        cache_dir: Path | None = None,
     ):
         """Initialize the clusterer.
 
@@ -176,7 +176,7 @@ class ReasonClusterer:
         """
         self.model = model
         self._api_key = api_key
-        self._client: Optional[GeminiClient] = None
+        self._client: GeminiClient | None = None
         self.cache_dir = cache_dir
 
     @property
@@ -202,7 +202,7 @@ class ReasonClusterer:
         )
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
-    def _load_from_cache(self, cache_key: str) -> Optional[Dict[str, Any]]:
+    def _load_from_cache(self, cache_key: str) -> dict[str, Any] | None:
         """Load cached JSON data if available."""
         if not self.cache_dir:
             return None
@@ -217,7 +217,7 @@ class ReasonClusterer:
         except Exception:
             return None
 
-    def _save_to_cache(self, cache_key: str, data: Dict[str, Any]) -> None:
+    def _save_to_cache(self, cache_key: str, data: dict[str, Any]) -> None:
         """Save data to cache."""
         if not self.cache_dir:
             return
@@ -232,7 +232,7 @@ class ReasonClusterer:
             pass  # Cache failures are not critical
 
     def _deserialize_cluster(
-        self, cluster_data: Dict[str, Any], disagreement_type: str
+        self, cluster_data: dict[str, Any], disagreement_type: str
     ) -> ReasonCluster:
         """Deserialize a single cluster from dict."""
         is_fp = disagreement_type == "false_positive"
@@ -256,7 +256,7 @@ class ReasonClusterer:
             disagreement_type=disagreement_type,
         )
 
-    def _deserialize_result(self, data: Dict[str, Any]) -> ClusteringResult:
+    def _deserialize_result(self, data: dict[str, Any]) -> ClusteringResult:
         """Deserialize clustering result from dict."""
         fp_clusters = [
             self._deserialize_cluster(c, "false_positive")
@@ -335,8 +335,8 @@ class ReasonClusterer:
 
     def cluster_failures(
         self,
-        metric_results: List["MetricResult"],
-        dataset_items: Optional[List["DatasetItem"]] = None,
+        metric_results: list[MetricResult],
+        dataset_items: list[DatasetItem] | None = None,
         compute_embeddings: bool = True,
     ) -> FailureClusteringResult:
         """
@@ -360,14 +360,14 @@ class ReasonClusterer:
         metric_id = failed_results[0].metric_id if failed_results else ""
 
         # Build item lookup for input/output context
-        items_by_call: Dict[str, "DatasetItem"] = {}
+        items_by_call: dict[str, DatasetItem] = {}
         if dataset_items:
             for item in dataset_items:
                 call_id = item.metadata.get("call_id", item.id)
                 items_by_call[call_id] = item
 
         # Convert to FailureCase objects
-        cases: List[FailureCase] = []
+        cases: list[FailureCase] = []
         for res in failed_results:
             # Extract reason from raw_judge or details
             reason = ""
@@ -440,7 +440,7 @@ class ReasonClusterer:
 
         return result
 
-    def _compute_failure_cache_key(self, cases: List[FailureCase]) -> str:
+    def _compute_failure_cache_key(self, cases: list[FailureCase]) -> str:
         """Compute cache key for failure clustering."""
         content = json.dumps(
             {"failures": [c.call_id for c in cases]},
@@ -449,7 +449,7 @@ class ReasonClusterer:
         return "fail_" + hashlib.sha256(content.encode()).hexdigest()[:16]
 
     def _deserialize_failure_result(
-        self, data: Dict[str, Any]
+        self, data: dict[str, Any]
     ) -> FailureClusteringResult:
         """Deserialize failure clustering result from dict."""
         clusters = []
@@ -492,7 +492,7 @@ class ReasonClusterer:
         truncated = reason[:max_len].rsplit(" ", 1)[0]
         return truncated + "..."
 
-    def _cluster_failure_cases(self, cases: List[FailureCase]) -> List[FailureCluster]:
+    def _cluster_failure_cases(self, cases: list[FailureCase]) -> list[FailureCluster]:
         """Use LLM to cluster failure cases."""
         if not cases:
             return []
@@ -517,7 +517,7 @@ class ReasonClusterer:
                 )
             ]
 
-    def _build_failure_clustering_prompt(self, cases: List[FailureCase]) -> str:
+    def _build_failure_clustering_prompt(self, cases: list[FailureCase]) -> str:
         """Build prompt for failure clustering."""
         case_texts = []
         for i, case in enumerate(cases):
@@ -553,8 +553,8 @@ Example format:
     def _parse_failure_clustering_response(
         self,
         response: str,
-        cases: List[FailureCase],
-    ) -> List[FailureCluster]:
+        cases: list[FailureCase],
+    ) -> list[FailureCluster]:
         """Parse LLM response into FailureCluster objects."""
         text = response.strip()
 
@@ -643,18 +643,18 @@ Example format:
     def _add_failure_visualization_data(
         self,
         result: FailureClusteringResult,
-        cases: List[FailureCase],
-        clusters: List[FailureCluster],
+        cases: list[FailureCase],
+        clusters: list[FailureCluster],
     ) -> None:
         """Add embeddings and 2D coordinates for failure visualization."""
         try:
-            from sentence_transformers import SentenceTransformer
             import umap
+            from sentence_transformers import SentenceTransformer
         except ImportError:
             return
 
         # Build mapping from case call_id to cluster label
-        case_to_label: Dict[str, str] = {}
+        case_to_label: dict[str, str] = {}
         for cluster in clusters:
             for case in cases:
                 if case.reason in cluster.reasons:
@@ -699,9 +699,9 @@ Example format:
 
     def _cluster_cases(
         self,
-        cases: List[DisagreementCase],
+        cases: list[DisagreementCase],
         disagreement_type: str,
-    ) -> List[ReasonCluster]:
+    ) -> list[ReasonCluster]:
         """Use LLM to cluster a list of disagreement cases."""
         if not cases:
             return []
@@ -745,7 +745,7 @@ Example format:
 
     def _build_clustering_prompt(
         self,
-        cases: List[DisagreementCase],
+        cases: list[DisagreementCase],
         disagreement_type: str,
     ) -> str:
         """Build prompt for LLM-based clustering."""
@@ -791,9 +791,9 @@ Example format:
     def _parse_clustering_response(
         self,
         response: str,
-        cases: List[DisagreementCase],
+        cases: list[DisagreementCase],
         disagreement_type: str,
-    ) -> List[ReasonCluster]:
+    ) -> list[ReasonCluster]:
         """Parse LLM response into ReasonCluster objects."""
         text = response.strip()
 
@@ -890,23 +890,23 @@ Example format:
     def _add_visualization_data(
         self,
         result: ClusteringResult,
-        all_cases: List[DisagreementCase],
-        fp_clusters: List[ReasonCluster],
-        fn_clusters: List[ReasonCluster],
+        all_cases: list[DisagreementCase],
+        fp_clusters: list[ReasonCluster],
+        fn_clusters: list[ReasonCluster],
     ) -> None:
         """Add embeddings and 2D coordinates for visualization."""
         try:
             # Import optional dependencies
-            from sentence_transformers import SentenceTransformer
             import umap
+            from sentence_transformers import SentenceTransformer
         except ImportError:
             # Optional dependencies not available
             return
 
         # Build mapping from case call_id to cluster label
-        case_to_label: Dict[str, str] = {}
+        case_to_label: dict[str, str] = {}
         for cluster in fp_clusters + fn_clusters:
-            for i, case in enumerate(
+            for _i, case in enumerate(
                 [
                     c
                     for c in all_cases
@@ -1239,8 +1239,8 @@ def generate_cluster_html(
     fp_idx = 0
     fn_idx = 0
     for label in unique_labels:
-        for i, l in enumerate(result.case_labels or []):
-            if l == label and result.case_types:
+        for i, case_label in enumerate(result.case_labels or []):
+            if case_label == label and result.case_types:
                 if result.case_types[i] == "false_positive":
                     color_map[label] = fp_colors[fp_idx % len(fp_colors)]
                     fp_idx += 1
@@ -1249,7 +1249,7 @@ def generate_cluster_html(
                     fn_idx += 1
                 break
 
-    colors = [color_map.get(l, "#A0A0A0") for l in (result.case_labels or [])]
+    colors = [color_map.get(cl, "#A0A0A0") for cl in (result.case_labels or [])]
 
     # Build hover text
     hover_texts = []
@@ -1377,7 +1377,7 @@ def _generate_fallback_html(
 
 
 def _render_single_cluster_table(
-    clusters: List[ReasonCluster], title: str, title_class: str, badge_class: str
+    clusters: list[ReasonCluster], title: str, title_class: str, badge_class: str
 ) -> str:
     """Render a single cluster table section."""
     if not clusters:
@@ -1549,7 +1549,7 @@ def generate_failure_cluster_html(
         label: colors_palette[i % len(colors_palette)]
         for i, label in enumerate(unique_labels)
     }
-    colors = [color_map.get(l, "#A0A0A0") for l in (result.case_labels or [])]
+    colors = [color_map.get(cl, "#A0A0A0") for cl in (result.case_labels or [])]
 
     # Build hover text
     hover_texts = []

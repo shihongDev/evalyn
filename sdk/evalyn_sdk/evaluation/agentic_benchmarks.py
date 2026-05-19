@@ -8,7 +8,7 @@ outputs against expected tool usage and output keywords, and compare runs.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 
 @dataclass
@@ -19,11 +19,11 @@ class BenchmarkTask:
     name: str
     description: str = ""
     category: str = ""
-    expected_tools: List[str] = field(default_factory=list)
-    expected_output_keywords: List[str] = field(default_factory=list)
+    expected_tools: list[str] = field(default_factory=list)
+    expected_output_keywords: list[str] = field(default_factory=list)
     difficulty: str = "medium"  # "easy" / "medium" / "hard"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "task_id": self.task_id,
             "name": self.name,
@@ -35,7 +35,7 @@ class BenchmarkTask:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BenchmarkTask:
+    def from_dict(cls, data: dict[str, Any]) -> BenchmarkTask:
         return cls(
             task_id=data["task_id"],
             name=data["name"],
@@ -58,7 +58,7 @@ class BenchmarkResult:
     output_correct: bool = False
     duration_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "task_id": self.task_id,
             "passed": self.passed,
@@ -74,10 +74,10 @@ class BenchmarkSuite:
     """A collection of benchmark tasks."""
 
     name: str
-    tasks: List[BenchmarkTask] = field(default_factory=list)
+    tasks: list[BenchmarkTask] = field(default_factory=list)
     description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "tasks": [t.as_dict() for t in self.tasks],
@@ -85,7 +85,7 @@ class BenchmarkSuite:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BenchmarkSuite:
+    def from_dict(cls, data: dict[str, Any]) -> BenchmarkSuite:
         tasks = [BenchmarkTask.from_dict(t) for t in data.get("tasks", [])]
         return cls(
             name=data["name"],
@@ -99,13 +99,13 @@ class BenchmarkReport:
     """Report summarizing a full benchmark suite run."""
 
     suite_name: str
-    results: List[BenchmarkResult] = field(default_factory=list)
+    results: list[BenchmarkResult] = field(default_factory=list)
     pass_rate: float = 0.0
     avg_score: float = 0.0
-    by_difficulty: Dict[str, float] = field(default_factory=dict)
-    by_category: Dict[str, float] = field(default_factory=dict)
+    by_difficulty: dict[str, float] = field(default_factory=dict)
+    by_category: dict[str, float] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "suite_name": self.suite_name,
             "results": [r.as_dict() for r in self.results],
@@ -116,7 +116,7 @@ class BenchmarkReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BenchmarkReport:
+    def from_dict(cls, data: dict[str, Any]) -> BenchmarkReport:
         results = [
             BenchmarkResult(
                 task_id=r["task_id"],
@@ -138,7 +138,7 @@ class BenchmarkReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"BENCHMARK REPORT: {self.suite_name}")
         lines.append(f"Pass rate: {self.pass_rate:.1%}")
         lines.append(f"Avg score: {self.avg_score:.2f}")
@@ -219,7 +219,7 @@ def create_basic_suite() -> BenchmarkSuite:
 
 def evaluate_task(
     task: BenchmarkTask,
-    actual_tools: List[str],
+    actual_tools: list[str],
     actual_output: str,
 ) -> BenchmarkResult:
     """Evaluate a single benchmark task against agent output.
@@ -258,7 +258,7 @@ def evaluate_task(
 
 def run_benchmark_suite(
     suite: BenchmarkSuite,
-    agent_outputs: Dict[str, Tuple[List[str], str]],
+    agent_outputs: dict[str, tuple[list[str], str]],
 ) -> BenchmarkReport:
     """Run all tasks in a suite against provided agent outputs.
 
@@ -270,10 +270,10 @@ def run_benchmark_suite(
     Returns:
         BenchmarkReport with per-task results and aggregate stats.
     """
-    results: List[BenchmarkResult] = []
+    results: list[BenchmarkResult] = []
     # Track scores per difficulty and category for breakdown
-    difficulty_scores: Dict[str, List[float]] = {}
-    category_scores: Dict[str, List[float]] = {}
+    difficulty_scores: dict[str, list[float]] = {}
+    category_scores: dict[str, list[float]] = {}
 
     for task in suite.tasks:
         if task.task_id in agent_outputs:
@@ -319,7 +319,7 @@ def run_benchmark_suite(
 def compare_benchmark_results(
     report_a: BenchmarkReport,
     report_b: BenchmarkReport,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compare two benchmark runs and return a diff summary.
 
     Args:
@@ -334,7 +334,7 @@ def compare_benchmark_results(
     scores_b = {r.task_id: r.score for r in report_b.results}
 
     all_task_ids = sorted(set(scores_a.keys()) | set(scores_b.keys()))
-    per_task: Dict[str, Dict[str, Any]] = {}
+    per_task: dict[str, dict[str, Any]] = {}
     for tid in all_task_ids:
         sa = scores_a.get(tid, 0.0)
         sb = scores_b.get(tid, 0.0)

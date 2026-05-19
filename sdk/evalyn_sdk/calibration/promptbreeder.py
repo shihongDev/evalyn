@@ -18,9 +18,8 @@ The rubric (evaluation criteria) is kept FIXED as defined by humans.
 from __future__ import annotations
 
 import logging
-import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -136,11 +135,11 @@ class PromptBreederOptimizer(BaseOptimizer):
 
     def __init__(
         self,
-        config: Optional[PromptBreederConfig] = None,
-        api_key: Optional[str] = None,
+        config: PromptBreederConfig | None = None,
+        api_key: str | None = None,
     ):
         super().__init__(config=config or PromptBreederConfig(), api_key=api_key)
-        self._task_client_instance: Optional[GeminiClient] = None
+        self._task_client_instance: GeminiClient | None = None
 
     @property
     def _task_client(self) -> GeminiClient:
@@ -162,8 +161,8 @@ class PromptBreederOptimizer(BaseOptimizer):
         self,
         current_preamble: str,
         metric_id: str,
-        accumulator: Optional[TokenAccumulator] = None,
-    ) -> List[BreederUnit]:
+        accumulator: TokenAccumulator | None = None,
+    ) -> list[BreederUnit]:
         """Initialize population of BreederUnit pairs.
 
         Generates preamble variants and mutation strategies, then pairs them.
@@ -173,7 +172,7 @@ class PromptBreederOptimizer(BaseOptimizer):
         num_mut = self.config.num_initial_mutation_prompts
 
         # -- Generate preamble variants --
-        preambles: List[str] = [current_preamble]
+        preambles: list[str] = [current_preamble]
         for _ in range(pop_size - 1):
             prompt = PREAMBLE_VARIANT_TEMPLATE.format(seed_preamble=current_preamble)
             try:
@@ -192,7 +191,7 @@ class PromptBreederOptimizer(BaseOptimizer):
             preambles.append(current_preamble)
 
         # -- Generate mutation strategies --
-        mutation_prompts: List[str] = []
+        mutation_prompts: list[str] = []
         strategies_prompt = MUTATION_STRATEGIES_TEMPLATE.format(count=num_mut)
         try:
             result = self._task_client.generate_with_usage(strategies_prompt)
@@ -213,7 +212,7 @@ class PromptBreederOptimizer(BaseOptimizer):
             mutation_prompts.append(defaults[len(mutation_prompts) % len(defaults)])
 
         # -- Pair them --
-        units: List[BreederUnit] = []
+        units: list[BreederUnit] = []
         for i in range(pop_size):
             units.append(
                 BreederUnit(
@@ -229,7 +228,7 @@ class PromptBreederOptimizer(BaseOptimizer):
     # ------------------------------------------------------------------
 
     def _format_failures(
-        self, examples: List[Dict[str, Any]], max_show: int = 3
+        self, examples: list[dict[str, Any]], max_show: int = 3
     ) -> str:
         """Format failure examples for inclusion in prompts."""
         if not examples:
@@ -247,7 +246,7 @@ class PromptBreederOptimizer(BaseOptimizer):
         self,
         unit: BreederUnit,
         failures: str,
-        accumulator: Optional[TokenAccumulator] = None,
+        accumulator: TokenAccumulator | None = None,
     ) -> str:
         """Mutate a preamble using its paired mutation strategy.
 
@@ -272,7 +271,7 @@ class PromptBreederOptimizer(BaseOptimizer):
         self,
         unit: BreederUnit,
         prev_best_f1: float,
-        accumulator: Optional[TokenAccumulator] = None,
+        accumulator: TokenAccumulator | None = None,
     ) -> str:
         """Evolve a mutation strategy based on how well it performed.
 
@@ -301,12 +300,12 @@ class PromptBreederOptimizer(BaseOptimizer):
         self,
         *,
         metric_id: str,
-        current_rubric: List[str],
-        metric_results: List[MetricResult],
-        annotations: List[Annotation],
-        dataset_items: Optional[List[DatasetItem]] = None,
+        current_rubric: list[str],
+        metric_results: list[MetricResult],
+        annotations: list[Annotation],
+        dataset_items: list[DatasetItem] | None = None,
         current_preamble: str = "",
-        accumulator: Optional[TokenAccumulator] = None,
+        accumulator: TokenAccumulator | None = None,
         **kwargs: Any,
     ) -> PromptOptimizationResult:
         """
@@ -371,7 +370,7 @@ class PromptBreederOptimizer(BaseOptimizer):
             desc="PromptBreeder",
             unit="gen",
         )
-        for gen in pbar:
+        for _gen in pbar:
             prev_best_f1 = best_f1
 
             # Collect failure examples for mutation context

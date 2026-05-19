@@ -11,8 +11,7 @@ from __future__ import annotations
 import math
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -27,7 +26,7 @@ class DiversityScore:
     score: float
     details: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_name": self.metric_name,
             "score": self.score,
@@ -35,7 +34,7 @@ class DiversityScore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DiversityScore:
+    def from_dict(cls, data: dict[str, Any]) -> DiversityScore:
         return cls(
             metric_name=data["metric_name"],
             score=data["score"],
@@ -47,11 +46,11 @@ class DiversityScore:
 class DiversityReport:
     """Aggregated diversity report across multiple metrics."""
 
-    scores: List[DiversityScore] = field(default_factory=list)
+    scores: list[DiversityScore] = field(default_factory=list)
     overall_diversity: float = 0.0
     total_items: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "scores": [s.as_dict() for s in self.scores],
             "overall_diversity": self.overall_diversity,
@@ -59,7 +58,7 @@ class DiversityReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DiversityReport:
+    def from_dict(cls, data: dict[str, Any]) -> DiversityReport:
         return cls(
             scores=[DiversityScore.from_dict(s) for s in data.get("scores", [])],
             overall_diversity=data.get("overall_diversity", 0.0),
@@ -72,7 +71,7 @@ class DiversityReport:
 # ---------------------------------------------------------------------------
 
 
-def _tokenize(text: str) -> List[str]:
+def _tokenize(text: str) -> list[str]:
     """Simple whitespace + lowercase tokenizer."""
     return text.lower().split()
 
@@ -102,14 +101,14 @@ def _jaccard_distance(set_a: set, set_b: set) -> float:
 # ---------------------------------------------------------------------------
 
 
-def compute_vocabulary_spread(texts: List[str]) -> float:
+def compute_vocabulary_spread(texts: list[str]) -> float:
     """Type-token ratio: unique words / total words.
 
     Returns 0.0 for empty input.
     """
     if not texts:
         return 0.0
-    all_tokens: List[str] = []
+    all_tokens: list[str] = []
     for t in texts:
         all_tokens.extend(_tokenize(t))
     if not all_tokens:
@@ -118,7 +117,7 @@ def compute_vocabulary_spread(texts: List[str]) -> float:
     return len(unique) / len(all_tokens)
 
 
-def compute_pairwise_distance(texts: List[str], sample_size: int = 100) -> float:
+def compute_pairwise_distance(texts: list[str], sample_size: int = 100) -> float:
     """Average pairwise Jaccard distance of word sets.
 
     If more than sample_size items, randomly sample pairs.
@@ -146,7 +145,7 @@ def compute_pairwise_distance(texts: List[str], sample_size: int = 100) -> float
     return total_dist / len(pairs)
 
 
-def compute_uniqueness_ratio(gen_texts: List[str], seed_texts: List[str]) -> float:
+def compute_uniqueness_ratio(gen_texts: list[str], seed_texts: list[str]) -> float:
     """Fraction of generated items whose word set has < 0.5 Jaccard overlap with any seed.
 
     An item is "unique" if its max Jaccard similarity to all seeds is below 0.5.
@@ -170,8 +169,8 @@ def compute_uniqueness_ratio(gen_texts: List[str], seed_texts: List[str]) -> flo
 
 
 def compute_novelty_score(
-    gen_texts: List[str],
-    seed_texts: List[str],
+    gen_texts: list[str],
+    seed_texts: list[str],
     threshold: float = 0.3,
 ) -> float:
     """Fraction of gen items where max Jaccard similarity to any seed < threshold.
@@ -195,7 +194,7 @@ def compute_novelty_score(
     return novel_count / len(gen_texts)
 
 
-def compute_length_diversity(texts: List[str]) -> float:
+def compute_length_diversity(texts: list[str]) -> float:
     """Coefficient of variation of text lengths.
 
     CV = stdev / mean. Returns 0.0 for empty or single-item input.
@@ -219,14 +218,14 @@ def compute_length_diversity(texts: List[str]) -> float:
 
 
 def build_diversity_report(
-    gen_texts: List[str],
-    seed_texts: List[str],
+    gen_texts: list[str],
+    seed_texts: list[str],
 ) -> DiversityReport:
     """Compute all diversity metrics and return an aggregated report.
 
     Overall diversity is the mean of all individual metric scores.
     """
-    scores: List[DiversityScore] = []
+    scores: list[DiversityScore] = []
 
     vocab = compute_vocabulary_spread(gen_texts)
     scores.append(DiversityScore(
@@ -282,7 +281,7 @@ def build_diversity_report(
 
 def format_diversity_report(report: DiversityReport) -> str:
     """Format a DiversityReport as human-readable text."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"Diversity Report ({report.total_items} items)")
     lines.append("-" * 40)
 
@@ -297,7 +296,7 @@ def format_diversity_report(report: DiversityReport) -> str:
 
 def compare_diversity(report_a: DiversityReport, report_b: DiversityReport) -> str:
     """Compare two diversity reports and return a human-readable summary."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Diversity Comparison")
     lines.append("=" * 50)
     lines.append(f"  Report A: {report_a.total_items} items, overall={report_a.overall_diversity:.4f}")
@@ -305,7 +304,7 @@ def compare_diversity(report_a: DiversityReport, report_b: DiversityReport) -> s
     lines.append("")
 
     # Build lookup for B
-    b_lookup: Dict[str, float] = {s.metric_name: s.score for s in report_b.scores}
+    b_lookup: dict[str, float] = {s.metric_name: s.score for s in report_b.scores}
 
     for sa in report_a.scores:
         sb_score = b_lookup.get(sa.metric_name)

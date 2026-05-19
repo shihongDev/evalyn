@@ -9,14 +9,13 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Synonym Table
 # ---------------------------------------------------------------------------
 
-_SYNONYMS: Dict[str, str] = {
+_SYNONYMS: dict[str, str] = {
     "good": "excellent",
     "bad": "poor",
     "great": "outstanding",
@@ -44,7 +43,7 @@ class AugmentedExample:
     augmentation_method: str
     label: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "original_id": self.original_id,
             "augmented_text": self.augmented_text,
@@ -57,11 +56,11 @@ class AugmentedExample:
 class AugmentationConfig:
     """Configuration for data augmentation."""
 
-    methods: List[str] = field(default_factory=lambda: ["synonym", "shuffle", "truncate"])
+    methods: list[str] = field(default_factory=lambda: ["synonym", "shuffle", "truncate"])
     augmentations_per_example: int = 2
-    seed: Optional[int] = None
+    seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "methods": list(self.methods),
             "augmentations_per_example": self.augmentations_per_example,
@@ -69,11 +68,11 @@ class AugmentationConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AugmentationConfig:
+    def from_dict(cls, data: dict[str, Any]) -> AugmentationConfig:
         return cls(
             methods=data.get("methods", ["synonym", "shuffle", "truncate"]),
             augmentations_per_example=data.get("augmentations_per_example", 2),
-            seed=data.get("seed", None),
+            seed=data.get("seed"),
         )
 
 
@@ -83,9 +82,9 @@ class AugmentationResult:
 
     original_count: int
     augmented_count: int
-    methods_used: List[str]
+    methods_used: list[str]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "original_count": self.original_count,
             "augmented_count": self.augmented_count,
@@ -107,7 +106,7 @@ class AugmentationResult:
 # ---------------------------------------------------------------------------
 
 
-def augment_synonym(text: str, seed: Optional[int] = None) -> str:
+def augment_synonym(text: str, seed: int | None = None) -> str:
     """Replace common words with synonyms from the built-in table.
 
     Matches are case-insensitive but preserve original casing pattern
@@ -116,9 +115,8 @@ def augment_synonym(text: str, seed: Optional[int] = None) -> str:
     if not text:
         return text
 
-    rng = random.Random(seed)
     words = text.split()
-    result: List[str] = []
+    result: list[str] = []
 
     for word in words:
         stripped = word.strip(".,!?;:'\"()[]")
@@ -138,7 +136,7 @@ def augment_synonym(text: str, seed: Optional[int] = None) -> str:
     return " ".join(result)
 
 
-def augment_shuffle(text: str, seed: Optional[int] = None) -> str:
+def augment_shuffle(text: str, seed: int | None = None) -> str:
     """Shuffle sentences in the text.
 
     Splits on '. ', shuffles, and rejoins.
@@ -164,7 +162,7 @@ def augment_truncate(text: str, ratio: float = 0.8) -> str:
     return text[:keep]
 
 
-def augment_example(text: str, method: str, seed: Optional[int] = None) -> str:
+def augment_example(text: str, method: str, seed: int | None = None) -> str:
     """Route to the appropriate augmentation method."""
     if method == "synonym":
         return augment_synonym(text, seed=seed)
@@ -177,9 +175,9 @@ def augment_example(text: str, method: str, seed: Optional[int] = None) -> str:
 
 
 def augment_batch(
-    examples: List[Tuple[str, str, str]],
+    examples: list[tuple[str, str, str]],
     config: AugmentationConfig,
-) -> Tuple[List[AugmentedExample], AugmentationResult]:
+) -> tuple[list[AugmentedExample], AugmentationResult]:
     """Augment a batch of examples.
 
     Each input tuple is (id, text, label). For each example, apply
@@ -187,7 +185,7 @@ def augment_batch(
     through the configured methods list.
     """
     rng = random.Random(config.seed)
-    augmented: List[AugmentedExample] = []
+    augmented: list[AugmentedExample] = []
     methods_used: set[str] = set()
 
     for ex_id, text, label in examples:

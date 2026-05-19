@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
@@ -9,7 +8,6 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 
 from ..storage.sqlite import _get_default_db_path
-
 
 # OTLP exporter import path differs by version; try modern path first.
 try:
@@ -156,8 +154,8 @@ class SQLiteSpanExporter:
 def configure_otel(
     service_name: str = "evalyn",
     exporter: str = "console",
-    endpoint: Optional[str] = None,
-    sqlite_path: Optional[str] = None,
+    endpoint: str | None = None,
+    sqlite_path: str | None = None,
 ):
     """
     Configure an OpenTelemetry tracer provider and return a tracer for Evalyn to use.

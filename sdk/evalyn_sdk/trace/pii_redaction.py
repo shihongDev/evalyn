@@ -6,7 +6,7 @@ import copy
 import hashlib
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from ..models import Span
 
@@ -27,10 +27,10 @@ class RedactionPattern:
     """A named regex pattern with its replacement template."""
 
     name: str
-    pattern: "re.Pattern[str]"
+    pattern: re.Pattern[str]
     replacement: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "pattern": self.pattern.pattern,
@@ -38,7 +38,7 @@ class RedactionPattern:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RedactionPattern:
+    def from_dict(cls, data: dict[str, Any]) -> RedactionPattern:
         return cls(
             name=data["name"],
             pattern=re.compile(data["pattern"]),
@@ -51,10 +51,10 @@ class RedactionConfig:
     """Configuration for PII redaction."""
 
     strategy: str  # "mask", "hash", or "remove"
-    patterns: List[RedactionPattern] = field(default_factory=list)
-    custom_patterns: List[RedactionPattern] = field(default_factory=list)
+    patterns: list[RedactionPattern] = field(default_factory=list)
+    custom_patterns: list[RedactionPattern] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "strategy": self.strategy,
             "patterns": [p.as_dict() for p in self.patterns],
@@ -62,7 +62,7 @@ class RedactionConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RedactionConfig:
+    def from_dict(cls, data: dict[str, Any]) -> RedactionConfig:
         return cls(
             strategy=data["strategy"],
             patterns=[
@@ -83,9 +83,9 @@ class RedactionResult:
     original_length: int
     redacted_length: int
     redactions_count: int
-    redacted_fields: List[str]
+    redacted_fields: list[str]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "original_length": self.original_length,
             "redacted_length": self.redacted_length,
@@ -94,7 +94,7 @@ class RedactionResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RedactionResult:
+    def from_dict(cls, data: dict[str, Any]) -> RedactionResult:
         return cls(
             original_length=data["original_length"],
             redacted_length=data["redacted_length"],
@@ -105,7 +105,7 @@ class RedactionResult:
 
 def _apply_pattern(
     text: str, pat: RedactionPattern, strategy: str
-) -> Tuple[str, int]:
+) -> tuple[str, int]:
     """Apply a single pattern to text. Returns (new_text, match_count)."""
     count = 0
 
@@ -136,7 +136,7 @@ def redact_text(text: str, config: RedactionConfig) -> str:
 
 def _redact_value(
     value: Any, config: RedactionConfig
-) -> Tuple[Any, int, int, int]:
+) -> tuple[Any, int, int, int]:
     """Redact a single value. Returns (redacted, orig_len, new_len, count)."""
     if isinstance(value, str):
         orig_len = len(value)
@@ -180,13 +180,13 @@ _REDACT_KEYS = {"input", "output", "inputs", "outputs"}
 
 def redact_span(
     span: Span, config: RedactionConfig
-) -> Tuple[Span, RedactionResult]:
+) -> tuple[Span, RedactionResult]:
     """Redact PII from span attributes. Returns a NEW span and a result summary."""
     new_span = copy.deepcopy(span)
     total_orig = 0
     total_new = 0
     total_count = 0
-    redacted_fields: List[str] = []
+    redacted_fields: list[str] = []
 
     for key in list(new_span.attributes.keys()):
         if key not in _REDACT_KEYS:
@@ -210,14 +210,14 @@ def redact_span(
 
 
 def redact_spans(
-    spans: List[Span], config: RedactionConfig
-) -> Tuple[List[Span], RedactionResult]:
+    spans: list[Span], config: RedactionConfig
+) -> tuple[list[Span], RedactionResult]:
     """Batch redaction across multiple spans."""
-    all_spans: List[Span] = []
+    all_spans: list[Span] = []
     total_orig = 0
     total_new = 0
     total_count = 0
-    all_fields: List[str] = []
+    all_fields: list[str] = []
 
     for s in spans:
         new_s, r = redact_span(s, config)

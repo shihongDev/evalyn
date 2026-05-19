@@ -6,7 +6,7 @@ import base64
 import copy
 import gzip
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from ..models import Span
 
@@ -19,7 +19,7 @@ class CompressionConfig:
     level: int = 6
     enabled: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "min_size_bytes": self.min_size_bytes,
             "level": self.level,
@@ -27,7 +27,7 @@ class CompressionConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CompressionConfig:
+    def from_dict(cls, data: dict[str, Any]) -> CompressionConfig:
         return cls(
             min_size_bytes=data.get("min_size_bytes", 1000),
             level=data.get("level", 6),
@@ -50,7 +50,7 @@ class CompressionStats:
             return (1 - self.compressed_bytes / self.original_bytes) * 100
         return 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "original_bytes": self.original_bytes,
             "compressed_bytes": self.compressed_bytes,
@@ -75,7 +75,7 @@ def decompress_text(data: bytes) -> str:
 
 def compress_span_attributes(
     span: Span, config: CompressionConfig
-) -> Tuple[Span, CompressionStats]:
+) -> tuple[Span, CompressionStats]:
     """Compress string attributes that exceed min_size_bytes.
 
     Replaces qualifying attribute values with a dict containing:
@@ -149,7 +149,7 @@ def decompress_span_attributes(span: Span) -> Span:
 
 
 def compute_compression_stats(
-    spans: List[Span], config: CompressionConfig
+    spans: list[Span], config: CompressionConfig
 ) -> CompressionStats:
     """Estimate compression savings for a list of spans without persisting changes."""
     total_original = 0

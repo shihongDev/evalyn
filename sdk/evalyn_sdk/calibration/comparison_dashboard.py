@@ -7,8 +7,7 @@ with optimizer ranking and ASCII rendering.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -27,7 +26,7 @@ class CalibrationAttemptSummary:
     prompt_length: int = 0
     timestamp: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "attempt_id": self.attempt_id,
             "metric_id": self.metric_id,
@@ -39,7 +38,7 @@ class CalibrationAttemptSummary:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CalibrationAttemptSummary:
+    def from_dict(cls, data: dict[str, Any]) -> CalibrationAttemptSummary:
         return cls(
             attempt_id=data["attempt_id"],
             metric_id=data["metric_id"],
@@ -56,11 +55,11 @@ class ComparisonEntry:
     """Comparison entry for a single metric across attempts."""
 
     metric_id: str
-    attempts: List[CalibrationAttemptSummary] = field(default_factory=list)
+    attempts: list[CalibrationAttemptSummary] = field(default_factory=list)
     best_attempt_id: str = ""
     improvement_over_baseline: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "attempts": [a.as_dict() for a in self.attempts],
@@ -73,11 +72,11 @@ class ComparisonEntry:
 class ComparisonDashboard:
     """Full dashboard with all comparison entries."""
 
-    entries: List[ComparisonEntry] = field(default_factory=list)
+    entries: list[ComparisonEntry] = field(default_factory=list)
     total_metrics: int = 0
     total_attempts: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "entries": [e.as_dict() for e in self.entries],
             "total_metrics": self.total_metrics,
@@ -85,7 +84,7 @@ class ComparisonDashboard:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ComparisonDashboard:
+    def from_dict(cls, data: dict[str, Any]) -> ComparisonDashboard:
         entries = []
         for e in data.get("entries", []):
             attempts = [
@@ -130,7 +129,7 @@ class ComparisonDashboard:
 
 
 def build_comparison_entry(
-    metric_id: str, attempts: List[CalibrationAttemptSummary]
+    metric_id: str, attempts: list[CalibrationAttemptSummary]
 ) -> ComparisonEntry:
     """Find best attempt and compute improvement over first attempt (baseline)."""
     if not attempts:
@@ -149,10 +148,10 @@ def build_comparison_entry(
 
 
 def build_dashboard(
-    attempts: List[CalibrationAttemptSummary],
+    attempts: list[CalibrationAttemptSummary],
 ) -> ComparisonDashboard:
     """Group attempts by metric_id and build comparison entries."""
-    groups: Dict[str, List[CalibrationAttemptSummary]] = {}
+    groups: dict[str, list[CalibrationAttemptSummary]] = {}
     for a in attempts:
         groups.setdefault(a.metric_id, []).append(a)
 
@@ -190,12 +189,12 @@ def render_dashboard_ascii(dashboard: ComparisonDashboard) -> str:
 
 def rank_optimizers(
     dashboard: ComparisonDashboard,
-) -> List[Tuple[str, float]]:
+) -> list[tuple[str, float]]:
     """Rank optimizers by average alignment score across all metrics.
 
     Returns list of (optimizer, avg_score) sorted descending by avg_score.
     """
-    scores: Dict[str, List[float]] = {}
+    scores: dict[str, list[float]] = {}
     for entry in dashboard.entries:
         for a in entry.attempts:
             scores.setdefault(a.optimizer, []).append(a.alignment_score)

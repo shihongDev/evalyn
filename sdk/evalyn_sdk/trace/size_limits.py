@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from ..models import Span
 
@@ -12,10 +12,10 @@ class SizeLimitConfig:
     """Configuration for span payload size limits."""
 
     default_max_bytes: int = 10000
-    per_type_limits: Dict[str, int] = field(default_factory=dict)
+    per_type_limits: dict[str, int] = field(default_factory=dict)
     truncation_marker: str = "... [truncated]"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "default_max_bytes": self.default_max_bytes,
             "per_type_limits": dict(self.per_type_limits),
@@ -23,7 +23,7 @@ class SizeLimitConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SizeLimitConfig:
+    def from_dict(cls, data: dict[str, Any]) -> SizeLimitConfig:
         return cls(
             default_max_bytes=data.get("default_max_bytes", 10000),
             per_type_limits=data.get("per_type_limits", {}),
@@ -40,7 +40,7 @@ class TruncationResult:
     truncated_bytes: int
     was_truncated: bool
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "field_name": self.field_name,
             "original_bytes": self.original_bytes,
@@ -59,7 +59,7 @@ def get_limit(config: SizeLimitConfig, span_type: str) -> int:
 
 def truncate_text(
     text: str, max_bytes: int, marker: str
-) -> Tuple[str, bool]:
+) -> tuple[str, bool]:
     """Truncate text to fit within max_bytes (UTF-8).
 
     Appends marker if truncated. Truncates at character boundaries
@@ -84,7 +84,7 @@ def truncate_text(
 
 def enforce_size_limits(
     span: Span, config: SizeLimitConfig
-) -> Tuple[Span, List[TruncationResult]]:
+) -> tuple[Span, list[TruncationResult]]:
     """Apply size limits to span string attributes "input" and "output".
 
     Returns a NEW span (does not mutate the original) and a list of
@@ -92,7 +92,7 @@ def enforce_size_limits(
     """
     limit = get_limit(config, span.span_type)
     new_span = copy.deepcopy(span)
-    results: List[TruncationResult] = []
+    results: list[TruncationResult] = []
 
     for field_name in ("input", "output"):
         value = new_span.attributes.get(field_name)

@@ -7,7 +7,7 @@ users to understand metric coverage across evaluation profiles.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 
 @dataclass
@@ -16,10 +16,10 @@ class MetricCrossRef:
 
     metric_id: str
     metric_type: str
-    bundles: List[str] = field(default_factory=list)
+    bundles: list[str] = field(default_factory=list)
     category: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "type": self.metric_type,
@@ -34,7 +34,7 @@ class BundleCrossRef:
     """Cross-reference data for a single bundle."""
 
     bundle_name: str
-    metrics: List[str] = field(default_factory=list)
+    metrics: list[str] = field(default_factory=list)
     objective_count: int = 0
     subjective_count: int = 0
 
@@ -42,7 +42,7 @@ class BundleCrossRef:
     def total_metrics(self) -> int:
         return len(self.metrics)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "bundle_name": self.bundle_name,
             "metrics": list(self.metrics),
@@ -56,15 +56,15 @@ class BundleCrossRef:
 class CrossReferenceReport:
     """Complete cross-reference between metrics and bundles."""
 
-    metrics: List[MetricCrossRef] = field(default_factory=list)
-    bundles: List[BundleCrossRef] = field(default_factory=list)
+    metrics: list[MetricCrossRef] = field(default_factory=list)
+    bundles: list[BundleCrossRef] = field(default_factory=list)
 
     @property
-    def orphan_metrics(self) -> List[str]:
+    def orphan_metrics(self) -> list[str]:
         """Metrics not in any bundle."""
         return [m.metric_id for m in self.metrics if not m.bundles]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metrics": [m.as_dict() for m in self.metrics],
             "bundles": [b.as_dict() for b in self.bundles],
@@ -86,9 +86,9 @@ class CrossReferenceReport:
 
 
 def build_cross_reference(
-    bundles: Optional[Dict[str, List[str]]] = None,
-    metric_types: Optional[Dict[str, str]] = None,
-    metric_categories: Optional[Dict[str, str]] = None,
+    bundles: dict[str, list[str]] | None = None,
+    metric_types: dict[str, str] | None = None,
+    metric_categories: dict[str, str] | None = None,
 ) -> CrossReferenceReport:
     """Build a cross-reference between metrics and bundles.
 
@@ -108,7 +108,7 @@ def build_cross_reference(
     metric_categories = metric_categories or {}
 
     # Build metric -> bundles mapping
-    metric_bundles: Dict[str, Set[str]] = {}
+    metric_bundles: dict[str, set[str]] = {}
     for bundle_name, metric_ids in bundles.items():
         for mid in metric_ids:
             metric_bundles.setdefault(mid, set()).add(bundle_name)
@@ -142,7 +142,7 @@ def build_cross_reference(
     return CrossReferenceReport(metrics=metrics, bundles=bundle_refs)
 
 
-def _load_default_bundles() -> Dict[str, List[str]]:
+def _load_default_bundles() -> dict[str, list[str]]:
     """Load built-in metric bundles."""
     try:
         from ..cli.constants import BUNDLES

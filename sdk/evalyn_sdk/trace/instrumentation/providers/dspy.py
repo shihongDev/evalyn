@@ -20,11 +20,11 @@ Span hierarchy:
 from __future__ import annotations
 
 import importlib.util
-from typing import Any, Dict, Optional
+from typing import Any
 
-from ..base import Instrumentor, InstrumentorType
 from ....models import Span
 from ... import context as span_context
+from ..base import Instrumentor, InstrumentorType
 from ._shared import calculate_cost
 
 
@@ -32,7 +32,7 @@ class DSPyInstrumentor(Instrumentor):
     """Instrumentor for DSPy via its callback system."""
 
     _instrumented = False
-    _callback: Optional[Any] = None
+    _callback: Any | None = None
 
     @property
     def name(self) -> str:
@@ -54,7 +54,10 @@ class DSPyInstrumentor(Instrumentor):
 
         try:
             import dspy
-            from dspy.utils.callback import BaseCallback
+
+            # Probe that BaseCallback exists in the installed dspy version;
+            # we register a subclass below and need this symbol to be present.
+            from dspy.utils.callback import BaseCallback  # noqa: F401
         except ImportError:
             return False
 
@@ -97,7 +100,7 @@ class EvalynDSPyCallback:
     """
 
     def __init__(self) -> None:
-        self._open_spans: Dict[str, _DSPyOpenSpan] = {}
+        self._open_spans: dict[str, _DSPyOpenSpan] = {}
 
     def _push_span(self, call_id: str, span: Span) -> None:
         """Push span onto context stack and track it as open."""
@@ -108,8 +111,8 @@ class EvalynDSPyCallback:
     def _finish_span(
         self,
         call_id: str,
-        exception: Optional[Exception] = None,
-    ) -> Optional[_DSPyOpenSpan]:
+        exception: Exception | None = None,
+    ) -> _DSPyOpenSpan | None:
         """Pop open span, restore stack, finish and collect it.
 
         Returns the open span if found, None otherwise (caller can use this
@@ -137,7 +140,7 @@ class EvalynDSPyCallback:
         self,
         call_id: str,
         instance: Any,
-        inputs: Dict[str, Any],
+        inputs: dict[str, Any],
     ) -> None:
         module_name = type(instance).__name__
 
@@ -176,8 +179,8 @@ class EvalynDSPyCallback:
     def on_module_end(
         self,
         call_id: str,
-        outputs: Optional[Any],
-        exception: Optional[Exception] = None,
+        outputs: Any | None,
+        exception: Exception | None = None,
     ) -> None:
         open_span = self._open_spans.get(call_id)
         if open_span is None:
@@ -199,7 +202,7 @@ class EvalynDSPyCallback:
         self,
         call_id: str,
         instance: Any,
-        inputs: Dict[str, Any],
+        inputs: dict[str, Any],
     ) -> None:
         model = getattr(instance, "model", None) or "unknown"
 
@@ -234,8 +237,8 @@ class EvalynDSPyCallback:
     def on_lm_end(
         self,
         call_id: str,
-        outputs: Optional[Any],
-        exception: Optional[Exception] = None,
+        outputs: Any | None,
+        exception: Exception | None = None,
     ) -> None:
         open_span = self._open_spans.get(call_id)
         if open_span is None:
@@ -261,7 +264,7 @@ class EvalynDSPyCallback:
         self,
         call_id: str,
         instance: Any,
-        inputs: Dict[str, Any],
+        inputs: dict[str, Any],
     ) -> None:
         tool_name = getattr(instance, "name", None) or getattr(
             instance, "func_name", type(instance).__name__
@@ -283,8 +286,8 @@ class EvalynDSPyCallback:
     def on_tool_end(
         self,
         call_id: str,
-        outputs: Optional[Any],
-        exception: Optional[Exception] = None,
+        outputs: Any | None,
+        exception: Exception | None = None,
     ) -> None:
         open_span = self._open_spans.get(call_id)
         if open_span is None:

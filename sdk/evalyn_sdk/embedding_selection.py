@@ -8,8 +8,8 @@ sampling pipeline. Pure configuration/metadata - no actual model loading.
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -23,7 +23,7 @@ class EmbeddingModelConfig:
     max_tokens: int = 512
     cache_key: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "model_id": self.model_id,
             "model_name": self.model_name,
@@ -34,7 +34,7 @@ class EmbeddingModelConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EmbeddingModelConfig:
+    def from_dict(cls, data: dict[str, Any]) -> EmbeddingModelConfig:
         return cls(
             model_id=data["model_id"],
             model_name=data["model_name"],
@@ -49,7 +49,7 @@ class EmbeddingModelConfig:
 # Builtin models
 # ---------------------------------------------------------------------------
 
-BUILTIN_MODELS: Dict[str, EmbeddingModelConfig] = {
+BUILTIN_MODELS: dict[str, EmbeddingModelConfig] = {
     "all-MiniLM-L6-v2": EmbeddingModelConfig(
         model_id="all-MiniLM-L6-v2",
         model_name="all-MiniLM-L6-v2",
@@ -86,14 +86,14 @@ class EmbeddingRegistry:
     """Registry for managing embedding model configurations."""
 
     def __init__(self) -> None:
-        self._models: Dict[str, EmbeddingModelConfig] = {}
+        self._models: dict[str, EmbeddingModelConfig] = {}
         self._default_id: str = "all-MiniLM-L6-v2"
 
     def register(self, config: EmbeddingModelConfig) -> None:
         """Register an embedding model configuration."""
         self._models[config.model_id] = config
 
-    def get(self, model_id: str) -> Optional[EmbeddingModelConfig]:
+    def get(self, model_id: str) -> EmbeddingModelConfig | None:
         """Get a model config by ID, or None if not found."""
         return self._models.get(model_id)
 
@@ -108,7 +108,7 @@ class EmbeddingRegistry:
             return model
         return BUILTIN_MODELS["all-MiniLM-L6-v2"]
 
-    def list_models(self) -> List[EmbeddingModelConfig]:
+    def list_models(self) -> list[EmbeddingModelConfig]:
         """Return all registered models as a list."""
         return list(self._models.values())
 
@@ -141,7 +141,7 @@ def format_model_catalog(registry: EmbeddingRegistry) -> str:
     models = registry.list_models()
     if not models:
         return "No models registered."
-    lines: List[str] = ["Embedding Models:"]
+    lines: list[str] = ["Embedding Models:"]
     for m in models:
         default_marker = " (default)" if m.model_id == registry._default_id else ""
         lines.append(

@@ -6,9 +6,8 @@ and weighted scoring.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
-
+from dataclasses import dataclass
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -22,14 +21,14 @@ class ObjectiveWeights:
     accuracy_weight: float = 0.7
     cost_weight: float = 0.3
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "accuracy_weight": self.accuracy_weight,
             "cost_weight": self.cost_weight,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ObjectiveWeights:
+    def from_dict(cls, data: dict[str, Any]) -> ObjectiveWeights:
         return cls(
             accuracy_weight=data.get("accuracy_weight", 0.7),
             cost_weight=data.get("cost_weight", 0.3),
@@ -45,7 +44,7 @@ class ParetoPoint:
     cost_tokens: int
     combined_score: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "prompt": self.prompt,
             "accuracy": self.accuracy,
@@ -58,12 +57,12 @@ class ParetoPoint:
 class MultiObjectiveResult:
     """Result of multi-objective optimization."""
 
-    pareto_front: List[ParetoPoint]
-    best_balanced: Optional[ParetoPoint] = None
-    best_accuracy: Optional[ParetoPoint] = None
-    cheapest: Optional[ParetoPoint] = None
+    pareto_front: list[ParetoPoint]
+    best_balanced: ParetoPoint | None = None
+    best_accuracy: ParetoPoint | None = None
+    cheapest: ParetoPoint | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "pareto_front": [p.as_dict() for p in self.pareto_front],
             "best_balanced": self.best_balanced.as_dict()
@@ -76,7 +75,7 @@ class MultiObjectiveResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MultiObjectiveResult:
+    def from_dict(cls, data: dict[str, Any]) -> MultiObjectiveResult:
         pareto_front = [
             ParetoPoint(
                 prompt=p["prompt"],
@@ -159,7 +158,7 @@ def compute_combined_score(
     return max(0.0, min(1.0, raw))
 
 
-def find_pareto_front(points: List[ParetoPoint]) -> List[ParetoPoint]:
+def find_pareto_front(points: list[ParetoPoint]) -> list[ParetoPoint]:
     """Return non-dominated points sorted by accuracy descending.
 
     A point is dominated if another point has both higher accuracy and
@@ -167,7 +166,7 @@ def find_pareto_front(points: List[ParetoPoint]) -> List[ParetoPoint]:
     """
     if not points:
         return []
-    front: List[ParetoPoint] = []
+    front: list[ParetoPoint] = []
     for p in points:
         dominated = False
         for q in points:
@@ -184,15 +183,15 @@ def find_pareto_front(points: List[ParetoPoint]) -> List[ParetoPoint]:
 
 
 def select_best_balanced(
-    points: List[ParetoPoint],
+    points: list[ParetoPoint],
     weights: ObjectiveWeights,
     max_tokens: int = 10000,
-) -> Optional[ParetoPoint]:
+) -> ParetoPoint | None:
     """From a list of points, pick the one with highest combined_score."""
     if not points:
         return None
     # Recompute combined scores with the given weights
-    best: Optional[ParetoPoint] = None
+    best: ParetoPoint | None = None
     best_score = -1.0
     for p in points:
         score = compute_combined_score(p.accuracy, p.cost_tokens, weights, max_tokens)
@@ -203,8 +202,8 @@ def select_best_balanced(
 
 
 def optimize_multi_objective(
-    candidates: List[Tuple[str, float, int]],
-    weights: Optional[ObjectiveWeights] = None,
+    candidates: list[tuple[str, float, int]],
+    weights: ObjectiveWeights | None = None,
 ) -> MultiObjectiveResult:
     """Full multi-objective analysis.
 
@@ -222,7 +221,7 @@ def optimize_multi_objective(
         max_tokens = 1
 
     # Build ParetoPoints with combined scores
-    points: List[ParetoPoint] = []
+    points: list[ParetoPoint] = []
     for prompt, accuracy, cost_tokens in candidates:
         score = compute_combined_score(accuracy, cost_tokens, weights, max_tokens)
         points.append(

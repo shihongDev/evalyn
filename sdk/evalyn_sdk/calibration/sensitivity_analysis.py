@@ -8,14 +8,13 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Built-in synonym dictionary
 # ---------------------------------------------------------------------------
 
-_SYNONYMS: Dict[str, List[str]] = {
+_SYNONYMS: dict[str, list[str]] = {
     "good": ["great", "fine", "nice"],
     "bad": ["poor", "terrible", "awful"],
     "fast": ["quick", "rapid", "speedy"],
@@ -48,7 +47,7 @@ class Perturbation:
     method: str = "word_swap"
     change_description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "original": self.original,
             "perturbed": self.perturbed,
@@ -67,7 +66,7 @@ class SensitivityResult:
     delta: float
     is_sensitive: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "perturbation": self.perturbation.as_dict(),
             "original_score": self.original_score,
@@ -81,13 +80,13 @@ class SensitivityResult:
 class SensitivityReport:
     """Aggregated sensitivity analysis report."""
 
-    results: List[SensitivityResult] = field(default_factory=list)
+    results: list[SensitivityResult] = field(default_factory=list)
     avg_sensitivity: float = 0.0
     max_sensitivity: float = 0.0
     sensitive_count: int = 0
     robust_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "avg_sensitivity": self.avg_sensitivity,
@@ -97,7 +96,7 @@ class SensitivityReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SensitivityReport:
+    def from_dict(cls, data: dict[str, Any]) -> SensitivityReport:
         results = []
         for r in data.get("results", []):
             p_data = r["perturbation"]
@@ -144,7 +143,7 @@ class SensitivityReport:
 # ---------------------------------------------------------------------------
 
 
-def perturb_word_swap(text: str, seed: Optional[int] = None) -> Perturbation:
+def perturb_word_swap(text: str, seed: int | None = None) -> Perturbation:
     """Swap two random adjacent words."""
     rng = random.Random(seed)
     words = text.split()
@@ -187,7 +186,7 @@ def perturb_add_whitespace(text: str) -> Perturbation:
     )
 
 
-def perturb_case_change(text: str, seed: Optional[int] = None) -> Perturbation:
+def perturb_case_change(text: str, seed: int | None = None) -> Perturbation:
     """Randomly change case of one word."""
     rng = random.Random(seed)
     words = text.split()
@@ -214,7 +213,7 @@ def perturb_case_change(text: str, seed: Optional[int] = None) -> Perturbation:
     )
 
 
-def perturb_synonym(text: str, seed: Optional[int] = None) -> Perturbation:
+def perturb_synonym(text: str, seed: int | None = None) -> Perturbation:
     """Replace one word with a synonym from built-in dictionary."""
     rng = random.Random(seed)
     words = text.split()
@@ -268,12 +267,12 @@ def perturb_synonym(text: str, seed: Optional[int] = None) -> Perturbation:
 
 
 def generate_perturbations(
-    text: str, num_perturbations: int = 5, seed: Optional[int] = None
-) -> List[Perturbation]:
+    text: str, num_perturbations: int = 5, seed: int | None = None
+) -> list[Perturbation]:
     """Generate multiple perturbations using different methods."""
     rng = random.Random(seed)
     methods = [perturb_word_swap, perturb_add_whitespace, perturb_case_change, perturb_synonym]
-    perturbations: List[Perturbation] = []
+    perturbations: list[Perturbation] = []
 
     for i in range(num_perturbations):
         method_seed = rng.randint(0, 2**31 - 1)
@@ -288,7 +287,7 @@ def generate_perturbations(
 
 
 def analyze_sensitivity(
-    results: List[SensitivityResult], threshold: float = 0.05
+    results: list[SensitivityResult], threshold: float = 0.05
 ) -> SensitivityReport:
     """Compute avg/max sensitivity and classify results.
 
@@ -297,7 +296,7 @@ def analyze_sensitivity(
     if not results:
         return SensitivityReport()
 
-    classified: List[SensitivityResult] = []
+    classified: list[SensitivityResult] = []
     sensitive_count = 0
     robust_count = 0
 

@@ -19,11 +19,11 @@ from __future__ import annotations
 
 import functools
 import importlib.util
-from typing import Any, Dict
+from typing import Any
 
-from ..base import Instrumentor, InstrumentorType
 from ....models import Span
 from ... import context as span_context
+from ..base import Instrumentor, InstrumentorType
 from ._shared import calculate_cost
 
 
@@ -84,7 +84,7 @@ class SemanticKernelInstrumentor(Instrumentor):
     """Instrumentor for Microsoft Semantic Kernel."""
 
     _instrumented = False
-    _originals: Dict[str, Any] = {}
+    _originals: dict[str, Any] = {}
 
     @property
     def name(self) -> str:

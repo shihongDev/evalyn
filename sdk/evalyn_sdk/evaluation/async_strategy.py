@@ -7,10 +7,10 @@ testable without requiring actual asyncio event loops.
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Dataclasses
@@ -25,7 +25,7 @@ class AsyncConfig:
     timeout_seconds: float = 30.0
     strategy: str = "async"  # "sequential", "parallel", "async"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "max_concurrency": self.max_concurrency,
             "timeout_seconds": self.timeout_seconds,
@@ -33,7 +33,7 @@ class AsyncConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AsyncConfig:
+    def from_dict(cls, data: dict[str, Any]) -> AsyncConfig:
         return cls(
             max_concurrency=data.get("max_concurrency", 10),
             timeout_seconds=data.get("timeout_seconds", 30.0),
@@ -48,11 +48,11 @@ class AsyncResult:
     item_id: str
     metric_id: str
     success: bool
-    result: Optional[Dict[str, Any]] = None
+    result: dict[str, Any] | None = None
     error: str = ""
     duration_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "metric_id": self.metric_id,
@@ -67,14 +67,14 @@ class AsyncResult:
 class AsyncReport:
     """Aggregate report for a batch of async tasks."""
 
-    results: List[AsyncResult] = field(default_factory=list)
+    results: list[AsyncResult] = field(default_factory=list)
     total_items: int = 0
     succeeded: int = 0
     failed: int = 0
     total_duration_ms: float = 0.0
     avg_concurrency: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "total_items": self.total_items,
@@ -85,7 +85,7 @@ class AsyncReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AsyncReport:
+    def from_dict(cls, data: dict[str, Any]) -> AsyncReport:
         results = [
             AsyncResult(
                 item_id=r["item_id"],
@@ -160,7 +160,7 @@ def create_async_config(
 
 
 def run_sequential(
-    tasks: List[Tuple[str, str, Callable]],
+    tasks: list[tuple[str, str, Callable]],
     config: AsyncConfig,
 ) -> AsyncReport:
     """Run tasks one by one.
@@ -168,7 +168,7 @@ def run_sequential(
     Each task is a tuple of (item_id, metric_id, callable).
     """
     start = time.monotonic()
-    results: List[AsyncResult] = []
+    results: list[AsyncResult] = []
     for item_id, metric_id, fn in tasks:
         results.append(_run_single_task(item_id, metric_id, fn))
     total_duration = (time.monotonic() - start) * 1000
@@ -176,14 +176,14 @@ def run_sequential(
 
 
 def run_parallel(
-    tasks: List[Tuple[str, str, Callable]],
+    tasks: list[tuple[str, str, Callable]],
     config: AsyncConfig,
 ) -> AsyncReport:
     """Run tasks using ThreadPoolExecutor with max_concurrency workers."""
     if not tasks:
         return build_async_report([])
     start = time.monotonic()
-    results: List[AsyncResult] = []
+    results: list[AsyncResult] = []
     workers = min(config.max_concurrency, len(tasks))
     with ThreadPoolExecutor(max_workers=workers) as executor:
         futures = {
@@ -210,9 +210,9 @@ def select_strategy(item_count: int, config: AsyncConfig) -> str:
 
 
 def build_async_report(
-    results: List[AsyncResult],
-    total_duration_override: Optional[float] = None,
-    concurrency: Optional[float] = None,
+    results: list[AsyncResult],
+    total_duration_override: float | None = None,
+    concurrency: float | None = None,
 ) -> AsyncReport:
     """Aggregate AsyncResults into an AsyncReport."""
     succeeded = sum(1 for r in results if r.success)

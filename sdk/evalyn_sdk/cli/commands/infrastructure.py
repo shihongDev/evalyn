@@ -46,9 +46,14 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 
-from ..utils.config import load_config, get_config_default, find_project_root, create_evalyn_yaml
+from ..utils.config import (
+    create_evalyn_yaml,
+    find_project_root,
+    get_config_default,
+    load_config,
+)
 from ..utils.errors import fatal_error
-from ..utils.rich import banner, section, icon, footer
+from ..utils.rich import banner, footer, icon, section
 
 # Real defaults for one-click pipeline arguments.
 # Stored as constants so help text stays accurate when argparse defaults are None.

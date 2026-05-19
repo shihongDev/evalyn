@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -19,14 +19,14 @@ class ReservoirConfig:
     capacity: int = 100
     seed: int = 42
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "capacity": self.capacity,
             "seed": self.seed,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ReservoirConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ReservoirConfig:
         return cls(
             capacity=data.get("capacity", 100),
             seed=data.get("seed", 42),
@@ -37,12 +37,12 @@ class ReservoirConfig:
 class ReservoirState:
     """Snapshot of reservoir state at a point in time."""
 
-    items: List[Dict[str, Any]] = field(default_factory=list)
+    items: list[dict[str, Any]] = field(default_factory=list)
     seen_count: int = 0
     capacity: int = 100
     is_full: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "items": self.items,
             "seen_count": self.seen_count,
@@ -51,7 +51,7 @@ class ReservoirState:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ReservoirState:
+    def from_dict(cls, data: dict[str, Any]) -> ReservoirState:
         return cls(
             items=data.get("items", []),
             seen_count=data.get("seen_count", 0),
@@ -72,7 +72,7 @@ class Reservoir:
         self._capacity = capacity
         self._seed = seed
         self._rng = random.Random(seed)
-        self._items: List[Dict[str, Any]] = []
+        self._items: list[dict[str, Any]] = []
         self._seen_count = 0
 
     def add(self, item: dict) -> bool:
@@ -142,7 +142,7 @@ def stream_from_file(file_path: str, reservoir: Reservoir) -> ReservoirState:
     Each non-empty line is parsed as JSON and added to the reservoir.
     Returns the final reservoir state.
     """
-    with open(file_path, "r", encoding="utf-8") as fh:
+    with open(file_path, encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
             if not line:

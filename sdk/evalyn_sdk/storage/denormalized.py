@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import csv
 import io
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any
 
 from ..models import Span
 
@@ -26,7 +26,7 @@ class FlattenedRecord:
     output_text: str = ""
     status: str = "ok"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "record_id": self.record_id,
             "trace_id": self.trace_id,
@@ -44,7 +44,7 @@ class FlattenedRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FlattenedRecord:
+    def from_dict(cls, data: dict[str, Any]) -> FlattenedRecord:
         return cls(
             record_id=data.get("record_id", ""),
             trace_id=data.get("trace_id", ""),
@@ -71,7 +71,7 @@ class DenormalizationConfig:
     max_text_length: int = 500
     flatten_attributes: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "include_input": self.include_input,
             "include_output": self.include_output,
@@ -80,7 +80,7 @@ class DenormalizationConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DenormalizationConfig:
+    def from_dict(cls, data: dict[str, Any]) -> DenormalizationConfig:
         return cls(
             include_input=data.get("include_input", True),
             include_output=data.get("include_output", True),
@@ -98,7 +98,7 @@ class DenormalizationReport:
     avg_depth: float = 0.0
     total_size_reduction_pct: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_spans": self.total_spans,
             "flattened_records": self.flattened_records,
@@ -134,7 +134,7 @@ def flatten_span(
     span: Span,
     parent_name: str = "",
     depth: int = 0,
-    config: Optional[DenormalizationConfig] = None,
+    config: DenormalizationConfig | None = None,
 ) -> FlattenedRecord:
     """Convert a Span to a flat record.
 
@@ -177,9 +177,9 @@ def flatten_span(
 
 
 def flatten_trace(
-    spans: List[Span],
-    config: Optional[DenormalizationConfig] = None,
-) -> List[FlattenedRecord]:
+    spans: list[Span],
+    config: DenormalizationConfig | None = None,
+) -> list[FlattenedRecord]:
     """Flatten all spans preserving hierarchy info (depth, parent_name).
 
     Builds parent-child tree first, then walks it depth-first.
@@ -191,9 +191,9 @@ def flatten_trace(
         return []
 
     # Build lookup
-    by_id: Dict[str, Span] = {s.id: s for s in spans}
-    children: Dict[str, List[str]] = {s.id: [] for s in spans}
-    roots: List[str] = []
+    by_id: dict[str, Span] = {s.id: s for s in spans}
+    children: dict[str, list[str]] = {s.id: [] for s in spans}
+    roots: list[str] = []
 
     for s in spans:
         if s.parent_id and s.parent_id in by_id:
@@ -202,7 +202,7 @@ def flatten_trace(
             roots.append(s.id)
 
     # Walk depth-first
-    records: List[FlattenedRecord] = []
+    records: list[FlattenedRecord] = []
 
     def walk(span_id: str, parent_name: str, depth: int) -> None:
         s = by_id[span_id]
@@ -218,8 +218,8 @@ def flatten_trace(
 
 
 def build_denormalization_report(
-    records: List[FlattenedRecord],
-    original_spans: List[Span],
+    records: list[FlattenedRecord],
+    original_spans: list[Span],
 ) -> DenormalizationReport:
     """Build statistics about the denormalization."""
     total_spans = len(original_spans)
@@ -244,9 +244,9 @@ def build_denormalization_report(
 
 
 def query_flat_records(
-    records: List[FlattenedRecord],
-    filters: Dict[str, Any],
-) -> List[FlattenedRecord]:
+    records: list[FlattenedRecord],
+    filters: dict[str, Any],
+) -> list[FlattenedRecord]:
     """Filter records by field values.
 
     Supported filter keys:
@@ -258,7 +258,7 @@ def query_flat_records(
     - min_depth: minimum depth (inclusive)
     - max_depth: maximum depth (inclusive)
     """
-    result: List[FlattenedRecord] = []
+    result: list[FlattenedRecord] = []
 
     for rec in records:
         if "span_type" in filters and rec.span_type != filters["span_type"]:
@@ -280,7 +280,7 @@ def query_flat_records(
     return result
 
 
-def export_flat_csv(records: List[FlattenedRecord]) -> str:
+def export_flat_csv(records: list[FlattenedRecord]) -> str:
     """Export records as a CSV string."""
     if not records:
         return ""

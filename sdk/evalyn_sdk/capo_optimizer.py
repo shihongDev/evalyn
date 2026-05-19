@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import math
 import random
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -27,9 +27,9 @@ class PromptCandidate:
     score: float = 0.0
     confidence: float = 0.0
     generation: int = 0
-    mutations_applied: List[str] = field(default_factory=list)
+    mutations_applied: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "prompt_text": self.prompt_text,
             "score": self.score,
@@ -39,7 +39,7 @@ class PromptCandidate:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PromptCandidate:
+    def from_dict(cls, data: dict[str, Any]) -> PromptCandidate:
         return cls(
             prompt_text=data["prompt_text"],
             score=data.get("score", 0.0),
@@ -59,9 +59,9 @@ class CAPOConfig:
     mutation_rate: float = 0.3
     elite_count: int = 2
     tournament_size: int = 3
-    seed: Optional[int] = None
+    seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "population_size": self.population_size,
             "max_generations": self.max_generations,
@@ -73,7 +73,7 @@ class CAPOConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CAPOConfig:
+    def from_dict(cls, data: dict[str, Any]) -> CAPOConfig:
         return cls(
             population_size=data.get("population_size", 10),
             max_generations=data.get("max_generations", 20),
@@ -90,11 +90,11 @@ class CAPOState:
     """Mutable state of an optimization run."""
 
     generation: int
-    population: List[PromptCandidate]
-    best_candidate: Optional[PromptCandidate] = None
-    history: List[Dict[str, Any]] = field(default_factory=list)
+    population: list[PromptCandidate]
+    best_candidate: PromptCandidate | None = None
+    history: list[dict[str, Any]] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "generation": self.generation,
             "population": [c.as_dict() for c in self.population],
@@ -103,7 +103,7 @@ class CAPOState:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CAPOState:
+    def from_dict(cls, data: dict[str, Any]) -> CAPOState:
         population = [PromptCandidate.from_dict(c) for c in data.get("population", [])]
         best_raw = data.get("best_candidate")
         best = PromptCandidate.from_dict(best_raw) if best_raw else None
@@ -123,7 +123,7 @@ class MutationOperator:
     description: str
     weight: float = 1.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
@@ -131,7 +131,7 @@ class MutationOperator:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MutationOperator:
+    def from_dict(cls, data: dict[str, Any]) -> MutationOperator:
         return cls(
             name=data["name"],
             description=data["description"],
@@ -143,7 +143,7 @@ class MutationOperator:
 # Built-in Mutation Operators
 # ---------------------------------------------------------------------------
 
-MUTATION_OPERATORS: List[MutationOperator] = [
+MUTATION_OPERATORS: list[MutationOperator] = [
     MutationOperator(
         name="rephrase",
         description="Rephrase the prompt while preserving meaning",
@@ -189,7 +189,7 @@ def initialize_population(seed_prompt: str, config: CAPOConfig) -> CAPOState:
     and making minor textual tweaks.
     """
     rng = random.Random(config.seed)
-    population: List[PromptCandidate] = []
+    population: list[PromptCandidate] = []
 
     # The seed itself is always candidate 0
     population.append(PromptCandidate(prompt_text=seed_prompt, generation=0))
@@ -232,7 +232,7 @@ def initialize_population(seed_prompt: str, config: CAPOConfig) -> CAPOState:
 
 
 def select_parent(
-    population: List[PromptCandidate],
+    population: list[PromptCandidate],
     tournament_size: int,
     rng: random.Random,
 ) -> PromptCandidate:
@@ -306,7 +306,7 @@ def apply_mutation(
     )
 
 
-def compute_confidence_score(scores: List[float]) -> float:
+def compute_confidence_score(scores: list[float]) -> float:
     """Compute a confidence value from a list of evaluation scores.
 
     Low variance yields high confidence (close to 1.0). Returns 0.0 for
@@ -367,7 +367,7 @@ def advance_generation(
 
     # --- Elitism: carry top candidates forward ---
     elite_count = min(config.elite_count, len(ranked))
-    next_population: List[PromptCandidate] = list(ranked[:elite_count])
+    next_population: list[PromptCandidate] = list(ranked[:elite_count])
 
     # --- Fill remaining slots via tournament + mutation ---
     op_weights = [op.weight for op in MUTATION_OPERATORS]
@@ -399,7 +399,7 @@ def advance_generation(
 
     # --- Record generation stats ---
     scores = [c.score for c in ranked]
-    gen_stats: Dict[str, Any] = {
+    gen_stats: dict[str, Any] = {
         "generation": state.generation,
         "best_score": ranked[0].score,
         "best_confidence": ranked[0].confidence,
@@ -444,7 +444,7 @@ def run_optimization(
 
 def format_optimization_report(state: CAPOState) -> str:
     """Produce a human-readable summary of the optimization run."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("CAPO Optimization Report")
     lines.append("=" * 40)
     lines.append(f"Generations completed: {state.generation}")
@@ -484,7 +484,7 @@ def format_optimization_report(state: CAPOState) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _split_sentences(text: str) -> List[str]:
+def _split_sentences(text: str) -> list[str]:
     """Naive sentence splitter on period-space boundaries."""
     parts = text.replace(". ", ".\n").split("\n")
     return [p.strip() for p in parts if p.strip()]

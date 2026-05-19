@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -20,7 +20,7 @@ class PhaseCost:
     cost_usd: float = 0.0
     calls: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "phase": self.phase,
             "tokens": self.tokens,
@@ -35,13 +35,13 @@ class CalibrationCostRecord:
 
     metric_id: str
     optimizer: str
-    phases: List[PhaseCost] = field(default_factory=list)
+    phases: list[PhaseCost] = field(default_factory=list)
     total_tokens: int = 0
     total_cost_usd: float = 0.0
     total_calls: int = 0
-    timestamp: Optional[datetime] = None
+    timestamp: datetime | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "optimizer": self.optimizer,
@@ -53,7 +53,7 @@ class CalibrationCostRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CalibrationCostRecord:
+    def from_dict(cls, data: dict[str, Any]) -> CalibrationCostRecord:
         phases = [
             PhaseCost(
                 phase=p["phase"],
@@ -95,7 +95,7 @@ class CalibrationCostTracker:
     def __init__(self, metric_id: str, optimizer: str) -> None:
         self.metric_id = metric_id
         self.optimizer = optimizer
-        self._phases: Dict[str, PhaseCost] = {}
+        self._phases: dict[str, PhaseCost] = {}
 
     def record(self, phase: str, tokens: int, cost_usd: float) -> None:
         """Add cost to a phase."""
@@ -134,8 +134,8 @@ class CalibrationCostTracker:
 
 
 def compare_calibration_costs(
-    records: List[CalibrationCostRecord],
-) -> Dict[str, Any]:
+    records: list[CalibrationCostRecord],
+) -> dict[str, Any]:
     """Compare costs across records.
 
     Returns dict with cheapest, most_expensive metric_id, and average cost.

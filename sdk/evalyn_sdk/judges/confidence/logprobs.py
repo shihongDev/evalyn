@@ -12,7 +12,6 @@ References:
 from __future__ import annotations
 
 import math
-from typing import List, Optional
 
 from .base import ConfidenceEstimator, ConfidenceResult
 
@@ -45,8 +44,8 @@ class LogprobsConfidence(ConfidenceEstimator):
 
     def estimate(
         self,
-        logprobs: List[float],
-        top_logprobs: Optional[List[List[float]]] = None,
+        logprobs: list[float],
+        top_logprobs: list[list[float]] | None = None,
         **kwargs,
     ) -> ConfidenceResult:
         """Estimate confidence from logprobs.
@@ -125,7 +124,7 @@ class PerplexityConfidence(ConfidenceEstimator):
     def name(self) -> str:
         return "perplexity"
 
-    def estimate(self, logprobs: List[float], **kwargs) -> ConfidenceResult:
+    def estimate(self, logprobs: list[float], **kwargs) -> ConfidenceResult:
         """Estimate confidence from perplexity.
 
         Args:
@@ -187,8 +186,8 @@ class EntropyConfidence(ConfidenceEstimator):
 
     def estimate(
         self,
-        top_logprobs: List[List[float]],
-        logprobs: Optional[List[float]] = None,
+        top_logprobs: list[list[float]],
+        logprobs: list[float] | None = None,
         **kwargs,
     ) -> ConfidenceResult:
         """Estimate confidence from entropy of top-k logprobs.
@@ -290,7 +289,7 @@ class DeepConfConfidence(ConfidenceEstimator):
     def name(self) -> str:
         return f"deepconf_{self.strategy}"
 
-    def estimate(self, logprobs: List[float], **kwargs) -> ConfidenceResult:
+    def estimate(self, logprobs: list[float], **kwargs) -> ConfidenceResult:
         """Estimate confidence using DeepConf strategy.
 
         Args:

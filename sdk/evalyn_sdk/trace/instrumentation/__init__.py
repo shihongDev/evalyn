@@ -24,7 +24,7 @@ Usage:
 from __future__ import annotations
 
 import importlib
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .base import Instrumentor, InstrumentorType
 from .registry import InstrumentorRegistry, get_registry
@@ -50,18 +50,18 @@ def _setup_registry() -> None:
     registry = get_registry()
 
     # Core instrumentors (monkey-patch) - imported here, not at module level
-    from .providers.openai import OpenAIInstrumentor
     from .providers.anthropic import AnthropicInstrumentor
+    from .providers.autogen import AutoGenInstrumentor
+    from .providers.crewai import CrewAIInstrumentor
+    from .providers.dspy import DSPyInstrumentor
     from .providers.gemini import GeminiInstrumentor
+    from .providers.haystack import HaystackInstrumentor
     from .providers.langchain import LangChainInstrumentor
     from .providers.langgraph import LangGraphInstrumentor
-    from .providers.xai import XAIInstrumentor
-    from .providers.crewai import CrewAIInstrumentor
-    from .providers.autogen import AutoGenInstrumentor
-    from .providers.dspy import DSPyInstrumentor
-    from .providers.haystack import HaystackInstrumentor
     from .providers.llamaindex import LlamaIndexInstrumentor
+    from .providers.openai import OpenAIInstrumentor
     from .providers.semantic_kernel import SemanticKernelInstrumentor
+    from .providers.xai import XAIInstrumentor
 
     registry.register(OpenAIInstrumentor())
     registry.register(AnthropicInstrumentor())
@@ -116,7 +116,7 @@ def create_stream_adapter(*args, **kwargs):
 
 
 # Public API
-def instrument(*names: str) -> Dict[str, bool]:
+def instrument(*names: str) -> dict[str, bool]:
     """
     Instrument specific SDKs by name.
 
@@ -134,7 +134,7 @@ def instrument(*names: str) -> Dict[str, bool]:
     return registry.instrument(*names)
 
 
-def instrument_all() -> Dict[str, bool]:
+def instrument_all() -> dict[str, bool]:
     """
     Instrument all available SDKs.
 
@@ -146,7 +146,7 @@ def instrument_all() -> Dict[str, bool]:
     return registry.instrument_all()
 
 
-def uninstrument(*names: str) -> Dict[str, bool]:
+def uninstrument(*names: str) -> dict[str, bool]:
     """
     Remove instrumentation from specific SDKs.
 
@@ -161,7 +161,7 @@ def uninstrument(*names: str) -> Dict[str, bool]:
     return registry.uninstrument(*names)
 
 
-def uninstrument_all() -> Dict[str, bool]:
+def uninstrument_all() -> dict[str, bool]:
     """Remove instrumentation from all SDKs."""
     _setup_registry()
     registry = get_registry()
@@ -175,21 +175,21 @@ def is_instrumented(name: str) -> bool:
     return registry.is_instrumented(name)
 
 
-def list_available() -> List[str]:
+def list_available() -> list[str]:
     """List all available (installed) SDKs that can be instrumented."""
     _setup_registry()
     registry = get_registry()
     return registry.list_available()
 
 
-def list_instrumented() -> List[str]:
+def list_instrumented() -> list[str]:
     """List currently instrumented SDKs."""
     _setup_registry()
     registry = get_registry()
     return registry.list_instrumented()
 
 
-def get_hooks(name: str) -> Optional[Any]:
+def get_hooks(name: str) -> Any | None:
     """
     Get hook adapter for a hook-based instrumentor.
 

@@ -11,7 +11,7 @@ import math
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -23,11 +23,11 @@ class MetricStats:
     count: int = 0
     passed: int = 0
     failed: int = 0
-    scores: List[float] = field(default_factory=list)
+    scores: list[float] = field(default_factory=list)
     has_pass_fail: bool = False  # True if metric has pass/fail semantics
 
     @property
-    def pass_rate(self) -> Optional[float]:
+    def pass_rate(self) -> float | None:
         """Return pass rate or None if metric doesn't have pass/fail semantics."""
         if not self.has_pass_fail:
             return None
@@ -61,7 +61,7 @@ class ItemStats:
     item_id: str
     metrics_passed: int = 0
     metrics_failed: int = 0
-    metric_results: Dict[str, Dict[str, Any]] = field(
+    metric_results: dict[str, dict[str, Any]] = field(
         default_factory=dict
     )  # metric_id -> {passed, score, reason, details}
 
@@ -79,13 +79,13 @@ class RunAnalysis:
     created_at: str
     total_items: int
     total_metrics: int
-    metric_stats: Dict[str, MetricStats]
-    item_stats: Dict[str, ItemStats]
-    failed_items: List[str]
+    metric_stats: dict[str, MetricStats]
+    item_stats: dict[str, ItemStats]
+    failed_items: list[str]
     # Cost information (optional, for backward compatibility)
     total_cost_usd: float = 0.0
     has_unknown_pricing: bool = False
-    cost_by_metric: Dict[str, float] = field(default_factory=dict)
+    cost_by_metric: dict[str, float] = field(default_factory=dict)
 
     @property
     def overall_pass_rate(self) -> float:
@@ -96,7 +96,7 @@ class RunAnalysis:
         return all_passed / self.total_items
 
 
-def load_eval_run(path: Path) -> Dict[str, Any]:
+def load_eval_run(path: Path) -> dict[str, Any]:
     """Load a single eval run JSON file.
 
     Args:
@@ -110,7 +110,7 @@ def load_eval_run(path: Path) -> Dict[str, Any]:
         return json.load(f)
 
 
-def find_eval_runs(dataset_dir: Path) -> List[Path]:
+def find_eval_runs(dataset_dir: Path) -> list[Path]:
     """Find all eval run folders/files in a dataset directory.
 
     Returns paths to results.json files (new structure) or .json files (legacy).
@@ -137,10 +137,10 @@ def find_eval_runs(dataset_dir: Path) -> List[Path]:
     return runs
 
 
-def analyze_run(run_data: Dict[str, Any]) -> RunAnalysis:
+def analyze_run(run_data: dict[str, Any]) -> RunAnalysis:
     """Analyze a single eval run and compute statistics."""
-    metric_stats: Dict[str, MetricStats] = {}
-    item_stats: Dict[str, ItemStats] = defaultdict(lambda: ItemStats(item_id=""))
+    metric_stats: dict[str, MetricStats] = {}
+    item_stats: dict[str, ItemStats] = defaultdict(lambda: ItemStats(item_id=""))
 
     # Build metric type lookup from run data
     metric_types = {}

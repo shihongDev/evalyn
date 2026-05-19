@@ -10,8 +10,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -28,7 +27,7 @@ class GradeMapping:
     label: str = ""
     color_hint: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "grade": self.grade,
             "min_score": self.min_score,
@@ -38,7 +37,7 @@ class GradeMapping:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> GradeMapping:
+    def from_dict(cls, data: dict[str, Any]) -> GradeMapping:
         return cls(
             grade=data["grade"],
             min_score=data["min_score"],
@@ -52,17 +51,17 @@ class GradeMapping:
 class BinningConfig:
     """Configuration for score-to-grade binning."""
 
-    mappings: List[GradeMapping] = field(default_factory=list)
+    mappings: list[GradeMapping] = field(default_factory=list)
     default_grade: str = "F"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "mappings": [m.as_dict() for m in self.mappings],
             "default_grade": self.default_grade,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BinningConfig:
+    def from_dict(cls, data: dict[str, Any]) -> BinningConfig:
         return cls(
             mappings=[GradeMapping.from_dict(m) for m in data.get("mappings", [])],
             default_grade=data.get("default_grade", "F"),
@@ -78,7 +77,7 @@ class BinnedScore:
     grade: str
     label: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "score": self.score,
@@ -87,7 +86,7 @@ class BinnedScore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BinnedScore:
+    def from_dict(cls, data: dict[str, Any]) -> BinnedScore:
         return cls(
             item_id=data["item_id"],
             score=data["score"],
@@ -100,11 +99,11 @@ class BinnedScore:
 class GradeDistribution:
     """Aggregate grade counts across binned scores."""
 
-    grade_counts: Dict[str, int] = field(default_factory=dict)
+    grade_counts: dict[str, int] = field(default_factory=dict)
     total: int = 0
     most_common: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "grade_counts": dict(self.grade_counts),
             "total": self.total,
@@ -112,7 +111,7 @@ class GradeDistribution:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> GradeDistribution:
+    def from_dict(cls, data: dict[str, Any]) -> GradeDistribution:
         return cls(
             grade_counts=dict(data.get("grade_counts", {})),
             total=data.get("total", 0),
@@ -177,9 +176,9 @@ def score_to_grade(score: float, config: BinningConfig) -> str:
 
 
 def bin_scores(
-    scores: Dict[str, float],
-    config: Optional[BinningConfig] = None,
-) -> List[BinnedScore]:
+    scores: dict[str, float],
+    config: BinningConfig | None = None,
+) -> list[BinnedScore]:
     """Bin a dict of ``{item_id: score}`` into graded results.
 
     Uses *DEFAULT_BINNING* when *config* is ``None``.
@@ -187,7 +186,7 @@ def bin_scores(
     if config is None:
         config = DEFAULT_BINNING
 
-    results: List[BinnedScore] = []
+    results: list[BinnedScore] = []
     for item_id, score in scores.items():
         grade = score_to_grade(score, config)
         label = ""
@@ -199,7 +198,7 @@ def bin_scores(
     return results
 
 
-def compute_grade_distribution(binned: List[BinnedScore]) -> GradeDistribution:
+def compute_grade_distribution(binned: list[BinnedScore]) -> GradeDistribution:
     """Compute aggregate grade counts from a list of binned scores."""
     if not binned:
         return GradeDistribution(grade_counts={}, total=0, most_common="")
@@ -214,14 +213,14 @@ def compute_grade_distribution(binned: List[BinnedScore]) -> GradeDistribution:
 
 
 def format_grade_report(
-    binned: List[BinnedScore],
+    binned: list[BinnedScore],
     distribution: GradeDistribution,
 ) -> str:
     """Return a human-readable grade report string.
 
     Includes a distribution summary followed by per-item grades.
     """
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Grade Distribution")
     lines.append("-" * 40)
     for grade, count in sorted(distribution.grade_counts.items()):
@@ -239,7 +238,7 @@ def format_grade_report(
 
 
 def create_custom_binning(
-    grade_specs: List[Tuple[str, float, float]],
+    grade_specs: list[tuple[str, float, float]],
 ) -> BinningConfig:
     """Create a BinningConfig from ``(grade, min_score, max_score)`` tuples."""
     mappings = [

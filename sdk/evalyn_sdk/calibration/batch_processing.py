@@ -7,8 +7,7 @@ recording per-metric results, and building an aggregate report.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -23,7 +22,7 @@ class BatchMetricConfig:
     optimizer: str = "default"
     priority: int = 0  # higher = first
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "optimizer": self.optimizer,
@@ -31,7 +30,7 @@ class BatchMetricConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BatchMetricConfig:
+    def from_dict(cls, data: dict[str, Any]) -> BatchMetricConfig:
         return cls(
             metric_id=data["metric_id"],
             optimizer=data.get("optimizer", "default"),
@@ -50,7 +49,7 @@ class BatchCalibrationResult:
     improvement: float = 0.0
     error_message: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "success": self.success,
@@ -65,13 +64,13 @@ class BatchCalibrationResult:
 class BatchCalibrationReport:
     """Aggregate report for a batch calibration run."""
 
-    results: List[BatchCalibrationResult] = field(default_factory=list)
+    results: list[BatchCalibrationResult] = field(default_factory=list)
     total_metrics: int = 0
     successful: int = 0
     failed: int = 0
     total_improvement: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "total_metrics": self.total_metrics,
@@ -81,7 +80,7 @@ class BatchCalibrationReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BatchCalibrationReport:
+    def from_dict(cls, data: dict[str, Any]) -> BatchCalibrationReport:
         results = []
         for r in data.get("results", []):
             results.append(
@@ -120,7 +119,7 @@ class BatchCalibrationReport:
 # ---------------------------------------------------------------------------
 
 
-def create_batch_plan(metrics: List[BatchMetricConfig]) -> List[BatchMetricConfig]:
+def create_batch_plan(metrics: list[BatchMetricConfig]) -> list[BatchMetricConfig]:
     """Sort metrics by priority descending and return the execution order."""
     return sorted(metrics, key=lambda m: m.priority, reverse=True)
 
@@ -148,7 +147,7 @@ def record_batch_result(
 
 
 def build_batch_report(
-    results: List[BatchCalibrationResult],
+    results: list[BatchCalibrationResult],
 ) -> BatchCalibrationReport:
     """Aggregate individual results into a batch report."""
     successful = sum(1 for r in results if r.success)
@@ -164,7 +163,7 @@ def build_batch_report(
 
 
 def estimate_batch_time(
-    metrics: List[BatchMetricConfig],
+    metrics: list[BatchMetricConfig],
     avg_minutes_per_metric: float = 5.0,
 ) -> float:
     """Estimate total minutes for a batch calibration run."""

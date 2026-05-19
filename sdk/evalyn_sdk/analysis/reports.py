@@ -6,10 +6,7 @@ Provides terminal-friendly text reports with ASCII visualizations.
 
 from __future__ import annotations
 
-from typing import List, Optional
-
 from .core import RunAnalysis
-
 
 # =============================================================================
 # ASCII Visualization Helpers (for terminal output)
@@ -24,7 +21,7 @@ def ascii_bar(
     return fill * filled + empty * (max_width - filled)
 
 
-def ascii_score_distribution(scores: List[float], metric_id: str) -> str:
+def ascii_score_distribution(scores: list[float], metric_id: str) -> str:
     """Create a compact score distribution visualization."""
     if not scores:
         return f"  {metric_id}: (no data)"
@@ -47,7 +44,7 @@ def ascii_score_distribution(scores: List[float], metric_id: str) -> str:
 
 
 def format_pass_rate_bar(
-    metric_id: str, pass_rate: Optional[float], count: int, width: int = 25
+    metric_id: str, pass_rate: float | None, count: int, width: int = 25
 ) -> str:
     """Format a metric pass rate with a bar chart."""
     if pass_rate is None:
@@ -148,7 +145,7 @@ def generate_text_report(analysis: RunAnalysis, verbose: bool = False) -> str:
     return "\n".join(lines)
 
 
-def generate_comparison_report(analyses: List[RunAnalysis]) -> str:
+def generate_comparison_report(analyses: list[RunAnalysis]) -> str:
     """Generate a comparison report across multiple runs."""
     if len(analyses) < 2:
         return "  Need at least 2 runs to compare."
@@ -183,7 +180,7 @@ def generate_comparison_report(analyses: List[RunAnalysis]) -> str:
 
     # Header
     header = f"  {'Metric':<25}"
-    for i, a in enumerate(analyses):
+    for i, _a in enumerate(analyses):
         header += f" {'Run' + str(i + 1):>10}"
     header += f" {'Delta':>10}"
     lines.append(header)

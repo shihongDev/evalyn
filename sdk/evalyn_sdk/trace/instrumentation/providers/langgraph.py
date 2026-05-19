@@ -8,16 +8,17 @@ from __future__ import annotations
 
 import functools
 import importlib.util
+from collections.abc import Callable
 from contextvars import ContextVar
-from typing import Any, Callable, Optional, Set
+from typing import Any
 
-from ..base import Instrumentor, InstrumentorType
 from ....models import Span
 from ... import context as span_context
+from ..base import Instrumentor, InstrumentorType
 
 # Track active node spans to prevent double-spanning when both _execute_node
 # patching and node function wrapping fire for the same node execution.
-_active_node_spans: ContextVar[Set[str]] = ContextVar(
+_active_node_spans: ContextVar[set[str]] = ContextVar(
     "_active_node_spans", default=frozenset()
 )
 
@@ -26,8 +27,8 @@ class LangGraphInstrumentor(Instrumentor):
     """Instrumentor for LangGraph SDK."""
 
     _instrumented = False
-    _original_compile: Optional[Any] = None
-    _original_init: Optional[Any] = None
+    _original_compile: Any | None = None
+    _original_init: Any | None = None
 
     @property
     def name(self) -> str:
@@ -163,7 +164,7 @@ class LangGraphInstrumentor(Instrumentor):
 
                 # Mark this node as actively spanned
                 new_active = set(active) | {node_name}
-                active_token = _active_node_spans.set(new_active)
+                active_token = _active_node_spans.set(new_active)  # noqa: F841
 
                 # Push node span so LLM/tool calls are children
                 stack = span_context._span_stack.get()

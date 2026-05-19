@@ -10,8 +10,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -30,7 +29,7 @@ class DifficultyFactors:
     conditional_count: int
     negation_count: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "word_count": self.word_count,
             "avg_word_length": self.avg_word_length,
@@ -42,7 +41,7 @@ class DifficultyFactors:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DifficultyFactors:
+    def from_dict(cls, data: dict[str, Any]) -> DifficultyFactors:
         return cls(
             word_count=data["word_count"],
             avg_word_length=data["avg_word_length"],
@@ -62,9 +61,9 @@ class DifficultyGrade:
     level: str  # "easy", "medium", "hard"
     score: float  # 0.0 to 1.0
     factors: DifficultyFactors
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "level": self.level,
@@ -74,7 +73,7 @@ class DifficultyGrade:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DifficultyGrade:
+    def from_dict(cls, data: dict[str, Any]) -> DifficultyGrade:
         return cls(
             item_id=data["item_id"],
             level=data["level"],
@@ -94,7 +93,7 @@ class DifficultyDistribution:
     total: int
     balanced: bool  # within 20% of uniform distribution
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "easy_count": self.easy_count,
             "medium_count": self.medium_count,
@@ -104,7 +103,7 @@ class DifficultyDistribution:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DifficultyDistribution:
+    def from_dict(cls, data: dict[str, Any]) -> DifficultyDistribution:
         return cls(
             easy_count=data["easy_count"],
             medium_count=data["medium_count"],
@@ -123,7 +122,7 @@ _NEGATION_PATTERN = re.compile(r"\b(not|no|never|\w+n['\u2019]t)\b", re.IGNORECA
 _SENTENCE_TERMINATORS = re.compile(r"[.!?]+")
 
 
-def _tokenize(text: str) -> List[str]:
+def _tokenize(text: str) -> list[str]:
     """Split text into lowercase word tokens."""
     return [w for w in re.findall(r"[a-zA-Z']+", text.lower()) if w]
 
@@ -215,9 +214,9 @@ def compute_difficulty_score(factors: DifficultyFactors) -> float:
     return round(min(max(score, 0.0), 1.0), 4)
 
 
-def _assign_tags(factors: DifficultyFactors) -> List[str]:
+def _assign_tags(factors: DifficultyFactors) -> list[str]:
     """Generate descriptive tags based on factors."""
-    tags: List[str] = []
+    tags: list[str] = []
     if factors.word_count > 150:
         tags.append("long")
     if factors.word_count < 20:
@@ -264,10 +263,10 @@ def grade_difficulty(text: str, item_id: str = "") -> DifficultyGrade:
 
 
 def grade_batch(
-    items: List[Dict[str, Any]], text_field: str = "input"
-) -> List[DifficultyGrade]:
+    items: list[dict[str, Any]], text_field: str = "input"
+) -> list[DifficultyGrade]:
     """Grade a batch of items. Each item is a dict with at least text_field."""
-    grades: List[DifficultyGrade] = []
+    grades: list[DifficultyGrade] = []
     for i, item in enumerate(items):
         text = item.get(text_field, "")
         item_id = item.get("id", str(i))
@@ -280,7 +279,7 @@ def grade_batch(
 # ---------------------------------------------------------------------------
 
 
-def compute_distribution(grades: List[DifficultyGrade]) -> DifficultyDistribution:
+def compute_distribution(grades: list[DifficultyGrade]) -> DifficultyDistribution:
     """Compute the distribution of difficulty levels."""
     easy = sum(1 for g in grades if g.level == "easy")
     medium = sum(1 for g in grades if g.level == "medium")
@@ -307,13 +306,13 @@ def compute_distribution(grades: List[DifficultyGrade]) -> DifficultyDistributio
 
 def rebalance_suggestions(
     distribution: DifficultyDistribution,
-) -> List[str]:
+) -> list[str]:
     """Suggest which difficulty levels need more items."""
     if distribution.total == 0:
         return ["Add items at all difficulty levels."]
 
     target = distribution.total / 3.0
-    suggestions: List[str] = []
+    suggestions: list[str] = []
 
     counts = {
         "easy": distribution.easy_count,
@@ -340,11 +339,11 @@ def rebalance_suggestions(
 
 
 def format_difficulty_report(
-    grades: List[DifficultyGrade],
+    grades: list[DifficultyGrade],
     distribution: DifficultyDistribution,
 ) -> str:
     """Human-readable difficulty report."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Difficulty Grading Report")
     lines.append("=" * 40)
     lines.append("")

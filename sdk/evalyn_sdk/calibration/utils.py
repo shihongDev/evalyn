@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import random
 import re
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..models import Annotation, DatasetItem, MetricResult
 
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from ..models import CalibrationRecord
 
 
-def build_full_prompt(preamble: str, rubric: List[str]) -> str:
+def build_full_prompt(preamble: str, rubric: list[str]) -> str:
     """
     Combine preamble with rubric to create a complete judge prompt.
 
@@ -48,11 +48,11 @@ After your analysis, provide your verdict as a JSON object:
 
 
 def build_dataset_from_annotations(
-    metric_results: List[MetricResult],
-    annotations: List[Annotation],
-    dataset_items: Optional[List[DatasetItem]] = None,
+    metric_results: list[MetricResult],
+    annotations: list[Annotation],
+    dataset_items: list[DatasetItem] | None = None,
     train_split: float = 0.7,
-) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """
     Convert calibration data to train/val sets.
 
@@ -67,8 +67,8 @@ def build_dataset_from_annotations(
     Returns:
         Tuple of (trainset, valset)
     """
-    ann_by_call: Dict[str, Annotation] = {ann.target_id: ann for ann in annotations}
-    items_by_call: Dict[str, DatasetItem] = {}
+    ann_by_call: dict[str, Annotation] = {ann.target_id: ann for ann in annotations}
+    items_by_call: dict[str, DatasetItem] = {}
     if dataset_items:
         for item in dataset_items:
             call_id = item.metadata.get("call_id", item.id)
@@ -106,7 +106,7 @@ def build_dataset_from_annotations(
     return trainset, valset
 
 
-def parse_candidates_response(response: str) -> List[str]:
+def parse_candidates_response(response: str) -> list[str]:
     """
     Parse the LLM's response to extract candidate preambles.
 
@@ -188,10 +188,10 @@ def parse_judge_response(response: str) -> bool:
 
 
 def save_calibration(
-    record: "CalibrationRecord",
+    record: CalibrationRecord,
     dataset_path: str,
     metric_id: str,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """
     Save calibration record and optimized prompts to the dataset's calibrations folder.
 
@@ -215,8 +215,8 @@ def save_calibration(
         - "preamble": Path to preamble file (if available)
         - "full_prompt": Path to full prompt file (if available)
     """
-    from pathlib import Path
     from datetime import datetime
+    from pathlib import Path
 
     dataset_dir = Path(dataset_path)
     if not dataset_dir.exists():
@@ -232,7 +232,7 @@ def save_calibration(
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     optimizer_type = record.adjustments.get("optimizer_type", "basic")
 
-    saved_paths: Dict[str, str] = {}
+    saved_paths: dict[str, str] = {}
 
     # Save the calibration record JSON
     calibration_file = calibrations_dir / f"{timestamp}_{optimizer_type}.json"
@@ -277,8 +277,8 @@ def save_calibration(
 def load_optimized_prompt(
     dataset_path: str,
     metric_id: str,
-    version: Optional[str] = None,
-) -> Optional[str]:
+    version: str | None = None,
+) -> str | None:
     """
     Load an optimized prompt from the calibrations folder.
 

@@ -6,9 +6,9 @@ Pure Python, no external dependencies.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def _now_iso() -> str:
@@ -31,7 +31,7 @@ class AnnotationRecord:
     confidence: float = 1.0
     skipped: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "label": self.label,
@@ -42,7 +42,7 @@ class AnnotationRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AnnotationRecord:
+    def from_dict(cls, data: dict[str, Any]) -> AnnotationRecord:
         return cls(
             item_id=data["item_id"],
             label=data["label"],
@@ -65,7 +65,7 @@ class SessionStats:
     elapsed_seconds: float
     agreement_rate: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_items": self.total_items,
             "annotated_count": self.annotated_count,
@@ -77,7 +77,7 @@ class SessionStats:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SessionStats:
+    def from_dict(cls, data: dict[str, Any]) -> SessionStats:
         return cls(
             total_items=data["total_items"],
             annotated_count=data["annotated_count"],
@@ -101,14 +101,14 @@ class AnnotationSession:
         self,
         session_id: str,
         annotator_id: str,
-        item_ids: List[str],
+        item_ids: list[str],
         session_path: str = "",
     ) -> None:
         self.session_id = session_id
         self.annotator_id = annotator_id
         self.item_ids = list(item_ids)
         self.session_path = session_path
-        self._records: List[AnnotationRecord] = []
+        self._records: list[AnnotationRecord] = []
         self._start_time: str = _now_iso()
 
     # -- annotation actions --------------------------------------------------
@@ -137,7 +137,7 @@ class AnnotationSession:
         )
         self._records.append(record)
 
-    def undo_last(self) -> Optional[AnnotationRecord]:
+    def undo_last(self) -> AnnotationRecord | None:
         """Undo and return the last annotation. Returns None if empty."""
         if not self._records:
             return None
@@ -145,7 +145,7 @@ class AnnotationSession:
 
     # -- navigation ----------------------------------------------------------
 
-    def get_next_item(self) -> Optional[str]:
+    def get_next_item(self) -> str | None:
         """Return next item_id that has not been annotated or skipped."""
         touched = {r.item_id for r in self._records}
         for item_id in self.item_ids:
@@ -159,7 +159,7 @@ class AnnotationSession:
         """Current progress stats."""
         return compute_session_stats(self)
 
-    def get_annotations(self) -> List[AnnotationRecord]:
+    def get_annotations(self) -> list[AnnotationRecord]:
         """All recorded annotations (including skipped)."""
         return list(self._records)
 
@@ -189,7 +189,7 @@ class AnnotationSession:
     @classmethod
     def load(cls, path: str) -> AnnotationSession:
         """Load session from a JSON file."""
-        with open(path, "r") as f:
+        with open(path) as f:
             data = json.load(f)
         session = cls(
             session_id=data["session_id"],
@@ -212,7 +212,7 @@ class AnnotationSession:
 def compute_session_stats(session: AnnotationSession) -> SessionStats:
     """Compute detailed stats for a session."""
     # Deduplicate by item_id - keep last record for each item
-    last_by_item: Dict[str, AnnotationRecord] = {}
+    last_by_item: dict[str, AnnotationRecord] = {}
     for r in session._records:
         last_by_item[r.item_id] = r
     unique_records = list(last_by_item.values())
@@ -245,7 +245,7 @@ def compute_session_stats(session: AnnotationSession) -> SessionStats:
 
 def format_session_progress(stats: SessionStats) -> str:
     """Progress bar and stats display."""
-    lines: List[str] = []
+    lines: list[str] = []
     total = stats.total_items
     done = stats.annotated_count + stats.skipped_count
     pct = (done / total * 100) if total > 0 else 0.0

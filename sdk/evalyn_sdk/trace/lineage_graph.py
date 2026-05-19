@@ -3,14 +3,14 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
-def _iso(dt: Optional[datetime]) -> Optional[str]:
+def _iso(dt: datetime | None) -> str | None:
     return dt.isoformat() if dt else None
 
 
-def _parse_datetime(raw: Optional[str]) -> Optional[datetime]:
+def _parse_datetime(raw: str | None) -> datetime | None:
     if raw is None:
         return None
     return datetime.fromisoformat(raw)
@@ -24,7 +24,7 @@ class LineageEdge:
     target_trace_id: str
     overlap_confidence: float  # 0-1
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "source_trace_id": self.source_trace_id,
             "target_trace_id": self.target_trace_id,
@@ -40,10 +40,10 @@ class LineageNode:
     timestamp: datetime
     input_hash: str = ""
     output_hash: str = ""
-    upstream: List[str] = field(default_factory=list)
-    downstream: List[str] = field(default_factory=list)
+    upstream: list[str] = field(default_factory=list)
+    downstream: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "trace_id": self.trace_id,
             "timestamp": _iso(self.timestamp),
@@ -58,28 +58,28 @@ class LineageNode:
 class LineageGraph:
     """A directed acyclic graph of trace lineage relationships."""
 
-    nodes: Dict[str, LineageNode] = field(default_factory=dict)
-    edges: List[LineageEdge] = field(default_factory=list)
+    nodes: dict[str, LineageNode] = field(default_factory=dict)
+    edges: list[LineageEdge] = field(default_factory=list)
 
     @property
-    def roots(self) -> List[LineageNode]:
+    def roots(self) -> list[LineageNode]:
         """Nodes with no upstream connections."""
         return [n for n in self.nodes.values() if not n.upstream]
 
     @property
-    def leaves(self) -> List[LineageNode]:
+    def leaves(self) -> list[LineageNode]:
         """Nodes with no downstream connections."""
         return [n for n in self.nodes.values() if not n.downstream]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "nodes": {tid: node.as_dict() for tid, node in self.nodes.items()},
             "edges": [e.as_dict() for e in self.edges],
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> LineageGraph:
-        nodes: Dict[str, LineageNode] = {}
+    def from_dict(cls, data: dict[str, Any]) -> LineageGraph:
+        nodes: dict[str, LineageNode] = {}
         for tid, nd in data.get("nodes", {}).items():
             nodes[tid] = LineageNode(
                 trace_id=nd["trace_id"],
@@ -100,7 +100,7 @@ class LineageGraph:
         return cls(nodes=nodes, edges=edges)
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(
             f"Lineage graph: {len(self.nodes)} nodes, {len(self.edges)} edges"
         )
@@ -121,7 +121,7 @@ def compute_content_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
-def build_lineage_graph(traces: List[Dict[str, Any]]) -> LineageGraph:
+def build_lineage_graph(traces: list[dict[str, Any]]) -> LineageGraph:
     """Build a lineage graph from traces.
 
     Each trace dict has "id", "timestamp" (datetime), "input_text" (str),
@@ -179,12 +179,12 @@ def build_lineage_graph(traces: List[Dict[str, Any]]) -> LineageGraph:
     return graph
 
 
-def find_lineage_chain(graph: LineageGraph, trace_id: str) -> List[str]:
+def find_lineage_chain(graph: LineageGraph, trace_id: str) -> list[str]:
     """Follow upstream chain to root. Return list from root to given trace."""
     if trace_id not in graph.nodes:
         return []
 
-    chain: List[str] = [trace_id]
+    chain: list[str] = [trace_id]
     visited: set = {trace_id}
     current = trace_id
 
@@ -206,8 +206,8 @@ def find_lineage_chain(graph: LineageGraph, trace_id: str) -> List[str]:
 
 def render_lineage_mermaid(graph: LineageGraph) -> str:
     """Render the lineage graph as a Mermaid diagram."""
-    lines: List[str] = ["graph TD"]
-    for tid, node in graph.nodes.items():
+    lines: list[str] = ["graph TD"]
+    for tid, _node in graph.nodes.items():
         label = tid[:8]
         lines.append(f"    {tid}[\"{label}\"]")
     for edge in graph.edges:

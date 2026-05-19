@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import os
-from typing import Optional, Tuple
 
 from .config import get_config_default, load_config
 
 
-def check_llm_api_keys(quiet: bool = False) -> Tuple[Optional[str], Optional[str]]:
+def check_llm_api_keys(quiet: bool = False) -> tuple[str | None, str | None]:
     """Check for LLM API keys and warn if missing.
 
     Checks config file first, then environment variables.
@@ -39,7 +38,7 @@ def check_llm_api_keys(quiet: bool = False) -> Tuple[Optional[str], Optional[str
     return gemini_key, openai_key
 
 
-def extract_project_id(metadata: dict) -> Optional[str]:
+def extract_project_id(metadata: dict) -> str | None:
     """Extract project ID from metadata dict.
 
     Handles multiple naming conventions: project_id, project, project_name.

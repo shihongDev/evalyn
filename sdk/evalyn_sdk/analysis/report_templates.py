@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import html as _html
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -23,9 +22,9 @@ class ReportSection:
     name: str
     content_type: str = "text"  # "text" / "chart" / "table" / "metric"
     content: str = ""
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "content_type": self.content_type,
@@ -34,7 +33,7 @@ class ReportSection:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ReportSection:
+    def from_dict(cls, data: dict[str, Any]) -> ReportSection:
         return cls(
             name=data["name"],
             content_type=data.get("content_type", "text"),
@@ -49,12 +48,12 @@ class ReportTemplate:
 
     name: str
     description: str = ""
-    sections: List[ReportSection] = field(default_factory=list)
+    sections: list[ReportSection] = field(default_factory=list)
     css: str = ""
     header: str = ""
     footer: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
@@ -65,7 +64,7 @@ class ReportTemplate:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ReportTemplate:
+    def from_dict(cls, data: dict[str, Any]) -> ReportTemplate:
         return cls(
             name=data["name"],
             description=data.get("description", ""),
@@ -84,7 +83,7 @@ class RenderedReport:
     html: str
     sections_rendered: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "template_name": self.template_name,
             "html": self.html,
@@ -118,7 +117,7 @@ DETAILED_TEMPLATE = ReportTemplate(
     ],
 )
 
-_BUILTIN_TEMPLATES: Dict[str, ReportTemplate] = {
+_BUILTIN_TEMPLATES: dict[str, ReportTemplate] = {
     "summary": SUMMARY_TEMPLATE,
     "detailed": DETAILED_TEMPLATE,
 }
@@ -138,12 +137,12 @@ def get_template(name: str) -> ReportTemplate:
     return _BUILTIN_TEMPLATES[name]
 
 
-def list_templates() -> List[ReportTemplate]:
+def list_templates() -> list[ReportTemplate]:
     """Return all built-in templates."""
     return list(_BUILTIN_TEMPLATES.values())
 
 
-def render_section(section: ReportSection, data: Dict[str, Any] = {}) -> str:
+def render_section(section: ReportSection, data: dict[str, Any] | None = None) -> str:
     """Render a single section to an HTML fragment.
 
     Content types:
@@ -152,6 +151,8 @@ def render_section(section: ReportSection, data: Dict[str, Any] = {}) -> str:
     - chart: wrapped in a <div class="chart">
     - metric: wrapped in a <div class="metric">
     """
+    if data is None:
+        data = {}
     safe_name = _html.escape(section.name)
     content = section.content or data.get("content", "")
     safe_content = _html.escape(str(content)) if content else ""
@@ -162,7 +163,7 @@ def render_section(section: ReportSection, data: Dict[str, Any] = {}) -> str:
     if section.content_type == "table":
         rows = data.get("rows", [])
         headers = data.get("headers", [])
-        parts: List[str] = [f'<div class="section table"><h2>{safe_name}</h2><table>']
+        parts: list[str] = [f'<div class="section table"><h2>{safe_name}</h2><table>']
         if headers:
             parts.append("<thead><tr>")
             for h in headers:
@@ -191,14 +192,16 @@ def render_section(section: ReportSection, data: Dict[str, Any] = {}) -> str:
 
 
 def render_report(
-    template: ReportTemplate, data: Dict[str, Any] = {}
+    template: ReportTemplate, data: dict[str, Any] | None = None
 ) -> RenderedReport:
     """Render a full report template to HTML.
 
     The data dict is keyed by section name. Each section receives the
     sub-dict matching its name, falling back to the top-level data.
     """
-    parts: List[str] = []
+    if data is None:
+        data = {}
+    parts: list[str] = []
 
     if template.header:
         parts.append(template.header)
@@ -221,7 +224,7 @@ def render_report(
 
 def create_custom_template(
     name: str,
-    sections: List[Dict[str, Any]],
+    sections: list[dict[str, Any]],
     css: str = "",
 ) -> ReportTemplate:
     """Create a custom template from section dicts."""

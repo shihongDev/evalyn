@@ -6,8 +6,8 @@ into a single 0-100 score for quick run quality assessment.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -49,7 +49,7 @@ class QualityScoreBreakdown:
             return "D"
         return "F"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "overall": round(self.overall, 1),
             "grade": self.grade,
@@ -78,7 +78,7 @@ def compute_quality_score(
     error_count: int = 0,
     total_evaluations: int = 0,
     *,
-    weights: Optional[Dict[str, float]] = None,
+    weights: dict[str, float] | None = None,
 ) -> QualityScoreBreakdown:
     """Compute a composite quality score for an evaluation run.
 

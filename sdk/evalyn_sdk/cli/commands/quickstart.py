@@ -31,22 +31,19 @@ RANGES = {"timeout": (10, 600, 5)}
 UNITS = {"timeout": "seconds"}
 
 import argparse
-import os
 import re
 import shlex
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 from ..utils.config import create_evalyn_yaml
 from ..utils.errors import fatal_error
 from ..utils.hints import HintCollector
-from ..utils.rich import banner, section, icon, footer
-
+from ..utils.rich import banner, section
 
 # Framework detection patterns: framework name -> (compiled regex patterns, display name)
-FRAMEWORK_PATTERNS: Dict[str, Tuple[List[re.Pattern], str]] = {
+FRAMEWORK_PATTERNS: dict[str, tuple[list[re.Pattern], str]] = {
     "openai": (
         [re.compile(r"^import openai\b", re.MULTILINE), re.compile(r"^from openai\b", re.MULTILINE)],
         "OpenAI",
@@ -70,7 +67,7 @@ FRAMEWORK_PATTERNS: Dict[str, Tuple[List[re.Pattern], str]] = {
 }
 
 # Instrumentation snippets per framework
-INSTRUMENTATION_SNIPPETS: Dict[str, str] = {
+INSTRUMENTATION_SNIPPETS: dict[str, str] = {
     "openai": (
         "# Add this BEFORE your OpenAI import:\n"
         "import evalyn_sdk  # must come before 'import openai'\n"
@@ -107,7 +104,7 @@ INSTRUMENTATION_SNIPPETS: Dict[str, str] = {
 }
 
 
-def _scan_file_for_frameworks(filepath: Path) -> List[str]:
+def _scan_file_for_frameworks(filepath: Path) -> list[str]:
     """Scan a Python file for known framework imports.
 
     Returns list of framework keys found.
@@ -133,12 +130,12 @@ def _scan_file_for_frameworks(filepath: Path) -> List[str]:
     return found
 
 
-def _scan_directory_for_frameworks() -> Dict[str, List[str]]:
+def _scan_directory_for_frameworks() -> dict[str, list[str]]:
     """Scan *.py files in cwd and one level of src/ or app/ subdirectories.
 
     Returns dict mapping framework key -> list of file paths where detected.
     """
-    results: Dict[str, List[str]] = {}
+    results: dict[str, list[str]] = {}
     scan_dirs = [Path(".")]
     for subdir in ["src", "app"]:
         p = Path(subdir)
@@ -154,7 +151,7 @@ def _scan_directory_for_frameworks() -> Dict[str, List[str]]:
     return results
 
 
-def _detect_framework(agent_file: Optional[str]) -> Tuple[str, Optional[str]]:
+def _detect_framework(agent_file: str | None) -> tuple[str, str | None]:
     """Detect agent framework, returning (framework_key, agent_file_path).
 
     If agent_file is provided, scans only that file.
@@ -200,7 +197,7 @@ def _detect_framework(agent_file: Optional[str]) -> Tuple[str, Optional[str]]:
         return _ask_framework_selection(), None
 
 
-def _ask_framework_selection(frameworks: Optional[List[str]] = None) -> str:
+def _ask_framework_selection(frameworks: list[str] | None = None) -> str:
     """Ask the user to pick a framework. If frameworks is None, shows all known frameworks."""
     if frameworks is None:
         frameworks = list(FRAMEWORK_PATTERNS.keys())
@@ -225,7 +222,7 @@ def _ask_framework_selection(frameworks: Optional[List[str]] = None) -> str:
         return "other"
 
 
-def _check_instrumentation_present(agent_file: Optional[str]) -> bool:
+def _check_instrumentation_present(agent_file: str | None) -> bool:
     """Check if evalyn_sdk import is already present in the agent file."""
     if not agent_file:
         return False

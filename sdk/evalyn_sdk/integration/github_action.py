@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -10,14 +9,14 @@ class ActionInput:
     """Input configuration for the Evalyn GitHub Action."""
 
     dataset_path: str = "data/"
-    metrics: List[str] = field(default_factory=lambda: ["output_nonempty"])
+    metrics: list[str] = field(default_factory=lambda: ["output_nonempty"])
     provider: str = "gemini"
     profile: str = "smoke-test"
     fail_on_regression: bool = True
     regression_threshold: float = 0.05
     compare_with_baseline: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "dataset_path": self.dataset_path,
             "metrics": list(self.metrics),
@@ -29,7 +28,7 @@ class ActionInput:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ActionInput:
+    def from_dict(cls, data: dict[str, Any]) -> ActionInput:
         return cls(
             dataset_path=data.get("dataset_path", "data/"),
             metrics=data.get("metrics", ["output_nonempty"]),
@@ -47,11 +46,11 @@ class ActionOutput:
 
     passed: bool = False
     pass_rate: float = 0.0
-    regressions: List[str] = field(default_factory=list)
+    regressions: list[str] = field(default_factory=list)
     summary_markdown: str = ""
     badge_url: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "passed": self.passed,
             "pass_rate": self.pass_rate,
@@ -61,7 +60,7 @@ class ActionOutput:
         }
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         status = "PASSED" if self.passed else "FAILED"
         lines.append(f"Evalyn Action: {status}")
         lines.append("-" * 40)
@@ -83,10 +82,10 @@ class ActionYaml:
 
     name: str = "Evalyn Evaluation"
     description: str = "Run evalyn evaluation on PR"
-    inputs: Dict[str, Dict[str, str]] = field(default_factory=dict)
-    runs_steps: List[Dict[str, Any]] = field(default_factory=list)
+    inputs: dict[str, dict[str, str]] = field(default_factory=dict)
+    runs_steps: list[dict[str, Any]] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
@@ -95,7 +94,7 @@ class ActionYaml:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ActionYaml:
+    def from_dict(cls, data: dict[str, Any]) -> ActionYaml:
         return cls(
             name=data.get("name", "Evalyn Evaluation"),
             description=data.get("description", "Run evalyn evaluation on PR"),
@@ -247,7 +246,7 @@ def format_pr_summary(output: ActionOutput) -> str:
     return "\n".join(lines)
 
 
-def parse_action_inputs(env_vars: Dict[str, str]) -> ActionInput:
+def parse_action_inputs(env_vars: dict[str, str]) -> ActionInput:
     """Parse INPUT_* environment variables that GitHub Actions sets.
 
     GitHub Actions sets inputs as INPUT_<NAME> environment variables

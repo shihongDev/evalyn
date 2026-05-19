@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 def _sanitize_fts_query(query: str) -> str:
@@ -44,7 +44,7 @@ class SearchResult:
     snippet: str = ""
     source_field: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "content": self.content,
@@ -54,7 +54,7 @@ class SearchResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SearchResult:
+    def from_dict(cls, data: dict[str, Any]) -> SearchResult:
         return cls(
             item_id=data["item_id"],
             content=data["content"],

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -22,7 +22,7 @@ class PairwiseResult:
     confidence: float = 0.0
     reason: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "model_a": self.model_a,
@@ -33,7 +33,7 @@ class PairwiseResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PairwiseResult:
+    def from_dict(cls, data: dict[str, Any]) -> PairwiseResult:
         return cls(
             item_id=data["item_id"],
             model_a=data["model_a"],
@@ -61,7 +61,7 @@ class EloRating:
             return 0.0
         return self.wins / self.games
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "model": self.model,
             "rating": round(self.rating, 2),
@@ -73,7 +73,7 @@ class EloRating:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EloRating:
+    def from_dict(cls, data: dict[str, Any]) -> EloRating:
         return cls(
             model=data["model"],
             rating=data.get("rating", 1500.0),
@@ -88,14 +88,14 @@ class EloRating:
 class PairwiseReport:
     """Full pairwise comparison report with Elo ratings."""
 
-    results: List[PairwiseResult] = field(default_factory=list)
-    ratings: Dict[str, EloRating] = field(default_factory=dict)
+    results: list[PairwiseResult] = field(default_factory=list)
+    ratings: dict[str, EloRating] = field(default_factory=dict)
     total_comparisons: int = 0
 
     @property
-    def win_loss_matrix(self) -> Dict[str, Dict[str, int]]:
+    def win_loss_matrix(self) -> dict[str, dict[str, int]]:
         """Build model_a -> model_b -> win count matrix."""
-        matrix: Dict[str, Dict[str, int]] = {}
+        matrix: dict[str, dict[str, int]] = {}
         for r in self.results:
             if r.model_a not in matrix:
                 matrix[r.model_a] = {}
@@ -111,7 +111,7 @@ class PairwiseReport:
                 matrix[r.model_b][r.model_a] += 1
         return matrix
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "ratings": {k: v.as_dict() for k, v in self.ratings.items()},
@@ -120,7 +120,7 @@ class PairwiseReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PairwiseReport:
+    def from_dict(cls, data: dict[str, Any]) -> PairwiseReport:
         results = [PairwiseResult.from_dict(r) for r in data.get("results", [])]
         ratings = {
             k: EloRating.from_dict(v) for k, v in data.get("ratings", {}).items()
@@ -207,16 +207,16 @@ def compare_pair(
 
 
 def compute_elo_ratings(
-    results: List[PairwiseResult],
+    results: list[PairwiseResult],
     k_factor: float = 32.0,
     initial_rating: float = 1500.0,
-) -> Dict[str, EloRating]:
+) -> dict[str, EloRating]:
     """Compute Elo ratings from pairwise comparison results.
 
     K-factor controls how much each game shifts ratings.
     Higher K means more volatile ratings.
     """
-    ratings: Dict[str, EloRating] = {}
+    ratings: dict[str, EloRating] = {}
 
     for r in results:
         if r.model_a not in ratings:
@@ -251,7 +251,7 @@ def compute_elo_ratings(
     return ratings
 
 
-def build_pairwise_report(results: List[PairwiseResult]) -> PairwiseReport:
+def build_pairwise_report(results: list[PairwiseResult]) -> PairwiseReport:
     """Build a full pairwise report with Elo ratings."""
     ratings = compute_elo_ratings(results)
     return PairwiseReport(

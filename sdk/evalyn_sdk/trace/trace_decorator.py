@@ -3,13 +3,12 @@ from __future__ import annotations
 import functools
 import threading
 import uuid
-from contextlib import contextmanager
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 from ..models import Span
-
 
 # ---------------------------------------------------------------------------
 # SpanStack: thread-local parent-child hierarchy
@@ -21,7 +20,7 @@ class SpanStack:
     def __init__(self) -> None:
         self._local = threading.local()
 
-    def _stack(self) -> List[str]:
+    def _stack(self) -> list[str]:
         if not hasattr(self._local, "stack"):
             self._local.stack = []
         return self._local.stack
@@ -30,14 +29,14 @@ class SpanStack:
         """Push a span ID onto the stack."""
         self._stack().append(span_id)
 
-    def pop(self) -> Optional[str]:
+    def pop(self) -> str | None:
         """Pop and return the top span ID. Returns None if empty."""
         stack = self._stack()
         if not stack:
             return None
         return stack.pop()
 
-    def current(self) -> Optional[str]:
+    def current(self) -> str | None:
         """Peek at the top span ID without popping."""
         stack = self._stack()
         if not stack:
@@ -69,7 +68,7 @@ class SpanRecord:
     function_name: str = ""
     args_summary: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "span": self.span.as_dict(),
             "function_name": self.function_name,
@@ -85,7 +84,7 @@ class DecoratorConfig:
     capture_return: bool = False
     max_arg_length: int = 200
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "capture_args": self.capture_args,
             "capture_return": self.capture_return,
@@ -93,7 +92,7 @@ class DecoratorConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DecoratorConfig:
+    def from_dict(cls, data: dict[str, Any]) -> DecoratorConfig:
         return cls(
             capture_args=data.get("capture_args", True),
             capture_return=data.get("capture_return", False),
@@ -105,10 +104,10 @@ class DecoratorConfig:
 # Global span record collection
 # ---------------------------------------------------------------------------
 
-_SPAN_RECORDS: List[SpanRecord] = []
+_SPAN_RECORDS: list[SpanRecord] = []
 
 
-def get_recorded_spans() -> List[SpanRecord]:
+def get_recorded_spans() -> list[SpanRecord]:
     """Return all recorded SpanRecords."""
     return list(_SPAN_RECORDS)
 
@@ -124,7 +123,7 @@ def clear_recorded_spans() -> None:
 
 def _summarize_args(args: tuple, kwargs: dict, max_length: int = 200) -> str:
     """Build a short string summary of function arguments."""
-    parts: List[str] = []
+    parts: list[str] = []
     for a in args:
         parts.append(repr(a))
     for k, v in kwargs.items():
@@ -138,8 +137,8 @@ def _summarize_args(args: tuple, kwargs: dict, max_length: int = 200) -> str:
 def _make_span(
     name: str,
     span_type: str,
-    parent_id: Optional[str],
-    attributes: Optional[Dict[str, Any]] = None,
+    parent_id: str | None,
+    attributes: dict[str, Any] | None = None,
 ) -> Span:
     """Create a new Span with a generated ID and current timestamp."""
     return Span(
@@ -178,12 +177,12 @@ class trace_span:
         self,
         name: str = "",
         span_type: str = "custom",
-        config: Optional[DecoratorConfig] = None,
+        config: DecoratorConfig | None = None,
     ) -> None:
         self._name = name
         self._span_type = span_type
         self._config = config or DecoratorConfig()
-        self._span: Optional[Span] = None
+        self._span: Span | None = None
 
     # -- decorator usage ----------------------------------------------------
 
@@ -195,7 +194,7 @@ class trace_span:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             parent_id = _STACK.current()
-            attrs: Dict[str, Any] = {}
+            attrs: dict[str, Any] = {}
             args_summary = ""
             if config.capture_args:
                 args_summary = _summarize_args(args, kwargs, config.max_arg_length)

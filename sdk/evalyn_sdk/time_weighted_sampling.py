@@ -9,7 +9,7 @@ import math
 import random as _random
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -21,7 +21,7 @@ class TimeWeight:
     age_days: float
     weight: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "timestamp": self.timestamp,
@@ -30,7 +30,7 @@ class TimeWeight:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TimeWeight:
+    def from_dict(cls, data: dict[str, Any]) -> TimeWeight:
         return cls(
             item_id=data["item_id"],
             timestamp=data["timestamp"],
@@ -47,7 +47,7 @@ class TimeWeightConfig:
     min_weight: float = 0.01
     reference_time: str = ""  # ISO format, defaults to now if empty
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "half_life_days": self.half_life_days,
             "min_weight": self.min_weight,
@@ -55,7 +55,7 @@ class TimeWeightConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TimeWeightConfig:
+    def from_dict(cls, data: dict[str, Any]) -> TimeWeightConfig:
         return cls(
             half_life_days=data.get("half_life_days", 7.0),
             min_weight=data.get("min_weight", 0.01),
@@ -67,12 +67,12 @@ class TimeWeightConfig:
 class TimeWeightResult:
     """Result of a time-weighted sampling run."""
 
-    selected_ids: List[str] = field(default_factory=list)
-    weights: List[TimeWeight] = field(default_factory=list)
+    selected_ids: list[str] = field(default_factory=list)
+    weights: list[TimeWeight] = field(default_factory=list)
     total_pool: int = 0
     effective_days_covered: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected_ids": self.selected_ids,
             "weights": [w.as_dict() for w in self.weights],
@@ -81,7 +81,7 @@ class TimeWeightResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TimeWeightResult:
+    def from_dict(cls, data: dict[str, Any]) -> TimeWeightResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
             weights=[TimeWeight.from_dict(w) for w in data.get("weights", [])],
@@ -124,9 +124,9 @@ def compute_exponential_weight(
 
 
 def compute_time_weights(
-    items: Dict[str, str],
+    items: dict[str, str],
     config: TimeWeightConfig,
-) -> List[TimeWeight]:
+) -> list[TimeWeight]:
     """Compute time-based weights for all items.
 
     items is {item_id: ISO_timestamp}.
@@ -136,7 +136,7 @@ def compute_time_weights(
     ref = config.reference_time
     if not ref:
         ref = datetime.now(timezone.utc).isoformat()
-    results: List[TimeWeight] = []
+    results: list[TimeWeight] = []
     for item_id, ts in items.items():
         age = compute_age_days(ts, ref)
         weight = compute_exponential_weight(age, config.half_life_days, config.min_weight)
@@ -157,10 +157,10 @@ def compute_time_weights(
 
 
 def sample_by_time(
-    weights: List[TimeWeight],
+    weights: list[TimeWeight],
     sample_size: int,
     seed: int | None = None,
-) -> List[str]:
+) -> list[str]:
     """Weighted sampling without replacement.
 
     Draws one item at a time proportional to weight, removes it from the pool,
@@ -170,7 +170,7 @@ def sample_by_time(
         return []
     rng = _random.Random(seed)
     pool = [(w.item_id, w.weight) for w in weights]
-    selected: List[str] = []
+    selected: list[str] = []
     for _ in range(min(sample_size, len(pool))):
         total = sum(w for _, w in pool)
         if total <= 0:
@@ -189,10 +189,10 @@ def sample_by_time(
 
 
 def ensure_minimum_representation(
-    weights: List[TimeWeight],
+    weights: list[TimeWeight],
     min_per_period: int = 1,
     period_days: float = 7.0,
-) -> List[TimeWeight]:
+) -> list[TimeWeight]:
     """Boost weights of underrepresented time periods.
 
     Groups items by period (age_days // period_days) and boosts weights
@@ -204,7 +204,7 @@ def ensure_minimum_representation(
         return []
 
     # Group by period
-    periods: Dict[int, List[int]] = {}
+    periods: dict[int, list[int]] = {}
     for i, w in enumerate(weights):
         period = int(w.age_days // period_days) if period_days > 0 else 0
         periods.setdefault(period, []).append(i)
@@ -218,7 +218,7 @@ def ensure_minimum_representation(
         median_weight = sorted_weights[mid]
 
     # Build new weight list
-    boosted: List[TimeWeight] = []
+    boosted: list[TimeWeight] = []
     for w in weights:
         period = int(w.age_days // period_days) if period_days > 0 else 0
         period_items = periods[period]
@@ -255,7 +255,7 @@ def ensure_minimum_representation(
 
 
 def run_time_weighted_sampling(
-    items: Dict[str, str],
+    items: dict[str, str],
     sample_size: int,
     config: TimeWeightConfig | None = None,
     seed: int | None = None,
@@ -291,7 +291,7 @@ def run_time_weighted_sampling(
 
 def format_time_weight_report(result: TimeWeightResult) -> str:
     """Format a human-readable time-weighted sampling report."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Time-Weighted Sampling Report")
     lines.append("=" * 40)
     lines.append(f"Total pool: {result.total_pool}")

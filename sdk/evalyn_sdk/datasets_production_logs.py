@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 @dataclass
@@ -23,9 +23,9 @@ class LogEntry:
     response_body: str = ""
     status_code: int = 200
     duration_ms: float = 0.0
-    headers: Dict[str, str] = field(default_factory=dict)
+    headers: dict[str, str] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "timestamp": self.timestamp,
             "method": self.method,
@@ -38,7 +38,7 @@ class LogEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> LogEntry:
+    def from_dict(cls, data: dict[str, Any]) -> LogEntry:
         return cls(
             timestamp=data.get("timestamp", ""),
             method=data.get("method", "POST"),
@@ -58,9 +58,9 @@ class ImportedLogItem:
     id: str = ""
     input_text: str = ""
     output_text: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "input_text": self.input_text,
@@ -69,7 +69,7 @@ class ImportedLogItem:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ImportedLogItem:
+    def from_dict(cls, data: dict[str, Any]) -> ImportedLogItem:
         return cls(
             id=data.get("id", ""),
             input_text=data.get("input_text", ""),
@@ -82,13 +82,13 @@ class ImportedLogItem:
 class LogImportResult:
     """Summary of a log import operation."""
 
-    items: List[ImportedLogItem] = field(default_factory=list)
+    items: list[ImportedLogItem] = field(default_factory=list)
     total_logs: int = 0
     imported: int = 0
     skipped: int = 0
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "items": [item.as_dict() for item in self.items],
             "total_logs": self.total_logs,
@@ -98,7 +98,7 @@ class LogImportResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> LogImportResult:
+    def from_dict(cls, data: dict[str, Any]) -> LogImportResult:
         return cls(
             items=[ImportedLogItem.from_dict(i) for i in data.get("items", [])],
             total_logs=data.get("total_logs", 0),
@@ -118,7 +118,7 @@ class LogImportResult:
         return "\n".join(lines)
 
 
-def parse_log_entry(line: str, format: str = "json") -> Optional[LogEntry]:
+def parse_log_entry(line: str, format: str = "json") -> LogEntry | None:
     """Parse a single log line into a LogEntry.
 
     Returns None on parse error.
@@ -148,7 +148,7 @@ def parse_log_entry(line: str, format: str = "json") -> Optional[LogEntry]:
     return None
 
 
-def extract_llm_content(log: LogEntry) -> Tuple[str, str]:
+def extract_llm_content(log: LogEntry) -> tuple[str, str]:
     """Extract LLM input and output text from a log entry.
 
     Looks for common LLM API patterns in request/response bodies:
@@ -198,7 +198,7 @@ def extract_llm_content(log: LogEntry) -> Tuple[str, str]:
 
 
 def import_from_logs(
-    log_lines: List[str],
+    log_lines: list[str],
     format: str = "json",
     min_status: int = 200,
     max_status: int = 299,
@@ -274,7 +274,7 @@ def detect_log_format(sample: str) -> str:
 
 
 def filter_logs_by_endpoint(
-    logs: List[LogEntry], url_pattern: str
-) -> List[LogEntry]:
+    logs: list[LogEntry], url_pattern: str
+) -> list[LogEntry]:
     """Filter log entries by URL substring match."""
     return [log for log in logs if url_pattern in log.url]

@@ -31,11 +31,12 @@ ESSENTIAL = {"limit"}
 
 import argparse
 import json
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ...storage import SQLiteStorage
 
+from ...storage.sqlite import DB_PATHS
 from ..utils.command_common import (
     resolve_call_id,
     resolve_call_id_or_last,
@@ -44,10 +45,9 @@ from ..utils.command_common import (
 from ..utils.errors import fatal_error
 from ..utils.formatters import format_duration, trim_timestamp
 from ..utils.hints import HintCollector
-from ..utils.rich import banner, kv, section, table as rich_table, footer, icon, status_icon
+from ..utils.rich import banner, footer, icon, kv, section, status_icon
+from ..utils.rich import table as rich_table
 from ..utils.validation import extract_project_id
-
-from ...storage.sqlite import DB_PATHS
 
 
 def _get_storage(args: argparse.Namespace) -> SQLiteStorage:
@@ -686,7 +686,7 @@ def _print_show_trace_no_spans(call) -> None:
 
 
 
-def _show_trace_limits(full_output: bool) -> dict[str, Optional[int]]:
+def _show_trace_limits(full_output: bool) -> dict[str, int | None]:
     """Return truncation limits for verbose trace rendering."""
     return {
         "input": None if full_output else 800,
@@ -695,14 +695,14 @@ def _show_trace_limits(full_output: bool) -> dict[str, Optional[int]]:
     }
 
 
-def _truncate_with_indicator(text: str, limit: Optional[int]) -> str:
+def _truncate_with_indicator(text: str, limit: int | None) -> str:
     """Truncate text and add a visible truncation marker."""
     if limit is None or len(text) <= limit:
         return text
     return text[:limit] + " [...truncated]"
 
 
-def _render_show_trace_verbose_details(span, prefix: str, limits: dict[str, Optional[int]]) -> None:
+def _render_show_trace_verbose_details(span, prefix: str, limits: dict[str, int | None]) -> None:
     """Render verbose details block for a span."""
     attrs = span.attributes or {}
     detail_prefix = prefix + "    "
@@ -801,10 +801,10 @@ def _render_show_trace_node(
     prefix: str,
     is_last: bool,
     depth: int,
-    max_depth: Optional[int],
+    max_depth: int | None,
     verbose: bool,
     truncated_count: list[int],
-    limits: dict[str, Optional[int]],
+    limits: dict[str, int | None],
 ) -> None:
     """Render a span node with optional verbose details and depth truncation."""
     if max_depth is not None and depth >= max_depth:

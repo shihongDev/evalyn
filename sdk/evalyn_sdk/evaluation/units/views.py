@@ -7,7 +7,7 @@ for metric evaluation regardless of unit type.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ...models import EvalUnit, EvalView, FunctionCall, Span
 
@@ -118,7 +118,7 @@ def _project_multi_turn(unit: EvalUnit, call: FunctionCall) -> EvalView:
     spans = sorted(spans, key=lambda s: s.start_time)
 
     # Build conversation as list of turns
-    turns: List[Dict[str, Any]] = []
+    turns: list[dict[str, Any]] = []
     for span in spans:
         turn = {
             "input": span.attributes.get("input") or span.attributes.get("messages"),
@@ -177,7 +177,7 @@ def _project_default(unit: EvalUnit, call: FunctionCall) -> EvalView:
     )
 
 
-def _get_span_by_id(spans: List[Span], span_id: str) -> Optional[Span]:
+def _get_span_by_id(spans: list[Span], span_id: str) -> Span | None:
     """Find a span by ID."""
     for span in spans:
         if span.id == span_id:

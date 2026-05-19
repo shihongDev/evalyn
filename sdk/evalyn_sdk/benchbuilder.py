@@ -8,13 +8,11 @@ lightweight proxy for embedding-based analysis.
 
 from __future__ import annotations
 
-import math
 import random
 import re
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Stop words (shared lightweight set)
@@ -73,7 +71,7 @@ class TraceScore:
     difficulty_score: float
     topic_cluster: int = -1
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "trace_id": self.trace_id,
             "quality_score": self.quality_score,
@@ -82,7 +80,7 @@ class TraceScore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TraceScore:
+    def from_dict(cls, data: dict[str, Any]) -> TraceScore:
         return cls(
             trace_id=data["trace_id"],
             quality_score=data["quality_score"],
@@ -100,7 +98,7 @@ class CurationConfig:
     diversity_weight: float = 0.5
     seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "target_size": self.target_size,
             "min_quality": self.min_quality,
@@ -109,7 +107,7 @@ class CurationConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CurationConfig:
+    def from_dict(cls, data: dict[str, Any]) -> CurationConfig:
         return cls(
             target_size=data.get("target_size", 100),
             min_quality=data.get("min_quality", 0.3),
@@ -122,14 +120,14 @@ class CurationConfig:
 class CurationResult:
     """Result of benchmark curation."""
 
-    selected_ids: List[str] = field(default_factory=list)
-    scores: List[TraceScore] = field(default_factory=list)
+    selected_ids: list[str] = field(default_factory=list)
+    scores: list[TraceScore] = field(default_factory=list)
     total_traces: int = 0
     avg_quality: float = 0.0
     avg_difficulty: float = 0.0
     n_clusters_represented: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected_ids": list(self.selected_ids),
             "scores": [s.as_dict() for s in self.scores],
@@ -140,7 +138,7 @@ class CurationResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CurationResult:
+    def from_dict(cls, data: dict[str, Any]) -> CurationResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
             scores=[TraceScore.from_dict(s) for s in data.get("scores", [])],

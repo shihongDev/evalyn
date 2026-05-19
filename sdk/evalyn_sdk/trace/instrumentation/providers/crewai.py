@@ -26,13 +26,12 @@ from __future__ import annotations
 
 import importlib.util
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from ..base import Instrumentor, InstrumentorType
 from ....models import Span
 from ... import context as span_context
+from ..base import Instrumentor, InstrumentorType
 from ._shared import calculate_cost
-
 
 # ---------------------------------------------------------------------------
 # Resilient imports: prefer crewai.events (public API), fall back to
@@ -63,20 +62,20 @@ def _import_base_event_listener() -> Any:
     return None
 
 
-def _import_core_events() -> Optional[Dict[str, type]]:
+def _import_core_events() -> dict[str, type] | None:
     """Import core event classes. Returns dict of name->class or None."""
     try:
         from crewai.events import (
-            CrewKickoffStartedEvent,
-            CrewKickoffCompletedEvent,
-            AgentExecutionStartedEvent,
             AgentExecutionCompletedEvent,
-            TaskStartedEvent,
-            TaskCompletedEvent,
-            ToolUsageStartedEvent,
-            ToolUsageFinishedEvent,
-            LLMCallStartedEvent,
+            AgentExecutionStartedEvent,
+            CrewKickoffCompletedEvent,
+            CrewKickoffStartedEvent,
             LLMCallCompletedEvent,
+            LLMCallStartedEvent,
+            TaskCompletedEvent,
+            TaskStartedEvent,
+            ToolUsageFinishedEvent,
+            ToolUsageStartedEvent,
         )
         return {
             "CrewKickoffStartedEvent": CrewKickoffStartedEvent,
@@ -95,30 +94,30 @@ def _import_core_events() -> Optional[Dict[str, type]]:
 
     # Fallback to old internal import paths
     try:
-        from crewai.utilities.events.crew_events import (
-            CrewKickoffStartedEvent,
-            CrewKickoffCompletedEvent,
-            CrewKickoffFailedEvent,
-        )
         from crewai.utilities.events.agent_events import (
-            AgentExecutionStartedEvent,
             AgentExecutionCompletedEvent,
             AgentExecutionErrorEvent,
+            AgentExecutionStartedEvent,
         )
-        from crewai.utilities.events.task_events import (
-            TaskStartedEvent,
-            TaskCompletedEvent,
-            TaskFailedEvent,
+        from crewai.utilities.events.crew_events import (
+            CrewKickoffCompletedEvent,
+            CrewKickoffFailedEvent,
+            CrewKickoffStartedEvent,
         )
         from crewai.utilities.events.llm_events import (
-            LLMCallStartedEvent,
             LLMCallCompletedEvent,
             LLMCallFailedEvent,
+            LLMCallStartedEvent,
+        )
+        from crewai.utilities.events.task_events import (
+            TaskCompletedEvent,
+            TaskFailedEvent,
+            TaskStartedEvent,
         )
         from crewai.utilities.events.tool_events import (
-            ToolUsageStartedEvent,
-            ToolUsageFinishedEvent,
             ToolUsageErrorEvent,
+            ToolUsageFinishedEvent,
+            ToolUsageStartedEvent,
         )
         return {
             "CrewKickoffStartedEvent": CrewKickoffStartedEvent,
@@ -141,9 +140,9 @@ def _import_core_events() -> Optional[Dict[str, type]]:
         return None
 
 
-def _import_optional_events() -> Dict[str, type]:
+def _import_optional_events() -> dict[str, type]:
     """Import optional event classes that may not exist in all versions."""
-    events: Dict[str, type] = {}
+    events: dict[str, type] = {}
 
     # Memory events
     try:
@@ -152,10 +151,10 @@ def _import_optional_events() -> Dict[str, type]:
     except ImportError:
         try:
             from crewai.utilities.events.memory_events import (
-                MemoryQueryStarted,
                 MemoryQueryCompleted,
-                MemorySaveStarted,
+                MemoryQueryStarted,
                 MemorySaveCompleted,
+                MemorySaveStarted,
             )
             events["MemoryQueryStarted"] = MemoryQueryStarted
             events["MemoryQueryCompleted"] = MemoryQueryCompleted
@@ -167,8 +166,8 @@ def _import_optional_events() -> Dict[str, type]:
     # Knowledge retrieval events
     try:
         from crewai.events import (
-            KnowledgeRetrievalStartedEvent,
             KnowledgeRetrievalCompletedEvent,
+            KnowledgeRetrievalStartedEvent,
         )
         events["KnowledgeRetrievalStartedEvent"] = KnowledgeRetrievalStartedEvent
         events["KnowledgeRetrievalCompletedEvent"] = KnowledgeRetrievalCompletedEvent
@@ -185,8 +184,8 @@ def _import_optional_events() -> Dict[str, type]:
     # Flow events
     try:
         from crewai.utilities.events.flow_events import (
-            FlowStartedEvent,
             FlowFinishedEvent,
+            FlowStartedEvent,
         )
         events["FlowStartedEvent"] = FlowStartedEvent
         events["FlowFinishedEvent"] = FlowFinishedEvent
@@ -657,7 +656,7 @@ class _SpanTracker:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._open_spans: Dict[tuple, _OpenSpan] = {}
+        self._open_spans: dict[tuple, _OpenSpan] = {}
 
     def has_span(self, key: tuple) -> bool:
         with self._lock:
@@ -668,7 +667,7 @@ class _SpanTracker:
         key: tuple,
         name: str,
         span_type: str,
-        attributes: Optional[Dict[str, Any]] = None,
+        attributes: dict[str, Any] | None = None,
     ) -> None:
         parent_span_id = span_context.get_current_span_id()
         span = Span.new(
@@ -693,7 +692,7 @@ class _SpanTracker:
         self,
         key: tuple,
         status: str = "ok",
-        attributes: Optional[Dict[str, Any]] = None,
+        attributes: dict[str, Any] | None = None,
     ) -> None:
         with self._lock:
             open_span = self._open_spans.pop(key, None)
@@ -762,7 +761,7 @@ def _truncate_messages(messages: Any) -> Any:
     return truncated
 
 
-def _extract_token_usage(output: Any) -> Optional[Dict[str, Any]]:
+def _extract_token_usage(output: Any) -> dict[str, Any] | None:
     """Extract token usage from CrewOutput."""
     if output is None:
         return None

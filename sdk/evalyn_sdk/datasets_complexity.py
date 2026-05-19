@@ -7,8 +7,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -27,7 +26,7 @@ class ComplexityFeatures:
     has_numbers: bool = False
     question_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "word_count": self.word_count,
             "sentence_count": self.sentence_count,
@@ -46,9 +45,9 @@ class ComplexityScore:
     item_id: str
     score: float  # 0-1
     difficulty: str = "medium"  # "easy", "medium", "hard"
-    features: Optional[ComplexityFeatures] = None
+    features: ComplexityFeatures | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "score": self.score,
@@ -57,7 +56,7 @@ class ComplexityScore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ComplexityScore:
+    def from_dict(cls, data: dict[str, Any]) -> ComplexityScore:
         features_data = data.get("features")
         features = ComplexityFeatures(**features_data) if features_data else None
         return cls(
@@ -72,11 +71,11 @@ class ComplexityScore:
 class ComplexityReport:
     """Aggregated complexity report for a dataset."""
 
-    scores: List[ComplexityScore] = field(default_factory=list)
+    scores: list[ComplexityScore] = field(default_factory=list)
     avg_complexity: float = 0.0
-    distribution: Dict[str, int] = field(default_factory=dict)
+    distribution: dict[str, int] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "scores": [s.as_dict() for s in self.scores],
             "avg_complexity": self.avg_complexity,
@@ -84,7 +83,7 @@ class ComplexityReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ComplexityReport:
+    def from_dict(cls, data: dict[str, Any]) -> ComplexityReport:
         scores = [ComplexityScore.from_dict(s) for s in data.get("scores", [])]
         return cls(
             scores=scores,
@@ -93,7 +92,7 @@ class ComplexityReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Complexity Report")
         lines.append("=" * 40)
         lines.append(f"  Items scored: {len(self.scores)}")
@@ -215,7 +214,7 @@ def classify_difficulty(score: float) -> str:
     return "hard"
 
 
-def score_item(item: Dict[str, Any], input_field: str = "input") -> ComplexityScore:
+def score_item(item: dict[str, Any], input_field: str = "input") -> ComplexityScore:
     """Score one item for complexity."""
     item_id = str(item.get("id", ""))
     text = str(item.get(input_field, ""))
@@ -231,11 +230,11 @@ def score_item(item: Dict[str, Any], input_field: str = "input") -> ComplexitySc
 
 
 def score_dataset(
-    items: List[Dict[str, Any]],
+    items: list[dict[str, Any]],
     input_field: str = "input",
 ) -> ComplexityReport:
     """Score all items and compute distribution."""
-    scores: List[ComplexityScore] = []
+    scores: list[ComplexityScore] = []
     for item in items:
         scores.append(score_item(item, input_field=input_field))
 
@@ -243,7 +242,7 @@ def score_dataset(
     if scores:
         avg_complexity = sum(s.score for s in scores) / len(scores)
 
-    distribution: Dict[str, int] = {"easy": 0, "medium": 0, "hard": 0}
+    distribution: dict[str, int] = {"easy": 0, "medium": 0, "hard": 0}
     for s in scores:
         distribution[s.difficulty] = distribution.get(s.difficulty, 0) + 1
 
@@ -255,8 +254,8 @@ def score_dataset(
 
 
 def sort_by_complexity(
-    scores: List[ComplexityScore],
+    scores: list[ComplexityScore],
     ascending: bool = True,
-) -> List[ComplexityScore]:
+) -> list[ComplexityScore]:
     """Sort scores by complexity score."""
     return sorted(scores, key=lambda s: s.score, reverse=not ascending)

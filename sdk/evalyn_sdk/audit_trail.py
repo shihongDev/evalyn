@@ -13,7 +13,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def _get_evalyn_version() -> str:
@@ -36,7 +36,7 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def compute_config_hash(config: Dict[str, Any]) -> str:
+def compute_config_hash(config: dict[str, Any]) -> str:
     """Compute deterministic SHA256 hash of a config dict.
 
     Serializes with sorted keys for determinism.
@@ -53,12 +53,12 @@ class AuditEntry:
     user: str
     timestamp: str
     command: str
-    args: Dict[str, Any]
+    args: dict[str, Any]
     config_hash: str
     result_summary: str
     evalyn_version: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "entry_id": self.entry_id,
             "user": self.user,
@@ -71,7 +71,7 @@ class AuditEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AuditEntry:
+    def from_dict(cls, data: dict[str, Any]) -> AuditEntry:
         return cls(
             entry_id=data["entry_id"],
             user=data["user"],
@@ -88,17 +88,17 @@ class AuditEntry:
 class AuditLog:
     """Collection of audit entries with associated log path."""
 
-    entries: List[AuditEntry] = field(default_factory=list)
+    entries: list[AuditEntry] = field(default_factory=list)
     log_path: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "entries": [e.as_dict() for e in self.entries],
             "log_path": self.log_path,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AuditLog:
+    def from_dict(cls, data: dict[str, Any]) -> AuditLog:
         return cls(
             entries=[
                 AuditEntry.from_dict(e) for e in data.get("entries", [])
@@ -109,8 +109,8 @@ class AuditLog:
 
 def create_audit_entry(
     command: str,
-    args: Dict[str, Any],
-    config: Dict[str, Any],
+    args: dict[str, Any],
+    config: dict[str, Any],
     result_summary: str = "",
     user: str = "",
 ) -> AuditEntry:
@@ -149,11 +149,11 @@ def read_audit_log(log_path: str) -> AuditLog:
     Returns an empty AuditLog if the file is missing or empty.
     """
     path = Path(log_path)
-    entries: List[AuditEntry] = []
+    entries: list[AuditEntry] = []
     if not path.exists():
         return AuditLog(entries=entries, log_path=log_path)
 
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -175,7 +175,7 @@ def filter_entries(
 
     Date range parameters (after, before) are ISO format strings.
     """
-    filtered: List[AuditEntry] = []
+    filtered: list[AuditEntry] = []
     after_dt = datetime.fromisoformat(after) if after else None
     before_dt = datetime.fromisoformat(before) if before else None
     for entry in log.entries:
@@ -234,7 +234,7 @@ def format_audit_log(log: AuditLog, limit: int = 50) -> str:
     return "\n".join(lines)
 
 
-def get_audit_stats(log: AuditLog) -> Dict[str, Any]:
+def get_audit_stats(log: AuditLog) -> dict[str, Any]:
     """Compute summary statistics for an audit log.
 
     Returns dict with: total_entries, unique_users, unique_commands,
@@ -250,8 +250,8 @@ def get_audit_stats(log: AuditLog) -> Dict[str, Any]:
         }
 
     users = set()
-    commands: Dict[str, int] = {}
-    timestamps: List[str] = []
+    commands: dict[str, int] = {}
+    timestamps: list[str] = []
 
     for entry in log.entries:
         users.add(entry.user)

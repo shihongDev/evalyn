@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -23,11 +22,11 @@ class PromptTemplate:
 
     name: str
     template: str
-    variables: List[str] = field(default_factory=list)
+    variables: list[str] = field(default_factory=list)
     description: str = ""
     category: str = "general"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "template": self.template,
@@ -37,7 +36,7 @@ class PromptTemplate:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PromptTemplate:
+    def from_dict(cls, data: dict[str, Any]) -> PromptTemplate:
         return cls(
             name=data["name"],
             template=data["template"],
@@ -51,23 +50,23 @@ class PromptTemplate:
 class TemplateLibrary:
     """A collection of named prompt templates."""
 
-    templates: Dict[str, PromptTemplate] = field(default_factory=dict)
+    templates: dict[str, PromptTemplate] = field(default_factory=dict)
 
     def add(self, template: PromptTemplate) -> None:
         """Add a template to the library."""
         self.templates[template.name] = template
 
-    def get(self, name: str) -> Optional[PromptTemplate]:
+    def get(self, name: str) -> PromptTemplate | None:
         """Get a template by name, or None if not found."""
         return self.templates.get(name)
 
-    def list_by_category(self, category: str) -> List[PromptTemplate]:
+    def list_by_category(self, category: str) -> list[PromptTemplate]:
         """List all templates in a given category."""
         return [
             t for t in self.templates.values() if t.category == category
         ]
 
-    def list_all(self) -> List[PromptTemplate]:
+    def list_all(self) -> list[PromptTemplate]:
         """List all templates."""
         return list(self.templates.values())
 
@@ -78,7 +77,7 @@ class TemplateLibrary:
             return True
         return False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "templates": {
                 name: t.as_dict() for name, t in self.templates.items()
@@ -86,7 +85,7 @@ class TemplateLibrary:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TemplateLibrary:
+    def from_dict(cls, data: dict[str, Any]) -> TemplateLibrary:
         templates = {
             name: PromptTemplate.from_dict(t_data)
             for name, t_data in data.get("templates", {}).items()
@@ -140,7 +139,7 @@ _PLACEHOLDER_RE = re.compile(r"\{\{(\w+)\}\}")
 
 def render_template(
     template: PromptTemplate,
-    variables: Dict[str, str],
+    variables: dict[str, str],
 ) -> str:
     """Replace {{variable}} placeholders with values.
 

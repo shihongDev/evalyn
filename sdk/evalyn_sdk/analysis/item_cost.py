@@ -7,7 +7,7 @@ computes per-item cost, and identifies the most expensive items.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -21,7 +21,7 @@ class ItemCost:
     cost_usd: float = 0.0
     metric_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "input_tokens": self.input_tokens,
@@ -36,7 +36,7 @@ class ItemCost:
 class ItemCostReport:
     """Cost attribution report across all items."""
 
-    items: List[ItemCost] = field(default_factory=list)
+    items: list[ItemCost] = field(default_factory=list)
     total_cost_usd: float = 0.0
     total_tokens: int = 0
 
@@ -45,17 +45,17 @@ class ItemCostReport:
         return self.total_cost_usd / len(self.items) if self.items else 0.0
 
     @property
-    def most_expensive(self) -> Optional[ItemCost]:
+    def most_expensive(self) -> ItemCost | None:
         return max(self.items, key=lambda x: x.cost_usd) if self.items else None
 
     @property
-    def cheapest(self) -> Optional[ItemCost]:
+    def cheapest(self) -> ItemCost | None:
         return min(self.items, key=lambda x: x.cost_usd) if self.items else None
 
-    def top_n_expensive(self, n: int = 5) -> List[ItemCost]:
+    def top_n_expensive(self, n: int = 5) -> list[ItemCost]:
         return sorted(self.items, key=lambda x: x.cost_usd, reverse=True)[:n]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_cost_usd": round(self.total_cost_usd, 6),
             "total_tokens": self.total_tokens,
@@ -82,7 +82,7 @@ class ItemCostReport:
 
 
 def compute_item_costs(
-    metric_results: List,
+    metric_results: list,
     model: str = "gemini-2.5-flash-lite",
 ) -> ItemCostReport:
     """Compute per-item cost from evaluation results.
@@ -100,7 +100,7 @@ def compute_item_costs(
     from ..trace.instrumentation.providers._shared import calculate_cost
 
     # Aggregate by item
-    by_item: Dict[str, ItemCost] = {}
+    by_item: dict[str, ItemCost] = {}
 
     for mr in metric_results:
         iid = mr.item_id

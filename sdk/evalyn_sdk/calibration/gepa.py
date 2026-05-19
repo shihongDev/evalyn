@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from ..defaults import DEFAULT_DSPY_MODEL
 from ..models import Annotation, DatasetItem, MetricResult
@@ -53,7 +53,7 @@ class GEPAOptimizer:
     Requires: pip install gepa
     """
 
-    def __init__(self, config: Optional[GEPAConfig] = None):
+    def __init__(self, config: GEPAConfig | None = None):
         if not GEPA_AVAILABLE:
             raise ImportError(
                 "GEPA is not installed. Install it with: pip install gepa"
@@ -62,16 +62,16 @@ class GEPAOptimizer:
 
     def _build_dataset_from_annotations(
         self,
-        metric_results: List[MetricResult],
-        annotations: List[Annotation],
-        dataset_items: Optional[List[DatasetItem]] = None,
-    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        metric_results: list[MetricResult],
+        annotations: list[Annotation],
+        dataset_items: list[DatasetItem] | None = None,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         """
         Convert calibration data to GEPA-compatible train/val sets.
         Each example contains: input, output, expected (human label).
         """
-        ann_by_call: Dict[str, Annotation] = {ann.target_id: ann for ann in annotations}
-        items_by_call: Dict[str, DatasetItem] = {}
+        ann_by_call: dict[str, Annotation] = {ann.target_id: ann for ann in annotations}
+        items_by_call: dict[str, DatasetItem] = {}
         if dataset_items:
             for item in dataset_items:
                 call_id = item.metadata.get("call_id", item.id)
@@ -109,7 +109,7 @@ class GEPAOptimizer:
 
     def _build_seed_prompt(
         self, metric_id: str, current_preamble: str
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """
         Build seed prompt with only the preamble (the part to be optimized).
         The rubric will be appended separately after optimization.
@@ -125,10 +125,10 @@ class GEPAOptimizer:
     def optimize(
         self,
         metric_id: str,
-        current_rubric: List[str],
-        metric_results: List[MetricResult],
-        annotations: List[Annotation],
-        dataset_items: Optional[List[DatasetItem]] = None,
+        current_rubric: list[str],
+        metric_results: list[MetricResult],
+        annotations: list[Annotation],
+        dataset_items: list[DatasetItem] | None = None,
         current_preamble: str = "",
     ) -> PromptOptimizationResult:
         """

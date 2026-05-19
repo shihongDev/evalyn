@@ -7,8 +7,7 @@ ASCII reports, compare schemas, and suggest optimizations.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -24,7 +23,7 @@ class ColumnInfo:
     nullable: bool = True
     primary_key: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "data_type": self.data_type,
@@ -38,11 +37,11 @@ class TableSchema:
     """Schema for a single database table."""
 
     name: str
-    columns: List[ColumnInfo] = field(default_factory=list)
+    columns: list[ColumnInfo] = field(default_factory=list)
     row_count: int = 0
     index_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "columns": [c.as_dict() for c in self.columns],
@@ -51,7 +50,7 @@ class TableSchema:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TableSchema:
+    def from_dict(cls, data: dict[str, Any]) -> TableSchema:
         columns = [
             ColumnInfo(
                 name=c["name"],
@@ -73,13 +72,13 @@ class TableSchema:
 class SchemaReport:
     """Aggregated report of all table schemas."""
 
-    tables: List[TableSchema] = field(default_factory=list)
+    tables: list[TableSchema] = field(default_factory=list)
     total_tables: int = 0
     total_columns: int = 0
     total_rows: int = 0
     total_indexes: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "tables": [t.as_dict() for t in self.tables],
             "total_tables": self.total_tables,
@@ -89,7 +88,7 @@ class SchemaReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SchemaReport:
+    def from_dict(cls, data: dict[str, Any]) -> SchemaReport:
         tables = [
             TableSchema.from_dict(t) for t in data.get("tables", [])
         ]
@@ -102,7 +101,7 @@ class SchemaReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Schema Report")
         lines.append("-" * 40)
         lines.append(f"Tables: {self.total_tables}")
@@ -127,7 +126,7 @@ class SchemaReport:
 
 def build_table_schema(
     name: str,
-    columns: List[Dict[str, Any]],
+    columns: list[dict[str, Any]],
     row_count: int = 0,
 ) -> TableSchema:
     """Build a TableSchema from column dicts.
@@ -147,7 +146,7 @@ def build_table_schema(
     return TableSchema(name=name, columns=col_infos, row_count=row_count)
 
 
-def build_schema_report(tables: List[TableSchema]) -> SchemaReport:
+def build_schema_report(tables: list[TableSchema]) -> SchemaReport:
     """Aggregate a list of TableSchemas into a SchemaReport."""
     total_cols = sum(len(t.columns) for t in tables)
     total_rows = sum(t.row_count for t in tables)
@@ -180,7 +179,7 @@ def render_schema_ascii(report: SchemaReport) -> str:
 def compare_schemas(
     schema_a: SchemaReport,
     schema_b: SchemaReport,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compare two schemas. Find added, removed, and changed tables."""
     names_a = {t.name for t in schema_a.tables}
     names_b = {t.name for t in schema_b.tables}
@@ -191,7 +190,7 @@ def compare_schemas(
     tables_a = {t.name: t for t in schema_a.tables}
     tables_b = {t.name: t for t in schema_b.tables}
 
-    changed: List[Dict[str, Any]] = []
+    changed: list[dict[str, Any]] = []
     for name in sorted(names_a & names_b):
         ta = tables_a[name]
         tb = tables_b[name]
@@ -215,9 +214,9 @@ def compare_schemas(
     }
 
 
-def suggest_schema_optimizations(report: SchemaReport) -> List[str]:
+def suggest_schema_optimizations(report: SchemaReport) -> list[str]:
     """Return optimization suggestions based on schema structure."""
-    suggestions: List[str] = []
+    suggestions: list[str] = []
     for table in report.tables:
         if table.index_count == 0 and table.row_count > 0:
             suggestions.append(

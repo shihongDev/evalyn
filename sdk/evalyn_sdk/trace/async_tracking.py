@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List
 import uuid
+from dataclasses import dataclass, field
+from typing import Any
 
 from ..models import Span
 
@@ -17,7 +17,7 @@ class ConcurrentCall:
     duration_ms: float
     group_id: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "call_id": self.call_id,
             "start_ms": self.start_ms,
@@ -32,12 +32,12 @@ class ConcurrencyGroup:
     """A group of overlapping concurrent calls."""
 
     group_id: str
-    calls: List[ConcurrentCall] = field(default_factory=list)
+    calls: list[ConcurrentCall] = field(default_factory=list)
     max_concurrent: int = 0
     total_duration_ms: float = 0.0
     wall_clock_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "group_id": self.group_id,
             "calls": [c.as_dict() for c in self.calls],
@@ -49,7 +49,7 @@ class ConcurrencyGroup:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConcurrencyGroup:
+    def from_dict(cls, data: dict[str, Any]) -> ConcurrencyGroup:
         calls = [
             ConcurrentCall(
                 call_id=c["call_id"],
@@ -87,12 +87,12 @@ class ConcurrencyGroup:
 class ConcurrencyReport:
     """Full concurrency analysis report."""
 
-    groups: List[ConcurrencyGroup] = field(default_factory=list)
+    groups: list[ConcurrencyGroup] = field(default_factory=list)
     total_calls: int = 0
     max_concurrent: int = 0
     avg_parallelism: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "groups": [g.as_dict() for g in self.groups],
             "total_calls": self.total_calls,
@@ -101,7 +101,7 @@ class ConcurrencyReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConcurrencyReport:
+    def from_dict(cls, data: dict[str, Any]) -> ConcurrencyReport:
         return cls(
             groups=[
                 ConcurrencyGroup.from_dict(g) for g in data.get("groups", [])
@@ -135,7 +135,7 @@ def _span_to_interval(span: Span) -> tuple:
     return (start_ms, end_ms)
 
 
-def detect_concurrent_calls(spans: List[Span]) -> List[ConcurrencyGroup]:
+def detect_concurrent_calls(spans: list[Span]) -> list[ConcurrencyGroup]:
     """Group overlapping spans into concurrency groups.
 
     Two spans overlap if span_a.start < span_b.end and span_b.start < span_a.end.
@@ -170,17 +170,17 @@ def detect_concurrent_calls(spans: List[Span]) -> List[ConcurrencyGroup]:
                 union(i, j)
 
     # Build groups
-    groups_map: Dict[int, List[int]] = {}
+    groups_map: dict[int, list[int]] = {}
     for i in range(n):
         root = find(i)
         groups_map.setdefault(root, []).append(i)
 
-    result: List[ConcurrencyGroup] = []
+    result: list[ConcurrencyGroup] = []
     for indices in groups_map.values():
         if len(indices) < 2:
             continue
         gid = str(uuid.uuid4())[:8]
-        calls: List[ConcurrentCall] = []
+        calls: list[ConcurrentCall] = []
         for idx in indices:
             s_ms, e_ms = intervals[idx]
             calls.append(
@@ -208,9 +208,9 @@ def detect_concurrent_calls(spans: List[Span]) -> List[ConcurrencyGroup]:
     return result
 
 
-def _max_concurrency_from_calls(calls: List[ConcurrentCall]) -> int:
+def _max_concurrency_from_calls(calls: list[ConcurrentCall]) -> int:
     """Sweep line over ConcurrentCall list."""
-    events: List[tuple] = []
+    events: list[tuple] = []
     for c in calls:
         events.append((c.start_ms, 1))
         events.append((c.end_ms, -1))
@@ -224,11 +224,11 @@ def _max_concurrency_from_calls(calls: List[ConcurrentCall]) -> int:
     return best
 
 
-def compute_max_concurrency(spans: List[Span]) -> int:
+def compute_max_concurrency(spans: list[Span]) -> int:
     """Maximum number of spans active at any point in time. Uses sweep line."""
     if not spans:
         return 0
-    events: List[tuple] = []
+    events: list[tuple] = []
     for s in spans:
         s_ms, e_ms = _span_to_interval(s)
         events.append((s_ms, 1))
@@ -243,12 +243,12 @@ def compute_max_concurrency(spans: List[Span]) -> int:
     return best
 
 
-def compute_wall_clock(calls: List[ConcurrentCall]) -> float:
+def compute_wall_clock(calls: list[ConcurrentCall]) -> float:
     """Actual wall clock time covering all calls (merge overlapping intervals)."""
     if not calls:
         return 0.0
     intervals = sorted((c.start_ms, c.end_ms) for c in calls)
-    merged: List[tuple] = [intervals[0]]
+    merged: list[tuple] = [intervals[0]]
     for start, end in intervals[1:]:
         prev_start, prev_end = merged[-1]
         if start <= prev_end:
@@ -258,7 +258,7 @@ def compute_wall_clock(calls: List[ConcurrentCall]) -> float:
     return sum(e - s for s, e in merged)
 
 
-def analyze_concurrency(spans: List[Span]) -> ConcurrencyReport:
+def analyze_concurrency(spans: list[Span]) -> ConcurrencyReport:
     """Full concurrency analysis."""
     if not spans:
         return ConcurrencyReport()
@@ -278,7 +278,7 @@ def analyze_concurrency(spans: List[Span]) -> ConcurrencyReport:
     )
 
 
-def identify_sequential_bottlenecks(spans: List[Span]) -> List[str]:
+def identify_sequential_bottlenecks(spans: list[Span]) -> list[str]:
     """Find spans that could have been parallel but were sequential.
 
     Detects consecutive non-overlapping spans of the same type.
@@ -289,7 +289,7 @@ def identify_sequential_bottlenecks(spans: List[Span]) -> List[str]:
 
     # Sort by start time
     sorted_spans = sorted(spans, key=lambda s: s.start_time)
-    bottleneck_ids: List[str] = []
+    bottleneck_ids: list[str] = []
 
     for i in range(len(sorted_spans) - 1):
         a = sorted_spans[i]

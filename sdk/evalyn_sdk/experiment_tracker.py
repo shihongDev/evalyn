@@ -10,8 +10,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -25,9 +24,9 @@ class TrackerConfig:
     tracker_type: str  # "wandb" / "mlflow" / "neptune" / "console"
     project_name: str = "evalyn"
     run_name: str = ""
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "tracker_type": self.tracker_type,
             "project_name": self.project_name,
@@ -36,7 +35,7 @@ class TrackerConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TrackerConfig:
+    def from_dict(cls, data: dict[str, Any]) -> TrackerConfig:
         return cls(
             tracker_type=data["tracker_type"],
             project_name=data.get("project_name", "evalyn"),
@@ -54,7 +53,7 @@ class TrackerEvent:
     value: Any
     step: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "event_type": self.event_type,
             "key": self.key,
@@ -63,7 +62,7 @@ class TrackerEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TrackerEvent:
+    def from_dict(cls, data: dict[str, Any]) -> TrackerEvent:
         return cls(
             event_type=data["event_type"],
             key=data["key"],
@@ -76,17 +75,17 @@ class TrackerEvent:
 class TrackerLog:
     """Accumulated log of all events for a tracker session."""
 
-    events: List[TrackerEvent] = field(default_factory=list)
+    events: list[TrackerEvent] = field(default_factory=list)
     config: TrackerConfig = field(default_factory=lambda: TrackerConfig(tracker_type="console"))
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "events": [e.as_dict() for e in self.events],
             "config": self.config.as_dict(),
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TrackerLog:
+    def from_dict(cls, data: dict[str, Any]) -> TrackerLog:
         return cls(
             events=[TrackerEvent.from_dict(e) for e in data.get("events", [])],
             config=TrackerConfig.from_dict(data["config"]),
@@ -133,7 +132,7 @@ class ConsoleTracker(ExperimentTracker):
 
     def __init__(self, config: TrackerConfig) -> None:
         self._config = config
-        self._events: List[TrackerEvent] = []
+        self._events: list[TrackerEvent] = []
 
     def log_metric(self, key: str, value: float, step: int = 0) -> TrackerEvent:
         event = TrackerEvent(event_type="metric", key=key, value=value, step=step)
@@ -181,11 +180,11 @@ def create_tracker(config: TrackerConfig) -> ExperimentTracker:
 
 def log_eval_results(
     tracker: ExperimentTracker,
-    results: Dict[str, float],
-    params: Optional[Dict[str, Any]] = None,
-) -> List[TrackerEvent]:
+    results: dict[str, float],
+    params: dict[str, Any] | None = None,
+) -> list[TrackerEvent]:
     """Log all metrics and optional params in one call."""
-    events: List[TrackerEvent] = []
+    events: list[TrackerEvent] = []
     if params:
         for key, value in sorted(params.items()):
             events.append(tracker.log_param(key, value))
@@ -196,7 +195,7 @@ def log_eval_results(
 
 def format_tracker_log(log: TrackerLog) -> str:
     """Format a tracker log as human-readable text."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"Tracker: {log.config.tracker_type}")
     lines.append(f"Project: {log.config.project_name}")
     if log.config.run_name:

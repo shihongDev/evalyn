@@ -6,9 +6,9 @@ checks: tool call accuracy, topic adherence, keyword coverage.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Dataclasses
@@ -22,9 +22,9 @@ class GoalResult:
     achieved: bool
     score: float        # 0-1
     method: str
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "goal_id": self.goal_id,
             "achieved": self.achieved,
@@ -38,12 +38,12 @@ class GoalResult:
 class GoalReport:
     """Aggregated report across multiple goal checks."""
 
-    results: List[GoalResult]
+    results: list[GoalResult]
     total_goals: int
     achieved_count: int
     achievement_rate: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "total_goals": self.total_goals,
@@ -52,7 +52,7 @@ class GoalReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> GoalReport:
+    def from_dict(cls, data: dict[str, Any]) -> GoalReport:
         results = [
             GoalResult(
                 goal_id=r["goal_id"],
@@ -72,7 +72,7 @@ class GoalReport:
 
     def format_text(self) -> str:
         """Format report as plain text."""
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Goal Completion: {self.achieved_count}/{self.total_goals}"
                       f" ({self.achievement_rate:.0%})")
         lines.append("")
@@ -86,7 +86,7 @@ class GoalReport:
 # LCS helper
 # ---------------------------------------------------------------------------
 
-def _lcs_length(a: List[str], b: List[str]) -> int:
+def _lcs_length(a: list[str], b: list[str]) -> int:
     """Longest common subsequence length (dynamic programming)."""
     m, n = len(a), len(b)
     if m == 0 or n == 0:
@@ -109,8 +109,8 @@ def _lcs_length(a: List[str], b: List[str]) -> int:
 # ---------------------------------------------------------------------------
 
 def check_tool_call_accuracy(
-    expected_calls: List[str],
-    actual_calls: List[str],
+    expected_calls: list[str],
+    actual_calls: list[str],
 ) -> GoalResult:
     """Compare expected vs actual tool call sequences using LCS.
 
@@ -143,8 +143,8 @@ def check_tool_call_accuracy(
 
 
 def check_tool_call_f1(
-    expected_calls: List[str],
-    actual_calls: List[str],
+    expected_calls: list[str],
+    actual_calls: list[str],
 ) -> GoalResult:
     """Unordered comparison of expected vs actual tool calls using F1.
 
@@ -184,8 +184,8 @@ def check_tool_call_f1(
 
 def check_topic_adherence(
     output: str,
-    allowed_topics: List[str],
-    forbidden_topics: List[str] = None,
+    allowed_topics: list[str],
+    forbidden_topics: list[str] = None,
 ) -> GoalResult:
     """Check if output mentions allowed topics and avoids forbidden ones.
 
@@ -227,7 +227,7 @@ def check_topic_adherence(
 
 def check_goal_completion(
     output: str,
-    goal_keywords: List[str],
+    goal_keywords: list[str],
 ) -> GoalResult:
     """Check if output contains all goal keywords.
 
@@ -257,7 +257,7 @@ def check_goal_completion(
 
 
 def evaluate_goals(
-    goals: List[Tuple[str, Callable[[], GoalResult]]],
+    goals: list[tuple[str, Callable[[], GoalResult]]],
 ) -> GoalReport:
     """Run all goal checks and build an aggregated report.
 
@@ -265,7 +265,7 @@ def evaluate_goals(
         goals: List of (goal_id, callable) pairs. Each callable returns a
                GoalResult. The goal_id from the tuple is set on the result.
     """
-    results: List[GoalResult] = []
+    results: list[GoalResult] = []
 
     for goal_id, check_fn in goals:
         result = check_fn()

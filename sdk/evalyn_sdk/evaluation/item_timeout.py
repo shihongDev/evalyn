@@ -7,7 +7,7 @@ time per item, flags timeouts, and suggests adjustments.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -15,10 +15,10 @@ class TimeoutConfig:
     """Timeout configuration for evaluation items."""
 
     default_timeout_seconds: float = 30.0
-    per_metric_timeouts: Dict[str, float] = field(default_factory=dict)
+    per_metric_timeouts: dict[str, float] = field(default_factory=dict)
     abort_on_timeout: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "default_timeout_seconds": self.default_timeout_seconds,
             "per_metric_timeouts": dict(self.per_metric_timeouts),
@@ -26,7 +26,7 @@ class TimeoutConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TimeoutConfig:
+    def from_dict(cls, data: dict[str, Any]) -> TimeoutConfig:
         return cls(
             default_timeout_seconds=data.get("default_timeout_seconds", 30.0),
             per_metric_timeouts=dict(data.get("per_metric_timeouts", {})),
@@ -44,7 +44,7 @@ class TimeoutEvent:
     limit_ms: float = 0.0
     timed_out: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "metric_id": self.metric_id,
@@ -58,13 +58,13 @@ class TimeoutEvent:
 class TimeoutReport:
     """Summary report of timeout events."""
 
-    events: List[TimeoutEvent] = field(default_factory=list)
+    events: list[TimeoutEvent] = field(default_factory=list)
     total_items: int = 0
     timed_out_count: int = 0
     timeout_rate: float = 0.0
     avg_elapsed_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "events": [e.as_dict() for e in self.events],
             "total_items": self.total_items,
@@ -74,7 +74,7 @@ class TimeoutReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TimeoutReport:
+    def from_dict(cls, data: dict[str, Any]) -> TimeoutReport:
         events = [
             TimeoutEvent(**e) for e in data.get("events", [])
         ]
@@ -137,7 +137,7 @@ def record_timeout_event(
     )
 
 
-def build_timeout_report(events: List[TimeoutEvent]) -> TimeoutReport:
+def build_timeout_report(events: list[TimeoutEvent]) -> TimeoutReport:
     """Aggregate a list of timeout events into a report."""
     total = len(events)
     timed_out_count = sum(1 for e in events if e.timed_out)
@@ -156,7 +156,7 @@ def build_timeout_report(events: List[TimeoutEvent]) -> TimeoutReport:
 
 def identify_slow_items(
     report: TimeoutReport, threshold_pct: float = 0.8
-) -> List[str]:
+) -> list[str]:
     """Return item IDs using more than threshold_pct of their timeout budget.
 
     Args:
@@ -167,7 +167,7 @@ def identify_slow_items(
     Returns:
         List of item IDs that are slow but may not have timed out.
     """
-    slow: List[str] = []
+    slow: list[str] = []
     for event in report.events:
         if event.limit_ms <= 0:
             continue
@@ -177,12 +177,12 @@ def identify_slow_items(
     return slow
 
 
-def suggest_timeout_adjustments(report: TimeoutReport) -> List[str]:
+def suggest_timeout_adjustments(report: TimeoutReport) -> list[str]:
     """Suggest timeout adjustments based on observed timing data."""
     if not report.events:
         return []
 
-    suggestions: List[str] = []
+    suggestions: list[str] = []
 
     # High timeout rate - suggest increasing
     if report.timeout_rate > 0.5:
@@ -203,7 +203,7 @@ def suggest_timeout_adjustments(report: TimeoutReport) -> List[str]:
                 )
 
     # Per-metric analysis: find metrics with high timeout rates
-    metric_events: Dict[str, List[TimeoutEvent]] = {}
+    metric_events: dict[str, list[TimeoutEvent]] = {}
     for event in report.events:
         key = event.metric_id or "(default)"
         if key not in metric_events:

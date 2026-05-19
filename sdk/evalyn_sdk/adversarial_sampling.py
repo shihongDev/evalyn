@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -21,7 +21,7 @@ class AdversarialWeight:
     weight: float
     reason: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "weight": self.weight,
@@ -29,7 +29,7 @@ class AdversarialWeight:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AdversarialWeight:
+    def from_dict(cls, data: dict[str, Any]) -> AdversarialWeight:
         return cls(
             item_id=data["item_id"],
             weight=data["weight"],
@@ -45,9 +45,9 @@ class AdversarialConfig:
     boundary_boost: float = 2.0
     boundary_width: float = 0.1
     sample_size: int = 50
-    seed: Optional[int] = None
+    seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "failure_boost": self.failure_boost,
             "boundary_boost": self.boundary_boost,
@@ -57,7 +57,7 @@ class AdversarialConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AdversarialConfig:
+    def from_dict(cls, data: dict[str, Any]) -> AdversarialConfig:
         return cls(
             failure_boost=data.get("failure_boost", 3.0),
             boundary_boost=data.get("boundary_boost", 2.0),
@@ -71,13 +71,13 @@ class AdversarialConfig:
 class AdversarialResult:
     """Result of an adversarial sampling run."""
 
-    selected_ids: List[str] = field(default_factory=list)
-    weights: List[AdversarialWeight] = field(default_factory=list)
+    selected_ids: list[str] = field(default_factory=list)
+    weights: list[AdversarialWeight] = field(default_factory=list)
     failure_count: int = 0
     boundary_count: int = 0
     total_pool: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected_ids": self.selected_ids,
             "weights": [w.as_dict() for w in self.weights],
@@ -87,7 +87,7 @@ class AdversarialResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AdversarialResult:
+    def from_dict(cls, data: dict[str, Any]) -> AdversarialResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
             weights=[
@@ -105,16 +105,16 @@ class AdversarialResult:
 
 
 def compute_failure_weights(
-    scores: Dict[str, float],
+    scores: dict[str, float],
     threshold: float = 0.5,
     boost: float = 3.0,
-) -> List[AdversarialWeight]:
+) -> list[AdversarialWeight]:
     """Boost items that scored below the threshold.
 
     Items below the threshold receive a weight equal to boost; items at or
     above the threshold receive a weight of 1.0.
     """
-    weights: List[AdversarialWeight] = []
+    weights: list[AdversarialWeight] = []
     for item_id in sorted(scores):
         score = scores[item_id]
         if score < threshold:
@@ -137,11 +137,11 @@ def compute_failure_weights(
 
 
 def compute_boundary_weights(
-    scores: Dict[str, float],
+    scores: dict[str, float],
     threshold: float = 0.5,
     width: float = 0.1,
     boost: float = 2.0,
-) -> List[AdversarialWeight]:
+) -> list[AdversarialWeight]:
     """Boost items whose score falls within width of the threshold.
 
     Items with score in [threshold - width, threshold + width] receive the
@@ -149,7 +149,7 @@ def compute_boundary_weights(
     """
     low = threshold - width
     high = threshold + width
-    weights: List[AdversarialWeight] = []
+    weights: list[AdversarialWeight] = []
     for item_id in sorted(scores):
         score = scores[item_id]
         if low <= score <= high:
@@ -172,9 +172,9 @@ def compute_boundary_weights(
 
 
 def compute_cohort_weights(
-    scores: Dict[str, float],
-    cohorts: Dict[str, List[str]],
-) -> List[AdversarialWeight]:
+    scores: dict[str, float],
+    cohorts: dict[str, list[str]],
+) -> list[AdversarialWeight]:
     """Boost items from the weakest-performing cohort.
 
     Computes mean score per cohort, then gives a 2x boost to items in the
@@ -187,7 +187,7 @@ def compute_cohort_weights(
         ]
 
     # Compute mean score per cohort
-    cohort_means: Dict[str, float] = {}
+    cohort_means: dict[str, float] = {}
     for name, members in cohorts.items():
         member_scores = [scores[m] for m in members if m in scores]
         if member_scores:
@@ -202,7 +202,7 @@ def compute_cohort_weights(
     worst_cohort = min(cohort_means, key=lambda k: cohort_means[k])
     worst_members = set(cohorts[worst_cohort])
 
-    weights: List[AdversarialWeight] = []
+    weights: list[AdversarialWeight] = []
     for item_id in sorted(scores):
         if item_id in worst_members:
             weights.append(
@@ -229,15 +229,15 @@ def compute_cohort_weights(
 
 
 def merge_weights(
-    weight_lists: List[List[AdversarialWeight]],
-) -> List[AdversarialWeight]:
+    weight_lists: list[list[AdversarialWeight]],
+) -> list[AdversarialWeight]:
     """Combine multiple weight lists by summing weights for the same item_id.
 
     Reasons are joined with "; ". If an item appears in multiple lists, its
     final weight is the sum across all lists.
     """
-    combined: Dict[str, float] = {}
-    reasons: Dict[str, List[str]] = {}
+    combined: dict[str, float] = {}
+    reasons: dict[str, list[str]] = {}
 
     for wlist in weight_lists:
         for w in wlist:
@@ -247,7 +247,7 @@ def merge_weights(
             combined[w.item_id] += w.weight
             reasons[w.item_id].append(w.reason)
 
-    merged: List[AdversarialWeight] = []
+    merged: list[AdversarialWeight] = []
     for item_id in sorted(combined):
         merged.append(
             AdversarialWeight(
@@ -265,11 +265,11 @@ def merge_weights(
 
 
 def _weighted_sample_without_replacement(
-    ids: List[str],
-    weights: List[float],
+    ids: list[str],
+    weights: list[float],
     k: int,
     rng: random.Random,
-) -> List[str]:
+) -> list[str]:
     """Sample k items without replacement, weighted by weight.
 
     Uses the exponential sort trick: for each item, draw u ~ Uniform(0,1)
@@ -296,9 +296,9 @@ def _weighted_sample_without_replacement(
 
 
 def run_adversarial_sampling(
-    scores: Dict[str, float],
+    scores: dict[str, float],
     config: AdversarialConfig,
-    cohorts: Optional[Dict[str, List[str]]] = None,
+    cohorts: dict[str, list[str]] | None = None,
 ) -> AdversarialResult:
     """Full adversarial sampling pipeline.
 
@@ -371,7 +371,7 @@ def run_adversarial_sampling(
 
 def format_adversarial_report(result: AdversarialResult) -> str:
     """Format a human-readable adversarial sampling report."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Adversarial Sampling Report")
     lines.append("=" * 40)
     lines.append(f"Total pool size: {result.total_pool}")

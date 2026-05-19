@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import math
 import random as _random
-from typing import Dict, List, Tuple
 
 from .models import DatasetItem
 
@@ -22,7 +21,7 @@ def input_to_text(item: DatasetItem) -> str:
     return json.dumps(item.input, sort_keys=True, default=str)
 
 
-def _get_embeddings(texts: List[str]) -> "numpy.ndarray":
+def _get_embeddings(texts: list[str]) -> numpy.ndarray:
     """Compute embeddings using SentenceTransformer. Raises ImportError if unavailable."""
     from sentence_transformers import SentenceTransformer
 
@@ -31,7 +30,7 @@ def _get_embeddings(texts: List[str]) -> "numpy.ndarray":
     return model.encode(texts, show_progress_bar=False)
 
 
-def _cosine_similarity_matrix(embeddings: "numpy.ndarray") -> "numpy.ndarray":
+def _cosine_similarity_matrix(embeddings: numpy.ndarray) -> numpy.ndarray:
     """Compute pairwise cosine similarity matrix."""
     import numpy as np
 
@@ -42,9 +41,9 @@ def _cosine_similarity_matrix(embeddings: "numpy.ndarray") -> "numpy.ndarray":
 
 
 def deduplicate(
-    items: List[DatasetItem],
+    items: list[DatasetItem],
     threshold: float = 0.95,
-) -> List[DatasetItem]:
+) -> list[DatasetItem]:
     """Remove near-duplicate inputs based on cosine similarity.
 
     Greedy: iterate in order, drop any item whose similarity to an already-kept
@@ -61,7 +60,7 @@ def deduplicate(
         print("Warning: sentence-transformers not installed, skipping deduplication")
         return list(items)
 
-    keep_indices: List[int] = []
+    keep_indices: list[int] = []
     for i in range(len(items)):
         if not any(sim[i, j] > threshold for j in keep_indices):
             keep_indices.append(i)
@@ -73,10 +72,10 @@ def deduplicate(
 
 
 def sample_random(
-    items: List[DatasetItem],
+    items: list[DatasetItem],
     limit: int,
     seed: int = 42,
-) -> List[DatasetItem]:
+) -> list[DatasetItem]:
     """Uniform random sample."""
     if len(items) <= limit:
         return list(items)
@@ -85,10 +84,10 @@ def sample_random(
 
 
 def sample_diverse(
-    items: List[DatasetItem],
+    items: list[DatasetItem],
     limit: int,
     seed: int = 42,
-) -> List[DatasetItem]:
+) -> list[DatasetItem]:
     """Farthest-point sampling on input embeddings.
 
     Picks a random seed, then iteratively adds the point with the maximum
@@ -115,7 +114,7 @@ def sample_diverse(
     # Start with a random seed
     rng = _random.Random(seed)
     seed_idx = rng.randrange(n)
-    selected: List[int] = [seed_idx]
+    selected: list[int] = [seed_idx]
 
     # min_dist[i] = min distance from i to any selected point
     min_dist = dist[seed_idx].copy()
@@ -160,10 +159,10 @@ def _stratification_key(item: DatasetItem) -> str:
 
 
 def sample_stratified(
-    items: List[DatasetItem],
+    items: list[DatasetItem],
     limit: int,
     seed: int = 42,
-) -> List[DatasetItem]:
+) -> list[DatasetItem]:
     """Proportional stratified sampling by function + duration bucket + input keys."""
     if len(items) <= limit:
         return list(items)
@@ -171,18 +170,18 @@ def sample_stratified(
     rng = _random.Random(seed)
 
     # Group items
-    groups: Dict[str, List[DatasetItem]] = {}
+    groups: dict[str, list[DatasetItem]] = {}
     for item in items:
         key = _stratification_key(item)
         groups.setdefault(key, []).append(item)
 
     # Proportional allocation
     total = len(items)
-    result: List[DatasetItem] = []
+    result: list[DatasetItem] = []
     remaining = limit
 
     sorted_keys = sorted(groups.keys())
-    allocations: List[Tuple[str, int]] = []
+    allocations: list[tuple[str, int]] = []
     for key in sorted_keys:
         group = groups[key]
         alloc = max(1, math.floor(len(group) / total * limit))
@@ -215,10 +214,10 @@ def sample_stratified(
 
 
 def sample_clustered(
-    items: List[DatasetItem],
+    items: list[DatasetItem],
     limit: int,
     n_clusters: int = 10,
-) -> List[DatasetItem]:
+) -> list[DatasetItem]:
     """KMeans on embeddings, equal sample per cluster.
 
     Falls back to random sampling if deps unavailable.
@@ -227,7 +226,9 @@ def sample_clustered(
         return list(items)
 
     try:
-        import numpy as np
+        # Probe that sklearn+numpy are installed; numpy is a transitive
+        # requirement of KMeans even though we don't reference np directly.
+        import numpy as np  # noqa: F401
         from sklearn.cluster import KMeans
 
         texts = [input_to_text(it) for it in items]
@@ -241,7 +242,7 @@ def sample_clustered(
     labels = km.fit_predict(embeddings)
 
     # Group by cluster
-    cluster_items: Dict[int, List[int]] = {}
+    cluster_items: dict[int, list[int]] = {}
     for i, label in enumerate(labels):
         cluster_items.setdefault(int(label), []).append(i)
 
@@ -249,7 +250,7 @@ def sample_clustered(
     per_cluster = max(1, limit // actual_clusters)
     rng = _random.Random(42)
 
-    result_indices: List[int] = []
+    result_indices: list[int] = []
     for cluster_id in sorted(cluster_items.keys()):
         indices = cluster_items[cluster_id]
         take = min(per_cluster, len(indices))
@@ -266,7 +267,7 @@ def sample_clustered(
 
 
 def apply_sampling(
-    items: List[DatasetItem],
+    items: list[DatasetItem],
     mode: str = "all",
     limit: int = 500,
     *,
@@ -274,7 +275,7 @@ def apply_sampling(
     dedup_threshold: float = 0.95,
     n_clusters: int = 10,
     seed: int = 42,
-) -> List[DatasetItem]:
+) -> list[DatasetItem]:
     """Orchestrator: apply deduplication then sampling mode.
 
     Args:

@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -24,7 +23,7 @@ class ProviderScore:
     item_id: str
     score: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "provider": self.provider,
             "item_id": self.item_id,
@@ -43,7 +42,7 @@ class ConsistencyResult:
     max_delta: float
     num_items: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "provider_a": self.provider_a,
             "provider_b": self.provider_b,
@@ -68,11 +67,11 @@ class ConsistencyResult:
 class CrossProviderReport:
     """Full cross-provider comparison report."""
 
-    comparisons: List[ConsistencyResult]
-    most_consistent_pair: Optional[Tuple[str, str]] = None
-    least_consistent_pair: Optional[Tuple[str, str]] = None
+    comparisons: list[ConsistencyResult]
+    most_consistent_pair: tuple[str, str] | None = None
+    least_consistent_pair: tuple[str, str] | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "comparisons": [c.as_dict() for c in self.comparisons],
             "most_consistent_pair": list(self.most_consistent_pair)
@@ -84,7 +83,7 @@ class CrossProviderReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CrossProviderReport:
+    def from_dict(cls, data: dict[str, Any]) -> CrossProviderReport:
         comparisons = [
             ConsistencyResult(
                 provider_a=c["provider_a"],
@@ -125,7 +124,7 @@ class CrossProviderReport:
 # ---------------------------------------------------------------------------
 
 
-def _pearson(xs: List[float], ys: List[float]) -> float:
+def _pearson(xs: list[float], ys: list[float]) -> float:
     """Compute Pearson correlation coefficient."""
     n = len(xs)
     if n < 2:
@@ -141,8 +140,8 @@ def _pearson(xs: List[float], ys: List[float]) -> float:
 
 
 def compute_provider_consistency(
-    scores_a: Dict[str, float],
-    scores_b: Dict[str, float],
+    scores_a: dict[str, float],
+    scores_b: dict[str, float],
     provider_a: str,
     provider_b: str,
 ) -> ConsistencyResult:
@@ -171,11 +170,11 @@ def compute_provider_consistency(
 
 
 def compare_all_providers(
-    provider_scores: Dict[str, Dict[str, float]],
+    provider_scores: dict[str, dict[str, float]],
 ) -> CrossProviderReport:
     """Compare all provider pairs and identify most/least consistent."""
     providers = sorted(provider_scores)
-    comparisons: List[ConsistencyResult] = []
+    comparisons: list[ConsistencyResult] = []
     for i, pa in enumerate(providers):
         for pb in providers[i + 1 :]:
             result = compute_provider_consistency(
@@ -183,8 +182,8 @@ def compare_all_providers(
             )
             comparisons.append(result)
 
-    most_consistent: Optional[Tuple[str, str]] = None
-    least_consistent: Optional[Tuple[str, str]] = None
+    most_consistent: tuple[str, str] | None = None
+    least_consistent: tuple[str, str] | None = None
 
     if comparisons:
         valid = [c for c in comparisons if c.num_items > 0]
@@ -201,7 +200,7 @@ def compare_all_providers(
     )
 
 
-def normalize_scores(scores: Dict[str, float]) -> Dict[str, float]:
+def normalize_scores(scores: dict[str, float]) -> dict[str, float]:
     """Z-score normalize a provider's scores to zero mean, unit variance."""
     if not scores:
         return {}
@@ -216,10 +215,10 @@ def normalize_scores(scores: Dict[str, float]) -> Dict[str, float]:
 
 
 def find_divergent_items(
-    scores_a: Dict[str, float],
-    scores_b: Dict[str, float],
+    scores_a: dict[str, float],
+    scores_b: dict[str, float],
     threshold: float = 0.3,
-) -> List[str]:
+) -> list[str]:
     """Items where abs(score_a - score_b) > threshold."""
     common = sorted(set(scores_a) & set(scores_b))
     return [k for k in common if abs(scores_a[k] - scores_b[k]) > threshold]

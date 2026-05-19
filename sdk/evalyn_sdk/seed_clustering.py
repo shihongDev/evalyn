@@ -9,8 +9,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Stop words
@@ -61,11 +60,11 @@ class SeedCluster:
     """A cluster of seed items grouped by word-set similarity."""
 
     cluster_id: int
-    seed_ids: List[str] = field(default_factory=list)
-    centroid_keywords: List[str] = field(default_factory=list)
+    seed_ids: list[str] = field(default_factory=list)
+    centroid_keywords: list[str] = field(default_factory=list)
     size: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "cluster_id": self.cluster_id,
             "seed_ids": list(self.seed_ids),
@@ -74,7 +73,7 @@ class SeedCluster:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SeedCluster:
+    def from_dict(cls, data: dict[str, Any]) -> SeedCluster:
         return cls(
             cluster_id=data["cluster_id"],
             seed_ids=data["seed_ids"],
@@ -87,12 +86,12 @@ class SeedCluster:
 class ClusteringResult:
     """Result of seed clustering."""
 
-    clusters: List[SeedCluster] = field(default_factory=list)
+    clusters: list[SeedCluster] = field(default_factory=list)
     total_seeds: int = 0
     n_clusters: int = 0
     silhouette_score: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "clusters": [c.as_dict() for c in self.clusters],
             "total_seeds": self.total_seeds,
@@ -101,7 +100,7 @@ class ClusteringResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ClusteringResult:
+    def from_dict(cls, data: dict[str, Any]) -> ClusteringResult:
         return cls(
             clusters=[SeedCluster.from_dict(c) for c in data["clusters"]],
             total_seeds=data["total_seeds"],
@@ -177,7 +176,7 @@ def cluster_seeds(
     for _iteration in range(max_iterations):
         # Step 2: Assign each seed to nearest centroid
         new_assignments: list[int] = []
-        for i, sid in enumerate(seed_ids):
+        for _i, sid in enumerate(seed_ids):
             ws = word_sets[sid]
             best_cluster = 0
             best_sim = -1.0
@@ -319,7 +318,6 @@ def sample_from_clusters(
     sampled: list[str] = []
 
     # Allocate proportional counts, ensuring at least 1 per cluster if possible
-    remaining = total_samples
     allocations: list[int] = []
     for cluster in result.clusters:
         proportion = cluster.size / total

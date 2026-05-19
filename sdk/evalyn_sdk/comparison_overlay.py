@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import html
 import math
-from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -18,10 +18,10 @@ class RunOverlayData:
 
     run_id: str
     label: str
-    metrics: Dict[str, float]
+    metrics: dict[str, float]
     color: str = "#4A90D9"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "run_id": self.run_id,
             "label": self.label,
@@ -30,7 +30,7 @@ class RunOverlayData:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RunOverlayData:
+    def from_dict(cls, data: dict[str, Any]) -> RunOverlayData:
         return cls(
             run_id=data["run_id"],
             label=data["label"],
@@ -48,7 +48,7 @@ class OverlayConfig:
     show_legend: bool = True
     show_delta: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "width": self.width,
             "height": self.height,
@@ -57,7 +57,7 @@ class OverlayConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> OverlayConfig:
+    def from_dict(cls, data: dict[str, Any]) -> OverlayConfig:
         return cls(
             width=data.get("width", 600),
             height=data.get("height", 400),
@@ -74,7 +74,7 @@ class OverlayChart:
     svg: str
     title: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "chart_type": self.chart_type,
             "svg": self.svg,
@@ -82,7 +82,7 @@ class OverlayChart:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> OverlayChart:
+    def from_dict(cls, data: dict[str, Any]) -> OverlayChart:
         return cls(
             chart_type=data["chart_type"],
             svg=data["svg"],
@@ -92,10 +92,10 @@ class OverlayChart:
 
 def compute_deltas(
     run_a: RunOverlayData, run_b: RunOverlayData
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Compute metric deltas (b - a) for all shared metrics."""
     all_keys = sorted(set(run_a.metrics) | set(run_b.metrics))
-    result: Dict[str, float] = {}
+    result: dict[str, float] = {}
     for key in all_keys:
         val_a = run_a.metrics.get(key, 0.0)
         val_b = run_b.metrics.get(key, 0.0)
@@ -142,7 +142,7 @@ def generate_dual_bar_svg(
     bar_w = group_w * 0.35
     gap = group_w * 0.05
 
-    parts: List[str] = []
+    parts: list[str] = []
     parts.append(
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'width="{w}" height="{h}" '
@@ -290,7 +290,7 @@ def generate_radar_svg(
     if max_val == 0:
         max_val = 1.0
 
-    parts: List[str] = []
+    parts: list[str] = []
     parts.append(
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'width="{w}" height="{h}" viewBox="0 0 {w} {h}">'
@@ -307,7 +307,7 @@ def generate_radar_svg(
 
     # Grid lines (3 concentric polygons)
     for level in [0.25, 0.5, 0.75, 1.0]:
-        grid_points: List[str] = []
+        grid_points: list[str] = []
         for i in range(n):
             angle = -math.pi / 2 + i * angle_step
             gx = cx + radius * level * math.cos(angle)
@@ -337,7 +337,7 @@ def generate_radar_svg(
         )
 
     def _polygon_points(run: RunOverlayData) -> str:
-        pts: List[str] = []
+        pts: list[str] = []
         for i, m in enumerate(metrics):
             val = run.metrics.get(m, 0.0)
             norm = abs(val) / max_val
@@ -394,7 +394,7 @@ def generate_delta_table_html(
     metrics = sorted(set(run_a.metrics) | set(run_b.metrics))
     deltas = compute_deltas(run_a, run_b)
 
-    rows: List[str] = []
+    rows: list[str] = []
     for m in metrics:
         val_a = run_a.metrics.get(m, 0.0)
         val_b = run_b.metrics.get(m, 0.0)

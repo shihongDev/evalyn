@@ -13,8 +13,7 @@ import hmac
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -26,13 +25,13 @@ class WebhookConfig:
     """Configuration for a webhook endpoint."""
 
     url: str = ""
-    events: List[str] = field(default_factory=lambda: ["completion"])
+    events: list[str] = field(default_factory=lambda: ["completion"])
     secret: str = ""
-    headers: Dict[str, str] = field(default_factory=dict)
+    headers: dict[str, str] = field(default_factory=dict)
     timeout_seconds: float = 10.0
     retry_count: int = 2
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "url": self.url,
             "events": list(self.events),
@@ -43,7 +42,7 @@ class WebhookConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> WebhookConfig:
+    def from_dict(cls, data: dict[str, Any]) -> WebhookConfig:
         return cls(
             url=data.get("url", ""),
             events=data.get("events", ["completion"]),
@@ -59,10 +58,10 @@ class WebhookEvent:
     """An event that may trigger a webhook delivery."""
 
     event_type: str = ""  # "completion" / "failure" / "regression" / "improvement"
-    payload: Dict[str, Any] = field(default_factory=dict)
+    payload: dict[str, Any] = field(default_factory=dict)
     timestamp: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "event_type": self.event_type,
             "payload": dict(self.payload),
@@ -70,7 +69,7 @@ class WebhookEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> WebhookEvent:
+    def from_dict(cls, data: dict[str, Any]) -> WebhookEvent:
         return cls(
             event_type=data.get("event_type", ""),
             payload=data.get("payload", {}),
@@ -89,7 +88,7 @@ class WebhookDelivery:
     error: str = ""
     attempts: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "event": self.event.as_dict(),
             "url": self.url,
@@ -104,12 +103,12 @@ class WebhookDelivery:
 class WebhookReport:
     """Aggregate report of webhook deliveries."""
 
-    deliveries: List[WebhookDelivery] = field(default_factory=list)
+    deliveries: list[WebhookDelivery] = field(default_factory=list)
     total_sent: int = 0
     total_failed: int = 0
     total_delivered: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "deliveries": [d.as_dict() for d in self.deliveries],
             "total_sent": self.total_sent,
@@ -118,7 +117,7 @@ class WebhookReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> WebhookReport:
+    def from_dict(cls, data: dict[str, Any]) -> WebhookReport:
         deliveries = []
         for d in data.get("deliveries", []):
             event = WebhookEvent.from_dict(d.get("event", {}))
@@ -140,7 +139,7 @@ class WebhookReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Webhook Report")
         lines.append("-" * 40)
         lines.append(f"  Total sent: {self.total_sent}")
@@ -162,7 +161,7 @@ class WebhookReport:
 
 
 def create_event(
-    event_type: str, payload: Dict[str, Any] | None = None
+    event_type: str, payload: dict[str, Any] | None = None
 ) -> WebhookEvent:
     """Create a webhook event with the current UTC timestamp."""
     return WebhookEvent(
@@ -216,7 +215,7 @@ def simulate_delivery(
     )
 
 
-def build_webhook_report(deliveries: List[WebhookDelivery]) -> WebhookReport:
+def build_webhook_report(deliveries: list[WebhookDelivery]) -> WebhookReport:
     """Aggregate a list of deliveries into a WebhookReport."""
     total_sent = len(deliveries)
     total_delivered = sum(1 for d in deliveries if d.status == "delivered")

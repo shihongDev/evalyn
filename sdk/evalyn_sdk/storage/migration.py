@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import json
 import os
-import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 
 @dataclass
@@ -17,7 +16,7 @@ class MigrationRecord:
     item_count: int = 0
     timestamp: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "source": self.source,
             "destination": self.destination,
@@ -27,7 +26,7 @@ class MigrationRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MigrationRecord:
+    def from_dict(cls, data: dict[str, Any]) -> MigrationRecord:
         return cls(
             source=data.get("source", ""),
             destination=data.get("destination", ""),
@@ -44,10 +43,10 @@ class MigrationPlan:
     source_path: str
     dest_path: str
     format: str = "json"  # "json" / "sqlite" / "csv"
-    tables: List[str] = field(default_factory=list)
+    tables: list[str] = field(default_factory=list)
     estimated_items: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "source_path": self.source_path,
             "dest_path": self.dest_path,
@@ -57,7 +56,7 @@ class MigrationPlan:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MigrationPlan:
+    def from_dict(cls, data: dict[str, Any]) -> MigrationPlan:
         return cls(
             source_path=data.get("source_path", ""),
             dest_path=data.get("dest_path", ""),
@@ -84,10 +83,10 @@ class MigrationResult:
     plan: MigrationPlan
     exported_count: int = 0
     imported_count: int = 0
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     duration_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "plan": self.plan.as_dict(),
             "exported_count": self.exported_count,
@@ -97,7 +96,7 @@ class MigrationResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MigrationResult:
+    def from_dict(cls, data: dict[str, Any]) -> MigrationResult:
         return cls(
             plan=MigrationPlan.from_dict(data.get("plan", {})),
             exported_count=data.get("exported_count", 0),
@@ -128,7 +127,7 @@ def plan_migration(
     source: str,
     dest: str,
     format: str = "json",
-    tables: List[str] | None = None,
+    tables: list[str] | None = None,
 ) -> MigrationPlan:
     """Create a migration plan."""
     estimated = 0
@@ -150,25 +149,25 @@ def plan_migration(
     )
 
 
-def export_to_json(data: List[Dict[str, Any]], file_path: str) -> int:
+def export_to_json(data: list[dict[str, Any]], file_path: str) -> int:
     """Write data to a JSON file. Returns the number of items written."""
     with open(file_path, "w") as f:
         json.dump(data, f, indent=2)
     return len(data)
 
 
-def import_from_json(file_path: str) -> List[Dict[str, Any]]:
+def import_from_json(file_path: str) -> list[dict[str, Any]]:
     """Read data from a JSON file."""
-    with open(file_path, "r") as f:
+    with open(file_path) as f:
         return json.load(f)
 
 
-def validate_migration_plan(plan: MigrationPlan) -> Tuple[bool, List[str]]:
+def validate_migration_plan(plan: MigrationPlan) -> tuple[bool, list[str]]:
     """Validate a migration plan.
 
     Returns (is_valid, list_of_errors).
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     if not plan.source_path:
         errors.append("source_path is empty")
@@ -184,6 +183,6 @@ def validate_migration_plan(plan: MigrationPlan) -> Tuple[bool, List[str]]:
     return (len(errors) == 0, errors)
 
 
-def compute_migration_size(items: List[Dict[str, Any]]) -> int:
+def compute_migration_size(items: list[dict[str, Any]]) -> int:
     """Estimate serialized size in bytes."""
     return len(json.dumps(items).encode("utf-8"))

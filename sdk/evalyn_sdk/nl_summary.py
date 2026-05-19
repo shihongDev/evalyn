@@ -9,8 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -25,7 +24,7 @@ class SummaryConfig:
     include_recommendations: bool = True
     max_metrics: int = 10
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "style": self.style,
             "include_recommendations": self.include_recommendations,
@@ -33,7 +32,7 @@ class SummaryConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SummaryConfig":
+    def from_dict(cls, data: dict[str, Any]) -> SummaryConfig:
         return cls(
             style=data.get("style", "executive"),
             include_recommendations=data.get("include_recommendations", True),
@@ -46,15 +45,15 @@ class NLSummary:
     """Natural language summary of evaluation results."""
 
     title: str
-    paragraphs: List[str] = field(default_factory=list)
-    recommendations: List[str] = field(default_factory=list)
+    paragraphs: list[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
     generated_at: str = ""
 
     def __post_init__(self) -> None:
         if not self.generated_at:
             self.generated_at = datetime.now(timezone.utc).isoformat()
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "title": self.title,
             "paragraphs": list(self.paragraphs),
@@ -63,7 +62,7 @@ class NLSummary:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "NLSummary":
+    def from_dict(cls, data: dict[str, Any]) -> NLSummary:
         return cls(
             title=data.get("title", ""),
             paragraphs=data.get("paragraphs", []),
@@ -105,10 +104,10 @@ def _score_descriptor(score: float) -> str:
 
 
 def build_heuristic_summary(
-    metrics: Dict[str, float],
+    metrics: dict[str, float],
     pass_rate: float,
     total_items: int,
-    config: Optional[SummaryConfig] = None,
+    config: SummaryConfig | None = None,
 ) -> NLSummary:
     """Generate a heuristic summary from metric scores.
 
@@ -117,8 +116,8 @@ def build_heuristic_summary(
     metrics, and recommendations for low-scoring metrics.
     """
     cfg = config or SummaryConfig()
-    paragraphs: List[str] = []
-    recs: List[str] = []
+    paragraphs: list[str] = []
+    recs: list[str] = []
 
     # Limit metrics
     sorted_metrics = sorted(metrics.items(), key=lambda kv: kv[1], reverse=True)
@@ -187,10 +186,10 @@ def build_heuristic_summary(
 
 
 def build_summary_prompt(
-    metrics: Dict[str, float],
+    metrics: dict[str, float],
     pass_rate: float,
     total_items: int,
-    config: Optional[SummaryConfig] = None,
+    config: SummaryConfig | None = None,
 ) -> str:
     """Construct an LLM prompt for natural language analysis summary.
 
@@ -252,10 +251,10 @@ def parse_llm_summary(response: str) -> NLSummary:
     Splits text into paragraphs (blank-line separated) and extracts
     recommendations from bullet points (lines starting with '- ').
     """
-    paragraphs: List[str] = []
-    recommendations: List[str] = []
+    paragraphs: list[str] = []
+    recommendations: list[str] = []
 
-    current_paragraph: List[str] = []
+    current_paragraph: list[str] = []
 
     for line in response.strip().splitlines():
         stripped = line.strip()
@@ -300,13 +299,13 @@ def parse_llm_summary(response: str) -> NLSummary:
 # ---------------------------------------------------------------------------
 
 
-def generate_metric_insights(metrics: Dict[str, float]) -> List[str]:
+def generate_metric_insights(metrics: dict[str, float]) -> list[str]:
     """Generate heuristic insights from metric scores.
 
     Returns human-readable insight strings describing each metric's
     performance level.
     """
-    insights: List[str] = []
+    insights: list[str] = []
 
     for name, score in sorted(metrics.items(), key=lambda kv: kv[1], reverse=True):
         if score >= 0.9:
@@ -329,15 +328,15 @@ def generate_metric_insights(metrics: Dict[str, float]) -> List[str]:
 
 
 def generate_recommendations(
-    metrics: Dict[str, float],
+    metrics: dict[str, float],
     threshold: float = 0.7,
-) -> List[str]:
+) -> list[str]:
     """Suggest improvements for metrics below threshold.
 
     Returns a list of actionable recommendation strings for any
     metric scoring below the given threshold.
     """
-    recs: List[str] = []
+    recs: list[str] = []
 
     for name, score in sorted(metrics.items(), key=lambda kv: kv[1]):
         if score >= threshold:
@@ -369,7 +368,7 @@ def generate_recommendations(
 
 def format_nl_summary(summary: NLSummary) -> str:
     """Format an NLSummary as a human-readable string."""
-    lines: List[str] = []
+    lines: list[str] = []
 
     lines.append(summary.title)
     lines.append("=" * len(summary.title))

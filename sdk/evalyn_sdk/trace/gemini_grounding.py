@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..models import Span
 
@@ -18,7 +18,7 @@ class GroundingSource:
     title: str = ""
     snippet: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "uri": self.uri,
             "title": self.title,
@@ -26,7 +26,7 @@ class GroundingSource:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> GroundingSource:
+    def from_dict(cls, data: dict[str, Any]) -> GroundingSource:
         return cls(
             uri=data.get("uri", ""),
             title=data.get("title", ""),
@@ -38,12 +38,12 @@ class GroundingSource:
 class GroundingMetadata:
     """Aggregated grounding metadata from a Gemini response."""
 
-    search_queries: List[str] = field(default_factory=list)
-    sources: List[GroundingSource] = field(default_factory=list)
+    search_queries: list[str] = field(default_factory=list)
+    sources: list[GroundingSource] = field(default_factory=list)
     grounding_score: float = 0.0
     is_grounded: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "search_queries": list(self.search_queries),
             "sources": [s.as_dict() for s in self.sources],
@@ -52,7 +52,7 @@ class GroundingMetadata:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> GroundingMetadata:
+    def from_dict(cls, data: dict[str, Any]) -> GroundingMetadata:
         return cls(
             search_queries=data.get("search_queries", []),
             sources=[GroundingSource.from_dict(s) for s in data.get("sources", [])],
@@ -76,7 +76,7 @@ class GroundingMetadata:
         return "\n".join(lines)
 
 
-def extract_grounding(response_data: Dict[str, Any]) -> GroundingMetadata:
+def extract_grounding(response_data: dict[str, Any]) -> GroundingMetadata:
     """Extract grounding metadata from a Gemini response dict."""
     candidates = response_data.get("candidates", [{}])
     if not candidates:
@@ -114,7 +114,7 @@ def inject_grounding_into_span(span: Span, metadata: GroundingMetadata) -> Span:
     return new_span
 
 
-def extract_grounding_from_span(span: Span) -> Optional[GroundingMetadata]:
+def extract_grounding_from_span(span: Span) -> GroundingMetadata | None:
     """Extract grounding metadata from span attributes."""
     raw = span.attributes.get("gemini.grounding")
     if raw is None:
@@ -127,7 +127,7 @@ def has_grounding(span: Span) -> bool:
     return "gemini.grounding" in span.attributes
 
 
-def compute_grounding_stats(spans: List[Span]) -> Dict[str, Any]:
+def compute_grounding_stats(spans: list[Span]) -> dict[str, Any]:
     """Aggregate grounding stats across spans.
 
     Returns: total grounded spans, avg grounding score, total sources, common search queries.

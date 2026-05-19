@@ -5,22 +5,22 @@ import functools
 import hashlib
 import inspect
 import uuid
-import json
+from collections.abc import Callable
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any
 
 from ..models import FunctionCall, Span, TraceEvent, now_utc
 from ..storage.base import StorageBackend
 from . import context as span_context
 
-_current_session: contextvars.ContextVar[Optional[Dict[str, Any]]] = (
+_current_session: contextvars.ContextVar[dict[str, Any] | None] = (
     contextvars.ContextVar("evalyn_session", default=None)
 )
-_active_call: contextvars.ContextVar[Optional[FunctionCall]] = contextvars.ContextVar(
+_active_call: contextvars.ContextVar[FunctionCall | None] = contextvars.ContextVar(
     "evalyn_active_call", default=None
 )
 # Track root spans for each call
-_root_span: contextvars.ContextVar[Optional[Span]] = contextvars.ContextVar(
+_root_span: contextvars.ContextVar[Span | None] = contextvars.ContextVar(
     "evalyn_root_span", default=None
 )
 
@@ -40,7 +40,7 @@ def _safe_value(value: Any) -> Any:
     return repr(value)
 
 
-def _normalize_inputs(args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Dict[str, Any]:
+def _normalize_inputs(args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
     return {
         "args": [_safe_value(a) for a in args],
         "kwargs": {k: _safe_value(v) for k, v in kwargs.items()},
@@ -57,7 +57,7 @@ def _span_attr_value(value: Any) -> Any:
 
 @contextmanager
 def eval_session(
-    session_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None
+    session_id: str | None = None, metadata: dict[str, Any] | None = None
 ):
     """Context manager to group calls under a shared session id."""
     session_payload = {
@@ -74,16 +74,16 @@ def eval_session(
 class EvalTracer:
     def __init__(
         self,
-        storage: Optional[StorageBackend] = None,
-        otel_tracer: Optional[Any] = None,
+        storage: StorageBackend | None = None,
+        otel_tracer: Any | None = None,
     ):
         self.storage = storage
-        self._last_call: Optional[FunctionCall] = None
-        self._function_meta_cache: Dict[int, Dict[str, Any]] = {}
+        self._last_call: FunctionCall | None = None
+        self._function_meta_cache: dict[int, dict[str, Any]] = {}
         self.otel_tracer = otel_tracer
 
     @property
-    def last_call(self) -> Optional[FunctionCall]:
+    def last_call(self) -> FunctionCall | None:
         return self._last_call
 
     def attach_storage(self, storage: StorageBackend) -> None:
@@ -93,7 +93,7 @@ class EvalTracer:
         """Attach an OpenTelemetry tracer to emit spans alongside Evalyn traces."""
         self.otel_tracer = tracer
 
-    def log_event(self, kind: str, detail: Optional[Dict[str, Any]] = None) -> None:
+    def log_event(self, kind: str, detail: dict[str, Any] | None = None) -> None:
         call = _active_call.get()
         if call is None:
             return
@@ -104,11 +104,11 @@ class EvalTracer:
     def start_call(
         self,
         function_name: str,
-        inputs: Dict[str, Any],
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[FunctionCall, contextvars.Token]:
+        inputs: dict[str, Any],
+        metadata: dict[str, Any] | None = None,
+    ) -> tuple[FunctionCall, contextvars.Token]:
         # Lazily patch LLM libraries on first trace (not at import time)
-        from .auto_instrument import ensure_patched, _auto_patched
+        from .auto_instrument import _auto_patched, ensure_patched
 
         first_patch = not _auto_patched
         patch_results = ensure_patched()
@@ -156,7 +156,7 @@ class EvalTracer:
         token: contextvars.Token,
         *,
         output: Any = None,
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> FunctionCall:
         call.output = output
         call.error = error
@@ -194,13 +194,13 @@ class EvalTracer:
     def instrument(
         self,
         func: Callable[..., Any],
-        name: Optional[str] = None,
+        name: str | None = None,
         *,
-        project: Optional[str] = None,
-        version: Optional[str] = None,
+        project: str | None = None,
+        version: str | None = None,
         is_simulation: bool = False,
-        metric_mode: Optional[str] = None,
-        metric_bundle: Optional[str] = None,
+        metric_mode: str | None = None,
+        metric_bundle: str | None = None,
     ) -> Callable[..., Any]:
         """Wrap any callable to record inputs/outputs/errors via this tracer."""
         function_name = name or getattr(func, "__name__", "anonymous")
@@ -284,12 +284,12 @@ class EvalTracer:
         sync_wrapper._evalyn_instrumented = True  # type: ignore[attr-defined]
         return sync_wrapper
 
-    def _get_function_meta(self, func: Callable[..., Any]) -> Dict[str, Any]:
+    def _get_function_meta(self, func: Callable[..., Any]) -> dict[str, Any]:
         cached = self._function_meta_cache.get(id(func))
         if cached:
             return cached
 
-        meta: Dict[str, Any] = {
+        meta: dict[str, Any] = {
             "module": getattr(func, "__module__", None),
             "qualname": getattr(func, "__qualname__", None),
             "doc": inspect.getdoc(func),
@@ -321,7 +321,7 @@ class EvalTracer:
         return self.otel_tracer.start_as_current_span(name)
 
     @contextmanager
-    def span(self, name: str, attributes: Optional[Dict[str, Any]] = None):
+    def span(self, name: str, attributes: dict[str, Any] | None = None):
         """Create a child span if OpenTelemetry is enabled."""
         if self.otel_tracer is None:
             yield None

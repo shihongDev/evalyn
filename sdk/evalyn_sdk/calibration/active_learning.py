@@ -6,9 +6,8 @@ to annotate next, using uncertainty, disagreement, and diversity heuristics.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from dataclasses import dataclass
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -22,10 +21,10 @@ class ScoredItem:
     item_id: str
     score: float
     confidence: float = 0.0
-    heuristic_score: Optional[float] = None
+    heuristic_score: float | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
-        d: Dict[str, Any] = {
+    def as_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
             "item_id": self.item_id,
             "score": self.score,
             "confidence": self.confidence,
@@ -39,12 +38,12 @@ class ScoredItem:
 class SelectionResult:
     """Result of an active learning selection pass."""
 
-    selected_ids: List[str]
+    selected_ids: list[str]
     method: str
     total_candidates: int
     selected_count: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected_ids": self.selected_ids,
             "method": self.method,
@@ -73,7 +72,7 @@ class ActiveLearningConfig:
     batch_size: int = 10
     diversity_weight: float = 0.3
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "method": self.method,
             "batch_size": self.batch_size,
@@ -81,7 +80,7 @@ class ActiveLearningConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ActiveLearningConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ActiveLearningConfig:
         return cls(
             method=data.get("method", "uncertainty"),
             batch_size=data.get("batch_size", 10),
@@ -95,7 +94,7 @@ class ActiveLearningConfig:
 
 
 def select_by_uncertainty(
-    items: List[ScoredItem], batch_size: int = 10
+    items: list[ScoredItem], batch_size: int = 10
 ) -> SelectionResult:
     """Select items with lowest confidence scores.
 
@@ -120,7 +119,7 @@ def select_by_uncertainty(
 
 
 def select_by_disagreement(
-    items: List[ScoredItem], batch_size: int = 10
+    items: list[ScoredItem], batch_size: int = 10
 ) -> SelectionResult:
     """Select items where abs(score - heuristic_score) is largest.
 
@@ -151,7 +150,7 @@ def select_by_disagreement(
 
 
 def select_by_diversity(
-    items: List[ScoredItem], batch_size: int = 10
+    items: list[ScoredItem], batch_size: int = 10
 ) -> SelectionResult:
     """Select items spread across the score range.
 
@@ -168,12 +167,12 @@ def select_by_diversity(
 
     actual_bins = min(batch_size, len(items))
     bin_width = 1.0 / actual_bins if actual_bins > 0 else 1.0
-    selected_ids: List[str] = []
+    selected_ids: list[str] = []
     used: set[str] = set()
 
     for i in range(actual_bins):
         bin_center = bin_width * (i + 0.5)
-        best_item: Optional[ScoredItem] = None
+        best_item: ScoredItem | None = None
         best_dist = float("inf")
         for item in items:
             if item.item_id in used:
@@ -195,7 +194,7 @@ def select_by_diversity(
 
 
 def select_for_annotation(
-    items: List[ScoredItem], config: ActiveLearningConfig
+    items: list[ScoredItem], config: ActiveLearningConfig
 ) -> SelectionResult:
     """Route to appropriate selection method based on config."""
     if config.method == "uncertainty":
@@ -209,11 +208,12 @@ def select_for_annotation(
         unc = select_by_uncertainty(items, config.batch_size)
         div = select_by_diversity(items, config.batch_size)
 
-        # Weighted merge: take diversity_weight fraction from diversity, rest from uncertainty
+        # Weighted merge: take diversity_weight fraction from diversity, rest from
+        # uncertainty. The uncertainty budget (batch_size - n_diversity) is enforced
+        # implicitly by the overall batch_size cap in the fill loop below.
         n_diversity = max(1, int(config.batch_size * config.diversity_weight))
-        n_uncertainty = config.batch_size - n_diversity
 
-        combined_ids: List[str] = []
+        combined_ids: list[str] = []
         seen: set[str] = set()
 
         for item_id in div.selected_ids[:n_diversity]:

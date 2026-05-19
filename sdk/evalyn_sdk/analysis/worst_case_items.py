@@ -10,8 +10,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 from itertools import combinations
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -23,12 +22,12 @@ class WorstCaseItem:
     """An item with its cross-metric failure profile."""
 
     item_id: str
-    failed_metrics: List[str] = field(default_factory=list)
+    failed_metrics: list[str] = field(default_factory=list)
     total_metrics: int = 0
     failure_rate: float = 0.0
     avg_score: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "failed_metrics": list(self.failed_metrics),
@@ -42,13 +41,13 @@ class WorstCaseItem:
 class WorstCaseReport:
     """Aggregate report of worst-case items."""
 
-    items: List[WorstCaseItem] = field(default_factory=list)
+    items: list[WorstCaseItem] = field(default_factory=list)
     total_items: int = 0
     worst_item_id: str = ""
     max_failures: int = 0
     avg_failure_rate: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "items": [i.as_dict() for i in self.items],
             "total_items": self.total_items,
@@ -58,7 +57,7 @@ class WorstCaseReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WorstCaseReport":
+    def from_dict(cls, data: dict[str, Any]) -> WorstCaseReport:
         items = []
         for item_data in data.get("items", []):
             items.append(WorstCaseItem(
@@ -78,7 +77,7 @@ class WorstCaseReport:
 
     def format_text(self) -> str:
         """Human-readable multi-line summary."""
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Worst-Case Items Report ({self.total_items} items)")
         lines.append(f"  Worst item: {self.worst_item_id} ({self.max_failures} failures)")
         lines.append(f"  Avg failure rate: {self.avg_failure_rate:.1%}")
@@ -98,7 +97,7 @@ class WorstCaseReport:
 # ---------------------------------------------------------------------------
 
 
-def analyze_item_failures(item_results: List[Dict[str, Any]]) -> List[WorstCaseItem]:
+def analyze_item_failures(item_results: list[dict[str, Any]]) -> list[WorstCaseItem]:
     """For each item, count how many metrics failed.
 
     Args:
@@ -108,7 +107,7 @@ def analyze_item_failures(item_results: List[Dict[str, Any]]) -> List[WorstCaseI
         List of WorstCaseItem, one per unique item_id.
     """
     # Collect per-item data
-    item_metrics: Dict[str, Dict[str, Dict[str, Any]]] = defaultdict(dict)
+    item_metrics: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
     for r in item_results:
         item_id = r["item_id"]
         metric_id = r["metric_id"]
@@ -117,7 +116,7 @@ def analyze_item_failures(item_results: List[Dict[str, Any]]) -> List[WorstCaseI
             "score": r.get("score", 0.0),
         }
 
-    items: List[WorstCaseItem] = []
+    items: list[WorstCaseItem] = []
     for item_id, metrics in item_metrics.items():
         failed = [mid for mid, m in metrics.items() if not m["passed"]]
         scores = [m["score"] for m in metrics.values() if m["score"] is not None]
@@ -136,7 +135,7 @@ def analyze_item_failures(item_results: List[Dict[str, Any]]) -> List[WorstCaseI
     return items
 
 
-def build_worst_case_report(items: List[WorstCaseItem]) -> WorstCaseReport:
+def build_worst_case_report(items: list[WorstCaseItem]) -> WorstCaseReport:
     """Aggregate WorstCaseItems into a report."""
     if not items:
         return WorstCaseReport()
@@ -154,14 +153,14 @@ def build_worst_case_report(items: List[WorstCaseItem]) -> WorstCaseReport:
 
 
 def rank_worst_items(
-    items: List[WorstCaseItem], top_n: int = 10
-) -> List[WorstCaseItem]:
+    items: list[WorstCaseItem], top_n: int = 10
+) -> list[WorstCaseItem]:
     """Return the top N items sorted by failure_rate descending."""
     ranked = sorted(items, key=lambda i: i.failure_rate, reverse=True)
     return ranked[:top_n]
 
 
-def find_universally_failing(items: List[WorstCaseItem]) -> List[str]:
+def find_universally_failing(items: list[WorstCaseItem]) -> list[str]:
     """Return item IDs that fail ALL their metrics."""
     return [
         i.item_id
@@ -171,14 +170,14 @@ def find_universally_failing(items: List[WorstCaseItem]) -> List[str]:
 
 
 def compute_failure_correlation(
-    items: List[WorstCaseItem],
-) -> Dict[str, int]:
+    items: list[WorstCaseItem],
+) -> dict[str, int]:
     """Count how often each metric pair co-fails across items.
 
     Returns:
         Dict mapping "metric_a,metric_b" (sorted) to co-failure count.
     """
-    pair_counts: Dict[str, int] = defaultdict(int)
+    pair_counts: dict[str, int] = defaultdict(int)
     for item in items:
         if len(item.failed_metrics) < 2:
             continue
@@ -189,7 +188,7 @@ def compute_failure_correlation(
 
 
 def render_worst_case_table(
-    items: List[WorstCaseItem], max_items: int = 10
+    items: list[WorstCaseItem], max_items: int = 10
 ) -> str:
     """Render an ASCII table of worst-case items.
 

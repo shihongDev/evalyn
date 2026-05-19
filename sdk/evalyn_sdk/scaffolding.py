@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 
 @dataclass
@@ -11,10 +11,10 @@ class ProjectTemplate:
 
     name: str
     description: str = ""
-    files: Dict[str, str] = field(default_factory=dict)  # relative_path -> content
-    directories: List[str] = field(default_factory=list)
+    files: dict[str, str] = field(default_factory=dict)  # relative_path -> content
+    directories: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
@@ -23,7 +23,7 @@ class ProjectTemplate:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ProjectTemplate:
+    def from_dict(cls, data: dict[str, Any]) -> ProjectTemplate:
         return cls(
             name=data.get("name", ""),
             description=data.get("description", ""),
@@ -42,7 +42,7 @@ class ScaffoldConfig:
     provider: str = "gemini"
     include_tests: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "project_name": self.project_name,
             "template": self.template,
@@ -52,7 +52,7 @@ class ScaffoldConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ScaffoldConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ScaffoldConfig:
         return cls(
             project_name=data.get("project_name", ""),
             template=data.get("template", "basic"),
@@ -66,11 +66,11 @@ class ScaffoldConfig:
 class ScaffoldResult:
     """Result of a scaffolding operation."""
 
-    created_files: List[str] = field(default_factory=list)
-    created_dirs: List[str] = field(default_factory=list)
+    created_files: list[str] = field(default_factory=list)
+    created_dirs: list[str] = field(default_factory=list)
     project_path: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "created_files": list(self.created_files),
             "created_dirs": list(self.created_dirs),
@@ -118,7 +118,7 @@ ADVANCED_TEMPLATE = ProjectTemplate(
     directories=["data", "results", "tests", "calibration"],
 )
 
-_TEMPLATES: Dict[str, ProjectTemplate] = {
+_TEMPLATES: dict[str, ProjectTemplate] = {
     "basic": BASIC_TEMPLATE,
     "advanced": ADVANCED_TEMPLATE,
 }
@@ -133,12 +133,12 @@ def get_template(name: str) -> ProjectTemplate:
     return _TEMPLATES[name]
 
 
-def list_templates() -> List[ProjectTemplate]:
+def list_templates() -> list[ProjectTemplate]:
     """Return all available templates."""
     return list(_TEMPLATES.values())
 
 
-def render_template_file(content: str, variables: Dict[str, str]) -> str:
+def render_template_file(content: str, variables: dict[str, str]) -> str:
     """Replace {{variable}} placeholders in content."""
     result = content
     for key, value in variables.items():
@@ -146,7 +146,7 @@ def render_template_file(content: str, variables: Dict[str, str]) -> str:
     return result
 
 
-def validate_project_name(name: str) -> Tuple[bool, str]:
+def validate_project_name(name: str) -> tuple[bool, str]:
     """Check if the project name is valid.
 
     Valid names contain only alphanumeric characters, hyphens, and underscores.
@@ -175,7 +175,6 @@ def plan_scaffold(config: ScaffoldConfig) -> ScaffoldResult:
 
     # Collect files
     created_files = []
-    variables = {"provider": config.provider, "project_name": config.project_name}
     for rel_path in template.files:
         # Skip test files if include_tests is False
         if not config.include_tests and rel_path.startswith("tests/"):

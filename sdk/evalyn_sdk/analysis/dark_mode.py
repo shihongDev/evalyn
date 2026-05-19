@@ -7,8 +7,7 @@ custom properties that can be injected into any HTML report.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -28,7 +27,7 @@ class ThemeColors:
     error: str
     border: str
 
-    def as_dict(self) -> Dict[str, str]:
+    def as_dict(self) -> dict[str, str]:
         return {
             "bg_primary": self.bg_primary,
             "bg_secondary": self.bg_secondary,
@@ -42,7 +41,7 @@ class ThemeColors:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, str]) -> ThemeColors:
+    def from_dict(cls, data: dict[str, str]) -> ThemeColors:
         return cls(
             bg_primary=data["bg_primary"],
             bg_secondary=data["bg_secondary"],
@@ -60,16 +59,16 @@ class ThemeColors:
 class ThemeConfig:
     """Theme configuration: mode plus optional custom overrides."""
     mode: str = "light"  # "light", "dark", or "auto"
-    custom_colors: Optional[ThemeColors] = None
+    custom_colors: ThemeColors | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {"mode": self.mode}
+    def as_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {"mode": self.mode}
         if self.custom_colors is not None:
             result["custom_colors"] = self.custom_colors.as_dict()
         return result
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ThemeConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ThemeConfig:
         custom = data.get("custom_colors")
         return cls(
             mode=data.get("mode", "light"),
@@ -148,7 +147,7 @@ def generate_theme_css(config: ThemeConfig) -> str:
         @media (prefers-color-scheme: dark) block for auto mode.
     """
     base_colors = get_theme_colors(config)
-    css_parts: List[str] = []
+    css_parts: list[str] = []
 
     css_parts.append(f":root {{\n{generate_css_variables(base_colors)}}}\n")
 
@@ -215,7 +214,7 @@ def toggle_theme(current: str) -> str:
     return "light"
 
 
-def list_available_themes() -> List[str]:
+def list_available_themes() -> list[str]:
     """Return the list of supported theme mode names.
 
     Returns:

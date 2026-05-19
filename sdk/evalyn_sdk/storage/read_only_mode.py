@@ -6,18 +6,18 @@ for scoped read-only sections, and history tracking of state changes.
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Generator, List, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Global State
 # ---------------------------------------------------------------------------
 
 _READ_ONLY: bool = False
-_READ_ONLY_HISTORY: List[Dict[str, Any]] = []
+_READ_ONLY_HISTORY: list[dict[str, Any]] = []
 
 
 # ---------------------------------------------------------------------------
@@ -33,7 +33,7 @@ class ReadOnlyStatus:
     since: str = ""
     reason: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
             "since": self.since,
@@ -90,7 +90,7 @@ def get_status() -> ReadOnlyStatus:
     return ReadOnlyStatus(enabled=True)
 
 
-def check_write_allowed() -> Tuple[bool, str]:
+def check_write_allowed() -> tuple[bool, str]:
     """Return (allowed, reason) for use before write operations."""
     if _READ_ONLY:
         status = get_status()
@@ -98,7 +98,7 @@ def check_write_allowed() -> Tuple[bool, str]:
     return (True, "")
 
 
-def get_history() -> List[Dict[str, Any]]:
+def get_history() -> list[dict[str, Any]]:
     """Return the full toggle history."""
     return list(_READ_ONLY_HISTORY)
 

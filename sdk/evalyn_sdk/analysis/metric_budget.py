@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -27,7 +26,7 @@ class MetricCostProfile:
     signal_strength: float = 0.0
     is_redundant: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "avg_cost_per_item": self.avg_cost_per_item,
@@ -46,7 +45,7 @@ class BudgetRecommendation:
     reason: str = ""
     estimated_savings_pct: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "action": self.action,
@@ -59,13 +58,13 @@ class BudgetRecommendation:
 class MetricBudgetReport:
     """Full budget analysis report."""
 
-    profiles: List[MetricCostProfile] = field(default_factory=list)
-    recommendations: List[BudgetRecommendation] = field(default_factory=list)
+    profiles: list[MetricCostProfile] = field(default_factory=list)
+    recommendations: list[BudgetRecommendation] = field(default_factory=list)
     total_cost_usd: float = 0.0
     potential_savings_usd: float = 0.0
     potential_savings_pct: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "profiles": [p.as_dict() for p in self.profiles],
             "recommendations": [r.as_dict() for r in self.recommendations],
@@ -75,7 +74,7 @@ class MetricBudgetReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MetricBudgetReport":
+    def from_dict(cls, data: dict[str, Any]) -> MetricBudgetReport:
         profiles = [
             MetricCostProfile(
                 metric_id=p["metric_id"],
@@ -104,7 +103,7 @@ class MetricBudgetReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("METRIC BUDGET REPORT")
         lines.append(f"Total cost: ${self.total_cost_usd:.4f}")
         lines.append(
@@ -135,8 +134,8 @@ LOW_SIGNAL_THRESHOLD = 0.3
 
 
 def compute_signal_strength(
-    metric_scores: List[float],
-    overall_scores: List[float],
+    metric_scores: list[float],
+    overall_scores: list[float],
 ) -> float:
     """Pearson correlation between metric scores and overall pass rate.
 
@@ -164,12 +163,12 @@ def compute_signal_strength(
 
 
 def detect_redundant_metrics(
-    metric_scores: Dict[str, List[float]],
+    metric_scores: dict[str, list[float]],
     threshold: float = 0.9,
-) -> List[Tuple[str, str]]:
+) -> list[tuple[str, str]]:
     """Find pairs of metrics with correlation above threshold."""
     ids = sorted(metric_scores.keys())
-    pairs: List[Tuple[str, str]] = []
+    pairs: list[tuple[str, str]] = []
 
     for i, a in enumerate(ids):
         for b in ids[i + 1:]:
@@ -186,8 +185,8 @@ def detect_redundant_metrics(
 
 def build_cost_profile(
     metric_id: str,
-    costs: List[float],
-    tokens: List[int],
+    costs: list[float],
+    tokens: list[int],
     signal: float = 0.0,
 ) -> MetricCostProfile:
     """Build a MetricCostProfile from per-item cost and token data."""
@@ -202,9 +201,9 @@ def build_cost_profile(
 
 
 def generate_budget_recommendations(
-    profiles: List[MetricCostProfile],
-    redundant_pairs: List[Tuple[str, str]] | None = None,
-) -> List[BudgetRecommendation]:
+    profiles: list[MetricCostProfile],
+    redundant_pairs: list[tuple[str, str]] | None = None,
+) -> list[BudgetRecommendation]:
     """Recommend drop for low-signal or redundant metrics.
 
     Rules:
@@ -238,7 +237,7 @@ def generate_budget_recommendations(
                 else:
                     replace_ids.add(b)
 
-    recs: List[BudgetRecommendation] = []
+    recs: list[BudgetRecommendation] = []
     total_cost = sum(p.avg_cost_per_item for p in profiles)
 
     for p in profiles:
@@ -272,8 +271,8 @@ def generate_budget_recommendations(
 
 
 def build_budget_report(
-    profiles: List[MetricCostProfile],
-    redundant_pairs: List[Tuple[str, str]] | None = None,
+    profiles: list[MetricCostProfile],
+    redundant_pairs: list[tuple[str, str]] | None = None,
 ) -> MetricBudgetReport:
     """Build a full budget analysis report."""
     if redundant_pairs is None:
@@ -313,9 +312,9 @@ def build_budget_report(
     )
 
 
-def estimate_savings(report: MetricBudgetReport) -> Dict[str, float]:
+def estimate_savings(report: MetricBudgetReport) -> dict[str, float]:
     """Per-metric savings (in USD) if dropped."""
-    result: Dict[str, float] = {}
+    result: dict[str, float] = {}
     rec_map = {r.metric_id: r for r in report.recommendations}
     for p in report.profiles:
         rec = rec_map.get(p.metric_id)

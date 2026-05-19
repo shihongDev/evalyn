@@ -10,11 +10,10 @@ from __future__ import annotations
 import getpass
 import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -29,7 +28,7 @@ class AuditConfig:
     enabled: bool = True
     include_output: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "log_path": self.log_path,
             "enabled": self.enabled,
@@ -37,7 +36,7 @@ class AuditConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AuditConfig:
+    def from_dict(cls, data: dict[str, Any]) -> AuditConfig:
         return cls(
             log_path=data.get("log_path", ".evalyn/audit.jsonl"),
             enabled=data.get("enabled", True),
@@ -50,14 +49,14 @@ class AuditRecord:
     """A single audit log entry for one CLI invocation."""
 
     command: str
-    args: List[str]
+    args: list[str]
     timestamp: str
     exit_code: int
     duration_seconds: float
     user: str
     cwd: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "command": self.command,
             "args": list(self.args),
@@ -69,7 +68,7 @@ class AuditRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AuditRecord:
+    def from_dict(cls, data: dict[str, Any]) -> AuditRecord:
         return cls(
             command=data["command"],
             args=list(data.get("args", [])),
@@ -88,7 +87,7 @@ class AuditRecord:
 
 def create_audit_record(
     command: str,
-    args: Optional[List[str]] = None,
+    args: list[str] | None = None,
     exit_code: int = 0,
     duration: float = 0.0,
 ) -> AuditRecord:
@@ -124,7 +123,7 @@ def append_audit(config: AuditConfig, record: AuditRecord) -> None:
         f.write(json.dumps(record.as_dict()) + "\n")
 
 
-def read_audit_log(log_path: str, limit: int = 100) -> List[AuditRecord]:
+def read_audit_log(log_path: str, limit: int = 100) -> list[AuditRecord]:
     """Read the last N records from a JSONL audit log.
 
     Returns an empty list if the file does not exist.
@@ -133,8 +132,8 @@ def read_audit_log(log_path: str, limit: int = 100) -> List[AuditRecord]:
     path = Path(log_path)
     if not path.exists():
         return []
-    records: List[AuditRecord] = []
-    with open(path, "r", encoding="utf-8") as f:
+    records: list[AuditRecord] = []
+    with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -151,11 +150,11 @@ def read_audit_log(log_path: str, limit: int = 100) -> List[AuditRecord]:
 
 
 def filter_audit(
-    records: List[AuditRecord],
-    command: Optional[str] = None,
-    after: Optional[str] = None,
-    exit_code: Optional[int] = None,
-) -> List[AuditRecord]:
+    records: list[AuditRecord],
+    command: str | None = None,
+    after: str | None = None,
+    exit_code: int | None = None,
+) -> list[AuditRecord]:
     """Filter audit records by command name, timestamp, or exit code."""
     result = records
     if command is not None:
@@ -167,7 +166,7 @@ def filter_audit(
     return result
 
 
-def compute_audit_stats(records: List[AuditRecord]) -> Dict[str, Any]:
+def compute_audit_stats(records: list[AuditRecord]) -> dict[str, Any]:
     """Compute summary statistics from audit records.
 
     Returns dict with: total_commands, unique_commands, error_rate,
@@ -182,7 +181,7 @@ def compute_audit_stats(records: List[AuditRecord]) -> Dict[str, Any]:
             "avg_duration": 0.0,
         }
     total = len(records)
-    command_counts: Dict[str, int] = {}
+    command_counts: dict[str, int] = {}
     error_count = 0
     total_duration = 0.0
     for r in records:
@@ -200,7 +199,7 @@ def compute_audit_stats(records: List[AuditRecord]) -> Dict[str, Any]:
     }
 
 
-def format_audit_log(records: List[AuditRecord]) -> str:
+def format_audit_log(records: list[AuditRecord]) -> str:
     """Format audit records as a human-readable table."""
     if not records:
         return "No audit records."
@@ -216,7 +215,7 @@ def format_audit_log(records: List[AuditRecord]) -> str:
     return "\n".join(lines)
 
 
-def verify_audit_integrity(records: List[AuditRecord]) -> bool:
+def verify_audit_integrity(records: list[AuditRecord]) -> bool:
     """Check that timestamps are monotonically non-decreasing."""
     if len(records) <= 1:
         return True

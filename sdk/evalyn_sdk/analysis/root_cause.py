@@ -10,8 +10,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -24,11 +23,11 @@ class FailurePattern:
 
     pattern_name: str
     description: str
-    affected_items: List[str] = field(default_factory=list)
+    affected_items: list[str] = field(default_factory=list)
     confidence: float = 0.0
     suggested_fix: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "pattern_name": self.pattern_name,
             "description": self.description,
@@ -42,12 +41,12 @@ class FailurePattern:
 class RootCauseReport:
     """Aggregated root cause analysis report."""
 
-    patterns: List[FailurePattern] = field(default_factory=list)
+    patterns: list[FailurePattern] = field(default_factory=list)
     total_failures: int = 0
     primary_cause: str = ""
-    secondary_causes: List[str] = field(default_factory=list)
+    secondary_causes: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "patterns": [p.as_dict() for p in self.patterns],
             "total_failures": self.total_failures,
@@ -56,7 +55,7 @@ class RootCauseReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RootCauseReport:
+    def from_dict(cls, data: dict[str, Any]) -> RootCauseReport:
         patterns = [
             FailurePattern(
                 pattern_name=p["pattern_name"],
@@ -76,7 +75,7 @@ class RootCauseReport:
 
     def format_text(self) -> str:
         """Format the report as human-readable text."""
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Root Cause Report ({self.total_failures} failures)")
         lines.append("-" * 40)
 
@@ -116,7 +115,7 @@ _COMPLEX_INPUT_CHARS = 200
 _CONCENTRATION_THRESHOLD = 0.6  # 60% in one bucket
 
 
-def _get_output_text(failure: Dict[str, Any]) -> str:
+def _get_output_text(failure: dict[str, Any]) -> str:
     """Extract output text from a failure dict."""
     output = failure.get("output", "")
     if output is None:
@@ -127,7 +126,7 @@ def _get_output_text(failure: Dict[str, Any]) -> str:
     return str(output)
 
 
-def _get_input_text(failure: Dict[str, Any]) -> str:
+def _get_input_text(failure: dict[str, Any]) -> str:
     """Extract input text from a failure dict."""
     inp = failure.get("input", "")
     if inp is None:
@@ -139,8 +138,8 @@ def _get_input_text(failure: Dict[str, Any]) -> str:
 
 
 def detect_output_length_pattern(
-    failures: List[Dict[str, Any]],
-) -> Optional[FailurePattern]:
+    failures: list[dict[str, Any]],
+) -> FailurePattern | None:
     """Check if failures correlate with short or long outputs.
 
     Each failure dict has: item_id, output, score, metric_id.
@@ -149,8 +148,8 @@ def detect_output_length_pattern(
     if not failures:
         return None
 
-    short_items: List[str] = []
-    long_items: List[str] = []
+    short_items: list[str] = []
+    long_items: list[str] = []
 
     for f in failures:
         text = _get_output_text(f)
@@ -199,8 +198,8 @@ def detect_output_length_pattern(
 
 
 def detect_input_complexity_pattern(
-    failures: List[Dict[str, Any]],
-) -> Optional[FailurePattern]:
+    failures: list[dict[str, Any]],
+) -> FailurePattern | None:
     """Check if failures correlate with complex inputs (long, multi-sentence).
 
     Each failure dict has: item_id, output, score, metric_id, and optionally input.
@@ -208,7 +207,7 @@ def detect_input_complexity_pattern(
     if not failures:
         return None
 
-    complex_items: List[str] = []
+    complex_items: list[str] = []
 
     for f in failures:
         text = _get_input_text(f)
@@ -243,8 +242,8 @@ def detect_input_complexity_pattern(
 
 
 def detect_metric_concentration(
-    failures: List[Dict[str, Any]],
-) -> Optional[FailurePattern]:
+    failures: list[dict[str, Any]],
+) -> FailurePattern | None:
     """Check if failures are concentrated in one metric.
 
     Each failure dict has: item_id, output, score, metric_id.
@@ -253,7 +252,7 @@ def detect_metric_concentration(
         return None
 
     metric_counts: Counter = Counter()
-    metric_items: Dict[str, List[str]] = {}
+    metric_items: dict[str, list[str]] = {}
 
     for f in failures:
         metric_id = f.get("metric_id", "unknown")
@@ -286,8 +285,8 @@ def detect_metric_concentration(
 
 
 def detect_category_pattern(
-    failures: List[Dict[str, Any]],
-) -> Optional[FailurePattern]:
+    failures: list[dict[str, Any]],
+) -> FailurePattern | None:
     """Check if failures are concentrated in one category.
 
     Looks for a 'category' field in each failure dict.
@@ -296,7 +295,7 @@ def detect_category_pattern(
         return None
 
     category_counts: Counter = Counter()
-    category_items: Dict[str, List[str]] = {}
+    category_items: dict[str, list[str]] = {}
 
     for f in failures:
         category = f.get("category", "")
@@ -337,7 +336,7 @@ def detect_category_pattern(
 
 
 def analyze_root_causes(
-    failures: List[Dict[str, Any]],
+    failures: list[dict[str, Any]],
 ) -> RootCauseReport:
     """Run all pattern detectors and build a root cause report.
 
@@ -353,7 +352,7 @@ def analyze_root_causes(
         detect_category_pattern,
     ]
 
-    patterns: List[FailurePattern] = []
+    patterns: list[FailurePattern] = []
     for detector in detectors:
         result = detector(failures)
         if result is not None:
@@ -363,7 +362,7 @@ def analyze_root_causes(
     patterns.sort(key=lambda p: p.confidence, reverse=True)
 
     primary_cause = ""
-    secondary_causes: List[str] = []
+    secondary_causes: list[str] = []
 
     if patterns:
         primary_cause = patterns[0].pattern_name
@@ -382,9 +381,9 @@ def analyze_root_causes(
 # ---------------------------------------------------------------------------
 
 
-def suggest_fixes(report: RootCauseReport) -> List[str]:
+def suggest_fixes(report: RootCauseReport) -> list[str]:
     """Generate actionable fix suggestions from a root cause report."""
-    fixes: List[str] = []
+    fixes: list[str] = []
 
     for pattern in report.patterns:
         if pattern.suggested_fix:

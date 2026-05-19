@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Any
 
 
 @dataclass
@@ -25,7 +25,7 @@ class CalibrationAttempt:
     timestamp: datetime
     failure_reason: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "optimizer": self.optimizer,
@@ -37,7 +37,7 @@ class CalibrationAttempt:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CalibrationAttempt:
+    def from_dict(cls, data: dict[str, Any]) -> CalibrationAttempt:
         ts = data["timestamp"]
         if isinstance(ts, str):
             ts = datetime.fromisoformat(ts)
@@ -56,25 +56,25 @@ class CalibrationAttempt:
 class CalibrationMemoryStore:
     """Stores calibration attempts and provides query helpers."""
 
-    attempts: List[CalibrationAttempt] = field(default_factory=list)
+    attempts: list[CalibrationAttempt] = field(default_factory=list)
 
     def record_attempt(self, attempt: CalibrationAttempt) -> None:
         """Add an attempt to the store."""
         self.attempts.append(attempt)
 
-    def get_failed_approaches(self, metric_id: str) -> List[CalibrationAttempt]:
+    def get_failed_approaches(self, metric_id: str) -> list[CalibrationAttempt]:
         """Get failed attempts for a metric."""
         return [
             a for a in self.attempts if a.metric_id == metric_id and not a.success
         ]
 
-    def get_successful_approaches(self, metric_id: str) -> List[CalibrationAttempt]:
+    def get_successful_approaches(self, metric_id: str) -> list[CalibrationAttempt]:
         """Get successful attempts for a metric."""
         return [
             a for a in self.attempts if a.metric_id == metric_id and a.success
         ]
 
-    def get_best_approach(self, metric_id: str) -> Optional[CalibrationAttempt]:
+    def get_best_approach(self, metric_id: str) -> CalibrationAttempt | None:
         """Return the highest-scoring successful attempt for a metric."""
         successes = self.get_successful_approaches(metric_id)
         if not successes:
@@ -89,8 +89,8 @@ class CalibrationMemoryStore:
         )
 
     def suggest_next_optimizer(
-        self, metric_id: str, all_optimizers: List[str]
-    ) -> Optional[str]:
+        self, metric_id: str, all_optimizers: list[str]
+    ) -> str | None:
         """Return the first untried optimizer for a metric, or None."""
         for opt in all_optimizers:
             if not self.has_been_tried(metric_id, opt):
@@ -102,13 +102,13 @@ class CalibrationMemoryStore:
         """Number of recorded attempts."""
         return len(self.attempts)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "attempts": [a.as_dict() for a in self.attempts],
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CalibrationMemoryStore:
+    def from_dict(cls, data: dict[str, Any]) -> CalibrationMemoryStore:
         return cls(
             attempts=[
                 CalibrationAttempt.from_dict(a) for a in data.get("attempts", [])

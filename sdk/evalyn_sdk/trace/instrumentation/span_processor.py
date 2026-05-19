@@ -7,13 +7,13 @@ adding them to the span collector.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from opentelemetry.sdk.trace import ReadableSpan
 
-from .span_converter import SpanConverter
 from .. import context as span_context
+from .span_converter import SpanConverter
 
 
 class EvalynSpanProcessor:
@@ -32,14 +32,14 @@ class EvalynSpanProcessor:
     """
 
     def __init__(self):
-        self._parent_id_map: Dict[str, str] = {}  # OTEL span_id -> Evalyn span_id
+        self._parent_id_map: dict[str, str] = {}  # OTEL span_id -> Evalyn span_id
 
-    def on_start(self, span: Any, parent_context: Optional[Any] = None) -> None:
+    def on_start(self, span: Any, parent_context: Any | None = None) -> None:
         """Called when a span starts."""
         # We mainly process on_end, but can use on_start for parent tracking
         pass
 
-    def on_end(self, span: "ReadableSpan") -> None:
+    def on_end(self, span: ReadableSpan) -> None:
         """Called when a span ends. Convert and record the span."""
         # Check if we're in an active Evalyn trace
         if span_context.get_current_call() is None:

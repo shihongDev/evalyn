@@ -7,7 +7,7 @@ and docker-compose.yml content as strings - never makes actual Docker calls.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -19,7 +19,7 @@ class DockerConfig:
     include_dev_deps: bool = False
     port: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "base_image": self.base_image,
             "python_version": self.python_version,
@@ -28,7 +28,7 @@ class DockerConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DockerConfig:
+    def from_dict(cls, data: dict[str, Any]) -> DockerConfig:
         return cls(
             base_image=data.get("base_image", "python:3.11-slim"),
             python_version=data.get("python_version", "3.11"),
@@ -210,12 +210,12 @@ def generate_docker_compose(config: DockerConfig) -> str:
     return "\n".join(lines)
 
 
-def validate_docker_config(config: DockerConfig) -> List[str]:
+def validate_docker_config(config: DockerConfig) -> list[str]:
     """Return a list of validation errors for the given DockerConfig.
 
     Returns an empty list if the config is valid.
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     if not config.base_image:
         errors.append("base_image must not be empty")

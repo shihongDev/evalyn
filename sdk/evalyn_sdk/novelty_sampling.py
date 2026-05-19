@@ -7,9 +7,8 @@ dependencies.
 
 from __future__ import annotations
 
-import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 @dataclass
@@ -20,7 +19,7 @@ class NoveltyScore:
     novelty: float  # 0 to 1, higher = more novel
     nearest_labeled_id: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "novelty": self.novelty,
@@ -28,7 +27,7 @@ class NoveltyScore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> NoveltyScore:
+    def from_dict(cls, data: dict[str, Any]) -> NoveltyScore:
         return cls(
             item_id=data["item_id"],
             novelty=data["novelty"],
@@ -41,16 +40,16 @@ class NoveltyConfig:
     """Configuration for novelty-based sampling."""
 
     sample_size: int = 50
-    seed: Optional[int] = None
+    seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "sample_size": self.sample_size,
             "seed": self.seed,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> NoveltyConfig:
+    def from_dict(cls, data: dict[str, Any]) -> NoveltyConfig:
         return cls(
             sample_size=data.get("sample_size", 50),
             seed=data.get("seed"),
@@ -61,13 +60,13 @@ class NoveltyConfig:
 class NoveltyResult:
     """Result of a novelty-based sampling run."""
 
-    selected_ids: List[str] = field(default_factory=list)
-    scores: List[NoveltyScore] = field(default_factory=list)
+    selected_ids: list[str] = field(default_factory=list)
+    scores: list[NoveltyScore] = field(default_factory=list)
     mean_novelty: float = 0.0
     total_unlabeled: int = 0
     total_labeled: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected_ids": list(self.selected_ids),
             "scores": [s.as_dict() for s in self.scores],
@@ -77,7 +76,7 @@ class NoveltyResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> NoveltyResult:
+    def from_dict(cls, data: dict[str, Any]) -> NoveltyResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
             scores=[

@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import shutil
 import uuid
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -22,7 +22,7 @@ class SandboxConfig:
     image: str = "python:3.11-slim"
     working_dir: str = "/workspace"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "timeout_seconds": self.timeout_seconds,
             "max_memory_mb": self.max_memory_mb,
@@ -32,7 +32,7 @@ class SandboxConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SandboxConfig:
+    def from_dict(cls, data: dict[str, Any]) -> SandboxConfig:
         return cls(
             timeout_seconds=data.get("timeout_seconds", 30),
             max_memory_mb=data.get("max_memory_mb", 256),
@@ -52,7 +52,7 @@ class SandboxResult:
     timed_out: bool = False
     duration_seconds: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "exit_code": self.exit_code,
             "stdout": self.stdout,
@@ -62,7 +62,7 @@ class SandboxResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SandboxResult:
+    def from_dict(cls, data: dict[str, Any]) -> SandboxResult:
         return cls(
             exit_code=data["exit_code"],
             stdout=data.get("stdout", ""),
@@ -80,7 +80,7 @@ class SandboxSpec:
     config: SandboxConfig
     status: str = "ready"  # ready / running / completed / failed
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "sandbox_id": self.sandbox_id,
             "config": self.config.as_dict(),
@@ -88,7 +88,7 @@ class SandboxSpec:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SandboxSpec:
+    def from_dict(cls, data: dict[str, Any]) -> SandboxSpec:
         return cls(
             sandbox_id=data["sandbox_id"],
             config=SandboxConfig.from_dict(data.get("config", {})),
@@ -96,12 +96,12 @@ class SandboxSpec:
         )
 
 
-def build_docker_command(code: str, config: SandboxConfig) -> List[str]:
+def build_docker_command(code: str, config: SandboxConfig) -> list[str]:
     """Build a docker run command list (does not execute it).
 
     Includes timeout, memory limit, network flag, and working directory.
     """
-    cmd: List[str] = ["docker", "run", "--rm"]
+    cmd: list[str] = ["docker", "run", "--rm"]
 
     # Memory limit
     cmd.extend(["--memory", f"{config.max_memory_mb}m"])
@@ -128,12 +128,12 @@ def build_docker_command(code: str, config: SandboxConfig) -> List[str]:
     return cmd
 
 
-def validate_sandbox_config(config: SandboxConfig) -> List[str]:
+def validate_sandbox_config(config: SandboxConfig) -> list[str]:
     """Return a list of validation errors for the given config.
 
     Checks for unreasonable timeout, memory, and image values.
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     if config.timeout_seconds <= 0:
         errors.append("timeout_seconds must be positive")
@@ -156,7 +156,7 @@ def validate_sandbox_config(config: SandboxConfig) -> List[str]:
 
 def estimate_sandbox_cost(
     n_items: int, avg_duration: float, config: SandboxConfig
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Estimate total time and resource usage for sandboxed evaluation.
 
     Returns a dict with estimated totals.
@@ -181,7 +181,7 @@ def estimate_sandbox_cost(
     }
 
 
-def create_sandbox_spec(config: Optional[SandboxConfig] = None) -> SandboxSpec:
+def create_sandbox_spec(config: SandboxConfig | None = None) -> SandboxSpec:
     """Factory to create a SandboxSpec with a unique UUID."""
     if config is None:
         config = SandboxConfig()
@@ -192,12 +192,12 @@ def create_sandbox_spec(config: Optional[SandboxConfig] = None) -> SandboxSpec:
     )
 
 
-def format_sandbox_plan(specs: List[SandboxSpec]) -> str:
+def format_sandbox_plan(specs: list[SandboxSpec]) -> str:
     """Format a human-readable plan showing sandbox configs."""
     if not specs:
         return "No sandboxes configured."
 
-    lines: List[str] = [f"Sandbox Plan ({len(specs)} sandbox(es)):"]
+    lines: list[str] = [f"Sandbox Plan ({len(specs)} sandbox(es)):"]
     lines.append("")
     for i, spec in enumerate(specs, 1):
         c = spec.config

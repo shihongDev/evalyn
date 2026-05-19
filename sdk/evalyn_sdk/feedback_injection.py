@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Severity ordering (higher index = more severe)
@@ -30,11 +29,11 @@ class FailureTarget:
 
     pattern_id: str
     description: str
-    example_inputs: List[str]
+    example_inputs: list[str]
     severity: str = "medium"
     frequency: int = 1
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "pattern_id": self.pattern_id,
             "description": self.description,
@@ -44,7 +43,7 @@ class FailureTarget:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FailureTarget:
+    def from_dict(cls, data: dict[str, Any]) -> FailureTarget:
         return cls(
             pattern_id=data["pattern_id"],
             description=data["description"],
@@ -58,11 +57,11 @@ class FailureTarget:
 class InjectionConfig:
     """Configuration for a failure-injection generation run."""
 
-    targets: List[FailureTarget]
+    targets: list[FailureTarget]
     items_per_target: int = 3
     include_examples: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "targets": [t.as_dict() for t in self.targets],
             "items_per_target": self.items_per_target,
@@ -70,7 +69,7 @@ class InjectionConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> InjectionConfig:
+    def from_dict(cls, data: dict[str, Any]) -> InjectionConfig:
         return cls(
             targets=[FailureTarget.from_dict(t) for t in data["targets"]],
             items_per_target=data.get("items_per_target", 3),
@@ -85,9 +84,9 @@ class InjectedItem:
     input_text: str
     target_pattern_id: str
     injection_method: str
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "input_text": self.input_text,
             "target_pattern_id": self.target_pattern_id,
@@ -96,7 +95,7 @@ class InjectedItem:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> InjectedItem:
+    def from_dict(cls, data: dict[str, Any]) -> InjectedItem:
         return cls(
             input_text=data["input_text"],
             target_pattern_id=data["target_pattern_id"],
@@ -109,13 +108,13 @@ class InjectedItem:
 class InjectionReport:
     """Summary of all injected items for a generation run."""
 
-    items: List[InjectedItem]
+    items: list[InjectedItem]
     total_items: int
     patterns_covered: int
     total_patterns: int
     coverage_rate: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "items": [i.as_dict() for i in self.items],
             "total_items": self.total_items,
@@ -125,7 +124,7 @@ class InjectionReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> InjectionReport:
+    def from_dict(cls, data: dict[str, Any]) -> InjectionReport:
         return cls(
             items=[InjectedItem.from_dict(i) for i in data["items"]],
             total_items=data["total_items"],
@@ -179,7 +178,7 @@ def generate_from_failure_target(
     target: FailureTarget,
     n_items: int = 3,
     rng: random.Random | None = None,
-) -> List[InjectedItem]:
+) -> list[InjectedItem]:
     """Generate injected items targeting a specific failure pattern.
 
     Methods: rephrase (shuffle words), combine (merge two examples),
@@ -188,7 +187,7 @@ def generate_from_failure_target(
     if rng is None:
         rng = random.Random()
 
-    items: List[InjectedItem] = []
+    items: list[InjectedItem] = []
     examples = target.example_inputs
     tags = [target.pattern_id, target.severity]
 
@@ -233,7 +232,7 @@ def generate_injection_suite(
     if rng is None:
         rng = random.Random()
 
-    all_items: List[InjectedItem] = []
+    all_items: list[InjectedItem] = []
     patterns_covered = 0
 
     for target in config.targets:
@@ -262,7 +261,7 @@ def generate_injection_suite(
 
 
 def compute_coverage(
-    report: InjectionReport, all_targets: List[FailureTarget]
+    report: InjectionReport, all_targets: list[FailureTarget]
 ) -> float:
     """Fraction of all_targets that have at least one generated item."""
     if not all_targets:
@@ -273,7 +272,7 @@ def compute_coverage(
     return len(matched) / len(target_ids)
 
 
-def prioritize_targets(targets: List[FailureTarget]) -> List[FailureTarget]:
+def prioritize_targets(targets: list[FailureTarget]) -> list[FailureTarget]:
     """Sort targets by severity (critical first) then frequency (highest first)."""
     return sorted(
         targets,
@@ -294,7 +293,7 @@ def format_injection_report(report: InjectionReport) -> str:
         f"Coverage rate: {report.coverage_rate:.1%}",
         "",
     ]
-    by_pattern: Dict[str, List[InjectedItem]] = {}
+    by_pattern: dict[str, list[InjectedItem]] = {}
     for item in report.items:
         by_pattern.setdefault(item.target_pattern_id, []).append(item)
 

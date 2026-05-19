@@ -12,8 +12,9 @@ import os
 import sys
 import tempfile
 import time
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterator, List, Optional
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class ChunkConfig:
     max_memory_mb: float = 0.0  # 0 means no limit
     write_batch_size: int = 50
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "chunk_size": self.chunk_size,
             "checkpoint_interval": self.checkpoint_interval,
@@ -41,7 +42,7 @@ class ChunkConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ChunkConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ChunkConfig:
         return cls(
             chunk_size=data.get("chunk_size", 100),
             checkpoint_interval=data.get("checkpoint_interval", 500),
@@ -60,7 +61,7 @@ class CheckpointState:
     checkpoint_path: str
     created_at: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "processed_count": self.processed_count,
             "total_count": self.total_count,
@@ -70,7 +71,7 @@ class CheckpointState:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CheckpointState:
+    def from_dict(cls, data: dict[str, Any]) -> CheckpointState:
         return cls(
             processed_count=data.get("processed_count", 0),
             total_count=data.get("total_count", 0),
@@ -91,7 +92,7 @@ class ProcessingStats:
     items_per_second: float
     peak_memory_mb: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_items": self.total_items,
             "processed_items": self.processed_items,
@@ -102,7 +103,7 @@ class ProcessingStats:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ProcessingStats:
+    def from_dict(cls, data: dict[str, Any]) -> ProcessingStats:
         return cls(
             total_items=data.get("total_items", 0),
             processed_items=data.get("processed_items", 0),
@@ -125,7 +126,7 @@ def stream_dataset(file_path: str, chunk_size: int = 100) -> Iterator[list[dict]
     Blank lines and unparseable lines are skipped.
     """
     chunk: list[dict] = []
-    with open(file_path, "r", encoding="utf-8") as fh:
+    with open(file_path, encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
             if not line:
@@ -169,7 +170,7 @@ def save_checkpoint(state: CheckpointState) -> None:
         raise
 
 
-def load_checkpoint(checkpoint_path: str) -> Optional[CheckpointState]:
+def load_checkpoint(checkpoint_path: str) -> CheckpointState | None:
     """Load a checkpoint from disk. Return None if file does not exist.
 
     If the checkpoint is corrupted (partial write from a previous crash),
@@ -178,7 +179,7 @@ def load_checkpoint(checkpoint_path: str) -> Optional[CheckpointState]:
     if not os.path.exists(checkpoint_path):
         return None
     try:
-        with open(checkpoint_path, "r", encoding="utf-8") as fh:
+        with open(checkpoint_path, encoding="utf-8") as fh:
             data = json.load(fh)
         return CheckpointState.from_dict(data)
     except (json.JSONDecodeError, KeyError, ValueError) as e:

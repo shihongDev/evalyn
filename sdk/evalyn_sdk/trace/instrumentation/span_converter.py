@@ -11,13 +11,13 @@ To Evalyn's Span model.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
 from ...models import Span
 from .conventions import (
+    IOAttributes,
     LLMAttributes,
     ToolAttributes,
-    IOAttributes,
     get_span_type,
 )
 
@@ -35,7 +35,7 @@ class SpanConverter:
     def from_otel_span(
         cls,
         otel_span: Any,  # ReadableSpan from opentelemetry-sdk
-        parent_evalyn_id: Optional[str] = None,
+        parent_evalyn_id: str | None = None,
     ) -> Span:
         """
         Convert an OpenTelemetry ReadableSpan to an Evalyn Span.
@@ -106,9 +106,9 @@ class SpanConverter:
     def from_hook_event(
         cls,
         event_type: str,
-        event_data: Dict[str, Any],
-        parent_id: Optional[str] = None,
-        span_id: Optional[str] = None,
+        event_data: dict[str, Any],
+        parent_id: str | None = None,
+        span_id: str | None = None,
     ) -> Span:
         """
         Create an Evalyn Span from hook event data.
@@ -147,7 +147,7 @@ class SpanConverter:
         )
 
     @classmethod
-    def _ns_to_datetime(cls, ns: Optional[int]) -> datetime:
+    def _ns_to_datetime(cls, ns: int | None) -> datetime:
         """Convert nanoseconds since epoch to datetime."""
         if ns is None:
             return datetime.now(timezone.utc)
@@ -161,7 +161,7 @@ class SpanConverter:
         return f"{hex_padded[:8]}-{hex_padded[8:12]}-{hex_padded[12:16]}-{hex_padded[16:20]}-{hex_padded[20:32]}"
 
     @classmethod
-    def _extract_evalyn_attributes(cls, otel_attrs: Dict[str, Any]) -> Dict[str, Any]:
+    def _extract_evalyn_attributes(cls, otel_attrs: dict[str, Any]) -> dict[str, Any]:
         """Extract Evalyn-relevant attributes from OTEL attributes."""
         evalyn_attrs = {}
 

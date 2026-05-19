@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -24,9 +24,9 @@ class StepResult:
     """Result from a pipeline step."""
 
     status: str  # "success", "skipped", "failed", "interrupted"
-    output: Optional[str] = None
-    details: Dict[str, Any] = field(default_factory=dict)
-    error: Optional[str] = None
+    output: str | None = None
+    details: dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
 
 
 @dataclass
@@ -34,14 +34,14 @@ class PipelineState:
     """Persistent state for pipeline execution."""
 
     started_at: str
-    config: Dict[str, Any]
-    steps: Dict[str, Dict[str, Any]]
+    config: dict[str, Any]
+    steps: dict[str, dict[str, Any]]
     output_dir: str
-    updated_at: Optional[str] = None
-    completed_at: Optional[str] = None
+    updated_at: str | None = None
+    completed_at: str | None = None
 
     @classmethod
-    def load(cls, path: Path) -> Optional["PipelineState"]:
+    def load(cls, path: Path) -> PipelineState | None:
         """Load state from file."""
         if not path.exists():
             return None
@@ -110,7 +110,7 @@ class PipelineStep(ABC):
     display_name: str  # Human-readable name
     step_number: int  # 1-7
 
-    def __init__(self, args: argparse.Namespace, config: Dict[str, Any]):
+    def __init__(self, args: argparse.Namespace, config: dict[str, Any]):
         self.args = args
         self.config = config
 
@@ -122,14 +122,14 @@ class PipelineStep(ABC):
         """Step header for display."""
         return f"[{self.step_number}/{self.total_steps}] {self.display_name}"
 
-    def should_skip(self) -> Optional[str]:
+    def should_skip(self) -> str | None:
         """Return skip reason if step should be skipped, None otherwise."""
         return None
 
     @abstractmethod
     def execute(
-        self, output_dir: Path, context: Dict[str, Any]
-    ) -> tuple[StepResult, Dict[str, Any]]:
+        self, output_dir: Path, context: dict[str, Any]
+    ) -> tuple[StepResult, dict[str, Any]]:
         """Execute the step.
 
         Args:
@@ -151,7 +151,7 @@ class PipelineOrchestrator:
 
     def __init__(
         self,
-        steps: List[PipelineStep],
+        steps: list[PipelineStep],
         output_dir: Path,
         args: argparse.Namespace,
     ):
@@ -159,8 +159,8 @@ class PipelineOrchestrator:
         self.output_dir = output_dir
         self.args = args
         self.state_path = output_dir / "pipeline_state.json"
-        self.state: Optional[PipelineState] = None
-        self.context: Dict[str, Any] = {}
+        self.state: PipelineState | None = None
+        self.context: dict[str, Any] = {}
 
     def run(self) -> None:
         """Run the pipeline."""

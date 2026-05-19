@@ -17,7 +17,6 @@ import logging
 import os
 import sys
 from datetime import datetime, timezone
-from typing import Optional
 
 
 class JSONFormatter(logging.Formatter):
@@ -45,9 +44,9 @@ class TextFormatter(logging.Formatter):
 
 
 def configure_logging(
-    level: Optional[str] = None,
+    level: str | None = None,
     json_format: bool = False,
-    log_file: Optional[str] = None,
+    log_file: str | None = None,
 ) -> None:
     """Configure evalyn logging.
 

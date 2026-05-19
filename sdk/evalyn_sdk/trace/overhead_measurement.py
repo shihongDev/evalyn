@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from ..models import Span
 
@@ -16,7 +16,7 @@ class OverheadSample:
     overhead_ms: float
     overhead_pct: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "operation": self.operation,
             "with_tracing_ms": self.with_tracing_ms,
@@ -30,13 +30,13 @@ class OverheadSample:
 class OverheadReport:
     """Aggregated overhead measurement report."""
 
-    samples: List[OverheadSample] = field(default_factory=list)
+    samples: list[OverheadSample] = field(default_factory=list)
     avg_overhead_ms: float = 0.0
     avg_overhead_pct: float = 0.0
     max_overhead_ms: float = 0.0
     recommendation: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "samples": [s.as_dict() for s in self.samples],
             "avg_overhead_ms": self.avg_overhead_ms,
@@ -46,7 +46,7 @@ class OverheadReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "OverheadReport":
+    def from_dict(cls, data: dict[str, Any]) -> OverheadReport:
         samples = [
             OverheadSample(
                 operation=s["operation"],
@@ -66,7 +66,7 @@ class OverheadReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Instrumentation Overhead Report")
         lines.append("-" * 40)
         for s in self.samples:
@@ -83,7 +83,7 @@ class OverheadReport:
 
 def compute_overhead(
     with_tracing_ms: float, without_tracing_ms: float
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """Return (overhead_ms, overhead_pct).
 
     overhead_ms = with_tracing_ms - without_tracing_ms
@@ -112,7 +112,7 @@ def record_sample(
 
 
 def analyze_overhead(
-    samples: List[OverheadSample], max_acceptable_pct: float = 5.0
+    samples: list[OverheadSample], max_acceptable_pct: float = 5.0
 ) -> OverheadReport:
     """Compute averages, max. Recommend disabling tracing if avg > max_acceptable."""
     if not samples:
@@ -145,14 +145,14 @@ def analyze_overhead(
 
 
 def estimate_overhead_from_spans(
-    spans: List[Span], baseline_duration_ms: float
+    spans: list[Span], baseline_duration_ms: float
 ) -> OverheadReport:
     """Estimate overhead from actual span durations vs a baseline.
 
     Each span's overhead = (span.duration_ms - baseline) if span.duration_ms > baseline.
     Spans without duration_ms are skipped.
     """
-    samples: List[OverheadSample] = []
+    samples: list[OverheadSample] = []
     for s in spans:
         dur = s.duration_ms
         if dur is None:

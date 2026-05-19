@@ -30,7 +30,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # Shape identifiers. Public constants so callers can pattern-match
 # without importing string literals.
 SHAPE_CLI_ANNOTATION = "cli_annotation"

@@ -30,8 +30,8 @@ import secrets
 import threading
 import time
 import webbrowser
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -259,14 +259,32 @@ def _register_api_routers(app: FastAPI) -> None:
     try:
         from .api import (
             agent as agent_api,
+        )
+        from .api import (
             cli as cli_api,
+        )
+        from .api import (
             compare as compare_api,
+        )
+        from .api import (
             demo as demo_api,
+        )
+        from .api import (
             files as files_api,
+        )
+        from .api import (
             jobs as jobs_api,
+        )
+        from .api import (
             promote as promote_api,
+        )
+        from .api import (
             runs as runs_api,
+        )
+        from .api import (
             settings as settings_api,
+        )
+        from .api import (
             threads as threads_api,
         )
         from .api.agent_ws import register_agent_ws_routes
@@ -338,8 +356,8 @@ def _register_v2_routers(app: FastAPI) -> None:
     # independent of any individual /api/v2/* router (the event stream
     # is useful even if some routers failed to import).
     try:
-        from .api.v2.v2_ws import register_v2_ws_routes
         from .api.v2._shared import prewarm, start_watcher, stop_watcher
+        from .api.v2.v2_ws import register_v2_ws_routes
     except ImportError as exc:
         logger.warning("v2 ws wiring failed; /ws/v2/events will 404: %s", exc)
         return
@@ -450,10 +468,10 @@ def _register_v2_routers(app: FastAPI) -> None:
 
 
 def build_app(
-    token: Optional[str] = None,
+    token: str | None = None,
     *,
-    credential_store: Optional[object] = None,
-    agent_runtime: Optional[object] = None,
+    credential_store: object | None = None,
+    agent_runtime: object | None = None,
 ) -> FastAPI:
     """Construct the FastAPI app.
 
@@ -498,8 +516,6 @@ def build_app(
     # cheap (no filesystem IO) -- the .evalyn/data/jobs.sqlite file is only
     # created on the first persisted write, so tests that build_app() in a
     # fresh tmp_path don't get a stray .evalyn/ directory.
-    from .jobs_persistence import JobPersistence
-
     # max_concurrent is overridable via env so operators can tune for
     # their hardware: drop to 4 on a small VM (avoid OOM under many
     # parallel evals), bump to 32 on a beefy box, drop to 2 for
@@ -510,6 +526,7 @@ def build_app(
     # JobManager constructor would otherwise interpret as
     # "unlimited concurrency" and let a runaway client melt the box.
     from .jobs import DEFAULT_MAX_CONCURRENT
+    from .jobs_persistence import JobPersistence
 
     max_concurrent = int(
         _resolve_positive_float_env(
@@ -678,7 +695,7 @@ def build_app(
 
 
 def _schedule_browser_open(
-    server: "uvicorn.Server",  # type: ignore[name-defined]
+    server: uvicorn.Server,  # type: ignore[name-defined]
     url: str,
     *,
     open_delay: float = 0.6,

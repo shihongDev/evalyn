@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict
+from typing import Any
 
 
 @dataclass
@@ -23,7 +23,7 @@ class ConfidenceResult:
 
     score: float
     method: str
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         # Clamp score to [0, 1]
@@ -78,8 +78,8 @@ def get_confidence_estimator(method: str, **kwargs) -> ConfidenceEstimator:
     Raises:
         ValueError: If method is unknown
     """
-    from .logprobs import LogprobsConfidence, PerplexityConfidence, DeepConfConfidence
     from .consistency import SelfConsistencyConfidence
+    from .logprobs import DeepConfConfidence, LogprobsConfidence, PerplexityConfidence
     from .verbalized import VerbalizedConfidence
 
     methods = {

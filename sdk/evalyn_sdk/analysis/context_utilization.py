@@ -6,7 +6,7 @@ Warn when spans approach context limits for their respective models.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..models import Span
 
@@ -33,7 +33,7 @@ class ContextAlert:
     utilization_pct: float
     severity: str  # "warning" or "critical"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "span_id": self.span_id,
             "model": self.model,
@@ -48,13 +48,13 @@ class ContextAlert:
 class ContextReport:
     """Aggregated context utilization report across spans."""
 
-    alerts: List[ContextAlert] = field(default_factory=list)
+    alerts: list[ContextAlert] = field(default_factory=list)
     max_utilization_pct: float = 0.0
     mean_utilization_pct: float = 0.0
-    models_at_risk: List[str] = field(default_factory=list)
+    models_at_risk: list[str] = field(default_factory=list)
     recommendation: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "alerts": [a.as_dict() for a in self.alerts],
             "max_utilization_pct": round(self.max_utilization_pct, 2),
@@ -64,7 +64,7 @@ class ContextReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ContextReport:
+    def from_dict(cls, data: dict[str, Any]) -> ContextReport:
         alerts = []
         for a in data.get("alerts", []):
             alerts.append(
@@ -116,7 +116,7 @@ def get_context_limit(model: str) -> int:
 
 def check_context_utilization(
     span: Span, threshold_pct: float = 80.0
-) -> Optional[ContextAlert]:
+) -> ContextAlert | None:
     """Check if a span's token usage approaches its model's context limit.
 
     Args:
@@ -149,7 +149,7 @@ def check_context_utilization(
 
 
 def analyze_context_utilization(
-    spans: List[Span], threshold_pct: float = 80.0
+    spans: list[Span], threshold_pct: float = 80.0
 ) -> ContextReport:
     """Analyze context utilization across all spans.
 
@@ -163,8 +163,8 @@ def analyze_context_utilization(
     Returns:
         ContextReport with alerts and summary statistics.
     """
-    alerts: List[ContextAlert] = []
-    utilizations: List[float] = []
+    alerts: list[ContextAlert] = []
+    utilizations: list[float] = []
 
     for span in spans:
         model = span.attributes.get("model", "")

@@ -40,14 +40,17 @@ ESSENTIAL = {"metric_id", "annotations", "dataset"}
 import argparse
 import json
 from pathlib import Path
-from typing import List, Optional
 
-from ..utils.command_common import load_eval_run_for_command, try_resolve_dataset_dir_and_file
-from ..utils.config import load_config, resolve_dataset_path, get_config_default
+from ..utils.command_common import (
+    load_eval_run_for_command,
+    try_resolve_dataset_dir_and_file,
+)
+from ..utils.config import get_config_default, load_config, resolve_dataset_path
 from ..utils.errors import fatal_error
 from ..utils.formatters import print_token_usage_summary
 from ..utils.hints import HintCollector
-from ..utils.rich import banner, table as rich_table, footer, icon, status_icon
+from ..utils.rich import banner, footer
+from ..utils.rich import table as rich_table
 from ..utils.ui import Spinner
 
 # Real defaults for calibration arguments.
@@ -207,9 +210,9 @@ def _get_calibration_metric_results(run, metric_id: str):
     return metric_results
 
 
-def _extract_calibration_metric_prompt_context(run, metric_id: str) -> tuple[List[str], str]:
+def _extract_calibration_metric_prompt_context(run, metric_id: str) -> tuple[list[str], str]:
     """Extract rubric and prompt preamble from metric config in the run."""
-    current_rubric: List[str] = []
+    current_rubric: list[str] = []
     current_preamble = ""
     for metric_spec in run.metrics:
         if metric_spec.id != metric_id:
@@ -227,13 +230,13 @@ def _extract_calibration_metric_prompt_context(run, metric_id: str) -> tuple[Lis
 
 def _load_optional_calibration_dataset_context(
     args: argparse.Namespace, config: dict
-) -> tuple[Optional[Path], Optional[List[DatasetItem]]]:
+) -> tuple[Path | None, list[DatasetItem] | None]:
     """Resolve optional dataset context for calibration examples/validation."""
     from ...datasets import load_dataset
     from ...models import DatasetItem
 
-    dataset_items: Optional[List[DatasetItem]] = None
-    dataset_dir: Optional[Path] = None
+    dataset_items: list[DatasetItem] | None = None
+    dataset_dir: Path | None = None
 
     dataset_arg = getattr(args, "dataset", None)
     use_latest = getattr(args, "latest", False)
@@ -253,11 +256,11 @@ def _load_optional_calibration_dataset_context(
 def _build_calibration_optimizer_configs(args: argparse.Namespace) -> dict:
     """Build optimizer-specific config objects from CLI args."""
     from ...calibration import (
-        GEPAConfig,
         GEPA_AVAILABLE,
+        APEConfig,
+        GEPAConfig,
         GEPANativeConfig,
         OPROConfig,
-        APEConfig,
     )
 
     gepa_config = None
@@ -348,7 +351,7 @@ def _build_calibration_optimizer_configs(args: argparse.Namespace) -> dict:
 def _build_calibration_engine(
     args: argparse.Namespace,
     *,
-    current_rubric: List[str],
+    current_rubric: list[str],
     current_preamble: str,
     optimizer_configs: dict,
 ) -> CalibrationEngine:
@@ -376,7 +379,7 @@ def _run_calibration_with_spinner(
     engine: CalibrationEngine,
     metric_results,
     anns,
-    dataset_items: Optional[List[DatasetItem]],
+    dataset_items: list[DatasetItem] | None,
 ):
     """Run calibration, using a spinner for long-running optimizers."""
     if args.optimizer != "basic" and not args.no_optimize:
@@ -458,10 +461,10 @@ def _print_calibration_threshold_section(record) -> None:
     print(f"Suggested: {record.adjustments.get('suggested_threshold', 0.5):.3f}")
 
 
-def _wrap_calibration_text(text: str, width: int = 70) -> List[str]:
+def _wrap_calibration_text(text: str, width: int = 70) -> list[str]:
     """Simple word-wrap helper for calibration report text."""
     words = text.split()
-    lines: List[str] = []
+    lines: list[str] = []
     current_line = ""
     for word in words:
         if len(current_line) + len(word) + 1 <= width:
@@ -602,7 +605,7 @@ def _print_calibration_report(args: argparse.Namespace, run, record) -> None:
 def _save_calibration_outputs(
     args: argparse.Namespace,
     record,
-    dataset_dir: Optional[Path],
+    dataset_dir: Path | None,
 ) -> None:
     """Save calibration record to dataset artifacts and/or explicit output path."""
     from ...calibration import save_calibration
@@ -631,7 +634,7 @@ def _save_calibration_outputs(
 def _print_calibration_postamble(
     args: argparse.Namespace,
     record,
-    dataset_dir: Optional[Path],
+    dataset_dir: Path | None,
 ) -> None:
     """Print final token usage, footer, and next-step hint."""
     print_token_usage_summary(
@@ -660,10 +663,10 @@ def calibrate_metric(
     dataset_dir: str,
     *,
     optimizer: str = "basic",
-    model: Optional[str] = None,
+    model: str | None = None,
     threshold: float = 0.5,
     no_optimize: bool = False,
-    run_id: Optional[str] = None,
+    run_id: str | None = None,
     verbose: bool = False,
 ) -> None:
     """Run calibration for a single metric - callable without argparse.

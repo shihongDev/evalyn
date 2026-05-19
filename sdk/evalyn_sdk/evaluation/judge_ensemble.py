@@ -6,8 +6,8 @@ cost-aware strategies. Flag items for human review when judges disagree.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -19,7 +19,7 @@ class JudgeVote:
     passed: bool
     weight: float = 1.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "judge_id": self.judge_id,
             "score": self.score,
@@ -33,14 +33,14 @@ class EnsembleResult:
     """Result of combining multiple judge votes for one item."""
 
     item_id: str
-    votes: List[JudgeVote]
+    votes: list[JudgeVote]
     final_score: float
     final_passed: bool
     agreement_rate: float
     method: str
     flagged_for_review: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "votes": [v.as_dict() for v in self.votes],
@@ -52,7 +52,7 @@ class EnsembleResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EnsembleResult:
+    def from_dict(cls, data: dict[str, Any]) -> EnsembleResult:
         votes = [
             JudgeVote(
                 judge_id=v["judge_id"],
@@ -81,7 +81,7 @@ class EnsembleConfig:
     disagreement_threshold: float = 0.3
     min_judges: int = 3
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "method": self.method,
             "disagreement_threshold": self.disagreement_threshold,
@@ -89,7 +89,7 @@ class EnsembleConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EnsembleConfig:
+    def from_dict(cls, data: dict[str, Any]) -> EnsembleConfig:
         return cls(
             method=data.get("method", "majority_vote"),
             disagreement_threshold=data.get("disagreement_threshold", 0.3),
@@ -101,12 +101,12 @@ class EnsembleConfig:
 class EnsembleReport:
     """Aggregated ensemble evaluation report."""
 
-    results: List[EnsembleResult]
+    results: list[EnsembleResult]
     total_items: int
     flagged_count: int
     avg_agreement: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "total_items": self.total_items,
@@ -115,7 +115,7 @@ class EnsembleReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EnsembleReport:
+    def from_dict(cls, data: dict[str, Any]) -> EnsembleReport:
         results = [EnsembleResult.from_dict(r) for r in data["results"]]
         return cls(
             results=results,
@@ -125,7 +125,7 @@ class EnsembleReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Ensemble Evaluation Report")
         lines.append("=" * 40)
         lines.append(f"  Total items: {self.total_items}")
@@ -142,7 +142,7 @@ class EnsembleReport:
         return "\n".join(lines)
 
 
-def majority_vote(votes: List[JudgeVote]) -> Tuple[bool, float]:
+def majority_vote(votes: list[JudgeVote]) -> tuple[bool, float]:
     """Determine pass/fail by majority and compute agreement rate.
 
     Returns (passed, agreement_rate).
@@ -159,7 +159,7 @@ def majority_vote(votes: List[JudgeVote]) -> Tuple[bool, float]:
     return passed, agreement
 
 
-def weighted_average(votes: List[JudgeVote]) -> float:
+def weighted_average(votes: list[JudgeVote]) -> float:
     """Compute weighted average of scores.
 
     Each vote's contribution is scaled by its weight.
@@ -176,7 +176,7 @@ def weighted_average(votes: List[JudgeVote]) -> float:
 
 def evaluate_ensemble(
     item_id: str,
-    votes: List[JudgeVote],
+    votes: list[JudgeVote],
     config: EnsembleConfig,
 ) -> EnsembleResult:
     """Apply the configured ensemble method to a set of votes.
@@ -225,7 +225,7 @@ def evaluate_ensemble(
     )
 
 
-def build_ensemble_report(results: List[EnsembleResult]) -> EnsembleReport:
+def build_ensemble_report(results: list[EnsembleResult]) -> EnsembleReport:
     """Aggregate ensemble results into a report."""
     total = len(results)
     flagged = sum(1 for r in results if r.flagged_for_review)

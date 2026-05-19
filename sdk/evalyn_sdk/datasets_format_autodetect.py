@@ -5,7 +5,7 @@ import io
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -16,7 +16,7 @@ class FormatDetection:
     confidence: float = 0.0  # 0-1
     evidence: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "format": self.format,
             "confidence": self.confidence,
@@ -28,12 +28,12 @@ class FormatDetection:
 class AutoloadResult:
     """Result of autoloading a dataset file."""
 
-    items: List[Dict[str, Any]] = field(default_factory=list)
+    items: list[dict[str, Any]] = field(default_factory=list)
     format_detected: str = ""
     total_loaded: int = 0
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "items": list(self.items),
             "format_detected": self.format_detected,
@@ -42,7 +42,7 @@ class AutoloadResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AutoloadResult:
+    def from_dict(cls, data: dict[str, Any]) -> AutoloadResult:
         return cls(
             items=data.get("items", []),
             format_detected=data.get("format_detected", ""),
@@ -68,7 +68,7 @@ class AutoloadResult:
 # Extension mapping
 # ---------------------------------------------------------------------------
 
-_EXTENSION_MAP: Dict[str, str] = {
+_EXTENSION_MAP: dict[str, str] = {
     ".json": "json",
     ".jsonl": "jsonl",
     ".ndjson": "jsonl",
@@ -146,7 +146,7 @@ def detect_format_from_content(content: str) -> FormatDetection:
     return FormatDetection(format="unknown", confidence=0.0, evidence="no format detected")
 
 
-def detect_format(file_path: str, content: Optional[str] = None) -> FormatDetection:
+def detect_format(file_path: str, content: str | None = None) -> FormatDetection:
     """Combine extension and content detection.
 
     Extension detection is preferred when available.
@@ -159,10 +159,10 @@ def detect_format(file_path: str, content: Optional[str] = None) -> FormatDetect
     else:
         # Try reading the file
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 raw = f.read(4096)
             content_result = detect_format_from_content(raw)
-        except (OSError, IOError):
+        except OSError:
             content_result = FormatDetection()
 
     # If extension gives a known format, prefer it
@@ -180,7 +180,7 @@ def detect_format(file_path: str, content: Optional[str] = None) -> FormatDetect
     return content_result
 
 
-def _load_json(content: str) -> List[Dict[str, Any]]:
+def _load_json(content: str) -> list[dict[str, Any]]:
     """Load JSON content. Handles both array and single object."""
     parsed = json.loads(content)
     if isinstance(parsed, list):
@@ -190,9 +190,9 @@ def _load_json(content: str) -> List[Dict[str, Any]]:
     return []
 
 
-def _load_jsonl(content: str) -> List[Dict[str, Any]]:
+def _load_jsonl(content: str) -> list[dict[str, Any]]:
     """Load JSONL content (one JSON object per line)."""
-    items: List[Dict[str, Any]] = []
+    items: list[dict[str, Any]] = []
     for line in content.strip().split("\n"):
         line = line.strip()
         if not line:
@@ -203,7 +203,7 @@ def _load_jsonl(content: str) -> List[Dict[str, Any]]:
     return items
 
 
-def _load_csv(content: str) -> List[Dict[str, Any]]:
+def _load_csv(content: str) -> list[dict[str, Any]]:
     """Load CSV content with header row."""
     reader = csv.DictReader(io.StringIO(content))
     return [dict(row) for row in reader]
@@ -214,12 +214,12 @@ def autoload(file_path: str) -> AutoloadResult:
 
     Tries JSON, JSONL, CSV in order based on detected format.
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             content = f.read()
-    except (OSError, IOError) as exc:
+    except OSError as exc:
         return AutoloadResult(errors=[f"cannot read file: {exc}"])
 
     if not content.strip():
@@ -264,7 +264,7 @@ def autoload_from_string(content: str, hint: str = "") -> AutoloadResult:
         content: Raw string content.
         hint: Format hint (e.g. "json", "csv"). If empty, auto-detects.
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     if not content.strip():
         return AutoloadResult(format_detected="unknown", errors=["empty content"])
@@ -303,6 +303,6 @@ def autoload_from_string(content: str, hint: str = "") -> AutoloadResult:
     )
 
 
-def supported_formats() -> List[str]:
+def supported_formats() -> list[str]:
     """List of supported dataset formats."""
     return ["json", "jsonl", "csv", "tsv", "yaml"]

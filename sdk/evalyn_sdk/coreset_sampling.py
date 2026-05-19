@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -18,9 +18,9 @@ class CoresetConfig:
 
     target_size: int = 50
     max_error: float = 0.1
-    seed: Optional[int] = None
+    seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "target_size": self.target_size,
             "max_error": self.max_error,
@@ -28,7 +28,7 @@ class CoresetConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CoresetConfig:
+    def from_dict(cls, data: dict[str, Any]) -> CoresetConfig:
         return cls(
             target_size=data.get("target_size", 50),
             max_error=data.get("max_error", 0.1),
@@ -44,7 +44,7 @@ class CoresetItem:
     weight: float
     representative_of: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "weight": self.weight,
@@ -52,7 +52,7 @@ class CoresetItem:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CoresetItem:
+    def from_dict(cls, data: dict[str, Any]) -> CoresetItem:
         return cls(
             item_id=data["item_id"],
             weight=data["weight"],
@@ -64,12 +64,12 @@ class CoresetItem:
 class CoresetResult:
     """Result of a coreset sampling run."""
 
-    selected: List[CoresetItem] = field(default_factory=list)
+    selected: list[CoresetItem] = field(default_factory=list)
     total_pool: int = 0
     compression_ratio: float = 0.0
     max_approximation_error: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected": [s.as_dict() for s in self.selected],
             "total_pool": self.total_pool,
@@ -78,7 +78,7 @@ class CoresetResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CoresetResult:
+    def from_dict(cls, data: dict[str, Any]) -> CoresetResult:
         return cls(
             selected=[CoresetItem.from_dict(s) for s in data.get("selected", [])],
             total_pool=data.get("total_pool", 0),
@@ -140,12 +140,12 @@ def greedy_coreset(
     actual_target = min(target_size, n)
 
     # Pre-compute features
-    features: Dict[str, set[str]] = {
+    features: dict[str, set[str]] = {
         item_id: compute_item_features(text) for item_id, text in items.items()
     }
 
     # Pre-compute pairwise distances (symmetric, so store upper triangle)
-    dist_cache: Dict[tuple[str, str], float] = {}
+    dist_cache: dict[tuple[str, str], float] = {}
 
     def get_dist(a: str, b: str) -> float:
         if a == b:
@@ -164,10 +164,10 @@ def greedy_coreset(
             best_total_dist = total
             best_id = cid
 
-    coreset_ids: List[str] = [best_id]
+    coreset_ids: list[str] = [best_id]
 
     # min_dist_to_coreset[id] = distance to nearest coreset member
-    min_dist: Dict[str, float] = {}
+    min_dist: dict[str, float] = {}
     for item_id in ids:
         if item_id == best_id:
             continue
@@ -196,8 +196,7 @@ def greedy_coreset(
                 min_dist[item_id] = d
 
     # Step 3: assign each item to nearest coreset member, compute weights
-    coreset_set = set(coreset_ids)
-    representation: Dict[str, int] = {cid: 0 for cid in coreset_ids}
+    representation: dict[str, int] = {cid: 0 for cid in coreset_ids}
     for item_id in ids:
         nearest = coreset_ids[0]
         nearest_dist = get_dist(item_id, coreset_ids[0])
@@ -209,7 +208,7 @@ def greedy_coreset(
         representation[nearest] += 1
 
     total_pool = n
-    selected: List[CoresetItem] = []
+    selected: list[CoresetItem] = []
     for cid in coreset_ids:
         rep = representation[cid]
         weight = rep / total_pool if total_pool > 0 else 0.0
@@ -236,13 +235,13 @@ def compute_approximation_error(
     if not coreset_ids or not all_items:
         return 0.0
 
-    features: Dict[str, set[str]] = {
+    features: dict[str, set[str]] = {
         item_id: compute_item_features(text) for item_id, text in all_items.items()
     }
     coreset_features = {cid: features[cid] for cid in coreset_ids if cid in features}
 
     max_error = 0.0
-    for item_id, feat in features.items():
+    for _item_id, feat in features.items():
         min_d = min(
             _jaccard_distance(feat, cf) for cf in coreset_features.values()
         )

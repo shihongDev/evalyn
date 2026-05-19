@@ -7,10 +7,9 @@ evaluation unit granularity (outcome, per_call, per_turn, per_tool, per_node).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 from ..models import Span
-
 
 UNIT_TYPES = ["outcome", "per_call", "per_turn", "per_tool", "per_node"]
 
@@ -27,7 +26,7 @@ class TracePattern:
     tool_call_count: int
     max_depth: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "has_multi_turn": self.has_multi_turn,
             "has_tool_calls": self.has_tool_calls,
@@ -48,7 +47,7 @@ class DetectionResult:
     pattern: TracePattern
     reasoning: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "recommended_unit_type": self.recommended_unit_type,
             "confidence": self.confidence,
@@ -57,7 +56,7 @@ class DetectionResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DetectionResult:
+    def from_dict(cls, data: dict[str, Any]) -> DetectionResult:
         return cls(
             recommended_unit_type=data["recommended_unit_type"],
             confidence=data["confidence"],
@@ -66,7 +65,7 @@ class DetectionResult:
         )
 
 
-def _compute_depth(span: Span, parent_map: Dict[str, str]) -> int:
+def _compute_depth(span: Span, parent_map: dict[str, str]) -> int:
     """Compute the depth of a span in the hierarchy."""
     depth = 0
     current = span.parent_id
@@ -78,7 +77,7 @@ def _compute_depth(span: Span, parent_map: Dict[str, str]) -> int:
     return depth
 
 
-def analyze_trace_pattern(spans: List[Span]) -> TracePattern:
+def analyze_trace_pattern(spans: list[Span]) -> TracePattern:
     """Analyze span types and structure to extract a TracePattern.
 
     has_multi_turn: multiple llm_call spans at the same depth.
@@ -98,7 +97,7 @@ def analyze_trace_pattern(spans: List[Span]) -> TracePattern:
         )
 
     # Build parent_id -> parent_id mapping for depth computation
-    parent_map: Dict[str, str] = {}
+    parent_map: dict[str, str] = {}
     for s in spans:
         if s.parent_id is not None:
             parent_map[s.id] = s.parent_id
@@ -109,7 +108,7 @@ def analyze_trace_pattern(spans: List[Span]) -> TracePattern:
     has_retrieval = False
     has_graph_nodes = False
 
-    llm_depths: List[int] = []
+    llm_depths: list[int] = []
     max_depth = 0
 
     for s in spans:
@@ -146,7 +145,7 @@ def analyze_trace_pattern(spans: List[Span]) -> TracePattern:
     )
 
 
-def detect_unit_type(spans: List[Span]) -> DetectionResult:
+def detect_unit_type(spans: list[Span]) -> DetectionResult:
     """Detect the recommended evaluation unit type based on trace structure.
 
     Priority:
@@ -198,12 +197,12 @@ def detect_unit_type(spans: List[Span]) -> DetectionResult:
     )
 
 
-def detect_unit_types_batch(traces: List[List[Span]]) -> Dict[str, int]:
+def detect_unit_types_batch(traces: list[list[Span]]) -> dict[str, int]:
     """Count how many traces recommend each unit type.
 
     Returns a dict mapping unit type names to counts.
     """
-    counts: Dict[str, int] = {ut: 0 for ut in UNIT_TYPES}
+    counts: dict[str, int] = {ut: 0 for ut in UNIT_TYPES}
     for spans in traces:
         result = detect_unit_type(spans)
         counts[result.recommended_unit_type] = counts.get(result.recommended_unit_type, 0) + 1

@@ -7,7 +7,7 @@ Merge human and AI scores using configurable strategies.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -19,11 +19,11 @@ class HybridItem:
     ai_score: float
     ai_confidence: float
     needs_human: bool = False
-    human_score: Optional[float] = None
+    human_score: float | None = None
     final_score: float = 0.0
     source: str = "ai"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "metric_id": self.metric_id,
@@ -36,7 +36,7 @@ class HybridItem:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> HybridItem:
+    def from_dict(cls, data: dict[str, Any]) -> HybridItem:
         return cls(
             item_id=data["item_id"],
             metric_id=data["metric_id"],
@@ -57,7 +57,7 @@ class HybridConfig:
     merge_strategy: str = "human_override"
     human_weight: float = 0.7
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "confidence_threshold": self.confidence_threshold,
             "merge_strategy": self.merge_strategy,
@@ -65,7 +65,7 @@ class HybridConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> HybridConfig:
+    def from_dict(cls, data: dict[str, Any]) -> HybridConfig:
         return cls(
             confidence_threshold=data.get("confidence_threshold", 0.5),
             merge_strategy=data.get("merge_strategy", "human_override"),
@@ -77,13 +77,13 @@ class HybridConfig:
 class HybridReport:
     """Aggregate report of hybrid scoring results."""
 
-    items: List[HybridItem] = field(default_factory=list)
+    items: list[HybridItem] = field(default_factory=list)
     ai_only_count: int = 0
     human_reviewed_count: int = 0
     merged_count: int = 0
     total_items: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "items": [item.as_dict() for item in self.items],
             "ai_only_count": self.ai_only_count,
@@ -93,7 +93,7 @@ class HybridReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> HybridReport:
+    def from_dict(cls, data: dict[str, Any]) -> HybridReport:
         return cls(
             items=[HybridItem.from_dict(i) for i in data.get("items", [])],
             ai_only_count=data.get("ai_only_count", 0),
@@ -125,10 +125,10 @@ class HybridReport:
 
 
 def identify_for_human_review(
-    items: List[HybridItem], config: HybridConfig
-) -> List[HybridItem]:
+    items: list[HybridItem], config: HybridConfig
+) -> list[HybridItem]:
     """Mark items needing human review when AI confidence is below threshold."""
-    result: List[HybridItem] = []
+    result: list[HybridItem] = []
     for item in items:
         needs = item.ai_confidence < config.confidence_threshold
         result.append(
@@ -182,14 +182,14 @@ def merge_human_score(
 
 
 def compute_final_scores(
-    items: List[HybridItem], config: HybridConfig
-) -> List[HybridItem]:
+    items: list[HybridItem], config: HybridConfig
+) -> list[HybridItem]:
     """Finalize scores for all items.
 
     Items with a human score are merged using the config strategy.
     Items without a human score keep their AI score.
     """
-    result: List[HybridItem] = []
+    result: list[HybridItem] = []
     for item in items:
         if item.human_score is not None:
             result.append(merge_human_score(item, item.human_score, config))
@@ -209,7 +209,7 @@ def compute_final_scores(
     return result
 
 
-def build_hybrid_report(items: List[HybridItem]) -> HybridReport:
+def build_hybrid_report(items: list[HybridItem]) -> HybridReport:
     """Build an aggregate report from scored items."""
     ai_only = sum(1 for i in items if i.source == "ai")
     human_reviewed = sum(1 for i in items if i.source == "human")
@@ -224,8 +224,8 @@ def build_hybrid_report(items: List[HybridItem]) -> HybridReport:
 
 
 def estimate_human_workload(
-    items: List[HybridItem], avg_seconds_per_item: float = 30.0
-) -> Dict[str, Any]:
+    items: list[HybridItem], avg_seconds_per_item: float = 30.0
+) -> dict[str, Any]:
     """Estimate human review workload for items flagged as needing review."""
     needing = [i for i in items if i.needs_human]
     count = len(needing)

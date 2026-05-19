@@ -11,7 +11,7 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from ..defaults import DEFAULT_EVAL_MODEL
 
@@ -41,7 +41,7 @@ _MAX_TOTAL_TIMEOUT = 30.0  # seconds - give up after this total elapsed time
 # Per-host session cache for HTTP keep-alive connection reuse.
 # Key: (scheme, host) tuple. Value: urllib3.HTTPSConnectionPool or fallback flag.
 _pool_cache: dict[tuple[str, str], Any] = {}
-_use_urllib3: Optional[bool] = None
+_use_urllib3: bool | None = None
 
 
 def _get_pool(url: str, timeout: int) -> Any:
@@ -173,7 +173,7 @@ class GeminiClient:
         self,
         model: str = DEFAULT_EVAL_MODEL,
         temperature: float = 0.0,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         timeout: int = 60,
     ):
         """Initialize Gemini API client.
@@ -187,7 +187,7 @@ class GeminiClient:
         self.model = model
         self.temperature = temperature
         self._api_key = api_key
-        self._resolved_key: Optional[str] = None
+        self._resolved_key: str | None = None
         self.timeout = timeout
 
     def _get_api_key(self) -> str:
@@ -218,7 +218,7 @@ class GeminiClient:
         self._resolved_key = key
         return key
 
-    def generate(self, prompt: str, temperature: Optional[float] = None) -> str:
+    def generate(self, prompt: str, temperature: float | None = None) -> str:
         """Call Gemini API and return text response.
 
         Args:
@@ -235,8 +235,8 @@ class GeminiClient:
         return result.text
 
     def generate_with_usage(
-        self, prompt: str, temperature: Optional[float] = None,
-        system_instruction: Optional[str] = None,
+        self, prompt: str, temperature: float | None = None,
+        system_instruction: str | None = None,
     ) -> GenerateResult:
         """Call Gemini API and return text with token usage.
 
@@ -296,7 +296,7 @@ _gemini_client_cache: dict[tuple[str, float], GeminiClient] = {}
 def call_gemini_api(
     prompt: str,
     model: str = DEFAULT_EVAL_MODEL,
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
     temperature: float = 0.0,
 ) -> str:
     """Convenience function to call Gemini API.
@@ -338,13 +338,13 @@ class OpenAIClient:
         self,
         model: str = "gpt-4o-mini",
         temperature: float = 0.0,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         timeout: int = 60,
     ):
         self.model = model
         self.temperature = temperature
         self._api_key = api_key
-        self._resolved_key: Optional[str] = None
+        self._resolved_key: str | None = None
         self.timeout = timeout
 
     def _get_api_key(self) -> str:
@@ -376,8 +376,8 @@ class OpenAIClient:
         return key
 
     def _call_api(
-        self, prompt: str, temperature: Optional[float], with_logprobs: bool = False,
-        system_instruction: Optional[str] = None,
+        self, prompt: str, temperature: float | None, with_logprobs: bool = False,
+        system_instruction: str | None = None,
     ) -> dict[str, Any]:
         """Make API call and return raw response data."""
         messages: list[dict[str, str]] = []
@@ -399,14 +399,14 @@ class OpenAIClient:
         }
         return _http_post(self.API_URL, payload, headers, self.timeout, "OpenAI API")
 
-    def generate(self, prompt: str, temperature: Optional[float] = None) -> str:
+    def generate(self, prompt: str, temperature: float | None = None) -> str:
         """Call OpenAI API and return text response."""
         result = self.generate_with_usage(prompt, temperature)
         return result.text
 
     def generate_with_usage(
-        self, prompt: str, temperature: Optional[float] = None,
-        system_instruction: Optional[str] = None,
+        self, prompt: str, temperature: float | None = None,
+        system_instruction: str | None = None,
     ) -> GenerateResult:
         """Call OpenAI API and return text with token usage.
 
@@ -438,7 +438,7 @@ class OpenAIClient:
         )
 
     def generate_with_confidence(
-        self, prompt: str, temperature: Optional[float] = None
+        self, prompt: str, temperature: float | None = None
     ) -> tuple[str, float]:
         """Call OpenAI API with logprobs and return (text, confidence).
 
@@ -466,7 +466,7 @@ class OpenAIClient:
         return text, confidence
 
     def generate_with_logprobs(
-        self, prompt: str, temperature: Optional[float] = None
+        self, prompt: str, temperature: float | None = None
     ) -> tuple[str, list[float]]:
         """Call OpenAI API and return (text, raw_logprobs).
 
@@ -516,9 +516,9 @@ class OllamaClient:
     def _call_api(
         self,
         prompt: str,
-        temperature: Optional[float],
-        extra_options: Optional[dict] = None,
-        system_instruction: Optional[str] = None,
+        temperature: float | None,
+        extra_options: dict | None = None,
+        system_instruction: str | None = None,
     ) -> dict[str, Any]:
         """Make API call and return raw response data."""
         options = {
@@ -539,14 +539,14 @@ class OllamaClient:
         url = f"{self.base_url}/api/generate"
         return _http_post(url, payload, headers, self.timeout, "Ollama API")
 
-    def generate(self, prompt: str, temperature: Optional[float] = None) -> str:
+    def generate(self, prompt: str, temperature: float | None = None) -> str:
         """Call Ollama API and return text response."""
         result = self.generate_with_usage(prompt, temperature)
         return result.text
 
     def generate_with_usage(
-        self, prompt: str, temperature: Optional[float] = None,
-        system_instruction: Optional[str] = None,
+        self, prompt: str, temperature: float | None = None,
+        system_instruction: str | None = None,
     ) -> GenerateResult:
         """Call Ollama API and return text with token usage.
 
@@ -574,7 +574,7 @@ class OllamaClient:
         )
 
     def generate_with_confidence(
-        self, prompt: str, temperature: Optional[float] = None
+        self, prompt: str, temperature: float | None = None
     ) -> tuple[str, float]:
         """Call Ollama API with logprobs and return (text, confidence).
 
@@ -599,7 +599,7 @@ class OllamaClient:
         return text, confidence
 
     def generate_with_logprobs(
-        self, prompt: str, temperature: Optional[float] = None
+        self, prompt: str, temperature: float | None = None
     ) -> tuple[str, list[float]]:
         """Call Ollama API and return (text, raw_logprobs).
 
@@ -619,7 +619,7 @@ def create_llm_client(
     provider: str,
     model: str,
     temperature: float = 0.0,
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
     timeout: int = 120,
 ):
     """Factory for creating LLM clients by provider name.

@@ -7,19 +7,19 @@ metrics to LLM API providers. Reports cost savings from split routing.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 
 @dataclass
 class RoutingPlan:
     """Plan for splitting metrics between local and API evaluation."""
 
-    local_metrics: List = field(default_factory=list)   # objective - run locally
-    api_metrics: List = field(default_factory=list)      # subjective - send to API
+    local_metrics: list = field(default_factory=list)   # objective - run locally
+    api_metrics: list = field(default_factory=list)      # subjective - send to API
     local_count: int = 0
     api_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "local_metrics": [m.spec.id for m in self.local_metrics],
             "api_metrics": [m.spec.id for m in self.api_metrics],
@@ -30,7 +30,7 @@ class RoutingPlan:
 
     def format_text(self) -> str:
         lines = [
-            f"Split-Model Routing Plan:",
+            "Split-Model Routing Plan:",
             f"  Local (objective):    {self.local_count} metrics (free)",
             f"  API (subjective):     {self.api_count} metrics (LLM cost)",
         ]
@@ -45,21 +45,21 @@ class RoutingPlan:
 class RoutingResult:
     """Result of split-model evaluation."""
 
-    local_results: List = field(default_factory=list)
-    api_results: List = field(default_factory=list)
+    local_results: list = field(default_factory=list)
+    api_results: list = field(default_factory=list)
     local_time_ms: float = 0.0
     api_time_ms: float = 0.0
     api_cost_usd: float = 0.0
 
     @property
-    def all_results(self) -> List:
+    def all_results(self) -> list:
         return self.local_results + self.api_results
 
     @property
     def total_results(self) -> int:
         return len(self.local_results) + len(self.api_results)
 
-    def savings_report(self, full_api_cost_estimate: float = 0.0) -> Dict[str, Any]:
+    def savings_report(self, full_api_cost_estimate: float = 0.0) -> dict[str, Any]:
         """Report cost savings from split routing vs all-API evaluation.
 
         Args:
@@ -85,7 +85,7 @@ class RoutingResult:
         }
 
 
-def plan_split_routing(metrics: List) -> RoutingPlan:
+def plan_split_routing(metrics: list) -> RoutingPlan:
     """Create a routing plan that splits metrics by type.
 
     Objective metrics run locally (no API calls).
@@ -118,7 +118,7 @@ def estimate_routing_savings(
     plan: RoutingPlan,
     item_count: int,
     cost_per_subjective_eval: float = 0.001,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Estimate cost savings from split routing.
 
     Args:

@@ -10,12 +10,16 @@ import logging
 import random
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 from .models import AlignmentMetrics, PromptOptimizationResult, TokenAccumulator
-from .utils import build_dataset_from_annotations, build_full_prompt, parse_judge_response
+from .utils import (
+    build_dataset_from_annotations,
+    build_full_prompt,
+    parse_judge_response,
+)
 
 
 class BaseOptimizer(ABC):
@@ -39,7 +43,7 @@ class BaseOptimizer(ABC):
         return self._base_scorer_client
 
     def _generate_with_retry(self, client, prompt: str, max_retries: int = 2,
-                              accumulator=None) -> Optional["GenerateResult"]:
+                              accumulator=None) -> GenerateResult | None:
         """Call client.generate_with_usage with retry and exponential backoff.
 
         Args:
@@ -92,10 +96,10 @@ class BaseOptimizer(ABC):
     def score_preamble(
         self,
         preamble: str,
-        rubric: List[str],
+        rubric: list[str],
         examples: list,
-        accumulator: Optional[TokenAccumulator] = None,
-        max_samples: Optional[int] = None,
+        accumulator: TokenAccumulator | None = None,
+        max_samples: int | None = None,
     ) -> float:
         """Score a candidate preamble on labeled examples. Returns F1.
 
@@ -137,11 +141,11 @@ class BaseOptimizer(ABC):
     def _collect_failures(
         self,
         preamble: str,
-        rubric: List[str],
-        examples: List[Dict[str, Any]],
+        rubric: list[str],
+        examples: list[dict[str, Any]],
         max_failures: int = 5,
-        accumulator: Optional[TokenAccumulator] = None,
-    ) -> List[Dict[str, Any]]:
+        accumulator: TokenAccumulator | None = None,
+    ) -> list[dict[str, Any]]:
         """Score examples and return ones where prediction != human label.
 
         Args:
@@ -157,7 +161,7 @@ class BaseOptimizer(ABC):
         full_prompt = build_full_prompt(preamble, rubric)
         client = self._get_scorer_client()
 
-        failures: List[Dict[str, Any]] = []
+        failures: list[dict[str, Any]] = []
         for ex in examples:
             eval_input = f"INPUT: {str(ex.get('input', ''))[:500]}\nOUTPUT: {str(ex.get('output', ''))[:500]}"
             result = self._generate_with_retry(
@@ -201,7 +205,7 @@ class BaseOptimizer(ABC):
         self,
         original_preamble: str,
         optimized_preamble: str,
-        rubric: List[str],
+        rubric: list[str],
         reasoning: str,
         estimated_improvement: str,
     ) -> PromptOptimizationResult:
@@ -223,7 +227,7 @@ class BaseOptimizer(ABC):
         self,
         *,
         metric_id: str,
-        current_rubric: List[str],
+        current_rubric: list[str],
         current_preamble: str,
         metric_results: list,
         annotations: list,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..models import Span
 
@@ -12,9 +12,9 @@ class Turn:
     index: int
     role: str  # "user" or "assistant"
     content: str
-    timestamp: Optional[datetime] = None
+    timestamp: datetime | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "index": self.index,
             "role": self.role,
@@ -23,7 +23,7 @@ class Turn:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Turn:
+    def from_dict(cls, data: dict[str, Any]) -> Turn:
         ts = data.get("timestamp")
         if isinstance(ts, str):
             ts = datetime.fromisoformat(ts)
@@ -40,9 +40,9 @@ class TurnScore:
     turn_index: int
     score: float
     passed: bool
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "turn_index": self.turn_index,
             "score": self.score,
@@ -60,7 +60,7 @@ class ConversationMetrics:
     context_consistency: float  # 0-1
     topic_drift_score: float  # 0-1
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "turn_count": self.turn_count,
             "avg_turn_score": self.avg_turn_score,
@@ -71,7 +71,7 @@ class ConversationMetrics:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConversationMetrics:
+    def from_dict(cls, data: dict[str, Any]) -> ConversationMetrics:
         return cls(
             turn_count=data["turn_count"],
             avg_turn_score=data["avg_turn_score"],
@@ -85,11 +85,11 @@ class ConversationMetrics:
 @dataclass
 class MultiTurnReport:
     conversation_id: str
-    turns: List[Turn]
-    turn_scores: List[TurnScore]
+    turns: list[Turn]
+    turn_scores: list[TurnScore]
     metrics: ConversationMetrics
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "conversation_id": self.conversation_id,
             "turns": [t.as_dict() for t in self.turns],
@@ -98,7 +98,7 @@ class MultiTurnReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MultiTurnReport:
+    def from_dict(cls, data: dict[str, Any]) -> MultiTurnReport:
         return cls(
             conversation_id=data["conversation_id"],
             turns=[Turn.from_dict(t) for t in data["turns"]],
@@ -115,7 +115,7 @@ class MultiTurnReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Conversation: {self.conversation_id}")
         lines.append(f"Turns: {self.metrics.turn_count}")
         lines.append(
@@ -137,13 +137,13 @@ def _tokenize(text: str) -> set:
     return set(text.lower().split())
 
 
-def extract_turns(spans: List[Span]) -> List[Turn]:
+def extract_turns(spans: list[Span]) -> list[Turn]:
     """Extract turns from span attributes.
 
     Looks for attributes with "role" and "content" keys, or
     "input"/"output" pairs. Orders by timestamp.
     """
-    turns: List[Turn] = []
+    turns: list[Turn] = []
     idx = 0
 
     # Sort spans by start_time for consistent ordering
@@ -187,13 +187,13 @@ def extract_turns(spans: List[Span]) -> List[Turn]:
     return turns
 
 
-def score_turn_quality(turn: Turn, context: List[Turn]) -> TurnScore:
+def score_turn_quality(turn: Turn, context: list[Turn]) -> TurnScore:
     """Score a single turn using simple heuristics.
 
     - Length-based quality: content must be >= 10 chars to be non-trivial
     - Context reference: check if turn references prior context words
     """
-    checks: Dict[str, bool] = {}
+    checks: dict[str, bool] = {}
 
     # Length check
     is_nontrivial = len(turn.content.strip()) >= 10
@@ -228,7 +228,7 @@ def score_turn_quality(turn: Turn, context: List[Turn]) -> TurnScore:
     )
 
 
-def evaluate_context_consistency(turns: List[Turn]) -> float:
+def evaluate_context_consistency(turns: list[Turn]) -> float:
     """Measure how well later turns reference/build on earlier ones.
 
     Uses word overlap ratio between consecutive assistant turns.
@@ -238,7 +238,7 @@ def evaluate_context_consistency(turns: List[Turn]) -> float:
     if len(assistant_turns) < 2:
         return 1.0  # Single or no assistant turns: fully consistent by default
 
-    overlaps: List[float] = []
+    overlaps: list[float] = []
     for i in range(1, len(assistant_turns)):
         prev_words = _tokenize(assistant_turns[i - 1].content)
         curr_words = _tokenize(assistant_turns[i].content)
@@ -252,7 +252,7 @@ def evaluate_context_consistency(turns: List[Turn]) -> float:
     return sum(overlaps) / len(overlaps)
 
 
-def evaluate_topic_drift(turns: List[Turn]) -> float:
+def evaluate_topic_drift(turns: list[Turn]) -> float:
     """Measure how much the topic shifts over the conversation.
 
     Compares first turn to last turn word overlap.
@@ -277,10 +277,10 @@ def evaluate_topic_drift(turns: List[Turn]) -> float:
 
 
 def evaluate_conversation(
-    conversation_id: str, turns: List[Turn]
+    conversation_id: str, turns: list[Turn]
 ) -> MultiTurnReport:
     """Full multi-turn conversation evaluation."""
-    turn_scores: List[TurnScore] = []
+    turn_scores: list[TurnScore] = []
     for i, turn in enumerate(turns):
         context = turns[:i]
         ts = score_turn_quality(turn, context)

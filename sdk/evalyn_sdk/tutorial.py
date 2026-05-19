@@ -9,7 +9,7 @@ evals, analysis, and comparison.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -23,7 +23,7 @@ class TutorialStep:
     sample_output: str
     next_step: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "step_id": self.step_id,
             "title": self.title,
@@ -34,7 +34,7 @@ class TutorialStep:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TutorialStep:
+    def from_dict(cls, data: dict[str, Any]) -> TutorialStep:
         return cls(
             step_id=data.get("step_id", ""),
             title=data.get("title", ""),
@@ -50,11 +50,11 @@ class Tutorial:
     """A named tutorial composed of ordered steps."""
 
     name: str
-    steps: List[TutorialStep] = field(default_factory=list)
+    steps: list[TutorialStep] = field(default_factory=list)
     current_step_index: int = 0
     completed: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "steps": [s.as_dict() for s in self.steps],
@@ -63,7 +63,7 @@ class Tutorial:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Tutorial:
+    def from_dict(cls, data: dict[str, Any]) -> Tutorial:
         return cls(
             name=data.get("name", ""),
             steps=[TutorialStep.from_dict(s) for s in data.get("steps", [])],
@@ -248,7 +248,7 @@ def go_to_step(tutorial: Tutorial, step_id: str) -> Tutorial:
     return tutorial
 
 
-def get_current_step(tutorial: Tutorial) -> Optional[TutorialStep]:
+def get_current_step(tutorial: Tutorial) -> TutorialStep | None:
     """Return the current step, or None if the tutorial has no steps."""
     if not tutorial.steps:
         return None
@@ -288,7 +288,7 @@ def format_progress(tutorial: Tutorial) -> str:
     return f"Step {current}/{total} - [{bar}]"
 
 
-def list_steps(tutorial: Tutorial) -> List[str]:
+def list_steps(tutorial: Tutorial) -> list[str]:
     """Return a list of 'step_id: title' strings for all steps."""
     return [f"{s.step_id}: {s.title}" for s in tutorial.steps]
 

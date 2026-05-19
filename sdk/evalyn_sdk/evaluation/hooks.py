@@ -12,7 +12,8 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +26,11 @@ class EvalHooks:
     """
 
     def __init__(self):
-        self._on_item_complete: List[Callable] = []
-        self._on_metric_complete: List[Callable] = []
-        self._on_run_complete: List[Callable] = []
-        self._on_run_start: List[Callable] = []
-        self._on_error: List[Callable] = []
+        self._on_item_complete: list[Callable] = []
+        self._on_metric_complete: list[Callable] = []
+        self._on_run_complete: list[Callable] = []
+        self._on_run_start: list[Callable] = []
+        self._on_error: list[Callable] = []
 
     def on_item_complete(self, callback: Callable) -> None:
         """Register callback for when an item finishes all metrics.
@@ -66,7 +67,7 @@ class EvalHooks:
         """
         self._on_error.append(callback)
 
-    def fire_item_complete(self, item_id: str, results: List) -> None:
+    def fire_item_complete(self, item_id: str, results: list) -> None:
         """Fire all on_item_complete callbacks."""
         for cb in self._on_item_complete:
             try:
@@ -117,7 +118,7 @@ class EvalHooks:
             or self._on_error
         )
 
-    def summary(self) -> Dict[str, int]:
+    def summary(self) -> dict[str, int]:
         """Return count of registered hooks by type."""
         return {
             "on_item_complete": len(self._on_item_complete),

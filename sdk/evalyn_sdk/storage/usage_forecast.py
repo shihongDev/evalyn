@@ -7,9 +7,8 @@ future storage size, estimate days until a limit, and render ASCII charts.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from dataclasses import dataclass
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -24,7 +23,7 @@ class UsageDataPoint:
     size_bytes: int
     row_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "date": self.date,
             "size_bytes": self.size_bytes,
@@ -40,10 +39,10 @@ class ForecastResult:
     projected_30d_bytes: int = 0
     projected_90d_bytes: int = 0
     daily_growth_bytes: int = 0
-    days_until_limit: Optional[int] = None
+    days_until_limit: int | None = None
     recommendation: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "current_size_bytes": self.current_size_bytes,
             "projected_30d_bytes": self.projected_30d_bytes,
@@ -54,7 +53,7 @@ class ForecastResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ForecastResult:
+    def from_dict(cls, data: dict[str, Any]) -> ForecastResult:
         return cls(
             current_size_bytes=data.get("current_size_bytes", 0),
             projected_30d_bytes=data.get("projected_30d_bytes", 0),
@@ -65,7 +64,7 @@ class ForecastResult:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Usage Forecast")
         lines.append("=" * 40)
         lines.append(f"Current size: {_format_size(self.current_size_bytes)}")
@@ -103,7 +102,7 @@ def _format_size(bytes_val: int) -> str:
 # ---------------------------------------------------------------------------
 
 
-def compute_daily_growth(data_points: List[UsageDataPoint]) -> int:
+def compute_daily_growth(data_points: list[UsageDataPoint]) -> int:
     """Compute daily growth rate in bytes using linear regression.
 
     Uses the index of each data point as the x-value and size_bytes as y.
@@ -143,7 +142,7 @@ def forecast_size(current_bytes: int, daily_growth: int, days: int) -> int:
 
 def days_until_limit(
     current_bytes: int, daily_growth: int, limit_bytes: int
-) -> Optional[int]:
+) -> int | None:
     """How many days until limit_bytes is reached.
 
     Returns None if daily_growth is zero or negative (will never reach limit).
@@ -157,7 +156,7 @@ def days_until_limit(
 
 
 def build_usage_forecast(
-    data_points: List[UsageDataPoint], limit_bytes: int = 1_000_000_000
+    data_points: list[UsageDataPoint], limit_bytes: int = 1_000_000_000
 ) -> ForecastResult:
     """Build a full storage usage forecast with recommendations."""
     if not data_points:
@@ -192,7 +191,7 @@ def build_usage_forecast(
 
 
 def render_forecast_chart(
-    data_points: List[UsageDataPoint], forecast_days: int = 30, width: int = 60
+    data_points: list[UsageDataPoint], forecast_days: int = 30, width: int = 60
 ) -> str:
     """Render an ASCII chart showing historical and projected usage.
 
@@ -204,9 +203,9 @@ def render_forecast_chart(
     growth = compute_daily_growth(data_points)
 
     # Build combined series: historical + projected
-    labels: List[str] = []
-    values: List[int] = []
-    kinds: List[str] = []  # "h" for historical, "p" for projected
+    labels: list[str] = []
+    values: list[int] = []
+    kinds: list[str] = []  # "h" for historical, "p" for projected
 
     for dp in data_points:
         labels.append(dp.date)
@@ -230,7 +229,7 @@ def render_forecast_chart(
     if bar_width < 10:
         bar_width = 10
 
-    lines: List[str] = []
+    lines: list[str] = []
     for label, val, kind in zip(labels, values, kinds):
         bar_len = int((val / max_val) * bar_width)
         bar_len = max(bar_len, 0)
@@ -242,9 +241,9 @@ def render_forecast_chart(
     return "\n".join(lines)
 
 
-def suggest_actions(forecast: ForecastResult) -> List[str]:
+def suggest_actions(forecast: ForecastResult) -> list[str]:
     """Suggest actions based on the forecast growth rate."""
-    actions: List[str] = []
+    actions: list[str] = []
 
     if forecast.daily_growth_bytes <= 0:
         actions.append("No action needed - storage is not growing")

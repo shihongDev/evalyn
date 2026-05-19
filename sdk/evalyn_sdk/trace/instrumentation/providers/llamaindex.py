@@ -24,11 +24,11 @@ from __future__ import annotations
 
 import importlib.util
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from ..base import Instrumentor, InstrumentorType
 from ....models import Span
 from ... import context as span_context
+from ..base import Instrumentor, InstrumentorType
 
 
 class LlamaIndexInstrumentor(Instrumentor):
@@ -83,7 +83,7 @@ class EvalynLlamaIndexSpan:
     def __init__(
         self,
         id_: str,
-        parent_id: Optional[str],
+        parent_id: str | None,
         span: Span,
         prev_stack: list,
         start_time: float,
@@ -103,9 +103,9 @@ class EvalynLlamaIndexSpanHandler:
     """
 
     def __init__(self) -> None:
-        self.open_spans: Dict[str, EvalynLlamaIndexSpan] = {}
-        self.completed_spans: List[EvalynLlamaIndexSpan] = []
-        self.dropped_spans: List[EvalynLlamaIndexSpan] = []
+        self.open_spans: dict[str, EvalynLlamaIndexSpan] = {}
+        self.completed_spans: list[EvalynLlamaIndexSpan] = []
+        self.dropped_spans: list[EvalynLlamaIndexSpan] = []
 
     @classmethod
     def class_name(cls) -> str:
@@ -115,11 +115,11 @@ class EvalynLlamaIndexSpanHandler:
         self,
         id_: str,
         bound_args: Any,
-        instance: Optional[Any] = None,
-        parent_span_id: Optional[str] = None,
-        tags: Optional[Dict[str, Any]] = None,
+        instance: Any | None = None,
+        parent_span_id: str | None = None,
+        tags: dict[str, Any] | None = None,
         **kwargs: Any,
-    ) -> Optional[EvalynLlamaIndexSpan]:
+    ) -> EvalynLlamaIndexSpan | None:
         """Create a new span for a LlamaIndex operation."""
         name, span_type = _infer_span_info(instance, bound_args, tags)
 
@@ -158,8 +158,8 @@ class EvalynLlamaIndexSpanHandler:
         self,
         id_: str,
         bound_args: Any,
-        instance: Optional[Any] = None,
-        result: Optional[Any] = None,
+        instance: Any | None = None,
+        result: Any | None = None,
         **kwargs: Any,
     ) -> Any:
         """Finalize a span on successful completion."""
@@ -182,8 +182,8 @@ class EvalynLlamaIndexSpanHandler:
         self,
         id_: str,
         bound_args: Any,
-        instance: Optional[Any] = None,
-        err: Optional[BaseException] = None,
+        instance: Any | None = None,
+        err: BaseException | None = None,
         **kwargs: Any,
     ) -> Any:
         """Finalize a span on error."""
@@ -365,9 +365,9 @@ class EvalynLlamaIndexEventHandler:
 # ---------------------------------------------------------------------------
 
 def _infer_span_info(
-    instance: Optional[Any],
+    instance: Any | None,
     bound_args: Any,
-    tags: Optional[Dict[str, Any]],
+    tags: dict[str, Any] | None,
 ) -> tuple:
     """Infer span name and type from the instance class."""
     if instance is None:
@@ -418,7 +418,7 @@ def _set_current_span_attr(key: str, value: Any) -> None:
     _pending_attrs.setdefault(stack[-1], {})[key] = value
 
 
-_pending_attrs: Dict[str, Dict[str, Any]] = {}
+_pending_attrs: dict[str, dict[str, Any]] = {}
 
 
 def _enrich_span_with_result(span: Span, result: Any) -> None:

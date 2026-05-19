@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -22,7 +21,7 @@ class AudioMetadata:
     format: str = ""
     size_bytes: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "duration_seconds": self.duration_seconds,
             "sample_rate": self.sample_rate,
@@ -32,7 +31,7 @@ class AudioMetadata:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AudioMetadata:
+    def from_dict(cls, data: dict[str, Any]) -> AudioMetadata:
         return cls(
             duration_seconds=data.get("duration_seconds", 0.0),
             sample_rate=data.get("sample_rate", 0),
@@ -49,9 +48,9 @@ class AudioScore:
     metric_name: str
     score: float
     passed: bool
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_name": self.metric_name,
             "score": self.score,
@@ -64,11 +63,11 @@ class AudioScore:
 class AudioEvalReport:
     """Aggregated report from multiple audio evaluation checks."""
 
-    scores: List[AudioScore] = field(default_factory=list)
+    scores: list[AudioScore] = field(default_factory=list)
     overall_score: float = 0.0
     pass_rate: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "scores": [s.as_dict() for s in self.scores],
             "overall_score": self.overall_score,
@@ -76,7 +75,7 @@ class AudioEvalReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AudioEvalReport:
+    def from_dict(cls, data: dict[str, Any]) -> AudioEvalReport:
         scores = [
             AudioScore(
                 metric_name=s["metric_name"],
@@ -93,7 +92,7 @@ class AudioEvalReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Audio Evaluation Report")
         lines.append("-" * 40)
         for s in self.scores:
@@ -144,7 +143,7 @@ def check_audio_exists(file_path: str) -> AudioScore:
 
 def check_audio_format(
     file_path: str,
-    expected_formats: Optional[List[str]] = None,
+    expected_formats: list[str] | None = None,
 ) -> AudioScore:
     """Check file extension matches expected formats."""
     if expected_formats is None:
@@ -216,10 +215,10 @@ def extract_audio_metadata_from_path(file_path: str) -> AudioMetadata:
 
 def evaluate_audio(
     file_path: str,
-    metadata: Optional[AudioMetadata] = None,
+    metadata: AudioMetadata | None = None,
 ) -> AudioEvalReport:
     """Run all audio checks and return an aggregated report."""
-    scores: List[AudioScore] = []
+    scores: list[AudioScore] = []
 
     scores.append(check_audio_exists(file_path))
     scores.append(check_audio_format(file_path))

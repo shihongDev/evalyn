@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass
@@ -30,14 +30,14 @@ class ConfigProfile:
     """A named configuration profile with environment-specific overrides."""
 
     name: str
-    overrides: Dict[str, Any] = field(default_factory=dict)
+    overrides: dict[str, Any] = field(default_factory=dict)
     description: str = ""
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get a config value from this profile's overrides."""
         return self.overrides.get(key, default)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "overrides": dict(self.overrides),
@@ -45,12 +45,12 @@ class ConfigProfile:
         }
 
     @classmethod
-    def from_dict(cls, name: str, data: Dict[str, Any]) -> "ConfigProfile":
+    def from_dict(cls, name: str, data: dict[str, Any]) -> ConfigProfile:
         description = data.pop("description", "") if isinstance(data, dict) else ""
         return cls(name=name, overrides=data, description=description)
 
 
-def get_active_profile_name() -> Optional[str]:
+def get_active_profile_name() -> str | None:
     """Get the active profile from environment or return None.
 
     Checks EVALYN_PROFILE env var.
@@ -58,7 +58,7 @@ def get_active_profile_name() -> Optional[str]:
     return os.environ.get("EVALYN_PROFILE")
 
 
-def load_profiles(config: Dict[str, Any]) -> Dict[str, ConfigProfile]:
+def load_profiles(config: dict[str, Any]) -> dict[str, ConfigProfile]:
     """Load all profiles from evalyn.yaml config.
 
     Args:
@@ -76,9 +76,9 @@ def load_profiles(config: Dict[str, Any]) -> Dict[str, ConfigProfile]:
 
 
 def resolve_config_with_profile(
-    base_config: Dict[str, Any],
-    profile_name: Optional[str] = None,
-) -> Dict[str, Any]:
+    base_config: dict[str, Any],
+    profile_name: str | None = None,
+) -> dict[str, Any]:
     """Merge a profile's overrides into the base config.
 
     Resolution order:
@@ -118,7 +118,7 @@ def resolve_config_with_profile(
     return merged
 
 
-def list_profiles(config: Dict[str, Any]) -> list:
+def list_profiles(config: dict[str, Any]) -> list:
     """List available profile names and descriptions.
 
     Args:

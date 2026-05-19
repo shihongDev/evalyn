@@ -9,8 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from itertools import combinations
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -27,7 +26,7 @@ class InteractionEffect:
     strength: float = 0.0
     description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_a": self.metric_a,
             "metric_b": self.metric_b,
@@ -41,12 +40,12 @@ class InteractionEffect:
 class InteractionReport:
     """Report of all pairwise interactions."""
 
-    effects: List[InteractionEffect] = field(default_factory=list)
+    effects: list[InteractionEffect] = field(default_factory=list)
     total_pairs: int = 0
     synergies: int = 0
     conflicts: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "effects": [e.as_dict() for e in self.effects],
             "total_pairs": self.total_pairs,
@@ -55,7 +54,7 @@ class InteractionReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> InteractionReport:
+    def from_dict(cls, data: dict[str, Any]) -> InteractionReport:
         effects = []
         for e in data.get("effects", []):
             effects.append(
@@ -94,7 +93,7 @@ class InteractionReport:
 # ---------------------------------------------------------------------------
 
 
-def compute_joint_pass_rate(scores_a: List[bool], scores_b: List[bool]) -> float:
+def compute_joint_pass_rate(scores_a: list[bool], scores_b: list[bool]) -> float:
     """Fraction of items where both A and B pass."""
     if not scores_a or not scores_b:
         return 0.0
@@ -104,7 +103,7 @@ def compute_joint_pass_rate(scores_a: List[bool], scores_b: List[bool]) -> float
 
 
 def compute_conditional_pass_rate(
-    scores_a: List[bool], scores_b: List[bool]
+    scores_a: list[bool], scores_b: list[bool]
 ) -> float:
     """P(B passes | A passes). Returns 0.0 if A never passes."""
     if not scores_a or not scores_b:
@@ -117,7 +116,7 @@ def compute_conditional_pass_rate(
     return both / a_pass
 
 
-def _pass_rate(scores: List[bool]) -> float:
+def _pass_rate(scores: list[bool]) -> float:
     if not scores:
         return 0.0
     return sum(1 for s in scores if s) / len(scores)
@@ -125,9 +124,9 @@ def _pass_rate(scores: List[bool]) -> float:
 
 def detect_interaction(
     metric_a: str,
-    scores_a: List[bool],
+    scores_a: list[bool],
     metric_b: str,
-    scores_b: List[bool],
+    scores_b: list[bool],
 ) -> InteractionEffect:
     """Classify the interaction between two metrics.
 
@@ -177,11 +176,11 @@ def detect_interaction(
 
 
 def detect_all_interactions(
-    metric_scores: Dict[str, List[bool]],
+    metric_scores: dict[str, list[bool]],
 ) -> InteractionReport:
     """Run pairwise interaction detection across all metrics."""
     keys = sorted(metric_scores.keys())
-    effects: List[InteractionEffect] = []
+    effects: list[InteractionEffect] = []
     synergies = 0
     conflicts = 0
 
@@ -203,7 +202,7 @@ def detect_all_interactions(
 
 def find_strongest_synergies(
     report: InteractionReport, top_n: int = 5
-) -> List[InteractionEffect]:
+) -> list[InteractionEffect]:
     """Return the top N synergies by strength."""
     synergy_effects = [
         e for e in report.effects if e.interaction_type == "synergy"
@@ -214,7 +213,7 @@ def find_strongest_synergies(
 
 def find_strongest_conflicts(
     report: InteractionReport, top_n: int = 5
-) -> List[InteractionEffect]:
+) -> list[InteractionEffect]:
     """Return the top N conflicts by strength."""
     conflict_effects = [
         e for e in report.effects if e.interaction_type == "conflict"

@@ -7,7 +7,7 @@ rubrics or prompts) and compare their agreement and score distributions.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -22,10 +22,10 @@ class ABTestResult:
     b_pass_rate: float
     a_avg_score: float
     b_avg_score: float
-    disagreement_items: List[str] = field(default_factory=list)
+    disagreement_items: list[str] = field(default_factory=list)
 
     @property
-    def winner(self) -> Optional[str]:
+    def winner(self) -> str | None:
         """Variant with higher pass rate, or None if tied."""
         if abs(self.a_pass_rate - self.b_pass_rate) < 0.01:
             return None
@@ -35,7 +35,7 @@ class ABTestResult:
     def score_delta(self) -> float:
         return self.b_avg_score - self.a_avg_score
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "variant_a": self.variant_a_id,
             "variant_b": self.variant_b_id,
@@ -65,8 +65,8 @@ class ABTestResult:
 
 
 def compare_variants(
-    results_a: List,
-    results_b: List,
+    results_a: list,
+    results_b: list,
     variant_a_id: str = "variant_a",
     variant_b_id: str = "variant_b",
 ) -> ABTestResult:

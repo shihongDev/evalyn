@@ -9,9 +9,8 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Any, Dict, List
-
+from dataclasses import dataclass
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -27,7 +26,7 @@ class SecretReference:
     key_field: str = ""  # for JSON secrets, which field to extract
     version: str = "latest"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "backend": self.backend,
             "path": self.path,
@@ -36,7 +35,7 @@ class SecretReference:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SecretReference:
+    def from_dict(cls, data: dict[str, Any]) -> SecretReference:
         return cls(
             backend=data["backend"],
             path=data["path"],
@@ -54,7 +53,7 @@ class SecretResult:
     cached: bool = False
     error: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         """Serialize to dict (lossless). Use as_safe_dict() for logging."""
         return {
             "value": self.value,
@@ -63,7 +62,7 @@ class SecretResult:
             "error": self.error,
         }
 
-    def as_safe_dict(self) -> Dict[str, Any]:
+    def as_safe_dict(self) -> dict[str, Any]:
         """Serialize with masked value for safe logging/display."""
         masked = "***" + self.value[-4:] if len(self.value) >= 4 else "***"
         return {
@@ -74,7 +73,7 @@ class SecretResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SecretResult:
+    def from_dict(cls, data: dict[str, Any]) -> SecretResult:
         return cls(
             value=data.get("value", ""),
             source=data.get("source", ""),
@@ -127,8 +126,8 @@ class EnvBackend(SecretsBackend):
 class DictBackend(SecretsBackend):
     """Reads secrets from an in-memory dict. Useful for testing."""
 
-    def __init__(self, secrets: Dict[str, str] | None = None) -> None:
-        self._secrets: Dict[str, str] = secrets or {}
+    def __init__(self, secrets: dict[str, str] | None = None) -> None:
+        self._secrets: dict[str, str] = secrets or {}
 
     @property
     def name(self) -> str:
@@ -154,7 +153,7 @@ class SecretsManager:
     """Registry and dispatcher for secret resolution backends."""
 
     def __init__(self) -> None:
-        self._backends: Dict[str, SecretsBackend] = {}
+        self._backends: dict[str, SecretsBackend] = {}
 
     def register_backend(self, backend: SecretsBackend) -> None:
         """Register a backend by its name."""
@@ -171,11 +170,11 @@ class SecretsManager:
             )
         return backend.resolve(ref)
 
-    def resolve_all(self, refs: List[SecretReference]) -> List[SecretResult]:
+    def resolve_all(self, refs: list[SecretReference]) -> list[SecretResult]:
         """Resolve multiple references."""
         return [self.resolve(ref) for ref in refs]
 
-    def list_backends(self) -> List[str]:
+    def list_backends(self) -> list[str]:
         """List registered backend names."""
         return sorted(self._backends.keys())
 
@@ -214,13 +213,13 @@ def create_default_manager() -> SecretsManager:
 
 
 def format_secrets_status(
-    manager: SecretsManager, refs: List[SecretReference]
+    manager: SecretsManager, refs: list[SecretReference]
 ) -> str:
     """Resolve each reference and format a human-readable status report.
 
     Values are masked - only the last 4 characters are shown.
     """
-    lines: List[str] = []
+    lines: list[str] = []
     results = manager.resolve_all(refs)
     for ref, result in zip(refs, results):
         label = f"{ref.backend}://{ref.path}"

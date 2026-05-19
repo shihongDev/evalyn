@@ -10,8 +10,9 @@ Optimize the order of examples to improve judge prompt effectiveness:
 from __future__ import annotations
 
 import random
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -23,7 +24,7 @@ class OrderedExample:
     label: str = ""
     difficulty: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "text": self.text,
@@ -32,7 +33,7 @@ class OrderedExample:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> OrderedExample:
+    def from_dict(cls, data: dict[str, Any]) -> OrderedExample:
         return cls(
             id=data["id"],
             text=data["text"],
@@ -45,11 +46,11 @@ class OrderedExample:
 class OrderingResult:
     """Result of an example ordering strategy."""
 
-    ordered_ids: List[str] = field(default_factory=list)
+    ordered_ids: list[str] = field(default_factory=list)
     method: str = ""
     estimated_impact: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "ordered_ids": list(self.ordered_ids),
             "method": self.method,
@@ -67,7 +68,7 @@ class OrderingResult:
         return "\n".join(lines)
 
 
-def order_by_difficulty(examples: List[OrderedExample]) -> OrderingResult:
+def order_by_difficulty(examples: list[OrderedExample]) -> OrderingResult:
     """Sort examples easiest first (low difficulty), hardest last.
 
     Estimated impact is based on difficulty variance - higher variance
@@ -91,7 +92,7 @@ def order_by_difficulty(examples: List[OrderedExample]) -> OrderingResult:
     )
 
 
-def order_by_label_grouping(examples: List[OrderedExample]) -> OrderingResult:
+def order_by_label_grouping(examples: list[OrderedExample]) -> OrderingResult:
     """Group by label, put fails last. Within groups, sort by difficulty."""
     if not examples:
         return OrderingResult(
@@ -119,7 +120,7 @@ def order_by_label_grouping(examples: List[OrderedExample]) -> OrderingResult:
     )
 
 
-def order_by_diversity(examples: List[OrderedExample]) -> OrderingResult:
+def order_by_diversity(examples: list[OrderedExample]) -> OrderingResult:
     """Alternate between labels for maximum diversity.
 
     Groups examples by label and interleaves them. E.g. pass, fail, pass, fail.
@@ -128,7 +129,7 @@ def order_by_diversity(examples: List[OrderedExample]) -> OrderingResult:
         return OrderingResult(ordered_ids=[], method="diversity", estimated_impact=0.0)
 
     # Group by label
-    groups: Dict[str, List[OrderedExample]] = {}
+    groups: dict[str, list[OrderedExample]] = {}
     for e in examples:
         groups.setdefault(e.label, []).append(e)
 
@@ -137,7 +138,7 @@ def order_by_diversity(examples: List[OrderedExample]) -> OrderingResult:
         groups[label].sort(key=lambda e: e.difficulty)
 
     # Interleave: round-robin across label groups
-    ordered_ids: List[str] = []
+    ordered_ids: list[str] = []
     label_keys = sorted(groups.keys())
     iterators = {k: iter(groups[k]) for k in label_keys}
     remaining = set(label_keys)
@@ -172,10 +173,10 @@ def reverse_order(result: OrderingResult) -> OrderingResult:
 
 
 def find_optimal_order(
-    examples: List[OrderedExample],
-    score_fn: Callable[[List[str]], float],
+    examples: list[OrderedExample],
+    score_fn: Callable[[list[str]], float],
     max_permutations: int = 100,
-    seed: Optional[int] = None,
+    seed: int | None = None,
 ) -> OrderingResult:
     """Try random permutations, return the one that maximizes score_fn.
 

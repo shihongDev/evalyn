@@ -8,8 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -26,7 +25,7 @@ class CalibrationMetadata:
     num_items: int
     alignment_score: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "calibrated_at": self.calibrated_at.isoformat(),
@@ -36,7 +35,7 @@ class CalibrationMetadata:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CalibrationMetadata:
+    def from_dict(cls, data: dict[str, Any]) -> CalibrationMetadata:
         calibrated_at = data["calibrated_at"]
         if isinstance(calibrated_at, str):
             calibrated_at = datetime.fromisoformat(calibrated_at)
@@ -59,7 +58,7 @@ class StalenessAlert:
     days_since_calibration: int = 0
     dataset_drift: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "reason": self.reason,
@@ -73,11 +72,11 @@ class StalenessAlert:
 class StalenessReport:
     """Aggregated staleness report across all calibrations."""
 
-    alerts: List[StalenessAlert] = field(default_factory=list)
-    stale_metrics: List[str] = field(default_factory=list)
-    healthy_metrics: List[str] = field(default_factory=list)
+    alerts: list[StalenessAlert] = field(default_factory=list)
+    stale_metrics: list[str] = field(default_factory=list)
+    healthy_metrics: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "alerts": [a.as_dict() for a in self.alerts],
             "stale_metrics": self.stale_metrics,
@@ -85,7 +84,7 @@ class StalenessReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> StalenessReport:
+    def from_dict(cls, data: dict[str, Any]) -> StalenessReport:
         alerts = []
         for a in data.get("alerts", []):
             alerts.append(
@@ -144,7 +143,7 @@ def check_staleness(
     current_items: int,
     max_age_days: int = 30,
     drift_threshold: float = 0.2,
-) -> List[StalenessAlert]:
+) -> list[StalenessAlert]:
     """Check age and drift for a single calibration.
 
     Age > max_age_days produces a warning.
@@ -160,7 +159,7 @@ def check_staleness(
     is_old = age_days > max_age_days
     is_drifted = drift > drift_threshold
 
-    alerts: List[StalenessAlert] = []
+    alerts: list[StalenessAlert] = []
 
     if is_old and is_drifted:
         alerts.append(
@@ -197,17 +196,17 @@ def check_staleness(
 
 
 def check_all_staleness(
-    calibrations: List[CalibrationMetadata],
-    current_datasets: Dict[str, Tuple[str, int]],
+    calibrations: list[CalibrationMetadata],
+    current_datasets: dict[str, tuple[str, int]],
     max_age_days: int = 30,
 ) -> StalenessReport:
     """Check all calibrations and produce an aggregated report.
 
     current_datasets maps metric_id to (current_hash, current_items).
     """
-    all_alerts: List[StalenessAlert] = []
-    stale: List[str] = []
-    healthy: List[str] = []
+    all_alerts: list[StalenessAlert] = []
+    stale: list[str] = []
+    healthy: list[str] = []
 
     for meta in calibrations:
         current_hash, current_items = current_datasets.get(

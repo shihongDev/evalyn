@@ -16,8 +16,6 @@ import argparse
 import ipaddress
 import socket
 import sys
-from typing import Any
-
 
 _LOOPBACK_HOSTNAMES = {"localhost", ""}
 

@@ -7,8 +7,7 @@ Difficulty is estimated from scores: low-scoring items are harder.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -23,7 +22,7 @@ class DifficultyScore:
     difficulty: float  # 0 (easy) to 1 (hard)
     reason: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "difficulty": self.difficulty,
@@ -36,11 +35,11 @@ class CurriculumStage:
     """A single stage in a calibration curriculum."""
 
     stage: int
-    item_ids: List[str]
-    difficulty_range: Tuple[float, float]
+    item_ids: list[str]
+    difficulty_range: tuple[float, float]
     num_items: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "stage": self.stage,
             "item_ids": self.item_ids,
@@ -53,11 +52,11 @@ class CurriculumStage:
 class CurriculumPlan:
     """Full curriculum plan with multiple stages."""
 
-    stages: List[CurriculumStage]
+    stages: list[CurriculumStage]
     total_items: int
     num_stages: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "stages": [s.as_dict() for s in self.stages],
             "total_items": self.total_items,
@@ -65,7 +64,7 @@ class CurriculumPlan:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CurriculumPlan:
+    def from_dict(cls, data: dict[str, Any]) -> CurriculumPlan:
         stages = [
             CurriculumStage(
                 stage=s["stage"],
@@ -118,14 +117,14 @@ def estimate_difficulty(
 
 
 def sort_by_difficulty(
-    items: List[DifficultyScore],
-) -> List[DifficultyScore]:
+    items: list[DifficultyScore],
+) -> list[DifficultyScore]:
     """Sort items by difficulty ascending (easiest first)."""
     return sorted(items, key=lambda d: d.difficulty)
 
 
 def create_curriculum(
-    items: List[DifficultyScore], num_stages: int = 3
+    items: list[DifficultyScore], num_stages: int = 3
 ) -> CurriculumPlan:
     """Split sorted items into equal-sized stages.
 
@@ -142,7 +141,7 @@ def create_curriculum(
     chunk_size = total // effective_stages
     remainder = total % effective_stages
 
-    stages: List[CurriculumStage] = []
+    stages: list[CurriculumStage] = []
     start = 0
     for i in range(effective_stages):
         # Distribute remainder items across early stages
@@ -168,7 +167,7 @@ def create_curriculum(
     )
 
 
-def get_stage_items(plan: CurriculumPlan, stage: int) -> List[str]:
+def get_stage_items(plan: CurriculumPlan, stage: int) -> list[str]:
     """Get item_ids for a given stage (1-indexed), cumulative.
 
     Returns items from stage 1 through the requested stage.
@@ -177,7 +176,7 @@ def get_stage_items(plan: CurriculumPlan, stage: int) -> List[str]:
         return []
     # Clamp stage to valid range
     stage = max(1, min(stage, len(plan.stages)))
-    ids: List[str] = []
+    ids: list[str] = []
     for s in plan.stages:
         if s.stage <= stage:
             ids.extend(s.item_ids)

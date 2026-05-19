@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -19,7 +19,7 @@ class PartialResults:
     run_id: str
     completed_items: int
     total_results: int
-    metric_results: List = field(default_factory=list)
+    metric_results: list = field(default_factory=list)
     is_complete: bool = False
 
     @property
@@ -28,7 +28,7 @@ class PartialResults:
         if not self.metric_results:
             return 0.0
         # Group by item, count items where all metrics pass
-        item_pass: Dict[str, bool] = {}
+        item_pass: dict[str, bool] = {}
         for r in self.metric_results:
             iid = r.get("item_id", r.get("metric_id", ""))
             if iid not in item_pass:
@@ -40,9 +40,9 @@ class PartialResults:
         return sum(1 for v in item_pass.values() if v) / len(item_pass)
 
     @property
-    def metric_pass_rates(self) -> Dict[str, float]:
+    def metric_pass_rates(self) -> dict[str, float]:
         """Per-metric pass rates from partial data."""
-        counts: Dict[str, list] = {}
+        counts: dict[str, list] = {}
         for r in self.metric_results:
             mid = r.get("metric_id", "unknown")
             if mid not in counts:
@@ -55,7 +55,7 @@ class PartialResults:
             for mid, (p, t) in counts.items()
         }
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "run_id": self.run_id,
             "completed_items": self.completed_items,
@@ -81,7 +81,7 @@ class PartialResults:
         return "\n".join(lines)
 
 
-def load_partial_results(checkpoint_path: Path) -> Optional[PartialResults]:
+def load_partial_results(checkpoint_path: Path) -> PartialResults | None:
     """Load partial results from a checkpoint file.
 
     Args:
@@ -94,7 +94,7 @@ def load_partial_results(checkpoint_path: Path) -> Optional[PartialResults]:
         return None
 
     try:
-        with open(checkpoint_path, "r", encoding="utf-8") as f:
+        with open(checkpoint_path, encoding="utf-8") as f:
             data = json.load(f)
     except (json.JSONDecodeError, OSError):
         return None
@@ -116,7 +116,7 @@ def estimate_remaining_time(
     partial: PartialResults,
     total_items: int,
     elapsed_seconds: float,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Estimate remaining evaluation time from partial progress.
 
     Args:

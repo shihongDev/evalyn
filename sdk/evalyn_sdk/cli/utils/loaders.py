@@ -7,10 +7,11 @@ import importlib.util
 import inspect
 import os
 import sys
-from typing import Any, Callable, List
+from collections.abc import Callable
+from typing import Any
 
 
-def _get_module_callables(module: Any) -> List[str]:
+def _get_module_callables(module: Any) -> list[str]:
     """Get all callable names from a module for error suggestions."""
     callables = []
     for name in dir(module):
@@ -23,8 +24,8 @@ def _get_module_callables(module: Any) -> List[str]:
 
 
 def _suggest_similar(
-    name: str, candidates: List[str], max_suggestions: int = 3
-) -> List[str]:
+    name: str, candidates: list[str], max_suggestions: int = 3
+) -> list[str]:
     """Find similar names using simple substring matching."""
     name_lower = name.lower()
     # Exact prefix match first

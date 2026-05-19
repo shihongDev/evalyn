@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -18,9 +18,9 @@ class ReferenceFreeScore:
     metric_name: str
     score: float
     passed: bool
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_name": self.metric_name,
             "score": self.score,
@@ -33,11 +33,11 @@ class ReferenceFreeScore:
 class ReferenceFreeReport:
     """Aggregated report from all reference-free checks."""
 
-    scores: List[ReferenceFreeScore]
+    scores: list[ReferenceFreeScore]
     overall_score: float
     pass_rate: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "scores": [s.as_dict() for s in self.scores],
             "overall_score": self.overall_score,
@@ -45,7 +45,7 @@ class ReferenceFreeReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ReferenceFreeReport:
+    def from_dict(cls, data: dict[str, Any]) -> ReferenceFreeReport:
         scores = [
             ReferenceFreeScore(
                 metric_name=s["metric_name"],
@@ -62,7 +62,7 @@ class ReferenceFreeReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Reference-Free Evaluation Report")
         lines.append("=" * 40)
         for s in self.scores:
@@ -74,7 +74,7 @@ class ReferenceFreeReport:
         return "\n".join(lines)
 
 
-def _split_sentences(text: str) -> List[str]:
+def _split_sentences(text: str) -> list[str]:
     """Split text into sentences on common delimiters."""
     parts = re.split(r"[.!?]+", text)
     return [p.strip() for p in parts if p.strip()]
@@ -154,7 +154,7 @@ def check_coherence(text: str) -> ReferenceFreeScore:
             details={"sentence_count": len(sentences)},
         )
 
-    overlaps: List[float] = []
+    overlaps: list[float] = []
     for i in range(len(sentences) - 1):
         words_a = set(sentences[i].lower().split())
         words_b = set(sentences[i + 1].lower().split())

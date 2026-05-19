@@ -9,7 +9,7 @@ from __future__ import annotations
 import functools
 import importlib.util
 import time
-from typing import Any, Optional
+from typing import Any
 
 from ..base import Instrumentor, InstrumentorType
 from ._shared import log_llm_call
@@ -19,8 +19,8 @@ class GeminiInstrumentor(Instrumentor):
     """Instrumentor for Google Gemini SDK."""
 
     _instrumented = False
-    _original_generate: Optional[Any] = None
-    _original_legacy_generate: Optional[Any] = None
+    _original_generate: Any | None = None
+    _original_legacy_generate: Any | None = None
 
     @property
     def name(self) -> str:

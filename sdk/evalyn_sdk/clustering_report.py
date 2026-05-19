@@ -7,19 +7,17 @@ Pure Python with no external dependencies.
 """
 from __future__ import annotations
 
-import math
 import random
 import re
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Stopwords (minimal set for clustering)
 # ---------------------------------------------------------------------------
 
-_STOPWORDS: Set[str] = {
+_STOPWORDS: set[str] = {
     "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
     "have", "has", "had", "do", "does", "did", "will", "would", "could",
     "should", "may", "might", "shall", "can", "need", "dare", "ought",
@@ -47,11 +45,11 @@ class ClusterDescription:
 
     cluster_id: int
     size: int
-    top_keywords: List[str] = field(default_factory=list)
+    top_keywords: list[str] = field(default_factory=list)
     description: str = ""
-    representative_ids: List[str] = field(default_factory=list)
+    representative_ids: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "cluster_id": self.cluster_id,
             "size": self.size,
@@ -61,7 +59,7 @@ class ClusterDescription:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ClusterDescription:
+    def from_dict(cls, data: dict[str, Any]) -> ClusterDescription:
         return cls(
             cluster_id=data.get("cluster_id", 0),
             size=data.get("size", 0),
@@ -79,7 +77,7 @@ class ClusteringReportConfig:
     top_keywords: int = 10
     representatives_per_cluster: int = 3
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "n_clusters": self.n_clusters,
             "top_keywords": self.top_keywords,
@@ -87,7 +85,7 @@ class ClusteringReportConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ClusteringReportConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ClusteringReportConfig:
         return cls(
             n_clusters=data.get("n_clusters", 5),
             top_keywords=data.get("top_keywords", 10),
@@ -99,12 +97,12 @@ class ClusteringReportConfig:
 class ClusteringReport:
     """Complete clustering report."""
 
-    clusters: List[ClusterDescription] = field(default_factory=list)
+    clusters: list[ClusterDescription] = field(default_factory=list)
     total_items: int = 0
     n_clusters: int = 0
     silhouette_hint: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "clusters": [c.as_dict() for c in self.clusters],
             "total_items": self.total_items,
@@ -113,7 +111,7 @@ class ClusteringReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ClusteringReport:
+    def from_dict(cls, data: dict[str, Any]) -> ClusteringReport:
         return cls(
             clusters=[ClusterDescription.from_dict(c) for c in data.get("clusters", [])],
             total_items=data.get("total_items", 0),
@@ -127,13 +125,13 @@ class ClusteringReport:
 # ---------------------------------------------------------------------------
 
 
-def _tokenize(text: str) -> Set[str]:
+def _tokenize(text: str) -> set[str]:
     """Tokenize text into a set of lowercase non-stopword words."""
     words = re.findall(r"[a-zA-Z]{2,}", text.lower())
     return {w for w in words if w not in _STOPWORDS}
 
 
-def _jaccard(a: Set[str], b: Set[str]) -> float:
+def _jaccard(a: set[str], b: set[str]) -> float:
     """Jaccard similarity between two word sets."""
     if not a and not b:
         return 1.0
@@ -142,12 +140,12 @@ def _jaccard(a: Set[str], b: Set[str]) -> float:
     return len(a & b) / len(a | b)
 
 
-def _jaccard_distance(a: Set[str], b: Set[str]) -> float:
+def _jaccard_distance(a: set[str], b: set[str]) -> float:
     """Jaccard distance (1 - similarity)."""
     return 1.0 - _jaccard(a, b)
 
 
-def _centroid_words(word_sets: List[Set[str]]) -> Set[str]:
+def _centroid_words(word_sets: list[set[str]]) -> set[str]:
     """Compute centroid as the set of words appearing in >50% of items."""
     if not word_sets:
         return set()
@@ -164,7 +162,7 @@ def _centroid_words(word_sets: List[Set[str]]) -> Set[str]:
 # ---------------------------------------------------------------------------
 
 
-def cluster_items(items: Dict[str, str], n_clusters: int = 5) -> Dict[str, int]:
+def cluster_items(items: dict[str, str], n_clusters: int = 5) -> dict[str, int]:
     """K-means-like clustering using word-set Jaccard distance.
 
     Args:
@@ -227,11 +225,11 @@ def cluster_items(items: Dict[str, str], n_clusters: int = 5) -> Dict[str, int]:
 
 
 def extract_cluster_keywords(
-    items: Dict[str, str],
-    assignments: Dict[str, int],
+    items: dict[str, str],
+    assignments: dict[str, int],
     cluster_id: int,
     top_n: int = 10,
-) -> List[str]:
+) -> list[str]:
     """Extract the most frequent words in a cluster.
 
     Args:
@@ -260,11 +258,11 @@ def extract_cluster_keywords(
 
 
 def find_representatives(
-    items: Dict[str, str],
-    assignments: Dict[str, int],
+    items: dict[str, str],
+    assignments: dict[str, int],
     cluster_id: int,
     n: int = 3,
-) -> List[str]:
+) -> list[str]:
     """Find items closest to the cluster centroid.
 
     Args:
@@ -297,7 +295,7 @@ def find_representatives(
 # ---------------------------------------------------------------------------
 
 
-def generate_cluster_description(keywords: List[str]) -> str:
+def generate_cluster_description(keywords: list[str]) -> str:
     """Generate a template-based description from keywords.
 
     Returns a string like: "Items about kw1, kw2, and kw3"
@@ -318,8 +316,8 @@ def generate_cluster_description(keywords: List[str]) -> str:
 
 
 def _compute_silhouette_hint(
-    items: Dict[str, str],
-    assignments: Dict[str, int],
+    items: dict[str, str],
+    assignments: dict[str, int],
 ) -> float:
     """Compute a simplified silhouette score hint.
 
@@ -336,7 +334,7 @@ def _compute_silhouette_hint(
     if len(cluster_ids_set) < 2:
         return 0.0
 
-    silhouettes: List[float] = []
+    silhouettes: list[float] = []
     for iid in ids:
         own_cluster = assignments[iid]
         own_members = [j for j in ids if j != iid and assignments[j] == own_cluster]
@@ -381,7 +379,7 @@ def _compute_silhouette_hint(
 
 
 def build_clustering_report(
-    items: Dict[str, str],
+    items: dict[str, str],
     config: ClusteringReportConfig | None = None,
 ) -> ClusteringReport:
     """Build a complete clustering report.
@@ -407,7 +405,7 @@ def build_clustering_report(
     assignments = cluster_items(items, n_clusters=config.n_clusters)
     actual_clusters = set(assignments.values())
 
-    cluster_descriptions: List[ClusterDescription] = []
+    cluster_descriptions: list[ClusterDescription] = []
     for cid in sorted(actual_clusters):
         keywords = extract_cluster_keywords(items, assignments, cid, top_n=config.top_keywords)
         reps = find_representatives(items, assignments, cid, n=config.representatives_per_cluster)
@@ -439,7 +437,7 @@ def build_clustering_report(
 
 def format_clustering_report(report: ClusteringReport) -> str:
     """Format a ClusteringReport for human-readable display."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Clustering Report")
     lines.append("=" * 40)
     lines.append(f"Total items: {report.total_items}")

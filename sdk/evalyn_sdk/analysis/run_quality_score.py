@@ -7,8 +7,7 @@ scoring system with explicit weights and comparison support.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -24,7 +23,7 @@ class QualityDimension:
     weight: float = 1.0
     details: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "score": self.score,
@@ -40,10 +39,10 @@ class RunQualityResult:
     run_id: str = ""
     overall_score: float = 0.0  # 0-100
     grade: str = ""  # A/B/C/D/F
-    dimensions: List[QualityDimension] = field(default_factory=list)
-    recommendations: List[str] = field(default_factory=list)
+    dimensions: list[QualityDimension] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "run_id": self.run_id,
             "overall_score": self.overall_score,
@@ -53,7 +52,7 @@ class RunQualityResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RunQualityResult:
+    def from_dict(cls, data: dict[str, Any]) -> RunQualityResult:
         dims = []
         for d in data.get("dimensions", []):
             dims.append(QualityDimension(
@@ -223,7 +222,7 @@ def compute_run_quality(
 
     grade = _assign_grade(overall)
 
-    recommendations: List[str] = []
+    recommendations: list[str] = []
     for dim in dims:
         if dim.name == "pass_rate" and dim.score < 0.7:
             recommendations.append("Pass rate below 70% - review failing items")
@@ -246,7 +245,7 @@ def compute_run_quality(
 def compare_run_quality(
     result_a: RunQualityResult,
     result_b: RunQualityResult,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compare quality between two runs.
 
     Args:
@@ -258,7 +257,7 @@ def compare_run_quality(
     """
     overall_delta = result_b.overall_score - result_a.overall_score
 
-    dim_deltas: Dict[str, float] = {}
+    dim_deltas: dict[str, float] = {}
     dims_a = {d.name: d.score for d in result_a.dimensions}
     dims_b = {d.name: d.score for d in result_b.dimensions}
     all_names = set(dims_a.keys()) | set(dims_b.keys())

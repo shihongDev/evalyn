@@ -7,10 +7,9 @@ when latency is low (headroom available).
 
 from __future__ import annotations
 
-import time
 from collections import deque
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -38,12 +37,12 @@ class ThrottleController:
             throttle.record_latency(elapsed_ms)
     """
 
-    def __init__(self, config: Optional[ThrottleConfig] = None):
+    def __init__(self, config: ThrottleConfig | None = None):
         self.config = config or ThrottleConfig()
         self._current_workers = self.config.initial_workers
         self._latencies: deque = deque(maxlen=self.config.window_size)
         self._call_count = 0
-        self._adjustments: List[Dict[str, Any]] = []
+        self._adjustments: list[dict[str, Any]] = []
 
     @property
     def current_workers(self) -> int:
@@ -56,7 +55,7 @@ class ThrottleController:
         return sum(self._latencies) / len(self._latencies)
 
     @property
-    def adjustment_history(self) -> List[Dict[str, Any]]:
+    def adjustment_history(self) -> list[dict[str, Any]]:
         return list(self._adjustments)
 
     def record_latency(self, latency_ms: float) -> None:
@@ -101,7 +100,7 @@ class ThrottleController:
                 "reason": "high_latency" if avg > self.config.high_latency_ms else "low_latency",
             })
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         return {
             "current_workers": self._current_workers,
             "avg_latency_ms": round(self.avg_latency_ms, 1),

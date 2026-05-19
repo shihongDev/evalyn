@@ -17,17 +17,15 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from ..models import DatasetItem, FunctionCall, Metric, MetricResult, MetricSpec
-from ..utils.api_client import create_llm_client
-
 # Import canonical templates from metrics.subjective
 from ..metrics.subjective import JUDGE_TEMPLATES
+from ..models import DatasetItem, FunctionCall, Metric, MetricResult, MetricSpec
 from ..parsing import _extract_json_object, _parse_passed, _safe_trace_excerpt
-
+from ..utils.api_client import create_llm_client
 
 # =============================================================================
 # LLMJudge Class
@@ -59,11 +57,11 @@ class LLMJudge:
         self,
         prompt: str,
         name: str = "llm-judge",
-        model: Optional[str] = None,
+        model: str | None = None,
         temperature: float = 0.0,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         provider: str = "gemini",
-        rubric: Optional[List[str]] = None,
+        rubric: list[str] | None = None,
     ):
         self.prompt = prompt
         self.name = name
@@ -75,7 +73,7 @@ class LLMJudge:
 
         # Default model depends on provider
         if model is None:
-            from ..defaults import DEFAULT_MODELS_BY_PROVIDER, DEFAULT_EVAL_MODEL
+            from ..defaults import DEFAULT_EVAL_MODEL, DEFAULT_MODELS_BY_PROVIDER
 
             self.model = DEFAULT_MODELS_BY_PROVIDER.get(provider, DEFAULT_EVAL_MODEL)
         else:
@@ -97,10 +95,10 @@ class LLMJudge:
     def from_template(
         cls,
         template: str,
-        model: Optional[str] = None,
-        api_key: Optional[str] = None,
+        model: str | None = None,
+        api_key: str | None = None,
         provider: str = "gemini",
-    ) -> "LLMJudge":
+    ) -> LLMJudge:
         """Create judge from built-in template.
 
         Args:
@@ -135,7 +133,7 @@ class LLMJudge:
         )
 
     @classmethod
-    def list_templates(cls) -> List[str]:
+    def list_templates(cls) -> list[str]:
         """List available template names."""
         return list(cls.TEMPLATES.keys())
 
@@ -196,7 +194,7 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
 
     def _parse_response(
         self, raw_text: str
-    ) -> tuple[Optional[float], Optional[bool], Optional[str], Dict]:
+    ) -> tuple[float | None, bool | None, str | None, dict]:
         """Parse LLM response text and return (score, passed, reason, parsed_dict)."""
         parsed = _extract_json_object(raw_text) or {}
 
@@ -226,7 +224,7 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
 
         return score, passed, parsed.get("reason"), parsed
 
-    def _get_system_instruction(self) -> Optional[str]:
+    def _get_system_instruction(self) -> str | None:
         """Build the stable system instruction (prompt + rubric) for prefix caching.
 
         Gemini/OpenAI automatically cache shared prefixes when sent as the
@@ -234,7 +232,7 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
         """
         return f"{self.prompt}{self._format_rubric()}" if self.prompt else None
 
-    def score(self, call: FunctionCall, item: DatasetItem) -> Dict[str, Any]:
+    def score(self, call: FunctionCall, item: DatasetItem) -> dict[str, Any]:
         """Evaluate and return {score, passed, reason, input_tokens, output_tokens, model}."""
         # Separate rubric (stable) from evaluation data (per-item) for prefix caching
         prompt = self._build_evaluation_body(call, item)
@@ -269,7 +267,7 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
 
     def score_with_confidence(
         self, call: FunctionCall, item: DatasetItem
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Evaluate with logprobs-based confidence (openai/ollama only).
 
         Returns {score, passed, reason, confidence, raw}.
@@ -310,7 +308,7 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
 
     def score_with_deepconf(
         self, call: FunctionCall, item: DatasetItem, strategy: str = "bottom10"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Evaluate with DeepConf confidence (openai only, ollama limited).
 
         DeepConf uses specialized aggregation strategies that better distinguish
@@ -372,9 +370,9 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
 
     def as_metric(
         self,
-        metric_id: Optional[str] = None,
-        threshold: Optional[float] = None,
-        description: Optional[str] = None,
+        metric_id: str | None = None,
+        threshold: float | None = None,
+        description: str | None = None,
     ) -> Metric:
         """Convert this judge to a Metric object.
 
@@ -473,7 +471,7 @@ class EchoJudge(LLMJudge):
     def __init__(self):
         super().__init__(name="echo", prompt="echo judge", model="debug")
 
-    def score(self, call: FunctionCall, item: DatasetItem) -> Dict[str, Any]:
+    def score(self, call: FunctionCall, item: DatasetItem) -> dict[str, Any]:
         expected = item.expected
         text = str(call.output or "")
         passed = expected is not None and str(expected) in text

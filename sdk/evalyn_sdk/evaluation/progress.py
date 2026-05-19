@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -22,9 +23,9 @@ class ProgressEvent:
 
     event_type: str
     timestamp: str
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "event": self.event_type,
             "timestamp": self.timestamp,
@@ -51,20 +52,20 @@ class ProgressTracker:
 
     def __init__(
         self,
-        file_path: Optional[str] = None,
-        callback: Optional[Callable[[ProgressEvent], None]] = None,
+        file_path: str | None = None,
+        callback: Callable[[ProgressEvent], None] | None = None,
         enabled: bool = True,
     ):
         self.enabled = enabled
         self._file_path = Path(file_path) if file_path else None
         self._callback = callback
-        self._events: List[ProgressEvent] = []
-        self._start_time: Optional[float] = None
+        self._events: list[ProgressEvent] = []
+        self._start_time: float | None = None
         self._items_complete = 0
         self._total_items = 0
 
     @property
-    def events(self) -> List[ProgressEvent]:
+    def events(self) -> list[ProgressEvent]:
         return list(self._events)
 
     @property
@@ -128,7 +129,7 @@ class ProgressTracker:
             "error": error_message,
         })
 
-    def _emit(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit(self, event_type: str, data: dict[str, Any]) -> None:
         if not self.enabled:
             return
 
@@ -155,7 +156,7 @@ class ProgressTracker:
             except Exception:
                 pass
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         return {
             "total_events": len(self._events),
             "items_complete": self._items_complete,

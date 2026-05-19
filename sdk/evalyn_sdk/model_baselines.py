@@ -11,8 +11,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -29,7 +28,7 @@ class JudgeScore:
     score: float
     latency_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "metric_id": self.metric_id,
@@ -39,7 +38,7 @@ class JudgeScore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> JudgeScore:
+    def from_dict(cls, data: dict[str, Any]) -> JudgeScore:
         return cls(
             item_id=data["item_id"],
             metric_id=data["metric_id"],
@@ -61,7 +60,7 @@ class AgreementResult:
     mean_score_diff: float
     n_items: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "local_model": self.local_model,
@@ -73,7 +72,7 @@ class AgreementResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AgreementResult:
+    def from_dict(cls, data: dict[str, Any]) -> AgreementResult:
         return cls(
             metric_id=data["metric_id"],
             local_model=data["local_model"],
@@ -89,13 +88,13 @@ class AgreementResult:
 class BaselineReport:
     """Full baseline comparison report across all metrics."""
 
-    agreements: List[AgreementResult]
+    agreements: list[AgreementResult]
     overall_agreement: float
-    recommended_local_metrics: List[str]
-    not_recommended_metrics: List[str]
+    recommended_local_metrics: list[str]
+    not_recommended_metrics: list[str]
     generated_at: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "agreements": [a.as_dict() for a in self.agreements],
             "overall_agreement": self.overall_agreement,
@@ -105,7 +104,7 @@ class BaselineReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BaselineReport:
+    def from_dict(cls, data: dict[str, Any]) -> BaselineReport:
         return cls(
             agreements=[
                 AgreementResult.from_dict(a) for a in data.get("agreements", [])
@@ -126,7 +125,7 @@ class BaselineReport:
 # ---------------------------------------------------------------------------
 
 
-def compute_correlation(xs: List[float], ys: List[float]) -> float:
+def compute_correlation(xs: list[float], ys: list[float]) -> float:
     """Pearson correlation coefficient - pure Python, no numpy.
 
     Returns 0.0 when the inputs have zero variance or are empty.
@@ -156,8 +155,8 @@ def compute_correlation(xs: List[float], ys: List[float]) -> float:
 
 
 def compute_agreement(
-    local_scores: List[JudgeScore],
-    api_scores: List[JudgeScore],
+    local_scores: list[JudgeScore],
+    api_scores: list[JudgeScore],
     threshold: float = 0.5,
 ) -> AgreementResult:
     """Compute agreement between local and API scores for matched items.
@@ -166,13 +165,13 @@ def compute_agreement(
     of pairs whose absolute score difference is within *threshold*.
     """
     # Build lookup for API scores
-    api_map: Dict[Tuple[str, str], JudgeScore] = {}
+    api_map: dict[tuple[str, str], JudgeScore] = {}
     for s in api_scores:
         api_map[(s.item_id, s.metric_id)] = s
 
-    local_vals: List[float] = []
-    api_vals: List[float] = []
-    diffs: List[float] = []
+    local_vals: list[float] = []
+    api_vals: list[float] = []
+    diffs: list[float] = []
     agreed = 0
     local_model = ""
     api_model = ""
@@ -226,8 +225,8 @@ def compute_agreement(
 
 
 def build_baseline_report(
-    local_scores: List[JudgeScore],
-    api_scores: List[JudgeScore],
+    local_scores: list[JudgeScore],
+    api_scores: list[JudgeScore],
     agreement_threshold: float = 0.8,
 ) -> BaselineReport:
     """Build a full baseline report grouped by metric.
@@ -236,8 +235,8 @@ def build_baseline_report(
     for local use; others are not recommended.
     """
     # Group scores by metric_id
-    local_by_metric: Dict[str, List[JudgeScore]] = {}
-    api_by_metric: Dict[str, List[JudgeScore]] = {}
+    local_by_metric: dict[str, list[JudgeScore]] = {}
+    api_by_metric: dict[str, list[JudgeScore]] = {}
 
     for s in local_scores:
         local_by_metric.setdefault(s.metric_id, []).append(s)
@@ -246,7 +245,7 @@ def build_baseline_report(
 
     all_metrics = sorted(set(local_by_metric) | set(api_by_metric))
 
-    agreements: List[AgreementResult] = []
+    agreements: list[AgreementResult] = []
     for metric in all_metrics:
         local_group = local_by_metric.get(metric, [])
         api_group = api_by_metric.get(metric, [])
@@ -254,8 +253,8 @@ def build_baseline_report(
             agreement = compute_agreement(local_group, api_group)
             agreements.append(agreement)
 
-    recommended: List[str] = []
-    not_recommended: List[str] = []
+    recommended: list[str] = []
+    not_recommended: list[str] = []
     total_rate = 0.0
 
     for a in agreements:
@@ -283,7 +282,7 @@ def build_baseline_report(
 
 def format_baseline_report(report: BaselineReport) -> str:
     """Format a BaselineReport as a human-readable string with agreement table."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Model Baseline Report")
     lines.append("=" * 60)
     lines.append(f"Generated: {report.generated_at}")
@@ -322,7 +321,7 @@ def format_baseline_report(report: BaselineReport) -> str:
 
 def rank_metrics_by_agreement(
     report: BaselineReport,
-) -> List[Tuple[str, float]]:
+) -> list[tuple[str, float]]:
     """Return (metric_id, agreement_rate) pairs sorted descending."""
     pairs = [(a.metric_id, a.agreement_rate) for a in report.agreements]
     pairs.sort(key=lambda x: -x[1])

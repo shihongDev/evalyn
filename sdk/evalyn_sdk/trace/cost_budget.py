@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -12,7 +12,7 @@ class BudgetConfig:
     warning_threshold: float = 0.8  # fraction of max to warn at
     hard_stop: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "max_cost_usd": self.max_cost_usd,
             "warning_threshold": self.warning_threshold,
@@ -20,7 +20,7 @@ class BudgetConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BudgetConfig:
+    def from_dict(cls, data: dict[str, Any]) -> BudgetConfig:
         return cls(
             max_cost_usd=data["max_cost_usd"],
             warning_threshold=data.get("warning_threshold", 0.8),
@@ -37,9 +37,9 @@ class BudgetStatus:
     remaining_usd: float
     utilization: float  # 0-1
     status: str  # "ok", "warning", "exceeded"
-    alerts: List[str] = field(default_factory=list)
+    alerts: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "current_cost_usd": self.current_cost_usd,
             "max_cost_usd": self.max_cost_usd,
@@ -66,7 +66,7 @@ class BudgetTracker:
     def __init__(self, config: BudgetConfig) -> None:
         self.config = config
         self._total_cost: float = 0.0
-        self._run_costs: Dict[str, float] = {}
+        self._run_costs: dict[str, float] = {}
 
     def add_cost(self, amount: float, run_id: str = "") -> None:
         """Add cost, optionally attributed to a run."""
@@ -80,7 +80,7 @@ class BudgetTracker:
         remaining = max(0.0, max_cost - self._total_cost)
         utilization = self._total_cost / max_cost if max_cost > 0 else 0.0
 
-        alerts: List[str] = []
+        alerts: list[str] = []
         if self._total_cost >= max_cost:
             status = "exceeded"
             alerts.append(
@@ -116,7 +116,7 @@ class BudgetTracker:
         self._total_cost = 0.0
         self._run_costs = {}
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "config": self.config.as_dict(),
             "total_cost": self._total_cost,
@@ -124,7 +124,7 @@ class BudgetTracker:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BudgetTracker:
+    def from_dict(cls, data: dict[str, Any]) -> BudgetTracker:
         config = BudgetConfig.from_dict(data["config"])
         tracker = cls(config)
         tracker._total_cost = data.get("total_cost", 0.0)

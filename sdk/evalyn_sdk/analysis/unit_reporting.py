@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -20,9 +20,9 @@ class UnitTypeStats:
     item_count: int
     pass_rate: float
     avg_score: float
-    metric_breakdown: Dict[str, float] = field(default_factory=dict)
+    metric_breakdown: dict[str, float] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "unit_type": self.unit_type,
             "item_count": self.item_count,
@@ -36,11 +36,11 @@ class UnitTypeStats:
 class UnitReport:
     """Complete unit-level report across all unit types."""
 
-    unit_stats: List[UnitTypeStats] = field(default_factory=list)
+    unit_stats: list[UnitTypeStats] = field(default_factory=list)
     total_items: int = 0
-    unit_type_distribution: Dict[str, int] = field(default_factory=dict)
+    unit_type_distribution: dict[str, int] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "unit_stats": [s.as_dict() for s in self.unit_stats],
             "total_items": self.total_items,
@@ -48,7 +48,7 @@ class UnitReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> UnitReport:
+    def from_dict(cls, data: dict[str, Any]) -> UnitReport:
         stats = [
             UnitTypeStats(
                 unit_type=s["unit_type"],
@@ -67,7 +67,7 @@ class UnitReport:
 
     def format_text(self) -> str:
         """Format the report as human-readable text."""
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Unit Report - {self.total_items} total items")
         lines.append("")
 
@@ -97,7 +97,7 @@ class UnitReport:
 # ---------------------------------------------------------------------------
 
 
-def classify_item_unit_type(item_metrics: Dict[str, Any]) -> str:
+def classify_item_unit_type(item_metrics: dict[str, Any]) -> str:
     """Infer unit type from an item's metric results.
 
     Looks for a "unit_type" key in the metrics dict. Falls back to "outcome".
@@ -107,7 +107,7 @@ def classify_item_unit_type(item_metrics: Dict[str, Any]) -> str:
     return "outcome"
 
 
-def compute_unit_breakdown(items: List[Dict[str, Any]]) -> UnitReport:
+def compute_unit_breakdown(items: list[dict[str, Any]]) -> UnitReport:
     """Group items by unit type and compute per-type stats.
 
     Each item dict has:
@@ -119,21 +119,21 @@ def compute_unit_breakdown(items: List[Dict[str, Any]]) -> UnitReport:
         return UnitReport(unit_stats=[], total_items=0, unit_type_distribution={})
 
     # Group items by unit type
-    groups: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for item in items:
         ut = item.get("unit_type", "outcome")
         groups[ut].append(item)
 
     distribution = {ut: len(group) for ut, group in groups.items()}
-    stats_list: List[UnitTypeStats] = []
+    stats_list: list[UnitTypeStats] = []
 
     for ut, group in sorted(groups.items()):
         total = len(group)
         passed_count = 0
         score_sum = 0.0
         score_count = 0
-        metric_passed: Dict[str, int] = defaultdict(int)
-        metric_total: Dict[str, int] = defaultdict(int)
+        metric_passed: dict[str, int] = defaultdict(int)
+        metric_total: dict[str, int] = defaultdict(int)
 
         for item in group:
             metrics = item.get("metrics", {})
@@ -178,7 +178,7 @@ def compute_unit_breakdown(items: List[Dict[str, Any]]) -> UnitReport:
 
 
 def filter_by_unit_type(
-    items: List[Dict[str, Any]], unit_type: str
-) -> List[Dict[str, Any]]:
+    items: list[dict[str, Any]], unit_type: str
+) -> list[dict[str, Any]]:
     """Filter items to a single unit type."""
     return [item for item in items if item.get("unit_type", "outcome") == unit_type]

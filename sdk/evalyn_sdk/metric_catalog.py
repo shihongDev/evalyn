@@ -10,7 +10,7 @@ from __future__ import annotations
 import html
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -23,10 +23,10 @@ class CatalogEntry:
     category: str
     scope: str
     rubric_levels: int
-    bundle_memberships: List[str] = field(default_factory=list)
+    bundle_memberships: list[str] = field(default_factory=list)
     recommended_use: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "metric_type": self.metric_type,
@@ -39,7 +39,7 @@ class CatalogEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CatalogEntry:
+    def from_dict(cls, data: dict[str, Any]) -> CatalogEntry:
         return cls(
             metric_id=data["metric_id"],
             metric_type=data["metric_type"],
@@ -56,12 +56,12 @@ class CatalogEntry:
 class MetricCatalog:
     """Browsable catalog of all available metrics."""
 
-    entries: List[CatalogEntry] = field(default_factory=list)
-    categories: Dict[str, str] = field(default_factory=dict)
+    entries: list[CatalogEntry] = field(default_factory=list)
+    categories: dict[str, str] = field(default_factory=dict)
     total_count: int = 0
     generated_at: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "entries": [e.as_dict() for e in self.entries],
             "categories": dict(self.categories),
@@ -70,7 +70,7 @@ class MetricCatalog:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MetricCatalog:
+    def from_dict(cls, data: dict[str, Any]) -> MetricCatalog:
         return cls(
             entries=[CatalogEntry.from_dict(e) for e in data.get("entries", [])],
             categories=data.get("categories", {}),
@@ -79,7 +79,7 @@ class MetricCatalog:
         )
 
 
-def _infer_recommended_use(metric: Dict[str, Any]) -> str:
+def _infer_recommended_use(metric: dict[str, Any]) -> str:
     """Infer a recommended use string from metric properties."""
     scope = metric.get("scope", "overall")
     category = metric.get("category", "")
@@ -94,10 +94,10 @@ def _infer_recommended_use(metric: Dict[str, Any]) -> str:
     return hint
 
 
-def _count_rubric_levels(metric: Dict[str, Any]) -> int:
+def _count_rubric_levels(metric: dict[str, Any]) -> int:
     """Count rubric levels from metric config."""
     config = metric.get("config", {})
-    rubric = config.get("rubric", metric.get("rubric", None))
+    rubric = config.get("rubric", metric.get("rubric"))
     if isinstance(rubric, dict):
         return len(rubric)
     if isinstance(rubric, list):
@@ -106,9 +106,9 @@ def _count_rubric_levels(metric: Dict[str, Any]) -> int:
 
 
 def build_catalog(
-    registry: List[Dict[str, Any]],
-    categories: Dict[str, str],
-    bundles: Optional[Dict[str, List[str]]] = None,
+    registry: list[dict[str, Any]],
+    categories: dict[str, str],
+    bundles: dict[str, list[str]] | None = None,
 ) -> MetricCatalog:
     """Build catalog from registry data.
 
@@ -120,7 +120,7 @@ def build_catalog(
     Returns:
         Populated MetricCatalog.
     """
-    bundle_map: Dict[str, List[str]] = {}
+    bundle_map: dict[str, list[str]] = {}
     if bundles:
         for bundle_name, metric_ids in bundles.items():
             for mid in metric_ids:
@@ -151,9 +151,9 @@ def build_catalog(
 
 def filter_catalog(
     catalog: MetricCatalog,
-    category: Optional[str] = None,
-    scope: Optional[str] = None,
-    search: Optional[str] = None,
+    category: str | None = None,
+    scope: str | None = None,
+    search: str | None = None,
 ) -> MetricCatalog:
     """Filter catalog by category, scope, or text search in id/description.
 
@@ -195,7 +195,7 @@ def format_catalog_markdown(catalog: MetricCatalog) -> str:
 
     Each entry shows description, scope, and rubric levels.
     """
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("# Metric Catalog")
     lines.append("")
     lines.append(f"Total metrics: {catalog.total_count}")
@@ -203,7 +203,7 @@ def format_catalog_markdown(catalog: MetricCatalog) -> str:
     lines.append("")
 
     # Group entries by category
-    by_cat: Dict[str, List[CatalogEntry]] = {}
+    by_cat: dict[str, list[CatalogEntry]] = {}
     for entry in catalog.entries:
         by_cat.setdefault(entry.category, []).append(entry)
 
@@ -250,7 +250,7 @@ def format_catalog_html(catalog: MetricCatalog) -> str:
     """
     h = html.escape
 
-    parts: List[str] = []
+    parts: list[str] = []
     parts.append("<!DOCTYPE html>")
     parts.append("<html lang=\"en\">")
     parts.append("<head>")
@@ -317,7 +317,7 @@ def format_catalog_html(catalog: MetricCatalog) -> str:
 
 def format_catalog_plain(catalog: MetricCatalog) -> str:
     """Format catalog as plain text tabular format."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"Metric Catalog ({catalog.total_count} metrics)")
     lines.append(f"Generated: {catalog.generated_at}")
     lines.append("")
@@ -341,13 +341,13 @@ def format_catalog_plain(catalog: MetricCatalog) -> str:
     return "\n".join(lines)
 
 
-def get_category_summary(catalog: MetricCatalog) -> Dict[str, int]:
+def get_category_summary(catalog: MetricCatalog) -> dict[str, int]:
     """Count metrics per category.
 
     Returns:
         Dict mapping category name to metric count.
     """
-    counts: Dict[str, int] = {}
+    counts: dict[str, int] = {}
     for entry in catalog.entries:
         counts[entry.category] = counts.get(entry.category, 0) + 1
     return counts

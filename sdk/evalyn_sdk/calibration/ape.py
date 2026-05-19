@@ -21,7 +21,7 @@ import logging
 import math
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -104,8 +104,8 @@ class APEOptimizer:
 
     def __init__(
         self,
-        config: Optional[APEConfig] = None,
-        api_key: Optional[str] = None,
+        config: APEConfig | None = None,
+        api_key: str | None = None,
     ):
         """Initialize APE optimizer.
 
@@ -115,8 +115,8 @@ class APEOptimizer:
         """
         self.config = config or APEConfig()
         self._api_key = api_key
-        self._generator_client: Optional[GeminiClient] = None
-        self._scorer_client: Optional[GeminiClient] = None
+        self._generator_client: GeminiClient | None = None
+        self._scorer_client: GeminiClient | None = None
 
     @property
     def generator_client(self) -> GeminiClient:
@@ -145,10 +145,10 @@ class APEOptimizer:
     def _propose_candidates(
         self,
         current_preamble: str,
-        rubric: List[str],
+        rubric: list[str],
         disagreements: DisagreementAnalysis,
-        accumulator: Optional[TokenAccumulator] = None,
-    ) -> List[str]:
+        accumulator: TokenAccumulator | None = None,
+    ) -> list[str]:
         """
         Generate candidate prompts based on current prompt and disagreement patterns.
 
@@ -210,9 +210,9 @@ Example {i}:
     def _score_candidate(
         self,
         preamble: str,
-        rubric: List[str],
-        examples: List[Dict[str, Any]],
-        accumulator: Optional[TokenAccumulator] = None,
+        rubric: list[str],
+        examples: list[dict[str, Any]],
+        accumulator: TokenAccumulator | None = None,
     ) -> float:
         """
         Score a candidate prompt by running it as a judge on examples.
@@ -256,11 +256,11 @@ Provide your verdict:"""
 
     def _ucb_select(
         self,
-        candidates: List[str],
-        rubric: List[str],
-        val_examples: List[Dict[str, Any]],
-        accumulator: Optional[TokenAccumulator] = None,
-    ) -> Tuple[str, float]:
+        candidates: list[str],
+        rubric: list[str],
+        val_examples: list[dict[str, Any]],
+        accumulator: TokenAccumulator | None = None,
+    ) -> tuple[str, float]:
         """
         Select the best candidate using UCB (Upper Confidence Bound) algorithm.
 
@@ -280,10 +280,10 @@ Provide your verdict:"""
             return "", 0.0
 
         # Track scores for each candidate
-        scores: Dict[int, List[float]] = {i: [] for i in range(len(candidates))}
+        scores: dict[int, list[float]] = {i: [] for i in range(len(candidates))}
 
         pbar = tqdm(range(self.config.eval_rounds), desc="APE UCB", unit="round")
-        for round_num in pbar:
+        for _round_num in pbar:
             # Calculate UCB scores for each candidate
             ucb_scores = []
             total_evaluations = sum(len(s) for s in scores.values())
@@ -334,13 +334,13 @@ Provide your verdict:"""
     def optimize(
         self,
         metric_id: str,
-        current_rubric: List[str],
-        metric_results: List[MetricResult],
-        annotations: List[Annotation],
+        current_rubric: list[str],
+        metric_results: list[MetricResult],
+        annotations: list[Annotation],
         disagreements: DisagreementAnalysis,
-        dataset_items: Optional[List[DatasetItem]] = None,
+        dataset_items: list[DatasetItem] | None = None,
         current_preamble: str = "",
-        accumulator: Optional[TokenAccumulator] = None,
+        accumulator: TokenAccumulator | None = None,
     ) -> PromptOptimizationResult:
         """
         Run APE optimization.

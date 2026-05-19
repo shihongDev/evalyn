@@ -6,7 +6,7 @@ Plot alignment vs annotation count to find diminishing returns.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 @dataclass
@@ -17,7 +17,7 @@ class AlignmentPoint:
     alignment_score: float
     marginal_improvement: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "num_annotations": self.num_annotations,
             "alignment_score": self.alignment_score,
@@ -29,17 +29,17 @@ class AlignmentPoint:
 class AlignmentCurve:
     """Alignment score vs annotation count with diminishing returns detection."""
 
-    points: List[AlignmentPoint] = field(default_factory=list)
-    diminishing_returns_at: Optional[int] = None
+    points: list[AlignmentPoint] = field(default_factory=list)
+    diminishing_returns_at: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "points": [p.as_dict() for p in self.points],
             "diminishing_returns_at": self.diminishing_returns_at,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AlignmentCurve:
+    def from_dict(cls, data: dict[str, Any]) -> AlignmentCurve:
         points = [
             AlignmentPoint(
                 num_annotations=p["num_annotations"],
@@ -83,7 +83,7 @@ class AlignmentCurve:
 
 
 def build_alignment_curve(
-    annotation_scores: List[Tuple[int, float]],
+    annotation_scores: list[tuple[int, float]],
 ) -> AlignmentCurve:
     """Build curve from (count, score) pairs.
 
@@ -94,8 +94,8 @@ def build_alignment_curve(
         return AlignmentCurve()
 
     sorted_pairs = sorted(annotation_scores, key=lambda x: x[0])
-    points: List[AlignmentPoint] = []
-    diminishing_at: Optional[int] = None
+    points: list[AlignmentPoint] = []
+    diminishing_at: int | None = None
 
     for i, (count, score) in enumerate(sorted_pairs):
         if i == 0:
@@ -190,7 +190,7 @@ def estimate_optimal_annotations(curve: AlignmentCurve) -> int:
 
 def compute_roi(
     curve: AlignmentCurve, cost_per_annotation: float = 1.0
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compute return on investment for annotations.
 
     Returns dict with total_cost, total_improvement, cost_per_point,

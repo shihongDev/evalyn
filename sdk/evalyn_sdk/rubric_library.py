@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 
 @dataclass
@@ -21,9 +20,9 @@ class RubricMetadata:
     tested_on: str
     accuracy: float
     created_at: str
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "author": self.author,
             "version": self.version,
@@ -34,7 +33,7 @@ class RubricMetadata:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RubricMetadata:
+    def from_dict(cls, data: dict[str, Any]) -> RubricMetadata:
         return cls(
             author=data.get("author", ""),
             version=data.get("version", "0.0.0"),
@@ -55,10 +54,10 @@ class PortableRubric:
     category: str
     scope: str
     prompt: str
-    rubric: Dict[str, str]
+    rubric: dict[str, str]
     metadata: RubricMetadata
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "metric_type": self.metric_type,
@@ -71,7 +70,7 @@ class PortableRubric:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PortableRubric:
+    def from_dict(cls, data: dict[str, Any]) -> PortableRubric:
         return cls(
             metric_id=data.get("metric_id", ""),
             metric_type=data.get("metric_type", ""),
@@ -104,7 +103,7 @@ def export_to_yaml_string(rubric: PortableRubric) -> str:
     Uses simple key: value pairs with --- separators between sections.
     Indented blocks for nested data.
     """
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("---")
     lines.append(f"metric_id: {rubric.metric_id}")
     lines.append(f"metric_type: {rubric.metric_type}")
@@ -131,9 +130,9 @@ def export_to_yaml_string(rubric: PortableRubric) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _parse_section(lines: List[str]) -> Dict[str, str]:
+def _parse_section(lines: list[str]) -> dict[str, str]:
     """Parse simple key: value lines into a dict."""
-    result: Dict[str, str] = {}
+    result: dict[str, str] = {}
     for line in lines:
         if ": " in line:
             key, value = line.split(": ", 1)
@@ -141,9 +140,9 @@ def _parse_section(lines: List[str]) -> Dict[str, str]:
     return result
 
 
-def _parse_indented_block(lines: List[str]) -> Dict[str, str]:
+def _parse_indented_block(lines: list[str]) -> dict[str, str]:
     """Parse indented key: value lines into a dict."""
-    result: Dict[str, str] = {}
+    result: dict[str, str] = {}
     for line in lines:
         stripped = line.strip()
         if stripped and ": " in stripped:
@@ -154,8 +153,8 @@ def _parse_indented_block(lines: List[str]) -> Dict[str, str]:
 
 def import_from_yaml_string(content: str) -> PortableRubric:
     """Parse a rubric from the custom YAML-like text format."""
-    sections: List[List[str]] = []
-    current: List[str] = []
+    sections: list[list[str]] = []
+    current: list[str] = []
     for line in content.split("\n"):
         if line.strip() == "---":
             if current:
@@ -170,7 +169,7 @@ def import_from_yaml_string(content: str) -> PortableRubric:
     header = _parse_section(sections[0]) if len(sections) > 0 else {}
 
     # Section 1: prompt (multiline block)
-    prompt_lines: List[str] = []
+    prompt_lines: list[str] = []
     if len(sections) > 1:
         for line in sections[1]:
             stripped = line.strip()
@@ -233,12 +232,12 @@ def import_from_json_string(content: str) -> PortableRubric:
     return PortableRubric.from_dict(data)
 
 
-def validate_rubric(rubric: PortableRubric) -> List[str]:
+def validate_rubric(rubric: PortableRubric) -> list[str]:
     """Return a list of validation errors for a rubric.
 
     Returns an empty list if the rubric is valid.
     """
-    errors: List[str] = []
+    errors: list[str] = []
     if not rubric.metric_id:
         errors.append("metric_id is empty")
     if not rubric.prompt:
@@ -255,10 +254,10 @@ def validate_rubric(rubric: PortableRubric) -> List[str]:
 
 
 def merge_rubrics(
-    existing: List[PortableRubric],
-    incoming: List[PortableRubric],
+    existing: list[PortableRubric],
+    incoming: list[PortableRubric],
     strategy: str = "skip",
-) -> Tuple[List[PortableRubric], List[str]]:
+) -> tuple[list[PortableRubric], list[str]]:
     """Merge incoming rubrics into an existing list.
 
     Strategies:
@@ -270,7 +269,7 @@ def merge_rubrics(
     """
     existing_ids = {r.metric_id for r in existing}
     merged = list(existing)
-    actions: List[str] = []
+    actions: list[str] = []
 
     for rubric in incoming:
         if rubric.metric_id not in existing_ids:
@@ -322,7 +321,7 @@ def format_rubric_summary(rubric: PortableRubric) -> str:
 
 def format_rubric_detail(rubric: PortableRubric) -> str:
     """Return a full detail view of a rubric."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"Metric ID:   {rubric.metric_id}")
     lines.append(f"Type:        {rubric.metric_type}")
     lines.append(f"Description: {rubric.description}")

@@ -7,8 +7,7 @@ calling any LLM APIs. Useful for budgeting and planning.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # Average tokens per judge call by metric type (estimated from typical prompts)
 _AVG_TOKENS_PER_JUDGE_CALL = {
@@ -43,9 +42,9 @@ class DryRunEstimate:
     estimated_time_with_workers: float  # adjusted for parallelism
 
     # Per-metric breakdown
-    metric_estimates: List[Dict[str, Any]] = field(default_factory=list)
+    metric_estimates: list[dict[str, Any]] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_items": self.total_items,
             "total_metrics": self.total_metrics,
@@ -91,9 +90,9 @@ class DryRunEstimate:
 
 def estimate_eval_cost(
     item_count: int,
-    metrics: List[Any],
+    metrics: list[Any],
     provider: str = "gemini",
-    model: Optional[str] = None,
+    model: str | None = None,
     max_workers: int = 1,
     confidence_method: str = "none",
     confidence_samples: int = 3,
@@ -112,8 +111,10 @@ def estimate_eval_cost(
     Returns:
         DryRunEstimate with cost and time projections.
     """
-    from ..trace.instrumentation.providers._shared import COST_PER_1M_TOKENS, _match_model_costs
     from ..defaults import DEFAULT_MODELS_BY_PROVIDER
+    from ..trace.instrumentation.providers._shared import (
+        _match_model_costs,
+    )
 
     if model is None:
         model = DEFAULT_MODELS_BY_PROVIDER.get(provider, "gemini-2.5-flash-lite")

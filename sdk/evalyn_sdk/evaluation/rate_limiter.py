@@ -8,8 +8,8 @@ approached.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -21,7 +21,7 @@ class RateLimitConfig:
     burst_limit: int = 10
     provider: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "requests_per_minute": self.requests_per_minute,
             "tokens_per_minute": self.tokens_per_minute,
@@ -30,7 +30,7 @@ class RateLimitConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RateLimitConfig:
+    def from_dict(cls, data: dict[str, Any]) -> RateLimitConfig:
         return cls(
             requests_per_minute=data.get("requests_per_minute", 60),
             tokens_per_minute=data.get("tokens_per_minute", 100000),
@@ -50,7 +50,7 @@ class RateLimitStatus:
     throttled: bool = False
     wait_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "current_rpm": self.current_rpm,
             "current_tpm": self.current_tpm,
@@ -71,7 +71,7 @@ class RateLimitStatus:
         return "\n".join(lines)
 
 
-PROVIDER_DEFAULTS: Dict[str, RateLimitConfig] = {
+PROVIDER_DEFAULTS: dict[str, RateLimitConfig] = {
     "gemini": RateLimitConfig(requests_per_minute=60, tokens_per_minute=1000000),
     "openai": RateLimitConfig(requests_per_minute=60, tokens_per_minute=150000),
     "anthropic": RateLimitConfig(requests_per_minute=50, tokens_per_minute=100000),
@@ -91,8 +91,8 @@ class RateLimiter:
 
     def __init__(self, config: RateLimitConfig) -> None:
         self.config = config
-        self._requests: List[float] = []
-        self._tokens: List[Tuple[float, int]] = []
+        self._requests: list[float] = []
+        self._tokens: list[tuple[float, int]] = []
 
     def _prune(self, now: float) -> None:
         """Remove entries older than 60 seconds."""
@@ -168,7 +168,7 @@ class RateLimiter:
         self._requests.clear()
         self._tokens.clear()
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Return current usage statistics."""
         now = time.monotonic()
         self._prune(now)
@@ -212,7 +212,7 @@ def get_provider_limits(provider: str) -> RateLimitConfig:
 
 def create_rate_limiter(
     provider: str = "",
-    config: Optional[RateLimitConfig] = None,
+    config: RateLimitConfig | None = None,
 ) -> RateLimiter:
     """Factory for creating a RateLimiter.
 

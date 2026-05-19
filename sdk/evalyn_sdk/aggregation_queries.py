@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 def _safe_int(val: Any, default: int = 0) -> int:
@@ -34,10 +34,10 @@ def _safe_float(val: Any, default: float = 0.0) -> float:
 class AggregationQuery:
     """Describes a group-by aggregation over a record set."""
 
-    group_by: List[str]
+    group_by: list[str]
     metric: str
     operation: str  # sum, mean, count, min, max
-    filters: Dict[str, Any] = field(default_factory=dict)
+    filters: dict[str, Any] = field(default_factory=dict)
     date_field: str = ""
     date_from: str = ""
     date_to: str = ""
@@ -46,7 +46,7 @@ class AggregationQuery:
         if isinstance(self.group_by, str):
             self.group_by = [self.group_by]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "group_by": list(self.group_by),
             "metric": self.metric,
@@ -58,7 +58,7 @@ class AggregationQuery:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AggregationQuery:
+    def from_dict(cls, data: dict[str, Any]) -> AggregationQuery:
         return cls(
             group_by=data.get("group_by", []),
             metric=data.get("metric", ""),
@@ -74,11 +74,11 @@ class AggregationQuery:
 class AggregationResult:
     """Result of an aggregation query."""
 
-    groups: List[Dict[str, Any]]
+    groups: list[dict[str, Any]]
     total_records: int
     query: AggregationQuery
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "groups": [dict(g) for g in self.groups],
             "total_records": self.total_records,
@@ -86,7 +86,7 @@ class AggregationResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AggregationResult:
+    def from_dict(cls, data: dict[str, Any]) -> AggregationResult:
         return cls(
             groups=data.get("groups", []),
             total_records=data.get("total_records", 0),
@@ -102,10 +102,10 @@ class ProjectStats:
     total_traces: int
     total_tokens: int
     total_cost: float
-    model_breakdown: Dict[str, int]
-    date_range: Tuple[str, str]
+    model_breakdown: dict[str, int]
+    date_range: tuple[str, str]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "project_name": self.project_name,
             "total_traces": self.total_traces,
@@ -116,7 +116,7 @@ class ProjectStats:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ProjectStats:
+    def from_dict(cls, data: dict[str, Any]) -> ProjectStats:
         dr = data.get("date_range", ["", ""])
         return cls(
             project_name=data.get("project_name", ""),
@@ -178,7 +178,7 @@ def filter_records(
 
 def _group_key(record: dict, group_by: list[str]) -> tuple:
     """Build a hashable group key from a record."""
-    return tuple(record.get(f, None) for f in group_by)
+    return tuple(record.get(f) for f in group_by)
 
 
 def _aggregate_values(values: list[float], operation: str) -> float:
