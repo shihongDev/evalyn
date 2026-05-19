@@ -19,11 +19,11 @@ from __future__ import annotations
 import json
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, TypeAlias
-from collections.abc import Callable
+from typing import TypeAlias
 
 from ...models import DatasetItem, FunctionCall, Metric, MetricResult
 from ...parsing import _extract_json_object, _parse_passed, _safe_trace_excerpt

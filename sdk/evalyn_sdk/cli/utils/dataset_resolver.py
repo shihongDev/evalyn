@@ -7,7 +7,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .config import find_latest_dataset as _config_find_latest_dataset
 from .config import get_config_default, load_config

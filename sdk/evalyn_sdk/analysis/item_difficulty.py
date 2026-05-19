@@ -8,7 +8,7 @@ and generate difficulty reports across multiple evaluation runs.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models

@@ -30,9 +30,8 @@ import secrets
 import threading
 import time
 import webbrowser
-from pathlib import Path
-from typing import Optional
 from collections.abc import Callable
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 

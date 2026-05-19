@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from html import escape as html_escape
-from typing import Any, Dict, List
+from typing import Any
 
 from ..models import Span
 

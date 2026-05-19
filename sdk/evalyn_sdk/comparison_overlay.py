@@ -9,7 +9,7 @@ from __future__ import annotations
 import html
 import math
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass

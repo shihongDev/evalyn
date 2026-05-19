@@ -7,7 +7,7 @@ with per-item delta tracking and human-readable findings.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import re
 import warnings
-from typing import Optional
 
 from .base import ConfidenceEstimator, ConfidenceResult
 

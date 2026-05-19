@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 import math
 import re
-from functools import lru_cache
-from typing import Any, Dict, List, Optional, Tuple
 from collections.abc import Sequence
+from functools import lru_cache
+from typing import Any
 
 from ..models import DatasetItem, FunctionCall, Metric, MetricResult, MetricSpec
 

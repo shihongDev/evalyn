@@ -9,10 +9,10 @@ ASCII tables of results.
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List
-from collections.abc import Callable
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models

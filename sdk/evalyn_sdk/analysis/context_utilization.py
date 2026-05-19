@@ -6,7 +6,7 @@ Warn when spans approach context limits for their respective models.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..models import Span
 

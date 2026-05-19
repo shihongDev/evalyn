@@ -7,7 +7,7 @@ and docker-compose.yml content as strings - never makes actual Docker calls.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass

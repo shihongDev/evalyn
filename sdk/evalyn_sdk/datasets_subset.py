@@ -9,7 +9,7 @@ from __future__ import annotations
 import random
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Common stop words to exclude from keyword extraction
 _STOP_WORDS = frozenset({

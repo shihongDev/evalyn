@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from typing import Optional, Tuple
 
 from .config import get_config_default, load_config
 

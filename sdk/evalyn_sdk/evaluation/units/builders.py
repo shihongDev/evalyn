@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import hashlib
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Type
 
 from ...models import EvalUnit, FunctionCall, Span
 

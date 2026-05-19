@@ -19,7 +19,7 @@ from __future__ import annotations
 import functools
 import importlib.util
 import logging
-from typing import Any, List
+from typing import Any
 
 from ....models import Span
 from ... import context as span_context

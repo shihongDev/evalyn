@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from ..defaults import DEFAULT_DSPY_MODEL
 from ..models import Annotation, DatasetItem, MetricResult

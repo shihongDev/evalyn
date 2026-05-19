@@ -7,7 +7,7 @@ custom properties that can be injected into any HTML report.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models

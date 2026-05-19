@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 
 @dataclass
@@ -175,7 +175,6 @@ def plan_scaffold(config: ScaffoldConfig) -> ScaffoldResult:
 
     # Collect files
     created_files = []
-    variables = {"provider": config.provider, "project_name": config.project_name}
     for rel_path in template.files:
         # Skip test files if include_tests is False
         if not config.include_tests and rel_path.startswith("tests/"):

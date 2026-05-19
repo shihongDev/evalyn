@@ -6,7 +6,7 @@ import html
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def _now_iso() -> str:

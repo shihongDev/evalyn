@@ -18,9 +18,9 @@ Span hierarchy:
 from __future__ import annotations
 
 import importlib.util
-from contextlib import contextmanager
-from typing import Any, Dict, Optional
 from collections.abc import Iterator
+from contextlib import contextmanager
+from typing import Any
 
 from ....models import Span
 from ... import context as span_context

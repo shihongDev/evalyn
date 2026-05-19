@@ -45,10 +45,10 @@ import logging
 import time
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any, Optional
-from collections.abc import AsyncIterator, Awaitable, Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 

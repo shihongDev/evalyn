@@ -7,7 +7,7 @@ evaluation unit granularity (outcome, per_call, per_turn, per_tool, per_node).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 from ..models import Span
 

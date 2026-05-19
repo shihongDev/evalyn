@@ -7,7 +7,7 @@ Provides tools to analyze how metrics change over time.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING
 
 from .core import RunAnalysis, analyze_run
 

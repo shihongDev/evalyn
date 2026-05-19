@@ -7,7 +7,6 @@ during evaluation, and signals when limits are exceeded.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass

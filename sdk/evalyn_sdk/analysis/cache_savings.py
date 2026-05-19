@@ -7,7 +7,7 @@ cache_creation_tokens, cache_read_tokens, and input_tokens from spans.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 from ..models import Span
 

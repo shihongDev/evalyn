@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Dict, List
+from typing import Any
 
 
 def compute_result_hash(metric_results: list) -> str:

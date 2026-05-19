@@ -32,7 +32,6 @@ ESSENTIAL = {"project", "limit"}
 import argparse
 import os
 from datetime import datetime, timezone
-from typing import Optional
 
 from ..utils.config import get_data_dir
 from ..utils.errors import fatal_error

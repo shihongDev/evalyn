@@ -7,8 +7,8 @@ import importlib.util
 import inspect
 import os
 import sys
-from typing import Any, List
 from collections.abc import Callable
+from typing import Any
 
 
 def _get_module_callables(module: Any) -> list[str]:

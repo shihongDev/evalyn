@@ -14,10 +14,10 @@ from __future__ import annotations
 
 import importlib.util
 import time
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any, Dict, List, Optional, TypedDict
-from collections.abc import AsyncIterator
+from typing import Any, TypedDict
 
 from ....models import Span
 from ... import context as span_context

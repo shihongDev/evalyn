@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import functools
 import importlib.util
-from contextvars import ContextVar
-from typing import Any, Optional, Set
 from collections.abc import Callable
+from contextvars import ContextVar
+from typing import Any
 
 from ....models import Span
 from ... import context as span_context

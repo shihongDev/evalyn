@@ -11,8 +11,8 @@ References:
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any, List, Optional
 from collections.abc import Callable
+from typing import Any
 
 from .base import ConfidenceEstimator, ConfidenceResult
 

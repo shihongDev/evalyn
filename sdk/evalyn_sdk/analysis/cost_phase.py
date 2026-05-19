@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 from ..models import Span
 

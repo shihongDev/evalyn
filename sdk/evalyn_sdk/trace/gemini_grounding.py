@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..models import Span
 

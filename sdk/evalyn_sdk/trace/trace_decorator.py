@@ -3,10 +3,10 @@ from __future__ import annotations
 import functools
 import threading
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-from collections.abc import Callable
+from typing import Any
 
 from ..models import Span
 

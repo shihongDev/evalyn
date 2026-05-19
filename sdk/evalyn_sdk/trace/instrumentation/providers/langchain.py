@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 from ..base import Instrumentor, InstrumentorType
 from ._shared import log_llm_call, log_tool_call

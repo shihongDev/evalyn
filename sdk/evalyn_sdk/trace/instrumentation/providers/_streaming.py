@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, TypeVar
 from collections.abc import Callable, Iterator
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 

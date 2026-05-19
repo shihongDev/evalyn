@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import html
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .core import RunAnalysis
 from .insights import InsightsReport

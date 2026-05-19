@@ -6,9 +6,9 @@ import json
 import os
 import sqlite3
 import threading
-from pathlib import Path
-from typing import Dict, List, Optional
 from collections.abc import Iterable
+from pathlib import Path
+from typing import Dict
 
 from ..models import (
     Annotation,

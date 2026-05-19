@@ -27,9 +27,9 @@ import logging
 import os
 import tempfile
 from collections import defaultdict
+from collections.abc import Iterable
 from datetime import datetime, timedelta
 from pathlib import Path
-from collections.abc import Iterable
 
 logger = logging.getLogger(__name__)
 

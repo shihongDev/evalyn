@@ -7,7 +7,7 @@ to estimate evaluation costs from token counts.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 MODEL_PRICING: dict[str, dict[str, float]] = {
     "gemini-2.5-flash": {

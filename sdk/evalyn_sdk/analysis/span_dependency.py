@@ -8,7 +8,7 @@ dependency graph and identifies bottleneck spans.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any
 
 from ..models import Span
 

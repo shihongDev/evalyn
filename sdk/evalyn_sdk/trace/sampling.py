@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
-from typing import Any, Dict, Optional
 from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
 from ..models import Span
 

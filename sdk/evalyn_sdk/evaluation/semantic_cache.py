@@ -10,7 +10,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from difflib import SequenceMatcher
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass

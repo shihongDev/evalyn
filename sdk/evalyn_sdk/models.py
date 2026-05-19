@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import builtins
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Literal, Optional
-from collections.abc import Callable
-import builtins
+from typing import Any, Literal
 
 
 def now_utc() -> datetime:

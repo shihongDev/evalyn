@@ -1,8 +1,6 @@
 """Extract span-metric attribution links from judge results."""
 from __future__ import annotations
 
-from typing import List
-
 from .models import MetricResult, SpanMetricLink, _default_id
 
 

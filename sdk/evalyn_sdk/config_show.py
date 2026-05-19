@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Priority order (highest to lowest): flag > env > project > global > default
 SOURCE_PRIORITY = ["flag", "env", "project", "global", "default"]

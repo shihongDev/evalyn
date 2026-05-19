@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -138,9 +137,7 @@ def format_namespace_tree(registry: NamespaceRegistry) -> str:
     """Render a tree-style display of namespaces and their metrics."""
     lines: list[str] = []
     namespaces = registry.list_namespaces()
-    for i, ns in enumerate(namespaces):
-        prefix = ""
-        is_last_ns = i == len(namespaces) - 1
+    for ns in namespaces:
         desc = f" - {ns.description}" if ns.description else ""
         lines.append(f"{ns.name}/{desc}")
         metrics = registry.list_metrics(ns.name)

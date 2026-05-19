@@ -7,7 +7,7 @@ registry. No external dependencies - scripts are emitted as plain strings.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data model

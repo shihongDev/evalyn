@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Dict, List
-
 # Config file paths to search
 DEFAULT_CONFIG_PATHS = [".evalynrc", "evalyn.yaml", "evalyn.yml", ".evalyn.yaml"]
 

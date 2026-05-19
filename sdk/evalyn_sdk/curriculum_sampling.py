@@ -6,9 +6,9 @@ Pure Python, no external dependencies.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
 from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass

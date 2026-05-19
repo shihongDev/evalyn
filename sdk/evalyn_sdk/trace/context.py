@@ -17,11 +17,11 @@ from __future__ import annotations
 
 import threading
 import uuid
+from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
-from collections.abc import Generator
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..models import FunctionCall, Span

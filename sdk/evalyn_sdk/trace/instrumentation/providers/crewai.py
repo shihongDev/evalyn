@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import importlib.util
 import threading
-from typing import Any, Dict, Optional
+from typing import Any
 
 from ....models import Span
 from ... import context as span_context

@@ -24,9 +24,9 @@ import argparse
 import importlib
 import logging
 import re
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field, is_dataclass
 from typing import Any
-from collections.abc import Iterable
 
 logger = logging.getLogger(__name__)
 

@@ -6,9 +6,9 @@ checks: tool call accuracy, topic adherence, keyword coverage.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
 from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Dataclasses

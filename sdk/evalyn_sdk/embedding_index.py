@@ -11,7 +11,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 _WORD_RE = re.compile(r"[a-zA-Z0-9]+")
 

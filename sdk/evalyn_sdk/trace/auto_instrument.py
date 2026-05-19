@@ -26,8 +26,8 @@ import functools
 import inspect
 import time
 import uuid
-from typing import Any, Dict, Optional
 from collections.abc import Callable
+from typing import Any
 
 # Import from the new instrumentation module
 from .instrumentation.registry import get_registry

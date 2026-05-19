@@ -7,7 +7,7 @@ alongside the remaining items for consistent scoring.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass

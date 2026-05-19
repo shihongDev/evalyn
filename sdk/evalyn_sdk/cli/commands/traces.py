@@ -31,7 +31,7 @@ ESSENTIAL = {"limit"}
 
 import argparse
 import json
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ...storage import SQLiteStorage

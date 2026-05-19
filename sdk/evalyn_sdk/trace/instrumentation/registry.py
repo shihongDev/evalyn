@@ -7,7 +7,7 @@ Provides a central place to register, discover, and invoke instrumentors.
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .base import Instrumentor, InstrumentorType
 

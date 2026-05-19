@@ -17,16 +17,13 @@ from __future__ import annotations
 
 import importlib.util
 import time
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
-    List,
-    Optional,
     TypedDict,
 )
-from collections.abc import AsyncIterator, Callable
 
 from ....models import Span
 from ... import context as span_context

@@ -6,8 +6,6 @@ Provides terminal-friendly text reports with ASCII visualizations.
 
 from __future__ import annotations
 
-from typing import List, Optional
-
 from .core import RunAnalysis
 
 # =============================================================================

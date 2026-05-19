@@ -179,7 +179,7 @@ async def list_experiments() -> JSONResponse:
         by_dataset[r["_dataset"]].append(r)
 
     rows: list[dict] = []
-    for dataset, drs in by_dataset.items():
+    for _dataset, drs in by_dataset.items():
         for idx, r in enumerate(drs):
             prev = drs[idx - 1] if idx > 0 else None
             rows.append(_serialize_row(r, prev))
@@ -317,7 +317,7 @@ async def get_lineage() -> JSONResponse:
 
     out_runs: list[dict] = []
     pass_rates: list[float] = []
-    for dataset, drs in by_dataset.items():
+    for _dataset, drs in by_dataset.items():
         for idx, r in enumerate(drs):
             prev = drs[idx - 1] if idx > 0 else None
             pr = run_pass_rate(r)

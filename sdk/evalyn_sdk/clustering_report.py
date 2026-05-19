@@ -11,7 +11,7 @@ import random
 import re
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Set
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Stopwords (minimal set for clustering)

@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 _DESTRUCTIVE_COMMANDS = frozenset({"gc", "delete", "reset"})
 

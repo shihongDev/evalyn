@@ -6,9 +6,9 @@ result recording. Built-in processors: clamp, threshold, invert, round.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
 from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass

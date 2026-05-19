@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import random
 import re
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 from ..models import Annotation, DatasetItem, MetricResult
 

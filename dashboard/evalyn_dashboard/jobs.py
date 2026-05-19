@@ -31,11 +31,11 @@ import logging
 import signal
 import time
 import uuid
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Literal
-from collections.abc import AsyncIterator
 
 from .jobs_persistence import MAX_PERSISTED_OUTPUT, JobPersistence
 

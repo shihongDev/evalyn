@@ -5,9 +5,9 @@ import functools
 import hashlib
 import inspect
 import uuid
-from contextlib import contextmanager
-from typing import Any, Dict, Optional, Tuple
 from collections.abc import Callable
+from contextlib import contextmanager
+from typing import Any
 
 from ..models import FunctionCall, Span, TraceEvent, now_utc
 from ..storage.base import StorageBackend

@@ -11,7 +11,7 @@ Contains shared data structures used across calibration components:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..utils.api_client import GenerateResult
 

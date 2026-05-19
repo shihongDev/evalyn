@@ -22,7 +22,7 @@ Or with the decorator:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 from .metrics.factory import build_objective_metric
 from .models import DatasetItem, FunctionCall, MetricResult

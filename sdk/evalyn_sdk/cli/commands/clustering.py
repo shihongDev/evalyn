@@ -37,7 +37,6 @@ ESSENTIAL = {"metric_id"}
 import argparse
 import json
 from pathlib import Path
-from typing import Optional
 
 from ..utils.command_common import load_eval_run_for_command
 from ..utils.config import load_config, resolve_dataset_path

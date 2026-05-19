@@ -16,7 +16,7 @@ import argparse
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from ...defaults import DEFAULT_EVAL_MODEL
 from .config import get_config_default

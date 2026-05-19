@@ -6,11 +6,11 @@ for scoped read-only sections, and history tracking of state changes.
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Tuple
-from collections.abc import Generator
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Global State

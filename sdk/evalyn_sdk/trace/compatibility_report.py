@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import importlib.metadata
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 KNOWN_COMPATIBLE_VERSIONS: dict[str, list[str]] = {
     "google-generativeai": ["0.8.0", "0.8.1", "0.8.2", "0.8.3"],

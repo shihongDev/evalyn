@@ -7,9 +7,9 @@ in priority order; the first successful call wins.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
-from typing import Any, Dict, List
 from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass

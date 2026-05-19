@@ -7,9 +7,9 @@ import inspect
 import json
 import sys
 import time
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, List, Optional
 from collections.abc import Callable
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ...trace.tracer import EvalTracer

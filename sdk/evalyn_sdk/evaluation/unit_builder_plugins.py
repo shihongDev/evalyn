@@ -7,7 +7,7 @@ Provides a Protocol for unit builders and three built-in implementations
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Protocol
 
 from ..models import Span
 

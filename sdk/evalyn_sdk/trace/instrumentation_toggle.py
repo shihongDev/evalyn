@@ -7,10 +7,10 @@ instrumentation without restarting the process.
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Any, Dict, List
-from collections.abc import Generator
+from typing import Any
 
 _INSTRUMENTATION_ENABLED: bool = True
 _TOGGLE_HISTORY: list[dict[str, Any]] = []

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import inspect
 import json
-from typing import Any, List, Optional
 from collections.abc import Callable, Iterable
+from typing import Any
 
 from ..models import FunctionCall, MetricRegistry, MetricSpec
 from ..parsing import extract_json_list

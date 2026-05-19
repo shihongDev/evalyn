@@ -7,7 +7,7 @@ an experiment identifier, then comparing metrics across experiments.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 @dataclass

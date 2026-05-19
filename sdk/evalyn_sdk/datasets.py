@@ -3,10 +3,10 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from collections.abc import Generator, Iterable, Mapping
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, List, Optional
-from collections.abc import Generator, Iterable, Mapping
+from typing import Any
 
 from .models import DatasetItem, FunctionCall
 

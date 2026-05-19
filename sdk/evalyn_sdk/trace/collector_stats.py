@@ -6,7 +6,7 @@ Tracks collected, orphaned, and lost spans per session.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Set
+from typing import Any
 
 
 @dataclass

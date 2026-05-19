@@ -33,9 +33,9 @@ import logging
 import os
 import re
 import secrets
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
-from collections.abc import Iterable
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse

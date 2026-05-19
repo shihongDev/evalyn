@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 
 def truncate_text(text: str, max_len: int = 300) -> str:
     """Truncate text to max_len characters, replacing newlines with spaces.

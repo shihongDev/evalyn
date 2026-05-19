@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 import threading
 import time
-from typing import Any, Optional
+from typing import Any
 
 
 class Spinner:

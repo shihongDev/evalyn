@@ -11,7 +11,7 @@ import csv
 import io
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 @dataclass

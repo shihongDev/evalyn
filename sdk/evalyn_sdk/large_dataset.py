@@ -12,9 +12,9 @@ import os
 import sys
 import tempfile
 import time
-from dataclasses import dataclass
-from typing import Any, Dict, Optional
 from collections.abc import Callable, Iterator
+from dataclasses import dataclass
+from typing import Any
 
 logger = logging.getLogger(__name__)
 

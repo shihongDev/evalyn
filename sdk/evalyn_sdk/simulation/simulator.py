@@ -8,11 +8,11 @@ runs the target agent, and saves results as a new dataset.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-from collections.abc import Callable, Iterable
+from typing import Any
 from uuid import uuid4
 
 from ..models import DatasetItem, FunctionCall, now_utc

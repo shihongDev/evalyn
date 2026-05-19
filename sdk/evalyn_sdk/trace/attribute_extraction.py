@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Protocol, runtime_checkable
 from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any, Protocol, runtime_checkable
 
 from ..models import Span
 

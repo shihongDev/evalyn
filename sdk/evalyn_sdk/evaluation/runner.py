@@ -5,9 +5,8 @@ import logging
 import os
 import tempfile
 from collections import defaultdict
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
 from collections.abc import Callable, Iterable
+from pathlib import Path
 from uuid import uuid4
 
 from ..datasets import hash_inputs
@@ -335,9 +334,6 @@ class EvalRunner:
     ) -> list[MetricResult]:
         """Run unit-based evaluation (for non-default unit types)."""
         results: list[MetricResult] = []
-
-        # Collect all unit types we're evaluating
-        unit_types_active = {b.unit_type for b in self.unit_builders}
 
         for item, call in prepared:
             # Discover units from this call

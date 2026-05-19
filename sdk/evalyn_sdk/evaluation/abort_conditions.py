@@ -6,9 +6,9 @@ any item" or "abort if overall pass rate drops below 30%".
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List
 from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass

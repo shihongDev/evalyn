@@ -7,9 +7,9 @@ times to compute consistency, detect edge cases, and compare versions.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
-from typing import Any, Dict, List
 from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any
 
 
 def _mean(vals: list[float]) -> float:

@@ -6,7 +6,7 @@ Weight alignment errors by item difficulty so hard items count more.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models

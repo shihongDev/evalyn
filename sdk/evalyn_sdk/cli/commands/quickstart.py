@@ -36,7 +36,6 @@ import shlex
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 from ..utils.config import create_evalyn_yaml
 from ..utils.errors import fatal_error

@@ -6,7 +6,7 @@ import base64
 import copy
 import gzip
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from ..models import Span
 

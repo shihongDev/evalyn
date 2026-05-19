@@ -16,7 +16,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from statistics import mean
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)

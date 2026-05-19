@@ -9,7 +9,7 @@ from __future__ import annotations
 import importlib.metadata
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 VALID_PLUGIN_TYPES = {"metric", "instrumentor", "storage", "analyzer"}
 

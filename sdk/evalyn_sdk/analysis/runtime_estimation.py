@@ -7,7 +7,7 @@ metric will take, helping with planning and parallelism decisions.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Default execution time estimates (milliseconds per evaluation)
 _DEFAULT_TIMES_MS = {

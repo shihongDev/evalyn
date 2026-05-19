@@ -10,7 +10,7 @@ Custom variables: defined in evalyn.yaml template_vars section.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Built-in variable names
 BUILTIN_VARS = {"input", "output", "expected", "item_id"}

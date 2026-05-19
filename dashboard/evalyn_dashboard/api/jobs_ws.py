@@ -15,7 +15,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 

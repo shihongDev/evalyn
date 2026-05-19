@@ -7,7 +7,7 @@ rubric similarity and adapting prompts via text substitution.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models

@@ -7,7 +7,7 @@ build scripts, and packaging instructions - never runs actual build tools.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 VALID_METHODS = ("pyinstaller", "nuitka", "shiv")
 

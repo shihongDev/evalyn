@@ -12,9 +12,8 @@ import logging
 import threading
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, List, Optional, Tuple
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from ..models import DatasetItem, FunctionCall, Metric, MetricResult
 

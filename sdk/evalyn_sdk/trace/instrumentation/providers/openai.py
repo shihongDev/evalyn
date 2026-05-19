@@ -9,7 +9,7 @@ from __future__ import annotations
 import functools
 import importlib.util
 import time
-from typing import Any, Optional
+from typing import Any
 
 from ..base import Instrumentor, InstrumentorType
 from ._shared import log_llm_call

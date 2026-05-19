@@ -61,7 +61,6 @@ import argparse
 import importlib
 import importlib.metadata as importlib_metadata
 import sys
-from typing import List, Optional
 
 # Command name -> module name (relative to .commands package).
 # Only the module for the invoked command is imported at runtime.

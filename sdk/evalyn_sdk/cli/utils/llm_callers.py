@@ -7,7 +7,6 @@ import json
 import os
 import shutil
 import subprocess
-from typing import List, Optional
 from collections.abc import Callable
 
 from ...parsing import extract_json_list

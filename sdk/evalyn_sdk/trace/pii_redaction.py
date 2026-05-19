@@ -6,7 +6,7 @@ import copy
 import hashlib
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from ..models import Span
 

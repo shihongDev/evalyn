@@ -7,7 +7,7 @@ calling any LLM APIs. Useful for budgeting and planning.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Average tokens per judge call by metric type (estimated from typical prompts)
 _AVG_TOKENS_PER_JUDGE_CALL = {

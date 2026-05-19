@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource

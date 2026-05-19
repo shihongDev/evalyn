@@ -7,10 +7,10 @@ testable without requiring actual asyncio event loops.
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
-from collections.abc import Callable
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Dataclasses

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 
 
 def _sanitize_fts_query(query: str) -> str:

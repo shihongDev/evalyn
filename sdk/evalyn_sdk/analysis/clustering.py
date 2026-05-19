@@ -15,7 +15,7 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from ..calibration.models import DisagreementAnalysis, DisagreementCase
 from ..defaults import DEFAULT_EVAL_MODEL
@@ -906,7 +906,7 @@ Example format:
         # Build mapping from case call_id to cluster label
         case_to_label: dict[str, str] = {}
         for cluster in fp_clusters + fn_clusters:
-            for i, case in enumerate(
+            for _i, case in enumerate(
                 [
                     c
                     for c in all_cases

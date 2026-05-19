@@ -8,7 +8,7 @@ to metrics based on explicit overrides, category-based rules, or defaults.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data Models

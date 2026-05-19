@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Default fallback mappings
@@ -178,7 +178,7 @@ def compute_adaptation_stats(results: dict[str, list[AdaptiveResult]]) -> dict:
     seen_items_ref: set[str] = set()
     seen_items_noref: set[str] = set()
 
-    for item_id, item_results in results.items():
+    for _item_id, item_results in results.items():
         for r in item_results:
             if r.mode_used == "reference":
                 seen_items_ref.add(r.item_id)

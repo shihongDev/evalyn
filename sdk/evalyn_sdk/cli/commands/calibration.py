@@ -40,7 +40,6 @@ ESSENTIAL = {"metric_id", "annotations", "dataset"}
 import argparse
 import json
 from pathlib import Path
-from typing import List, Optional
 
 from ..utils.command_common import (
     load_eval_run_for_command,

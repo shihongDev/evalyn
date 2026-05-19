@@ -7,7 +7,7 @@ users to understand metric coverage across evaluation profiles.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 
 @dataclass
