@@ -54,7 +54,10 @@ class DSPyInstrumentor(Instrumentor):
 
         try:
             import dspy
-            from dspy.utils.callback import BaseCallback
+
+            # Probe that BaseCallback exists in the installed dspy version;
+            # we register a subclass below and need this symbol to be present.
+            from dspy.utils.callback import BaseCallback  # noqa: F401
         except ImportError:
             return False
 

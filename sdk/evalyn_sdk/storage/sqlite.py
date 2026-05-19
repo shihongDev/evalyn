@@ -8,7 +8,6 @@ import sqlite3
 import threading
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Dict
 
 from ..models import (
     Annotation,
@@ -261,7 +260,7 @@ class SQLiteStorage:
 
     def get_calls_batch(
         self, call_ids: list[str], chunk_size: int = 500
-    ) -> Dict[str, FunctionCall]:
+    ) -> dict[str, FunctionCall]:
         """Fetch multiple calls by ID. Returns {id: call}.
 
         Chunks queries to stay below SQLITE_MAX_VARIABLE_NUMBER (999 on
@@ -270,7 +269,7 @@ class SQLiteStorage:
         if not call_ids:
             return {}
         cur = self.get_connection().cursor()
-        result: Dict[str, FunctionCall] = {}
+        result: dict[str, FunctionCall] = {}
         for i in range(0, len(call_ids), chunk_size):
             chunk = call_ids[i : i + chunk_size]
             placeholders = ",".join("?" for _ in chunk)

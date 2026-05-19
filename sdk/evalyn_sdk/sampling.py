@@ -226,7 +226,9 @@ def sample_clustered(
         return list(items)
 
     try:
-        import numpy as np
+        # Probe that sklearn+numpy are installed; numpy is a transitive
+        # requirement of KMeans even though we don't reference np directly.
+        import numpy as np  # noqa: F401
         from sklearn.cluster import KMeans
 
         texts = [input_to_text(it) for it in items]

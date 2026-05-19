@@ -24,7 +24,7 @@ Usage:
 from __future__ import annotations
 
 import importlib
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .base import Instrumentor, InstrumentorType
 from .registry import InstrumentorRegistry, get_registry

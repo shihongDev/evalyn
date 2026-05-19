@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from ..models import Span
 
@@ -242,7 +242,7 @@ def compute_critical_path(topology: GraphTopology) -> list[str]:
 
     # DP: dist[node] = longest path weight ending at node
     dist: dict[str, float] = {nid: topology.nodes[nid].avg_duration_ms for nid in topology.nodes}
-    prev: dict[str, Optional[str]] = {nid: None for nid in topology.nodes}
+    prev: dict[str, str | None] = {nid: None for nid in topology.nodes}
 
     for node in topo_order:
         for neighbor in adj[node]:
@@ -254,7 +254,7 @@ def compute_critical_path(topology: GraphTopology) -> list[str]:
     # Find the node with the largest distance
     end_node = max(dist, key=lambda n: dist[n])
     path: list[str] = []
-    current: Optional[str] = end_node
+    current: str | None = end_node
     while current is not None:
         path.append(current)
         current = prev[current]
