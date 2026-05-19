@@ -207,7 +207,7 @@ def find_lineage_chain(graph: LineageGraph, trace_id: str) -> list[str]:
 def render_lineage_mermaid(graph: LineageGraph) -> str:
     """Render the lineage graph as a Mermaid diagram."""
     lines: list[str] = ["graph TD"]
-    for tid, node in graph.nodes.items():
+    for tid, _node in graph.nodes.items():
         label = tid[:8]
         lines.append(f"    {tid}[\"{label}\"]")
     for edge in graph.edges:

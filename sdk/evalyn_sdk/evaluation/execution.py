@@ -180,7 +180,7 @@ class ParallelStrategy(ExecutionStrategy):
             # All objective - skip thread pool entirely
             num_metrics = len(metrics)
             results: list[MetricResult] = []
-            for item, call in prepared:
+            for item, _call in prepared:
                 item_results = results_by_item.get(item.id, [])
                 results.extend(item_results)
                 if len(item_results) >= num_metrics:
@@ -241,7 +241,7 @@ class ParallelStrategy(ExecutionStrategy):
         # the missing metrics would never be evaluated (silent data loss).
         num_metrics = len(metrics)
         results: list[MetricResult] = []
-        for item, call in prepared:
+        for item, _call in prepared:
             item_results = results_by_item.get(item.id)
             if not item_results:
                 continue

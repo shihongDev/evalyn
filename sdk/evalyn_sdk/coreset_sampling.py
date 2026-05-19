@@ -241,7 +241,7 @@ def compute_approximation_error(
     coreset_features = {cid: features[cid] for cid in coreset_ids if cid in features}
 
     max_error = 0.0
-    for item_id, feat in features.items():
+    for _item_id, feat in features.items():
         min_d = min(
             _jaccard_distance(feat, cf) for cf in coreset_features.values()
         )

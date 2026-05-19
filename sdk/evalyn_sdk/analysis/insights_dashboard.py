@@ -389,7 +389,7 @@ def _render_correlation_matrix(correlation_data: dict | None) -> str:
     rows = []
     for i, row in enumerate(matrix):
         cells = []
-        for j, val in enumerate(row):
+        for _j, val in enumerate(row):
             intensity = abs(val)
             if val > 0:
                 bg = f"rgba(107, 142, 142, {intensity * 0.7})"

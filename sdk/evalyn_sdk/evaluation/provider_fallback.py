@@ -161,7 +161,7 @@ def execute_with_fallback(
     attempts: list[FallbackAttempt] = []
 
     for provider in ordered:
-        for retry in range(provider.max_retries):
+        for _retry in range(provider.max_retries):
             start = time.monotonic()
             try:
                 execute_fn(provider.name, provider.model)

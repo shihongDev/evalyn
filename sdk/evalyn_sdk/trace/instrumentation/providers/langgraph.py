@@ -164,7 +164,7 @@ class LangGraphInstrumentor(Instrumentor):
 
                 # Mark this node as actively spanned
                 new_active = set(active) | {node_name}
-                active_token = _active_node_spans.set(new_active)
+                active_token = _active_node_spans.set(new_active)  # noqa: F841
 
                 # Push node span so LLM/tool calls are children
                 stack = span_context._span_stack.get()

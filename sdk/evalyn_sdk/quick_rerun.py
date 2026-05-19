@@ -161,7 +161,7 @@ def merge_args(original_args: list[str], overrides: list[str]) -> list[str]:
             j += 1
 
     # Append any overrides that were not used
-    for idx, (oflag, otokens) in enumerate(override_entries):
+    for idx, (_oflag, otokens) in enumerate(override_entries):
         if idx not in used_overrides:
             result.extend(otokens)
 

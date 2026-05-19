@@ -149,7 +149,7 @@ def parse_constraint_string(expr: str) -> ConstraintSet:
 
     logic = "AND"
     constraint_exprs: list[str] = []
-    for i, part in enumerate(parts):
+    for _i, part in enumerate(parts):
         upper = part.strip().upper()
         if upper in ("AND", "OR"):
             logic = upper

@@ -210,7 +210,7 @@ def build_dependency_graph(
                 graph.nodes[s.id].upstream.append(s.parent_id)
 
     # Mark bottlenecks
-    for nid, node in graph.nodes.items():
+    for _nid, node in graph.nodes.items():
         if len(node.downstream) >= bottleneck_threshold:
             node.is_bottleneck = True
 

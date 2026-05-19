@@ -405,7 +405,7 @@ class EvalRunner:
 
         # Prepare all items with their FunctionCalls
         prepared: list[tuple[DatasetItem, FunctionCall]] = []
-        for item_idx, item in pending_items:
+        for _item_idx, item in pending_items:
             # Try batch-fetched call first (O(1) dict lookup)
             call = None
             if isinstance(item.metadata, dict) and "call_id" in item.metadata:

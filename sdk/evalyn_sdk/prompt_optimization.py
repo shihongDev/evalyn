@@ -143,7 +143,7 @@ def detect_cycles(edges: list[tuple[str, str]]) -> bool:
 
     # Kahn's algorithm: if we can't consume all nodes, there's a cycle
     in_degree: dict[str, int] = {n: 0 for n in nodes}
-    for src, dst in edges:
+    for _src, dst in edges:
         in_degree[dst] += 1
 
     queue = deque(n for n in nodes if in_degree[n] == 0)

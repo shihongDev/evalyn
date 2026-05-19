@@ -308,7 +308,7 @@ class TextGradOptimizer(BaseOptimizer):
             desc="TextGrad",
             unit="iter",
         )
-        for iteration in pbar:
+        for _iteration in pbar:
             # Step 1: Collect failure cases
             failures = self._collect_failures(
                 current_preamble_text, current_rubric, trainset,

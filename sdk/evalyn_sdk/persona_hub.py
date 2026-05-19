@@ -275,7 +275,7 @@ def expand_persona_pairs(
 
     pairs: list[tuple[PersonaProfile, PersonaProfile]] = []
     used: set[int] = set()
-    for score, i, j in scored_pairs:
+    for _score, i, j in scored_pairs:
         if len(pairs) >= n_pairs:
             break
         if i not in used and j not in used:
@@ -285,7 +285,7 @@ def expand_persona_pairs(
 
     # If we still need more pairs, relax the uniqueness constraint
     if len(pairs) < n_pairs:
-        for score, i, j in scored_pairs:
+        for _score, i, j in scored_pairs:
             if len(pairs) >= n_pairs:
                 break
             pair = (hub.profiles[i], hub.profiles[j])

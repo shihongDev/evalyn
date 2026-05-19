@@ -370,7 +370,7 @@ class PromptBreederOptimizer(BaseOptimizer):
             desc="PromptBreeder",
             unit="gen",
         )
-        for gen in pbar:
+        for _gen in pbar:
             prev_best_f1 = best_f1
 
             # Collect failure examples for mutation context

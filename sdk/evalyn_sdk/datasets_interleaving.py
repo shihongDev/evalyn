@@ -141,7 +141,7 @@ def interleave_weighted(
     dataset_probs = {n: weights.get(n, 1.0) / total_weight for n in names}
     # Assign each pool entry a probability proportional to its dataset weight / dataset size
     entry_weights: list[float] = []
-    for name, idx in pool:
+    for name, _idx in pool:
         ds_size = len(datasets[name])
         entry_weights.append(dataset_probs[name] / ds_size if ds_size else 0.0)
     # Sample all items without replacement using weighted shuffle

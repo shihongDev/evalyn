@@ -180,7 +180,7 @@ def generate_comparison_report(analyses: list[RunAnalysis]) -> str:
 
     # Header
     header = f"  {'Metric':<25}"
-    for i, a in enumerate(analyses):
+    for i, _a in enumerate(analyses):
         header += f" {'Run' + str(i + 1):>10}"
     header += f" {'Delta':>10}"
     lines.append(header)

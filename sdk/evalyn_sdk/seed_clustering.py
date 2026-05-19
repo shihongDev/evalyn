@@ -176,7 +176,7 @@ def cluster_seeds(
     for _iteration in range(max_iterations):
         # Step 2: Assign each seed to nearest centroid
         new_assignments: list[int] = []
-        for i, sid in enumerate(seed_ids):
+        for _i, sid in enumerate(seed_ids):
             ws = word_sets[sid]
             best_cluster = 0
             best_sim = -1.0
@@ -318,7 +318,6 @@ def sample_from_clusters(
     sampled: list[str] = []
 
     # Allocate proportional counts, ensuring at least 1 per cluster if possible
-    remaining = total_samples
     allocations: list[int] = []
     for cluster in result.clusters:
         proportion = cluster.size / total

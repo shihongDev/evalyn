@@ -283,7 +283,7 @@ Provide your verdict:"""
         scores: dict[int, list[float]] = {i: [] for i in range(len(candidates))}
 
         pbar = tqdm(range(self.config.eval_rounds), desc="APE UCB", unit="round")
-        for round_num in pbar:
+        for _round_num in pbar:
             # Calculate UCB scores for each candidate
             ucb_scores = []
             total_evaluations = sum(len(s) for s in scores.values())
